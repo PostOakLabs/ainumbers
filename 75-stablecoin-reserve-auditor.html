@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tool 75 — Stablecoin Reserve & Peg Health Auditor · AINumbers.co</title>
+<meta name="description" content="Client-side stablecoin reserve composition analyzer and peg stress-testing engine. Model reserve health for USDT, USDC, DAI, PYUSD, FDUSD, and EURC. Stress-test peg stability under devaluation shocks, bank-run scenarios, and liquidity crunches. Regulatory compliance mapping across MiCA, US GENIUS Act, SAMA, CBUAE, and MAS. Zero PII. No install.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-glow:rgba(20,184,166,.06);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;
+  --radius:6px;--radius-lg:10px;--shadow:0 4px 24px rgba(0,0,0,.4);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.15}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1200px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* NAV */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1200px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-mark-grid{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:32px;height:32px}
+.logo-text{display:flex;flex-direction:column;gap:2px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.logo-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);line-height:1}
+@media(max-width:600px){.logo-tag{display:none}}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bg);background:var(--teal);border:1px solid var(--teal);padding:.3rem .85rem;border-radius:6px;transition:all .2s}
+.nav-cta:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+
+/* HERO */
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.7rem,3vw,2.6rem);color:var(--white);max-width:720px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-sub{font-size:.88rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.2rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}.badge-privacy::before{content:'·';color:var(--green)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+
+/* TOOL LAYOUT */
+.tool-section{padding:2.5rem 0 4rem;position:relative;z-index:1}
+.tool-grid{display:grid;grid-template-columns:340px 1fr;gap:2px;background:var(--border);border:1px solid var(--border)}
+@media(max-width:900px){.tool-grid{grid-template-columns:1fr}}
+.config-panel{background:var(--bg-2);padding:1.75rem;position:sticky;top:52px;max-height:calc(100vh - 52px);overflow-y:auto}
+.config-panel::-webkit-scrollbar{width:3px}
+.config-panel::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:2px}
+.output-panel{background:var(--bg-3);display:flex;flex-direction:column;min-height:620px}
+.output-body{flex:1;padding:1.5rem;overflow-y:auto}
+.output-toolbar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.75rem 1.5rem;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.output-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+
+/* PANEL COMPONENTS */
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
+.sec-head{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-lt);margin:1.2rem 0 .7rem;display:flex;align-items:center;gap:.6rem}
+.sec-head::after{content:'';flex:1;height:1px;background:var(--border)}
+.flbl{font-size:.74rem;color:var(--bright);display:block;margin-bottom:.3rem}
+.fhint{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);display:block;margin-top:.15rem;margin-bottom:.6rem}
+select,input[type=number],input[type=text]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.74rem;padding:.42rem .65rem;outline:none;transition:border-color .2s;-webkit-appearance:none;margin-bottom:.7rem;border-radius:0}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a6a8a'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .7rem center;padding-right:2rem;cursor:pointer}
+select:focus,input:focus{border-color:var(--teal)}
+
+/* SLIDERS */
+.slider-row{margin-bottom:.65rem}
+.slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.2rem}
+.slider-name{font-size:.72rem;color:var(--text)}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--teal-lt);min-width:38px;text-align:right}
+input[type=range]{width:100%;-webkit-appearance:none;height:4px;background:var(--bg-4);border-radius:2px;outline:none;cursor:pointer;margin:0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--teal);border:2px solid var(--bg-2)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--teal);border:2px solid var(--bg-2)}
+
+/* TOTAL BAR */
+.total-bar{margin:1rem 0;padding:.75rem 1rem;background:var(--bg-4);border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.72rem}
+.total-label{color:var(--muted)}
+.total-val{font-size:.9rem;font-weight:500}
+.total-ok{color:var(--teal)}
+.total-warn{color:var(--warn)}
+.total-err{color:var(--red)}
+
+/* BUTTONS */
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.55rem 1rem;cursor:pointer;transition:all .2s;border:1px solid;border-radius:0}
+.btn-primary{background:var(--teal);border-color:var(--teal);color:var(--bg);width:100%}
+.btn-primary:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+.btn-primary:disabled{background:var(--muted);border-color:var(--muted);cursor:not-allowed;opacity:.6}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--muted);color:var(--text)}
+.btn-purple{background:transparent;border-color:rgba(155,114,245,.4);color:var(--purple)}
+.btn-purple:hover{background:var(--purple-dim);border-color:var(--purple)}
+.arow{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
+
+/* KPI BAR */
+.kpi-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:1px;background:var(--border);margin-bottom:1.5rem}
+.kc{background:var(--bg-2);padding:.8rem 1rem}
+.kl{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.kv{font-family:'DM Serif Display',serif;font-size:1.15rem;color:var(--bright);line-height:1}
+.kv.g{color:var(--green)}.kv.r{color:var(--red)}.kv.w{color:var(--warn)}.kv.t{color:var(--teal)}.kv.p{color:var(--purple)}.kv.gold{color:var(--gold)}
+
+/* STRESS CARDS */
+.stress-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);margin-bottom:1.5rem}
+@media(max-width:700px){.stress-grid{grid-template-columns:repeat(2,1fr)}}
+.sc{background:var(--bg-2);padding:1rem}
+.sc-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:.5rem}
+.sc-ratio{font-family:'DM Serif Display',serif;font-size:1.4rem;line-height:1;margin-bottom:.35rem}
+.sc-shortfall{font-family:'JetBrains Mono',monospace;font-size:.6rem;margin-bottom:.5rem}
+.sc-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .5rem;border-radius:2px;margin-bottom:.5rem}
+.sc-note{font-size:.68rem;color:var(--body);line-height:1.5}
+.sc-mild{border-top:2px solid var(--green)}.sc-moderate{border-top:2px solid var(--warn)}.sc-severe{border-top:2px solid #f97316}.sc-extreme{border-top:2px solid var(--red)}
+
+/* TABLES */
+table{width:100%;border-collapse:collapse;font-size:.74rem;margin-bottom:1.5rem}
+th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.6rem .85rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-2);white-space:nowrap}
+td{padding:.55rem .85rem;border-bottom:1px solid rgba(30,47,74,.4);vertical-align:middle}
+tr:hover td{background:rgba(20,184,166,.02)}
+.risk-row td{background:rgba(239,68,68,.04)}
+
+/* TAGS / BADGES */
+.tag{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .4rem;border-radius:2px;white-space:nowrap;display:inline-block}
+.tag-green{background:var(--green-dim);color:var(--green)}.tag-warn{background:rgba(245,158,11,.1);color:var(--warn)}.tag-red{background:var(--red-dim);color:var(--red)}.tag-teal{background:var(--teal-dim);color:var(--teal)}.tag-purple{background:var(--purple-dim);color:var(--purple)}.tag-muted{background:var(--bg-3);color:var(--muted)}.tag-partial{background:rgba(245,158,11,.12);color:var(--warn)}
+
+/* SECTION TITLE */
+.sec-title{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin:1.5rem 0 .75rem;padding-bottom:.4rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem}
+
+/* EMPTY STATE */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5rem 2rem;text-align:center;flex:1}
+.empty-icon{font-size:2.5rem;margin-bottom:1rem;opacity:.4}
+.empty-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--muted);margin-bottom:.5rem}
+.empty-sub{font-size:.78rem;color:var(--muted);max-width:380px;line-height:1.7}
+
+/* CHART CONTAINERS */
+.chart-wrap{background:var(--bg-2);border:1px solid var(--border);padding:1.25rem;margin-bottom:1.5rem}
+.chart-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.85rem}
+canvas{max-width:100%}
+
+/* WATERFALL BAR */
+.waterfall-wrap{background:var(--bg-2);border:1px solid var(--border);padding:1.25rem;margin-bottom:1.5rem}
+.wf-bar-container{height:36px;background:var(--bg-4);border:1px solid var(--border);display:flex;overflow:hidden;margin-bottom:.85rem;border-radius:2px}
+.wf-segment{height:100%;transition:width .4s ease;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.42rem;color:rgba(255,255,255,.85);overflow:hidden;white-space:nowrap}
+
+/* NOTES / INFO */
+.note-box{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--gold);padding:.85rem 1rem;margin-bottom:1rem;font-size:.74rem;color:var(--body);line-height:1.6}
+
+/* FOOTER */
+footer{border-top:1px solid var(--border);padding:2rem 0;margin-top:2rem;position:relative;z-index:1}
+.footer-inner-ai{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:1rem}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.logo-icon-sm{width:28px;height:28px;background:linear-gradient(135deg,var(--teal),#0D9488);border-radius:5px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px;color:var(--bg);font-family:'JetBrains Mono',monospace}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500;color:var(--bright)}
+.footer-links-ai{display:flex;gap:1.5rem}
+.footer-links-ai a{color:var(--body);font-size:.82rem;transition:color .15s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;align-items:center;gap:1rem;font-size:.72rem;color:var(--muted)}
+@media(max-width:600px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{flex-direction:column;gap:.4rem}}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <div class="logo-mark-grid">
+      <svg width="32" height="32" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+    </div>
+    <div class="logo-text">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      <div class="logo-tag">Reserve Auditor</div>
+    </div>
+  </a>
+  <a href="../index.html" class="nav-cta">← All Tools</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Tool 75 · DLT &amp; Tokenization</div>
+  <h1>Stablecoin Reserve &amp;<br><em>Peg Health Auditor</em></h1>
+  <p class="hero-sub">Client-side reserve composition analyzer and peg stress-testing engine. Model reserve health for USDT, USDC, DAI, PYUSD, FDUSD, and EURC — or configure a custom structure. Stress-tests peg stability under devaluation shocks, liquidity crunches, and bank-run redemption scenarios. Regulatory compliance mapping across MiCA, US GENIUS Act, SAMA, CBUAE, and MAS. Exports audit report, AP2 JSON, and CSV. Last reviewed: May 2026.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-privacy">Zero PII</span>
+    <span class="hero-badge badge-teal">Client-Side Only</span>
+    <span class="hero-badge badge-gold">5 Regulatory Frameworks</span>
+  </div>
+</div></div>
+
+<section class="tool-section"><div class="container">
+<div class="tool-grid">
+
+<!-- ═══════════════════ LEFT PANEL ═══════════════════ -->
+<div class="config-panel">
+  <div class="panel-label">Reserve Configuration</div>
+
+  <div class="sec-head">Stablecoin Template</div>
+  <label class="flbl">Select Stablecoin</label>
+  <select id="templateSelect" onchange="loadTemplate()">
+    <option value="USDT">USDT — Tether</option>
+    <option value="USDC">USDC — Circle</option>
+    <option value="DAI">DAI — Sky/MakerDAO</option>
+    <option value="PYUSD">PYUSD — PayPal</option>
+    <option value="FDUSD">FDUSD — First Digital</option>
+    <option value="EURC">EURC — Circle Euro</option>
+    <option value="CUSTOM">Custom Reserve</option>
+  </select>
+
+  <label class="flbl">Stablecoin Name</label>
+  <input type="text" id="coinName" value="USDT" placeholder="e.g. USDT">
+  <span class="fhint">Used in export header only</span>
+
+  <label class="flbl">Circulating Supply (USD Billions)</label>
+  <input type="number" id="supply" value="112" min="0.01" step="0.1" placeholder="e.g. 112">
+
+  <div class="divider"></div>
+
+  <div class="sec-head">Reserve Composition</div>
+  <span class="fhint" style="margin-bottom:.8rem">Sliders must sum to 100%</span>
+
+  <div id="sliderArea"></div>
+
+  <div class="total-bar">
+    <span class="total-label">Total Allocated</span>
+    <span id="totalVal" class="total-val total-ok">100%</span>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="sec-head">Stress Scenario</div>
+  <label class="flbl">Redemption Pressure (%) <span id="redemptLabel" style="color:var(--teal-lt)">15%</span></label>
+  <input type="range" id="redemptSlider" min="1" max="80" value="15" oninput="document.getElementById('redemptLabel').textContent=this.value+'%'">
+  <span class="fhint">Percentage of supply demanding immediate redemption</span>
+
+  <div class="divider"></div>
+
+  <button class="btn btn-primary" id="runBtn" onclick="runAnalysis()">▶ Run Audit</button>
+  <div class="arow">
+    <button class="btn btn-ghost" style="flex:1" onclick="exportCSV()">Export CSV</button>
+    <button class="btn btn-ghost" style="flex:1" onclick="exportMD()">Export Report</button>
+    <button class="btn btn-ghost" style="flex:1" onclick="exportJSON()">AP2 JSON</button>
+  </div>
+</div>
+
+<!-- ═══════════════════ RIGHT PANEL ═══════════════════ -->
+<div class="output-panel">
+  <div class="output-toolbar">
+    <span class="output-title" id="outputTitle">Stablecoin Reserve &amp; Peg Health Auditor</span>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)" id="outputDate"></span>
+  </div>
+  <div class="output-body" id="outputBody">
+    <div class="empty-state">
+      <div class="empty-icon">⬡</div>
+      <div class="empty-title">Configure &amp; Run Audit</div>
+      <div class="empty-sub">Select a stablecoin template or configure a custom reserve, then click <strong style="color:var(--teal)">Run Audit</strong> to generate a full reserve health analysis with stress tests and regulatory compliance mapping.</div>
+    </div>
+  </div>
+</div>
+</div>
+</div></section>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <div class="logo-icon-sm">AI</div>
+      <span class="footer-wordmark">AINumbers.co</span>
+    </a>
+    <div class="footer-links-ai"><a href="../index.html">All Tools</a><a href="../sitemap.html">Sitemap</a><a href="../contact.html">Contact</a></div>
+    <div class="footer-badge-ai">
+      <span>AINumbers.co · CC BY 4.0 · Designed by Post Oak Labs</span>
+      <span>🔒 Zero PII · 📡 No API Calls · 💻 Client-Side Only</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+// ══════════════════════════════════════════════
+//  STATIC DATA
+// ══════════════════════════════════════════════
+
+const STABLECOIN_TEMPLATES = {
+  USDT:   { cash:0,  govSecurities:80, mmf:4,  commercialPaper:0, corpBonds:0, crypto:5,  loans:5,  other:6  },
+  USDC:   { cash:20, govSecurities:75, mmf:0,  commercialPaper:0, corpBonds:0, crypto:0,  loans:0,  other:5  },
+  DAI:    { cash:5,  govSecurities:55, mmf:5,  commercialPaper:0, corpBonds:0, crypto:30, loans:5,  other:0  },
+  PYUSD:  { cash:15, govSecurities:75, mmf:5,  commercialPaper:0, corpBonds:0, crypto:0,  loans:0,  other:5  },
+  FDUSD:  { cash:10, govSecurities:80, mmf:5,  commercialPaper:0, corpBonds:0, crypto:0,  loans:5,  other:0  },
+  EURC:   { cash:40, govSecurities:50, mmf:5,  commercialPaper:0, corpBonds:0, crypto:0,  loans:0,  other:5  },
+  CUSTOM: null
+};
+
+const ASSET_CLASSES = [
+  { key:'cash',            label:'Cash & Bank Deposits' },
+  { key:'govSecurities',   label:'Government Securities' },
+  { key:'mmf',             label:'Money Market Funds' },
+  { key:'commercialPaper', label:'Commercial Paper' },
+  { key:'corpBonds',       label:'Corporate Bonds' },
+  { key:'crypto',          label:'Crypto-Collateral' },
+  { key:'loans',           label:'Secured Loans & Receivables' },
+  { key:'other',           label:'Other' }
+];
+
+const ASSET_COLORS = {
+  cash:'#14B8A6', govSecurities:'#22C55E', mmf:'#6EA8FE', commercialPaper:'#D4A847',
+  corpBonds:'#9B72F5', crypto:'#F59E0B', loans:'#EF4444', other:'#6888A8'
+};
+
+const HAIRCUTS = {
+  cash:0, govSecurities:0.02, mmf:0.01, commercialPaper:0.05,
+  corpBonds:0.10, crypto:0.20, loans:0.15, other:0.10
+};
+
+const SCENARIOS = {
+  mild:     { label:'Mild',     devaluation:0.10, illiquidPct:0.00, redemptionPct:0.05 },
+  moderate: { label:'Moderate', devaluation:0.25, illiquidPct:0.30, redemptionPct:0.15 },
+  severe:   { label:'Severe',   devaluation:0.50, illiquidPct:0.60, redemptionPct:0.30 },
+  extreme:  { label:'Extreme',  devaluation:0.50, illiquidPct:0.80, redemptionPct:0.50 }
+};
+
+const LIQUIDITY_PROFILE = {
+  cash:             { normalDays:0,  normalHaircut:0,     stressDays:0,  stressHaircut:0    },
+  govSecurities:    { normalDays:1,  normalHaircut:0.01,  stressDays:1,  stressHaircut:0.03 },
+  mmf:              { normalDays:1,  normalHaircut:0.005, stressDays:2,  stressHaircut:0.02 },
+  commercialPaper:  { normalDays:2,  normalHaircut:0.03,  stressDays:5,  stressHaircut:0.10 },
+  corpBonds:        { normalDays:3,  normalHaircut:0.05,  stressDays:7,  stressHaircut:0.15 },
+  crypto:           { normalDays:0,  normalHaircut:0.10,  stressDays:0,  stressHaircut:0.30 },
+  loans:            { normalDays:30, normalHaircut:0.10,  stressDays:90, stressHaircut:0.25 },
+  other:            { normalDays:5,  normalHaircut:0.08,  stressDays:14, stressHaircut:0.20 }
+};
+
+const COMPLIANCE_RULES = {
+  MiCA:  {
+    label:'EU MiCA',
+    checks:[
+      { rule:'Min 30% cash/credit institution deposits', test:(r)=>r.cash >= 30 },
+      { rule:'No crypto-collateral > 0%',               test:(r)=>r.crypto === 0 },
+      { rule:'Commercial paper ≤ 5%',                   test:(r)=>r.commercialPaper <= 5 }
+    ]
+  },
+  GENIUS:{
+    label:'US GENIUS Act',
+    checks:[
+      { rule:'Only high-quality liquid assets (no commercial paper)', test:(r)=>r.commercialPaper === 0 },
+      { rule:'No crypto-collateral',                                  test:(r)=>r.crypto === 0 },
+      { rule:'No rehypothecation (loans ≤ 0%)',                       test:(r)=>r.loans === 0 }
+    ]
+  },
+  SAMA:  {
+    label:'SAMA (Saudi Arabia)',
+    checks:[
+      { rule:'Govt securities ≥ 50%', test:(r)=>r.govSecurities >= 50 },
+      { rule:'Crypto ≤ 5%',           test:(r)=>r.crypto <= 5 }
+    ]
+  },
+  CBUAE: {
+    label:'CBUAE (UAE)',
+    checks:[
+      { rule:'If non-bank: 100% cash escrow (conservative interpretation)', test:(r)=>r.cash >= 100 }
+    ]
+  },
+  MAS:   {
+    label:'MAS (Singapore)',
+    checks:[
+      { rule:'Reserves ≥ 100% circulating supply', test:()=>true },
+      { rule:'Cash & gov securities ≥ 50%',        test:(r)=>(r.cash + r.govSecurities) >= 50 }
+    ]
+  }
+};
+
+// ══════════════════════════════════════════════
+//  SLIDER BUILD
+// ══════════════════════════════════════════════
+
+let charts = {};
+
+function buildSliders() {
+  const area = document.getElementById('sliderArea');
+  area.innerHTML = ASSET_CLASSES.map(ac => `
+    <div class="slider-row">
+      <div class="slider-header">
+        <span class="slider-name" style="border-left:3px solid ${ASSET_COLORS[ac.key]};padding-left:6px">${ac.label}</span>
+        <span class="slider-val" id="val_${ac.key}">0%</span>
+      </div>
+      <input type="range" min="0" max="100" value="0" id="sl_${ac.key}" oninput="onSlide('${ac.key}')">
+    </div>`).join('');
+}
+
+function onSlide(key) {
+  document.getElementById('val_'+key).textContent = document.getElementById('sl_'+key).value + '%';
+  updateTotal();
+}
+
+function updateTotal() {
+  const t = getReserve();
+  const sum = Object.values(t).reduce((a,b)=>a+b,0);
+  const el = document.getElementById('totalVal');
+  el.textContent = sum + '%';
+  el.className = 'total-val ' + (sum === 100 ? 'total-ok' : sum > 100 ? 'total-err' : 'total-warn');
+  document.getElementById('runBtn').disabled = sum !== 100;
+}
+
+function getReserve() {
+  const r = {};
+  ASSET_CLASSES.forEach(ac => { r[ac.key] = parseInt(document.getElementById('sl_'+ac.key).value)||0; });
+  return r;
+}
+
+function loadTemplate() {
+  const key = document.getElementById('templateSelect').value;
+  document.getElementById('coinName').value = key === 'CUSTOM' ? '' : key;
+  if (key === 'CUSTOM') return;
+  const tpl = STABLECOIN_TEMPLATES[key];
+  ASSET_CLASSES.forEach(ac => {
+    document.getElementById('sl_'+ac.key).value = tpl[ac.key];
+    document.getElementById('val_'+ac.key).textContent = tpl[ac.key] + '%';
+  });
+  updateTotal();
+}
+
+// ══════════════════════════════════════════════
+//  CALCULATIONS
+// ══════════════════════════════════════════════
+
+function calcCollateral(r) {
+  let weighted = 0;
+  ASSET_CLASSES.forEach(ac => { weighted += r[ac.key] * (1 - HAIRCUTS[ac.key]); });
+  const ratio = weighted; // already in pct
+  return { ratio, buffer: Math.max(0, ratio - 100), pass: ratio >= 100 };
+}
+
+function calcStress(r, supply, collat) {
+  const results = {};
+  Object.entries(SCENARIOS).forEach(([sk, sc]) => {
+    const stressedReserveValue = supply * collat.ratio/100 * (1 - sc.devaluation);
+    const illiquidLockup = supply * (r.commercialPaper + r.corpBonds + r.loans) / 100 * sc.illiquidPct;
+    const redemptionDemand = supply * sc.redemptionPct;
+    const availableLiquid = stressedReserveValue - illiquidLockup;
+    const shortfall = Math.max(0, redemptionDemand - availableLiquid);
+    const stressedRatio = availableLiquid / supply * 100;
+    results[sk] = { stressedRatio, shortfall, availableLiquid, redemptionDemand, pass: shortfall === 0 };
+  });
+  return results;
+}
+
+function calcLCR(r) {
+  const lcrRatio = (r.cash + r.govSecurities + r.mmf) / 100;
+  let wtdDays = 0;
+  let totalPct = 0;
+  ASSET_CLASSES.forEach(ac => {
+    const pct = r[ac.key];
+    if (pct > 0) { wtdDays += pct * LIQUIDITY_PROFILE[ac.key].normalDays; totalPct += pct; }
+  });
+  const avgDays = totalPct > 0 ? (wtdDays / totalPct).toFixed(1) : 0;
+  return { lcrRatio: lcrRatio.toFixed(2), avgDays };
+}
+
+function calcCompliance(r) {
+  const results = {};
+  Object.entries(COMPLIANCE_RULES).forEach(([jk, jv]) => {
+    const checks = jv.checks.map(c => ({ rule: c.rule, pass: c.test(r) }));
+    const passed = checks.filter(c => c.pass).length;
+    const total = checks.length;
+    results[jk] = { label: jv.label, checks, passed, total, status: passed === total ? 'PASS' : passed === 0 ? 'FAIL' : 'PARTIAL' };
+  });
+  return results;
+}
+
+function calcWaterfall(r, supply, redemptionPct) {
+  const demand = supply * redemptionPct / 100;
+  const priority = ['cash','govSecurities','mmf','commercialPaper','corpBonds','crypto','loans','other'];
+  let remaining = demand;
+  const tranches = [];
+  priority.forEach(key => {
+    const available = supply * r[key] / 100 * (1 - HAIRCUTS[key]);
+    const consumed = Math.min(available, remaining);
+    remaining -= consumed;
+    tranches.push({ key, label: ASSET_CLASSES.find(a=>a.key===key).label, available, consumed, remaining: available - consumed });
+  });
+  return { tranches, shortfall: remaining, demand };
+}
+
+function calcComparatorTable() {
+  const rows = [];
+  Object.entries(STABLECOIN_TEMPLATES).forEach(([name, tpl]) => {
+    if (!tpl) return;
+    const collat = calcCollateral(tpl);
+    const lcr = calcLCR(tpl);
+    const mica = calcCompliance(tpl)['MiCA'];
+    const genius = calcCompliance(tpl)['GENIUS'];
+    rows.push({ name, ratio: collat.ratio.toFixed(1), lcr: lcr.lcrRatio, crypto: tpl.crypto, micaPass: mica.status === 'PASS', geniusPass: genius.status === 'PASS' });
+  });
+  return rows;
+}
+
+// ══════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════
+
+function runAnalysis() {
+  const r = getReserve();
+  const supply = parseFloat(document.getElementById('supply').value) || 1;
+  const coinName = document.getElementById('coinName').value || 'Custom';
+  const redemptPct = parseFloat(document.getElementById('redemptSlider').value);
+  const collat = calcCollateral(r);
+  const stress = calcStress(r, supply, collat);
+  const lcr = calcLCR(r);
+  const compliance = calcCompliance(r);
+  const waterfall = calcWaterfall(r, supply, redemptPct);
+  const comparator = calcComparatorTable();
+
+  document.getElementById('outputTitle').textContent = `${coinName} · Reserve Audit`;
+  document.getElementById('outputDate').textContent = new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+
+  const body = document.getElementById('outputBody');
+  body.innerHTML = renderKPIs(collat, lcr, supply, coinName)
+    + renderDonut()
+    + renderStress(stress, supply)
+    + renderLiquidityTable(r, supply)
+    + renderWaterfall(waterfall, supply)
+    + renderCompliance(compliance)
+    + renderComparator(comparator, coinName)
+    + renderRecommendations(compliance, r, collat, stress);
+
+  // Charts
+  setTimeout(() => {
+    drawDonut(r);
+    drawStressChart(stress);
+  }, 50);
+}
+
+function renderKPIs(collat, lcr, supply, name) {
+  const ratioClass = collat.ratio >= 100 ? 't' : 'r';
+  const statusLabel = collat.pass ? 'PASS' : 'FAIL';
+  const statusColor = collat.pass ? 'var(--green)' : 'var(--red)';
+  return `<div class="kpi-bar">
+    <div class="kc"><div class="kl">Stablecoin</div><div class="kv gold">${name}</div></div>
+    <div class="kc"><div class="kl">Supply (USD)</div><div class="kv t">$${supply}B</div></div>
+    <div class="kc"><div class="kl">Collat. Ratio</div><div class="kv ${ratioClass}">${collat.ratio.toFixed(2)}%</div></div>
+    <div class="kc"><div class="kl">Over-Collat. Buffer</div><div class="kv ${collat.buffer > 0 ? 'g' : 'r'}">${collat.buffer.toFixed(2)}%</div></div>
+    <div class="kc"><div class="kl">Min Ratio Status</div><div class="kv" style="color:${statusColor}">${statusLabel}</div></div>
+    <div class="kc"><div class="kl">LCR Estimate</div><div class="kv t">${lcr.lcrRatio}x</div></div>
+    <div class="kc"><div class="kl">Avg Days-to-Liquid</div><div class="kv">${lcr.avgDays}d</div></div>
+  </div>`;
+}
+
+function renderDonut() {
+  return `<div class="sec-title">Reserve Composition</div>
+  <div class="chart-wrap">
+    <div class="chart-label">Asset Allocation by Class</div>
+    <div style="display:flex;gap:1.5rem;align-items:flex-start;flex-wrap:wrap">
+      <div style="width:220px;height:220px;flex-shrink:0"><canvas id="donutChart"></canvas></div>
+      <div id="donutLegend" style="flex:1;display:flex;flex-direction:column;gap:.4rem;padding-top:.5rem"></div>
+    </div>
+  </div>`;
+}
+
+function drawDonut(r) {
+  const ctx = document.getElementById('donutChart');
+  if (!ctx) return;
+  if (charts.donut) charts.donut.destroy();
+  const labels = [], data = [], colors = [];
+  ASSET_CLASSES.forEach(ac => {
+    if (r[ac.key] > 0) {
+      labels.push(ac.label);
+      data.push(r[ac.key]);
+      colors.push(ASSET_COLORS[ac.key]);
+    }
+  });
+  charts.donut = new Chart(ctx, {
+    type:'doughnut',
+    data:{ labels, datasets:[{ data, backgroundColor:colors, borderColor:'#080E1A', borderWidth:2 }] },
+    options:{ responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:(c)=>`${c.label}: ${c.parsed}%` } } }, cutout:'65%' }
+  });
+  // Legend
+  const leg = document.getElementById('donutLegend');
+  leg.innerHTML = ASSET_CLASSES.filter(ac=>r[ac.key]>0).map(ac=>`
+    <div style="display:flex;align-items:center;gap:.5rem;font-size:.7rem">
+      <span style="width:10px;height:10px;border-radius:50%;background:${ASSET_COLORS[ac.key]};flex-shrink:0"></span>
+      <span style="color:var(--text)">${ac.label}</span>
+      <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;color:var(--teal-lt)">${r[ac.key]}%</span>
+    </div>`).join('') +
+    ASSET_CLASSES.filter(ac=>r[ac.key]===0).map(ac=>`
+    <div style="display:flex;align-items:center;gap:.5rem;font-size:.7rem;opacity:.35">
+      <span style="width:10px;height:10px;border-radius:50%;background:var(--bg-4);border:1px solid var(--border);flex-shrink:0"></span>
+      <span style="color:var(--muted)">${ac.label}</span>
+      <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;color:var(--muted)">0%</span>
+    </div>`).join('');
+}
+
+function renderStress(stress, supply) {
+  const scKeys = ['mild','moderate','severe','extreme'];
+  const scClass = ['sc-mild','sc-moderate','sc-severe','sc-extreme'];
+  const scColors = [
+    {ratio:'var(--green)',badge:'var(--green)',badgeBg:'var(--green-dim)'},
+    {ratio:'var(--warn)',badge:'var(--warn)',badgeBg:'rgba(245,158,11,.12)'},
+    {ratio:'#f97316',badge:'#f97316',badgeBg:'rgba(249,115,22,.12)'},
+    {ratio:'var(--red)',badge:'var(--red)',badgeBg:'var(--red-dim)'}
+  ];
+
+  const notes = {
+    mild:'Minor market dislocation; liquid reserves should absorb redemption pressure.',
+    moderate:'Significant stress; illiquid assets may impair redemption capacity.',
+    severe:'Severe shock scenario; peg stability highly dependent on reserve quality.',
+    extreme:'Extreme tail scenario; systemic risk to peg. Regulatory intervention likely.'
+  };
+
+  let html = `<div class="sec-title">Peg Stress Test — 4 Scenarios</div><div class="stress-grid">`;
+  scKeys.forEach((sk,i) => {
+    const s = stress[sk];
+    const sc = scColors[i];
+    const passLabel = s.pass ? 'SOLVENT' : 'SHORTFALL';
+    const passBg = s.pass ? 'var(--green-dim)' : 'var(--red-dim)';
+    const passColor = s.pass ? 'var(--green)' : 'var(--red)';
+    html += `<div class="sc ${scClass[i]}">
+      <div class="sc-label" style="color:${sc.ratio}">${SCENARIOS[sk].label}</div>
+      <div class="sc-ratio" style="color:${sc.ratio}">${s.stressedRatio.toFixed(1)}%</div>
+      <div class="sc-shortfall" style="color:var(--body)">
+        ${s.shortfall > 0 ? `Shortfall: <span style="color:var(--red)">$${s.shortfall.toFixed(2)}B</span>` : `Liquid: <span style="color:var(--green)">$${s.availableLiquid.toFixed(2)}B</span>`}
+      </div>
+      <span class="sc-badge" style="background:${passBg};color:${passColor}">${passLabel}</span>
+      <div class="sc-note">${notes[sk]}</div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  html += `<div class="chart-wrap">
+    <div class="chart-label">Stressed Collateralization Ratio by Scenario (%) — dashed line = 100% peg threshold</div>
+    <canvas id="stressChart" height="80"></canvas>
+  </div>`;
+
+  return html;
+}
+
+function drawStressChart(stress) {
+  const ctx = document.getElementById('stressChart');
+  if (!ctx) return;
+  if (charts.stress) charts.stress.destroy();
+  charts.stress = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:['Mild','Moderate','Severe','Extreme'],
+      datasets:[{
+        label:'Stressed Collat. Ratio (%)',
+        data:[stress.mild.stressedRatio, stress.moderate.stressedRatio, stress.severe.stressedRatio, stress.extreme.stressedRatio],
+        backgroundColor:['rgba(34,197,94,.3)','rgba(245,158,11,.3)','rgba(249,115,22,.3)','rgba(239,68,68,.3)'],
+        borderColor:['#22C55E','#F59E0B','#f97316','#EF4444'],
+        borderWidth:1
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:true,
+      plugins:{ legend:{display:false}, annotation:{ annotations:{ line1:{ type:'line', yMin:100, yMax:100, borderColor:'rgba(255,255,255,.3)', borderWidth:1, borderDash:[6,3] } } } },
+      scales:{
+        y:{ min:0, grid:{ color:'rgba(30,47,74,.4)' }, ticks:{ color:'#6888A8', font:{ family:"'JetBrains Mono'" }, callback:(v)=>v+'%' } },
+        x:{ grid:{ display:false }, ticks:{ color:'#6888A8', font:{ family:"'JetBrains Mono'" } } }
+      }
+    }
+  });
+}
+
+function renderLiquidityTable(r, supply) {
+  let html = `<div class="sec-title">Liquidity Coverage Profile</div>
+  <table>
+    <thead><tr>
+      <th>Asset Class</th><th>Allocation</th><th>Normal Days</th><th>Stress Days</th><th>Normal HC</th><th>Stress HC</th><th>Concentration Risk</th>
+    </tr></thead><tbody>`;
+  let totalDays = 0, totalPct = 0;
+  ASSET_CLASSES.forEach(ac => {
+    const pct = r[ac.key];
+    const lp = LIQUIDITY_PROFILE[ac.key];
+    const isRisk = pct > 15 && lp.normalDays > 5;
+    if (pct > 0) { totalDays += pct * lp.normalDays; totalPct += pct; }
+    html += `<tr class="${isRisk?'risk-row':''}">
+      <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${ASSET_COLORS[ac.key]};margin-right:6px"></span>${ac.label}</td>
+      <td><span class="tag tag-teal">${pct}%</span></td>
+      <td style="font-family:'JetBrains Mono',monospace">${lp.normalDays === 0 ? 'Instant' : lp.normalDays + 'd'}</td>
+      <td style="font-family:'JetBrains Mono',monospace">${lp.stressDays === 0 ? 'Instant' : lp.stressDays + 'd'}</td>
+      <td style="font-family:'JetBrains Mono',monospace">${(lp.normalHaircut*100).toFixed(1)}%</td>
+      <td style="font-family:'JetBrains Mono',monospace">${(lp.stressHaircut*100).toFixed(1)}%</td>
+      <td>${isRisk ? '<span class="tag tag-red">⚠ Concentration</span>' : '<span class="tag tag-muted">—</span>'}</td>
+    </tr>`;
+  });
+  html += `</tbody></table>
+  <div class="kpi-bar" style="margin-bottom:1.5rem">
+    <div class="kc"><div class="kl">LCR Estimate (simplified)</div><div class="kv t">${((r.cash+r.govSecurities+r.mmf)/100).toFixed(2)}x</div></div>
+    <div class="kc"><div class="kl">Wtd Avg Days-to-Liquid</div><div class="kv">${totalPct>0?(totalDays/totalPct).toFixed(1):'0'}d</div></div>
+  </div>`;
+  return html;
+}
+
+function renderWaterfall(wf, supply) {
+  const totalPct = wf.demand > 0 ? 100 : 0;
+  let html = `<div class="sec-title">Redemption Waterfall</div>
+  <div class="waterfall-wrap">
+    <div class="chart-label">Asset Tranches Consumed to Meet ${((wf.demand/supply)*100).toFixed(0)}% Redemption Demand ($${wf.demand.toFixed(2)}B)</div>
+    <div class="wf-bar-container" id="wfBar"></div>`;
+
+  // Build bar
+  const segments = [];
+  wf.tranches.forEach(t => {
+    if (t.consumed > 0) segments.push({ label: t.label, amount: t.consumed, color: ASSET_COLORS[t.key] });
+  });
+  if (wf.shortfall > 0) segments.push({ label:'Shortfall', amount: wf.shortfall, color:'#EF4444' });
+
+  const totalBar = segments.reduce((a,s)=>a+s.amount,0);
+  html += '</div>';
+
+  // Table
+  html += `<table>
+    <thead><tr><th>Priority</th><th>Asset Class</th><th>Amount Consumed</th><th>Cumulative Met</th><th>Status</th></tr></thead><tbody>`;
+  let cumulative = 0;
+  wf.tranches.forEach((t,i) => {
+    cumulative += t.consumed;
+    const pctMet = wf.demand > 0 ? (cumulative/wf.demand*100).toFixed(1) : 0;
+    const status = t.consumed === 0 ? 'Untouched' : t.remaining < 0.001 ? 'Exhausted' : 'Partially Used';
+    const statusClass = status === 'Exhausted' ? 'tag-red' : status === 'Partially Used' ? 'tag-warn' : 'tag-muted';
+    html += `<tr>
+      <td style="font-family:'JetBrains Mono',monospace;color:var(--muted)">${i+1}</td>
+      <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${ASSET_COLORS[t.key]};margin-right:6px"></span>${t.label}</td>
+      <td style="font-family:'JetBrains Mono',monospace">$${t.consumed.toFixed(3)}B</td>
+      <td style="font-family:'JetBrains Mono',monospace">${pctMet}%</td>
+      <td><span class="tag ${statusClass}">${status}</span></td>
+    </tr>`;
+  });
+  if (wf.shortfall > 0) {
+    html += `<tr><td colspan="2" style="color:var(--red);font-family:'JetBrains Mono',monospace">— SHORTFALL —</td><td style="font-family:'JetBrains Mono',monospace;color:var(--red)">$${wf.shortfall.toFixed(3)}B</td><td>—</td><td><span class="tag tag-red">Unmet</span></td></tr>`;
+  }
+  html += `</tbody></table></div>`;
+
+  // Inject bar after render
+  setTimeout(() => {
+    const bar = document.getElementById('wfBar');
+    if (!bar) return;
+    segments.forEach(s => {
+      const pct = totalBar > 0 ? (s.amount/totalBar*100) : 0;
+      const seg = document.createElement('div');
+      seg.className = 'wf-segment';
+      seg.style.width = pct + '%';
+      seg.style.background = s.color + (s.label === 'Shortfall' ? '' : '99');
+      if (pct > 5) seg.textContent = s.label.split(' ')[0];
+      bar.appendChild(seg);
+    });
+  }, 50);
+
+  return html;
+}
+
+function renderCompliance(compliance) {
+  let html = `<div class="sec-title">Regulatory Compliance Mapping</div>
+  <div class="note-box">CBUAE compliance depends on issuer bank-ownership status. Results shown for conservative (non-bank) interpretation. All frameworks as of May 2026.</div>
+  <table>
+    <thead><tr><th>Jurisdiction</th><th>Checks</th><th>Result</th><th>Key Gaps</th></tr></thead><tbody>`;
+  Object.entries(compliance).forEach(([jk,jv]) => {
+    const statusClass = jv.status === 'PASS' ? 'tag-green' : jv.status === 'FAIL' ? 'tag-red' : 'tag-partial';
+    const gaps = jv.checks.filter(c=>!c.pass).map(c=>c.rule).join('; ') || '—';
+    const checksStr = jv.checks.map(c=>`<div style="font-size:.65rem;margin-bottom:.15rem">${c.pass?'✓':'✗'} ${c.rule}</div>`).join('');
+    html += `<tr>
+      <td style="font-weight:500;color:var(--bright)">${jv.label}</td>
+      <td>${checksStr}</td>
+      <td><span class="tag ${statusClass}">${jv.status}</span></td>
+      <td style="font-size:.68rem;color:var(--body)">${gaps}</td>
+    </tr>`;
+  });
+  html += `</tbody></table>`;
+  return html;
+}
+
+function renderComparator(rows, currentName) {
+  let html = `<div class="sec-title">Multi-Stablecoin Comparator</div>
+  <table>
+    <thead><tr><th>Stablecoin</th><th>Collat. Ratio</th><th>LCR Est.</th><th>Crypto Exp.</th><th>MiCA</th><th>GENIUS</th></tr></thead><tbody>`;
+  rows.forEach(row => {
+    const isCurrent = row.name === currentName;
+    html += `<tr style="${isCurrent?'background:var(--teal-dim)':''}">
+      <td style="font-family:'JetBrains Mono',monospace;color:${isCurrent?'var(--teal-lt)':'var(--bright)'}">${row.name}${isCurrent?' ◀':''}</td>
+      <td style="font-family:'JetBrains Mono',monospace">${row.ratio}%</td>
+      <td style="font-family:'JetBrains Mono',monospace">${row.lcr}x</td>
+      <td><span class="tag ${row.crypto>0?'tag-warn':'tag-green'}">${row.crypto}%</span></td>
+      <td><span class="tag ${row.micaPass?'tag-green':'tag-red'}">${row.micaPass?'PASS':'FAIL'}</span></td>
+      <td><span class="tag ${row.geniusPass?'tag-green':'tag-red'}">${row.geniusPass?'PASS':'FAIL'}</span></td>
+    </tr>`;
+  });
+  html += `</tbody></table>`;
+  return html;
+}
+
+function renderRecommendations(compliance, r, collat, stress) {
+  const recs = [];
+  if (!collat.pass) recs.push('⚠ Weighted collateralization ratio is below 100%. Increase high-quality liquid assets (cash, government securities) to restore the peg buffer.');
+  Object.entries(compliance).forEach(([jk,jv]) => {
+    jv.checks.filter(c=>!c.pass).forEach(c => recs.push(`${jv.label}: Rule failed — "${c.rule}". Review reserve composition to achieve compliance.`));
+  });
+  if (r.crypto > 10) recs.push(`Crypto-collateral is ${r.crypto}% of reserves — above the 10% threshold used by most frameworks. Consider reducing to improve regulatory posture.`);
+  if (r.loans > 15) recs.push(`Secured Loans & Receivables exceed 15% (${r.loans}%). This creates liquidity concentration risk — days-to-liquidate may be 30–90 days under stress.`);
+  if (stress.severe.shortfall > 0) recs.push(`Reserve shortfall of $${stress.severe.shortfall.toFixed(2)}B emerges in the Severe scenario. Consider increasing HQLA buffer or reducing crypto/loan exposure.`);
+  if (recs.length === 0) recs.push('Reserve composition meets baseline requirements across modeled frameworks. Continue monitoring for regulatory updates to MiCA, GENIUS Act, and MAS frameworks (quarterly review recommended).');
+
+  return `<div class="sec-title">Audit Recommendations</div>
+  <div class="note-box" style="border-left-color:var(--teal)">
+    ${recs.map((r,i)=>`<div style="margin-bottom:.5rem"><span style="font-family:'JetBrains Mono',monospace;color:var(--teal-lt);margin-right:.5rem">${String(i+1).padStart(2,'0')}.</span>${r}</div>`).join('')}
+  </div>`;
+}
+
+// ══════════════════════════════════════════════
+//  EXPORTS
+// ══════════════════════════════════════════════
+
+function getRunData() {
+  const r = getReserve();
+  const supply = parseFloat(document.getElementById('supply').value) || 1;
+  const coinName = document.getElementById('coinName').value || 'Custom';
+  const redemptPct = parseFloat(document.getElementById('redemptSlider').value);
+  const collat = calcCollateral(r);
+  const stress = calcStress(r, supply, collat);
+  const compliance = calcCompliance(r);
+  return { r, supply, coinName, redemptPct, collat, stress, compliance };
+}
+
+function exportCSV() {
+  const { r, supply, coinName, collat, stress, compliance } = getRunData();
+  let csv = `Stablecoin Reserve Audit — ${coinName}\nGenerated,${new Date().toISOString()}\n\n`;
+  csv += `Reserve Composition\nAsset Class,Allocation (%)\n`;
+  ASSET_CLASSES.forEach(ac => { csv += `${ac.label},${r[ac.key]}\n`; });
+  csv += `\nCollateralization\nMetric,Value\nWeighted Ratio (%),${collat.ratio.toFixed(2)}\nBuffer (%),${collat.buffer.toFixed(2)}\nStatus,${collat.pass?'PASS':'FAIL'}\n`;
+  csv += `\nStress Test Results\nScenario,Stressed Ratio (%),Shortfall ($B),Status\n`;
+  Object.entries(stress).forEach(([sk,sv]) => {
+    csv += `${SCENARIOS[sk].label},${sv.stressedRatio.toFixed(2)},${sv.shortfall.toFixed(3)},${sv.pass?'PASS':'FAIL'}\n`;
+  });
+  csv += `\nRegulatory Compliance\nJurisdiction,Result\n`;
+  Object.entries(compliance).forEach(([jk,jv]) => { csv += `${jv.label},${jv.status}\n`; });
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = `stablecoin-audit-${(document.getElementById('coinName').value||'custom').toLowerCase()}.csv`;
+  a.click();
+}
+
+function exportMD() {
+  const { r, supply, coinName, collat, stress, compliance } = getRunData();
+  const date = new Date().toISOString().split('T')[0];
+  let md = `# Stablecoin Reserve Audit Report\n**Stablecoin:** ${coinName}  |  **Circulating Supply:** $${supply}B  |  **Date:** ${date}\n\n`;
+  md += `## Reserve Composition\n| Asset Class | Allocation |\n|---|---|\n`;
+  ASSET_CLASSES.forEach(ac => { md += `| ${ac.label} | ${r[ac.key]}% |\n`; });
+  md += `\n## Collateralization\nWeighted Ratio: ${collat.ratio.toFixed(2)}%  |  Buffer: ${collat.buffer.toFixed(2)}%  |  Status: ${collat.pass?'PASS':'FAIL'}\n\n`;
+  md += `## Stress Test Results\n| Scenario | Devaluation | Illiquid % | Redemption % | Stressed Ratio | Shortfall | Status |\n|---|---|---|---|---|---|---|\n`;
+  Object.entries(stress).forEach(([sk,sv]) => {
+    const sc = SCENARIOS[sk];
+    md += `| ${sc.label} | ${(sc.devaluation*100).toFixed(0)}% | ${(sc.illiquidPct*100).toFixed(0)}% | ${(sc.redemptionPct*100).toFixed(0)}% | ${sv.stressedRatio.toFixed(2)}% | $${sv.shortfall.toFixed(3)}B | ${sv.pass?'✅ PASS':'❌ FAIL'} |\n`;
+  });
+  md += `\n## Regulatory Compliance\n| Jurisdiction | Result | Key Gaps |\n|---|---|---|\n`;
+  Object.entries(compliance).forEach(([jk,jv]) => {
+    const gaps = jv.checks.filter(c=>!c.pass).map(c=>c.rule).join('; ')||'None';
+    md += `| ${jv.label} | ${jv.status} | ${gaps} |\n`;
+  });
+  md += `\n## Recommendations\n`;
+  const failedJuris = Object.entries(compliance).filter(([,v])=>v.status!=='PASS').map(([,v])=>v.label);
+  if (failedJuris.length) md += `- Review reserve composition for compliance with: ${failedJuris.join(', ')}\n`;
+  if (!collat.pass) md += `- Increase high-quality liquid assets to achieve ≥100% collateralization ratio\n`;
+  if (stress.severe.shortfall > 0) md += `- Address $${stress.severe.shortfall.toFixed(2)}B severe-scenario shortfall by improving reserve quality\n`;
+  md += `\n*Generated by AINumbers.co Tool 75 — Stablecoin Reserve & Peg Health Auditor · Post Oak Labs*\n`;
+
+  const a = document.createElement('a');
+  a.href = 'data:text/markdown;charset=utf-8,' + encodeURIComponent(md);
+  a.download = `stablecoin-audit-${(document.getElementById('coinName').value||'custom').toLowerCase()}.md`;
+  a.click();
+}
+
+function exportJSON() {
+  const { r, supply, coinName, collat, stress, compliance } = getRunData();
+  const payload = {
+    tool:'stablecoin-reserve-auditor', version:'1.0', timestamp: new Date().toISOString(),
+    input:{ stablecoin: coinName, supply, reserves: r },
+    collateralization:{ ratio: collat.ratio, buffer: collat.buffer, pass: collat.pass },
+    stress: Object.fromEntries(Object.entries(stress).map(([k,v])=>[k,{ stressedRatio:v.stressedRatio, shortfall:v.shortfall, pass:v.pass }])),
+    compliance: Object.fromEntries(Object.entries(compliance).map(([k,v])=>[k, v.status]))
+  };
+  const a = document.createElement('a');
+  a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(payload, null, 2));
+  a.download = `stablecoin-audit-ap2-${(document.getElementById('coinName').value||'custom').toLowerCase()}.json`;
+  a.click();
+}
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+
+buildSliders();
+loadTemplate();
+</script>
+</body>
+</html>

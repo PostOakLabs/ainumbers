@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tool 66 — RWA Tokenization Cost Model · AINumbers.co</title>
+<meta name="description" content="5-year TCO model for tokenizing real-world assets vs. traditional settlement. Compare bond, MMF, repo, and trade receivable tokenization costs across Corda, Canton, Fabric, and public EVM. Break-even analysis. Client-side. Zero PII.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.15}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1200px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:0 2rem;height:34px;display:flex;align-items:center}
+.lang-inner{max-width:1200px;margin:0 auto;width:100%;display:flex;gap:.5rem;justify-content:flex-end}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid transparent;padding:.2rem .5rem;cursor:pointer;transition:color .15s,border-color .15s;line-height:1}
+.lang-btn:hover{color:var(--body);border-color:var(--border)}
+.lang-btn.active{color:var(--teal-lt);border-bottom:1px solid var(--teal)}
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1200px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-mark-grid{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:32px;height:32px}
+.logo-text{display:flex;flex-direction:column;gap:2px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.logo-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);line-height:1}
+@media(max-width:600px){.logo-tag{display:none}}
+.nav-links{display:flex;gap:1.5rem;align-items:center}
+.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);transition:color .2s}
+.nav-links a:hover{color:var(--teal-lt)}
+.nav-cta{font-family:'JetBrains Mono',monospace!important;font-size:.58rem!important;letter-spacing:.12em!important;text-transform:uppercase!important;color:var(--bg)!important;background:var(--teal)!important;border:1px solid var(--teal)!important;padding:.3rem .85rem!important;border-radius:6px!important;transition:all .2s!important}
+.nav-cta:hover{background:var(--teal-lt)!important;border-color:var(--teal-lt)!important}
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.7rem,3vw,2.6rem);color:var(--white);max-width:720px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-sub{font-size:.88rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.2rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}.badge-privacy::before{content:'·';color:var(--green)}
+.badge-spec{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.tool-section{padding:2.5rem 0 4rem;position:relative;z-index:1}
+.tool-grid{display:grid;grid-template-columns:300px 1fr;gap:2px;background:var(--border);border:1px solid var(--border)}
+@media(max-width:860px){.tool-grid{grid-template-columns:1fr}}
+.config-panel{background:var(--bg-2);padding:1.75rem;overflow-y:auto;max-height:calc(100vh - 86px);position:sticky;top:86px}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
+.section-head{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-lt);margin:1.4rem 0 .8rem;display:flex;align-items:center;gap:.6rem}
+.section-head::after{content:'';flex:1;height:1px;background:var(--border)}
+.input-group{margin-bottom:1rem}
+.input-label-text{font-size:.74rem;color:var(--bright);font-weight:400;display:block;margin-bottom:.35rem}
+.input-hint{font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted);letter-spacing:.06em;display:block;margin-top:.3rem}
+select,input[type=number],input[type=range]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.74rem;padding:.48rem .7rem;outline:none;transition:border-color .2s;-webkit-appearance:none}
+select:focus,input:focus{border-color:var(--teal)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a6a8a'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .7rem center;padding-right:2rem;cursor:pointer}
+input[type=range]{padding:0;accent-color:var(--teal);height:4px;margin-top:.4rem}
+.range-row{display:flex;justify-content:space-between;align-items:center}
+.range-val{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--teal-lt)}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.55rem 1rem;cursor:pointer;transition:all .2s;border:1px solid}
+.btn-primary{background:var(--teal);border-color:var(--teal);color:var(--bg);width:100%}
+.btn-primary:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--muted);color:var(--text)}
+.action-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.divider{border:none;border-top:1px solid var(--border);margin:1.25rem 0}
+.output-panel{background:var(--bg-3);display:flex;flex-direction:column;min-height:600px}
+.output-toolbar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.75rem 1.5rem;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.output-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+.output-body{flex:1;padding:1.5rem;overflow-y:auto}
+/* KPI bar */
+.kpi-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);margin-bottom:1.5rem}
+.kpi-cell{background:var(--bg-2);padding:.85rem 1rem}
+.kpi-lbl{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.kpi-val{font-family:'DM Serif Display',serif;font-size:1.15rem;color:var(--bright);line-height:1}
+.kpi-val.green{color:var(--green)}.kpi-val.gold{color:var(--gold)}.kpi-val.teal{color:var(--teal)}.kpi-val.red{color:var(--red)}
+.kpi-sub{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.2rem}
+/* Year table */
+table{width:100%;border-collapse:collapse;font-size:.74rem;margin-bottom:1.5rem}
+th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.65rem 1rem;text-align:right;border-bottom:1px solid var(--border);background:var(--bg-2);white-space:nowrap}
+th:first-child{text-align:left}
+td{padding:.6rem 1rem;border-bottom:1px solid rgba(30,47,74,.4);font-family:'JetBrains Mono',monospace;text-align:right}
+td:first-child{text-align:left;color:var(--body)}
+tr:last-child td{border-bottom:none;font-weight:600;color:var(--bright)}
+tr:hover td{background:rgba(20,184,166,.02)}
+.pos{color:var(--green)}.neg{color:var(--red)}.neut{color:var(--text)}
+/* Break-even callout */
+.breakeven{background:var(--bg-2);border:1px solid var(--border-2);border-left:3px solid var(--gold);padding:1rem 1.25rem;margin-bottom:1.5rem}
+.be-lbl{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:.35rem}
+.be-val{font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--gold)}
+.be-sub{font-size:.72rem;color:var(--body);margin-top:.25rem;line-height:1.6}
+/* Bar chart */
+.bar-chart{display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.5rem}
+.bc-row{display:flex;align-items:center;gap:.75rem}
+.bc-label{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--body);width:120px;flex-shrink:0}
+.bc-track{flex:1;height:10px;background:var(--bg-4);border-radius:3px;overflow:hidden}
+.bc-fill{height:100%;border-radius:3px;transition:width .4s ease}
+.bc-val{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--bright);min-width:80px;text-align:right}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem;text-align:center;flex:1}
+.empty-icon{font-size:2.5rem;margin-bottom:1rem;opacity:.4}
+.empty-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--muted);margin-bottom:.5rem}
+.empty-sub{font-size:.78rem;color:var(--muted);max-width:340px;line-height:1.7}
+.collapsible-trigger{display:flex;align-items:center;gap:.75rem;cursor:pointer;padding:1rem 0;border-top:1px solid var(--border);user-select:none}
+.collapsible-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.collapsible-icon{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--teal-lt);margin-left:auto;transition:transform .2s}
+.collapsible-trigger.open .collapsible-icon{transform:rotate(180deg)}
+.collapsible-body{display:none;padding:1.5rem;background:var(--bg-2);border:1px solid var(--border);border-top:none}
+.collapsible-body.open{display:block}
+.collapsible-body p{font-size:.82rem;color:var(--body);line-height:1.85;margin-bottom:.9rem}
+footer{border-top:1px solid var(--border);padding:2rem 0;margin-top:2rem;position:relative;z-index:1}
+.footer-inner-ai{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:1rem}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.logo-icon-sm{width:28px;height:28px;background:linear-gradient(135deg,var(--teal),#0D9488);border-radius:5px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px;color:var(--bg);font-family:'JetBrains Mono',monospace}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500;color:var(--bright)}
+.footer-links-ai{display:flex;gap:1.5rem}
+.footer-links-ai a{color:var(--body);font-size:.82rem;transition:color .15s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;align-items:center;gap:1rem;font-size:.72rem;color:var(--muted)}
+@media(max-width:600px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{flex-direction:column;gap:.4rem}}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active">EN</button><button class="lang-btn">ES</button><button class="lang-btn">FR</button><button class="lang-btn">AR</button><button class="lang-btn">PT</button><button class="lang-btn">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <div class="logo-mark-grid"><svg width="32" height="32" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg></div>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div><div class="logo-tag">RWA Cost Model</div></div>
+  </a>
+  <a href="../index.html" class="nav-cta">All Tools</a>
+</div></nav>
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Tool 66 · Treasury, Strategy &amp; Revenue</div>
+  <h1>RWA Tokenization<br><em>Cost Model</em></h1>
+  <p class="hero-sub">5-year total cost of ownership (TCO) comparison for tokenizing real-world assets vs. traditional settlement. Model bond, money-market fund, repo, real estate, and trade receivable tokenization costs across Corda, Canton, Hyperledger Fabric, and public EVM chains. Break-even volume analysis included.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-privacy">Zero PII · Client-Side Only</span>
+    <span class="hero-badge badge-spec">5-Year TCO · Break-Even Analysis</span>
+    <span class="hero-badge badge-teal">BIS / IOSCO / WEF Benchmarks</span>
+    <span class="hero-badge badge-spec">Feeds from Tool 67 TCO Data</span>
+  </div>
+</div></div>
+
+<section class="tool-section"><div class="container">
+<div class="tool-grid">
+<div class="config-panel">
+  <div class="panel-label">Model Parameters</div>
+
+  <div class="section-head">Asset</div>
+  <div class="input-group">
+    <span class="input-label-text">Asset Class</span>
+    <select id="assetClass" onchange="onInput()">
+      <option value="bond">Bond / Digital Debt Security</option>
+      <option value="mmf">Money-Market Fund Share</option>
+      <option value="repo">Repo / Collateral</option>
+      <option value="re">Real Estate Token</option>
+      <option value="receivable">Trade Receivable</option>
+    </select>
+  </div>
+  <div class="input-group">
+    <span class="input-label-text">Notional Value ($)</span>
+    <input type="number" id="notional" value="100000000" min="1000000" step="10000000" oninput="onInput()">
+    <span class="input-hint">e.g. $100M bond issuance</span>
+  </div>
+  <div class="input-group">
+    <span class="input-label-text">Number of Investors / Counterparties</span>
+    <input type="number" id="investors" value="50" min="1" step="10" oninput="onInput()">
+  </div>
+
+  <div class="section-head">Platform</div>
+  <div class="input-group">
+    <span class="input-label-text">Tokenization Platform</span>
+    <select id="platform" onchange="onInput()">
+      <option value="corda">R3 Corda (CorDapp)</option>
+      <option value="canton">Digital Asset Canton (Daml)</option>
+      <option value="fabric">Hyperledger Fabric (chaincode)</option>
+      <option value="besu">Hyperledger Besu (EVM/Solidity)</option>
+      <option value="evm">Public EVM Chain</option>
+    </select>
+  </div>
+  <div class="input-group">
+    <span class="input-label-text">Custody Approach</span>
+    <select id="custody" onchange="onInput()">
+      <option value="self">Self-Custody (internal IT)</option>
+      <option value="qualified">Qualified Custodian</option>
+      <option value="sub">Sub-Custodian</option>
+    </select>
+  </div>
+  <div class="input-group">
+    <span class="input-label-text">Settlement Frequency</span>
+    <select id="settlFreq" onchange="onInput()">
+      <option value="rt">Real-Time (continuous)</option>
+      <option value="t1">T+1</option>
+      <option value="t2">T+2</option>
+      <option value="daily">Daily batch</option>
+    </select>
+  </div>
+
+  <div class="section-head">Volume</div>
+  <div class="input-group">
+    <div class="range-row"><span class="input-label-text">Annual Settlement Transactions</span><span class="range-val" id="txnCountVal">500</span></div>
+    <input type="range" id="txnCount" min="10" max="10000" step="10" value="500" oninput="document.getElementById('txnCountVal').textContent=this.value;onInput()">
+    <span class="input-hint">Per year across all counterparties</span>
+  </div>
+
+  <div class="divider"></div>
+  <button class="btn btn-primary" onclick="calculate()">▶ Run 5-Year Model</button>
+  <div class="action-row">
+    <button class="btn btn-ghost" style="flex:1" onclick="exportCSV()">↓ CSV</button>
+    <button class="btn btn-ghost" style="flex:1" onclick="exportMemo()">↓ Memo</button>
+  </div>
+</div>
+
+<div class="output-panel">
+  <div class="output-toolbar">
+    <span class="output-title">RWA Tokenization 5-Year TCO</span>
+    <div class="action-row" style="margin-top:0"><button class="btn btn-ghost" onclick="window.print()">⎙ Print</button></div>
+  </div>
+  <div class="output-body">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">🏛️</div>
+      <div class="empty-title">Configure Model</div>
+      <div class="empty-sub">Set asset class, platform, custody approach, and transaction volume, then click Run 5-Year Model.</div>
+    </div>
+    <div id="results" style="display:none">
+      <div class="kpi-bar" id="kpiBar"></div>
+      <div class="breakeven" id="breakevenBox"></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem">Cost Breakdown vs. Traditional Settlement</div>
+      <div class="bar-chart" id="barChart"></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem">5-Year Annual Cost Schedule</div>
+      <div style="overflow-x:auto"><table id="yearTable"></table></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div style="margin-top:2rem">
+  <div class="collapsible-trigger" onclick="this.classList.toggle('open');document.getElementById('about').classList.toggle('open')"><span class="collapsible-label">About This Tool</span><span class="collapsible-icon">▾</span></div>
+  <div class="collapsible-body" id="about">
+    <p><strong>Cost benchmarks:</strong> Issuance and development cost ranges derived from BIS working papers, IOSCO tokenization reports, World Economic Forum tokenization cost studies, and IDC enterprise blockchain deployment benchmarks ($160K–$580K, IDC 2024). Platform-specific data informed by publicly available information from R3/Digital Asset/Linux Foundation ecosystem reports.</p>
+    <p><strong>Traditional baseline:</strong> DTC/DTCC settlement fees ($0.82–$6.50/transaction by asset type), Euroclear/Clearstream custody (1–3bps/yr on notional), SWIFT messaging ($0.20–$3.00/message). Sourced from public regulatory disclosures and industry cost surveys.</p>
+    <p><strong>Terminology:</strong> This tool avoids "blockchain" and "smart contract." It uses "programmable settlement logic" and "self-executing settlement" throughout. References to Canton and Corda draw on publicly available Post Oak Labs A2A architecture documentation.</p>
+    <p><strong>Limitations:</strong> All figures are estimates based on public benchmarks. Actual TCO will vary significantly based on implementation scope, team experience, and vendor negotiations. Use as directional input to business case preparation, not as a final procurement figure.</p>
+  </div>
+  <div class="collapsible-trigger" onclick="this.classList.toggle('open');document.getElementById('priv').classList.toggle('open')"><span class="collapsible-label">Privacy Statement</span><span class="collapsible-icon">▾</span></div>
+  <div class="collapsible-body" id="priv"><p>All processing in your browser. No data transmitted. No analytics, cookies, or telemetry.</p></div>
+</div>
+</div></section>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link"><div class="logo-icon-sm">AI</div><span class="footer-wordmark">AINumbers.co</span></a>
+    <div class="footer-links-ai"><a href="../index.html">All Tools</a><a href="../sitemap.html">Sitemap</a><a href="../contact.html">Contact</a></div>
+    <div class="footer-badge-ai"><span>🔒 Zero PII</span><span>📡 No server calls</span><span>💻 Client-side</span></div>
+  </div>
+</div></footer>
+
+<script>
+/* ═══════════════════════════════════════════
+   COST BENCHMARKS — Q2 2026
+   Sources: BIS, IOSCO, WEF tokenization studies, IDC, public vendor disclosures
+═══════════════════════════════════════════ */
+
+// One-time issuance costs by asset class ($K)
+const ISSUANCE = {
+  bond:       {legal:[150,500], dev:[80,300], onboarding:[50,100]},
+  mmf:        {legal:[100,300], dev:[60,200], onboarding:[30,80]},
+  repo:       {legal:[50,150],  dev:[50,150], onboarding:[20,50]},
+  re:         {legal:[200,600], dev:[100,350], onboarding:[60,120]},
+  receivable: {legal:[50,150],  dev:[40,120], onboarding:[20,60]},
+};
+
+// Platform development cost multiplier (relative to base)
+const PLATFORM = {
+  corda:  {devMult:1.3, nodeCost:120, devCostRange:[180,380], lang:'Kotlin/CorDapp', note:'Specialist Kotlin pool ~2,500 globally. Higher dev cost.'},
+  canton: {devMult:1.4, nodeCost:150, devCostRange:[200,450], lang:'Daml', note:'Purpose-designed language. Narrowest developer pool.'},
+  fabric: {devMult:1.0, nodeCost:100, devCostRange:[160,340], lang:'Go/Java chaincode', note:'Largest permissioned deployment share (~46%). Open-source.'},
+  besu:   {devMult:0.85,nodeCost:90,  devCostRange:[140,280], lang:'Solidity/EVM', note:'Largest developer pool (~23K EVM devs). EVM-compatible.'},
+  evm:    {devMult:0.7, nodeCost:30,  devCostRange:[80,200],  lang:'Solidity', note:'Public chain. Lowest dev cost; regulatory/privacy tradeoffs.'},
+};
+
+// Custody ongoing cost (bps/yr on notional)
+const CUSTODY = { self:0, qualified:6, sub:3 };
+
+// Settlement fee benchmarks ($ per transaction)
+const SETTLE_TOKEN = { rt:0.10, t1:0.25, t2:0.35, daily:0.50 };
+
+// Traditional settlement fees ($ per transaction by asset class)
+const SETTLE_TRAD = { bond:3.50, mmf:2.00, repo:1.50, re:6.50, receivable:2.50 };
+
+// Traditional custody (bps/yr)
+const CUSTODY_TRAD = { bond:15, mmf:8, repo:5, re:25, receivable:12 };
+
+// SWIFT messaging cost per transaction (traditional)
+const SWIFT_COST = 1.50;
+
+let _res = null;
+
+function mid(range) { return (range[0]+range[1])/2*1000; } // K → $
+
+function onInput() {} // auto-calc on click
+
+function calculate() {
+  const asset    = document.getElementById('assetClass').value;
+  const notional = parseFloat(document.getElementById('notional').value)||100e6;
+  const investors= parseFloat(document.getElementById('investors').value)||50;
+  const plat     = document.getElementById('platform').value;
+  const cust     = document.getElementById('custody').value;
+  const freq     = document.getElementById('settlFreq').value;
+  const txnsYr   = parseFloat(document.getElementById('txnCount').value)||500;
+
+  const P = PLATFORM[plat];
+  const I = ISSUANCE[asset];
+
+  // One-time tokenized costs
+  const oneTimeLegal  = mid(I.legal);
+  const oneTimeDev    = mid(P.devCostRange) * 1000;
+  const oneTimeOnboarding = mid(I.onboarding);
+  const oneTimeTotal  = oneTimeLegal + oneTimeDev + oneTimeOnboarding;
+
+  // Annual tokenized costs
+  const annualNode    = P.nodeCost * 1000 * (plat === 'evm' ? 0 : 1); // no node cost for public EVM
+  const annualCustody = notional * (CUSTODY[cust] / 10000);
+  const annualSettle  = txnsYr * SETTLE_TOKEN[freq];
+  const annualCompliance = 40000; // ~$40K/yr compliance/reporting overhead
+  const annualTotal   = annualNode + annualCustody + annualSettle + annualCompliance;
+
+  // Traditional costs
+  const tradOnetime   = 0; // no issuance tech cost
+  const tradCustody   = notional * (CUSTODY_TRAD[asset] / 10000);
+  const tradSettle    = txnsYr * (SETTLE_TRAD[asset] + SWIFT_COST);
+  const tradAnnual    = tradCustody + tradSettle;
+
+  // 5-year TCO
+  const years = [1,2,3,4,5];
+  const tokenYears = years.map(y => ({ year:y, onetime: y===1 ? oneTimeTotal : 0, annual: annualTotal, total: (y===1 ? oneTimeTotal : 0) + annualTotal }));
+  const tradYears  = years.map(y => ({ year:y, annual: tradAnnual }));
+
+  const tokenTCO5 = oneTimeTotal + annualTotal * 5;
+  const tradTCO5  = tradAnnual * 5;
+  const saving5   = tradTCO5 - tokenTCO5;
+
+  // Break-even volume (transactions per year where tokenized becomes cheaper)
+  // totalTok = oneTimeTotal + (annualNode + annualCustody + annualCompliance + txns*SETTLE_TOKEN[freq]) * 5
+  // totalTrad = (tradCustody + txns*(SETTLE_TRAD[asset]+SWIFT_COST)) * 5
+  // Solve for txns: (tradCustody*5) - (annualNode+annualCustody+annualCompliance)*5 - oneTimeTotal = txns*5*(SETTLE_TOKEN[freq]-SETTLE_TRAD[asset]-SWIFT_COST)
+  const fixedDiff = (tradCustody - annualNode - annualCustody - annualCompliance) * 5 - oneTimeTotal;
+  const perTxnDiff = 5 * (SETTLE_TRAD[asset] + SWIFT_COST - SETTLE_TOKEN[freq]);
+  const beVol = perTxnDiff > 0 ? fixedDiff / perTxnDiff : null;
+
+  _res = { asset, notional, plat, cust, freq, txnsYr, investors, tokenTCO5, tradTCO5, saving5, oneTimeTotal, annualTotal, tradAnnual, tokenYears, tradYears, beVol, P };
+
+  renderResults();
+}
+
+function fUSD(n) {
+  if (Math.abs(n)>=1e6) return (n<0?'-':'')+'$'+(Math.abs(n)/1e6).toFixed(2)+'M';
+  if (Math.abs(n)>=1e3) return (n<0?'-':'')+'$'+(Math.abs(n)/1e3).toFixed(0)+'K';
+  return (n<0?'-':'')+'$'+Math.abs(n).toFixed(0);
+}
+
+function renderResults() {
+  const r = _res;
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('results').style.display='block';
+
+  // KPIs
+  document.getElementById('kpiBar').innerHTML = [
+    {lbl:'5-Year Tokenized TCO',  val:fUSD(r.tokenTCO5), cls:r.saving5>0?'teal':'red', sub:'All-in over 5 years'},
+    {lbl:'5-Year Traditional TCO', val:fUSD(r.tradTCO5),  cls:'gold', sub:'DTCC/Euroclear/SWIFT'},
+    {lbl:'5-Year Net Saving',      val:fUSD(r.saving5),   cls:r.saving5>0?'green':'red', sub:r.saving5>0?'Tokenized cheaper':'Traditional cheaper'},
+    {lbl:'One-Time Investment',    val:fUSD(r.oneTimeTotal),cls:'',sub:'Legal + dev + onboarding'},
+  ].map(k=>`<div class="kpi-cell"><div class="kpi-lbl">${k.lbl}</div><div class="kpi-val ${k.cls}">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
+
+  // Breakeven
+  if (r.beVol !== null && r.beVol > 0 && r.beVol < 1e6) {
+    document.getElementById('breakevenBox').innerHTML = `<div class="be-lbl">Break-Even Settlement Volume</div><div class="be-val">${Math.ceil(r.beVol).toLocaleString()} transactions/year</div><div class="be-sub">Above this volume, the tokenized approach recovers its upfront investment within the 5-year window. Your input: ${r.txnsYr.toLocaleString()} txns/yr — ${r.txnsYr >= r.beVol ? '✓ above break-even' : '⚠ below break-even'}.</div>`;
+  } else {
+    document.getElementById('breakevenBox').innerHTML = `<div class="be-lbl">Break-Even Analysis</div><div class="be-val" style="color:var(--${r.saving5>0?'green':'red'})">${r.saving5>0?'Tokenized cheaper at all volumes':'Traditional cheaper at this configuration'}</div><div class="be-sub">${r.saving5>0?'Per-transaction and custody savings exceed upfront investment at all transaction volumes.':'Increase settlement volume or reduce platform costs to reach break-even.'}</div>`;
+  }
+
+  // Bar chart
+  const items = [
+    {label:'Token: One-Time', val:r.oneTimeTotal, color:'var(--red)'},
+    {label:'Token: Annual×5',  val:r.annualTotal*5, color:'var(--teal)'},
+    {label:'Trad: Annual×5',   val:r.tradAnnual*5, color:'var(--gold)'},
+  ];
+  const maxV = Math.max(...items.map(i=>i.val));
+  document.getElementById('barChart').innerHTML = items.map(i=>`
+    <div class="bc-row">
+      <span class="bc-label">${i.label}</span>
+      <div class="bc-track"><div class="bc-fill" style="width:${(i.val/maxV*100).toFixed(1)}%;background:${i.color}"></div></div>
+      <span class="bc-val">${fUSD(i.val)}</span>
+    </div>`).join('');
+
+  // Year table
+  document.getElementById('yearTable').innerHTML = `
+    <thead><tr><th>Year</th><th>Token One-Time</th><th>Token Annual</th><th>Token Total</th><th>Trad Annual</th><th>Δ Saving</th><th>Cumulative Saving</th></tr></thead>
+    <tbody>${r.tokenYears.map((t,i)=>{
+      const saving = r.tradYears[i].annual - t.total;
+      const cumSaving = r.tradTCO5*(i+1)/5 - (r.oneTimeTotal + r.annualTotal*(i+1));
+      return `<tr>
+        <td>Year ${t.year}</td>
+        <td class="neg">${t.onetime>0?fUSD(t.onetime):'—'}</td>
+        <td>${fUSD(t.annual)}</td>
+        <td>${fUSD(t.total)}</td>
+        <td class="neut">${fUSD(r.tradYears[i].annual)}</td>
+        <td class="${saving>0?'pos':'neg'}">${fUSD(saving)}</td>
+        <td class="${cumSaving>0?'pos':'neg'}">${fUSD(cumSaving)}</td>
+      </tr>`;
+    }).join('')}
+    <tr><td>5-Year Total</td><td></td><td></td><td>${fUSD(r.tokenTCO5)}</td><td>${fUSD(r.tradTCO5)}</td><td class="${r.saving5>0?'pos':'neg'}">${fUSD(r.saving5)}</td><td class="${r.saving5>0?'pos':'neg'}">${fUSD(r.saving5)}</td></tr>
+    </tbody>`;
+}
+
+function exportCSV() {
+  if (!_res) { alert('Run model first.'); return; }
+  const r = _res;
+  let csv='Year,Token One-Time ($),Token Annual ($),Token Total ($),Trad Annual ($),Delta Saving ($)\n';
+  r.tokenYears.forEach((t,i)=>{ csv+=`${t.year},${t.onetime.toFixed(0)},${t.annual.toFixed(0)},${t.total.toFixed(0)},${r.tradYears[i].annual.toFixed(0)},${(r.tradYears[i].annual-t.total).toFixed(0)}\n`; });
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='rwa-tokenization-cost-model.csv';a.click();
+}
+
+function exportMemo() {
+  if (!_res) { alert('Run model first.'); return; }
+  const r = _res;
+  const ANAMES={bond:'Bond / Digital Debt',mmf:'Money-Market Fund',repo:'Repo / Collateral',re:'Real Estate Token',receivable:'Trade Receivable'};
+  const PNAMES={corda:'R3 Corda (CorDapp)',canton:'Digital Asset Canton (Daml)',fabric:'Hyperledger Fabric',besu:'Hyperledger Besu (EVM)',evm:'Public EVM Chain'};
+  const memo=`RWA TOKENIZATION COST MODEL — DECISION MEMO
+${'═'.repeat(62)}
+Generated: ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}
+Asset Class: ${ANAMES[r.asset]} | Notional: ${fUSD(r.notional)} | Platform: ${PNAMES[r.plat]}
+
+5-YEAR TCO COMPARISON
+${'─'.repeat(62)}
+Tokenized approach:   ${fUSD(r.tokenTCO5)} over 5 years
+Traditional approach: ${fUSD(r.tradTCO5)} over 5 years
+Net ${r.saving5>0?'saving':'cost'}: ${fUSD(Math.abs(r.saving5))} ${r.saving5>0?'(tokenized cheaper)':'(traditional cheaper)'}
+
+INVESTMENT REQUIRED
+${'─'.repeat(62)}
+One-time (legal + dev + onboarding): ${fUSD(r.oneTimeTotal)}
+Annual ongoing (node + custody + settlement + compliance): ${fUSD(r.annualTotal)}
+
+PLATFORM NOTES
+${'─'.repeat(62)}
+Platform: ${PNAMES[r.plat]}
+Language: ${r.P.lang}
+${r.P.note}
+
+BREAK-EVEN
+${'─'.replace(/-/g,'─').repeat(62)}
+Break-even volume: ${r.beVol!==null&&r.beVol>0?Math.ceil(r.beVol).toLocaleString()+' transactions/year':r.saving5>0?'Cheaper at all volumes':'Not reached in 5yr window'}
+Your volume: ${r.txnsYr.toLocaleString()} transactions/year
+
+---
+Generated by AINumbers.co Tool 66 · RWA Tokenization Cost Model
+Client-side · Zero PII · BIS/IOSCO/WEF/IDC benchmark data
+`;
+  const a=document.createElement('a');a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(memo);a.download='rwa-tokenization-cost-memo.txt';a.click();
+}
+</script>
+</body>
+</html>

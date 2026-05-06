@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tool 55 — DvP Reconciliation Engine · AINumbers.co</title>
+<meta name="description" content="Three-pass delivery-versus-payment reconciliation for tokenized asset settlement. Match on-chain transfer events against off-chain cash ledger. Flags exceptions: delivered without payment, paid without delivery, timing mismatch, amount mismatch. Client-side. Zero PII.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--radius:6px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.15}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1200px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:0 2rem;height:34px;display:flex;align-items:center}
+.lang-inner{max-width:1200px;margin:0 auto;width:100%;display:flex;gap:.5rem;justify-content:flex-end}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid transparent;padding:.2rem .5rem;cursor:pointer;line-height:1;transition:color .15s}
+.lang-btn.active{color:var(--teal-lt);border-bottom:1px solid var(--teal)}
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1200px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-mark-grid{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:32px;height:32px}
+.logo-text{display:flex;flex-direction:column;gap:2px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.logo-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);line-height:1}
+@media(max-width:600px){.logo-tag{display:none}}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bg);background:var(--teal);border:1px solid var(--teal);padding:.3rem .85rem;border-radius:6px;transition:all .2s}
+.nav-cta:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.7rem,3vw,2.6rem);color:var(--white);max-width:720px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-sub{font-size:.88rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.2rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}.badge-privacy::before{content:'·';color:var(--green)}
+.badge-spec{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.tool-section{padding:2.5rem 0 4rem;position:relative;z-index:1}
+.split{display:grid;grid-template-columns:300px 1fr;gap:2rem;align-items:start}
+@media(max-width:860px){.split{grid-template-columns:1fr}}
+.sidebar{background:var(--bg-2);border:1px solid var(--border);padding:1.5rem;position:sticky;top:86px}
+.panel-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
+.sec-head{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-lt);margin:1.2rem 0 .7rem;display:flex;align-items:center;gap:.6rem}
+.sec-head::after{content:'';flex:1;height:1px;background:var(--border)}
+.flbl{font-size:.74rem;color:var(--bright);display:block;margin-bottom:.3rem}
+.fhint{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);display:block;margin-top:.25rem}
+textarea,select,input[type=number]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .7rem;outline:none;transition:border-color .2s;-webkit-appearance:none}
+textarea{resize:vertical;min-height:120px;line-height:1.65}
+textarea::placeholder{color:var(--muted)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a6a8a'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .7rem center;padding-right:2rem;cursor:pointer}
+textarea:focus,select:focus,input:focus{border-color:var(--teal)}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.55rem 1rem;cursor:pointer;transition:all .2s;border:1px solid}
+.btn-primary{background:var(--teal);border-color:var(--teal);color:var(--bg);width:100%}
+.btn-primary:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--muted);color:var(--text)}
+.arow{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.divider{border:none;border-top:1px solid var(--border);margin:1.25rem 0}
+/* KPI bar */
+.kpi-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);margin-bottom:1.5rem}
+.kc{background:var(--bg-2);padding:.8rem 1rem}
+.kl{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.kv{font-family:'DM Serif Display',serif;font-size:1.15rem;color:var(--bright);line-height:1}
+.kv.g{color:var(--green)}.kv.r{color:var(--red)}.kv.w{color:var(--warn)}.kv.t{color:var(--teal)}
+/* Passes */
+.pass-row{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-bottom:1.5rem}
+.pass-box{background:var(--bg-2);border:1px solid var(--border);border-top:3px solid;padding:1rem}
+.pass-box.p1{border-top-color:var(--teal)}.pass-box.p2{border-top-color:var(--gold)}.pass-box.p3{border-top-color:var(--purple,#9B72F5)}
+.pbl{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+.pbv{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--bright)}
+/* Exception table */
+table{width:100%;border-collapse:collapse;font-size:.73rem;margin-bottom:1.5rem}
+th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.6rem .85rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-2);white-space:nowrap}
+td{padding:.6rem .85rem;border-bottom:1px solid rgba(30,47,74,.4);font-family:'JetBrains Mono',monospace;font-size:.7rem;vertical-align:top}
+tr:hover td{background:rgba(20,184,166,.02)}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .4rem;border-radius:2px;white-space:nowrap;display:inline-block}
+.tag-red{background:var(--red-dim);color:var(--red)}.tag-warn{background:rgba(245,158,11,.1);color:var(--warn)}.tag-green{background:var(--green-dim);color:var(--green)}.tag-teal{background:var(--teal-dim);color:var(--teal)}
+/* Aging */
+.aging-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-bottom:1.5rem}
+.age-box{background:var(--bg-2);border:1px solid var(--border);padding:.85rem;text-align:center}
+.age-lbl{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+.age-val{font-family:'DM Serif Display',serif;font-size:1.2rem}
+.section-title{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin:1.5rem 0 .75rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem;text-align:center}
+.empty-icon{font-size:2.5rem;margin-bottom:1rem;opacity:.4}
+.empty-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--muted);margin-bottom:.5rem}
+.empty-sub{font-size:.78rem;color:var(--muted);max-width:380px;line-height:1.7}
+.collapsible-trigger{display:flex;align-items:center;gap:.75rem;cursor:pointer;padding:1rem 0;border-top:1px solid var(--border);user-select:none}
+.collapsible-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.collapsible-icon{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--teal-lt);margin-left:auto;transition:transform .2s}
+.collapsible-trigger.open .collapsible-icon{transform:rotate(180deg)}
+.collapsible-body{display:none;padding:1.5rem;background:var(--bg-2);border:1px solid var(--border);border-top:none}
+.collapsible-body.open{display:block}
+.collapsible-body p{font-size:.82rem;color:var(--body);line-height:1.85;margin-bottom:.9rem}
+footer{border-top:1px solid var(--border);padding:2rem 0;margin-top:2rem;position:relative;z-index:1}
+.footer-inner-ai{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:1rem}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.logo-icon-sm{width:28px;height:28px;background:linear-gradient(135deg,var(--teal),#0D9488);border-radius:5px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px;color:var(--bg);font-family:'JetBrains Mono',monospace}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500;color:var(--bright)}
+.footer-links-ai{display:flex;gap:1.5rem}
+.footer-links-ai a{color:var(--body);font-size:.82rem;transition:color .15s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;align-items:center;gap:1rem;font-size:.72rem;color:var(--muted)}
+@media(max-width:600px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{flex-direction:column;gap:.4rem}}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active">EN</button><button class="lang-btn">ES</button><button class="lang-btn">FR</button><button class="lang-btn">AR</button><button class="lang-btn">PT</button><button class="lang-btn">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <div class="logo-mark-grid"><svg width="32" height="32" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg></div>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div><div class="logo-tag">DvP Reconciliation</div></div>
+  </a>
+  <a href="../index.html" class="nav-cta">All Tools</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Tool 55 · Core Infrastructure — Extends Tool 09</div>
+  <h1>DvP Reconciliation<br><em>Engine</em></h1>
+  <p class="hero-sub">Three-pass delivery-versus-payment reconciliation for tokenized asset settlement. Paste your on-chain token transfer log (Corda/Besu JSON) and off-chain cash ledger (CSV/JSON). The engine matches, flags exceptions, and buckets unmatched items into aging windows. No code executed — all parsing is client-side.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-privacy">Zero PII · Client-Side Only</span>
+    <span class="hero-badge badge-teal">Corda · Besu · CSV/JSON</span>
+    <span class="hero-badge badge-spec">3-Pass Match · Aging · AP2 Export</span>
+    <span class="hero-badge badge-spec">Extends Tool 09 (A2A Recon)</span>
+  </div>
+</div></div>
+
+<section class="tool-section"><div class="container">
+<div class="split">
+
+<div class="sidebar">
+  <div class="panel-lbl">Reconciliation Parameters</div>
+
+  <div class="sec-head">Tolerances</div>
+  <div style="margin-bottom:.85rem">
+    <span class="flbl">Timestamp Tolerance (seconds)</span>
+    <input type="number" id="timeTol" value="30" min="0" max="300">
+    <span class="fhint">Match on-chain vs off-chain timestamps within ±N seconds</span>
+  </div>
+  <div style="margin-bottom:.85rem">
+    <span class="flbl">Amount Tolerance (basis points)</span>
+    <input type="number" id="amtTol" value="5" min="0" max="100">
+    <span class="fhint">Accept ±N bps as amount match (rounding, FX haircut)</span>
+  </div>
+
+  <div class="sec-head">On-Chain Log (Corda / Besu)</div>
+  <div style="margin-bottom:.85rem">
+    <span class="flbl">Token Transfer Events (JSON)</span>
+    <textarea id="onchainInput" placeholder='[{"txId":"TX001","assetId":"BOND-EUR-001","amount":1000000,"timestamp":"2026-05-01T09:00:05Z","from":"Org1MSP","to":"Org2MSP","status":"SETTLED"},{"txId":"TX002","assetId":"BOND-EUR-002","amount":500000,"timestamp":"2026-05-01T09:15:22Z","from":"Org1MSP","to":"Org3MSP","status":"SETTLED"}]'></textarea>
+    <span class="fhint">Array of {txId, assetId, amount, timestamp, from, to, status}</span>
+  </div>
+
+  <div class="sec-head">Off-Chain Cash Ledger</div>
+  <div style="margin-bottom:.85rem">
+    <span class="flbl">Cash Settlement Entries (JSON)</span>
+    <textarea id="offchainInput" placeholder='[{"refId":"PAY001","linkedTxId":"TX001","amount":1000000,"timestamp":"2026-05-01T09:00:18Z","payer":"Org2MSP","payee":"Org1MSP","status":"CLEARED"},{"refId":"PAY003","linkedTxId":"TX999","amount":750000,"timestamp":"2026-05-01T10:45:00Z","payer":"Org3MSP","payee":"Org1MSP","status":"CLEARED"}]'></textarea>
+    <span class="fhint">Array of {refId, linkedTxId, amount, timestamp, payer, payee, status}</span>
+  </div>
+
+  <div class="divider"></div>
+  <button class="btn btn-primary" onclick="runRecon()">▶ Run 3-Pass Reconciliation</button>
+  <div class="arow">
+    <button class="btn btn-ghost" style="flex:1" onclick="loadSample()">Sample Data</button>
+    <button class="btn btn-ghost" style="flex:1" onclick="exportCSV()">↓ Exceptions CSV</button>
+    <button class="btn btn-ghost" style="flex:1" onclick="exportAP2()">↓ AP2</button>
+  </div>
+</div>
+
+<div>
+  <div id="emptyState" class="empty-state">
+    <div class="empty-icon">⚖️</div>
+    <div class="empty-title">No Reconciliation Yet</div>
+    <div class="empty-sub">Paste your on-chain token transfer log and off-chain cash ledger, set tolerances, and click Run 3-Pass Reconciliation.</div>
+  </div>
+  <div id="results" style="display:none">
+    <div class="kpi-bar" id="kpiBar"></div>
+    <div class="pass-row" id="passRow"></div>
+
+    <div class="section-title">Aging Buckets — Unmatched Items</div>
+    <div class="aging-grid" id="agingGrid"></div>
+
+    <div class="section-title">Exception Detail</div>
+    <div style="overflow-x:auto"><table id="exceptionTable"></table></div>
+
+    <div class="section-title">Matched Pairs</div>
+    <div style="overflow-x:auto"><table id="matchedTable"></table></div>
+  </div>
+</div>
+
+</div>
+
+<div style="margin-top:2rem">
+  <div class="collapsible-trigger" onclick="this.classList.toggle('open');document.getElementById('about').classList.toggle('open')"><span class="collapsible-label">About This Tool · 3-Pass Logic</span><span class="collapsible-icon">▾</span></div>
+  <div class="collapsible-body" id="about">
+    <p><strong>Pass 1 — Exact match:</strong> Match on-chain txId to off-chain linkedTxId with amount difference &lt; tolerance bps and timestamp difference &lt; tolerance seconds. Any pair satisfying all three criteria is marked MATCHED.</p>
+    <p><strong>Pass 2 — Fuzzy match:</strong> For unmatched items after Pass 1, attempt match by amount and approximate timestamp only (no txId link). Flags these as FUZZY_MATCH and marks for human review.</p>
+    <p><strong>Pass 3 — Exception classification:</strong> Remaining unmatched items are classified as: DELIVERY_ONLY (on-chain settled, no cash entry), PAYMENT_ONLY (cash cleared, no on-chain event), TIMING_MISMATCH (linked but timestamp outside tolerance), AMOUNT_MISMATCH (linked but amount outside tolerance bps).</p>
+    <p><strong>Aging buckets:</strong> Unmatched items are placed into buckets by time since the on-chain event: 0–1h (same-session), 1–4h (intraday), 4–24h (end-of-day risk), 24h+ (regulatory reporting threshold in most jurisdictions).</p>
+    <p><strong>Related tools:</strong> This tool extends <a href="09-a2a-reconciliation.html" style="color:var(--teal-lt)">Tool 09 (A2A Reconciliation)</a>. For settlement finality context see <a href="65-settlement-finality-auditor.html" style="color:var(--teal-lt)">Tool 65</a>.</p>
+  </div>
+  <div class="collapsible-trigger" onclick="this.classList.toggle('open');document.getElementById('priv').classList.toggle('open')"><span class="collapsible-label">Privacy Statement</span><span class="collapsible-icon">▾</span></div>
+  <div class="collapsible-body" id="priv"><p>All data parsed entirely in your browser. No data leaves your device. No network calls are made during reconciliation. The tool is safe for use with production transaction data.</p></div>
+</div>
+</div></section>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link"><div class="logo-icon-sm">AI</div><span class="footer-wordmark">AINumbers.co</span></a>
+    <div class="footer-links-ai"><a href="../index.html">All Tools</a><a href="../sitemap.html">Sitemap</a><a href="../contact.html">Contact</a></div>
+    <div class="footer-badge-ai"><span>🔒 Zero PII</span><span>📡 No server calls</span><span>💻 Client-side</span></div>
+  </div>
+</div></footer>
+
+<script>
+let _res = null;
+
+const SAMPLE_ONCHAIN = [
+  {txId:'TX001',assetId:'BOND-EUR-001',amount:1000000,timestamp:'2026-05-01T09:00:05Z',from:'Org1MSP',to:'Org2MSP',status:'SETTLED'},
+  {txId:'TX002',assetId:'BOND-EUR-002',amount:500000, timestamp:'2026-05-01T09:15:22Z',from:'Org1MSP',to:'Org3MSP',status:'SETTLED'},
+  {txId:'TX003',assetId:'MMF-USD-007', amount:250000, timestamp:'2026-05-01T10:00:00Z',from:'Org2MSP',to:'Org3MSP',status:'SETTLED'},
+  {txId:'TX004',assetId:'REPO-001',    amount:5000000,timestamp:'2026-05-01T14:30:00Z',from:'Org3MSP',to:'Org1MSP',status:'SETTLED'},
+];
+const SAMPLE_OFFCHAIN = [
+  {refId:'PAY001',linkedTxId:'TX001',amount:1000000,timestamp:'2026-05-01T09:00:18Z',payer:'Org2MSP',payee:'Org1MSP',status:'CLEARED'},
+  {refId:'PAY002',linkedTxId:'TX002',amount:502500, timestamp:'2026-05-01T09:15:40Z',payer:'Org3MSP',payee:'Org1MSP',status:'CLEARED'}, // amount mismatch
+  {refId:'PAY003',linkedTxId:'TX999',amount:750000, timestamp:'2026-05-01T10:45:00Z',payer:'Org3MSP',payee:'Org1MSP',status:'CLEARED'}, // no on-chain match
+];
+
+function loadSample() {
+  document.getElementById('onchainInput').value  = JSON.stringify(SAMPLE_ONCHAIN, null, 2);
+  document.getElementById('offchainInput').value = JSON.stringify(SAMPLE_OFFCHAIN, null, 2);
+}
+
+function parseJSON(str, label) {
+  try { return JSON.parse(str); }
+  catch(e) { alert('Invalid JSON in ' + label + ': ' + e.message); return null; }
+}
+
+function runRecon() {
+  const timeTolSec = parseInt(document.getElementById('timeTol').value) || 30;
+  const amtTolBps  = parseInt(document.getElementById('amtTol').value)  || 5;
+  const onchain    = parseJSON(document.getElementById('onchainInput').value.trim() || '[]', 'On-Chain Log');
+  const offchain   = parseJSON(document.getElementById('offchainInput').value.trim() || '[]', 'Off-Chain Ledger');
+  if (!onchain || !offchain) return;
+
+  const matches = [], exceptions = [];
+  const usedOff = new Set(), usedOn = new Set();
+
+  // Pass 1: Exact (txId link + amount + timestamp)
+  onchain.forEach(oc => {
+    const match = offchain.find(of =>
+      !usedOff.has(of.refId) &&
+      of.linkedTxId === oc.txId &&
+      Math.abs(of.amount - oc.amount) / oc.amount * 10000 <= amtTolBps &&
+      Math.abs(new Date(of.timestamp) - new Date(oc.timestamp)) / 1000 <= timeTolSec
+    );
+    if (match) {
+      usedOff.add(match.refId); usedOn.add(oc.txId);
+      matches.push({pass:1, onchain:oc, offchain:match, type:'EXACT_MATCH'});
+    }
+  });
+
+  // Pass 2: Fuzzy (amount + timestamp, no txId)
+  onchain.filter(oc => !usedOn.has(oc.txId)).forEach(oc => {
+    const match = offchain.find(of =>
+      !usedOff.has(of.refId) &&
+      Math.abs(of.amount - oc.amount) / oc.amount * 10000 <= amtTolBps * 2 &&
+      Math.abs(new Date(of.timestamp) - new Date(oc.timestamp)) / 1000 <= timeTolSec * 3
+    );
+    if (match) {
+      usedOff.add(match.refId); usedOn.add(oc.txId);
+      matches.push({pass:2, onchain:oc, offchain:match, type:'FUZZY_MATCH'});
+    }
+  });
+
+  // Pass 3: Classify remaining
+  onchain.filter(oc => !usedOn.has(oc.txId)).forEach(oc => {
+    const linkedOff = offchain.find(of => of.linkedTxId === oc.txId);
+    let type = 'DELIVERY_ONLY';
+    if (linkedOff) {
+      const dAmt = Math.abs(linkedOff.amount - oc.amount) / oc.amount * 10000;
+      const dTime = Math.abs(new Date(linkedOff.timestamp) - new Date(oc.timestamp)) / 1000;
+      type = dAmt > amtTolBps ? 'AMOUNT_MISMATCH' : 'TIMING_MISMATCH';
+    }
+    const ageH = (Date.now() - new Date(oc.timestamp)) / 3600000;
+    exceptions.push({type, onchain:oc, offchain:linkedOff||null, ageBucket:ageBucket(ageH)});
+  });
+
+  offchain.filter(of => !usedOff.has(of.refId)).forEach(of => {
+    const ageH = (Date.now() - new Date(of.timestamp)) / 3600000;
+    exceptions.push({type:'PAYMENT_ONLY', onchain:null, offchain:of, ageBucket:ageBucket(ageH)});
+  });
+
+  _res = {matches, exceptions, timeTolSec, amtTolBps};
+  render();
+}
+
+function ageBucket(h) {
+  if (h <= 1) return '0–1h';
+  if (h <= 4) return '1–4h';
+  if (h <= 24) return '4–24h';
+  return '24h+';
+}
+
+function fUSD(n) {
+  if (!n && n!==0) return '—';
+  if (Math.abs(n)>=1e6) return '$'+(n/1e6).toFixed(2)+'M';
+  if (Math.abs(n)>=1e3) return '$'+Math.round(n/1000)+'K';
+  return '$'+n;
+}
+
+function render() {
+  const r = _res;
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('results').style.display='block';
+
+  const total = r.matches.length + r.exceptions.length;
+  const matchPct = total > 0 ? (r.matches.length/total*100).toFixed(1) : 0;
+
+  document.getElementById('kpiBar').innerHTML = [
+    {l:'Total Items',v:total,c:'t'},
+    {l:'Matched',v:r.matches.length,c:'g'},
+    {l:'Exceptions',v:r.exceptions.length,c:r.exceptions.length>0?'r':'g'},
+    {l:'Match Rate',v:matchPct+'%',c:matchPct>=95?'g':matchPct>=80?'w':'r'},
+  ].map(k=>`<div class="kc"><div class="kl">${k.l}</div><div class="kv ${k.c}">${k.v}</div></div>`).join('');
+
+  const p1 = r.matches.filter(m=>m.pass===1).length;
+  const p2 = r.matches.filter(m=>m.pass===2).length;
+  const p3 = r.exceptions.length;
+  document.getElementById('passRow').innerHTML = `
+    <div class="pass-box p1"><div class="pbl">Pass 1 · Exact Match</div><div class="pbv" style="color:var(--green)">${p1} matched</div></div>
+    <div class="pass-box p2"><div class="pbl">Pass 2 · Fuzzy Match</div><div class="pbv" style="color:var(--warn)">${p2} matched</div></div>
+    <div class="pass-box p3"><div class="pbl">Pass 3 · Exceptions</div><div class="pbv" style="color:var(--red)">${p3} unmatched</div></div>`;
+
+  const buckets = {'0–1h':0,'1–4h':0,'4–24h':0,'24h+':0};
+  r.exceptions.forEach(e => buckets[e.ageBucket]++);
+  const ageCols = [{b:'0–1h',c:'var(--green)'},{b:'1–4h',c:'var(--teal)'},{b:'4–24h',c:'var(--warn)'},{b:'24h+',c:'var(--red)'}];
+  document.getElementById('agingGrid').innerHTML = ageCols.map(a=>`
+    <div class="age-box"><div class="age-lbl">${a.b}</div><div class="age-val" style="color:${a.c}">${buckets[a.b]}</div></div>`).join('');
+
+  const TYPE_TAG = {EXACT_MATCH:'tag-green',FUZZY_MATCH:'tag-warn',DELIVERY_ONLY:'tag-red',PAYMENT_ONLY:'tag-red',AMOUNT_MISMATCH:'tag-red',TIMING_MISMATCH:'tag-warn'};
+
+  document.getElementById('exceptionTable').innerHTML = r.exceptions.length ? `
+    <thead><tr><th>Type</th><th>On-Chain TxID</th><th>Asset</th><th>On-Chain Amt</th><th>Off-Chain Amt</th><th>Age Bucket</th></tr></thead>
+    <tbody>${r.exceptions.map(e=>`<tr>
+      <td><span class="tag ${TYPE_TAG[e.type]}">${e.type}</span></td>
+      <td style="color:var(--bright)">${e.onchain?.txId||'—'}</td>
+      <td>${e.onchain?.assetId||e.offchain?.refId||'—'}</td>
+      <td>${fUSD(e.onchain?.amount)}</td>
+      <td>${fUSD(e.offchain?.amount)}</td>
+      <td><span class="tag ${e.ageBucket==='24h+'?'tag-red':e.ageBucket==='4–24h'?'tag-warn':'tag-teal'}">${e.ageBucket}</span></td>
+    </tr>`).join('')}</tbody>` : '<tbody><tr><td colspan="6" style="text-align:center;color:var(--green);padding:1.5rem">No exceptions — all items reconciled</td></tr></tbody>';
+
+  document.getElementById('matchedTable').innerHTML = r.matches.length ? `
+    <thead><tr><th>Pass</th><th>On-Chain TxID</th><th>Asset</th><th>Amount</th><th>Δ Amount</th><th>Δ Time (s)</th></tr></thead>
+    <tbody>${r.matches.map(m=>{
+      const dAmt = m.offchain ? Math.abs(m.offchain.amount - m.onchain.amount) : 0;
+      const dTime = m.offchain ? Math.round(Math.abs(new Date(m.offchain.timestamp)-new Date(m.onchain.timestamp))/1000) : 0;
+      return `<tr>
+        <td><span class="tag ${m.pass===1?'tag-green':'tag-warn'}">Pass ${m.pass}</span></td>
+        <td style="color:var(--bright)">${m.onchain.txId}</td>
+        <td>${m.onchain.assetId}</td>
+        <td>${fUSD(m.onchain.amount)}</td>
+        <td>${dAmt>0?fUSD(dAmt):'Exact'}</td>
+        <td>${dTime}s</td>
+      </tr>`;
+    }).join('')}</tbody>` : '';
+}
+
+function exportCSV() {
+  if (!_res) { alert('Run reconciliation first.'); return; }
+  let csv='Type,OnChain TxID,Asset,OnChain Amount,OffChain Amount,Age Bucket,On-Chain Timestamp\n';
+  _res.exceptions.forEach(e=>{
+    csv+=`"${e.type}","${e.onchain?.txId||''}","${e.onchain?.assetId||e.offchain?.refId||''}",${e.onchain?.amount||''},${e.offchain?.amount||''},"${e.ageBucket}","${e.onchain?.timestamp||e.offchain?.timestamp||''}"\n`;
+  });
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='dvp-exceptions.csv';a.click();
+}
+
+function exportAP2() {
+  if (!_res) { alert('Run reconciliation first.'); return; }
+  const r=_res;
+  const ap2={
+    ap2:'1.0',tool:'55-dvp-reconciliation',timestamp:new Date().toISOString(),
+    inputs:{timeTolSec:r.timeTolSec,amtTolBps:r.amtTolBps},
+    outputs:{total:r.matches.length+r.exceptions.length,matched:r.matches.length,exceptions:r.exceptions.length},
+    exceptions:r.exceptions,matches:r.matches
+  };
+  const a=document.createElement('a');a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(ap2,null,2));a.download='dvp-reconciliation-ap2.json';a.click();
+}
+</script>
+</body>
+</html>

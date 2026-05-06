@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tool 64 — Chain Privacy Topology Visualizer · AINumbers.co</title>
+<meta name="description" content="Visualize Hyperledger Fabric PDC topology and Canton sub-transaction privacy models. Parse configtx.yaml PDC definitions or Canton party-to-participant mapping to produce a color-coded visibility heatmap: teal=fully private, amber=partially visible, red=overexposed. Client-side. Zero PII.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.15}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1200px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:0 2rem;height:34px;display:flex;align-items:center}
+.lang-inner{max-width:1200px;margin:0 auto;width:100%;display:flex;gap:.5rem;justify-content:flex-end}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid transparent;padding:.2rem .5rem;cursor:pointer;line-height:1;transition:color .15s}
+.lang-btn.active{color:var(--teal-lt);border-bottom:1px solid var(--teal)}
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1200px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-mark-grid{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:32px;height:32px}
+.logo-text{display:flex;flex-direction:column;gap:2px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.logo-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);line-height:1}
+@media(max-width:600px){.logo-tag{display:none}}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bg);background:var(--teal);border:1px solid var(--teal);padding:.3rem .85rem;border-radius:6px;transition:all .2s}
+.nav-cta:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.7rem,3vw,2.6rem);color:var(--white);max-width:720px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-sub{font-size:.88rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.2rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}.badge-privacy::before{content:'·';color:var(--green)}
+.badge-spec{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.tool-section{padding:2.5rem 0 4rem;position:relative;z-index:1}
+/* Common layout */
+.tool-grid{display:grid;grid-template-columns:300px 1fr;gap:2px;background:var(--border);border:1px solid var(--border)}
+@media(max-width:860px){.tool-grid{grid-template-columns:1fr}}
+.config-panel{background:var(--bg-2);padding:1.75rem;position:sticky;top:86px;max-height:calc(100vh - 86px);overflow-y:auto}
+.output-panel{background:var(--bg-3);display:flex;flex-direction:column;min-height:520px}
+.output-body{flex:1;padding:1.5rem;overflow-y:auto}
+.output-toolbar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.75rem 1.5rem;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.output-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+/* Panel components */
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
+.sec-head{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-lt);margin:1.2rem 0 .7rem;display:flex;align-items:center;gap:.6rem}
+.sec-head::after{content:'';flex:1;height:1px;background:var(--border)}
+.flbl{font-size:.74rem;color:var(--bright);display:block;margin-bottom:.3rem}
+.fhint{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);display:block;margin-top:.25rem}
+select,input[type=number],input[type=text]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.74rem;padding:.42rem .65rem;outline:none;transition:border-color .2s;-webkit-appearance:none;margin-bottom:.85rem}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a6a8a'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .7rem center;padding-right:2rem;cursor:pointer}
+select:focus,input:focus{border-color:var(--teal)}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.55rem .75rem;outline:none;resize:vertical;min-height:120px;line-height:1.65;transition:border-color .2s;margin-bottom:.85rem}
+textarea::placeholder{color:var(--muted)}
+textarea:focus{border-color:var(--teal)}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.55rem 1rem;cursor:pointer;transition:all .2s;border:1px solid}
+.btn-primary{background:var(--teal);border-color:var(--teal);color:var(--bg);width:100%}
+.btn-primary:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--muted);color:var(--text)}
+.arow{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.divider{border:none;border-top:1px solid var(--border);margin:1.25rem 0}
+/* KPI bar */
+.kpi-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:1px;background:var(--border);margin-bottom:1.5rem}
+.kc{background:var(--bg-2);padding:.8rem 1rem}
+.kl{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.kv{font-family:'DM Serif Display',serif;font-size:1.15rem;color:var(--bright);line-height:1}
+.kv.g{color:var(--green)}.kv.r{color:var(--red)}.kv.w{color:var(--warn)}.kv.t{color:var(--teal)}.kv.p{color:var(--purple)}.kv.gold{color:var(--gold)}
+/* Table */
+table{width:100%;border-collapse:collapse;font-size:.74rem;margin-bottom:1.5rem}
+th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.6rem .85rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-2);white-space:nowrap}
+td{padding:.6rem .85rem;border-bottom:1px solid rgba(30,47,74,.4);vertical-align:top}
+tr:hover td{background:rgba(20,184,166,.02)}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .4rem;border-radius:2px;white-space:nowrap;display:inline-block}
+.tag-green{background:var(--green-dim);color:var(--green)}.tag-warn{background:rgba(245,158,11,.1);color:var(--warn)}.tag-red{background:var(--red-dim);color:var(--red)}.tag-teal{background:var(--teal-dim);color:var(--teal)}.tag-purple{background:var(--purple-dim);color:var(--purple)}.tag-muted{background:var(--bg-3);color:var(--muted)}
+/* Cards */
+.card-list{display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.5rem}
+.card{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);padding:1rem 1.25rem}
+.card.pass{border-left-color:var(--green)}.card.warn{border-left-color:var(--warn)}.card.fail{border-left-color:var(--red)}.card.purple{border-left-color:var(--purple)}
+.card-title{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--bright);margin-bottom:.35rem}
+.card-meta{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--body);margin-bottom:.5rem}
+.card-body{font-size:.74rem;color:var(--body);line-height:1.6}
+/* Section title */
+.sec-title{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin:1.5rem 0 .75rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+/* Empty state */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem;text-align:center;flex:1}
+.empty-icon{font-size:2.5rem;margin-bottom:1rem;opacity:.4}
+.empty-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--muted);margin-bottom:.5rem}
+.empty-sub{font-size:.78rem;color:var(--muted);max-width:380px;line-height:1.7}
+/* Collapsible */
+.coll-trigger{display:flex;align-items:center;gap:.75rem;cursor:pointer;padding:1rem 0;border-top:1px solid var(--border);user-select:none}
+.coll-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.coll-icon{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--teal-lt);margin-left:auto;transition:transform .2s}
+.coll-trigger.open .coll-icon{transform:rotate(180deg)}
+.coll-body{display:none;padding:1.5rem;background:var(--bg-2);border:1px solid var(--border);border-top:none}
+.coll-body.open{display:block}
+.coll-body p{font-size:.82rem;color:var(--body);line-height:1.85;margin-bottom:.9rem}
+/* pre/code */
+pre{background:var(--bg);border:1px solid var(--border);border-left:3px solid var(--teal);padding:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.68rem;line-height:1.75;color:var(--text);white-space:pre-wrap;word-break:break-word;overflow-x:auto;margin-bottom:1rem}
+/* Wizard step */
+.step-bar{display:flex;gap:1px;background:var(--border);margin-bottom:1.5rem}
+.step{flex:1;background:var(--bg-2);padding:.65rem .85rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:background .15s}
+.step.active{background:var(--bg-4);color:var(--teal-lt)}
+.step.done{background:rgba(34,197,94,.06);color:var(--green)}
+/* Footer */
+footer{border-top:1px solid var(--border);padding:2rem 0;margin-top:2rem;position:relative;z-index:1}
+.footer-inner-ai{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:1rem}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.logo-icon-sm{width:28px;height:28px;background:linear-gradient(135deg,var(--teal),#0D9488);border-radius:5px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px;color:var(--bg);font-family:'JetBrains Mono',monospace}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500;color:var(--bright)}
+.footer-links-ai{display:flex;gap:1.5rem}
+.footer-links-ai a{color:var(--body);font-size:.82rem;transition:color .15s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;align-items:center;gap:1rem;font-size:.72rem;color:var(--muted)}
+@media(max-width:600px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{flex-direction:column;gap:.4rem}}
+
+
+.priv-grid{display:grid;gap:1px;background:var(--border);margin-bottom:1.5rem}
+.priv-cell{padding:.75rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;text-align:center;cursor:default;transition:opacity .15s}
+.priv-cell:hover{opacity:.85}
+.pc-private{background:rgba(20,184,166,.2);color:var(--teal-lt)}
+.pc-partial{background:rgba(212,168,71,.15);color:var(--gold)}
+.pc-public{background:rgba(239,68,68,.15);color:var(--red)}
+.pc-none{background:var(--bg-2);color:var(--muted)}
+.legend{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem}
+.leg-item{display:flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--body)}
+.leg-dot{width:12px;height:12px;border-radius:2px;flex-shrink:0}
+.pdc-card{background:var(--bg-2);border:1px solid var(--border);border-left:4px solid;padding:1rem 1.25rem;margin-bottom:.5rem}
+.pdc-card.private{border-left-color:var(--teal)}.pdc-card.partial{border-left-color:var(--gold)}.pdc-card.public{border-left-color:var(--red)}
+
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active">EN</button><button class="lang-btn">ES</button><button class="lang-btn">FR</button><button class="lang-btn">AR</button><button class="lang-btn">PT</button><button class="lang-btn">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <div class="logo-mark-grid"><svg width="32" height="32" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg></div>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div><div class="logo-tag">Privacy Topology</div></div>
+  </a>
+  <a href="../index.html" class="nav-cta">All Tools</a>
+</div></nav>
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Tool 64 · Core Infrastructure</div>
+  <h1>Chain Privacy<br><em>Topology Visualizer</em></h1>
+  <p class="hero-sub">Visualize who can see what on your permissioned network. Parse Fabric configtx.yaml Private Data Collection definitions or Canton party-to-participant mapping JSON to produce a color-coded privacy topology: teal for fully private bilateral channels, amber for partially visible multi-party PDCs, and red for overexposed public channel data.</p>
+  <div class="hero-meta"><span class="hero-badge badge-privacy">Zero PII · Air-Gapped</span><span class="hero-badge badge-teal">Fabric PDC · Canton Sub-Tx Privacy</span><span class="hero-badge badge-spec">Privacy Heatmap · Risk Matrix</span><span class="hero-badge badge-spec">Org1MSP · Org2MSP · Org3MSP</span></div>
+</div></div>
+<section class="tool-section"><div class="container">
+
+<div class="tool-grid">
+<div class="config-panel">
+  <div class="panel-label">Privacy Topology Analyzer</div>
+  <div class="sec-head">Platform</div>
+  <select id="platform" onchange="updatePlaceholder()">
+    <option value="fabric">Hyperledger Fabric (configtx.yaml PDC)</option>
+    <option value="canton">Digital Asset Canton (party mapping JSON)</option>
+  </select>
+  <div class="sec-head">Config Input</div>
+  <span class="flbl">Paste Config / Mapping</span>
+  <textarea id="configInput" style="min-height:200px"></textarea>
+  <span class="fhint" id="inputHint">PDC definitions from configtx.yaml or Canton party-to-participant mapping</span>
+  <div class="divider"></div>
+  <button class="btn btn-primary" onclick="analyze()">▶ Visualize Privacy Topology</button>
+  <div class="arow">
+    <button class="btn btn-ghost" style="flex:1" onclick="loadSample()">Sample Config</button>
+    <button class="btn btn-ghost" style="flex:1" onclick="exportAP2()">↓ AP2</button>
+  </div>
+  <div class="divider"></div>
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:rgba(20,184,166,.4)"></div>Fully Private (bilateral)</div>
+    <div class="leg-item"><div class="leg-dot" style="background:rgba(212,168,71,.4)"></div>Partially Visible</div>
+    <div class="leg-item"><div class="leg-dot" style="background:rgba(239,68,68,.35)"></div>Overexposed / Public</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--bg-3)"></div>No access</div>
+  </div>
+</div>
+<div class="output-panel">
+  <div class="output-toolbar"><span class="output-title">Privacy Topology Report</span><button class="btn btn-ghost" onclick="window.print()">⎙ Print</button></div>
+  <div class="output-body">
+    <div id="emptyState" class="empty-state">
+      <div class="empty-icon">🔐</div>
+      <div class="empty-title">No Config Loaded</div>
+      <div class="empty-sub">Select platform, paste your PDC configuration or Canton party mapping, and click Visualize Privacy Topology.</div>
+    </div>
+    <div id="results" style="display:none">
+      <div class="kpi-bar" id="kpiBar"></div>
+      <div class="sec-title">Org ↔ Collection Visibility Matrix</div>
+      <div id="heatmap" style="overflow-x:auto"></div>
+      <div class="sec-title" style="margin-top:1.5rem">Collection / Channel Privacy Profiles</div>
+      <div id="pdcCards"></div>
+      <div class="sec-title">Risk Findings</div>
+      <div id="riskFindings"></div>
+    </div>
+  </div>
+</div>
+</div>
+<div style="margin-top:2rem">
+  <div class="coll-trigger" onclick="this.classList.toggle('open');document.getElementById('about').classList.toggle('open')"><span class="coll-lbl">About This Tool</span><span class="coll-icon">▾</span></div>
+  <div class="coll-body" id="about">
+    <p><strong>Fabric PDC model:</strong> Private Data Collections (PDCs) allow subsets of channel organisations to store private transaction data. The collection policy defines which MSPs can access the private data. The public channel ledger stores only a hash of the private data. This tool visualises which organisations can see which collections, based on the policy definitions in configtx.yaml.</p>
+    <p><strong>Reference architecture:</strong> The canonical 3-bank Fabric design uses bilateral PDCs (PDC_Org1_Org2, PDC_Org2_Org3, PDC_Org1_Org3) plus a 3-way Travel Rule collection (PDC_TR_DE_SA). This tool correctly identifies the 3-way PDC as "partially visible" and the bilateral PDCs as "fully private" relative to the excluded organisation.</p>
+    <p><strong>Canton sub-transaction privacy:</strong> The Canton Global Synchronizer's 13 Super Validators are content-blind — they see transaction hashes but not payload data. This tool maps Canton party-to-participant assignments and identifies which Daml contract fields are visible to which participants.</p>
+  </div>
+</div>
+</div></section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link"><div class="logo-icon-sm">AI</div><span class="footer-wordmark">AINumbers.co</span></a>
+    <div class="footer-links-ai"><a href="../index.html">All Tools</a><a href="../sitemap.html">Sitemap</a><a href="../contact.html">Contact</a></div>
+    <div class="footer-badge-ai"><span>🔒 Zero PII</span><span>📡 No server calls</span><span>💻 Client-side</span></div>
+  </div>
+</div></footer>
+<script>
+
+const SAMPLES = {
+  fabric: `# Fabric PDC Configuration — 3-org trade network
+# Reference: Post Oak Labs Fabric A2A Architecture
+# Org1MSP: Munich, Org2MSP: Paris, Org3MSP: Riyadh
+
+collections:
+  - name: PDC_Org1_Org2
+    policy: "OR('Org1MSP.member', 'Org2MSP.member')"
+    requiredPeerCount: 1
+    maxPeerCount: 2
+    blockToLive: 100
+
+  - name: PDC_Org2_Org3
+    policy: "OR('Org2MSP.member', 'Org3MSP.member')"
+    requiredPeerCount: 1
+    maxPeerCount: 2
+    blockToLive: 100
+
+  - name: PDC_Org1_Org3
+    policy: "OR('Org1MSP.member', 'Org3MSP.member')"
+    requiredPeerCount: 1
+    maxPeerCount: 2
+    blockToLive: 100
+
+  - name: PDC_TR_DE_SA
+    policy: "OR('Org1MSP.member', 'Org2MSP.member', 'Org3MSP.member')"
+    requiredPeerCount: 2
+    maxPeerCount: 3
+    blockToLive: 0
+    memberOnlyRead: true`,
+  canton: JSON.stringify({
+    participants:['BankDE','BankFR','BankSA','DTCC'],
+    parties:['ClearstreamD7','EuroclearDFMI','DTCCComposerX','BroadridgeDLR'],
+    mappings:[
+      {party:'ClearstreamD7',participants:['BankDE','BankFR'],visibility:'bilateral'},
+      {party:'EuroclearDFMI',participants:['BankFR','BankSA'],visibility:'bilateral'},
+      {party:'DTCCComposerX',participants:['DTCC','BankDE','BankFR','BankSA'],visibility:'multi-party'},
+      {party:'BroadridgeDLR',participants:['BankDE','BankSA'],visibility:'bilateral'},
+    ],
+    globalSynchronizer:{superValidators:13,contentBlind:true,note:'13 Super Validators see tx hashes only — content-blind'}
+  }, null, 2)
+};
+
+function loadSample(){ document.getElementById('configInput').value = SAMPLES[document.getElementById('platform').value]; }
+function updatePlaceholder(){
+  const p = document.getElementById('platform').value;
+  document.getElementById('inputHint').textContent = p==='fabric'?'PDC policy definitions from configtx.yaml':'Canton party-to-participant mapping JSON';
+}
+
+let _res = null;
+
+function analyze(){
+  const plat = document.getElementById('platform').value;
+  const raw = document.getElementById('configInput').value.trim();
+  if (!raw){alert('Paste configuration first.');return;}
+
+  let collections=[], orgs=[], risks=[];
+
+  if (plat === 'fabric') {
+    // Parse YAML-like PDC definitions
+    const nameMatches = raw.match(/name:\s*([^\n]+)/g)||[];
+    const policyMatches = raw.match(/policy:\s*"([^"]+)"/g)||[];
+    const allOrgs = new Set();
+    collections = nameMatches.map((nm,i)=>{
+      const name = nm.replace(/name:\s*/,'').trim();
+      const policy = policyMatches[i]?.replace(/policy:\s*"/,'').replace(/"$/,'') || '';
+      const memberOrgs = (policy.match(/\'([^']+)\.member\'/g)||[]).map(m=>m.replace(/['\.member]/g,''));
+      memberOrgs.forEach(o=>allOrgs.add(o));
+      const visType = memberOrgs.length===2?'private':memberOrgs.length>=3?'partial':'public';
+      return {name, policy, memberOrgs, visType};
+    });
+    orgs = [...allOrgs].sort();
+
+    // Check for public channel exposure
+    const publicChannelOrgs = orgs.length;
+    if (publicChannelOrgs > 2) risks.push({sev:'warn',msg:'Public channel is visible to all '+orgs.length+' organisations. Ensure no sensitive data is written directly to public channel state — use PDCs for all confidential data.'});
+    const trPDC = collections.find(c=>/PDC_TR|travel/i.test(c.name));
+    if (!trPDC) risks.push({sev:'warn',msg:'No Travel Rule PDC detected. pacs.008 payload hash (trHash) should be stored in a PDC scoped to the relevant organisations, not in public channel state.'});
+    collections.forEach(c=>{
+      if (c.visType==='public') risks.push({sev:'fail',msg:`${c.name} is visible to all organisations — review policy definition.`});
+    });
+
+  } else {
+    // Canton
+    let json;
+    try{json=JSON.parse(raw);}catch(e){alert('Invalid JSON: '+e.message);return;}
+    orgs = json.participants||[];
+    collections = (json.mappings||[]).map(m=>({
+      name:m.party, memberOrgs:m.participants, policy:`Participants: ${m.participants.join(', ')}`,
+      visType:m.visibility==='bilateral'?'private':m.visibility==='multi-party'?'partial':'public'
+    }));
+    if (json.globalSynchronizer?.contentBlind) {
+      risks.push({sev:'pass',msg:`Global Synchronizer: ${json.globalSynchronizer.superValidators} Super Validators are content-blind — they see transaction hashes only. Payload data is not exposed to validators.`});
+    }
+  }
+
+  _res = {plat, orgs, collections, risks};
+
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('results').style.display='block';
+
+  const privCount = collections.filter(c=>c.visType==='private').length;
+  const partCount = collections.filter(c=>c.visType==='partial').length;
+  const pubCount  = collections.filter(c=>c.visType==='public').length;
+
+  document.getElementById('kpiBar').innerHTML=[
+    {l:'Collections / Channels',v:collections.length,c:'t'},
+    {l:'Fully Private',v:privCount,c:'g'},
+    {l:'Partially Visible',v:partCount,c:'w'},
+    {l:'Overexposed',v:pubCount,c:pubCount>0?'r':'g'},
+  ].map(k=>`<div class="kc"><div class="kl">${k.l}</div><div class="kv ${k.c}">${k.v}</div></div>`).join('');
+
+  // Heatmap
+  const gridCols = orgs.length+1;
+  let heatmapHtml = `<div class="priv-grid" style="grid-template-columns: 160px ${orgs.map(()=>'1fr').join(' ')}">`;
+  heatmapHtml += `<div class="priv-cell pc-none" style="font-weight:500;color:var(--gold)">Collection</div>`;
+  orgs.forEach(o=>{ heatmapHtml += `<div class="priv-cell pc-none" style="color:var(--teal-lt)">${o}</div>`; });
+  collections.forEach(col=>{
+    heatmapHtml += `<div class="priv-cell pc-none" style="text-align:left;padding-left:.85rem;color:var(--text)">${col.name}</div>`;
+    orgs.forEach(org=>{
+      const has = col.memberOrgs.includes(org);
+      const cls = has ? (col.visType==='private'?'pc-private':col.visType==='partial'?'pc-partial':'pc-public') : 'pc-none';
+      heatmapHtml += `<div class="priv-cell ${cls}" title="${org} ${has?'CAN':'CANNOT'} see ${col.name}">${has?'●':'○'}</div>`;
+    });
+  });
+  heatmapHtml += '</div>';
+  document.getElementById('heatmap').innerHTML = heatmapHtml;
+
+  document.getElementById('pdcCards').innerHTML = collections.map(c=>`
+    <div class="pdc-card ${c.visType}">
+      <strong style="color:var(--bright)">${c.name}</strong>
+      <span class="tag ${c.visType==='private'?'tag-teal':c.visType==='partial'?'tag-warn':'tag-red'}" style="margin-left:.5rem">${c.visType==='private'?'Fully Private':c.visType==='partial'?'Partially Visible':'Overexposed'}</span>
+      <div style="font-size:.7rem;color:var(--body);margin-top:.4rem">Visible to: ${c.memberOrgs.join(', ')}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);margin-top:.25rem">Policy: ${c.policy}</div>
+    </div>`).join('');
+
+  document.getElementById('riskFindings').innerHTML = risks.length ? risks.map(r=>`
+    <div class="card ${r.sev}" style="margin-bottom:.4rem">
+      <div class="card-body">${r.sev==='pass'?'✓':r.sev==='warn'?'⚠':'✗'} ${r.msg}</div>
+    </div>`).join('') : '<div style="color:var(--green);font-size:.78rem;padding:.75rem">No risk findings for this configuration.</div>';
+}
+
+function exportAP2(){
+  if(!_res){alert('Run analysis first.');return;}
+  const ap2={ap2:'1.0',tool:'64-chain-privacy-topology',timestamp:new Date().toISOString(),inputs:{platform:_res.plat},outputs:{orgs:_res.orgs,collections:_res.collections.map(c=>({name:c.name,visType:c.visType,memberOrgs:c.memberOrgs})),risks:_res.risks}};
+  const a=document.createElement('a');a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(ap2,null,2));a.download='privacy-topology-ap2.json';a.click();
+}
+updatePlaceholder();
+
+</script>
+</body>
+</html>

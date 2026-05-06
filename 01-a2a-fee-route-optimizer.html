@@ -1,0 +1,2058 @@
+<!-- PostOakLabs.com | MIT License | Built with Claude -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A2A Fee Calculator + Route Optimizer | AINumbers.co</title>
+<meta name="description" content="Compare card vs A2A rail costs and get an AI-powered recommendation for the optimal payment route — FedNow, RTP, Same-Day ACH, or Next-Day ACH. Free, browser-based, zero data transmitted.">
+<meta name="keywords" content="A2A fee calculator, payment route optimizer, FedNow cost, RTP fees, ACH fees vs card, pay by bank, FedNow vs card savings">
+<meta name="robots" content="index, follow">
+<meta name="author" content="AINumbers.co">
+<link rel="canonical" href="https://ainumbers.co/tools/01-a2a-fee-route-optimizer.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="A2A Fee Calculator + Route Optimizer | AINumbers.co">
+<meta property="og:description" content="Compare card vs A2A costs and get a plain-English routing recommendation for FedNow, RTP, or ACH. Free, client-side, zero PII.">
+<meta property="og:url" content="https://ainumbers.co/tools/01-a2a-fee-route-optimizer.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+/* ── CSS VARIABLES ── matches POL design system exactly */
+:root {
+  /* AINumbers.co design tokens */
+  --bg:        #080E1A;
+  --bg-2:      #0D1627;
+  --bg-3:      #111E35;
+  --bg-4:      #162340;
+  --border:    #1E2F4A;
+  --border-2:  #263855;
+  --muted:     #3A5270;
+  --body:      #6888A8;
+  --text:      #A8C4DE;
+  --bright:    #D4E8F8;
+  --white:     #EEF6FD;
+  --teal:      #14B8A6;
+  --teal-dim:  rgba(20,184,166,.12);
+  --teal-glow: rgba(20,184,166,.06);
+  --teal-lt:   #2DD4BF;
+  --gold:      #D4A847;
+  --gold-dim:  rgba(212,168,71,.12);
+  --purple:    #9B72F5;
+  --purple-dim:rgba(155,114,245,.12);
+  --green:     #22C55E;
+  --green-dim: rgba(34,197,94,.12);
+  --red:       #EF4444;
+  --warn:      #F59E0B;
+  --radius:    6px;
+  --radius-lg: 10px;
+  --shadow:    0 4px 24px rgba(0,0,0,.4);
+
+  /* Legacy alias tokens so existing CSS rules work unchanged */
+  --ink:       var(--bg);
+  --deep:      var(--bg-2);
+  --navy:      var(--bg-3);
+  --panel:     var(--bg-4);
+  --edge:      var(--border);
+  --rim:       var(--border-2);
+  --accent:    var(--teal);
+  --accent-lt: var(--teal-lt);
+  --gold-lt:   #E8C06A;
+  --green-lt:  var(--green);
+  --green-bg:  var(--green-dim);
+  --red-lt:    #F87171;
+  --warn-bg:   rgba(245,158,11,.08);
+  --warn-lt:   #FCD34D;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Sora', sans-serif;
+  font-weight: 300;
+  line-height: 1.7;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(20,184,166,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20,184,166,.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+h1,h2,h3,h4 { font-family: 'DM Serif Display', serif; font-weight: 400; line-height: 1.15; }
+a { color: inherit; text-decoration: none; }
+.container { max-width: 980px; margin: 0 auto; padding: 0 2rem; position: relative; z-index: 1; }
+
+/* ── LANG BAR ── */
+
+
+
+
+
+/* ── NAV ── */
+nav {
+  padding: 0 2rem; height: 52px;
+  border-bottom: 1px solid var(--edge);
+  background: rgba(8,14,26,.92);
+  position: sticky; top: 0; z-index: 100;
+  backdrop-filter: blur(16px);
+}
+.nav-inner {
+  max-width: 980px; margin: 0 auto; height: 100%;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.nav-logo { font-family: 'DM Serif Display', serif; font-size: 1.05rem; color: var(--bright); letter-spacing: 0.02em; }
+.nav-logo span { color: var(--gold); }
+.nav-links { display: flex; gap: 1.5rem; align-items: center; }
+.nav-links a { font-family: 'JetBrains Mono', monospace; font-size: 0.58rem; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); transition: color 0.2s; }
+.nav-links a:hover { color: var(--accent-lt); }
+.nav-cta {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.58rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--white); background: var(--accent); border: 1px solid var(--accent);
+  padding: 0.3rem 0.8rem; transition: all 0.2s;
+}
+.nav-cta:hover { background: var(--accent-lt); border-color: var(--accent-lt); }
+
+/* ── HERO ── */
+.hero {
+  padding: 3.5rem 0 3rem;
+  border-bottom: 1px solid var(--edge);
+  position: relative; overflow: hidden;
+}
+.hero::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+.hero-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.57rem; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--accent-lt); margin-bottom: 1rem;
+  display: flex; align-items: center; gap: 0.75rem;
+}
+.hero-eyebrow::before { content: ''; display: block; width: 28px; height: 1px; background: var(--accent); }
+.hero h1 { font-size: clamp(1.7rem, 3vw, 2.6rem); color: var(--white); max-width: 680px; margin-bottom: 0.75rem; }
+.hero-sub { font-size: 0.88rem; color: var(--body); max-width: 580px; line-height: 1.85; margin-bottom: 1.2rem; }
+.hero-meta { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+.hero-privacy {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.52rem;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--muted); border: 1px solid var(--edge); padding: 0.35rem 0.75rem;
+}
+.hero-privacy::before { content: '·'; color: var(--green-lt); }
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.52rem;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--gold); border: 1px solid rgba(192,144,64,0.3); padding: 0.35rem 0.75rem;
+}
+
+/* ── TOOL LAYOUT ── */
+.tool-section { padding: 3rem 0 4rem; }
+.tool-grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 2px;
+  background: var(--edge);
+  border: 1px solid var(--edge);
+}
+
+/* ── INPUT PANEL ── */
+.input-panel { background: var(--deep); padding: 2rem; overflow-y: auto; }
+.panel-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem; border-bottom: 1px solid var(--edge);
+}
+.input-group { margin-bottom: 1.4rem; }
+.input-label {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 0.4rem;
+}
+.input-label-text { font-size: 0.78rem; color: var(--bright); font-weight: 400; }
+.input-label-hint { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; color: var(--muted); letter-spacing: 0.08em; }
+.input-wrap { position: relative; display: flex; align-items: center; }
+.input-prefix, .input-suffix {
+  position: absolute;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--muted);
+  pointer-events: none; z-index: 1;
+}
+.input-prefix { left: 0.75rem; }
+.input-suffix { right: 0.75rem; }
+
+input[type="number"] {
+  width: 100%; background: var(--navy); border: 1px solid var(--edge);
+  color: var(--bright); font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem; padding: 0.55rem 0.75rem;
+  outline: none; transition: border-color 0.2s;
+  -moz-appearance: textfield; -webkit-appearance: none; appearance: none;
+}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+input[type="number"]:focus { border-color: var(--accent); }
+.has-prefix input[type="number"] { padding-left: 1.8rem; }
+.has-suffix input[type="number"] { padding-right: 2.4rem; }
+
+select {
+  width: 100%; background: var(--navy); border: 1px solid var(--edge);
+  color: var(--bright); font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem; padding: 0.55rem 2rem 0.55rem 0.75rem;
+  outline: none; transition: border-color 0.2s; cursor: pointer;
+  -webkit-appearance: none; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a6a8a'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 0.75rem center;
+}
+select:focus { border-color: var(--accent); }
+option { background: var(--deep); }
+
+.divider { border: none; border-top: 1px solid var(--edge); margin: 1.5rem 0; }
+
+.preset-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+.preset-btn {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; letter-spacing: 0.1em;
+  text-transform: uppercase; padding: 0.3rem 0.6rem;
+  border: 1px solid var(--edge); color: var(--muted); background: transparent; cursor: pointer;
+  transition: all 0.15s;
+}
+.preset-btn:hover { border-color: var(--accent-lt); color: var(--accent-lt); }
+.preset-btn.active { border-color: var(--accent); color: var(--accent-lt); background: rgba(42,127,192,0.08); }
+
+/* ── RESULTS PANEL ── */
+.results-panel { background: var(--navy); display: flex; flex-direction: column; }
+
+/* ── ROUTE RECOMMENDATION ── */
+.route-banner {
+  background: var(--panel);
+  border-bottom: 2px solid var(--accent);
+  padding: 1.5rem 2rem;
+}
+.route-banner-top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 1rem; margin-bottom: 1rem;
+}
+.route-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--accent-lt); margin-bottom: 0.35rem;
+}
+.route-rail {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(1.4rem, 2.5vw, 2rem);
+  color: var(--white); line-height: 1.1;
+}
+.route-settlement {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem; color: var(--body); margin-top: 0.3rem; letter-spacing: 0.04em;
+}
+.confidence-wrap { text-align: right; flex-shrink: 0; }
+.confidence-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.48rem; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 0.3rem;
+}
+.confidence-pct {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.8rem; color: var(--accent-lt); line-height: 1;
+}
+.confidence-bar-wrap { width: 90px; height: 3px; background: var(--edge); margin-top: 0.35rem; margin-left: auto; }
+.confidence-bar { height: 100%; background: var(--accent); transition: width 0.4s ease; }
+
+.route-narrative {
+  font-size: 0.82rem; color: var(--text); line-height: 1.75;
+  background: var(--deep); border: 1px solid var(--edge);
+  padding: 0.9rem 1.1rem;
+  font-style: italic;
+}
+.route-narrative strong { color: var(--bright); font-weight: 400; font-style: normal; }
+
+.compliance-flag {
+  margin-top: 0.75rem;
+  display: flex; align-items: center; gap: 0.6rem;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.52rem;
+  letter-spacing: 0.06em; color: var(--warn-lt);
+  background: var(--warn-bg); border: 1px solid rgba(184,120,32,0.3);
+  padding: 0.55rem 0.85rem;
+}
+.compliance-flag::before { content: '⚠'; font-size: 0.75rem; }
+.compliance-flag.hidden { display: none; }
+
+/* ── SAVINGS BANNER ── */
+.savings-banner {
+  background: var(--green-bg);
+  border-bottom: 1px solid rgba(42,168,106,0.25);
+  padding: 1.5rem 2rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+}
+.savings-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--green-lt); margin-bottom: 0.4rem;
+}
+.savings-amount {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(1.6rem, 2.5vw, 2.2rem);
+  color: var(--white); line-height: 1;
+}
+.savings-sub { font-size: 0.72rem; color: var(--body); margin-top: 0.3rem; }
+.savings-pill {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.65rem;
+  padding: 0.4rem 0.9rem;
+  background: rgba(42,168,106,0.15); border: 1px solid var(--green-lt);
+  color: var(--green-lt); white-space: nowrap; letter-spacing: 0.06em; text-align: center;
+}
+.savings-pill span { display: block; font-size: 0.9rem; font-family: 'DM Serif Display', serif; }
+
+/* ── COMPARISON TABLE ── */
+.comparison-area { padding: 1.75rem 2rem; flex: 1; }
+.comparison-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 1.25rem;
+}
+.comparison-table { width: 100%; border-collapse: collapse; border: 1px solid var(--edge); }
+.comparison-table th {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--muted); padding: 0.6rem 0.9rem;
+  background: var(--panel); border-bottom: 1px solid var(--edge);
+  text-align: left; font-weight: 400;
+}
+.comparison-table td {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--text);
+  padding: 0.75rem 0.9rem; border-bottom: 1px solid var(--edge); vertical-align: middle;
+}
+.comparison-table tr:last-child td { border-bottom: none; }
+.comparison-table tr.highlight-row td { background: rgba(42,127,192,0.06); }
+.comparison-table tr.route-row td { background: rgba(42,127,192,0.1); outline: 1px solid var(--accent) inset; }
+.comparison-table td.rail-name { color: var(--bright); font-weight: 400; }
+.comparison-table td.cost-cell { color: var(--text); }
+.comparison-table td.savings-cell { color: var(--green-lt); }
+.comparison-table td.loss-cell { color: var(--red-lt); }
+.badge {
+  font-size: 0.44rem; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 0.15rem 0.4rem; border: 1px solid;
+  display: inline-block; margin-left: 0.4rem; vertical-align: middle;
+}
+.badge-card { border-color: var(--red-lt); color: var(--red-lt); }
+.badge-best { border-color: var(--green-lt); color: var(--green-lt); }
+.badge-fast { border-color: var(--accent-lt); color: var(--accent-lt); }
+.badge-route { border-color: var(--accent); color: var(--accent-lt); background: rgba(42,127,192,0.12); }
+
+/* ── CHART ── */
+.chart-area {
+  padding: 0 2rem 1.75rem; border-top: 1px solid var(--edge);
+  margin-top: 1rem; padding-top: 1.5rem;
+}
+.chart-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 1rem;
+}
+.chart-wrap { position: relative; height: 160px; }
+
+/* ── BREAKEVEN ── */
+.breakeven-row {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 2px; background: var(--edge); border-top: 1px solid var(--edge);
+}
+.breakeven-cell {
+  background: var(--panel); padding: 1rem 1.25rem;
+  display: flex; flex-direction: column; gap: 0.2rem;
+}
+.breakeven-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.46rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+}
+.breakeven-value { font-family: 'DM Serif Display', serif; font-size: 1.1rem; color: var(--bright); }
+.breakeven-sub { font-size: 0.65rem; color: var(--body); }
+
+/* ── EXPORT ROW ── */
+.export-row {
+  padding: 1.25rem 2rem; border-top: 1px solid var(--edge);
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;
+}
+.export-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.export-btn {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.52rem; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 0.45rem 0.9rem; background: transparent; border: 1px solid var(--edge);
+  color: var(--muted); cursor: pointer; transition: all 0.2s;
+}
+.export-btn:hover { border-color: var(--accent-lt); color: var(--accent-lt); }
+.export-btn.primary { border-color: var(--accent); color: var(--accent-lt); }
+.export-btn.primary:hover { background: rgba(42,127,192,0.1); }
+.export-btn.copied { border-color: var(--green-lt); color: var(--green-lt); }
+
+/* ── ABOUT / INFO ── */
+.about-section { padding: 0 0 3rem; }
+.about-toggle {
+  display: flex; align-items: center; gap: 0.75rem; cursor: pointer;
+  padding: 1rem 0; border-top: 1px solid var(--edge); user-select: none;
+}
+.about-toggle-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted);
+}
+.about-toggle-icon {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.6rem;
+  color: var(--accent-lt); margin-left: auto; transition: transform 0.2s;
+}
+.about-toggle.open .about-toggle-icon { transform: rotate(180deg); }
+.about-content { display: none; padding: 1.5rem; background: var(--deep); border: 1px solid var(--edge); border-top: none; }
+.about-content.open { display: block; }
+.about-content p { font-size: 0.82rem; color: var(--body); line-height: 1.85; margin-bottom: 0.9rem; }
+.about-content p:last-child { margin-bottom: 0; }
+.about-content strong { color: var(--bright); font-weight: 400; }
+.about-content a { color: var(--accent-lt); }
+.about-content a:hover { text-decoration: underline; }
+
+.fee-source-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px; background: var(--edge); border: 1px solid var(--edge); margin-top: 1rem;
+}
+.fee-source-cell { background: var(--panel); padding: 0.75rem 1rem; }
+.fee-source-rail {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--accent-lt); margin-bottom: 0.2rem;
+}
+.fee-source-fee { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--bright); }
+.fee-source-note { font-size: 0.65rem; color: var(--muted); margin-top: 0.1rem; }
+
+/* ── PRIVACY STATEMENT ── */
+.privacy-statement {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.52rem; letter-spacing: 0.05em;
+  color: var(--muted); padding: 1rem 0; border-top: 1px solid var(--edge);
+  text-align: center; line-height: 1.6;
+}
+
+/* ── FOOTER ── */
+footer { border-top: 1px solid var(--edge); padding: 2rem 0; }
+.footer-inner {
+  max-width: 980px; margin: 0 auto; padding: 0 2rem;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; flex-wrap: wrap;
+}
+.footer-brand { font-family: 'DM Serif Display', serif; font-size: 1rem; color: var(--bright); margin-bottom: 0.4rem; }
+.footer-brand span { color: var(--gold); }
+.footer-copy { font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem; }
+.footer-copy a:hover { color: var(--accent-lt); }
+.footer-links { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; }
+.footer-links a {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.54rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted); transition: color 0.2s;
+}
+.footer-links a:hover { color: var(--accent-lt); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 760px) {
+  .tool-grid { grid-template-columns: 1fr; }
+  .savings-banner { flex-direction: column; align-items: flex-start; }
+  .breakeven-row { grid-template-columns: 1fr; }
+  .nav-links { display: none; }
+  .comparison-area { padding: 1.25rem; }
+  .chart-area { padding: 0 1.25rem 1.25rem; padding-top: 1.25rem; }
+  .export-row { padding: 1rem 1.25rem; }
+  .route-banner { padding: 1.25rem; }
+  .route-banner-top { flex-direction: column; }
+}
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--ink); }
+::-webkit-scrollbar-thumb { background: var(--edge); }
+
+/* ── NAV STANDARD ── */
+.nav-active { color: var(--accent-lt) !important; }
+.nav-cta {
+  color: var(--accent-lt) !important;
+  border: 1px solid rgba(42,127,192,.4);
+  padding: .2rem .65rem;
+  transition: all .2s;
+}
+.nav-cta:hover { background: rgba(42,127,192,.12); border-color: var(--accent); }
+/* ── FOOTER STANDARD ── */
+.footer-brand { font-family: 'DM Serif Display', serif; font-size: .95rem; color: var(--bright); margin-bottom: .35rem; }
+.footer-brand span { color: var(--gold); }
+.footer-copy { font-family: 'JetBrains Mono', monospace; font-size: .48rem; letter-spacing: .06em; color: var(--muted); line-height: 1.8; }
+.footer-copy a { color: var(--muted); text-decoration: underline; }
+.footer-links { display: flex; gap: 1.25rem; align-items: center; flex-wrap: wrap; }
+.footer-links a { font-family: 'JetBrains Mono', monospace; font-size: .5rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); transition: color .2s; }
+.footer-links a:hover { color: var(--body); }
+footer { border-top: 1px solid var(--edge); padding: 1.5rem 0; margin-top: 2rem; }
+.footer-inner { max-width: 1100px; margin: 0 auto; padding: 0 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+.lang-bar {
+  background: var(--deep);
+  border-bottom: 1px solid var(--edge);
+  padding: 0 2rem;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.lang-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+.lang-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+.lang-btn:hover {
+  color: var(--body);
+  border-color: var(--edge);
+}
+.lang-btn.active {
+  color: var(--teal-lt);
+  border-bottom: 1px solid var(--teal);
+}
+
+/* ── RTL SUPPORT ── */
+[dir="rtl"] .nav-inner,[dir="rtl"] .nav-links { flex-direction: row-reverse; }
+[dir="rtl"] .lang-inner { flex-direction: row-reverse; justify-content: flex-start; }
+[dir="rtl"] .footer-inner,[dir="rtl"] .footer-links { flex-direction: row-reverse; }
+[dir="rtl"] input,[dir="rtl"] textarea,[dir="rtl"] select { direction:rtl;text-align:right; }
+[dir="rtl"] label,[dir="rtl"] .label,[dir="rtl"] .input-label-text,
+[dir="rtl"] .input-label-hint,[dir="rtl"] .section-head,[dir="rtl"] .panel-label,
+[dir="rtl"] .form-label,[dir="rtl"] .field-label { text-align:right;direction:rtl; }
+[dir="rtl"] .stat-cell,[dir="rtl"] .stat-label,[dir="rtl"] .stat-sub,
+[dir="rtl"] .kpi-label { text-align:right; }
+[dir="rtl"] .config-panel,[dir="rtl"] .left-panel { order:2; }
+[dir="rtl"] .output-panel,[dir="rtl"] .results-panel,[dir="rtl"] .right-panel { order:1; }
+[dir="rtl"] .tool-grid,[dir="rtl"] .split-grid { direction:rtl; }
+[dir="rtl"] .hero,[dir="rtl"] .hero-eyebrow { direction:rtl;text-align:right; }
+[dir="rtl"] .hero-eyebrow::before { margin-left:0.5rem;margin-right:0; }
+[dir="rtl"] .hero-meta { justify-content:flex-end; }
+[dir="rtl"] .collapsible-trigger { text-align:right; }
+
+
+/* ── AINUMBERS LOGO ── */
+.logo { display:flex; align-items:center; gap:10px; flex-shrink:0; text-decoration:none; }
+.logo-mark-grid { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:32px; height:32px; }
+.logo-text { display:flex; flex-direction:column; gap:2px; }
+.logo-name { font-family:'JetBrains Mono',monospace; font-size:.95rem; font-weight:500; color:var(--bright); letter-spacing:-.02em; line-height:1; }
+.logo-ai { color:var(--teal); }
+.logo-co { color:var(--muted); font-size:.8rem; }
+.logo-tag { font-family:'JetBrains Mono',monospace; font-size:.5rem; letter-spacing:.22em; text-transform:uppercase; color:var(--muted); line-height:1; }
+@media(max-width:600px){ .logo-tag { display:none; } }
+
+/* ── NAV CTA override ── */
+.nav-cta {
+  font-family:'JetBrains Mono',monospace !important;
+  font-size:.58rem !important; letter-spacing:.12em !important; text-transform:uppercase !important;
+  color:var(--bg) !important; background:var(--teal) !important;
+  border:1px solid var(--teal) !important; padding:.3rem .85rem !important;
+  border-radius:6px !important; transition:all .2s !important;
+}
+.nav-cta:hover { background:var(--teal-lt) !important; border-color:var(--teal-lt) !important; color:var(--bg) !important; }
+
+/* ── AINUMBERS FOOTER ── */
+footer { border-top:1px solid var(--border); padding:2rem 0; margin-top:2rem; position:relative; z-index:1; }
+.footer-inner-ai { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:1rem; }
+.footer-brand-link { display:flex; align-items:center; gap:.5rem; text-decoration:none; color:var(--text); }
+.logo-icon-sm { width:28px; height:28px; background:linear-gradient(135deg,var(--teal),#0D9488); border-radius:5px; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:11px; color:var(--bg); font-family:'JetBrains Mono',monospace; }
+.footer-wordmark { font-family:'JetBrains Mono',monospace; font-size:.9rem; font-weight:500; color:var(--bright); }
+.footer-links-ai { display:flex; gap:1.5rem; }
+.footer-links-ai a { color:var(--body); font-size:.82rem; transition:color .15s; }
+.footer-links-ai a:hover { color:var(--teal-lt); }
+.footer-badge-ai { display:flex; align-items:center; gap:1rem; font-size:.72rem; color:var(--muted); }
+@media(max-width:600px){ .footer-inner-ai { flex-direction:column; text-align:center; } .footer-badge-ai { flex-direction:column; gap:.4rem; } }
+
+/* ── TOOL SECTION Z-INDEX (sits above grid) ── */
+.tool-section { position:relative; z-index:1; }
+.hero { position:relative; z-index:1; }
+</style>
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@ainumbers">
+<meta name="twitter:title" content="A2A Fee Calculator + Route Optimizer | AINumbers.co">
+<meta name="twitter:description" content="Compare card vs A2A rail costs and find the optimal payment route. Client-side only, zero PII.">
+</head>
+<body>
+
+<!-- LANG BAR -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark-grid">
+        <svg width="32" height="32" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/>
+        </svg>
+      </div>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+        <div class="logo-tag">A2A Fee Calculator</div>
+      </div>
+    </a>
+    <div class="nav-links">
+      <a href="../index.html#cat-1">Infrastructure</a>
+      <a href="../index.html#cat-2">Compliance</a>
+      <a href="../index.html#cat-6">Treasury</a>
+      <a href="../index.html" class="nav-cta">All Tools</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="container">
+    <p class="hero-eyebrow"><span data-i18n="f01.hero.eyebrow">Tool 01 · Core Infrastructure</span></p>
+    <h1><span data-i18n="f01.hero.title">A2A Fee Calculator + Route Optimizer</span></h1>
+    <p class="hero-sub"><span data-i18n="f01.hero.sub">Compare the true cost of card rails vs A2A direct rails. Select your payment profile, corridor, and transaction size — get an instant breakdown of fees, FX spread, and net savings.</span></p>
+    <div class="hero-meta">
+      <span class="hero-privacy">All calculations run in your browser · No data transmitted</span>
+      <span class="hero-badge"><span data-i18n="f01.badge.ai">Rule-Based AI Logic · Transparent JS</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- TOOL -->
+<div class="tool-section">
+  <div class="container">
+    <div class="tool-grid">
+
+      <!-- LEFT: INPUTS -->
+      <div class="input-panel">
+
+        <!-- ── SECTION 1: PAYMENT PROFILE ── -->
+        <p class="panel-label"><span data-i18n="f01.lbl.paymentprofile">Payment Profile</span></p>
+
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text"><span data-i18n="f01.lbl.volume">Monthly Transaction Volume</span></span>
+            <span class="input-label-hint"><span data-i18n="f01.lbl.totalvolume">Total $ processed/month</span></span>
+          </div>
+          <div class="input-wrap has-prefix">
+            <span class="input-prefix">$</span>
+            <input type="number" id="volume" value="500000" min="1000" step="1000" oninput="calculate()">
+          </div>
+          <div class="preset-row">
+            <button class="preset-btn" onclick="setPreset('volume',50000)">$50K</button>
+            <button class="preset-btn" onclick="setPreset('volume',250000)">$250K</button>
+            <button class="preset-btn active" onclick="setPreset('volume',500000)">$500K</button>
+            <button class="preset-btn" onclick="setPreset('volume',2000000)">$2M</button>
+            <button class="preset-btn" onclick="setPreset('volume',10000000)">$10M</button>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text"><span data-i18n="f01.lbl.txsize">Average Transaction Size</span></span>
+            <span class="input-label-hint">Per payment</span>
+          </div>
+          <div class="input-wrap has-prefix">
+            <span class="input-prefix">$</span>
+            <input type="number" id="avg_txn" value="250" min="1" step="1" oninput="calculate()">
+          </div>
+          <div class="preset-row">
+            <button class="preset-btn" onclick="setPreset('avg_txn',25)">$25</button>
+            <button class="preset-btn" onclick="setPreset('avg_txn',100)">$100</button>
+            <button class="preset-btn active" onclick="setPreset('avg_txn',250)">$250</button>
+            <button class="preset-btn" onclick="setPreset('avg_txn',1000)">$1K</button>
+            <button class="preset-btn" onclick="setPreset('avg_txn',5000)">$5K</button>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">Urgency</span>
+            <span class="input-label-hint">Settlement speed needed</span>
+          </div>
+          <select id="urgency" onchange="calculate()">
+            <option value="immediate">Immediate (&lt;60 seconds)</option>
+            <option value="same_day">Same-day (&lt;4 hours)</option>
+            <option value="next_day" selected>Next-day</option>
+            <option value="flexible">Flexible (2–3 business days)</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">Use Case</span>
+            <span class="input-label-hint">Payment type</span>
+          </div>
+          <select id="use_case" onchange="calculate()">
+            <option value="b2b">B2B Invoice Payment</option>
+            <option value="b2c" selected>B2C Checkout</option>
+            <option value="p2p">P2P Transfer</option>
+            <option value="payroll">Payroll</option>
+            <option value="subscription">Subscription</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">Corridor</span>
+            <span class="input-label-hint">Payment geography</span>
+          </div>
+          <select id="corridor" onchange="calculate()">
+            <option value="us_domestic" selected>US Domestic</option>
+            <option value="cross_border">Cross-Border</option>
+          </select>
+        </div>
+
+        <hr class="divider">
+        <p class="panel-label">Current Card Costs</p>
+
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">Card Processing Rate</span>
+            <span class="input-label-hint">% of transaction value</span>
+          </div>
+          <div class="input-wrap has-suffix">
+            <input type="number" id="card_rate" value="2.9" min="0" max="10" step="0.01" oninput="calculate()">
+            <span class="input-suffix">%</span>
+          </div>
+          <div class="preset-row">
+            <button class="preset-btn" onclick="setPreset('card_rate',2.2)">2.2% debit</button>
+            <button class="preset-btn active" onclick="setPreset('card_rate',2.9)">2.9% Visa/MC</button>
+            <button class="preset-btn" onclick="setPreset('card_rate',3.5)">3.5% Amex</button>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">Card Fixed Fee per Transaction</span>
+            <span class="input-label-hint">In cents (¢)</span>
+          </div>
+          <div class="input-wrap has-suffix">
+            <input type="number" id="card_fixed" value="30" min="0" step="1" oninput="calculate()">
+            <span class="input-suffix">¢</span>
+          </div>
+          <div class="preset-row">
+            <button class="preset-btn" onclick="setPreset('card_fixed',0)">$0</button>
+            <button class="preset-btn active" onclick="setPreset('card_fixed',30)">30¢ standard</button>
+            <button class="preset-btn" onclick="setPreset('card_fixed',10)">10¢ enterprise</button>
+          </div>
+        </div>
+
+        <hr class="divider">
+        <p class="panel-label">A2A Rail Fees (editable)</p>
+
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">FedNow Fee per Transaction</span>
+            <span class="input-label-hint">Fed published rate</span>
+          </div>
+          <div class="input-wrap has-suffix">
+            <input type="number" id="fednow_fee" value="4.5" min="0" step="0.1" oninput="calculate()">
+            <span class="input-suffix">¢</span>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">RTP (The Clearing House) Fee</span>
+            <span class="input-label-hint">Per transaction</span>
+          </div>
+          <div class="input-wrap has-suffix">
+            <input type="number" id="rtp_fee" value="2.5" min="0" step="0.1" oninput="calculate()">
+            <span class="input-suffix">¢</span>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">Same-Day ACH Fee</span>
+            <span class="input-label-hint">Per transaction</span>
+          </div>
+          <div class="input-wrap has-suffix">
+            <input type="number" id="sda_fee" value="5.5" min="0" step="0.1" oninput="calculate()">
+            <span class="input-suffix">¢</span>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <div class="input-label">
+            <span class="input-label-text">Next-Day ACH Fee</span>
+            <span class="input-label-hint">Per transaction</span>
+          </div>
+          <div class="input-wrap has-suffix">
+            <input type="number" id="nda_fee" value="26" min="0" step="0.1" oninput="calculate()">
+            <span class="input-suffix">¢</span>
+          </div>
+        </div>
+
+      </div><!-- /input-panel -->
+
+      <!-- RIGHT: RESULTS -->
+      <div class="results-panel">
+
+        <!-- Route Recommendation -->
+        <div class="route-banner">
+          <div class="route-banner-top">
+            <div>
+              <div class="route-label"><span data-i18n="f01.lbl.routeopt">Recommended Route</span></div>
+              <div class="route-rail" id="route-rail">—</div>
+              <div class="route-settlement" id="route-settlement">—</div>
+            </div>
+            <div class="confidence-wrap">
+              <div class="confidence-label">Confidence</div>
+              <div class="confidence-pct" id="confidence-pct">—</div>
+              <div class="confidence-bar-wrap">
+                <div class="confidence-bar" id="confidence-bar" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+          <div class="route-narrative" id="route-narrative">Fill in your payment profile to receive a routing recommendation.</div>
+          <div class="compliance-flag hidden" id="compliance-flag"></div>
+        </div>
+
+        <!-- Savings banner -->
+        <div class="savings-banner">
+          <div>
+            <div class="savings-label">Best Annual Savings vs Cards</div>
+            <div class="savings-amount" id="best_savings">—</div>
+            <div class="savings-sub">using <span id="best_rail_name">—</span> · vs card cost of <span id="card_annual">—</span>/yr</div>
+          </div>
+          <div class="savings-pill">
+            <span id="savings_pct">—</span>
+            reduction in payment costs
+          </div>
+        </div>
+
+        <!-- Comparison table -->
+        <div class="comparison-area">
+          <div class="comparison-title">Monthly Cost Comparison — All Rails</div>
+          <table class="comparison-table">
+            <th scope="col"ead>
+              <tr>
+                <th scope="col"><span data-i18n="lbl.rail">Rail</span></th>
+                <th scope="col">Monthly Cost</th>
+                <th scope="col">vs Cards</th>
+                <th scope="col">Per $1K processed</th>
+                <th scope="col">Settlement</th>
+              </tr>
+            </thead>
+            <tbody id="comparison-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Chart -->
+        <div class="chart-area">
+          <div class="chart-title">Monthly Cost by Rail ($)</div>
+          <div class="chart-wrap"><canvas id="feeChart"></canvas></div>
+        </div>
+
+        <!-- Breakeven stats -->
+        <div class="breakeven-row">
+          <div class="breakeven-cell">
+            <span class="breakeven-label">Transactions / Month</span>
+            <span class="breakeven-value" id="txn_count">—</span>
+            <span class="breakeven-sub">at your avg ticket size</span>
+          </div>
+          <div class="breakeven-cell">
+            <span class="breakeven-label">Break-Even Ticket Size</span>
+            <span class="breakeven-value" id="breakeven_size">—</span>
+            <span class="breakeven-sub">where FedNow beats card</span>
+          </div>
+          <div class="breakeven-cell">
+            <span class="breakeven-label">Monthly Card Cost</span>
+            <span class="breakeven-value" id="card_monthly">—</span>
+            <span class="breakeven-sub">current baseline</span>
+          </div>
+        </div>
+
+        <!-- Export row -->
+        <div class="export-row">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:0.52rem;color:var(--muted);">Export results</span>
+          <div class="export-btns">
+            <button class="export-btn primary" id="copy-btn" onclick="copyResults()">Copy Summary</button>
+            <button class="export-btn" onclick="exportCSV()"><span data-i18n="f01.btn.exportcsv2">Download CSV</span></button>
+            <button class="export-btn" onclick="exportPDF()"><span data-i18n="f01.btn.exportpdf">↓ Download PDF</span></button>
+          </div>
+        </div>
+
+      </div><!-- /results-panel -->
+    </div><!-- /tool-grid -->
+
+    <!-- About -->
+    <div class="about-section" style="margin-top:2px;">
+      <div class="about-toggle" onclick="toggleAbout(this)" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){this.click();event.preventDefault();}">
+        <span class="about-toggle-label"><span data-i18n="about.trigger2">About This Tool ▾</span></span>
+        <span class="about-toggle-icon">▾</span>
+      </div>
+      <div class="about-content" id="about-content">
+        <p><strong><span data-i18n="about.whatdoes">What this tool does:</span></strong> This calculator combines two functions: (1) a fee comparison engine that computes the monthly and annual cost of processing payments via card networks vs four US A2A rails — FedNow, RTP, Same-Day ACH, and Next-Day ACH; and (2) a route optimizer that recommends the best rail based on your urgency, use case, corridor, and transaction size, and explains the recommendation in plain English.</p>
+
+        <p><strong>Routing logic (transparent JS conditionals):</strong> The optimizer uses rule-based logic — not a black-box model. Rules in priority order:</p>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;line-height:1.9;color:var(--text);">
+          1. if corridor = cross-border → flag compliance warning (US A2A rails are domestic only)<br>
+          2. if urgency = immediate AND avg_ticket ≤ $500,000 → FedNow<br>
+          3. if urgency = immediate AND avg_ticket > $500,000 → RTP (higher limit)<br>
+          4. if use_case = payroll OR subscription → Next-Day ACH<br>
+          5. if avg_ticket &lt; $100 → Same-Day ACH (cost-efficient for micro-transactions)<br>
+          6. if urgency = same-day → Same-Day ACH or FedNow (by cost)<br>
+          7. default → Next-Day ACH
+        </p>
+        <p><strong>Confidence %:</strong> Starts at 40% base. Each additional input field that meaningfully constrains the decision adds +10–15%, capped at 95%.</p>
+
+        <p><strong><span data-i18n="about.dataprivacy">Data privacy:</span></strong> This tool runs entirely in your browser. No transaction volumes, rates, or results are transmitted to any server. All calculations and file processing happen locally on your device.</p>
+
+        <p><strong>Default fee sources (as of Q2 2026):</strong></p>
+        <div class="fee-source-grid">
+          <div class="fee-source-cell">
+            <div class="fee-source-rail">FedNow</div>
+            <div class="fee-source-fee">$0.045/txn</div>
+            <div class="fee-source-note">Federal Reserve published rate</div>
+          </div>
+          <div class="fee-source-cell">
+            <div class="fee-source-rail">RTP (TCH)</div>
+            <div class="fee-source-fee">$0.025/txn</div>
+            <div class="fee-source-note">The Clearing House; varies by volume tier</div>
+          </div>
+          <div class="fee-source-cell">
+            <div class="fee-source-rail"><span data-i18n="pay.sameday">Same-Day ACH</span></div>
+            <div class="fee-source-fee">$0.055/txn</div>
+            <div class="fee-source-note">NACHA average; varies by ODFI</div>
+          </div>
+          <div class="fee-source-cell">
+            <div class="fee-source-rail"><span data-i18n="pay.nextday">Next-Day ACH</span></div>
+            <div class="fee-source-fee">$0.26/txn</div>
+            <div class="fee-source-note">NACHA average; varies by ODFI</div>
+          </div>
+          <div class="fee-source-cell">
+            <div class="fee-source-rail">Card (Visa/MC)</div>
+            <div class="fee-source-fee">2.9% + $0.30/txn</div>
+            <div class="fee-source-note">Standard blended rate; Amex ~3.5%</div>
+          </div>
+        </div>
+        <p style="margin-top:1rem;"><strong><span data-i18n="about.limits">Limitations:</span></strong> Does not account for interchange variations, volume discounts, chargeback costs, A2A implementation costs, or FX fees. For B2B scenarios, factor in payment terms and float. Consult your payment processor and legal counsel before switching decisions.</p>
+        <p><strong><span data-i18n="about.source">Source:</span></strong> Built by <a href="https://www.ainumbers.co" target="_blank" rel="noopener">AINumbers.co</a> as part of its open source fintech tools series. <a href="https://github.com/postoaklabs" target="_blank" rel="noopener">View on GitHub</a> · MIT License.</p>
+      </div>
+    </div>
+
+    <!-- Privacy statement -->
+    <div class="privacy-statement">
+      This tool runs entirely in your browser. No user data is transmitted to any server. External libraries (charts / PDF) load from cdnjs.cloudflare.com. All calculations and file processing happen locally on your device.
+    </div>
+
+  </div>
+</div><!-- /tool-section -->
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-inner-ai">
+      <a href="../index.html" class="footer-brand-link">
+        <div class="logo-icon-sm">AI</div>
+        <span class="footer-wordmark">AINumbers.co</span>
+      </a>
+      <div class="footer-links-ai">
+        <a href="../index.html">All Tools</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="../contact.html">Contact</a>
+      </div>
+      <div class="footer-badge-ai">
+        <span>🔒 Zero PII</span>
+        <span>📡 No server calls</span>
+        <span>💻 Client-side</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   POST OAK LABS — A2A Fee Calculator + Route Optimizer
+   Tool 01 | v1.0.0 | MIT License | ainumbers.co
+   Rule-based routing logic: transparent JS conditionals only.
+   Zero PII, zero server calls, 100% client-side.
+═══════════════════════════════════════════════════════════ */
+
+let chart = null;
+
+/* ── RAIL DEFINITIONS ── */
+const RAILS = [
+  { id: 'card',   label: 'Card (current)',  inputId: null,         color: '#8a2020', settlement: 'T+1–3 days',  badge: 'card'  },
+  { id: 'fednow', label: 'FedNow',          inputId: 'fednow_fee', color: '#2a7fc0', settlement: '<60 seconds', badge: 'fast'  },
+  { id: 'rtp',    label: 'RTP (TCH)',        inputId: 'rtp_fee',    color: '#1a7a4a', settlement: '<60 seconds', badge: 'fast'  },
+  { id: 'sda',    label: 'Same-Day ACH',     inputId: 'sda_fee',    color: '#4a6a8a', settlement: '<4 hours',    badge: null    },
+  { id: 'nda',    label: 'Next-Day ACH',     inputId: 'nda_fee',    color: '#2a4a70', settlement: 'Next day',    badge: null    },
+];
+
+/* ── HELPERS ── */
+function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function sel(id) { return document.getElementById(id).value; }
+
+function fmt$(n) {
+  if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return '$' + (n/1e3).toFixed(1) + 'K';
+  return '$' + n.toFixed(2);
+}
+function fmtPct(n) { return n.toFixed(1) + '%'; }
+
+function setPreset(fieldId, value) {
+  document.getElementById(fieldId).value = value;
+  const group = document.getElementById(fieldId).closest('.input-group');
+  group.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.classList.remove('active');
+    const oc = btn.getAttribute('onclick');
+    if (oc && oc.includes(',' + value + ')')) btn.classList.add('active');
+  });
+  calculate();
+}
+
+/* ── ROUTING LOGIC ── transparent JS conditionals, no ML ── */
+function routeOptimizer(volume, avgTxn, urgency, useCase, corridor, fednowFee, rtpFee, sdaFee, ndaFee) {
+  const txnCount = Math.round(volume / (avgTxn || 1));
+
+  // Base confidence from filled fields (each meaningful input adds weight)
+  let confidence = 40;
+  if (urgency !== 'next_day') confidence += 15;   // non-default urgency = strong signal
+  if (useCase !== 'b2c')     confidence += 10;    // specific use case
+  if (corridor)              confidence += 5;
+  if (avgTxn > 0)            confidence += 10;
+  if (volume > 0)            confidence += 10;
+  if (fednowFee > 0)         confidence += 5;
+  confidence = Math.min(confidence, 95);
+
+  let railId = 'nda'; // default
+  let narrative = '';
+  let settlementTime = 'Next day';
+  let crossBorderWarning = false;
+
+  // ── RULE 1: Cross-border flag ──
+  if (corridor === 'cross_border') {
+    crossBorderWarning = true;
+    confidence = Math.min(confidence, 55);
+  }
+
+  // ── RULE 2: Use-case overrides (payroll / subscription → NDA) ──
+  if (useCase === 'payroll' || useCase === 'subscription') {
+    railId = 'nda';
+    settlementTime = 'Next day (ODFI batch cut-off)';
+    if (useCase === 'payroll') {
+      narrative = `<strong><span data-i18n="pay.nextday">Next-Day ACH</span></strong> is selected because payroll is the canonical ACH use case — NACHA rules provide specific consumer protections for payroll entries (PPD/CCD), most payroll providers are ODFI-integrated, and employers value the predictable 9am settlement window over instant settlement. FedNow could work for on-demand pay, but the overwhelming market standard for scheduled payroll remains ACH.`;
+    } else {
+      narrative = `<strong><span data-i18n="pay.nextday">Next-Day ACH</span></strong> is recommended for subscription billing. Recurring debit patterns (e.g., CCD/PPD) are well-understood by ODFI systems, return-code handling is mature, and retry logic is standardised. Unless your subscription requires instant confirmation of funds, ACH reduces friction with payers accustomed to the model.`;
+    }
+  }
+
+  // ── RULE 3: Micro-transactions (<$100 avg ticket) → SDA ──
+  else if (avgTxn > 0 && avgTxn < 100) {
+    railId = 'sda';
+    settlementTime = 'Same-day (4-hour window)';
+    narrative = `<strong><span data-i18n="pay.sameday">Same-Day ACH</span></strong> is recommended for your average ticket size of ${fmt$(avgTxn)}. At sub-$100 per transaction, the economics of FedNow ($0.045/tx) vs Same-Day ACH ($0.055/tx) are similar, but SDA has deeper bank coverage and is preferred for high-frequency, low-value consumer payments. FedNow is more appropriate for higher-value, time-critical transfers.`;
+  }
+
+  // ── RULE 4: Immediate urgency ──
+  else if (urgency === 'immediate') {
+    if (avgTxn <= 500000) {
+      railId = 'fednow';
+      settlementTime = 'Settlement in &lt;60 seconds, 24/7/365';
+      narrative = `<strong>FedNow</strong> is selected because you need immediate settlement (&lt;60s) and your average ticket of ${fmt$(avgTxn)} is within FedNow's current limit. FedNow is the Federal Reserve's own instant payment rail — available 24/7, irrevocable, and cheaper than cards at your volume. At ${fmt$(volume)}/month, you save ${fmt$((Math.round(volume / (avgTxn||1)) * (val('card_rate')/100 * avgTxn + val('card_fixed')/100)) - Math.round(volume / (avgTxn||1)) * fednowFee/100 )}/month vs your current card costs.`;
+    } else {
+      railId = 'rtp';
+      settlementTime = 'Settlement in &lt;60 seconds, 24/7/365';
+      narrative = `<strong>RTP (The Clearing House)</strong> is selected for immediate settlement on high-value tickets above $500K. RTP carries no published single-transaction cap (practical limit ~$1M via most banks), making it the preferred instant rail for large-value B2B and treasury transfers where FedNow's $500K limit may be a constraint.`;
+    }
+  }
+
+  // ── RULE 5: Same-day urgency ──
+  else if (urgency === 'same_day') {
+    // Pick cheapest of FedNow vs SDA
+    const fednowCentPerTx = fednowFee;
+    const sdaCentPerTx = sdaFee;
+    if (fednowCentPerTx <= sdaCentPerTx) {
+      railId = 'fednow';
+      settlementTime = 'Settlement in &lt;60 seconds';
+      narrative = `<strong>FedNow</strong> is recommended for same-day settlement. At your configured fee of ${fednowFee}¢/tx it is cheaper than Same-Day ACH (${sdaFee}¢/tx), and it settles in seconds rather than hours — meaning "same-day" becomes "right now." The 24/7 availability also removes cut-off time risk that affects ACH batches.`;
+    } else {
+      railId = 'sda';
+      settlementTime = 'Same-day (NACHA same-day window)';
+      narrative = `<strong><span data-i18n="pay.sameday">Same-Day ACH</span></strong> is selected for same-day settlement. At your configured fee of ${sdaFee}¢/tx it is cheaper than FedNow (${fednowFee}¢/tx) at your volume. Same-Day ACH has deep coverage among US financial institutions and is suitable for payroll top-ups, emergency vendor payments, and B2C refunds with a 4-hour settlement window.`;
+    }
+  }
+
+  // ── RULE 6: Flexible / next-day → NDA ──
+  else {
+    railId = 'nda';
+    settlementTime = 'Next business day';
+    narrative = `<strong><span data-i18n="pay.nextday">Next-Day ACH</span></strong> is the default recommendation for flexible or next-day settlement. At ${ndaFee}¢/tx it is the most cost-efficient A2A option and has universal bank coverage across the US. For B2B invoice payments, subscriptions, and standard consumer credits where same-day settlement is not required, Next-Day ACH provides the best cost-to-coverage ratio.`;
+  }
+
+  // Append cross-border note to narrative
+  let complianceMsg = '';
+  if (crossBorderWarning) {
+    complianceMsg = 'Cross-border selected: FedNow, RTP, and ACH are US domestic rails only. For cross-border A2A, consider SWIFT ISO 20022, SEPA (EU), or a regulated FX payment provider. Compliance with FinCEN MSB rules and destination-country regulations required.';
+  }
+
+  return { railId, narrative, settlementTime, confidence, complianceMsg };
+}
+
+/* ── CORE CALCULATION ── */
+function calculate() {
+  const volume    = val('volume');
+  const avgTxn    = val('avg_txn');
+  if (avgTxn <= 0 || volume <= 0) return;
+
+  const txnCount   = Math.round(volume / avgTxn);
+  const cardRate   = val('card_rate') / 100;
+  const cardFixed  = val('card_fixed') / 100;
+  const fednowFee  = val('fednow_fee') / 100;
+  const rtpFee     = val('rtp_fee') / 100;
+  const sdaFee     = val('sda_fee') / 100;
+  const ndaFee     = val('nda_fee') / 100;
+  const urgency    = sel('urgency');
+  const useCase    = sel('use_case');
+  const corridor   = sel('corridor');
+
+  // Monthly costs
+  const cardCost   = volume * cardRate + txnCount * cardFixed;
+  const fednowCost = txnCount * fednowFee;
+  const rtpCost    = txnCount * rtpFee;
+  const sdaCost    = txnCount * sdaFee;
+  const ndaCost    = txnCount * ndaFee;
+  const costs = { card: cardCost, fednow: fednowCost, rtp: rtpCost, sda: sdaCost, nda: ndaCost };
+
+  // Best cost rail
+  const a2aCosts = { fednow: fednowCost, rtp: rtpCost, sda: sdaCost, nda: ndaCost };
+  const bestCostRailId = Object.keys(a2aCosts).reduce((a,b) => a2aCosts[a] < a2aCosts[b] ? a : b);
+  const bestCost = a2aCosts[bestCostRailId];
+  const bestSavingsMo = cardCost - bestCost;
+  const bestSavingsYr = bestSavingsMo * 12;
+  const savingsPct    = cardCost > 0 ? (bestSavingsMo / cardCost * 100) : 0;
+  const bestRailObj   = RAILS.find(r => r.id === bestCostRailId);
+
+  // Route optimizer
+  const route = routeOptimizer(volume, avgTxn, urgency, useCase, corridor,
+    val('fednow_fee'), val('rtp_fee'), val('sda_fee'), val('nda_fee'));
+  const routeRailObj = RAILS.find(r => r.id === route.railId);
+
+  // Break-even
+  const beBreakeven = cardRate > 0 ? Math.max(0, (fednowFee - cardFixed) / cardRate) : 0;
+
+  /* ── UPDATE DOM: ROUTE BANNER ── */
+  document.getElementById('route-rail').textContent = routeRailObj ? routeRailObj.label : '—';
+  document.getElementById('route-settlement').innerHTML = route.settlementTime;
+  document.getElementById('route-narrative').innerHTML = route.narrative || '—';
+  document.getElementById('confidence-pct').textContent = route.confidence + '%';
+  document.getElementById('confidence-bar').style.width = route.confidence + '%';
+
+  const flagEl = document.getElementById('compliance-flag');
+  if (route.complianceMsg) {
+    flagEl.textContent = route.complianceMsg;
+    flagEl.classList.remove('hidden');
+  } else {
+    flagEl.classList.add('hidden');
+  }
+
+  /* ── UPDATE DOM: SAVINGS BANNER ── */
+  document.getElementById('best_savings').textContent = fmt$(bestSavingsYr) + '/yr';
+  document.getElementById('best_rail_name').textContent = bestRailObj ? bestRailObj.label : '—';
+  document.getElementById('card_annual').textContent = fmt$(cardCost * 12);
+  document.getElementById('savings_pct').textContent = fmtPct(savingsPct);
+  document.getElementById('txn_count').textContent = txnCount.toLocaleString();
+  document.getElementById('breakeven_size').textContent = beBreakeven > 0 ? fmt$(beBreakeven) : '< $1';
+  document.getElementById('card_monthly').textContent = fmt$(cardCost) + '/mo';
+
+  const banner = document.querySelector('.savings-banner');
+  banner.style.background = bestSavingsYr > 0 ? 'var(--green-bg)' : 'rgba(138,32,32,0.15)';
+
+  /* ── TABLE ── */
+  const tbody = document.getElementById('comparison-tbody');
+  tbody.innerHTML = '';
+  RAILS.forEach(rail => {
+    const cost    = costs[rail.id];
+    const saving  = cardCost - cost;
+    const perK    = volume > 0 ? (cost / volume * 1000) : 0;
+    const isCard  = rail.id === 'card';
+    const isBest  = rail.id === bestCostRailId;
+    const isRoute = rail.id === route.railId;
+
+    const tr = document.createElement('tr');
+    if (isRoute && !isCard) tr.classList.add('route-row');
+    else if (isBest)        tr.classList.add('highlight-row');
+
+    const savingText = isCard
+      ? '<span style="color:var(--muted)">baseline</span>'
+      : saving > 0
+        ? `<span class="savings-cell">−${fmt$(saving)}/mo</span>`
+        : `<span class="loss-cell">+${fmt$(Math.abs(saving))}/mo</span>`;
+
+    const badgeHtml = isCard
+      ? '<span class="badge badge-card">current</span>'
+      : isRoute
+        ? '<span class="badge badge-route">route</span>'
+        : isBest
+          ? '<span class="badge badge-best">cheapest</span>'
+          : '';
+
+    const fastBadge = (rail.id === 'fednow' || rail.id === 'rtp')
+      ? '<span class="badge badge-fast">instant</span>'
+      : '';
+
+    tr.innerHTML = `
+      <td class="rail-name">${rail.label}${badgeHtml}${fastBadge}</td>
+      <td class="cost-cell">${fmt$(cost)}/mo</td>
+      <td>${savingText}</td>
+      <td class="cost-cell">$${perK.toFixed(2)}</td>
+      <td style="font-size:0.62rem;color:var(--body)">${rail.settlement}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  /* ── CHART ── */
+  updateChart(costs);
+}
+
+/* ── CHART ── */
+function updateChart(costs) {
+  const labels = RAILS.map(r => r.label);
+  const data   = RAILS.map(r => parseFloat(costs[r.id].toFixed(2)));
+  const colors = RAILS.map(r => r.color);
+
+  if (chart) {
+    chart.data.datasets[0].data = data;
+    chart.update('none');
+    return;
+  }
+  const ctx = document.getElementById('feeChart').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: colors, borderWidth: 1, borderRadius: 0 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: c => ' $' + c.parsed.y.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) + '/mo' },
+          backgroundColor: '#0a1628', borderColor: '#1e3454', borderWidth: 1,
+          titleColor: '#a8c0d8', bodyColor: '#d0e4f4',
+          titleFont: { family: 'JetBrains Mono', size: 10 },
+          bodyFont:  { family: 'JetBrains Mono', size: 11 },
+        }
+      },
+      scales: {
+        x: { grid: { color: '#1e3454' }, ticks: { color: '#4a6a8a', font: { family: 'JetBrains Mono', size: 9 } } },
+        y: {
+          grid: { color: '#1e3454' },
+          ticks: { color: '#4a6a8a', font: { family: 'JetBrains Mono', size: 9 }, callback: v => '$' + (v>=1000?(v/1000).toFixed(0)+'K':v) }
+        }
+      }
+    }
+  });
+}
+
+/* ── COPY RESULTS ── */
+function copyResults() {
+  const volume    = val('volume');
+  const avgTxn    = val('avg_txn');
+  const cardRate  = val('card_rate');
+  const cardFixed = val('card_fixed');
+  const txnCount  = Math.round(volume / (avgTxn||1));
+  const cardCost  = volume * (cardRate/100) + txnCount * (cardFixed/100);
+  const fednowCost= txnCount * (val('fednow_fee')/100);
+  const savings   = (cardCost - fednowCost) * 12;
+  const routeRail = document.getElementById('route-rail').textContent;
+  const narrative = document.getElementById('route-narrative').innerText;
+
+  const text = [
+    'A2A Fee Calculator + Route Optimizer — AINumbers.co',
+    '═'.repeat(52),
+    `Monthly Volume:        ${fmt$(volume)}`,
+    `Avg Transaction:       ${fmt$(avgTxn)}`,
+    `Transactions/Month:    ${txnCount.toLocaleString()}`,
+    `Urgency:               ${sel('urgency')}`,
+    `Use Case:              ${sel('use_case')}`,
+    `Corridor:              ${sel('corridor')}`,
+    `Card Rate:             ${cardRate}% + ${cardFixed}¢`,
+    '',
+    `Monthly Card Cost:     ${fmt$(cardCost)}`,
+    `Monthly FedNow Cost:   ${fmt$(fednowCost)}`,
+    `Annual Savings (FedNow): ${fmt$(savings)}`,
+    '',
+    `Recommended Route:     ${routeRail}`,
+    `Routing Rationale:     ${narrative}`,
+    '',
+    'Source: ainumbers.co/tools/01-a2a-fee-route-optimizer/',
+    'This tool runs entirely in your browser. No data transmitted.',
+  ].join('\n');
+
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = 'Copied ✓';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy Summary'; btn.classList.remove('copied'); }, 2200);
+  });
+}
+
+/* ── CSV EXPORT ── */
+function exportCSV() {
+  const volume   = val('volume');
+  const avgTxn   = val('avg_txn');
+  const txnCount = Math.round(volume / (avgTxn||1));
+  const cardRate = val('card_rate') / 100;
+  const cardFixed= val('card_fixed') / 100;
+  const cardCost = volume * cardRate + txnCount * cardFixed;
+
+  const fees = {
+    fednow: val('fednow_fee') / 100,
+    rtp:    val('rtp_fee')    / 100,
+    sda:    val('sda_fee')    / 100,
+    nda:    val('nda_fee')    / 100,
+  };
+
+  const rows = [
+    ['Rail','Monthly Cost ($)','Annual Cost ($)','Saving vs Card/mo ($)','Saving vs Card/yr ($)','Per $1K processed ($)','Settlement'],
+    ['Card (current)', cardCost.toFixed(2), (cardCost*12).toFixed(2), '0.00', '0.00', (cardCost/volume*1000).toFixed(2), 'T+1-3 days'],
+  ];
+
+  [['fednow','FedNow','<60 seconds'],['rtp','RTP (TCH)','<60 seconds'],['sda','Same-Day ACH','<4 hours'],['nda','Next-Day ACH','Next day']].forEach(([id,label,settle]) => {
+    const cost = txnCount * fees[id];
+    const saving = cardCost - cost;
+    rows.push([label, cost.toFixed(2), (cost*12).toFixed(2), saving.toFixed(2), (saving*12).toFixed(2), (cost/volume*1000).toFixed(2), settle]);
+  });
+
+  const routeRail = document.getElementById('route-rail').textContent;
+  rows.push([]);
+  rows.push(['Recommended Route', routeRail]);
+  rows.push(['Corridor', sel('corridor')]);
+  rows.push(['Urgency', sel('urgency')]);
+  rows.push(['Use Case', sel('use_case')]);
+  rows.push(['Generated', new Date().toISOString()]);
+  rows.push(['Source', 'ainumbers.co/tools/01-a2a-fee-route-optimizer/']);
+
+  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a'); a.href = url; a.download = 'a2a-fee-route-optimizer.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ── PDF EXPORT (jsPDF) ── */
+function exportPDF() {
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const volume    = val('volume');
+    const avgTxn    = val('avg_txn');
+    const txnCount  = Math.round(volume / (avgTxn||1));
+    const cardRate  = val('card_rate') / 100;
+    const cardFixed = val('card_fixed') / 100;
+    const cardCost  = volume * cardRate + txnCount * cardFixed;
+    const fednowCost= txnCount * val('fednow_fee') / 100;
+    const routeRail = document.getElementById('route-rail').textContent;
+    const confidence= document.getElementById('confidence-pct').textContent;
+    const narrative = document.getElementById('route-narrative').innerText;
+
+    // Header
+    doc.setFillColor(5, 12, 21);
+    doc.rect(0, 0, 210, 297, 'F');
+    doc.setTextColor(208, 228, 244);
+    doc.setFontSize(18);
+    doc.text('A2A Fee Calculator + Route Optimizer', 20, 25);
+    doc.setFontSize(9);
+    doc.setTextColor(74, 106, 138);
+    doc.text('AINumbers.co | ainumbers.co | MIT License', 20, 33);
+    doc.setTextColor(192, 144, 64);
+    doc.text(new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' }), 20, 40);
+
+    // Rule
+    doc.setDrawColor(30, 52, 84);
+    doc.line(20, 44, 190, 44);
+
+    // Inputs
+    doc.setTextColor(74, 106, 138); doc.setFontSize(7);
+    doc.text('PAYMENT PROFILE', 20, 52);
+    doc.setTextColor(168, 192, 216); doc.setFontSize(9);
+    const inputs = [
+      ['Monthly Volume', fmt$(volume)],
+      ['Avg Transaction', fmt$(avgTxn)],
+      ['Transactions/Month', txnCount.toLocaleString()],
+      ['Urgency', sel('urgency')],
+      ['Use Case', sel('use_case')],
+      ['Corridor', sel('corridor')],
+      ['Card Rate', val('card_rate') + '% + ' + val('card_fixed') + '¢'],
+    ];
+    inputs.forEach(([label, value], i) => {
+      doc.setTextColor(112, 144, 176); doc.text(label + ':', 20, 60 + i*8);
+      doc.setTextColor(208, 228, 244); doc.text(value, 90, 60 + i*8);
+    });
+
+    // Route
+    doc.line(20, 120, 190, 120);
+    doc.setTextColor(74, 106, 138); doc.setFontSize(7); doc.text('RECOMMENDED ROUTE', 20, 128);
+    doc.setTextColor(42, 127, 192); doc.setFontSize(14); doc.text(routeRail, 20, 137);
+    doc.setTextColor(74, 106, 138); doc.setFontSize(9); doc.text('Confidence: ' + confidence, 20, 145);
+
+    doc.setTextColor(168, 192, 216); doc.setFontSize(8);
+    const narLines = doc.splitTextToSize(narrative.replace(/<[^>]+>/g,''), 165);
+    doc.text(narLines, 20, 153);
+
+    // Costs
+    const costY = 153 + narLines.length * 5 + 10;
+    doc.line(20, costY, 190, costY);
+    doc.setTextColor(74, 106, 138); doc.setFontSize(7); doc.text('COST SUMMARY', 20, costY + 8);
+    doc.setTextColor(168, 192, 216); doc.setFontSize(9);
+    [
+      ['Monthly Card Cost', fmt$(cardCost)],
+      ['Monthly FedNow Cost', fmt$(fednowCost)],
+      ['Monthly Saving (FedNow)', fmt$(cardCost - fednowCost)],
+      ['Annual Saving (FedNow)', fmt$((cardCost - fednowCost) * 12)],
+    ].forEach(([label, value], i) => {
+      doc.setTextColor(112, 144, 176); doc.text(label + ':', 20, costY + 16 + i*8);
+      doc.setTextColor(i >= 2 ? 42 : 208, i >= 2 ? 168 : 228, i >= 2 ? 106 : 244);
+      doc.text(value, 110, costY + 16 + i*8);
+    });
+
+    // Footer
+    doc.setTextColor(74, 106, 138); doc.setFontSize(7);
+    doc.text('This tool runs entirely in your browser. No data is transmitted to any server.', 20, 280);
+    doc.text('AINumbers.co | MIT License | ainumbers.co/tools/01-a2a-fee-route-optimizer/', 20, 286);
+
+    doc.save('a2a-fee-route-optimizer.pdf');
+  } catch(e) {
+    showNotice('PDF export requires the jsPDF library. Check your connection and try again.');
+  }
+}
+
+/* ── ABOUT TOGGLE ── */
+function toggleAbout(el) {
+  el.classList.toggle('open');
+  document.getElementById('about-content').classList.toggle('open');
+}
+
+/* ── INIT ── */
+calculate();
+
+const I18N = {
+  'en': {
+    'nav.home': 'Home',
+    'nav.a2a': 'A2A Payments',
+    'nav.glossary': 'Glossary',
+    'nav.tools': 'Tools',
+    'nav.contact': 'Contact',
+    'footer.alltools': 'All Tools',
+    'footer.a2a': 'A2A Payments',
+    'footer.glossary': 'Glossary',
+    'footer.home': 'Home',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Privacy Statement',
+    'about.trigger': 'About This Tool',
+    'about.trigger2': 'About This Tool ▾',
+    'priv.runs': 'This tool runs entirely in your browser.',
+    'priv.notrans': 'No data is transmitted to any server.',
+    'priv.local': 'All inputs, calculations, and generated outputs are processed locally on your device.',
+    'priv.never': 'and never leaves your device.',
+    'priv.blocked': 'are overridden at runtime to block all outbound network calls.',
+    'priv.allproc': 'All processing in your browser · No data transmitted',
+    'priv.zeropii': 'Zero PII · Client-Side Only',
+    'priv.zeropii2': 'Zero PII · 100% Client-Side',
+    'about.howworks': 'How it works:',
+    'about.audience': 'Target audience:',
+    'about.limits': 'Limitations:',
+    'about.export': 'Export:',
+    'about.whatdoes': 'What this tool does:',
+    'about.whatdoes2': 'What this tool does',
+    'about.whatsim': 'What it simulates:',
+    'about.source': 'Source:',
+    'about.builtby': 'Built by',
+    'about.dataprivacy': 'Data privacy:',
+    'about.dataprivnote': 'Data privacy note:',
+    'about.whatisthis': 'What is this?',
+    'about.results_export': 'Results can be downloaded as JSON or Markdown for use in downstream workflows, agent runtimes, or audit documentation.',
+    'btn.reset': '↺ Reset',
+    'btn.clear': '↺ Clear',
+    'btn.exportcsv': '↓ Export CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Print',
+    'btn.copy': 'Copy',
+    'btn.alltools': '← All Tools',
+    'lbl.jurisdiction': 'Jurisdiction',
+    'lbl.currency': 'Currency',
+    'lbl.amount': 'Amount',
+    'lbl.status': 'Status',
+    'lbl.type': 'Type',
+    'lbl.rail': 'Rail',
+    'lbl.paymentrail': 'Payment Rail',
+    'lbl.selectopt': '— Select —',
+    'lbl.config': 'Configuration',
+    'lbl.valresults': 'Validation Results',
+    'geo.us': 'United States',
+    'geo.uk': 'United Kingdom',
+    'geo.eu': 'European Union',
+    'geo.brazil': 'Brazil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brazil)',
+    'pay.sameday': 'Same-Day ACH',
+    'pay.nextday': 'Next-Day ACH',
+    'sev.high': 'High',
+    'sev.medium': 'Medium',
+    'f01.hero.eyebrow': 'Tool 01 of 18 · A2A Payments',
+    'f01.hero.title': 'A2A Fee Calculator + Route Optimizer',
+    'f01.hero.sub': 'Compare the true cost of card rails vs A2A direct rails. Select your payment profile, corridor, and transaction size — get an instant breakdown of fees, FX spread, and net savings.',
+    'f01.lbl.volume': 'Monthly Transaction Volume',
+    'f01.lbl.txsize': 'Average Transaction Size',
+    'f01.lbl.corridor': 'Payment Corridor',
+    'f01.lbl.cardtype': 'Card Type',
+    'f01.lbl.paymentprofile': 'Payment Profile',
+    'f01.btn.calculate': '▶ Calculate',
+    'f01.results.title': 'Cost Comparison',
+    'f01.lbl.cardcost': 'Card Rail Cost',
+    'f01.lbl.a2acost': 'A2A Rail Cost',
+    'f01.lbl.saving': 'Net Saving',
+    'f01.lbl.annualsaving': 'Annual Saving (projected)',
+    'f01.opt.b2b': 'B2B Cross-Border',
+    'f01.opt.b2c': 'B2C Remittance',
+    'f01.opt.merchant': 'Merchant Acceptance',
+    'f01.badge.ai': 'Rule-Based AI Logic · Transparent JS',
+    'f01.empty.title': 'Results will appear here',
+    'f01.lbl.interchangefee': 'Interchange Fee',
+    'f01.lbl.schemefee': 'Scheme Fee',
+    'f01.lbl.fxspread': 'FX Spread',
+    'f01.lbl.totalcost': 'Total Cost',
+    'f01.lbl.routeopt': 'Recommended Route',
+    'f01.btn.exportpdf': '↓ Download PDF',
+    'f01.btn.exportcsv2': 'Download CSV',
+    'f01.lbl.totalvolume': 'Total $ processed/month',
+  },
+  'es': {
+    'nav.home': 'Inicio',
+    'nav.a2a': 'Pagos A2A',
+    'nav.glossary': 'Glosario',
+    'nav.tools': 'Herramientas',
+    'nav.contact': 'Contacto',
+    'footer.alltools': 'Todas las Herramientas',
+    'footer.a2a': 'Pagos A2A',
+    'footer.glossary': 'Glosario',
+    'footer.home': 'Inicio',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Declaración de Privacidad',
+    'about.trigger': 'Acerca de Esta Herramienta',
+    'about.trigger2': 'Acerca de Esta Herramienta ▾',
+    'priv.runs': 'Esta herramienta se ejecuta completamente en su navegador.',
+    'priv.notrans': 'No se transmiten datos a ningún servidor.',
+    'priv.local': 'Todas las entradas, cálculos y resultados generados se procesan localmente en su dispositivo.',
+    'priv.never': 'y nunca sale de su dispositivo.',
+    'priv.blocked': 'se anulan en tiempo de ejecución para bloquear todas las llamadas de red salientes.',
+    'priv.allproc': 'Todo el procesamiento en su navegador · Sin datos transmitidos',
+    'priv.zeropii': 'Sin PII · Solo en el Navegador',
+    'priv.zeropii2': 'Sin PII · 100% en el Navegador',
+    'about.howworks': 'Cómo funciona:',
+    'about.audience': 'Público objetivo:',
+    'about.limits': 'Limitaciones:',
+    'about.export': 'Exportar:',
+    'about.whatdoes': 'Qué hace esta herramienta:',
+    'about.whatdoes2': 'Qué hace esta herramienta',
+    'about.whatsim': 'Qué simula:',
+    'about.source': 'Fuente:',
+    'about.builtby': 'Creado por',
+    'about.dataprivacy': 'Privacidad de datos:',
+    'about.dataprivnote': 'Nota de privacidad de datos:',
+    'about.whatisthis': '¿Qué es esto?',
+    'about.results_export': 'Los resultados se pueden descargar como JSON o Markdown para su uso en flujos de trabajo posteriores, tiempos de ejecución de agentes o documentación de auditoría.',
+    'btn.reset': '↺ Restablecer',
+    'btn.clear': '↺ Limpiar',
+    'btn.exportcsv': '↓ Exportar CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimir',
+    'btn.copy': 'Copiar',
+    'btn.alltools': '← Todas las Herramientas',
+    'lbl.jurisdiction': 'Jurisdicción',
+    'lbl.currency': 'Moneda',
+    'lbl.amount': 'Monto',
+    'lbl.status': 'Estado',
+    'lbl.type': 'Tipo',
+    'lbl.rail': 'Carril',
+    'lbl.paymentrail': 'Carril de Pago',
+    'lbl.selectopt': '— Seleccionar —',
+    'lbl.config': 'Configuración',
+    'lbl.valresults': 'Resultados de Validación',
+    'geo.us': 'Estados Unidos',
+    'geo.uk': 'Reino Unido',
+    'geo.eu': 'Unión Europea',
+    'geo.brazil': 'Brasil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brasil)',
+    'pay.sameday': 'ACH en el Mismo Día',
+    'pay.nextday': 'ACH al Día Siguiente',
+    'sev.high': 'Alto',
+    'sev.medium': 'Medio',
+    'f01.hero.eyebrow': 'Herramienta 01 de 18 · Pagos A2A',
+    'f01.hero.title': 'Calculadora de Tarifas A2A + Optimizador de Rutas',
+    'f01.hero.sub': 'Compare el costo real de las redes de tarjeta frente a los rieles A2A directos. Seleccione su perfil de pago, corredor y tamaño de transacción para obtener un desglose instantáneo de comisiones, spread de FX y ahorros netos.',
+    'f01.lbl.volume': 'Volumen de Transacciones Mensual',
+    'f01.lbl.txsize': 'Tamaño Promedio de Transacción',
+    'f01.lbl.corridor': 'Corredor de Pago',
+    'f01.lbl.cardtype': 'Tipo de Tarjeta',
+    'f01.lbl.paymentprofile': 'Perfil de Pago',
+    'f01.btn.calculate': '▶ Calcular',
+    'f01.results.title': 'Comparación de Costos',
+    'f01.lbl.cardcost': 'Costo del Carril de Tarjeta',
+    'f01.lbl.a2acost': 'Costo del Carril A2A',
+    'f01.lbl.saving': 'Ahorro Neto',
+    'f01.lbl.annualsaving': 'Ahorro Anual (proyectado)',
+    'f01.opt.b2b': 'B2B Transfronterizo',
+    'f01.opt.b2c': 'Remesa B2C',
+    'f01.opt.merchant': 'Aceptación de Comercios',
+    'f01.badge.ai': 'Lógica IA Basada en Reglas · JS Transparente',
+    'f01.empty.title': 'Los resultados aparecerán aquí',
+    'f01.lbl.interchangefee': 'Tasa de Intercambio',
+    'f01.lbl.schemefee': 'Tasa de Esquema',
+    'f01.lbl.fxspread': 'Spread de FX',
+    'f01.lbl.totalcost': 'Costo Total',
+    'f01.lbl.routeopt': 'Ruta Recomendada',
+    'f01.btn.exportpdf': '↓ Descargar PDF',
+    'f01.btn.exportcsv2': 'Descargar CSV',
+    'f01.lbl.totalvolume': 'Total $ procesado/mes',
+  },
+  'fr': {
+    'nav.home': 'Accueil',
+    'nav.a2a': 'Paiements A2A',
+    'nav.glossary': 'Glossaire',
+    'nav.tools': 'Outils',
+    'nav.contact': 'Contact',
+    'footer.alltools': 'Tous les Outils',
+    'footer.a2a': 'Paiements A2A',
+    'footer.glossary': 'Glossaire',
+    'footer.home': 'Accueil',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Déclaration de Confidentialité',
+    'about.trigger': 'À Propos de Cet Outil',
+    'about.trigger2': 'À Propos de Cet Outil ▾',
+    'priv.runs': 'Cet outil fonctionne entièrement dans votre navigateur.',
+    'priv.notrans': 'Aucune donnée n\'est transmise à un serveur.',
+    'priv.local': 'Toutes les entrées, calculs et sorties générées sont traités localement sur votre appareil.',
+    'priv.never': 'et ne quitte jamais votre appareil.',
+    'priv.blocked': 'sont remplacés au moment de l\'exécution pour bloquer tous les appels réseau sortants.',
+    'priv.allproc': 'Tout le traitement dans votre navigateur · Aucune donnée transmise',
+    'priv.zeropii': 'Zéro PII · Côté Client Uniquement',
+    'priv.zeropii2': 'Zéro PII · 100% Côté Client',
+    'about.howworks': 'Comment ça fonctionne :',
+    'about.audience': 'Public cible :',
+    'about.limits': 'Limitations :',
+    'about.export': 'Export :',
+    'about.whatdoes': 'Ce que fait cet outil :',
+    'about.whatdoes2': 'Ce que fait cet outil',
+    'about.whatsim': 'Ce qu\'il simule :',
+    'about.source': 'Source :',
+    'about.builtby': 'Créé par',
+    'about.dataprivacy': 'Confidentialité des données :',
+    'about.dataprivnote': 'Note sur la confidentialité des données :',
+    'about.whatisthis': 'Qu\'est-ce que c\'est ?',
+    'about.results_export': 'Les résultats peuvent être téléchargés en JSON ou Markdown pour une utilisation dans des flux de travail en aval, des environnements d\'exécution d\'agents ou de la documentation d\'audit.',
+    'btn.reset': '↺ Réinitialiser',
+    'btn.clear': '↺ Effacer',
+    'btn.exportcsv': '↓ Exporter CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimer',
+    'btn.copy': 'Copier',
+    'btn.alltools': '← Tous les Outils',
+    'lbl.jurisdiction': 'Juridiction',
+    'lbl.currency': 'Devise',
+    'lbl.amount': 'Montant',
+    'lbl.status': 'Statut',
+    'lbl.type': 'Type',
+    'lbl.rail': 'Rail',
+    'lbl.paymentrail': 'Rail de Paiement',
+    'lbl.selectopt': '— Sélectionner —',
+    'lbl.config': 'Configuration',
+    'lbl.valresults': 'Résultats de Validation',
+    'geo.us': 'États-Unis',
+    'geo.uk': 'Royaume-Uni',
+    'geo.eu': 'Union Européenne',
+    'geo.brazil': 'Brésil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brésil)',
+    'pay.sameday': 'ACH le Jour Même',
+    'pay.nextday': 'ACH le Lendemain',
+    'sev.high': 'Élevé',
+    'sev.medium': 'Moyen',
+    'f01.hero.eyebrow': 'Outil 01 sur 18 · Paiements A2A',
+    'f01.hero.title': 'Calculateur de Frais A2A + Optimiseur de Route',
+    'f01.hero.sub': 'Comparez le coût réel des rails carte par rapport aux rails A2A directs. Sélectionnez votre profil de paiement, corridor et montant pour obtenir une ventilation instantanée des frais, spread FX et économies nettes.',
+    'f01.lbl.volume': 'Volume de Transactions Mensuel',
+    'f01.lbl.txsize': 'Taille Moyenne des Transactions',
+    'f01.lbl.corridor': 'Corridor de Paiement',
+    'f01.lbl.cardtype': 'Type de Carte',
+    'f01.lbl.paymentprofile': 'Profil de Paiement',
+    'f01.btn.calculate': '▶ Calculer',
+    'f01.results.title': 'Comparaison des Coûts',
+    'f01.lbl.cardcost': 'Coût Rail Carte',
+    'f01.lbl.a2acost': 'Coût Rail A2A',
+    'f01.lbl.saving': 'Économie Nette',
+    'f01.lbl.annualsaving': 'Économie Annuelle (projetée)',
+    'f01.opt.b2b': 'B2B Transfrontalier',
+    'f01.opt.b2c': 'Virement B2C',
+    'f01.opt.merchant': 'Acceptation Marchands',
+    'f01.badge.ai': 'Logique IA Basée sur Règles · JS Transparent',
+    'f01.empty.title': 'Les résultats s\'afficheront ici',
+    'f01.lbl.interchangefee': 'Frais d\'Interchange',
+    'f01.lbl.schemefee': 'Frais de Réseau',
+    'f01.lbl.fxspread': 'Spread FX',
+    'f01.lbl.totalcost': 'Coût Total',
+    'f01.lbl.routeopt': 'Route Recommandée',
+    'f01.btn.exportpdf': '↓ Télécharger PDF',
+    'f01.btn.exportcsv2': 'Télécharger CSV',
+    'f01.lbl.totalvolume': 'Total $ traité/mois',
+  },
+  'ar': {
+    'nav.home': 'الرئيسية',
+    'nav.a2a': 'مدفوعات A2A',
+    'nav.glossary': 'المسرد',
+    'nav.tools': 'الأدوات',
+    'nav.contact': 'تواصل معنا',
+    'footer.alltools': 'جميع الأدوات',
+    'footer.a2a': 'مدفوعات A2A',
+    'footer.glossary': 'المسرد',
+    'footer.home': 'الرئيسية',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'بيان الخصوصية',
+    'about.trigger': 'حول هذه الأداة',
+    'about.trigger2': 'حول هذه الأداة ▾',
+    'priv.runs': 'تعمل هذه الأداة بالكامل في متصفحك.',
+    'priv.notrans': 'لا يتم إرسال أي بيانات إلى أي خادم.',
+    'priv.local': 'تتم معالجة جميع المدخلات والحسابات والمخرجات محليًا على جهازك.',
+    'priv.never': 'ولا يغادر جهازك أبدًا.',
+    'priv.blocked': 'تُستبدل في وقت التشغيل لحجب جميع استدعاءات الشبكة الصادرة.',
+    'priv.allproc': 'جميع المعالجة في متصفحك · لا بيانات مُرسَلة',
+    'priv.zeropii': 'بدون بيانات شخصية · من جانب العميل فقط',
+    'priv.zeropii2': 'بدون بيانات شخصية · 100% من جانب العميل',
+    'about.howworks': 'كيف تعمل:',
+    'about.audience': 'الجمهور المستهدف:',
+    'about.limits': 'القيود:',
+    'about.export': 'تصدير:',
+    'about.whatdoes': 'ما تفعله هذه الأداة:',
+    'about.whatdoes2': 'ما تفعله هذه الأداة',
+    'about.whatsim': 'ما يحاكيه:',
+    'about.source': 'المصدر:',
+    'about.builtby': 'أُنشئ بواسطة',
+    'about.dataprivacy': 'خصوصية البيانات:',
+    'about.dataprivnote': 'ملاحظة خصوصية البيانات:',
+    'about.whatisthis': 'ما هذا؟',
+    'about.results_export': 'يمكن تنزيل النتائج بتنسيق JSON أو Markdown للاستخدام في سير العمل اللاحق أو بيئات تشغيل الوكلاء أو وثائق التدقيق.',
+    'btn.reset': '↺ إعادة تعيين',
+    'btn.clear': '↺ مسح',
+    'btn.exportcsv': '↓ تصدير CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ طباعة',
+    'btn.copy': 'نسخ',
+    'btn.alltools': '← جميع الأدوات',
+    'lbl.jurisdiction': 'الاختصاص القضائي',
+    'lbl.currency': 'العملة',
+    'lbl.amount': 'المبلغ',
+    'lbl.status': 'الحالة',
+    'lbl.type': 'النوع',
+    'lbl.rail': 'المسار',
+    'lbl.paymentrail': 'مسار الدفع',
+    'lbl.selectopt': '— اختر —',
+    'lbl.config': 'الإعدادات',
+    'lbl.valresults': 'نتائج التحقق',
+    'geo.us': 'الولايات المتحدة',
+    'geo.uk': 'المملكة المتحدة',
+    'geo.eu': 'الاتحاد الأوروبي',
+    'geo.brazil': 'البرازيل',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'سيبا',
+    'pay.sepainstant': 'SEPA فوري',
+    'pay.pix': 'PIX (البرازيل)',
+    'pay.sameday': 'ACH في اليوم ذاته',
+    'pay.nextday': 'ACH في اليوم التالي',
+    'sev.high': 'عالٍ',
+    'sev.medium': 'متوسط',
+    'f01.hero.eyebrow': 'أداة 01 من 18 · مدفوعات A2A',
+    'f01.hero.title': 'حاسبة رسوم A2A + محسِّن المسار',
+    'f01.hero.sub': 'قارن التكلفة الحقيقية لقضبان البطاقات مقابل قضبان A2A المباشرة. اختر ملف الدفع والممر وحجم المعاملة للحصول على تحليل فوري للرسوم وفارق أسعار الصرف والوفورات الصافية.',
+    'f01.lbl.volume': 'حجم المعاملات الشهري',
+    'f01.lbl.txsize': 'متوسط حجم المعاملة',
+    'f01.lbl.corridor': 'ممر الدفع',
+    'f01.lbl.cardtype': 'نوع البطاقة',
+    'f01.lbl.paymentprofile': 'ملف الدفع',
+    'f01.btn.calculate': '▶ احسب',
+    'f01.results.title': 'مقارنة التكاليف',
+    'f01.lbl.cardcost': 'تكلفة قضيب البطاقة',
+    'f01.lbl.a2acost': 'تكلفة قضيب A2A',
+    'f01.lbl.saving': 'الوفر الصافي',
+    'f01.lbl.annualsaving': 'الوفر السنوي (متوقع)',
+    'f01.opt.b2b': 'B2B عابر للحدود',
+    'f01.opt.b2c': 'تحويل B2C',
+    'f01.opt.merchant': 'قبول التجار',
+    'f01.badge.ai': 'منطق ذكاء اصطناعي قائم على القواعد · JS شفاف',
+    'f01.empty.title': 'ستظهر النتائج هنا',
+    'f01.lbl.interchangefee': 'رسوم الإنتركشينج',
+    'f01.lbl.schemefee': 'رسوم الشبكة',
+    'f01.lbl.fxspread': 'هامش صرف العملات',
+    'f01.lbl.totalcost': 'التكلفة الإجمالية',
+    'f01.lbl.routeopt': 'المسار الموصى به',
+    'f01.btn.exportpdf': '↓ تنزيل PDF',
+    'f01.btn.exportcsv2': 'تنزيل CSV',
+    'f01.lbl.totalvolume': 'إجمالي $ المعالج/شهر',
+  },
+  'pt': {
+    'nav.home': 'Início',
+    'nav.a2a': 'Pagamentos A2A',
+    'nav.glossary': 'Glossário',
+    'nav.tools': 'Ferramentas',
+    'nav.contact': 'Contato',
+    'footer.alltools': 'Todas as Ferramentas',
+    'footer.a2a': 'Pagamentos A2A',
+    'footer.glossary': 'Glossário',
+    'footer.home': 'Início',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Declaração de Privacidade',
+    'about.trigger': 'Sobre Esta Ferramenta',
+    'about.trigger2': 'Sobre Esta Ferramenta ▾',
+    'priv.runs': 'Esta ferramenta funciona inteiramente no seu navegador.',
+    'priv.notrans': 'Nenhum dado é transmitido para nenhum servidor.',
+    'priv.local': 'Todas as entradas, cálculos e saídas geradas são processados localmente no seu dispositivo.',
+    'priv.never': 'e nunca sai do seu dispositivo.',
+    'priv.blocked': 'são substituídos em tempo de execução para bloquear todas as chamadas de rede de saída.',
+    'priv.allproc': 'Todo o processamento no seu navegador · Nenhum dado transmitido',
+    'priv.zeropii': 'Sem PII · Somente no Navegador',
+    'priv.zeropii2': 'Sem PII · 100% no Navegador',
+    'about.howworks': 'Como funciona:',
+    'about.audience': 'Público-alvo:',
+    'about.limits': 'Limitações:',
+    'about.export': 'Exportar:',
+    'about.whatdoes': 'O que esta ferramenta faz:',
+    'about.whatdoes2': 'O que esta ferramenta faz',
+    'about.whatsim': 'O que simula:',
+    'about.source': 'Fonte:',
+    'about.builtby': 'Criado por',
+    'about.dataprivacy': 'Privacidade de dados:',
+    'about.dataprivnote': 'Nota de privacidade de dados:',
+    'about.whatisthis': 'O que é isso?',
+    'about.results_export': 'Os resultados podem ser baixados como JSON ou Markdown para uso em fluxos de trabalho downstream, ambientes de execução de agentes ou documentação de auditoria.',
+    'btn.reset': '↺ Redefinir',
+    'btn.clear': '↺ Limpar',
+    'btn.exportcsv': '↓ Exportar CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimir',
+    'btn.copy': 'Copiar',
+    'btn.alltools': '← Todas as Ferramentas',
+    'lbl.jurisdiction': 'Jurisdição',
+    'lbl.currency': 'Moeda',
+    'lbl.amount': 'Valor',
+    'lbl.status': 'Status',
+    'lbl.type': 'Tipo',
+    'lbl.rail': 'Trilho',
+    'lbl.paymentrail': 'Trilho de Pagamento',
+    'lbl.selectopt': '— Selecionar —',
+    'lbl.config': 'Configuração',
+    'lbl.valresults': 'Resultados de Validação',
+    'geo.us': 'Estados Unidos',
+    'geo.uk': 'Reino Unido',
+    'geo.eu': 'União Europeia',
+    'geo.brazil': 'Brasil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brasil)',
+    'pay.sameday': 'ACH no Mesmo Dia',
+    'pay.nextday': 'ACH no Dia Seguinte',
+    'sev.high': 'Alto',
+    'sev.medium': 'Médio',
+    'f01.hero.eyebrow': 'Ferramenta 01 de 18 · Pagamentos A2A',
+    'f01.hero.title': 'Calculadora de Taxas A2A + Otimizador de Rota',
+    'f01.hero.sub': 'Compare o custo real das redes de cartão versus trilhos A2A diretos. Selecione seu perfil de pagamento, corredor e tamanho de transação para obter um detalhamento instantâneo de taxas, spread de câmbio e economia líquida.',
+    'f01.lbl.volume': 'Volume de Transações Mensal',
+    'f01.lbl.txsize': 'Tamanho Médio de Transação',
+    'f01.lbl.corridor': 'Corredor de Pagamento',
+    'f01.lbl.cardtype': 'Tipo de Cartão',
+    'f01.lbl.paymentprofile': 'Perfil de Pagamento',
+    'f01.btn.calculate': '▶ Calcular',
+    'f01.results.title': 'Comparação de Custos',
+    'f01.lbl.cardcost': 'Custo do Trilho de Cartão',
+    'f01.lbl.a2acost': 'Custo do Trilho A2A',
+    'f01.lbl.saving': 'Economia Líquida',
+    'f01.lbl.annualsaving': 'Economia Anual (projetada)',
+    'f01.opt.b2b': 'B2B Transfronteiriço',
+    'f01.opt.b2c': 'Remessa B2C',
+    'f01.opt.merchant': 'Aceitação de Comerciantes',
+    'f01.badge.ai': 'Lógica IA Baseada em Regras · JS Transparente',
+    'f01.empty.title': 'Os resultados aparecerão aqui',
+    'f01.lbl.interchangefee': 'Taxa de Intercâmbio',
+    'f01.lbl.schemefee': 'Taxa de Esquema',
+    'f01.lbl.fxspread': 'Spread de Câmbio',
+    'f01.lbl.totalcost': 'Custo Total',
+    'f01.lbl.routeopt': 'Rota Recomendada',
+    'f01.btn.exportpdf': '↓ Baixar PDF',
+    'f01.btn.exportcsv2': 'Baixar CSV',
+    'f01.lbl.totalvolume': 'Total $ processado/mês',
+  },
+  'zh': {
+    'nav.home': '首页',
+    'nav.a2a': 'A2A 支付',
+    'nav.glossary': '术语表',
+    'nav.tools': '工具',
+    'nav.contact': '联系我们',
+    'footer.alltools': '所有工具',
+    'footer.a2a': 'A2A 支付',
+    'footer.glossary': '术语表',
+    'footer.home': '首页',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': '隐私声明',
+    'about.trigger': '关于此工具',
+    'about.trigger2': '关于此工具 ▾',
+    'priv.runs': '此工具完全在您的浏览器中运行。',
+    'priv.notrans': '没有任何数据被传输到服务器。',
+    'priv.local': '所有输入、计算和生成的输出均在您的设备本地处理。',
+    'priv.never': '且永远不会离开您的设备。',
+    'priv.blocked': '在运行时被覆盖以阻止所有出站网络调用。',
+    'priv.allproc': '所有处理在浏览器中进行 · 无数据传输',
+    'priv.zeropii': '零个人信息 · 纯本地运行',
+    'priv.zeropii2': '零个人信息 · 100% 本地运行',
+    'about.howworks': '工作原理：',
+    'about.audience': '目标用户：',
+    'about.limits': '局限性：',
+    'about.export': '导出：',
+    'about.whatdoes': '此工具的功能：',
+    'about.whatdoes2': '此工具的功能',
+    'about.whatsim': '模拟内容：',
+    'about.source': '来源：',
+    'about.builtby': '作者',
+    'about.dataprivacy': '数据隐私：',
+    'about.dataprivnote': '数据隐私说明：',
+    'about.whatisthis': '这是什么？',
+    'about.results_export': '结果可下载为 JSON 或 Markdown 格式，用于下游工作流、代理运行时或审计文档。',
+    'btn.reset': '↺ 重置',
+    'btn.clear': '↺ 清除',
+    'btn.exportcsv': '↓ 导出 CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ 打印',
+    'btn.copy': '复制',
+    'btn.alltools': '← 所有工具',
+    'lbl.jurisdiction': '司法管辖区',
+    'lbl.currency': '货币',
+    'lbl.amount': '金额',
+    'lbl.status': '状态',
+    'lbl.type': '类型',
+    'lbl.rail': '支付轨道',
+    'lbl.paymentrail': '支付轨道',
+    'lbl.selectopt': '— 请选择 —',
+    'lbl.config': '配置',
+    'lbl.valresults': '验证结果',
+    'geo.us': '美国',
+    'geo.uk': '英国',
+    'geo.eu': '欧盟',
+    'geo.brazil': '巴西',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA 即时',
+    'pay.pix': 'PIX（巴西）',
+    'pay.sameday': '同日 ACH',
+    'pay.nextday': '次日 ACH',
+    'sev.high': '高',
+    'sev.medium': '中',
+    'f01.hero.eyebrow': '工具 01/18 · A2A 支付',
+    'f01.hero.title': 'A2A 费用计算器 + 路由优化器',
+    'f01.hero.sub': '对比银行卡支付轨道与 A2A 直连轨道的真实成本。选择支付场景、通道和交易金额，即时获取费用明细、汇率价差及净节省分析。',
+    'f01.lbl.volume': '月交易量',
+    'f01.lbl.txsize': '平均交易金额',
+    'f01.lbl.corridor': '支付通道',
+    'f01.lbl.cardtype': '卡片类型',
+    'f01.lbl.paymentprofile': '支付场景',
+    'f01.btn.calculate': '▶ 计算',
+    'f01.results.title': '成本对比',
+    'f01.lbl.cardcost': '银行卡轨道成本',
+    'f01.lbl.a2acost': 'A2A 轨道成本',
+    'f01.lbl.saving': '净节省',
+    'f01.lbl.annualsaving': '年化节省（预测）',
+    'f01.opt.b2b': 'B2B 跨境',
+    'f01.opt.b2c': 'B2C 汇款',
+    'f01.opt.merchant': '商户收款',
+    'f01.badge.ai': '规则驱动 AI 逻辑 · 透明 JS',
+    'f01.empty.title': '结果将在此处显示',
+    'f01.lbl.interchangefee': '交换费',
+    'f01.lbl.schemefee': '网络费',
+    'f01.lbl.fxspread': '汇率价差',
+    'f01.lbl.totalcost': '总费用',
+    'f01.lbl.routeopt': '推荐路由',
+    'f01.btn.exportpdf': '↓ 下载 PDF',
+    'f01.btn.exportcsv2': '下载 CSV',
+    'f01.lbl.totalvolume': '每月处理金额',
+  },
+};
+
+/* ── LANG SWITCHER ── */
+function setLang(lang) {
+  document.querySelectorAll('.lang-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.lang-btn').forEach(function(b){
+    if(b.getAttribute('data-lang')===lang) b.classList.add('active');
+  });
+  document.documentElement.lang = lang==='zh'?'zh-Hans':lang;
+  document.documentElement.dir  = lang==='ar'?'rtl':'ltr';
+  var s = I18N[lang]||I18N['en'];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var k=el.getAttribute('data-i18n');
+    if(s[k]!==undefined) el.textContent=s[k];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el){
+    var k=el.getAttribute('data-i18n-placeholder');
+    if(s[k]!==undefined) el.placeholder=s[k];
+  });
+  window._lang=lang;
+}
+
+/* ── INLINE NOTICE (replaces alert) ── */
+function showNotice(msg, type) {
+  var n = document.getElementById('pol-notice');
+  if (!n) {
+    n = document.createElement('div');
+    n.id = 'pol-notice';
+    n.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;background:var(--panel);border:1px solid var(--edge);border-left:3px solid var(--accent);padding:.75rem 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.6rem;letter-spacing:.04em;color:var(--text);max-width:360px;line-height:1.5;transform:translateY(120%);transition:transform .25s;';
+    document.body.appendChild(n);
+  }
+  n.style.borderLeftColor = type === 'error' ? 'var(--red-lt)' : 'var(--accent)';
+  n.textContent = msg;
+  n.style.transform = 'translateY(0)';
+  clearTimeout(n._t);
+  n._t = setTimeout(function(){ n.style.transform = 'translateY(120%)'; }, 3500);
+}
+</script>
+</body>
+</html>

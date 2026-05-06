@@ -1,0 +1,2726 @@
+<!-- [[PostOakLabs.com](http://PostOakLabs.com)](http://PostOakLabs.com) | MIT License | Built with Claude -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoice-to-A2A Tooling Suite | AINumbers.co</title>
+<meta name="description" content="Parse invoices into Pay-by-Bank links and reconcile A2A payments against invoices. Client-side only, zero PII transmitted.">
+<meta name="keywords" content="invoice to A2A, pay by bank, payment reconciliation, open banking, fintech, invoice matching, A2A payments, ISO 20022">
+<meta name="robots" content="index, follow">
+<meta name="author" content="AINumbers.co">
+<link rel="canonical" href="https://ainumbers.co/tools/05-invoice-a2a-suite.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Invoice-to-A2A Tooling Suite | AINumbers.co">
+<meta property="og:description" content="Parse invoices into Pay-by-Bank links and reconcile A2A payments against invoices. Client-side only, zero PII.">
+<meta property="og:url" content="https://ainumbers.co/tools/05-invoice-a2a-suite.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════
+   POL DESIGN SYSTEM — token match
+═══════════════════════════════════════════ */
+:root {
+  --bg:        #080E1A;
+  --bg-2:      #0D1627;
+  --bg-3:      #111E35;
+  --bg-4:      #162340;
+  --border:    #1E2F4A;
+  --border-2:  #263855;
+  --muted:     #3A5270;
+  --body:      #6888A8;
+  --text:      #A8C4DE;
+  --bright:    #D4E8F8;
+  --white:     #EEF6FD;
+  --teal:      #14B8A6;
+  --teal-dim:  rgba(20,184,166,.12);
+  --teal-glow: rgba(20,184,166,.06);
+  --teal-lt:   #2DD4BF;
+  --gold:      #D4A847;
+  --gold-dim:  rgba(212,168,71,.12);
+  --purple:    #9B72F5;
+  --purple-dim:rgba(155,114,245,.12);
+  --green:     #22C55E;
+  --green-dim: rgba(34,197,94,.12);
+  --red:       #EF4444;
+  --warn:      #F59E0B;
+  --radius:    6px;
+  --radius-lg: 10px;
+  --shadow:    0 4px 24px rgba(0,0,0,.4);
+  /* Legacy aliases */
+  --ink:       #080E1A;
+  --deep:      #0D1627;
+  --navy:      #111E35;
+  --panel:     #162340;
+  --edge:      #1E2F4A;
+  --rim:       #263855;
+  --accent:    #14B8A6;
+  --accent-lt: #2DD4BF;
+  --gold-lt:   #E8C06A;
+  --green-lt:  #22C55E;
+  --green-bg:  rgba(34,197,94,.08);
+  --red-lt:    #F87171;
+  --warn-bg:   rgba(245,158,11,.08);
+  --warn-lt:   #FCD34D;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Sora', sans-serif; font-weight: 300;
+  line-height: 1.7; font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+h1,h2,h3,h4 { font-family: 'DM Serif Display', serif; font-weight: 400; line-height: 1.15; }
+a { color: inherit; text-decoration: none; }
+.container { max-width: 1140px; margin: 0 auto; padding: 0 2rem; }
+
+/* ── LANG BAR ── */
+
+
+
+
+
+/* ── NAV ── */
+nav {
+  padding: 0 2rem; height: 52px;
+  border-bottom: 1px solid var(--edge);
+  background: rgba(8,14,26,.92);
+  position: sticky; top: 0; z-index: 200;
+  backdrop-filter: blur(8px);
+}
+.nav-inner {
+  max-width: 1140px; margin: 0 auto; height: 100%;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.nav-logo { font-family: 'DM Serif Display', serif; font-size: 1.05rem; color: var(--bright); letter-spacing: 0.02em; }
+.nav-logo span { color: var(--gold); }
+.nav-links { display: flex; gap: 1.5rem; align-items: center; }
+.nav-links a { font-family: 'JetBrains Mono', monospace; font-size: 0.58rem; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); transition: color 0.2s; }
+.nav-links a:hover { color: var(--accent-lt); }
+.nav-cta {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.58rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--white); background: var(--accent); border: 1px solid var(--accent);
+  padding: 0.3rem 0.8rem; transition: all 0.2s;
+}
+.nav-cta:hover { background: var(--accent-lt); border-color: var(--accent-lt); }
+
+/* ── HERO ── */
+.hero {
+  padding: 3.5rem 0 3rem; border-bottom: 1px solid var(--edge);
+  position: relative; overflow: hidden;
+}
+.hero::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+.hero-eyebrow {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.57rem;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--accent-lt); margin-bottom: 1rem;
+  display: flex; align-items: center; gap: 0.75rem;
+}
+.hero-eyebrow::before { content: ''; display: block; width: 28px; height: 1px; background: var(--accent); }
+.hero h1 { font-size: clamp(1.7rem, 3vw, 2.6rem); color: var(--white); max-width: 680px; margin-bottom: 0.75rem; }
+.hero-sub { font-size: 0.88rem; color: var(--body); max-width: 600px; line-height: 1.85; margin-bottom: 1.2rem; }
+.hero-meta { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.52rem;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 0.35rem 0.75rem; border: 1px solid;
+}
+.badge-privacy { color: var(--muted); border-color: var(--edge); }
+.badge-privacy::before { content: '·'; color: var(--green-lt); }
+.badge-spec { color: var(--gold); border-color: rgba(192,144,64,0.3); }
+
+/* ── MODE TABS ── */
+.mode-tabs {
+  display: flex; border-bottom: 1px solid var(--edge);
+  background: var(--deep); position: sticky; top: 52px; z-index: 100;
+}
+.mode-tab {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.6rem;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  padding: 1rem 1.5rem; color: var(--muted); background: transparent;
+  border: none; cursor: pointer; border-bottom: 2px solid transparent;
+  transition: all 0.2s; display: flex; align-items: center; gap: 0.5rem;
+}
+.mode-tab:hover { color: var(--text); }
+.mode-tab.active { color: var(--accent-lt); border-bottom-color: var(--accent); }
+.mode-tab-icon { font-size: 0.8rem; }
+
+/* ── MAIN LAYOUT ── */
+.tool-section { padding: 2.5rem 0 4rem; }
+.tool-grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 2px; background: var(--edge); border: 1px solid var(--edge);
+}
+
+/* ── INPUT PANEL ── */
+.input-panel {
+  background: var(--deep); padding: 2rem;
+  overflow-y: auto;
+}
+.panel-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.52rem;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem; border-bottom: 1px solid var(--edge);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.panel-label-sub { font-size: 0.44rem; color: var(--muted); letter-spacing: 0.08em; }
+.section-head {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.48rem;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--accent-lt); margin: 1.5rem 0 0.9rem;
+  display: flex; align-items: center; gap: 0.6rem;
+}
+.section-head::after { content: ''; flex: 1; height: 1px; background: var(--edge); }
+
+/* ── FORM INPUTS ── */
+.input-group { margin-bottom: 1.1rem; }
+.input-label-text { font-size: 0.76rem; color: var(--bright); font-weight: 400; display: block; margin-bottom: 0.35rem; }
+.input-sub { font-size: 0.66rem; color: var(--muted); display: block; margin-bottom: 0.4rem; }
+
+input[type="text"], input[type="number"], input[type="date"], select, textarea {
+  width: 100%; background: var(--navy); border: 1px solid var(--edge);
+  color: var(--white); font-family: 'Sora', sans-serif; font-size: 0.82rem;
+  padding: 0.6rem 0.85rem; outline: none; transition: border-color 0.2s;
+  -webkit-appearance: none;
+}
+input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+}
+select { cursor: pointer; }
+textarea { resize: vertical; min-height: 180px; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; line-height: 1.5; }
+
+/* ── FILE UPLOAD ── */
+.file-drop {
+  border: 2px dashed var(--edge); background: var(--navy);
+  padding: 1.5rem 1rem; text-align: center; cursor: pointer;
+  transition: border-color 0.2s; margin-bottom: 0.75rem;
+}
+.file-drop:hover { border-color: var(--accent); }
+.file-drop.active { border-color: var(--accent-lt); background: rgba(42,127,192,0.05); }
+.file-drop-icon { font-size: 1.5rem; margin-bottom: 0.4rem; }
+.file-drop-label { font-size: 0.76rem; color: var(--bright); }
+.file-drop-sub { font-size: 0.64rem; color: var(--muted); margin-top: 0.25rem; }
+.file-drop input[type="file"] { display: none; }
+.file-loaded { font-family: 'JetBrains Mono', monospace; font-size: 0.64rem; color: var(--green-lt); margin-top: 0.4rem; }
+
+/* ── BUTTONS ── */
+.btn-primary {
+  width: 100%; padding: 0.85rem 1.5rem; background: var(--accent);
+  color: var(--white); font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem; letter-spacing: 0.16em; text-transform: uppercase;
+  border: 1px solid var(--accent); cursor: pointer; transition: all 0.2s;
+  margin-top: 1rem;
+}
+.btn-primary:hover { background: var(--accent-lt); border-color: var(--accent-lt); }
+.btn-secondary {
+  padding: 0.45rem 1rem; background: transparent;
+  color: var(--text); font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem; letter-spacing: 0.12em; text-transform: uppercase;
+  border: 1px solid var(--edge); cursor: pointer; transition: all 0.2s;
+}
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent-lt); }
+.btn-group { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
+.btn-ghost {
+  padding: 0.35rem 0.75rem; background: transparent;
+  color: var(--muted); font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem; letter-spacing: 0.1em; text-transform: uppercase;
+  border: 1px solid var(--edge); cursor: pointer; transition: all 0.2s;
+}
+.btn-ghost:hover { color: var(--text); border-color: var(--rim); }
+.btn-ghost.copied { color: var(--green-lt); border-color: var(--green); }
+
+/* ── OUTPUT PANEL ── */
+.output-panel { background: var(--navy); padding: 2rem; overflow-y: auto; }
+.out-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.52rem;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem; border-bottom: 1px solid var(--edge);
+}
+
+/* ── EMPTY STATE ── */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; min-height: 300px; gap: 0.75rem;
+  color: var(--muted); text-align: center;
+}
+.empty-icon { font-size: 2.5rem; opacity: 0.4; }
+.empty-title { font-family: 'DM Serif Display', serif; font-size: 1.1rem; color: var(--body); }
+.empty-sub { font-size: 0.78rem; max-width: 300px; line-height: 1.6; }
+
+/* ── RESULT CARDS ── */
+.result-card {
+  background: var(--panel); border: 1px solid var(--edge);
+  padding: 1.25rem 1.5rem; margin-bottom: 1rem;
+}
+.result-card-title {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.5rem;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--accent-lt); margin-bottom: 0.85rem;
+}
+
+/* ── LINK OUTPUT ── */
+.link-display {
+  background: var(--bg); border: 1px solid var(--edge);
+  padding: 0.85rem 1rem; display: flex; align-items: center;
+  justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem;
+}
+.link-text {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.65rem;
+  color: var(--accent-lt); word-break: break-all; flex: 1;
+}
+
+/* ── PARSED FIELDS ── */
+.parsed-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;
+}
+.parsed-field { background: var(--bg); border: 1px solid var(--edge); padding: 0.6rem 0.85rem; }
+.parsed-field-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.44rem;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.2rem;
+}
+.parsed-field-value { font-size: 0.8rem; color: var(--white); font-weight: 400; }
+.parsed-field-value.highlight { color: var(--accent-lt); }
+
+/* ── EMAIL TEMPLATE ── */
+.email-preview {
+  background: var(--bg); border: 1px solid var(--edge);
+  padding: 1.25rem; font-size: 0.78rem; line-height: 1.75; color: var(--text);
+  white-space: pre-wrap; font-family: 'Sora', sans-serif;
+  max-height: 280px; overflow-y: auto;
+}
+
+/* ── JSON OUTPUT ── */
+.json-preview {
+  background: var(--bg); border: 1px solid var(--edge);
+  padding: 1rem; font-family: 'JetBrains Mono', monospace;
+  font-size: 0.64rem; color: var(--text); line-height: 1.65;
+  white-space: pre; overflow-x: auto; max-height: 240px; overflow-y: auto;
+}
+.json-key { color: var(--accent-lt); }
+.json-str { color: var(--gold-lt); }
+.json-num { color: var(--green-lt); }
+
+/* ── TABLES ── */
+.data-table-wrap { overflow-x: auto; margin-bottom: 1rem; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+.data-table th {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.46rem;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--gold); background: var(--panel);
+  padding: 0.65rem 0.85rem; text-align: left; border-bottom: 1px solid var(--edge);
+  white-space: nowrap;
+}
+.data-table td {
+  padding: 0.55rem 0.85rem; border-bottom: 1px solid rgba(30,52,84,0.5);
+  color: var(--text); vertical-align: middle;
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: rgba(42,127,192,0.04); }
+.data-table .mono { font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; }
+.data-table .amount { color: var(--accent-lt); font-weight: 400; font-family: 'JetBrains Mono', monospace; }
+
+/* ── STATUS BADGES ── */
+.badge {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.46rem;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 0.2rem 0.5rem; border: 1px solid;
+}
+.badge-matched { color: var(--green-lt); border-color: var(--green); background: var(--green-bg); }
+.badge-unmatched { color: var(--red-lt); border-color: var(--red); background: var(--red-bg); }
+.badge-fuzzy { color: var(--warn-lt); border-color: var(--warn); background: var(--warn-bg); }
+.badge-partial { color: var(--gold-lt); border-color: var(--gold); background: rgba(30,20,8,0.8); }
+
+/* ── AGING REPORT ── */
+.aging-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1rem;
+}
+.aging-cell {
+  background: var(--bg); border: 1px solid var(--edge); padding: 1rem 0.85rem; text-align: center;
+}
+.aging-bucket {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.46rem;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 0.4rem;
+}
+.aging-count { font-size: 1.6rem; font-family: 'DM Serif Display', serif; color: var(--white); line-height: 1; margin-bottom: 0.25rem; }
+.aging-amount { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; color: var(--accent-lt); }
+.aging-cell.overdue .aging-count { color: var(--red-lt); }
+.aging-cell.warn .aging-count { color: var(--warn-lt); }
+.aging-cell.ok .aging-count { color: var(--green-lt); }
+
+/* ── SUMMARY STATS ── */
+.stats-row {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1.25rem;
+}
+.stat-cell {
+  background: var(--bg); border: 1px solid var(--edge); padding: 1rem; text-align: center;
+}
+.stat-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.44rem;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.35rem;
+}
+.stat-val { font-size: 1.5rem; font-family: 'DM Serif Display', serif; color: var(--white); line-height: 1.1; }
+.stat-sub { font-size: 0.62rem; color: var(--muted); margin-top: 0.2rem; }
+
+/* ── ABOUT COLLAPSIBLE ── */
+.about-toggle {
+  display: flex; justify-content: space-between; align-items: center;
+  cursor: pointer; padding: 0.9rem 1.25rem;
+  background: var(--deep); border: 1px solid var(--edge);
+  margin-bottom: 0.25rem; transition: background 0.2s;
+}
+.about-toggle:hover { background: var(--panel); }
+.about-toggle-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.54rem;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-lt);
+}
+.about-toggle-arrow {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.58rem;
+  color: var(--muted); transition: transform 0.25s;
+}
+.about-toggle.open .about-toggle-arrow { transform: rotate(180deg); }
+.about-body {
+  background: var(--deep); border: 1px solid var(--edge); border-top: none;
+  padding: 0; max-height: 0; overflow: hidden; transition: max-height 0.35s ease, padding 0.25s ease;
+}
+.about-body.open { max-height: 800px; padding: 1.5rem 1.25rem; }
+.about-body p { font-size: 0.82rem; line-height: 1.75; color: var(--body); margin-bottom: 0.75rem; }
+.about-body p:last-child { margin-bottom: 0; }
+.about-body strong { color: var(--bright); font-weight: 400; }
+
+/* ── PRIVACY NOTICE ── */
+.privacy-notice {
+  background: var(--green-bg); border: 1px solid var(--green);
+  padding: 0.75rem 1.1rem; display: flex; align-items: flex-start; gap: 0.7rem;
+  margin-bottom: 1rem;
+}
+.privacy-icon { color: var(--green-lt); font-size: 0.85rem; flex-shrink: 0; margin-top: 0.05rem; }
+.privacy-text { font-size: 0.73rem; color: var(--body); line-height: 1.55; }
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--edge); padding: 2rem 0;
+  background: var(--deep); margin-top: 3rem;
+}
+.footer-inner {
+  max-width: 1140px; margin: 0 auto; padding: 0 2rem;
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;
+}
+.footer-copy { font-size: 0.72rem; color: var(--muted); }
+.footer-copy a { color: var(--body); transition: color 0.2s; }
+.footer-copy a:hover { color: var(--accent-lt); }
+.footer-links { display: flex; gap: 1.25rem; }
+.footer-links a { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); transition: color 0.2s; }
+.footer-links a:hover { color: var(--accent-lt); }
+
+/* ── MODE PANE ── */
+.mode-pane { display: none; }
+.mode-pane.active { display: block; }
+
+/* ── SECTION DIVIDER ── */
+.section-divider {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.48rem;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--gold); padding: 0.6rem 0 0.5rem;
+  border-bottom: 1px solid var(--edge); margin-bottom: 1.1rem;
+  margin-top: 1.25rem;
+}
+
+/* ── HIGHLIGHT ROW ── */
+.row-info { background: rgba(42,127,192,0.06); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 860px) {
+  .tool-grid { grid-template-columns: 1fr; }
+  .input-panel { max-height: none; position: static; }
+  .parsed-grid { grid-template-columns: 1fr; }
+  .aging-grid { grid-template-columns: repeat(2, 1fr); }
+  .stats-row { grid-template-columns: 1fr; }
+  .nav-links { display: none; }
+}
+@media (max-width: 500px) {
+  .aging-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── TABS WITHIN OUTPUT ── */
+.out-tabs { display: flex; gap: 0; margin-bottom: 1.25rem; border-bottom: 1px solid var(--edge); }
+.out-tab {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.52rem;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 0.6rem 1.1rem; color: var(--muted); background: transparent;
+  border: none; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s;
+}
+.out-tab:hover { color: var(--text); }
+.out-tab.active { color: var(--accent-lt); border-bottom-color: var(--accent); }
+.out-tab-pane { display: none; }
+.out-tab-pane.active { display: block; }
+
+/* ── UNMATCHED SECTION ── */
+.unmatched-head {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.48rem;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 0.5rem 0 0.4rem; margin-top: 1.25rem; margin-bottom: 0.6rem;
+  border-bottom: 1px solid var(--edge);
+}
+.unmatched-head.inv { color: var(--warn-lt); }
+.unmatched-head.pay { color: var(--red-lt); }
+
+/* ── NAV STANDARD ── */
+.nav-active { color: var(--accent-lt) !important; }
+.nav-cta {
+  color: var(--accent-lt) !important;
+  border: 1px solid rgba(42,127,192,.4);
+  padding: .2rem .65rem;
+  transition: all .2s;
+}
+.nav-cta:hover { background: rgba(42,127,192,.12); border-color: var(--accent); }
+/* ── FOOTER STANDARD ── */
+.footer-brand { font-family: 'DM Serif Display', serif; font-size: .95rem; color: var(--bright); margin-bottom: .35rem; }
+.footer-brand span { color: var(--gold); }
+.footer-copy { font-family: 'JetBrains Mono', monospace; font-size: .48rem; letter-spacing: .06em; color: var(--muted); line-height: 1.8; }
+.footer-copy a { color: var(--muted); text-decoration: underline; }
+.footer-links { display: flex; gap: 1.25rem; align-items: center; flex-wrap: wrap; }
+.footer-links a { font-family: 'JetBrains Mono', monospace; font-size: .5rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); transition: color .2s; }
+.footer-links a:hover { color: var(--body); }
+footer { border-top: 1px solid var(--edge); padding: 1.5rem 0; margin-top: 2rem; }
+.footer-inner { max-width: 1100px; margin: 0 auto; padding: 0 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+.lang-bar {
+  background: var(--deep);
+  border-bottom: 1px solid var(--edge);
+  padding: 0 2rem;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.lang-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+.lang-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+.lang-btn:hover {
+  color: var(--body);
+  border-color: var(--edge);
+}
+.lang-btn.active {
+  color: var(--teal-lt);
+  border-bottom: 1px solid var(--teal);
+}
+
+/* ── RTL SUPPORT ── */
+[dir="rtl"] .nav-inner,[dir="rtl"] .nav-links { flex-direction: row-reverse; }
+[dir="rtl"] .lang-inner { flex-direction: row-reverse; justify-content: flex-start; }
+[dir="rtl"] .footer-inner,[dir="rtl"] .footer-links { flex-direction: row-reverse; }
+[dir="rtl"] input,[dir="rtl"] textarea,[dir="rtl"] select { direction:rtl;text-align:right; }
+[dir="rtl"] label,[dir="rtl"] .label,[dir="rtl"] .input-label-text,
+[dir="rtl"] .input-label-hint,[dir="rtl"] .section-head,[dir="rtl"] .panel-label,
+[dir="rtl"] .form-label,[dir="rtl"] .field-label { text-align:right;direction:rtl; }
+[dir="rtl"] .stat-cell,[dir="rtl"] .stat-label,[dir="rtl"] .stat-sub,
+[dir="rtl"] .kpi-label { text-align:right; }
+[dir="rtl"] .config-panel,[dir="rtl"] .left-panel { order:2; }
+[dir="rtl"] .output-panel,[dir="rtl"] .results-panel,[dir="rtl"] .right-panel { order:1; }
+[dir="rtl"] .tool-grid,[dir="rtl"] .split-grid { direction:rtl; }
+[dir="rtl"] .hero,[dir="rtl"] .hero-eyebrow { direction:rtl;text-align:right; }
+[dir="rtl"] .hero-eyebrow::before { margin-left:0.5rem;margin-right:0; }
+[dir="rtl"] .hero-meta { justify-content:flex-end; }
+[dir="rtl"] .collapsible-trigger { text-align:right; }
+
+
+/* ── AINUMBERS TOKENS ── */
+/* (aliases above handle legacy var names) */
+
+/* ── BACKGROUND GRID ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(20,184,166,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20,184,166,.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── LOGO ── */
+.logo { display:flex; align-items:center; gap:10px; flex-shrink:0; text-decoration:none; }
+.logo-mark-grid { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:32px; height:32px; }
+.logo-text { display:flex; flex-direction:column; gap:2px; }
+.logo-name { font-family:'JetBrains Mono',monospace; font-size:.95rem; font-weight:500; color:var(--bright); letter-spacing:-.02em; line-height:1; }
+.logo-ai { color:var(--teal); }
+.logo-co { color:var(--muted); font-size:.8rem; }
+.logo-tag { font-family:'JetBrains Mono',monospace; font-size:.5rem; letter-spacing:.22em; text-transform:uppercase; color:var(--muted); line-height:1; }
+@media(max-width:600px){ .logo-tag { display:none; } }
+
+/* ── NAV CTA ── */
+.nav-cta {
+  font-family:'JetBrains Mono',monospace !important;
+  font-size:.58rem !important; letter-spacing:.12em !important; text-transform:uppercase !important;
+  color:var(--bg) !important; background:var(--teal) !important;
+  border:1px solid var(--teal) !important; padding:.3rem .85rem !important;
+  border-radius:6px !important; transition:all .2s !important;
+}
+.nav-cta:hover { background:var(--teal-lt) !important; border-color:var(--teal-lt) !important; color:var(--bg) !important; }
+
+/* ── FOOTER ── */
+footer { border-top:1px solid var(--border); padding:2rem 0; margin-top:2rem; position:relative; z-index:1; }
+.footer-inner-ai { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:1rem; }
+.footer-brand-link { display:flex; align-items:center; gap:.5rem; text-decoration:none; color:var(--text); }
+.logo-icon-sm { width:28px; height:28px; background:linear-gradient(135deg,var(--teal),#0D9488); border-radius:5px; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:11px; color:var(--bg); font-family:'JetBrains Mono',monospace; }
+.footer-wordmark { font-family:'JetBrains Mono',monospace; font-size:.9rem; font-weight:500; color:var(--bright); }
+.footer-links-ai { display:flex; gap:1.5rem; }
+.footer-links-ai a { color:var(--body); font-size:.82rem; transition:color .15s; }
+.footer-links-ai a:hover { color:var(--teal-lt); }
+.footer-badge-ai { display:flex; align-items:center; gap:1rem; font-size:.72rem; color:var(--muted); }
+@media(max-width:600px){ .footer-inner-ai { flex-direction:column; text-align:center; } .footer-badge-ai { flex-direction:column; gap:.4rem; } }
+
+/* ── Z-INDEX FIX ── */
+
+/* ══ RULE SANDBOX MODE (Tool F) ══ */
+.sandbox-grid { display: grid; grid-template-columns: 380px 1fr; gap: 0; min-height: 600px; }
+.sandbox-config { background: var(--navy); border-right: 1px solid var(--edge); padding: 1.5rem; overflow-y: auto; }
+.sandbox-output { background: var(--deep); padding: 1.5rem; overflow-y: auto; }
+.sb-section { margin-bottom: 1.5rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--edge); }
+.sb-section:last-child { border-bottom: none; }
+.sb-section-title { font-family: 'JetBrains Mono', monospace; font-size: .58rem; letter-spacing: .15em; text-transform: uppercase; color: var(--accent-lt); margin-bottom: .85rem; display: flex; align-items: center; gap: .4rem; }
+.sb-section-title::before { content: ''; display: block; width: 3px; height: 10px; background: var(--accent); border-radius: 2px; flex-shrink: 0; }
+.sb-field { margin-bottom: .75rem; }
+.sb-label { font-family: 'JetBrains Mono', monospace; font-size: .55rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: .35rem; display: flex; justify-content: space-between; align-items: center; }
+.sb-val { color: var(--accent-lt); }
+.sb-field input[type=range] { width: 100%; accent-color: var(--accent); margin-top: .2rem; }
+.sb-field select, .sb-field input[type=number], .sb-field input[type=text] { width: 100%; background: var(--panel); border: 1px solid var(--edge); color: var(--text); border-radius: 4px; font-family: 'DM Sans', sans-serif; font-size: .82rem; padding: .45rem .7rem; outline: none; transition: border-color .2s; }
+.sb-field select:focus, .sb-field input:focus { border-color: var(--accent); }
+.fatf-grid { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 160px; overflow-y: auto; }
+.fatf-chip { font-family: 'JetBrains Mono', monospace; font-size: .58rem; padding: .18rem .45rem; border-radius: 3px; cursor: pointer; border: 1px solid var(--edge); color: var(--muted); background: transparent; transition: all .15s; }
+.fatf-chip.black { border-color: rgba(239,68,68,.4); color: #F87171; background: rgba(239,68,68,.08); }
+.fatf-chip.grey.active { border-color: rgba(245,158,11,.4); color: var(--gold); background: rgba(245,158,11,.08); }
+.fatf-chip.grey { opacity: .6; }
+.fatf-note { font-size: .72rem; color: var(--muted); margin-top: .5rem; line-height: 1.5; }
+.mcc-toggle-grid { display: flex; flex-wrap: wrap; gap: .3rem; }
+.mcc-chip { font-family: 'JetBrains Mono', monospace; font-size: .6rem; padding: .2rem .5rem; border-radius: 3px; cursor: pointer; border: 1px solid var(--edge); color: var(--muted); background: transparent; transition: all .15s; }
+.mcc-chip.active { border-color: var(--accent); color: var(--accent-lt); background: rgba(20,184,166,.1); }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
+.toggle-lbl { font-size: .8rem; color: var(--text); }
+.toggle-switch { position: relative; width: 34px; height: 18px; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; inset: 0; background: var(--panel); border: 1px solid var(--edge); border-radius: 18px; cursor: pointer; transition: all .2s; }
+.toggle-slider::before { content: ''; position: absolute; width: 12px; height: 12px; left: 2px; top: 2px; background: var(--muted); border-radius: 50%; transition: all .2s; }
+.toggle-switch input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(16px); background: var(--deep); }
+/* Effectiveness matrix */
+.eff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin-bottom: 1.1rem; }
+.eff-card { background: var(--navy); border: 1px solid var(--edge); border-radius: 6px; padding: .75rem; }
+.eff-label { font-family: 'JetBrains Mono', monospace; font-size: .52rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: .3rem; }
+.eff-val { font-family: 'DM Serif Display', serif; font-size: 1.3rem; color: var(--white); line-height: 1; }
+.eff-val.good { color: #2aa86a; } .eff-val.warn { color: var(--gold); } .eff-val.bad { color: #c04040; }
+/* Scenario results table */
+.sb-table { width: 100%; border-collapse: collapse; font-size: .78rem; margin-bottom: 1rem; }
+.sb-table th { padding: .5rem .75rem; text-align: left; font-family: 'JetBrains Mono', monospace; font-size: .5rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); background: var(--navy); border-bottom: 1px solid var(--edge); }
+.sb-table td { padding: .55rem .75rem; border-bottom: 1px solid var(--edge); color: var(--body); vertical-align: top; }
+.sb-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: .7rem; color: var(--text); }
+.sb-table tr:hover td { background: var(--navy); }
+.sev-crit { color: #c04040; font-weight: 600; font-family: 'JetBrains Mono', monospace; font-size: .65rem; }
+.sev-high { color: var(--gold); font-family: 'JetBrains Mono', monospace; font-size: .65rem; }
+.sev-med  { color: var(--accent-lt); font-family: 'JetBrains Mono', monospace; font-size: .65rem; }
+.sev-low  { color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: .65rem; }
+.rules-fired { font-size: .68rem; color: var(--body); }
+.sb-run-btn { width: 100%; padding: .75rem; background: var(--accent); color: var(--deep); border: none; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: .65rem; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; cursor: pointer; transition: all .2s; margin-top: .5rem; }
+.sb-run-btn:hover { background: var(--accent-lt); }
+.template-chip { display: flex; align-items: center; gap: .5rem; padding: .5rem .75rem; background: var(--navy); border: 1px solid var(--edge); border-radius: 4px; cursor: pointer; margin-bottom: .4rem; transition: all .15s; font-size: .82rem; color: var(--body); }
+.template-chip:hover { border-color: var(--accent); color: var(--accent-lt); }
+.template-chip::before { content: '▶'; font-size: .6rem; color: var(--accent); }
+.jur-note { background: rgba(42,127,192,.08); border: 1px solid rgba(42,127,192,.2); border-radius: 4px; padding: .6rem .85rem; font-size: .75rem; color: var(--text); line-height: 1.6; margin-top: .5rem; }
+.sb-empty { text-align: center; padding: 3rem 1rem; color: var(--muted); font-size: .82rem; }
+.sb-empty-icon { font-size: 2rem; margin-bottom: .75rem; }
+@media (max-width: 900px) { .sandbox-grid { grid-template-columns: 1fr; } }
+</style>
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@ainumbers">
+<meta name="twitter:title" content="Invoice-to-A2A Tooling Suite | AINumbers.co">
+<meta name="twitter:description" content="Parse invoices into Pay-by-Bank links and reconcile A2A payments. Client-side only, zero PII.">
+</head>
+<body>
+
+<!-- LANG BAR -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark-grid">
+        <svg width="32" height="32" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/>
+        </svg>
+      </div>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+        <div class="logo-tag">Invoice A2A Suite</div>
+      </div>
+    </a>
+    <div class="nav-links">
+      <a href="../index.html" class="nav-cta">All Tools</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="container">
+    <div class="hero-eyebrow"><span data-i18n="f05.hero.eyebrow">Tool 05 · Payment Operations</span></div>
+    <h1><span data-i18n="f05.hero.title">Invoice-to-A2A Tooling Suite</span></h1>
+    <p class="hero-sub"><span data-i18n="f05.hero.sub">Parse invoices into Pay-by-Bank links and reconcile A2A payments against invoice ledgers. Three integrated tools: link generator, payment reconciliation, and aging report. Client-side only.</span></p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-privacy"><span data-i18n="priv.zeropii">Zero PII · Client-Side Only</span></span>
+      <span class="hero-badge badge-spec">Matcher + Link Generator</span>
+      <span class="hero-badge badge-spec">ISO 20022 JSON Export</span>
+    </div>
+  </div>
+</div>
+
+<!-- MODE TABS -->
+<div class="mode-tabs">
+  <div class="container" style="display:flex;width:100%;max-width:1140px;margin:0 auto;padding:0 2rem;">
+    <button class="mode-tab active" id="tab-linkgen-btn" onclick="switchMode('linkgen',this)">
+      <span class="mode-tab-icon">🔗</span> Link Generator
+    </button>
+    <button class="mode-tab" id="tab-recon-btn" onclick="switchMode('recon',this)">
+      <span class="mode-tab-icon">📊</span> Reconcile
+    </button>
+    <button class="mode-tab" id="tab-sandbox-btn" onclick="switchMode('sandbox',this)">
+      <span class="mode-tab-icon">🔬</span> Rule Sandbox <span style="font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;background:rgba(20,184,166,.15);color:var(--accent-lt);padding:.1rem .35rem;border-radius:3px;margin-left:.25rem;">NEW</span>
+    </button>
+  </div>
+</div>
+
+<!-- MAIN TOOL SECTION -->
+<section class="tool-section">
+  <div class="container">
+
+    <!-- ══════════════ MODE 1: LINK GENERATOR ══════════════ -->
+    <div id="mode-linkgen" class="mode-pane active">
+      <div class="tool-grid">
+
+        <!-- INPUT -->
+        <div class="input-panel">
+          <div class="panel-label">
+            Invoice Parser
+            <span class="panel-label-sub">Mode 1 · Link Gen</span>
+          </div>
+
+          <div class="privacy-notice">
+            <span class="privacy-icon">·</span>
+            <span class="privacy-text">This tool runs entirely in your browser. No user data is transmitted to any server. External libraries (charts / PDF) load from cdnjs.cloudflare.com. All calculations and file processing happen locally on your device.</span>
+          </div>
+
+          <div class="section-head">Paste Invoice Text</div>
+          <div class="input-group">
+            <label class="input-label-text">Raw Invoice Content</label>
+            <span class="input-sub">Paste any invoice text — the parser extracts key fields via pattern matching.</span>
+            <textarea id="invoice-text" placeholder="Example:&#10;INVOICE&#10;Invoice #: INV-2025-0042&#10;Date: 2025-04-01&#10;Due Date: 2025-05-01&#10;&#10;Bill To: Acme Corp&#10;From: Post Oak Solutions LLC&#10;&#10;Services rendered: API Integration Consulting&#10;Amount Due: $12,450.00&#10;Currency: USD&#10;&#10;Please remit payment to: Post Oak Solutions LLC&#10;Routing: 021000021&#10;Account: 4987230012"></textarea>
+          </div>
+
+          <div class="section-head">Creditor Overrides</div>
+          <div class="input-group">
+            <label class="input-label-text">Creditor Name <span style="color:var(--muted);font-size:0.68rem;">(optional override)</span></label>
+            <input type="text" id="creditor-name" placeholder="Auto-detected from text">
+          </div>
+          <div class="input-group">
+            <label class="input-label-text">Routing Number <span style="color:var(--muted);font-size:0.68rem;">(9 digits)</span></label>
+            <input type="text" id="creditor-routing" placeholder="Auto-detected or enter manually" maxlength="9">
+          </div>
+          <div class="input-group">
+            <label class="input-label-text">Account Number</label>
+            <input type="text" id="creditor-account" placeholder="Auto-detected or enter manually">
+          </div>
+          <div class="input-group">
+            <label class="input-label-text">Rail Preference</label>
+            <select id="rail-pref">
+              <option value="auto">Auto-select (recommended)</option>
+              <option value="fednow">FedNow</option>
+              <option value="rtp">RTP</option>
+              <option value="sda" data-i18n="pay.sameday">Same-Day ACH</option>
+              <option value="nda" data-i18n="pay.nextday">Next-Day ACH</option>
+            </select>
+          </div>
+
+          <button class="btn-primary" onclick="runLinkGen()">⚡ Parse Invoice + Generate Link</button>
+          <div class="btn-group">
+            <button class="btn-ghost" onclick="resetLinkGen()"><span data-i18n="btn.reset">↺ Reset</span></button>
+            <button class="btn-ghost" onclick="loadLinkGenDemo()"><span data-i18n="f05.btn.loaddemo">Load Demo</span></button>
+          </div>
+        </div>
+
+        <!-- OUTPUT -->
+        <div class="output-panel" id="linkgen-output">
+          <div class="out-label">Link Generator — Output</div>
+          <div id="linkgen-result">
+            <div class="empty-state">
+              <div class="empty-icon">🔗</div>
+              <div class="empty-title">Awaiting invoice input</div>
+              <div class="empty-sub">Paste raw invoice text and click "Parse Invoice + Generate Link" to extract fields and build a Pay-by-Bank payment link.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ MODE 2: RECONCILE ══════════════ -->
+    <div id="mode-recon" class="mode-pane">
+      <div class="tool-grid">
+
+        <!-- INPUT -->
+        <div class="input-panel">
+          <div class="panel-label">
+            CSV Reconciler
+            <span class="panel-label-sub">Mode 2 · Reconcile</span>
+          </div>
+
+          <div class="privacy-notice">
+            <span class="privacy-icon">·</span>
+            <span class="privacy-text">This tool runs entirely in your browser. No data is transmitted to any server. All calculations and file processing happen locally on your device.</span>
+          </div>
+
+          <div class="section-head">Invoices CSV</div>
+          <div class="file-drop" id="inv-drop" onclick="document.getElementById('inv-file').click()">
+            <div class="file-drop-icon">📄</div>
+            <div class="file-drop-label">Click to upload invoices CSV</div>
+            <div class="file-drop-sub">Required columns: invoice_id, amount, currency, due_date, reference</div>
+            <input type="file" id="inv-file" accept=".csv" onchange="handleInvFile(this)">
+          </div>
+          <div id="inv-loaded" class="file-loaded" style="display:none;"></div>
+
+          <div class="section-head">Payments CSV</div>
+          <div class="file-drop" id="pay-drop" onclick="document.getElementById('pay-file').click()">
+            <div class="file-drop-icon">💳</div>
+            <div class="file-drop-label">Click to upload payments CSV</div>
+            <div class="file-drop-sub">Required columns: payment_id, amount, currency, payment_date, reference</div>
+            <input type="file" id="pay-file" accept=".csv" onchange="handlePayFile(this)">
+          </div>
+          <div id="pay-loaded" class="file-loaded" style="display:none;"></div>
+
+          <div class="section-head">Match Settings</div>
+          <div class="input-group">
+            <label class="input-label-text">Date Tolerance</label>
+            <select id="date-tol">
+              <option value="0">Exact date match only</option>
+              <option value="2" selected>±2 days (recommended)</option>
+              <option value="5">±5 days</option>
+              <option value="7">±7 days</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label class="input-label-text">Amount Tolerance</label>
+            <select id="amt-tol">
+              <option value="0">Exact amount only</option>
+              <option value="0.01" selected>±$0.01 (rounding)</option>
+              <option value="1">±$1.00</option>
+              <option value="5">±$5.00</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label class="input-label-text">Reference Fuzzy Match</label>
+            <select id="ref-fuzzy">
+              <option value="exact">Exact match only</option>
+              <option value="contains" selected>Contains match</option>
+              <option value="loose">Loose (any shared token ≥4 chars)</option>
+            </select>
+          </div>
+
+          <button class="btn-primary" onclick="runRecon()">📊 Run Reconciliation</button>
+          <div class="btn-group">
+            <button class="btn-ghost" onclick="resetRecon()"><span data-i18n="btn.reset">↺ Reset</span></button>
+            <button class="btn-ghost" onclick="loadReconDemo()"><span data-i18n="f05.btn.loaddemodata">Load Demo Data</span></button>
+          </div>
+        </div>
+
+        <!-- OUTPUT -->
+        <div class="output-panel" id="recon-output">
+          <div class="out-label">Reconciliation — Output</div>
+          <div id="recon-result">
+            <div class="empty-state">
+              <div class="empty-icon">📊</div>
+              <div class="empty-title">No data loaded</div>
+              <div class="empty-sub">Upload your invoices and payments CSVs, configure match settings, then click "Run Reconciliation" to see matched pairs, unmatched items, and an aging report.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ ABOUT + PRIVACY ══════════════ -->
+    <div style="margin-top:2.5rem;">
+      <div class="about-toggle" id="about-toggle" onclick="toggleAbout(this)" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){this.click();event.preventDefault();}">
+        <span class="about-toggle-label">ℹ About This Tool ▾</span>
+        <span class="about-toggle-arrow">▾</span>
+      </div>
+      <div class="about-body" id="about-content">
+        <p><strong>Tool 05 — Invoice-to-A2A Tooling Suite</strong> is part of AINumbers.co' 18-tool A2A Fintech series. It operates in two modes: <strong><span data-i18n="f05.tab.linkgen">Link Generator</span></strong> (parse invoice text → Pay-by-Bank link + ISO 20022 JSON) and <strong>Reconciler</strong> (match A2A payment records against outstanding invoices).</p>
+        <p><strong>Link Generator Logic:</strong> Regex and keyword patterns extract creditor name, invoice ID, amount, currency, due date, and bank routing details from raw text. A rule-based rail selector chooses the optimal A2A rail based on amount thresholds (FedNow for ≤$500K urgent; RTP for ≤$1M; ACH otherwise). The payment slug and ISO 20022 JSON are constructed via string interpolation — no external APIs involved.</p>
+        <p><strong>Reconciler Logic:</strong> Invoices and payments are matched in three passes: (1) exact amount + date; (2) fuzzy reference string match within date tolerance; (3) date proximity ±N days within amount tolerance. Unmatched invoices are classified into aging buckets (0–30, 31–60, 61–90, 90+ days overdue).</p>
+        <p><strong>Privacy:</strong> This tool runs entirely in your browser using the FileReader API and JavaScript string processing. No invoice data, payment records, account numbers, or any other information is transmitted to AINumbers.co or any third party. The tool has no analytics, no tracking pixels, and no backend.</p>
+        <p><strong><span data-i18n="about.limits">Limitations:</span></strong> Invoice parsing is regex-based and works best with structured text. Scanned PDFs or heavily formatted documents may require manual field entry. The reconciler uses deterministic matching — no probabilistic ML. For production use, connect to your ERP or accounting system's API.</p>
+      </div>
+    </div>
+
+
+    <!-- ══════════════ MODE 3: RULE SANDBOX (Tool F) ══════════════ -->
+    <div id="mode-sandbox" class="mode-pane">
+      <div class="sandbox-grid">
+        <div class="sandbox-config">
+          <div class="sb-section">
+            <div class="sb-section-title">Scenario Template</div>
+            <div class="template-chip" onclick="loadSandboxTemplate('structuring')">Structuring Attack</div>
+            <div class="template-chip" onclick="loadSandboxTemplate('tbml')">Trade-Based Money Laundering</div>
+            <div class="template-chip" onclick="loadSandboxTemplate('layering')">Layering via Multiple Accounts</div>
+            <div class="template-chip" onclick="loadSandboxTemplate('rapid')">Rapid Fund Movement</div>
+            <div class="template-chip" onclick="loadSandboxTemplate('dormant')">Dormant Account Spike</div>
+            <div class="sb-field" style="margin-top:.75rem;">
+              <div class="sb-label">Transaction Count (custom)</div>
+              <input type="number" id="sb-txn-count" value="200" min="10" max="2000">
+            </div>
+          </div>
+          <div class="sb-section">
+            <div class="sb-section-title">Velocity Rules</div>
+            <div class="sb-field">
+              <div class="sb-label">Daily Transaction Limit <span class="sb-val" id="sbDailyCountVal">15</span></div>
+              <input type="range" id="sbDailyCount" min="1" max="100" value="15" oninput="document.getElementById('sbDailyCountVal').textContent=this.value">
+            </div>
+            <div class="sb-field">
+              <div class="sb-label">Daily Dollar Limit <span class="sb-val" id="sbDailyDollarVal">$50,000</span></div>
+              <input type="range" id="sbDailyDollar" min="1000" max="500000" step="1000" value="50000" oninput="document.getElementById('sbDailyDollarVal').textContent='$'+Number(this.value).toLocaleString()">
+            </div>
+            <div class="sb-field">
+              <div class="sb-label">Structuring Threshold <span class="sb-val" id="sbStructureVal">$9,500</span></div>
+              <input type="range" id="sbStructure" min="5000" max="10000" step="100" value="9500" oninput="document.getElementById('sbStructureVal').textContent='$'+Number(this.value).toLocaleString()">
+            </div>
+          </div>
+          <div class="sb-section">
+            <div class="sb-section-title">High-Risk MCC Flags</div>
+            <div class="mcc-toggle-grid" id="sbMccGrid"></div>
+          </div>
+          <div class="sb-section">
+            <div class="sb-section-title">Geographic Risk — FATF Feb 2026</div>
+            <div style="margin-bottom:.35rem;"><span style="font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.06em;background:rgba(239,68,68,.15);color:#F87171;padding:.12rem .4rem;border-radius:3px;">Black List</span></div>
+            <div class="fatf-grid" id="sbBlacklistGrid"></div>
+            <div style="margin:.5rem 0 .3rem;"><span style="font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.06em;background:rgba(245,158,11,.12);color:var(--gold);padding:.12rem .4rem;border-radius:3px;">Grey List</span></div>
+            <div class="fatf-grid" id="sbGreylistGrid"></div>
+            <p class="fatf-note">FATF last updated: February 2026. Reviewed Feb/Jun/Oct. Verify at fatf-gafi.org before production use.</p>
+          </div>
+          <div class="sb-section">
+            <div class="sb-section-title">Additional Rules</div>
+            <div class="toggle-row"><span class="toggle-lbl">Circular Trading Detector</span><label class="toggle-switch"><input type="checkbox" id="sbCircular" checked><span class="toggle-slider"></span></label></div>
+            <div class="toggle-row"><span class="toggle-lbl">Unusual Hours Flag</span><label class="toggle-switch"><input type="checkbox" id="sbUnusualHours" checked><span class="toggle-slider"></span></label></div>
+            <div class="toggle-row"><span class="toggle-lbl">Dormant Account Reactivation</span><label class="toggle-switch"><input type="checkbox" id="sbDormant" checked><span class="toggle-slider"></span></label></div>
+          </div>
+          <div class="sb-section">
+            <div class="sb-section-title">Jurisdiction</div>
+            <div class="sb-field">
+              <select id="sbJurisdiction" onchange="showJurNote()">
+                <option value="us">US FinCEN</option>
+                <option value="eu">EU AMLD6</option>
+                <option value="uk">UK FCA</option>
+                <option value="custom">Generic / Custom</option>
+              </select>
+            </div>
+            <div class="jur-note" id="sbJurNote">FinCEN delayed AML/CFT program requirements by approximately two years in 2025. Current compliance target: ~2027.</div>
+          </div>
+          <button class="sb-run-btn" onclick="runSandbox()">🔬 Run Sandbox Analysis →</button>
+        </div>
+        <div class="sandbox-output">
+          <div id="sbEmptyState" class="sb-empty"><div class="sb-empty-icon">🔬</div><p>Configure rules on the left and click <strong>Run Sandbox Analysis</strong>.</p></div>
+          <div id="sbResults" style="display:none;">
+            <p style="font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;color:var(--accent-lt);margin-bottom:.85rem;">Rule Effectiveness Matrix</p>
+            <div class="eff-grid">
+              <div class="eff-card"><div class="eff-label">True Positive Rate</div><div class="eff-val" id="sbTPR">—</div><div style="font-size:.7rem;color:var(--muted);margin-top:.2rem;">Flagged / Total Suspicious</div></div>
+              <div class="eff-card"><div class="eff-label">False Positive Rate</div><div class="eff-val" id="sbFPR">—</div><div style="font-size:.7rem;color:var(--muted);margin-top:.2rem;">Clean transactions flagged</div></div>
+              <div class="eff-card"><div class="eff-label">Precision (F1)</div><div class="eff-val" id="sbF1">—</div><div style="font-size:.7rem;color:var(--muted);margin-top:.2rem;">Accuracy of alerts</div></div>
+              <div class="eff-card"><div class="eff-label">Alerts / 1K Txns</div><div class="eff-val" id="sbAlertVol">—</div><div style="font-size:.7rem;color:var(--muted);margin-top:.2rem;">Analyst workload indicator</div></div>
+            </div>
+            <p style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem;">Transaction Results</p>
+            <div id="sbTableWrap"></div>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem;">
+              <button class="btn-ghost" onclick="exportSandboxJSON()">↓ JSON (Rule Config)</button>
+              <button class="btn-ghost" onclick="exportSandboxCSV()">↓ CSV Results</button>
+              <button class="btn-ghost" onclick="exportSandboxMarkdown()">↓ Markdown Memo</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-inner-ai">
+      <a href="../index.html" class="footer-brand-link">
+        <div class="logo-icon-sm">AI</div>
+        <span class="footer-wordmark">AINumbers.co</span>
+      </a>
+      <div class="footer-links-ai">
+        <a href="../index.html">All Tools</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="../contact.html">Contact</a>
+      </div>
+      <div class="footer-badge-ai">
+        <span>🔒 Zero PII</span>
+        <span>📡 No server calls</span>
+        <span>💻 Client-side</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ═══════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════ */
+let invData = null;  // parsed invoices array
+let payData = null;  // parsed payments array
+let lastLinkResult = null;
+let lastReconResult = null;
+
+/* ═══════════════════════════════════════════
+   MODE SWITCHING
+═══════════════════════════════════════════ */
+function switchMode(mode, btn) {
+  document.querySelectorAll('.mode-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('mode-' + mode).classList.add('active');
+  btn.classList.add('active');
+}
+
+/* ═══════════════════════════════════════════
+   ABOUT TOGGLE
+═══════════════════════════════════════════ */
+function toggleAbout(el) {
+  el.classList.toggle('open');
+  document.getElementById('about-content').classList.toggle('open');
+}
+
+/* ═══════════════════════════════════════════
+   ── MODE 1: LINK GENERATOR ──
+═══════════════════════════════════════════ */
+
+/* ── PARSE ENGINE ── */
+function parseInvoice(text) {
+  const result = {
+    invoice_id: null, amount: null, currency: 'USD',
+    due_date: null, creditor: null, routing: null, account: null, raw: text
+  };
+
+  // Invoice ID
+  const idM = text.match(/invoice\s*#?\s*[:\-]?\s*([A-Z0-9\-\/]{3,30})/i);
+  if (idM) result.invoice_id = idM[1].trim();
+
+  // Amount — look for currency patterns
+  const amtM = text.match(/(?:amount\s*(?:due|payable|total)?|total|balance\s*due)\s*[:\-]?\s*[\$£€]?\s*([\d,]+\.?\d*)/i)
+             || text.match(/[\$£€]\s*([\d,]+\.?\d{0,2})/);
+  if (amtM) result.amount = parseFloat(amtM[1].replace(/,/g, ''));
+
+  // Currency
+  if (/\bEUR\b|€/.test(text)) result.currency = 'EUR';
+  else if (/\bGBP\b|£/.test(text)) result.currency = 'GBP';
+  else if (/\bCAD\b/.test(text)) result.currency = 'CAD';
+  else result.currency = 'USD';
+
+  // Due date
+  const dateM = text.match(/due\s*(?:date|on|by)\s*[:\-]?\s*(\d{4}[-\/]\d{2}[-\/]\d{2}|\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/i)
+              || text.match(/pay(?:ment)?\s*(?:by|due)\s*[:\-]?\s*(\d{4}[-\/]\d{2}[-\/]\d{2})/i);
+  if (dateM) result.due_date = normalizeDate(dateM[1]);
+
+  // Creditor — look for "from:", "vendor:", "biller:" patterns
+  const credM = text.match(/(?:from|vendor|biller|payee|creditor|remit\s+to)\s*[:\-]\s*([^\n\r,\.]{3,60})/i);
+  if (credM) result.creditor = credM[1].trim().replace(/\s+/g, ' ');
+
+  // Routing number (9 digits)
+  const routM = text.match(/\b(?:routing|ABA|RTN|transit)\s*(?:number|#|no\.?)?\s*[:\-]?\s*(\d{9})\b/i)
+              || text.match(/\b(\d{9})\b/);
+  if (routM) result.routing = routM[1];
+
+  // Account number
+  const acctM = text.match(/(?:account|acct)\s*(?:number|#|no\.?)?\s*[:\-]?\s*(\d{6,18})\b/i);
+  if (acctM) result.account = acctM[1];
+
+  return result;
+}
+
+function normalizeDate(d) {
+  if (!d) return null;
+  d = d.replace(/\//g, '-');
+  const parts = d.split('-');
+  if (parts[0].length === 4) return d; // already YYYY-MM-DD
+  // MM-DD-YYYY or DD-MM-YY → YYYY-MM-DD
+  if (parts[2].length === 4) return `${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
+  if (parts[2].length === 2) return `20${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
+  return d;
+}
+
+/* ── RAIL SELECTOR ── */
+function selectRail(amount, pref) {
+  if (pref && pref !== 'auto') {
+    const map = { fednow:'FedNow', rtp:'RTP', sda:'Same-Day ACH', nda:'Next-Day ACH' };
+    return map[pref];
+  }
+  if (!amount || amount <= 0) return 'Next-Day ACH';
+  if (amount <= 500000) return 'FedNow';
+  if (amount <= 1000000) return 'RTP';
+  if (amount <= 10000000) return 'Same-Day ACH';
+  return 'Next-Day ACH';
+}
+
+function railFee(rail) {
+  return { 'FedNow': 0.045, 'RTP': 0.025, 'Same-Day ACH': 0.055, 'Next-Day ACH': 0.26 }[rail] || 0.26;
+}
+
+function railSettlement(rail) {
+  return { 'FedNow': 'Immediate (<60s)', 'RTP': 'Immediate (<30s)', 'Same-Day ACH': 'Same Day (3–6 hrs)', 'Next-Day ACH': 'Next Business Day' }[rail] || 'Next Business Day';
+}
+
+/* ── LINK BUILDER ── */
+function buildPaymentSlug(parsed, rail) {
+  const id = (parsed.invoice_id || 'INV').replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 12);
+  const railCode = { 'FedNow':'FN', 'RTP':'RT', 'Same-Day ACH':'SD', 'Next-Day ACH':'ND' }[rail] || 'ND';
+  const ts = Date.now().toString(36).toUpperCase();
+  return `pay_${railCode}_${id}_${ts}`;
+}
+
+function buildISO20022JSON(parsed, rail, slug) {
+  const now = new Date().toISOString();
+  return {
+    CstmrCdtTrfInitn: {
+      GrpHdr: {
+        MsgId: slug,
+        CreDtTm: now,
+        NbOfTxs: "1",
+        CtrlSum: parsed.amount ? parsed.amount.toFixed(2) : "0.00",
+        InitgPty: { Nm: parsed.creditor || "Unknown Creditor" }
+      },
+      PmtInf: {
+        PmtInfId: `PI-${slug}`,
+        PmtMtd: "TRF",
+        ReqdExctnDt: parsed.due_date || new Date().toISOString().slice(0,10),
+        Dbtr: { Nm: "[Debtor Name]" },
+        DbtrAcct: { Id: { Othr: { Id: "[Debtor Account]" } } },
+        CdtTrfTxInf: {
+          PmtId: { EndToEndId: parsed.invoice_id || slug, InstrId: slug },
+          Amt: { InstdAmt: { Ccy: parsed.currency, "#text": parsed.amount ? parsed.amount.toFixed(2) : "0.00" } },
+          Cdtr: { Nm: parsed.creditor || "Creditor" },
+          CdtrAcct: { Id: { Othr: { Id: parsed.account || "[Account]" } } },
+          RmtInf: { Ustrd: parsed.invoice_id || "Invoice Payment" },
+          _Rail: rail, _Fee: `$${railFee(rail).toFixed(3)}`
+        }
+      }
+    }
+  };
+}
+
+function buildEmailTemplate(parsed, slug, rail, link) {
+  const amt = parsed.amount ? `${parsed.currency} ${parsed.amount.toLocaleString('en-US',{minimumFractionDigits:2})}` : '[Amount]';
+  const due = parsed.due_date || '[Due Date]';
+  const cred = parsed.creditor || '[Creditor Name]';
+  const invId = parsed.invoice_id || '[Invoice #]';
+  return `Subject: Payment Request – Invoice ${invId} (${amt} Due ${due})
+
+Dear [Payer],
+
+Please find payment instructions below for Invoice ${invId}.
+
+  Amount Due: ${amt}
+  Due Date:   ${due}
+  Pay To:     ${cred}
+  Rail:       ${rail} (${railSettlement(rail)})
+
+─────────────────────────────────────
+PAY BY BANK — FASTER, NO CARD FEES
+─────────────────────────────────────
+Payment Link:
+  ${link}
+
+Reference (use exactly as shown):
+  ${invId}
+
+Why Pay by Bank (A2A)?
+  ✓ No card processing fees (saves 2.9% + $0.30)
+  ✓ Instant settlement via ${rail}
+  ✓ Reduces reconciliation errors
+  ✓ ISO 20022 compliant
+─────────────────────────────────────
+
+To pay: click the link above or use the reference 
+and routing details in your online banking portal.
+
+Questions? Reply to this email.
+
+Thank you,
+${cred}
+
+──
+Generated by AINumbers.co Invoice-to-A2A Suite
+ainumbers.co/tools/05-invoice-a2a-suite/
+All processing is client-side. No data stored.`;
+}
+
+/* ── RUN LINK GEN ── */
+function runLinkGen() {
+  const text = document.getElementById('invoice-text').value.trim();
+  if (!text) { showNotice('Please paste invoice text first.'); return; }
+
+  let parsed = parseInvoice(text);
+
+  // Apply manual overrides
+  const cOverride = document.getElementById('creditor-name').value.trim();
+  const rOverride = document.getElementById('creditor-routing').value.trim();
+  const aOverride = document.getElementById('creditor-account').value.trim();
+  if (cOverride) parsed.creditor = cOverride;
+  if (rOverride) parsed.routing = rOverride;
+  if (aOverride) parsed.account = aOverride;
+
+  const railPref = document.getElementById('rail-pref').value;
+  const rail = selectRail(parsed.amount, railPref);
+  const slug = buildPaymentSlug(parsed, rail);
+  const routing = parsed.routing || '000000000';
+  const account = parsed.account || '0000000000';
+  const link = `https://pay.ainumbers.co/b/${slug}?r=${routing}&a=${account.slice(-4).padStart(account.length,'*')}&ref=${encodeURIComponent(parsed.invoice_id || 'INV')}`;
+  const iso = buildISO20022JSON(parsed, rail, slug);
+  const email = buildEmailTemplate(parsed, slug, rail, link);
+
+  lastLinkResult = { parsed, rail, slug, link, iso, email };
+  renderLinkGenResult(lastLinkResult);
+}
+
+function renderLinkGenResult(r) {
+  const { parsed, rail, slug, link, iso, email } = r;
+  const amt = parsed.amount ? `${parsed.currency} ${parsed.amount.toLocaleString('en-US',{minimumFractionDigits:2})}` : '—';
+  const confidence = [parsed.invoice_id, parsed.amount, parsed.due_date, parsed.creditor, parsed.routing, parsed.account]
+    .filter(Boolean).length;
+  const confPct = Math.round((confidence / 6) * 100);
+  const confColor = confPct >= 80 ? 'var(--green-lt)' : confPct >= 50 ? 'var(--warn-lt)' : 'var(--red-lt)';
+
+  const isoStr = JSON.stringify(iso, null, 2)
+    .replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:')
+    .replace(/: "([^"]+)"/g, ': <span class="json-str">"$1"</span>')
+    .replace(/: ([\d.]+)(?=[,\n}])/g, ': <span class="json-num">$1</span>');
+
+  document.getElementById('linkgen-result').innerHTML = `
+    <!-- OUT TABS -->
+    <div class="out-tabs">
+      <button class="out-tab active" onclick="showLGTab('link',this)">Payment Link</button>
+      <button class="out-tab" onclick="showLGTab('email',this)">Email Template</button>
+      <button class="out-tab" onclick="showLGTab('iso',this)">ISO 20022 JSON</button>
+    </div>
+
+    <!-- TAB: LINK -->
+    <div id="lgtab-link" class="out-tab-pane active">
+      <div class="result-card">
+        <div class="result-card-title">Parsed Invoice Fields
+          <span style="float:right;font-size:0.44rem;color:${confColor};">Parse confidence: ${confPct}%</span>
+        </div>
+        <div class="parsed-grid">
+          <div class="parsed-field"><div class="parsed-field-label">Invoice ID</div><div class="parsed-field-value highlight">${parsed.invoice_id || '—'}</div></div>
+          <div class="parsed-field"><div class="parsed-field-label">Amount Due</div><div class="parsed-field-value highlight">${amt}</div></div>
+          <div class="parsed-field"><div class="parsed-field-label"><span data-i18n="lbl.currency">Currency</span></div><div class="parsed-field-value">${parsed.currency}</div></div>
+          <div class="parsed-field"><div class="parsed-field-label"><span data-i18n="f05.lbl.duedate">Due Date</span></div><div class="parsed-field-value">${parsed.due_date || '—'}</div></div>
+          <div class="parsed-field"><div class="parsed-field-label">Creditor</div><div class="parsed-field-value">${parsed.creditor || '—'}</div></div>
+          <div class="parsed-field"><div class="parsed-field-label">Routing #</div><div class="parsed-field-value">${parsed.routing || '—'}</div></div>
+          <div class="parsed-field"><div class="parsed-field-label">Account #</div><div class="parsed-field-value">${parsed.account ? '•••' + parsed.account.slice(-4) : '—'}</div></div>
+          <div class="parsed-field"><div class="parsed-field-label">Selected Rail</div><div class="parsed-field-value highlight">${rail}</div></div>
+        </div>
+      </div>
+
+      <div class="result-card">
+        <div class="result-card-title">Pay-by-Bank Link</div>
+        <div class="link-display">
+          <span class="link-text" id="link-text-el">${link}</span>
+          <button class="btn-ghost" id="copy-link-btn" onclick="copyText('link-text-el','copy-link-btn')"><span data-i18n="btn.copy">Copy</span></button>
+        </div>
+        <div style="font-size:0.72rem;color:var(--muted);margin-bottom:0.75rem;">
+          Slug: <span style="font-family:'JetBrains Mono',monospace;color:var(--accent-lt);">${slug}</span>
+          &nbsp;·&nbsp; Rail: ${rail}
+          &nbsp;·&nbsp; Settlement: ${railSettlement(rail)}
+          &nbsp;·&nbsp; Fee: $${railFee(rail).toFixed(3)}/tx
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn-ghost" onclick="copyText('link-text-el','copy-link-btn')"><span data-i18n="f05.btn.copylink">Copy Link</span></button>
+        <button class="btn-ghost" onclick="exportLinkCSV()"><span data-i18n="btn.exportcsv">↓ Export CSV</span></button>
+        <button class="btn-ghost" onclick="exportLinkPDF()">↓ Export PDF</button>
+      </div>
+    </div>
+
+    <!-- TAB: EMAIL -->
+    <div id="lgtab-email" class="out-tab-pane">
+      <div class="result-card">
+        <div class="result-card-title">A2A Payment Request Email</div>
+        <div class="email-preview" id="email-preview-text">${escapeHtml(email)}</div>
+        <div class="btn-group" style="margin-top:0.75rem;">
+          <button class="btn-ghost" id="copy-email-btn" onclick="copyRawText('email-preview-text','copy-email-btn')"><span data-i18n="f05.btn.copyemail">Copy Email</span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: ISO 20022 -->
+    <div id="lgtab-iso" class="out-tab-pane">
+      <div class="result-card">
+        <div class="result-card-title">ISO 20022 JSON Export (pain.001-like)</div>
+        <div class="json-preview" id="iso-json">${isoStr}</div>
+        <div class="btn-group" style="margin-top:0.75rem;">
+          <button class="btn-ghost" id="copy-iso-btn" onclick="copyRawISO()"><span data-i18n="f05.btn.copyjson">Copy JSON</span></button>
+          <button class="btn-ghost" onclick="downloadJSON()">Download .json</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function showLGTab(id, btn) {
+  document.querySelectorAll('.lgtab-pane, .out-tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.out-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('lgtab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+/* ═══════════════════════════════════════════
+   ── MODE 2: RECONCILER ──
+═══════════════════════════════════════════ */
+
+/* ── CSV PARSER ── */
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,''));
+  return lines.slice(1).filter(l => l.trim()).map(line => {
+    const vals = splitCSVLine(line);
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = (vals[i] || '').trim().replace(/^"|"$/g,''); });
+    return obj;
+  });
+}
+
+function splitCSVLine(line) {
+  const res = []; let cur = ''; let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { res.push(cur); cur = ''; }
+    else { cur += c; }
+  }
+  res.push(cur);
+  return res;
+}
+
+function handleInvFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    invData = parseCSV(e.target.result);
+    const el = document.getElementById('inv-loaded');
+    el.style.display = 'block';
+    el.textContent = `✓ Loaded: ${file.name} (${invData.length} rows)`;
+    document.getElementById('inv-drop').classList.add('active');
+  };
+  reader.readAsText(file);
+}
+
+function handlePayFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    payData = parseCSV(e.target.result);
+    const el = document.getElementById('pay-loaded');
+    el.style.display = 'block';
+    el.textContent = `✓ Loaded: ${file.name} (${payData.length} rows)`;
+    document.getElementById('pay-drop').classList.add('active');
+  };
+  reader.readAsText(file);
+}
+
+/* ── MATCH ENGINE ── */
+function parseAmt(v) { return parseFloat(String(v || '0').replace(/[$,\s]/g,'')) || 0; }
+function parseDate(v) {
+  if (!v) return null;
+  const d = new Date(v.trim().replace(/\//g,'-'));
+  return isNaN(d) ? null : d;
+}
+function daysDiff(a, b) {
+  if (!a || !b) return Infinity;
+  return Math.abs((a - b) / 86400000);
+}
+function fuzzyRef(invRef, payRef, mode) {
+  if (!invRef || !payRef) return false;
+  const a = String(invRef).toLowerCase().trim();
+  const b = String(payRef).toLowerCase().trim();
+  if (mode === 'exact') return a === b;
+  if (mode === 'contains') return a.includes(b) || b.includes(a);
+  // loose: any shared token ≥4 chars
+  const tokA = a.split(/\W+/).filter(t => t.length >= 4);
+  const tokB = b.split(/\W+/).filter(t => t.length >= 4);
+  return tokA.some(t => tokB.includes(t));
+}
+
+function reconcile(invoices, payments, dateTol, amtTol, refFuzzyMode) {
+  const matched = [];
+  const usedPay = new Set();
+
+  // Pass 1: Exact amount + date
+  invoices.forEach((inv, ii) => {
+    const invAmt = parseAmt(inv.amount);
+    const invDate = parseDate(inv.due_date);
+    for (let pi = 0; pi < payments.length; pi++) {
+      if (usedPay.has(pi)) continue;
+      const pay = payments[pi];
+      const payAmt = parseAmt(pay.amount);
+      const payDate = parseDate(pay.payment_date);
+      if (Math.abs(invAmt - payAmt) <= parseFloat(amtTol) && daysDiff(invDate, payDate) <= parseFloat(dateTol)) {
+        matched.push({ invoice: inv, payment: pay, matchType: 'exact', invIdx: ii, payIdx: pi });
+        usedPay.add(pi);
+        return;
+      }
+    }
+  });
+
+  // Pass 2: Fuzzy reference within tolerance
+  const matchedInvIdx = new Set(matched.map(m => m.invIdx));
+  invoices.forEach((inv, ii) => {
+    if (matchedInvIdx.has(ii)) return;
+    const invAmt = parseAmt(inv.amount);
+    const invDate = parseDate(inv.due_date);
+    for (let pi = 0; pi < payments.length; pi++) {
+      if (usedPay.has(pi)) continue;
+      const pay = payments[pi];
+      const payAmt = parseAmt(pay.amount);
+      const payDate = parseDate(pay.payment_date);
+      const refMatch = fuzzyRef(inv.reference || inv.invoice_id, pay.reference || pay.payment_id, refFuzzyMode);
+      if (refMatch && Math.abs(invAmt - payAmt) <= parseFloat(amtTol) && daysDiff(invDate, payDate) <= parseFloat(dateTol) + 2) {
+        matched.push({ invoice: inv, payment: pay, matchType: 'fuzzy', invIdx: ii, payIdx: pi });
+        usedPay.add(pi);
+        matchedInvIdx.add(ii);
+        return;
+      }
+    }
+  });
+
+  // Pass 3: Date proximity only (partial match flag)
+  const matchedInvIdx2 = new Set(matched.map(m => m.invIdx));
+  invoices.forEach((inv, ii) => {
+    if (matchedInvIdx2.has(ii)) return;
+    const invDate = parseDate(inv.due_date);
+    const invAmt = parseAmt(inv.amount);
+    for (let pi = 0; pi < payments.length; pi++) {
+      if (usedPay.has(pi)) continue;
+      const pay = payments[pi];
+      const payDate = parseDate(pay.payment_date);
+      const payAmt = parseAmt(pay.amount);
+      if (daysDiff(invDate, payDate) <= parseFloat(dateTol) && Math.abs(invAmt - payAmt) <= invAmt * 0.1) {
+        matched.push({ invoice: inv, payment: pay, matchType: 'partial', invIdx: ii, payIdx: pi });
+        usedPay.add(pi);
+        matchedInvIdx2.add(ii);
+        return;
+      }
+    }
+  });
+
+  const matchedInvIdxFinal = new Set(matched.map(m => m.invIdx));
+  const unmatchedInvoices = invoices.filter((_, i) => !matchedInvIdxFinal.has(i));
+  const unmatchedPayments = payments.filter((_, i) => !usedPay.has(i));
+
+  return { matched, unmatchedInvoices, unmatchedPayments };
+}
+
+function agingBucket(dueDate) {
+  if (!dueDate) return '90+';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const due = parseDate(dueDate); if (!due) return '90+';
+  const days = Math.floor((today - due) / 86400000);
+  if (days <= 0) return 'current';
+  if (days <= 30) return '0-30';
+  if (days <= 60) return '31-60';
+  if (days <= 90) return '61-90';
+  return '90+';
+}
+
+/* ── RUN RECON ── */
+function runRecon() {
+  if (!invData || !payData) { showNotice('Please load both CSVs first, or use Load Demo Data.'); return; }
+  const dateTol = parseInt(document.getElementById('date-tol').value);
+  const amtTol = parseFloat(document.getElementById('amt-tol').value);
+  const refFuzzy = document.getElementById('ref-fuzzy').value;
+
+  const result = reconcile(invData, payData, dateTol, amtTol, refFuzzy);
+  lastReconResult = result;
+  renderReconResult(result);
+}
+
+function renderReconResult(r) {
+  const { matched, unmatchedInvoices, unmatchedPayments } = r;
+
+  // Aging
+  const aging = { 'current':{ count:0, amt:0 }, '0-30':{ count:0, amt:0 }, '31-60':{ count:0, amt:0 }, '61-90':{ count:0, amt:0 }, '90+':{ count:0, amt:0 } };
+  unmatchedInvoices.forEach(inv => {
+    const b = agingBucket(inv.due_date);
+    aging[b].count++;
+    aging[b].amt += parseAmt(inv.amount);
+  });
+
+  const totalInv = invData.length;
+  const totalPay = payData.length;
+  const matchRate = totalInv > 0 ? Math.round((matched.length / totalInv) * 100) : 0;
+  const matchedAmt = matched.reduce((s, m) => s + parseAmt(m.invoice.amount), 0);
+  const unmatchedAmt = unmatchedInvoices.reduce((s, i) => s + parseAmt(i.amount), 0);
+
+  const fmt = n => '$' + n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  document.getElementById('recon-result').innerHTML = `
+    <!-- SUMMARY STATS -->
+    <div class="stats-row">
+      <div class="stat-cell">
+        <div class="stat-label"><span data-i18n="f05.lbl.matchrate">Match Rate</span></div>
+        <div class="stat-val" style="color:${matchRate>=80?'var(--green-lt)':matchRate>=50?'var(--warn-lt)':'var(--red-lt)'}">${matchRate}%</div>
+        <div class="stat-sub">${matched.length} of ${totalInv} invoices</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">Matched Value</div>
+        <div class="stat-val">${fmt(matchedAmt)}</div>
+        <div class="stat-sub">${matched.length} payments reconciled</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">Outstanding</div>
+        <div class="stat-val" style="color:var(--warn-lt)">${fmt(unmatchedAmt)}</div>
+        <div class="stat-sub">${unmatchedInvoices.length} unmatched invoices</div>
+      </div>
+    </div>
+
+    <!-- OUT TABS -->
+    <div class="out-tabs">
+      <button class="out-tab active" onclick="showReconTab('matched',this)">Matched (${matched.length})</button>
+      <button class="out-tab" onclick="showReconTab('unmatched',this)"><span data-i18n="f05.lbl.unmatched">Unmatched</span></button>
+      <button class="out-tab" onclick="showReconTab('aging',this)"><span data-i18n="f05.tab.aging">Aging Report</span></button>
+    </div>
+
+    <!-- TAB: MATCHED -->
+    <div id="rctab-matched" class="out-tab-pane active">
+      ${matched.length === 0 ? '<div class="empty-state" style="min-height:180px;"><div class="empty-icon">🔍</div><div class="empty-title">No matches found</div><div class="empty-sub">Try adjusting tolerance settings.</div></div>' : `
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <th scope="col"ead><tr>
+            <th scope="col">Invoice ID</th><th scope="col">Payment ID</th><th scope="col">Amount</th><th scope="col"><span data-i18n="f05.lbl.duedate">Due Date</span></th><th scope="col">Pay Date</th><th scope="col">Match Type</th>
+          </tr></thead>
+          <tbody>
+            ${matched.map(m => `<tr class="${m.matchType==='fuzzy'?'row-info':''}">
+              <td class="mono">${m.invoice.invoice_id || '—'}</td>
+              <td class="mono">${m.payment.payment_id || '—'}</td>
+              <td class="amount">${fmt(parseAmt(m.invoice.amount))}</td>
+              <td>${m.invoice.due_date || '—'}</td>
+              <td>${m.payment.payment_date || '—'}</td>
+              <td><span class="badge ${m.matchType==='exact'?'badge-matched':m.matchType==='fuzzy'?'badge-fuzzy':'badge-partial'}">${m.matchType}</span></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`}
+      <div class="btn-group">
+        <button class="btn-ghost" onclick="exportReconCSV('matched')"><span data-i18n="f05.btn.exportmatched">Export Matched CSV</span></button>
+      </div>
+    </div>
+
+    <!-- TAB: UNMATCHED -->
+    <div id="rctab-unmatched" class="out-tab-pane">
+      ${unmatchedInvoices.length > 0 ? `
+        <div class="unmatched-head inv">Unmatched Invoices (${unmatchedInvoices.length})</div>
+        <div class="data-table-wrap">
+          <table class="data-table">
+            <th scope="col"ead><tr><th scope="col">Invoice ID</th><th scope="col">Amount</th><th scope="col"><span data-i18n="f05.lbl.duedate">Due Date</span></th><th scope="col">Reference</th><th scope="col">Aging</th></tr></thead>
+            <tbody>
+              ${unmatchedInvoices.map(inv => {
+                const b = agingBucket(inv.due_date);
+                const bColor = b==='90+'?'var(--red-lt)':b==='61-90'?'var(--warn-lt)':b==='31-60'?'var(--gold-lt)':'var(--text)';
+                return `<tr><td class="mono">${inv.invoice_id||'—'}</td><td class="amount">${fmt(parseAmt(inv.amount))}</td><td>${inv.due_date||'—'}</td><td class="mono" style="font-size:0.62rem;">${inv.reference||'—'}</td><td style="color:${bColor};font-family:'JetBrains Mono',monospace;font-size:0.62rem;">${b}</td></tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>` : '<p style="color:var(--green-lt);font-size:0.82rem;padding:0.75rem 0;">✓ All invoices matched.</p>'}
+
+      ${unmatchedPayments.length > 0 ? `
+        <div class="unmatched-head pay">Unmatched Payments (${unmatchedPayments.length})</div>
+        <div class="data-table-wrap">
+          <table class="data-table">
+            <th scope="col"ead><tr><th scope="col">Payment ID</th><th scope="col">Amount</th><th scope="col">Pay Date</th><th scope="col">Reference</th></tr></thead>
+            <tbody>
+              ${unmatchedPayments.map(pay => `<tr><td class="mono">${pay.payment_id||'—'}</td><td class="amount">${fmt(parseAmt(pay.amount))}</td><td>${pay.payment_date||'—'}</td><td class="mono" style="font-size:0.62rem;">${pay.reference||'—'}</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </div>` : '<p style="color:var(--green-lt);font-size:0.82rem;padding:0.75rem 0;">✓ All payments matched.</p>'}
+
+      <div class="btn-group">
+        <button class="btn-ghost" onclick="exportReconCSV('unmatched')"><span data-i18n="f05.btn.exportunmatched">Export Unmatched CSV</span></button>
+      </div>
+    </div>
+
+    <!-- TAB: AGING -->
+    <div id="rctab-aging" class="out-tab-pane">
+      <div class="section-divider">Aging Buckets — Unmatched Invoices</div>
+      <div class="aging-grid">
+        <div class="aging-cell ok">
+          <div class="aging-bucket">Current</div>
+          <div class="aging-count">${aging['current'].count}</div>
+          <div class="aging-amount">${fmt(aging['current'].amt)}</div>
+        </div>
+        <div class="aging-cell ok">
+          <div class="aging-bucket">0–30 days</div>
+          <div class="aging-count">${aging['0-30'].count}</div>
+          <div class="aging-amount">${fmt(aging['0-30'].amt)}</div>
+        </div>
+        <div class="aging-cell warn">
+          <div class="aging-bucket">31–60 days</div>
+          <div class="aging-count">${aging['31-60'].count}</div>
+          <div class="aging-amount">${fmt(aging['31-60'].amt)}</div>
+        </div>
+        <div class="aging-cell warn">
+          <div class="aging-bucket">61–90 days</div>
+          <div class="aging-count">${aging['61-90'].count}</div>
+          <div class="aging-amount">${fmt(aging['61-90'].amt)}</div>
+        </div>
+      </div>
+      <div class="aging-grid" style="grid-template-columns:1fr;">
+        <div class="aging-cell overdue">
+          <div class="aging-bucket">90+ days overdue</div>
+          <div class="aging-count">${aging['90+'].count}</div>
+          <div class="aging-amount">${fmt(aging['90+'].amt)}</div>
+        </div>
+      </div>
+      <div class="btn-group">
+        <button class="btn-ghost" onclick="exportAgingCSV()"><span data-i18n="f05.btn.exportaging">Export Aging CSV</span></button>
+        <button class="btn-ghost" onclick="exportReconPDF()">↓ Export PDF</button>
+      </div>
+    </div>
+  `;
+}
+
+function showReconTab(id, btn) {
+  document.querySelectorAll('#rctab-matched,#rctab-unmatched,#rctab-aging').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.out-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('rctab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+/* ═══════════════════════════════════════════
+   DEMO DATA
+═══════════════════════════════════════════ */
+function loadLinkGenDemo() {
+  document.getElementById('invoice-text').value = `INVOICE
+Invoice #: INV-2025-0091
+Date: 2025-04-01
+Due Date: 2025-05-15
+
+Bill To:
+Magnolia Capital Partners LLC
+1200 McKinney St, Houston TX 77010
+
+From:
+Post Oak Solutions LLC
+500 Dallas St Ste 2200, Houston TX 77002
+
+Services: Q2 Open Banking Integration Consulting
+Amount Due: $24,750.00
+Currency: USD
+
+Remit to:
+Post Oak Solutions LLC
+Routing: 113000023
+Account: 7834512900
+
+Late fee of 1.5%/month applies after due date.`;
+
+  document.getElementById('creditor-name').value = '';
+  document.getElementById('creditor-routing').value = '';
+  document.getElementById('creditor-account').value = '';
+  document.getElementById('rail-pref').value = 'auto';
+}
+
+function loadReconDemo() {
+  // Build demo invoices CSV
+  const today = new Date();
+  const daysAgo = n => { const d = new Date(today); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); };
+
+  const invCSV = [
+    'invoice_id,amount,currency,due_date,reference',
+    `INV-001,12450.00,USD,${daysAgo(5)},API-2025-Q1`,
+    `INV-002,8750.00,USD,${daysAgo(35)},CONSULT-APR`,
+    `INV-003,3200.00,USD,${daysAgo(0)},SETUP-FEE-001`,
+    `INV-004,55000.00,USD,${daysAgo(75)},ENT-LICENSE-2025`,
+    `INV-005,1800.00,USD,${daysAgo(15)},MAINT-Q1`,
+    `INV-006,99000.00,USD,${daysAgo(95)},PLATFORM-FEE-JAN`,
+    `INV-007,4400.00,USD,${daysAgo(10)},TRAINING-BATCH-3`,
+  ].join('\n');
+
+  const payCSV = [
+    'payment_id,amount,currency,payment_date,reference',
+    `PAY-A01,12450.00,USD,${daysAgo(4)},API-2025-Q1`,
+    `PAY-A02,8750.00,USD,${daysAgo(33)},CONSULT-APR`,
+    `PAY-A03,3200.00,USD,${daysAgo(1)},SETUP-FEE-001`,
+    `PAY-A04,4400.00,USD,${daysAgo(9)},TRAINING-BATCH3`,
+    `PAY-A05,2500.00,USD,${daysAgo(2)},UNRELATED-PAYMENT`,
+  ].join('\n');
+
+  invData = parseCSV(invCSV);
+  payData = parseCSV(payCSV);
+
+  document.getElementById('inv-loaded').style.display = 'block';
+  document.getElementById('inv-loaded').textContent = `✓ Demo loaded: ${invData.length} invoices`;
+  document.getElementById('pay-loaded').style.display = 'block';
+  document.getElementById('pay-loaded').textContent = `✓ Demo loaded: ${payData.length} payments`;
+  document.getElementById('inv-drop').classList.add('active');
+  document.getElementById('pay-drop').classList.add('active');
+}
+
+/* ═══════════════════════════════════════════
+   EXPORT HELPERS
+═══════════════════════════════════════════ */
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function copyText(elId, btnId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    const btn = document.getElementById(btnId);
+    if (btn) { btn.textContent = 'Copied ✓'; btn.classList.add('copied'); setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000); }
+  });
+}
+
+function copyRawText(elId, btnId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  navigator.clipboard.writeText(el.innerText || el.textContent).then(() => {
+    const btn = document.getElementById(btnId);
+    if (btn) { btn.textContent = 'Copied ✓'; btn.classList.add('copied'); setTimeout(() => { btn.textContent = 'Copy Email'; btn.classList.remove('copied'); }, 2000); }
+  });
+}
+
+function copyRawISO() {
+  if (!lastLinkResult) return;
+  navigator.clipboard.writeText(JSON.stringify(lastLinkResult.iso, null, 2)).then(() => {
+    const btn = document.getElementById('copy-iso-btn');
+    if (btn) { btn.textContent = 'Copied ✓'; btn.classList.add('copied'); setTimeout(() => { btn.textContent = 'Copy JSON'; btn.classList.remove('copied'); }, 2000); }
+  });
+}
+
+function downloadJSON() {
+  if (!lastLinkResult) return;
+  const blob = new Blob([JSON.stringify(lastLinkResult.iso, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = `iso20022-${lastLinkResult.slug}.json`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportLinkCSV() {
+  if (!lastLinkResult) return;
+  const { parsed, rail, slug, link } = lastLinkResult;
+  const rows = [
+    ['field','value'],
+    ['invoice_id', parsed.invoice_id||''],
+    ['creditor', parsed.creditor||''],
+    ['amount', parsed.amount||''],
+    ['currency', parsed.currency],
+    ['due_date', parsed.due_date||''],
+    ['selected_rail', rail],
+    ['payment_slug', slug],
+    ['payment_link', link],
+    ['settlement', railSettlement(rail)],
+    ['fee_per_tx', railFee(rail)],
+    ['generated_at', new Date().toISOString()]
+  ];
+  downloadCSV(rows, 'invoice-link-gen.csv');
+}
+
+function exportLinkPDF() {
+  if (!lastLinkResult || typeof window.jspdf === 'undefined') { showNotice('PDF export requires the jsPDF library. Check your connection and try again.'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const { parsed, rail, slug, link } = lastLinkResult;
+  doc.setFontSize(16); doc.text('Invoice-to-A2A Payment Link Report', 20, 20);
+  doc.setFontSize(10);
+  const lines = [
+    `Generated: ${new Date().toLocaleString()}`,
+    `Tool: AINumbers.co — Invoice-to-A2A Suite (05)`,
+    '',
+    `Invoice ID:    ${parsed.invoice_id||'—'}`,
+    `Creditor:      ${parsed.creditor||'—'}`,
+    `Amount:        ${parsed.currency} ${parsed.amount?.toLocaleString()||'—'}`,
+    `Due Date:      ${parsed.due_date||'—'}`,
+    '',
+    `Selected Rail: ${rail}`,
+    `Settlement:    ${railSettlement(rail)}`,
+    `Fee/tx:        $${railFee(rail).toFixed(3)}`,
+    `Slug:          ${slug}`,
+    '',
+    'Payment Link:',
+    link,
+    '',
+    'All data processed client-side. No PII transmitted.',
+  ];
+  lines.forEach((l, i) => doc.text(l, 20, 35 + i * 7));
+  doc.save('invoice-link-report.pdf');
+}
+
+function exportReconCSV(type) {
+  if (!lastReconResult) return;
+  const { matched, unmatchedInvoices, unmatchedPayments } = lastReconResult;
+  let rows;
+  if (type === 'matched') {
+    rows = [['invoice_id','payment_id','amount','due_date','payment_date','match_type']];
+    matched.forEach(m => rows.push([m.invoice.invoice_id||'', m.payment.payment_id||'', m.invoice.amount||'', m.invoice.due_date||'', m.payment.payment_date||'', m.matchType]));
+  } else {
+    rows = [['type','id','amount','date','reference','aging']];
+    unmatchedInvoices.forEach(i => rows.push(['invoice', i.invoice_id||'', i.amount||'', i.due_date||'', i.reference||'', agingBucket(i.due_date)]));
+    unmatchedPayments.forEach(p => rows.push(['payment', p.payment_id||'', p.amount||'', p.payment_date||'', p.reference||'', '']));
+  }
+  downloadCSV(rows, `recon-${type}-${Date.now()}.csv`);
+}
+
+function exportAgingCSV() {
+  if (!lastReconResult) return;
+  const rows = [['invoice_id','amount','currency','due_date','reference','aging_bucket']];
+  lastReconResult.unmatchedInvoices.forEach(i => rows.push([i.invoice_id||'', i.amount||'', i.currency||'', i.due_date||'', i.reference||'', agingBucket(i.due_date)]));
+  downloadCSV(rows, `aging-report-${Date.now()}.csv`);
+}
+
+function exportReconPDF() {
+  if (!lastReconResult || typeof window.jspdf === 'undefined') { showNotice('PDF export requires the jsPDF library. Check your connection and try again.'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const { matched, unmatchedInvoices, unmatchedPayments } = lastReconResult;
+  const fmt = n => '$' + parseAmt(n).toLocaleString('en-US',{minimumFractionDigits:2});
+  doc.setFontSize(16); doc.text('A2A Reconciliation Report', 20, 20);
+  doc.setFontSize(10);
+  const lines = [
+    `Generated: ${new Date().toLocaleString()}`,
+    `Tool: AINumbers.co — Invoice-to-A2A Suite (05)`,
+    '',
+    `Total Invoices:   ${invData.length}`,
+    `Total Payments:   ${payData.length}`,
+    `Matched:          ${matched.length}`,
+    `Unmatched Inv:    ${unmatchedInvoices.length}`,
+    `Unmatched Pay:    ${unmatchedPayments.length}`,
+    `Match Rate:       ${invData.length>0?Math.round(matched.length/invData.length*100):0}%`,
+    '',
+    'AGING SUMMARY (Unmatched Invoices)',
+  ];
+  const aging = { 'current':0, '0-30':0, '31-60':0, '61-90':0, '90+':0 };
+  unmatchedInvoices.forEach(i => { aging[agingBucket(i.due_date)]++; });
+  Object.entries(aging).forEach(([k,v]) => lines.push(`  ${k}: ${v} invoices`));
+  lines.push('', 'All data processed client-side. No PII transmitted.');
+  lines.forEach((l, i) => doc.text(l, 20, 35 + i * 7));
+  doc.save('reconciliation-report.pdf');
+}
+
+function downloadCSV(rows, filename) {
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ═══════════════════════════════════════════
+   RESET
+═══════════════════════════════════════════ */
+function resetLinkGen() {
+  document.getElementById('invoice-text').value = '';
+  document.getElementById('creditor-name').value = '';
+  document.getElementById('creditor-routing').value = '';
+  document.getElementById('creditor-account').value = '';
+  document.getElementById('rail-pref').value = 'auto';
+  lastLinkResult = null;
+  document.getElementById('linkgen-result').innerHTML = `<div class="empty-state"><div class="empty-icon">🔗</div><div class="empty-title">Awaiting invoice input</div><div class="empty-sub">Paste raw invoice text and click "Parse Invoice + Generate Link" to extract fields and build a Pay-by-Bank payment link.</div></div>`;
+}
+
+function resetRecon() {
+  invData = null; payData = null; lastReconResult = null;
+  document.getElementById('inv-file').value = '';
+  document.getElementById('pay-file').value = '';
+  document.getElementById('inv-loaded').style.display = 'none';
+  document.getElementById('pay-loaded').style.display = 'none';
+  document.getElementById('inv-drop').classList.remove('active');
+  document.getElementById('pay-drop').classList.remove('active');
+  document.getElementById('recon-result').innerHTML = `<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">No data loaded</div><div class="empty-sub">Upload your invoices and payments CSVs, configure match settings, then click "Run Reconciliation" to see matched pairs, unmatched items, and an aging report.</div></div>`;
+}
+
+function parseAmt(v) { return parseFloat(String(v || '0').replace(/[$,\s]/g,'')) || 0; }
+
+const I18N = {
+  'en': {
+    'nav.home': 'Home',
+    'nav.a2a': 'A2A Payments',
+    'nav.glossary': 'Glossary',
+    'nav.tools': 'Tools',
+    'nav.contact': 'Contact',
+    'footer.alltools': 'All Tools',
+    'footer.a2a': 'A2A Payments',
+    'footer.glossary': 'Glossary',
+    'footer.home': 'Home',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Privacy Statement',
+    'about.trigger': 'About This Tool',
+    'about.trigger2': 'About This Tool ▾',
+    'priv.runs': 'This tool runs entirely in your browser.',
+    'priv.notrans': 'No data is transmitted to any server.',
+    'priv.local': 'All inputs, calculations, and generated outputs are processed locally on your device.',
+    'priv.never': 'and never leaves your device.',
+    'priv.blocked': 'are overridden at runtime to block all outbound network calls.',
+    'priv.allproc': 'All processing in your browser · No data transmitted',
+    'priv.zeropii': 'Zero PII · Client-Side Only',
+    'priv.zeropii2': 'Zero PII · 100% Client-Side',
+    'about.howworks': 'How it works:',
+    'about.audience': 'Target audience:',
+    'about.limits': 'Limitations:',
+    'about.export': 'Export:',
+    'about.whatdoes': 'What this tool does:',
+    'about.whatdoes2': 'What this tool does',
+    'about.whatsim': 'What it simulates:',
+    'about.source': 'Source:',
+    'about.builtby': 'Built by',
+    'about.dataprivacy': 'Data privacy:',
+    'about.dataprivnote': 'Data privacy note:',
+    'about.whatisthis': 'What is this?',
+    'about.results_export': 'Results can be downloaded as JSON or Markdown for use in downstream workflows, agent runtimes, or audit documentation.',
+    'btn.reset': '↺ Reset',
+    'btn.clear': '↺ Clear',
+    'btn.exportcsv': '↓ Export CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Print',
+    'btn.copy': 'Copy',
+    'btn.alltools': '← All Tools',
+    'lbl.jurisdiction': 'Jurisdiction',
+    'lbl.currency': 'Currency',
+    'lbl.amount': 'Amount',
+    'lbl.status': 'Status',
+    'lbl.type': 'Type',
+    'lbl.rail': 'Rail',
+    'lbl.paymentrail': 'Payment Rail',
+    'lbl.selectopt': '— Select —',
+    'lbl.config': 'Configuration',
+    'lbl.valresults': 'Validation Results',
+    'geo.us': 'United States',
+    'geo.uk': 'United Kingdom',
+    'geo.eu': 'European Union',
+    'geo.brazil': 'Brazil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brazil)',
+    'pay.sameday': 'Same-Day ACH',
+    'pay.nextday': 'Next-Day ACH',
+    'sev.high': 'High',
+    'sev.medium': 'Medium',
+    'f05.hero.eyebrow': 'Tool 05 · Payment Operations',
+    'f05.hero.title': 'Invoice-to-A2A Tooling Suite',
+    'f05.hero.sub': 'Parse invoices into Pay-by-Bank links and reconcile A2A payments against invoice ledgers. Three integrated tools: link generator, payment reconciliation, and aging report. Client-side only.',
+    'f05.tab.linkgen': 'Link Generator',
+    'f05.tab.recon': 'Reconciliation',
+    'f05.tab.aging': 'Aging Report',
+    'f05.lbl.invoiceno': 'Invoice Number',
+    'f05.lbl.invoiceamt': 'Invoice Amount',
+    'f05.lbl.duedate': 'Due Date',
+    'f05.lbl.payref': 'Payment Reference',
+    'f05.btn.parselink': '▶ Parse Invoice + Generate Link',
+    'f05.btn.runrecon': '▶ Run Reconciliation',
+    'f05.btn.loaddemo': 'Load Demo',
+    'f05.btn.loaddemodata': 'Load Demo Data',
+    'f05.btn.copylink': 'Copy Link',
+    'f05.btn.copyemail': 'Copy Email',
+    'f05.btn.copyjson': 'Copy JSON',
+    'f05.btn.exportmatched': 'Export Matched CSV',
+    'f05.btn.exportunmatched': 'Export Unmatched CSV',
+    'f05.btn.exportaging': 'Export Aging CSV',
+    'f05.lbl.matchrate': 'Match Rate',
+    'f05.lbl.unmatched': 'Unmatched',
+  },
+  'es': {
+    'nav.home': 'Inicio',
+    'nav.a2a': 'Pagos A2A',
+    'nav.glossary': 'Glosario',
+    'nav.tools': 'Herramientas',
+    'nav.contact': 'Contacto',
+    'footer.alltools': 'Todas las Herramientas',
+    'footer.a2a': 'Pagos A2A',
+    'footer.glossary': 'Glosario',
+    'footer.home': 'Inicio',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Declaración de Privacidad',
+    'about.trigger': 'Acerca de Esta Herramienta',
+    'about.trigger2': 'Acerca de Esta Herramienta ▾',
+    'priv.runs': 'Esta herramienta se ejecuta completamente en su navegador.',
+    'priv.notrans': 'No se transmiten datos a ningún servidor.',
+    'priv.local': 'Todas las entradas, cálculos y resultados generados se procesan localmente en su dispositivo.',
+    'priv.never': 'y nunca sale de su dispositivo.',
+    'priv.blocked': 'se anulan en tiempo de ejecución para bloquear todas las llamadas de red salientes.',
+    'priv.allproc': 'Todo el procesamiento en su navegador · Sin datos transmitidos',
+    'priv.zeropii': 'Sin PII · Solo en el Navegador',
+    'priv.zeropii2': 'Sin PII · 100% en el Navegador',
+    'about.howworks': 'Cómo funciona:',
+    'about.audience': 'Público objetivo:',
+    'about.limits': 'Limitaciones:',
+    'about.export': 'Exportar:',
+    'about.whatdoes': 'Qué hace esta herramienta:',
+    'about.whatdoes2': 'Qué hace esta herramienta',
+    'about.whatsim': 'Qué simula:',
+    'about.source': 'Fuente:',
+    'about.builtby': 'Creado por',
+    'about.dataprivacy': 'Privacidad de datos:',
+    'about.dataprivnote': 'Nota de privacidad de datos:',
+    'about.whatisthis': '¿Qué es esto?',
+    'about.results_export': 'Los resultados se pueden descargar como JSON o Markdown para su uso en flujos de trabajo posteriores, tiempos de ejecución de agentes o documentación de auditoría.',
+    'btn.reset': '↺ Restablecer',
+    'btn.clear': '↺ Limpiar',
+    'btn.exportcsv': '↓ Exportar CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimir',
+    'btn.copy': 'Copiar',
+    'btn.alltools': '← Todas las Herramientas',
+    'lbl.jurisdiction': 'Jurisdicción',
+    'lbl.currency': 'Moneda',
+    'lbl.amount': 'Monto',
+    'lbl.status': 'Estado',
+    'lbl.type': 'Tipo',
+    'lbl.rail': 'Carril',
+    'lbl.paymentrail': 'Carril de Pago',
+    'lbl.selectopt': '— Seleccionar —',
+    'lbl.config': 'Configuración',
+    'lbl.valresults': 'Resultados de Validación',
+    'geo.us': 'Estados Unidos',
+    'geo.uk': 'Reino Unido',
+    'geo.eu': 'Unión Europea',
+    'geo.brazil': 'Brasil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brasil)',
+    'pay.sameday': 'ACH en el Mismo Día',
+    'pay.nextday': 'ACH al Día Siguiente',
+    'sev.high': 'Alto',
+    'sev.medium': 'Medio',
+    'f05.hero.eyebrow': 'Herramienta 05 de 18 · Operaciones de Pago',
+    'f05.hero.title': 'Suite de Herramientas Factura a A2A',
+    'f05.hero.sub': 'Convierta facturas en enlaces de pago bancario y concilie pagos A2A con libros de facturas. Tres herramientas integradas: generador de enlaces, conciliación de pagos e informe de antigüedad.',
+    'f05.tab.linkgen': 'Generador de Enlace',
+    'f05.tab.recon': 'Conciliación',
+    'f05.tab.aging': 'Informe de Antigüedad',
+    'f05.lbl.invoiceno': 'Número de Factura',
+    'f05.lbl.invoiceamt': 'Monto de la Factura',
+    'f05.lbl.duedate': 'Fecha de Vencimiento',
+    'f05.lbl.payref': 'Referencia de Pago',
+    'f05.btn.parselink': '▶ Analizar Factura + Generar Enlace',
+    'f05.btn.runrecon': '▶ Ejecutar Conciliación',
+    'f05.btn.loaddemo': 'Cargar Demo',
+    'f05.btn.loaddemodata': 'Cargar Datos Demo',
+    'f05.btn.copylink': 'Copiar Enlace',
+    'f05.btn.copyemail': 'Copiar Correo',
+    'f05.btn.copyjson': 'Copiar JSON',
+    'f05.btn.exportmatched': 'Exportar CSV Coincidentes',
+    'f05.btn.exportunmatched': 'Exportar CSV No Coincidentes',
+    'f05.btn.exportaging': 'Exportar CSV de Antigüedad',
+    'f05.lbl.matchrate': 'Tasa de Coincidencia',
+    'f05.lbl.unmatched': 'No Coincidente',
+  },
+  'fr': {
+    'nav.home': 'Accueil',
+    'nav.a2a': 'Paiements A2A',
+    'nav.glossary': 'Glossaire',
+    'nav.tools': 'Outils',
+    'nav.contact': 'Contact',
+    'footer.alltools': 'Tous les Outils',
+    'footer.a2a': 'Paiements A2A',
+    'footer.glossary': 'Glossaire',
+    'footer.home': 'Accueil',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Déclaration de Confidentialité',
+    'about.trigger': 'À Propos de Cet Outil',
+    'about.trigger2': 'À Propos de Cet Outil ▾',
+    'priv.runs': 'Cet outil fonctionne entièrement dans votre navigateur.',
+    'priv.notrans': 'Aucune donnée n\'est transmise à un serveur.',
+    'priv.local': 'Toutes les entrées, calculs et sorties générées sont traités localement sur votre appareil.',
+    'priv.never': 'et ne quitte jamais votre appareil.',
+    'priv.blocked': 'sont remplacés au moment de l\'exécution pour bloquer tous les appels réseau sortants.',
+    'priv.allproc': 'Tout le traitement dans votre navigateur · Aucune donnée transmise',
+    'priv.zeropii': 'Zéro PII · Côté Client Uniquement',
+    'priv.zeropii2': 'Zéro PII · 100% Côté Client',
+    'about.howworks': 'Comment ça fonctionne :',
+    'about.audience': 'Public cible :',
+    'about.limits': 'Limitations :',
+    'about.export': 'Export :',
+    'about.whatdoes': 'Ce que fait cet outil :',
+    'about.whatdoes2': 'Ce que fait cet outil',
+    'about.whatsim': 'Ce qu\'il simule :',
+    'about.source': 'Source :',
+    'about.builtby': 'Créé par',
+    'about.dataprivacy': 'Confidentialité des données :',
+    'about.dataprivnote': 'Note sur la confidentialité des données :',
+    'about.whatisthis': 'Qu\'est-ce que c\'est ?',
+    'about.results_export': 'Les résultats peuvent être téléchargés en JSON ou Markdown pour une utilisation dans des flux de travail en aval, des environnements d\'exécution d\'agents ou de la documentation d\'audit.',
+    'btn.reset': '↺ Réinitialiser',
+    'btn.clear': '↺ Effacer',
+    'btn.exportcsv': '↓ Exporter CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimer',
+    'btn.copy': 'Copier',
+    'btn.alltools': '← Tous les Outils',
+    'lbl.jurisdiction': 'Juridiction',
+    'lbl.currency': 'Devise',
+    'lbl.amount': 'Montant',
+    'lbl.status': 'Statut',
+    'lbl.type': 'Type',
+    'lbl.rail': 'Rail',
+    'lbl.paymentrail': 'Rail de Paiement',
+    'lbl.selectopt': '— Sélectionner —',
+    'lbl.config': 'Configuration',
+    'lbl.valresults': 'Résultats de Validation',
+    'geo.us': 'États-Unis',
+    'geo.uk': 'Royaume-Uni',
+    'geo.eu': 'Union Européenne',
+    'geo.brazil': 'Brésil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brésil)',
+    'pay.sameday': 'ACH le Jour Même',
+    'pay.nextday': 'ACH le Lendemain',
+    'sev.high': 'Élevé',
+    'sev.medium': 'Moyen',
+    'f05.hero.eyebrow': 'Outil 05 sur 18 · Opérations de Paiement',
+    'f05.hero.title': 'Suite d\'Outils Facture vers A2A',
+    'f05.hero.sub': 'Transformez les factures en liens de paiement bancaire et réconciliez les paiements A2A avec les registres de facturation. Trois outils intégrés : générateur de liens, réconciliation et rapport d\'ancienneté.',
+    'f05.tab.linkgen': 'Générateur de Lien',
+    'f05.tab.recon': 'Réconciliation',
+    'f05.tab.aging': 'Rapport d\'Ancienneté',
+    'f05.lbl.invoiceno': 'Numéro de Facture',
+    'f05.lbl.invoiceamt': 'Montant de la Facture',
+    'f05.lbl.duedate': 'Date d\'Échéance',
+    'f05.lbl.payref': 'Référence de Paiement',
+    'f05.btn.parselink': '▶ Analyser Facture + Générer Lien',
+    'f05.btn.runrecon': '▶ Lancer la Réconciliation',
+    'f05.btn.loaddemo': 'Charger la Démo',
+    'f05.btn.loaddemodata': 'Charger Données Démo',
+    'f05.btn.copylink': 'Copier le Lien',
+    'f05.btn.copyemail': 'Copier l\'Email',
+    'f05.btn.copyjson': 'Copier JSON',
+    'f05.btn.exportmatched': 'Exporter CSV Correspondants',
+    'f05.btn.exportunmatched': 'Exporter CSV Non Correspondants',
+    'f05.btn.exportaging': 'Exporter CSV d\'Ancienneté',
+    'f05.lbl.matchrate': 'Taux de Correspondance',
+    'f05.lbl.unmatched': 'Non Correspondant',
+  },
+  'ar': {
+    'nav.home': 'الرئيسية',
+    'nav.a2a': 'مدفوعات A2A',
+    'nav.glossary': 'المسرد',
+    'nav.tools': 'الأدوات',
+    'nav.contact': 'تواصل معنا',
+    'footer.alltools': 'جميع الأدوات',
+    'footer.a2a': 'مدفوعات A2A',
+    'footer.glossary': 'المسرد',
+    'footer.home': 'الرئيسية',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'بيان الخصوصية',
+    'about.trigger': 'حول هذه الأداة',
+    'about.trigger2': 'حول هذه الأداة ▾',
+    'priv.runs': 'تعمل هذه الأداة بالكامل في متصفحك.',
+    'priv.notrans': 'لا يتم إرسال أي بيانات إلى أي خادم.',
+    'priv.local': 'تتم معالجة جميع المدخلات والحسابات والمخرجات محليًا على جهازك.',
+    'priv.never': 'ولا يغادر جهازك أبدًا.',
+    'priv.blocked': 'تُستبدل في وقت التشغيل لحجب جميع استدعاءات الشبكة الصادرة.',
+    'priv.allproc': 'جميع المعالجة في متصفحك · لا بيانات مُرسَلة',
+    'priv.zeropii': 'بدون بيانات شخصية · من جانب العميل فقط',
+    'priv.zeropii2': 'بدون بيانات شخصية · 100% من جانب العميل',
+    'about.howworks': 'كيف تعمل:',
+    'about.audience': 'الجمهور المستهدف:',
+    'about.limits': 'القيود:',
+    'about.export': 'تصدير:',
+    'about.whatdoes': 'ما تفعله هذه الأداة:',
+    'about.whatdoes2': 'ما تفعله هذه الأداة',
+    'about.whatsim': 'ما يحاكيه:',
+    'about.source': 'المصدر:',
+    'about.builtby': 'أُنشئ بواسطة',
+    'about.dataprivacy': 'خصوصية البيانات:',
+    'about.dataprivnote': 'ملاحظة خصوصية البيانات:',
+    'about.whatisthis': 'ما هذا؟',
+    'about.results_export': 'يمكن تنزيل النتائج بتنسيق JSON أو Markdown للاستخدام في سير العمل اللاحق أو بيئات تشغيل الوكلاء أو وثائق التدقيق.',
+    'btn.reset': '↺ إعادة تعيين',
+    'btn.clear': '↺ مسح',
+    'btn.exportcsv': '↓ تصدير CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ طباعة',
+    'btn.copy': 'نسخ',
+    'btn.alltools': '← جميع الأدوات',
+    'lbl.jurisdiction': 'الاختصاص القضائي',
+    'lbl.currency': 'العملة',
+    'lbl.amount': 'المبلغ',
+    'lbl.status': 'الحالة',
+    'lbl.type': 'النوع',
+    'lbl.rail': 'المسار',
+    'lbl.paymentrail': 'مسار الدفع',
+    'lbl.selectopt': '— اختر —',
+    'lbl.config': 'الإعدادات',
+    'lbl.valresults': 'نتائج التحقق',
+    'geo.us': 'الولايات المتحدة',
+    'geo.uk': 'المملكة المتحدة',
+    'geo.eu': 'الاتحاد الأوروبي',
+    'geo.brazil': 'البرازيل',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'سيبا',
+    'pay.sepainstant': 'SEPA فوري',
+    'pay.pix': 'PIX (البرازيل)',
+    'pay.sameday': 'ACH في اليوم ذاته',
+    'pay.nextday': 'ACH في اليوم التالي',
+    'sev.high': 'عالٍ',
+    'sev.medium': 'متوسط',
+    'f05.hero.eyebrow': 'أداة 05 من 18 · عمليات الدفع',
+    'f05.hero.title': 'مجموعة أدوات الفاتورة إلى A2A',
+    'f05.hero.sub': 'حوّل الفواتير إلى روابط دفع مصرفي وتطابق مدفوعات A2A مع دفاتر الفواتير. ثلاثة أدوات متكاملة: مولد الروابط، مطابقة المدفوعات، وتقرير الأعمار.',
+    'f05.tab.linkgen': 'مولد الرابط',
+    'f05.tab.recon': 'المطابقة',
+    'f05.tab.aging': 'تقرير الأعمار',
+    'f05.lbl.invoiceno': 'رقم الفاتورة',
+    'f05.lbl.invoiceamt': 'مبلغ الفاتورة',
+    'f05.lbl.duedate': 'تاريخ الاستحقاق',
+    'f05.lbl.payref': 'مرجع الدفع',
+    'f05.btn.parselink': '▶ تحليل الفاتورة + إنشاء الرابط',
+    'f05.btn.runrecon': '▶ تشغيل المطابقة',
+    'f05.btn.loaddemo': 'تحميل العرض التجريبي',
+    'f05.btn.loaddemodata': 'تحميل بيانات العرض التجريبي',
+    'f05.btn.copylink': 'نسخ الرابط',
+    'f05.btn.copyemail': 'نسخ البريد الإلكتروني',
+    'f05.btn.copyjson': 'نسخ JSON',
+    'f05.btn.exportmatched': 'تصدير CSV المتطابقات',
+    'f05.btn.exportunmatched': 'تصدير CSV غير المتطابقات',
+    'f05.btn.exportaging': 'تصدير CSV الأعمار',
+    'f05.lbl.matchrate': 'معدل التطابق',
+    'f05.lbl.unmatched': 'غير متطابق',
+  },
+  'pt': {
+    'nav.home': 'Início',
+    'nav.a2a': 'Pagamentos A2A',
+    'nav.glossary': 'Glossário',
+    'nav.tools': 'Ferramentas',
+    'nav.contact': 'Contato',
+    'footer.alltools': 'Todas as Ferramentas',
+    'footer.a2a': 'Pagamentos A2A',
+    'footer.glossary': 'Glossário',
+    'footer.home': 'Início',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Declaração de Privacidade',
+    'about.trigger': 'Sobre Esta Ferramenta',
+    'about.trigger2': 'Sobre Esta Ferramenta ▾',
+    'priv.runs': 'Esta ferramenta funciona inteiramente no seu navegador.',
+    'priv.notrans': 'Nenhum dado é transmitido para nenhum servidor.',
+    'priv.local': 'Todas as entradas, cálculos e saídas geradas são processados localmente no seu dispositivo.',
+    'priv.never': 'e nunca sai do seu dispositivo.',
+    'priv.blocked': 'são substituídos em tempo de execução para bloquear todas as chamadas de rede de saída.',
+    'priv.allproc': 'Todo o processamento no seu navegador · Nenhum dado transmitido',
+    'priv.zeropii': 'Sem PII · Somente no Navegador',
+    'priv.zeropii2': 'Sem PII · 100% no Navegador',
+    'about.howworks': 'Como funciona:',
+    'about.audience': 'Público-alvo:',
+    'about.limits': 'Limitações:',
+    'about.export': 'Exportar:',
+    'about.whatdoes': 'O que esta ferramenta faz:',
+    'about.whatdoes2': 'O que esta ferramenta faz',
+    'about.whatsim': 'O que simula:',
+    'about.source': 'Fonte:',
+    'about.builtby': 'Criado por',
+    'about.dataprivacy': 'Privacidade de dados:',
+    'about.dataprivnote': 'Nota de privacidade de dados:',
+    'about.whatisthis': 'O que é isso?',
+    'about.results_export': 'Os resultados podem ser baixados como JSON ou Markdown para uso em fluxos de trabalho downstream, ambientes de execução de agentes ou documentação de auditoria.',
+    'btn.reset': '↺ Redefinir',
+    'btn.clear': '↺ Limpar',
+    'btn.exportcsv': '↓ Exportar CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimir',
+    'btn.copy': 'Copiar',
+    'btn.alltools': '← Todas as Ferramentas',
+    'lbl.jurisdiction': 'Jurisdição',
+    'lbl.currency': 'Moeda',
+    'lbl.amount': 'Valor',
+    'lbl.status': 'Status',
+    'lbl.type': 'Tipo',
+    'lbl.rail': 'Trilho',
+    'lbl.paymentrail': 'Trilho de Pagamento',
+    'lbl.selectopt': '— Selecionar —',
+    'lbl.config': 'Configuração',
+    'lbl.valresults': 'Resultados de Validação',
+    'geo.us': 'Estados Unidos',
+    'geo.uk': 'Reino Unido',
+    'geo.eu': 'União Europeia',
+    'geo.brazil': 'Brasil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brasil)',
+    'pay.sameday': 'ACH no Mesmo Dia',
+    'pay.nextday': 'ACH no Dia Seguinte',
+    'sev.high': 'Alto',
+    'sev.medium': 'Médio',
+    'f05.hero.eyebrow': 'Ferramenta 05 de 18 · Operações de Pagamento',
+    'f05.hero.title': 'Suite de Ferramentas Fatura para A2A',
+    'f05.hero.sub': 'Converta faturas em links de pagamento bancário e concilie pagamentos A2A com razões de faturas. Três ferramentas integradas: gerador de links, conciliação de pagamentos e relatório de aging.',
+    'f05.tab.linkgen': 'Gerador de Link',
+    'f05.tab.recon': 'Conciliação',
+    'f05.tab.aging': 'Relatório de Aging',
+    'f05.lbl.invoiceno': 'Número da Fatura',
+    'f05.lbl.invoiceamt': 'Valor da Fatura',
+    'f05.lbl.duedate': 'Data de Vencimento',
+    'f05.lbl.payref': 'Referência de Pagamento',
+    'f05.btn.parselink': '▶ Analisar Fatura + Gerar Link',
+    'f05.btn.runrecon': '▶ Executar Conciliação',
+    'f05.btn.loaddemo': 'Carregar Demo',
+    'f05.btn.loaddemodata': 'Carregar Dados Demo',
+    'f05.btn.copylink': 'Copiar Link',
+    'f05.btn.copyemail': 'Copiar Email',
+    'f05.btn.copyjson': 'Copiar JSON',
+    'f05.btn.exportmatched': 'Exportar CSV Correspondentes',
+    'f05.btn.exportunmatched': 'Exportar CSV Não Correspondentes',
+    'f05.btn.exportaging': 'Exportar CSV de Aging',
+    'f05.lbl.matchrate': 'Taxa de Correspondência',
+    'f05.lbl.unmatched': 'Não Correspondente',
+  },
+  'zh': {
+    'nav.home': '首页',
+    'nav.a2a': 'A2A 支付',
+    'nav.glossary': '术语表',
+    'nav.tools': '工具',
+    'nav.contact': '联系我们',
+    'footer.alltools': '所有工具',
+    'footer.a2a': 'A2A 支付',
+    'footer.glossary': '术语表',
+    'footer.home': '首页',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': '隐私声明',
+    'about.trigger': '关于此工具',
+    'about.trigger2': '关于此工具 ▾',
+    'priv.runs': '此工具完全在您的浏览器中运行。',
+    'priv.notrans': '没有任何数据被传输到服务器。',
+    'priv.local': '所有输入、计算和生成的输出均在您的设备本地处理。',
+    'priv.never': '且永远不会离开您的设备。',
+    'priv.blocked': '在运行时被覆盖以阻止所有出站网络调用。',
+    'priv.allproc': '所有处理在浏览器中进行 · 无数据传输',
+    'priv.zeropii': '零个人信息 · 纯本地运行',
+    'priv.zeropii2': '零个人信息 · 100% 本地运行',
+    'about.howworks': '工作原理：',
+    'about.audience': '目标用户：',
+    'about.limits': '局限性：',
+    'about.export': '导出：',
+    'about.whatdoes': '此工具的功能：',
+    'about.whatdoes2': '此工具的功能',
+    'about.whatsim': '模拟内容：',
+    'about.source': '来源：',
+    'about.builtby': '作者',
+    'about.dataprivacy': '数据隐私：',
+    'about.dataprivnote': '数据隐私说明：',
+    'about.whatisthis': '这是什么？',
+    'about.results_export': '结果可下载为 JSON 或 Markdown 格式，用于下游工作流、代理运行时或审计文档。',
+    'btn.reset': '↺ 重置',
+    'btn.clear': '↺ 清除',
+    'btn.exportcsv': '↓ 导出 CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ 打印',
+    'btn.copy': '复制',
+    'btn.alltools': '← 所有工具',
+    'lbl.jurisdiction': '司法管辖区',
+    'lbl.currency': '货币',
+    'lbl.amount': '金额',
+    'lbl.status': '状态',
+    'lbl.type': '类型',
+    'lbl.rail': '支付轨道',
+    'lbl.paymentrail': '支付轨道',
+    'lbl.selectopt': '— 请选择 —',
+    'lbl.config': '配置',
+    'lbl.valresults': '验证结果',
+    'geo.us': '美国',
+    'geo.uk': '英国',
+    'geo.eu': '欧盟',
+    'geo.brazil': '巴西',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA 即时',
+    'pay.pix': 'PIX（巴西）',
+    'pay.sameday': '同日 ACH',
+    'pay.nextday': '次日 ACH',
+    'sev.high': '高',
+    'sev.medium': '中',
+    'f05.hero.eyebrow': '工具 05/18 · 支付运营',
+    'f05.hero.title': '发票转 A2A 工具套件',
+    'f05.hero.sub': '将发票转换为银行付款链接，并将 A2A 付款与发票账簿进行对账。包含三个集成工具：链接生成器、付款核对和账龄报告。',
+    'f05.tab.linkgen': '链接生成器',
+    'f05.tab.recon': '对账',
+    'f05.tab.aging': '账龄报告',
+    'f05.lbl.invoiceno': '发票编号',
+    'f05.lbl.invoiceamt': '发票金额',
+    'f05.lbl.duedate': '到期日',
+    'f05.lbl.payref': '付款参考号',
+    'f05.btn.parselink': '▶ 解析发票 + 生成链接',
+    'f05.btn.runrecon': '▶ 运行对账',
+    'f05.btn.loaddemo': '加载演示',
+    'f05.btn.loaddemodata': '加载演示数据',
+    'f05.btn.copylink': '复制链接',
+    'f05.btn.copyemail': '复制邮件',
+    'f05.btn.copyjson': '复制 JSON',
+    'f05.btn.exportmatched': '导出匹配 CSV',
+    'f05.btn.exportunmatched': '导出未匹配 CSV',
+    'f05.btn.exportaging': '导出账龄 CSV',
+    'f05.lbl.matchrate': '匹配率',
+    'f05.lbl.unmatched': '未匹配',
+  },
+};
+
+/* ── LANG SWITCHER ── */
+function setLang(lang) {
+  document.querySelectorAll('.lang-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.lang-btn').forEach(function(b){
+    if(b.getAttribute('data-lang')===lang) b.classList.add('active');
+  });
+  document.documentElement.lang = lang==='zh'?'zh-Hans':lang;
+  document.documentElement.dir  = lang==='ar'?'rtl':'ltr';
+  var s = I18N[lang]||I18N['en'];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var k=el.getAttribute('data-i18n');
+    if(s[k]!==undefined) el.textContent=s[k];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el){
+    var k=el.getAttribute('data-i18n-placeholder');
+    if(s[k]!==undefined) el.placeholder=s[k];
+  });
+  window._lang=lang;
+}
+
+/* ── INLINE NOTICE (replaces alert) ── */
+function showNotice(msg, type) {
+  var n = document.getElementById('pol-notice');
+  if (!n) {
+    n = document.createElement('div');
+    n.id = 'pol-notice';
+    n.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;background:var(--panel);border:1px solid var(--edge);border-left:3px solid var(--accent);padding:.75rem 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.6rem;letter-spacing:.04em;color:var(--text);max-width:360px;line-height:1.5;transform:translateY(120%);transition:transform .25s;';
+    document.body.appendChild(n);
+  }
+  n.style.borderLeftColor = type === 'error' ? 'var(--red-lt)' : 'var(--accent)';
+  n.textContent = msg;
+  n.style.transform = 'translateY(0)';
+  clearTimeout(n._t);
+  n._t = setTimeout(function(){ n.style.transform = 'translateY(120%)'; }, 3500);
+}
+
+
+// ══════════════════════════════════════════════
+// RULE SANDBOX (Tool F — AML Red Flag Screener)
+// ══════════════════════════════════════════════
+
+// FATF Feb 2026 lists
+const FATF_BLACK = ['Myanmar','Iran','DPRK'];
+const FATF_GREY  = ['Afghanistan','Algeria','Angola','Bulgaria','Burkina Faso','Cameroon',
+  'Cote d Ivoire','Croatia','DRC','Haiti','Kenya','Kuwait','Mali','Monaco','Mozambique',
+  'Namibia','Nigeria','Panama','Papua New Guinea','Philippines','Senegal','South Africa',
+  'South Sudan','Syria','Tanzania','Venezuela','Vietnam','Yemen'];
+
+// High-risk MCCs (shared with MCC Explorer — canonical source: tools/mcc-code-explorer.html)
+const HR_MCCS = [
+  {code:'7993',label:'Video Game Arcades'},
+  {code:'7995',label:'Betting/Gambling'},
+  {code:'6051',label:'Crypto/Quasi-Cash'},
+  {code:'7273',label:'Dating/Escort'},
+  {code:'6099',label:'Money Services'},
+  {code:'4829',label:'Wire Transfers'},
+  {code:'5966',label:'Outbound Telemarketing'},
+  {code:'7012',label:'Timeshares'},
+];
+
+let sbLastResults = null;
+
+function initSandbox() {
+  // MCC chips
+  const grid = document.getElementById('sbMccGrid');
+  if (!grid) return;
+  grid.innerHTML = HR_MCCS.map(m =>
+    `<span class="mcc-chip active" id="sbmcc-${m.code}" onclick="toggleMcc('${m.code}',this)">${m.code} ${m.label}</span>`
+  ).join('');
+
+  // FATF black
+  document.getElementById('sbBlacklistGrid').innerHTML = FATF_BLACK.map(c =>
+    `<span class="fatf-chip black" title="Call for Action">${c}</span>`
+  ).join('');
+
+  // FATF grey — all active by default
+  document.getElementById('sbGreylistGrid').innerHTML = FATF_GREY.map(c =>
+    `<span class="fatf-chip grey active" onclick="this.classList.toggle('active')">${c}</span>`
+  ).join('');
+}
+
+function toggleMcc(code, el) { el.classList.toggle('active'); }
+
+function showJurNote() {
+  const notes = {
+    us:'FinCEN delayed AML/CFT program requirements by approximately two years in 2025. Current compliance target: ~2027.',
+    eu:'EU AMLD6 requires enhanced due diligence for high-risk third countries. Member states must implement by 2027.',
+    uk:'UK FCA rules require regulated firms to have AML systems commensurate with their risk profile.',
+    custom:'Configure rules manually. Ensure your rule set meets applicable jurisdiction requirements.'
+  };
+  const jur = document.getElementById('sbJurisdiction').value;
+  document.getElementById('sbJurNote').textContent = notes[jur] || '';
+}
+
+const SCENARIO_TEMPLATES = {
+  structuring: { count:300, note:'Structuring Attack — many transactions just below $10,000 threshold' },
+  tbml:        { count:150, note:'Trade-Based Money Laundering — invoice amounts inconsistent with counterparty profile' },
+  layering:    { count:400, note:'Layering — rapid fund movement through multiple accounts' },
+  rapid:       { count:500, note:'Rapid Fund Movement — unusually high velocity over 48hr window' },
+  dormant:     { count:80,  note:'Dormant Account Spike — account inactive >12 months, sudden high-value activity' },
+};
+
+function loadSandboxTemplate(key) {
+  const t = SCENARIO_TEMPLATES[key];
+  if (!t) return;
+  document.getElementById('sb-txn-count').value = t.count;
+}
+
+function generateSyntheticTransactions(count, scenario) {
+  const txns = [];
+  const structureThreshold = parseInt(document.getElementById('sbStructure').value);
+  const activeGrey = [...document.querySelectorAll('#sbGreylistGrid .fatf-chip.active')].map(el => el.textContent);
+  const activeMccs = HR_MCCS.filter(m => document.getElementById('sbmcc-'+m.code)?.classList.contains('active')).map(m => m.code);
+
+  for (let i = 0; i < count; i++) {
+    const isStructuring  = Math.random() < 0.08;
+    const isHighRiskGeo  = Math.random() < 0.06;
+    const isHighRiskMcc  = Math.random() < 0.05;
+    const isUnusualHour  = Math.random() < 0.07;
+    const isDormant      = Math.random() < 0.04;
+    const isCircular     = Math.random() < 0.03;
+    const isGenuineSusp  = isStructuring || isHighRiskGeo || isHighRiskMcc || isDormant || isCircular;
+
+    const hour = isUnusualHour ? (Math.random() < 0.5 ? Math.floor(Math.random()*6)+1 : 20+Math.floor(Math.random()*4)) : 9+Math.floor(Math.random()*8);
+    const amount = isStructuring ? (structureThreshold - Math.floor(Math.random()*800) - 100) : Math.floor(Math.random()*50000)+100;
+    const country = isHighRiskGeo && activeGrey.length ? activeGrey[Math.floor(Math.random()*activeGrey.length)] : 'US';
+    const mcc = isHighRiskMcc && activeMccs.length ? activeMccs[Math.floor(Math.random()*activeMccs.length)] : '5411';
+
+    txns.push({
+      id: 'TXN-' + String(i+1).padStart(5,'0'),
+      amount, country, mcc, hour,
+      counterparty: 'CP-' + String(Math.floor(Math.random()*50)+1).padStart(3,'0'),
+      dormant: isDormant,
+      circular: isCircular,
+      genuineSuspicious: isGenuineSusp
+    });
+  }
+  return txns;
+}
+
+function screenTransaction(txn, rules) {
+  const fired = [];
+  const dailyLimit = parseInt(document.getElementById('sbDailyDollar').value);
+  const structureThresh = parseInt(document.getElementById('sbStructure').value);
+  const activeGrey = [...document.querySelectorAll('#sbGreylistGrid .fatf-chip.active')].map(el => el.textContent);
+  const activeMccs = HR_MCCS.filter(m => document.getElementById('sbmcc-'+m.code)?.classList.contains('active')).map(m => m.code);
+
+  if (txn.amount >= structureThresh && txn.amount < 10000) fired.push('Structuring — just below $10K threshold');
+  if (txn.amount > dailyLimit) fired.push('Daily dollar limit exceeded ($' + txn.amount.toLocaleString() + ')');
+  if (activeGrey.includes(txn.country)) fired.push('FATF grey-listed jurisdiction: ' + txn.country);
+  if (FATF_BLACK.includes(txn.country)) fired.push('FATF black-listed jurisdiction: ' + txn.country);
+  if (activeMccs.includes(txn.mcc)) fired.push('High-risk MCC: ' + txn.mcc);
+  if (document.getElementById('sbUnusualHours').checked && (txn.hour < 8 || txn.hour > 18)) fired.push('Unusual transaction hour: ' + txn.hour + ':00');
+  if (document.getElementById('sbDormant').checked && txn.dormant) fired.push('Dormant account reactivation pattern');
+  if (document.getElementById('sbCircular').checked && txn.circular) fired.push('Circular trading pattern detected');
+
+  const riskScore = Math.min(100, fired.length * 25 + (txn.genuineSuspicious ? 30 : 0));
+  const severity  = riskScore >= 75 ? 'Critical' : riskScore >= 50 ? 'High' : riskScore >= 25 ? 'Medium' : fired.length > 0 ? 'Low' : 'Clear';
+
+  return { flagged: fired.length > 0, fired, riskScore, severity };
+}
+
+function runSandbox() {
+  const count = Math.min(parseInt(document.getElementById('sb-txn-count').value) || 200, 2000);
+  const txns  = generateSyntheticTransactions(count, 'custom');
+  const results = txns.map(t => ({ ...t, screen: screenTransaction(t, {}) }));
+
+  const flagged      = results.filter(r => r.screen.flagged);
+  const trueSuspicious = results.filter(r => r.genuineSuspicious);
+  const truePositives  = flagged.filter(r => r.genuineSuspicious).length;
+  const falsePositives = flagged.length - truePositives;
+
+  const tpr = trueSuspicious.length > 0 ? (truePositives / trueSuspicious.length * 100).toFixed(1) : '0.0';
+  const fpr = (results.length - trueSuspicious.length) > 0 ? (falsePositives / (results.length - trueSuspicious.length) * 100).toFixed(1) : '0.0';
+  const precision = flagged.length > 0 ? (truePositives / flagged.length) : 0;
+  const recall    = trueSuspicious.length > 0 ? (truePositives / trueSuspicious.length) : 0;
+  const f1 = (precision + recall) > 0 ? (2 * precision * recall / (precision + recall) * 100).toFixed(1) : '0.0';
+  const alertVol = (flagged.length / count * 1000).toFixed(0);
+
+  document.getElementById('sbTPR').textContent = tpr + '%';
+  document.getElementById('sbTPR').className = 'eff-val ' + (parseFloat(tpr)>70?'good':parseFloat(tpr)>40?'warn':'bad');
+  document.getElementById('sbFPR').textContent = fpr + '%';
+  document.getElementById('sbFPR').className = 'eff-val ' + (parseFloat(fpr)<10?'good':parseFloat(fpr)<25?'warn':'bad');
+  document.getElementById('sbF1').textContent = f1 + '%';
+  document.getElementById('sbF1').className = 'eff-val ' + (parseFloat(f1)>70?'good':parseFloat(f1)>40?'warn':'bad');
+  document.getElementById('sbAlertVol').textContent = alertVol;
+  document.getElementById('sbAlertVol').className = 'eff-val ' + (parseInt(alertVol)<50?'good':parseInt(alertVol)<150?'warn':'bad');
+
+  // Show top 50 flagged + sample of cleared
+  const displayRows = [...flagged.slice(0,40), ...results.filter(r=>!r.screen.flagged).slice(0,10)];
+  displayRows.sort((a,b) => b.screen.riskScore - a.screen.riskScore);
+
+  const sevClass = {Critical:'sev-crit',High:'sev-high',Medium:'sev-med',Low:'sev-low',Clear:'sev-low'};
+  document.getElementById('sbTableWrap').innerHTML = `<table class="sb-table">
+    <thead><tr><th>ID</th><th>Amount</th><th>Country</th><th>MCC</th><th>Severity</th><th>Rules Fired</th></tr></thead>
+    <tbody>${displayRows.map(r => `<tr>
+      <td>${r.id}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.72rem;">$${r.amount.toLocaleString()}</td>
+      <td>${r.country}</td>
+      <td>${r.mcc}</td>
+      <td><span class="${sevClass[r.screen.severity]}">${r.screen.severity}</span></td>
+      <td class="rules-fired">${r.screen.fired.join('; ') || '—'}</td>
+    </tr>`).join('')}</tbody>
+  </table><p style="font-size:.72rem;color:var(--muted);margin-top:.4rem;">Showing top ${Math.min(flagged.length,40)} flagged + 10 cleared. ${flagged.length} of ${count} transactions flagged.</p>`;
+
+  document.getElementById('sbEmptyState').style.display = 'none';
+  document.getElementById('sbResults').style.display    = 'block';
+
+  sbLastResults = { count, flaggedCount: flagged.length, tpr, fpr, f1, alertVol,
+    jurisdiction: document.getElementById('sbJurisdiction').value,
+    structureThreshold: document.getElementById('sbStructure').value,
+    dailyDollarLimit: document.getElementById('sbDailyDollar').value,
+    rows: displayRows.map(r => ({id:r.id,amount:r.amount,country:r.country,mcc:r.mcc,severity:r.screen.severity,rules:r.screen.fired.join('; ')}))
+  };
+}
+
+function exportSandboxJSON() {
+  if (!sbLastResults) return;
+  const config = {
+    rules: {
+      daily_count_limit: document.getElementById('sbDailyCount').value,
+      daily_dollar_limit: document.getElementById('sbDailyDollar').value,
+      structuring_threshold: document.getElementById('sbStructure').value,
+      circular_trading: document.getElementById('sbCircular').checked,
+      unusual_hours: document.getElementById('sbUnusualHours').checked,
+      dormant_account: document.getElementById('sbDormant').checked,
+      high_risk_mccs: HR_MCCS.filter(m => document.getElementById('sbmcc-'+m.code)?.classList.contains('active')).map(m=>m.code),
+      fatf_grey_active: [...document.querySelectorAll('#sbGreylistGrid .fatf-chip.active')].map(el=>el.textContent),
+      fatf_black: FATF_BLACK,
+    },
+    results: sbLastResults,
+    generated_by: 'AINumbers.co/tools/05-invoice-a2a-suite (Rule Sandbox)',
+    timestamp: new Date().toISOString()
+  };
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(config,null,2)],{type:'application/json'}));
+  a.download = 'aml-rule-sandbox-config.json'; a.click(); URL.revokeObjectURL(a.href);
+}
+
+function exportSandboxCSV() {
+  if (!sbLastResults) return;
+  const rows = [['ID','Amount','Country','MCC','Severity','Rules Fired'],
+    ...sbLastResults.rows.map(r => [r.id, r.amount, r.country, r.mcc, r.severity, '"'+r.rules+'"'])];
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}));
+  a.download = 'aml-sandbox-results.csv'; a.click(); URL.revokeObjectURL(a.href);
+}
+
+function exportSandboxMarkdown() {
+  if (!sbLastResults) return;
+  const r = sbLastResults;
+  const md = `# AML Rule Sandbox — Compliance Memo
+*Generated: ${new Date().toLocaleString()} · AINumbers.co*
+
+## Rule Configuration
+- Jurisdiction: ${r.jurisdiction.toUpperCase()}
+- Structuring threshold: $${Number(r.structureThreshold).toLocaleString()}
+- Daily dollar limit: $${Number(r.dailyDollarLimit).toLocaleString()}
+
+## Synthetic Batch Results
+- Transactions screened: ${r.count}
+- Transactions flagged: ${r.flaggedCount} (${(r.flaggedCount/r.count*100).toFixed(1)}%)
+
+## Rule Effectiveness
+| Metric | Value |
+|---|---|
+| True Positive Rate | ${r.tpr}% |
+| False Positive Rate | ${r.fpr}% |
+| Precision (F1) | ${r.f1}% |
+| Alert Volume / 1K | ${r.alertVol} |
+
+## Recommended Actions
+${parseFloat(r.fpr) > 25 ? '- ⚠ False positive rate is high — consider raising velocity thresholds to reduce analyst burden.' : '- ✓ False positive rate is within acceptable range.'}
+${parseFloat(r.tpr) < 60 ? '- ⚠ True positive rate is low — review rule coverage for known typologies.' : '- ✓ True positive rate is satisfactory.'}
+
+*Source: AINumbers.co · CC BY 4.0. For internal compliance testing only — not a production AML system.*`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([md],{type:'text/markdown'}));
+  a.download = 'aml-rule-sandbox-memo.md'; a.click(); URL.revokeObjectURL(a.href);
+}
+
+// Init sandbox when mode is switched
+const _origSwitchMode = switchMode;
+function switchMode(mode, btn) {
+  _origSwitchMode(mode, btn);
+  if (mode === 'sandbox') initSandbox();
+}
+
+</script>
+</body>
+</html>

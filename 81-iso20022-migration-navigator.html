@@ -1,0 +1,1653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tool 81 — ISO 20022 Migration Navigator · AINumbers.co</title>
+<meta name="description" content="Five-stage migration workflow for the November 2026 SWIFT CBPR+ structured address mandate. Audit MX payload truncation risk → parse unstructured addresses to mandatory StrtNm/BldgNb/TwnNm/PstCd/Ctry schema → score rail options → model liquidity impact → export ISO 20022 readiness memo. Client-side. Zero PII.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-glow:rgba(20,184,166,.06);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--radius:6px;--radius-lg:10px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.15}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1200px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* Lang bar */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:0 2rem;height:34px;display:flex;align-items:center}
+.lang-inner{max-width:1200px;margin:0 auto;width:100%;display:flex;gap:.5rem;justify-content:flex-end}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid transparent;padding:.2rem .5rem;cursor:pointer;line-height:1;transition:color .15s}
+.lang-btn.active{color:var(--teal-lt);border-bottom:1px solid var(--teal)}
+
+/* Nav */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1200px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-mark-grid{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:32px;height:32px}
+.logo-text{display:flex;flex-direction:column;gap:2px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.logo-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);line-height:1}
+@media(max-width:600px){.logo-tag{display:none}}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bg);background:var(--teal);border:1px solid var(--teal);padding:.3rem .85rem;border-radius:6px;transition:all .2s}
+.nav-cta:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+
+/* Hero */
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.7rem,3vw,2.6rem);color:var(--white);max-width:720px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-sub{font-size:.88rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.2rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}.badge-privacy::before{content:'·';color:var(--green)}
+.badge-spec{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+
+/* Deadline ticker */
+.deadline-bar{background:rgba(239,68,68,.08);border-bottom:1px solid rgba(239,68,68,.25);padding:.6rem 2rem;display:flex;align-items:center;justify-content:center;gap:1rem}
+.deadline-inner{max-width:1200px;margin:0 auto;width:100%;display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.deadline-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;color:var(--red)}
+.deadline-date{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--bright);font-weight:500}
+.deadline-days{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--warn);margin-left:auto}
+
+/* Tool section */
+.tool-section{padding:2rem 0 4rem;position:relative;z-index:1}
+
+/* Stage bar — exact Tool 73 pattern */
+.stage-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:2rem}
+.stage{background:var(--bg-2);padding:.85rem .75rem;text-align:center;cursor:pointer;transition:background .15s;border:none;width:100%;border-bottom:2px solid transparent}
+.stage:hover{background:var(--bg-3)}
+.stage.active{background:var(--bg-4);border-bottom:2px solid var(--teal)}
+.stage.done{background:rgba(34,197,94,.05);border-bottom:2px solid var(--green)}
+.stage.locked{cursor:not-allowed;opacity:.5}
+.stage-num{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.stage-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.06em;color:var(--text);display:block}
+.stage.active .stage-label{color:var(--teal-lt)}
+.stage.done .stage-label{color:var(--green)}
+.stage-content{display:none}.stage-content.active{display:block}
+
+/* Tool grid */
+.tool-grid{display:grid;grid-template-columns:310px 1fr;gap:2px;background:var(--border);border:1px solid var(--border)}
+@media(max-width:900px){.tool-grid{grid-template-columns:1fr}}
+.config-panel{background:var(--bg-2);padding:1.75rem}
+.output-panel{background:var(--bg-3);display:flex;flex-direction:column;min-height:520px}
+.output-body{flex:1;padding:1.5rem;overflow-y:auto}
+.output-toolbar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.75rem 1.5rem;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.output-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+
+/* Panel components */
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
+.sec-head{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-lt);margin:1.2rem 0 .7rem;display:flex;align-items:center;gap:.6rem}
+.sec-head::after{content:'';flex:1;height:1px;background:var(--border)}
+.flbl{font-size:.74rem;color:var(--bright);display:block;margin-bottom:.3rem}
+.fhint{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);display:block;margin-top:.25rem;margin-bottom:.85rem}
+select,input[type=number],input[type=text]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.74rem;padding:.42rem .65rem;outline:none;transition:border-color .2s;-webkit-appearance:none;margin-bottom:.85rem}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a6a8a'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .7rem center;padding-right:2rem;cursor:pointer}
+select:focus,input:focus{border-color:var(--teal)}
+textarea{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:.55rem .75rem;outline:none;resize:vertical;min-height:140px;line-height:1.65;transition:border-color .2s;margin-bottom:.85rem}
+textarea::placeholder{color:var(--muted)}
+textarea:focus{border-color:var(--teal)}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.55rem 1rem;cursor:pointer;transition:all .2s;border:1px solid}
+.btn-primary{background:var(--teal);border-color:var(--teal);color:var(--bg)}
+.btn-primary:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--muted);color:var(--text)}
+.btn-warn{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.4);color:var(--warn)}
+.btn-full{width:100%}
+.arow{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.divider{border:none;border-top:1px solid var(--border);margin:1.25rem 0}
+
+/* Stage nav */
+.stage-nav{display:flex;justify-content:space-between;align-items:center;margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);gap:.5rem}
+
+/* KPI bar */
+.kpi-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:1px;background:var(--border);margin-bottom:1.5rem}
+.kc{background:var(--bg-2);padding:.8rem 1rem}
+.kl{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.kv{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--bright);line-height:1.1}
+.kv.g{color:var(--green)}.kv.r{color:var(--red)}.kv.w{color:var(--warn)}.kv.t{color:var(--teal)}.kv.gold{color:var(--gold)}
+.ks{font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted);margin-top:.2rem}
+
+/* Table */
+table{width:100%;border-collapse:collapse;font-size:.74rem;margin-bottom:1.5rem}
+th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.6rem .85rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-2);white-space:nowrap}
+td{padding:.6rem .85rem;border-bottom:1px solid rgba(30,47,74,.4);vertical-align:middle;font-family:'JetBrains Mono',monospace;font-size:.7rem}
+tr:hover td{background:rgba(20,184,166,.02)}
+
+/* Tags */
+.tag{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .45rem;border-radius:2px;white-space:nowrap;display:inline-block}
+.tag-green{background:var(--green-dim);color:var(--green)}
+.tag-warn{background:rgba(245,158,11,.1);color:var(--warn)}
+.tag-red{background:var(--red-dim);color:var(--red)}
+.tag-teal{background:var(--teal-dim);color:var(--teal)}
+.tag-purple{background:var(--purple-dim);color:var(--purple)}
+.tag-muted{background:var(--bg-3);color:var(--muted)}
+.tag-gold{background:var(--gold-dim);color:var(--gold)}
+
+/* Option cards */
+.option-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.5rem;margin-bottom:1.5rem}
+.option-card{background:var(--bg-2);border:1px solid var(--border);padding:1rem;cursor:pointer;transition:all .15s;text-align:left}
+.option-card:hover{border-color:var(--teal)}
+.option-card.selected{border-color:var(--teal);background:var(--teal-dim)}
+.oc-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.oc-value{font-size:.82rem;color:var(--bright);margin-bottom:.2rem}
+.oc-desc{font-size:.68rem;color:var(--body);line-height:1.5}
+
+/* Alert / notice cards */
+.alert{padding:.85rem 1rem;border:1px solid;border-left-width:3px;margin-bottom:1rem;font-size:.74rem;line-height:1.65}
+.alert-teal{border-color:rgba(20,184,166,.3);border-left-color:var(--teal);background:var(--teal-glow)}
+.alert-warn{border-color:rgba(245,158,11,.3);border-left-color:var(--warn);background:rgba(245,158,11,.06)}
+.alert-red{border-color:rgba(239,68,68,.3);border-left-color:var(--red);background:var(--red-dim)}
+.alert-green{border-color:rgba(34,197,94,.3);border-left-color:var(--green);background:var(--green-dim)}
+.alert-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem}
+.alert-label.teal{color:var(--teal-lt)}
+.alert-label.warn{color:var(--warn)}
+.alert-label.red{color:var(--red)}
+.alert-label.green{color:var(--green)}
+
+/* Section title */
+.sec-title{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin:1.5rem 0 .75rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+
+/* Address field cards */
+.addr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.5rem;margin-bottom:1.25rem}
+.addr-field{background:var(--bg-2);border:1px solid var(--border);padding:.75rem .85rem}
+.addr-field.high{border-color:var(--green)}
+.addr-field.medium{border-color:var(--warn)}
+.addr-field.low{border-color:var(--red)}
+.addr-field-key{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.addr-field-val{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--bright);word-break:break-all}
+.addr-field-conf{font-family:'JetBrains Mono',monospace;font-size:.42rem;margin-top:.25rem}
+
+/* Rail cards */
+.rail-card{background:var(--bg-2);border:1px solid var(--border);padding:1rem 1.25rem;margin-bottom:.5rem;display:flex;align-items:center;gap:1rem;cursor:pointer;transition:all .15s}
+.rail-card:hover{border-color:var(--teal)}
+.rail-card.best{border-color:var(--teal);background:var(--teal-dim)}
+.rail-name{font-size:.82rem;color:var(--bright);flex:1}
+.rail-score-bar{width:80px;height:6px;background:var(--border);border-radius:3px;overflow:hidden;flex-shrink:0}
+.rail-score-fill{height:100%;background:var(--teal);border-radius:3px;transition:width .4s}
+
+/* pre/code */
+pre{background:var(--bg);border:1px solid var(--border);border-left:3px solid var(--teal);padding:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;line-height:1.75;color:var(--text);white-space:pre-wrap;word-break:break-word;overflow-x:auto;margin-bottom:1rem}
+
+/* Readiness scorecard */
+.readiness-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1px;background:var(--border);margin-bottom:1.5rem}
+.readiness-cell{background:var(--bg-2);padding:.85rem 1rem;text-align:center}
+.readiness-cell-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.readiness-cell-grade{font-family:'DM Serif Display',serif;font-size:1.05rem}
+.grade-ready{color:var(--green)}.grade-risk{color:var(--warn)}.grade-not{color:var(--red)}
+
+/* Checklist */
+.checklist{margin-bottom:1.5rem}
+.checklist-item{display:flex;align-items:flex-start;gap:.75rem;padding:.6rem 0;border-bottom:1px solid rgba(30,47,74,.35);font-size:.74rem;color:var(--body)}
+.checklist-item:last-child{border-bottom:none}
+.checklist-n{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);flex-shrink:0;width:22px;padding-top:.1rem}
+
+/* Empty state */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem;text-align:center;flex:1}
+.empty-icon{font-size:2.5rem;margin-bottom:1rem;opacity:.4}
+.empty-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--muted);margin-bottom:.5rem}
+.empty-sub{font-size:.78rem;color:var(--muted);max-width:380px;line-height:1.7}
+
+/* ADR output */
+.adr-out{background:var(--bg-2);border:1px solid var(--border);padding:1.5rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--text);line-height:1.85;white-space:pre-wrap;word-break:break-word;max-height:560px;overflow-y:auto;margin-bottom:1rem}
+
+/* Pill badge */
+.pill{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;padding:.2rem .55rem;border-radius:20px}
+.pill-green{background:var(--green-dim);color:var(--green)}
+.pill-warn{background:rgba(245,158,11,.12);color:var(--warn)}
+.pill-red{background:var(--red-dim);color:var(--red)}
+.pill-teal{background:var(--teal-dim);color:var(--teal)}
+
+/* Footer */
+footer{border-top:1px solid var(--border);padding:2rem 0;margin-top:2rem;position:relative;z-index:1}
+.footer-inner-ai{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:1rem}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.logo-icon-sm{width:28px;height:28px;background:linear-gradient(135deg,var(--teal),#0D9488);border-radius:5px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px;color:var(--bg);font-family:'JetBrains Mono',monospace}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500;color:var(--bright)}
+.footer-badge-ai{display:flex;align-items:center;gap:.75rem;font-size:.72rem;color:var(--muted)}
+@media(max-width:600px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{flex-direction:column;gap:.4rem}}
+</style>
+</head>
+<body>
+
+<!-- Lang bar -->
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active">EN</button>
+  <button class="lang-btn">ES</button>
+  <button class="lang-btn">FR</button>
+  <button class="lang-btn">AR</button>
+  <button class="lang-btn">PT</button>
+  <button class="lang-btn">中文</button>
+</div></div>
+
+<!-- Nav -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <div class="logo-mark-grid">
+      <svg width="32" height="32" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+    </div>
+    <div class="logo-text">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      <div class="logo-tag">ISO 20022 Navigator</div>
+    </div>
+  </a>
+  <a href="../index.html" class="nav-cta">← All Tools</a>
+</div></nav>
+
+<!-- Deadline ticker -->
+<div class="deadline-bar"><div class="deadline-inner">
+  <span class="deadline-label">⚠ Hard Deadline</span>
+  <span class="deadline-date">SWIFT CBPR+ Structured Address Mandate — 15 November 2026</span>
+  <span class="deadline-days" id="daysRemaining">Calculating…</span>
+</div></div>
+
+<!-- Hero -->
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Tool 81 · Core Infrastructure</div>
+  <h1>ISO 20022<br><em>Migration Navigator</em></h1>
+  <p class="hero-sub">Five-stage compliance workflow for the November 2026 SWIFT CBPR+ structured address mandate. Audit your MX payload for truncation risk → parse unstructured addresses to the mandatory PostalAddress schema → score rail options for November readiness → model the liquidity impact of real-time settlement → export a board-ready ISO 20022 Readiness Memo with remediation checklist. Entirely client-side. Zero PII. No API calls.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-privacy">Zero PII · Client-Side Only</span>
+    <span class="hero-badge badge-red">⚠ Nov 2026 Deadline</span>
+    <span class="hero-badge badge-spec">5 Stages · Readiness Memo Export</span>
+    <span class="hero-badge badge-teal">Address Parser · Rail Scoring</span>
+  </div>
+</div></div>
+
+<!-- Tool -->
+<section class="tool-section"><div class="container">
+
+<!-- Stage bar -->
+<div class="stage-bar" id="stageBar">
+  <button class="stage active" id="sBtn1" onclick="goStage(1)">
+    <div class="stage-num">Stage 01</div>
+    <span class="stage-label">Payload Audit</span>
+  </button>
+  <button class="stage locked" id="sBtn2" onclick="goStage(2)">
+    <div class="stage-num">Stage 02</div>
+    <span class="stage-label">Address Structuring</span>
+  </button>
+  <button class="stage locked" id="sBtn3" onclick="goStage(3)">
+    <div class="stage-num">Stage 03</div>
+    <span class="stage-label">Rail Selection</span>
+  </button>
+  <button class="stage locked" id="sBtn4" onclick="goStage(4)">
+    <div class="stage-num">Stage 04</div>
+    <span class="stage-label">Liquidity Impact</span>
+  </button>
+  <button class="stage locked" id="sBtn5" onclick="goStage(5)">
+    <div class="stage-num">Stage 05</div>
+    <span class="stage-label">Readiness Export</span>
+  </button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     STAGE 1 — PAYLOAD AUDIT
+══════════════════════════════════════════ -->
+<div id="stage1" class="stage-content active">
+  <div class="tool-grid">
+    <div class="config-panel">
+      <div class="panel-label">Stage 1 — Payload Audit</div>
+      <div class="alert alert-teal" style="margin-bottom:1.25rem">
+        <span class="alert-label teal">How to use this tool</span>
+        Work through all five stages in order. Each stage gates the next — complete the required actions to unlock the next stage. Stage 5 synthesises all prior inputs into a board-ready ISO 20022 Readiness Memo.
+      </div>
+
+      <div class="sec-head">Message Type</div>
+      <label class="flbl">Select your MX message format</label>
+      <select id="msgType">
+        <option value="pacs008">pacs.008 — FI to FI Customer Credit Transfer</option>
+        <option value="camt053">camt.053 — Bank to Customer Statement</option>
+        <option value="pain001">pain.001 — Customer Credit Transfer Initiation</option>
+        <option value="mt103">MT103 — SWIFT Legacy (migration required)</option>
+      </select>
+
+      <div class="sec-head">Paste MX Message Payload</div>
+      <label class="flbl">XML snippet <span style="color:var(--muted)">(or load sample)</span></label>
+      <textarea id="xmlInput" placeholder="Paste your pacs.008 / camt.053 / pain.001 XML here…&#10;&#10;Or click 'Load Sample Payload' below to use a realistic anonymised example."></textarea>
+      <button class="btn btn-ghost btn-full" onclick="loadSample()" style="margin-bottom:.85rem">↓ Load Sample Payload</button>
+
+      <div class="divider"></div>
+      <div class="sec-head">Originator Context</div>
+      <label class="flbl">Institution type</label>
+      <select id="instType">
+        <option value="bank">Commercial Bank / Credit Institution</option>
+        <option value="psp">Payment Service Provider</option>
+        <option value="corporate">Corporate Treasury</option>
+        <option value="nbfi">Non-Bank Financial Institution</option>
+      </select>
+
+      <label class="flbl">Primary corridor</label>
+      <select id="corridor1">
+        <option value="USD-EUR">USD → EUR</option>
+        <option value="USD-GBP">USD → GBP</option>
+        <option value="USD-JPY">USD → JPY</option>
+        <option value="USD-CNY">USD → CNY</option>
+        <option value="USD-SGD">USD → SGD</option>
+        <option value="USD-AED">USD → AED</option>
+        <option value="USD-INR">USD → INR</option>
+        <option value="USD-AUD">USD → AUD</option>
+        <option value="EUR-GBP">EUR → GBP</option>
+        <option value="EUR-CHF">EUR → CHF</option>
+        <option value="EUR-JPY">EUR → JPY</option>
+        <option value="GBP-EUR">GBP → EUR</option>
+        <option value="GBP-INR">GBP → INR</option>
+        <option value="EUR-CNY">EUR → CNY</option>
+        <option value="USD-HKD">USD → HKD</option>
+        <option value="USD-CAD">USD → CAD</option>
+      </select>
+
+      <div class="divider"></div>
+      <button class="btn btn-primary btn-full" onclick="runAudit()">▶ Audit Payload</button>
+      <div id="s1GateMsg" class="alert alert-warn" style="display:none;margin-top:.75rem">
+        <span class="alert-label warn">⚠ Action Required</span>
+        Paste or load a payload before proceeding. You must acknowledge the audit output to unlock Stage 2.
+      </div>
+    </div>
+
+    <div class="output-panel">
+      <div class="output-toolbar">
+        <span class="output-title">Stage 1 Output — Payload Audit</span>
+        <div class="arow" style="margin-top:0">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--muted);letter-spacing:.1em">References: Tool 77 — ISO 20022 Truncation &amp; Address Auditor</span>
+        </div>
+      </div>
+      <div class="output-body" id="s1Output">
+        <div class="empty-state">
+          <div class="empty-icon">📄</div>
+          <div class="empty-title">Awaiting payload</div>
+          <div class="empty-sub">Paste an MX message XML snippet or load the sample payload, then click Audit Payload.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="stage-nav">
+    <div></div>
+    <button class="btn btn-primary" onclick="tryGoStage(2)">Next: Address Structuring →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     STAGE 2 — ADDRESS STRUCTURING
+══════════════════════════════════════════ -->
+<div id="stage2" class="stage-content">
+  <div class="tool-grid">
+    <div class="config-panel">
+      <div class="panel-label">Stage 2 — Address Structuring</div>
+      <div class="alert alert-warn" style="margin-bottom:1.25rem">
+        <span class="alert-label warn">New Module — No equivalent tool exists in the suite</span>
+        This heuristic JS parser converts unstructured postal address strings to the mandatory ISO 20022 PostalAddress schema (StrtNm / BldgNb / TwnNm / PstCd / Ctry). SWIFT CBPR+ will reject unstructured AdrLine fields after 15 November 2026.
+      </div>
+
+      <div class="sec-head">Unstructured Address Input</div>
+      <label class="flbl">Paste raw address string</label>
+      <textarea id="rawAddr" style="min-height:80px" placeholder="e.g. 221B Baker Street, London NW1 6XE, United Kingdom"></textarea>
+
+      <label class="flbl">Country hint <span style="color:var(--muted)">(improves parser accuracy)</span></label>
+      <select id="countryHint">
+        <option value="">Auto-detect</option>
+        <option value="GB">GB — United Kingdom</option>
+        <option value="US">US — United States</option>
+        <option value="DE">DE — Germany</option>
+        <option value="FR">FR — France</option>
+        <option value="NL">NL — Netherlands</option>
+        <option value="SG">SG — Singapore</option>
+        <option value="HK">HK — Hong Kong</option>
+        <option value="AE">AE — UAE</option>
+        <option value="IN">IN — India</option>
+        <option value="AU">AU — Australia</option>
+        <option value="CH">CH — Switzerland</option>
+        <option value="JP">JP — Japan</option>
+        <option value="CA">CA — Canada</option>
+      </select>
+
+      <button class="btn btn-primary btn-full" onclick="runParser()" style="margin-bottom:.85rem">▶ Parse Address</button>
+
+      <div class="divider"></div>
+      <div class="sec-head">Batch Mode</div>
+      <label class="flbl">Parse multiple addresses (one per line)</label>
+      <textarea id="batchAddr" style="min-height:80px" placeholder="One address per line for batch parsing…"></textarea>
+      <button class="btn btn-ghost btn-full" onclick="runBatch()">▶ Parse Batch</button>
+
+      <div id="s2GateMsg" class="alert alert-warn" style="display:none;margin-top:.75rem">
+        <span class="alert-label warn">⚠ Confidence Too Low</span>
+        Parser confidence is LOW. Manual review required. You may continue for modelling purposes by clicking Next anyway.
+      </div>
+    </div>
+
+    <div class="output-panel">
+      <div class="output-toolbar">
+        <span class="output-title">Stage 2 Output — Address Structuring</span>
+        <div class="arow" style="margin-top:0">
+          <button class="btn btn-ghost" onclick="copyXml()" id="copyXmlBtn" style="display:none">Copy XML</button>
+        </div>
+      </div>
+      <div class="output-body" id="s2Output">
+        <div class="empty-state">
+          <div class="empty-icon">📮</div>
+          <div class="empty-title">Awaiting address input</div>
+          <div class="empty-sub">Enter an unstructured address string and select a country hint, then click Parse Address.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="stage-nav">
+    <button class="btn btn-ghost" onclick="goStage(1)">← Back</button>
+    <button class="btn btn-primary" onclick="tryGoStage(3)">Next: Rail Selection →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     STAGE 3 — RAIL SELECTION
+══════════════════════════════════════════ -->
+<div id="stage3" class="stage-content">
+  <div class="tool-grid">
+    <div class="config-panel">
+      <div class="panel-label">Stage 3 — Rail Selection</div>
+
+      <div class="sec-head">Payment Direction</div>
+      <div class="option-grid" id="directionGrid"></div>
+
+      <div class="sec-head">Primary Driver</div>
+      <div class="option-grid" id="driverGrid"></div>
+
+      <div class="sec-head">Monthly Volume</div>
+      <label class="flbl">Payment volume (transactions/month)</label>
+      <input type="number" id="txnVolume" value="5000" min="1">
+      <label class="flbl">Average transaction value (USD)</label>
+      <input type="number" id="avgTxnVal" value="25000" min="1">
+
+      <div class="divider"></div>
+      <button class="btn btn-primary btn-full" onclick="runRailScore()">▶ Score Rails</button>
+      <div id="s3GateMsg" class="alert alert-warn" style="display:none;margin-top:.75rem">
+        <span class="alert-label warn">⚠ Selection Required</span>
+        Select a payment direction and primary driver before scoring rails.
+      </div>
+    </div>
+
+    <div class="output-panel">
+      <div class="output-toolbar">
+        <span class="output-title">Stage 3 Output — Rail Scoring</span>
+        <div class="arow" style="margin-top:0">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--muted);letter-spacing:.1em">References: Tool 78 — Smart Routing Advisor</span>
+        </div>
+      </div>
+      <div class="output-body" id="s3Output">
+        <div class="empty-state">
+          <div class="empty-icon">⇄</div>
+          <div class="empty-title">Awaiting rail scoring</div>
+          <div class="empty-sub">Select payment direction and primary driver, then click Score Rails.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="stage-nav">
+    <button class="btn btn-ghost" onclick="goStage(2)">← Back</button>
+    <button class="btn btn-primary" onclick="tryGoStage(4)">Next: Liquidity Impact →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     STAGE 4 — LIQUIDITY IMPACT
+══════════════════════════════════════════ -->
+<div id="stage4" class="stage-content">
+  <div class="tool-grid">
+    <div class="config-panel">
+      <div class="panel-label">Stage 4 — Liquidity Impact</div>
+
+      <div class="sec-head">Current Settlement Model</div>
+      <label class="flbl">Current batch settlement cycle</label>
+      <select id="currentSettlement">
+        <option value="2">T+2 Batch (standard SWIFT)</option>
+        <option value="1">T+1 Batch</option>
+        <option value="0.5">Same-Day Batch</option>
+        <option value="0">Real-Time (already migrated)</option>
+      </select>
+
+      <div class="sec-head">Liquidity Parameters</div>
+      <label class="flbl">Daily payment volume (USD millions)</label>
+      <input type="number" id="dailyVol" value="50" min="0.1" step="0.1">
+
+      <label class="flbl">Average transaction size (USD)</label>
+      <input type="number" id="avgTxnSize" value="25000" min="1000">
+
+      <label class="flbl">Cost of funds / capital (% per annum)</label>
+      <input type="number" id="costOfFunds" value="5.25" min="0" max="50" step="0.05">
+      <span class="fhint">Default: 5.25% (US Fed Funds proxy, May 2026)</span>
+
+      <label class="flbl">Prefunding window required (hours)</label>
+      <input type="number" id="prefundHours" value="2" min="0" max="24" step="0.5" id="prefundHoursInput">
+      <span class="fhint">Auto-set from Stage 3 rail recommendation. Adjust if known.</span>
+
+      <div class="divider"></div>
+      <button class="btn btn-primary btn-full" onclick="runLiquidity()">▶ Model Liquidity Impact</button>
+    </div>
+
+    <div class="output-panel">
+      <div class="output-toolbar">
+        <span class="output-title">Stage 4 Output — Liquidity Modelling</span>
+        <div class="arow" style="margin-top:0">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--muted);letter-spacing:.1em">References: Tool 39 — A2A Liquidity Simulator</span>
+        </div>
+      </div>
+      <div class="output-body" id="s4Output">
+        <div class="empty-state">
+          <div class="empty-icon">💧</div>
+          <div class="empty-title">Awaiting liquidity inputs</div>
+          <div class="empty-sub">Configure your current settlement model and liquidity parameters, then click Model Liquidity Impact.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="stage-nav">
+    <button class="btn btn-ghost" onclick="goStage(3)">← Back</button>
+    <button class="btn btn-primary" onclick="tryGoStage(5)">Next: Readiness Export →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     STAGE 5 — READINESS EXPORT
+══════════════════════════════════════════ -->
+<div id="stage5" class="stage-content">
+  <h2 style="font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--white);margin-bottom:.5rem">Stage 5 — ISO 20022 Readiness Export</h2>
+  <p style="font-size:.82rem;color:var(--body);margin-bottom:1.5rem">Your complete migration readiness assessment, synthesised from all prior stages. Review the scorecard, remediation checklist, and export the memo for board or compliance review.</p>
+
+  <!-- Readiness scorecard -->
+  <div class="sec-title">Readiness Scorecard</div>
+  <div class="readiness-grid" id="readinessGrid"></div>
+
+  <!-- Days remaining callout -->
+  <div class="alert alert-warn" style="margin-bottom:1.5rem">
+    <span class="alert-label warn">⚠ SWIFT CBPR+ Deadline Status</span>
+    <span id="s5DeadlineMsg" style="color:var(--body);font-size:.74rem"></span>
+  </div>
+
+  <!-- KPI summary -->
+  <div class="sec-title">Summary KPIs</div>
+  <div class="kpi-bar" id="s5KpiBar"></div>
+
+  <!-- Remediation checklist -->
+  <div class="sec-title">Remediation Checklist</div>
+  <div class="checklist" id="remediationList"></div>
+
+  <!-- Risk register -->
+  <div class="sec-title">Risk Register</div>
+  <table id="riskTable">
+    <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+    <tbody id="riskBody"></tbody>
+  </table>
+
+  <!-- Memo -->
+  <div class="sec-title">ISO 20022 Migration Readiness Memo</div>
+  <div class="adr-out" id="memoOut"></div>
+
+  <!-- Exports -->
+  <div class="arow">
+    <button class="btn btn-ghost" onclick="exportMemo()">↓ Export Memo (Markdown)</button>
+    <button class="btn btn-ghost" onclick="exportAP2()">↓ Export AP2 JSON</button>
+    <button class="btn btn-ghost" onclick="copyMemo()">⎘ Copy to Clipboard</button>
+  </div>
+
+  <div class="stage-nav">
+    <button class="btn btn-ghost" onclick="goStage(4)">← Back</button>
+    <div></div>
+  </div>
+</div>
+
+</div></section>
+
+<!-- Footer -->
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <div>
+      <a href="../index.html" class="footer-brand-link">
+        <div class="logo-icon-sm">AI</div>
+        <span class="footer-wordmark">AINumbers.co</span>
+      </a>
+      <div style="margin-top:.4rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted)">CC BY 4.0 · Designed by Post Oak Labs · Tool 81</div>
+    </div>
+    <div class="footer-badge-ai">
+      <span>🔒 Zero PII</span>
+      <span>·</span>
+      <span>📡 No server calls</span>
+      <span>·</span>
+      <span>💻 Client-side only</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+const STATE_KEY = 'ap2-iso20022-migration-navigator-v1';
+const state = {
+  currentStage: 1,
+  stagesUnlocked: [true, false, false, false, false],
+  stagesDone: [false, false, false, false, false],
+
+  s1: { msgType: 'pacs008', corridor: 'USD-EUR', instType: 'bank', auditDone: false, auditResult: null },
+  s2: { rawAddr: '', countryHint: '', parsedResult: null, parseDone: false, confidence: null },
+  s3: { direction: null, driver: null, volume: 5000, avgVal: 25000, railsDone: false, scores: null, bestRail: null },
+  s4: { currentSettlement: 2, dailyVol: 50, avgTxnSize: 25000, costOfFunds: 5.25, prefundHours: 2, liquidityDone: false, result: null },
+  s5: { generatedMemo: '' }
+};
+
+function saveState() {
+  try { sessionStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch(e) {}
+}
+function loadState() {
+  try {
+    const s = sessionStorage.getItem(STATE_KEY);
+    if (s) Object.assign(state, JSON.parse(s));
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════
+// DEADLINE COUNTER
+// ═══════════════════════════════════════════════════════════
+function updateDeadline() {
+  const deadline = new Date('2026-11-15T00:00:00Z');
+  const now = new Date();
+  const diff = deadline - now;
+  const days = Math.ceil(diff / 86400000);
+  const el = document.getElementById('daysRemaining');
+  if (days > 0) {
+    el.textContent = `${days} days remaining`;
+    el.style.color = days < 90 ? 'var(--red)' : 'var(--warn)';
+  } else {
+    el.textContent = 'DEADLINE PASSED';
+    el.style.color = 'var(--red)';
+  }
+}
+updateDeadline();
+
+// ═══════════════════════════════════════════════════════════
+// STAGE NAVIGATION
+// ═══════════════════════════════════════════════════════════
+function goStage(n) {
+  if (!state.stagesUnlocked[n - 1]) return;
+  state.currentStage = n;
+
+  document.querySelectorAll('.stage-content').forEach(el => el.classList.remove('active'));
+  document.getElementById('stage' + n).classList.add('active');
+
+  document.querySelectorAll('.stage').forEach((btn, i) => {
+    btn.classList.remove('active', 'done', 'locked');
+    if (i + 1 === n) btn.classList.add('active');
+    else if (state.stagesDone[i]) btn.classList.add('done');
+    else if (!state.stagesUnlocked[i]) btn.classList.add('locked');
+  });
+
+  if (n === 5) buildStage5();
+  saveState();
+}
+
+function tryGoStage(n) {
+  const gates = {
+    2: () => {
+      if (!state.s1.auditDone) { show('s1GateMsg'); return false; }
+      return true;
+    },
+    3: () => {
+      if (!state.s2.parseDone) {
+        document.getElementById('s2GateMsg').style.display = 'block';
+        // Allow low-confidence through with warning
+        if (state.s2.confidence === 'LOW') {
+          state.stagesUnlocked[2] = true;
+          state.stagesDone[1] = true;
+          goStage(3);
+          return false;
+        }
+        return false;
+      }
+      return true;
+    },
+    4: () => {
+      if (!state.s3.railsDone) { show('s3GateMsg'); return false; }
+      return true;
+    },
+    5: () => {
+      if (!state.s4.liquidityDone) return false;
+      return true;
+    }
+  };
+
+  const check = gates[n];
+  if (check && !check()) return;
+
+  state.stagesUnlocked[n - 1] = true;
+  state.stagesDone[n - 2] = true;
+  goStage(n);
+}
+
+function show(id) { const el = document.getElementById(id); if (el) el.style.display = 'block'; }
+function hide(id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
+
+// ═══════════════════════════════════════════════════════════
+// OPTION GRID BUILDER
+// ═══════════════════════════════════════════════════════════
+function buildOptionGrid(containerId, stateKey, subKey, opts) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  opts.forEach(opt => {
+    const d = document.createElement('div');
+    d.className = 'option-card' + (state[stateKey][subKey] === opt.val ? ' selected' : '');
+    d.innerHTML = `<div class="oc-label">${opt.lbl}</div><div class="oc-value">${opt.val}</div><div class="oc-desc">${opt.desc}</div>`;
+    d.onclick = () => {
+      state[stateKey][subKey] = opt.val;
+      container.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+      d.classList.add('selected');
+      saveState();
+    };
+    container.appendChild(d);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// SAMPLE PAYLOAD
+// ═══════════════════════════════════════════════════════════
+const SAMPLE_PACS008 = `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.09">
+  <FIToFICstmrCdtTrf>
+    <GrpHdr>
+      <MsgId>ACMEINC-20260510-001</MsgId>
+      <CreDtTm>2026-05-10T14:30:00</CreDtTm>
+      <NbOfTxs>1</NbOfTxs>
+      <SttlmInf><SttlmMtd>CLRG</SttlmMtd></SttlmInf>
+    </GrpHdr>
+    <CdtTrfTxInf>
+      <PmtId><InstrId>INSTR001</InstrId><EndToEndId>E2E-20260510-001</EndToEndId></PmtId>
+      <IntrBkSttlmAmt Ccy="USD">125000.00</IntrBkSttlmAmt>
+      <Dbtr>
+        <Nm>Acme Industries Ltd</Nm>
+        <PstlAdr>
+          <AdrLine>221B Baker Street</AdrLine>
+          <AdrLine>London NW1 6XE</AdrLine>
+          <AdrLine>United Kingdom</AdrLine>
+        </PstlAdr>
+      </Dbtr>
+      <DbtrAcct><Id><IBAN>GB29NWBK60161331926819</IBAN></Id></DbtrAcct>
+      <Cdtr>
+        <Nm>Global Trade Partners BV</Nm>
+        <PstlAdr>
+          <AdrLine>Herengracht 420</AdrLine>
+          <AdrLine>1017 BZ Amsterdam Netherlands</AdrLine>
+        </PstlAdr>
+      </Cdtr>
+      <CdtrAcct><Id><IBAN>NL91ABNA0417164300</IBAN></Id></CdtrAcct>
+      <RmtInf><Ustrd>Invoice INV-2026-0045 payment</Ustrd></RmtInf>
+    </CdtTrfTxInf>
+  </FIToFICstmrCdtTrf>
+</Document>`;
+
+function loadSample() {
+  document.getElementById('xmlInput').value = SAMPLE_PACS008;
+}
+
+// ═══════════════════════════════════════════════════════════
+// STAGE 1 — PAYLOAD AUDIT
+// ═══════════════════════════════════════════════════════════
+const FIELD_LIMITS = { Nm: 140, AdrLine: 70, TwnNm: 35, PstCd: 16, Ctry: 2, StrtNm: 70, BldgNb: 16 };
+
+function auditPayload(xmlStr) {
+  const result = { fields: [], silentLoss: [], truncationRisks: [], structuredAddr: false, unstructuredAddr: false, txCount: 0, totalValue: 0, valid: false, msgType: '' };
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlStr.trim(), 'application/xml');
+    const parseErr = doc.querySelector('parsererror');
+    if (parseErr) { result.error = 'XML parse error — check your payload syntax.'; return result; }
+
+    result.valid = true;
+
+    // Detect message type
+    const root = doc.documentElement.localName;
+    if (xmlStr.includes('pacs.008')) result.msgType = 'pacs.008';
+    else if (xmlStr.includes('camt.053')) result.msgType = 'camt.053';
+    else if (xmlStr.includes('pain.001')) result.msgType = 'pain.001';
+    else result.msgType = 'Unknown MX';
+
+    // Count transactions
+    const txns = doc.querySelectorAll('CdtTrfTxInf, TxDtls, Ntry');
+    result.txCount = txns.length || 1;
+
+    // Sum amounts
+    doc.querySelectorAll('IntrBkSttlmAmt, InstdAmt, TxAmt').forEach(el => {
+      result.totalValue += parseFloat(el.textContent) || 0;
+    });
+
+    // Check for unstructured vs structured addresses
+    const adrLines = doc.querySelectorAll('AdrLine');
+    const strtNms  = doc.querySelectorAll('StrtNm');
+
+    if (adrLines.length > 0) {
+      result.unstructuredAddr = true;
+      result.silentLoss.push({
+        field: 'PostalAddress → AdrLine',
+        risk: 'CRITICAL',
+        note: `${adrLines.length} unstructured AdrLine field(s) detected. SWIFT CBPR+ will REJECT this message after 15 November 2026. Migration to StrtNm / BldgNb / TwnNm / PstCd / Ctry is mandatory.`
+      });
+      adrLines.forEach((el, i) => {
+        const val = el.textContent.trim();
+        const limit = FIELD_LIMITS.AdrLine;
+        result.fields.push({ field: `AdrLine[${i+1}]`, value: val, limit, len: val.length, risk: val.length > limit ? 'HIGH' : 'WARN', structured: false });
+        if (val.length > limit) result.truncationRisks.push({ field: `AdrLine[${i+1}]`, value: val.substring(0, 40) + '…', over: val.length - limit });
+      });
+    }
+
+    if (strtNms.length > 0) {
+      result.structuredAddr = true;
+      strtNms.forEach(el => {
+        const val = el.textContent.trim();
+        result.fields.push({ field: 'StrtNm', value: val, limit: FIELD_LIMITS.StrtNm, len: val.length, risk: val.length > FIELD_LIMITS.StrtNm ? 'HIGH' : 'OK', structured: true });
+      });
+    }
+
+    // Check other field lengths
+    ['Nm', 'TwnNm', 'PstCd', 'Ctry'].forEach(tag => {
+      doc.querySelectorAll(tag).forEach(el => {
+        const val = el.textContent.trim();
+        const limit = FIELD_LIMITS[tag];
+        if (limit) {
+          const risk = val.length > limit ? 'HIGH' : 'OK';
+          if (val.length > 0) result.fields.push({ field: tag, value: val.substring(0, 50), limit, len: val.length, risk, structured: true });
+          if (val.length > limit) result.truncationRisks.push({ field: tag, value: val.substring(0, 30) + '…', over: val.length - limit });
+        }
+      });
+    });
+
+  } catch(e) { result.error = 'Audit error: ' + e.message; }
+  return result;
+}
+
+function runAudit() {
+  const xml = document.getElementById('xmlInput').value.trim();
+  if (!xml) { show('s1GateMsg'); return; }
+
+  const r = auditPayload(xml);
+  state.s1.auditResult = r;
+  state.s1.corridor = document.getElementById('corridor1').value;
+  state.s1.instType = document.getElementById('instType').value;
+  state.s1.msgType = document.getElementById('msgType').value;
+
+  const out = document.getElementById('s1Output');
+
+  if (r.error) {
+    out.innerHTML = `<div class="alert alert-red"><span class="alert-label red">Parse Error</span>${r.error}</div>`;
+    return;
+  }
+
+  const overallStatus = r.silentLoss.length > 0 ? 'NOT READY' : (r.truncationRisks.length > 0 ? 'AT RISK' : 'READY');
+  const statusColor = overallStatus === 'READY' ? 'var(--green)' : overallStatus === 'AT RISK' ? 'var(--warn)' : 'var(--red)';
+
+  let html = `
+    <div class="kpi-bar">
+      <div class="kc"><div class="kl">Nov 2026 Status</div><div class="kv" style="color:${statusColor};font-size:.95rem">${overallStatus}</div></div>
+      <div class="kc"><div class="kl">Message Type</div><div class="kv t" style="font-size:.85rem">${r.msgType || 'Detected'}</div></div>
+      <div class="kc"><div class="kl">Transactions</div><div class="kv">${r.txCount}</div></div>
+      <div class="kc"><div class="kl">Total Value</div><div class="kv gold">$${r.totalValue.toLocaleString()}</div></div>
+      <div class="kc"><div class="kl">Unstructured Addr</div><div class="kv ${r.unstructuredAddr ? 'r' : 'g'}">${r.unstructuredAddr ? 'DETECTED' : 'None'}</div></div>
+      <div class="kc"><div class="kl">Structured Addr</div><div class="kv ${r.structuredAddr ? 'g' : 'w'}">${r.structuredAddr ? 'Present' : 'Missing'}</div></div>
+    </div>`;
+
+  if (r.silentLoss.length > 0) {
+    html += `<div class="sec-title">Critical Findings — Nov 2026 Blockers</div>`;
+    r.silentLoss.forEach(s => {
+      html += `<div class="alert alert-red" style="margin-bottom:.75rem">
+        <span class="alert-label red">🔴 ${s.risk} — ${s.field}</span>
+        ${s.note}
+      </div>`;
+    });
+  }
+
+  if (r.truncationRisks.length > 0) {
+    html += `<div class="sec-title">Truncation Risks</div>
+    <table><thead><tr><th>Field</th><th>Current Length</th><th>Max Length</th><th>Excess</th></tr></thead><tbody>`;
+    r.truncationRisks.forEach(t => {
+      html += `<tr><td>${t.field}</td><td style="color:var(--red)">${t.over + FIELD_LIMITS[t.field.replace(/\[\d+\]/,'')] || '?'}</td><td>${FIELD_LIMITS[t.field.replace(/\[\d+\]/,'')] || '?'}</td><td style="color:var(--red)">+${t.over} chars</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+
+  html += `<div class="sec-title">Field Inventory</div>
+    <table><thead><tr><th>Field</th><th>Value (preview)</th><th>Length</th><th>Limit</th><th>Type</th><th>Status</th></tr></thead><tbody>`;
+  r.fields.forEach(f => {
+    const riskTag = f.risk === 'OK' ? '<span class="tag tag-green">OK</span>' :
+                    f.risk === 'HIGH' ? '<span class="tag tag-red">EXCEEDS</span>' :
+                    '<span class="tag tag-warn">WARN</span>';
+    const typeTag = f.structured ? '<span class="tag tag-teal">Structured</span>' : '<span class="tag tag-red">Unstructured</span>';
+    html += `<tr><td>${f.field}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.value}</td><td>${f.len}</td><td>${f.limit}</td><td>${typeTag}</td><td>${riskTag}</td></tr>`;
+  });
+  html += `</tbody></table>`;
+
+  if (!r.unstructuredAddr && r.silentLoss.length === 0) {
+    html += `<div class="alert alert-green"><span class="alert-label green">✓ November 2026 Compliant</span>This payload uses structured PostalAddress fields and is within ISO 20022 field length limits. No migration action required for this message.</div>`;
+  }
+
+  // Gate acknowledgement
+  html += `<div class="alert alert-teal" style="margin-top:1rem">
+    <span class="alert-label teal">Stage Gate — Acknowledgement Required</span>
+    <label style="display:flex;align-items:center;gap:.75rem;cursor:pointer;font-size:.74rem;color:var(--body)">
+      <input type="checkbox" id="auditAck" onchange="handleAuditAck(this.checked)" style="width:auto;margin:0;accent-color:var(--teal)">
+      I confirm I have reviewed the audit output above and understand the November 2026 compliance requirements.
+    </label>
+  </div>`;
+
+  out.innerHTML = html;
+  state.s1.auditDone = false; // Reset until acknowledged
+  saveState();
+
+  // Pre-fill Stage 2 raw address from detected AdrLines
+  const lines = [];
+  const xml2 = document.getElementById('xmlInput').value;
+  const parser = new DOMParser();
+  const doc2 = parser.parseFromString(xml2, 'application/xml');
+  doc2.querySelectorAll('AdrLine').forEach(el => lines.push(el.textContent.trim()));
+  if (lines.length > 0) document.getElementById('rawAddr').value = lines.join(', ');
+}
+
+function handleAuditAck(checked) {
+  state.s1.auditDone = checked;
+  if (checked) hide('s1GateMsg');
+  saveState();
+}
+
+// ═══════════════════════════════════════════════════════════
+// STAGE 2 — ADDRESS PARSER
+// ═══════════════════════════════════════════════════════════
+const POSTCODE_PATTERNS = {
+  GB: /\b([A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})\b/i,
+  US: /\b(\d{5}(?:-\d{4})?)\b/,
+  DE: /\b(\d{5})\b/,
+  FR: /\b(\d{5})\b/,
+  NL: /\b(\d{4}\s?[A-Z]{2})\b/i,
+  SG: /\b(\d{6})\b/,
+  AE: /\b(\d{5,6})\b/,
+  IN: /\b(\d{6})\b/,
+  AU: /\b(\d{4})\b/,
+  CH: /\b(\d{4})\b/,
+  JP: /\b(\d{3}-?\d{4})\b/,
+  CA: /\b([A-Z]\d[A-Z]\s?\d[A-Z]\d)\b/i,
+  HK: null,
+};
+
+const COUNTRY_ALIASES = {
+  'united kingdom': 'GB', 'uk': 'GB', 'england': 'GB', 'great britain': 'GB', 'scotland': 'GB', 'wales': 'GB',
+  'united states': 'US', 'usa': 'US', 'america': 'US', 'u.s.a': 'US', 'u.s.': 'US',
+  'germany': 'DE', 'deutschland': 'DE', 'germany (de)': 'DE',
+  'france': 'FR', 'netherlands': 'NL', 'holland': 'NL', 'the netherlands': 'NL',
+  'singapore': 'SG', 'hong kong': 'HK', 'hk': 'HK',
+  'united arab emirates': 'AE', 'uae': 'AE', 'dubai': 'AE', 'abu dhabi': 'AE',
+  'india': 'IN', 'australia': 'AU', 'switzerland': 'CH', 'japan': 'JP', 'canada': 'CA',
+};
+
+const KNOWN_CITIES = {
+  'london': 'GB', 'manchester': 'GB', 'birmingham': 'GB', 'edinburgh': 'GB', 'glasgow': 'GB',
+  'new york': 'US', 'los angeles': 'US', 'chicago': 'US', 'houston': 'US', 'san francisco': 'US',
+  'berlin': 'DE', 'munich': 'DE', 'hamburg': 'DE', 'frankfurt': 'DE',
+  'paris': 'FR', 'lyon': 'FR', 'marseille': 'FR',
+  'amsterdam': 'NL', 'rotterdam': 'NL', 'the hague': 'NL',
+  'singapore': 'SG', 'hong kong': 'HK',
+  'dubai': 'AE', 'abu dhabi': 'AE',
+  'mumbai': 'IN', 'delhi': 'IN', 'bangalore': 'IN', 'chennai': 'IN',
+  'sydney': 'AU', 'melbourne': 'AU', 'brisbane': 'AU',
+  'zurich': 'CH', 'geneva': 'CH', 'bern': 'CH',
+  'tokyo': 'JP', 'osaka': 'JP',
+  'toronto': 'CA', 'vancouver': 'CA', 'montreal': 'CA',
+};
+
+function detectCountry(raw) {
+  const lower = raw.toLowerCase();
+  for (const [alias, code] of Object.entries(COUNTRY_ALIASES)) {
+    if (lower.includes(alias)) return code;
+  }
+  for (const [city, code] of Object.entries(KNOWN_CITIES)) {
+    if (lower.includes(city)) return code;
+  }
+  return 'GB'; // fallback
+}
+
+function extractPostcode(raw, ctry) {
+  const pat = POSTCODE_PATTERNS[ctry];
+  if (!pat) return '';
+  const m = raw.match(pat);
+  return m ? m[1].toUpperCase().trim() : '';
+}
+
+function extractCity(raw, ctry, pstCd) {
+  const lower = raw.toLowerCase();
+  for (const [city, code] of Object.entries(KNOWN_CITIES)) {
+    if (code === ctry && lower.includes(city)) return city.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+  // Heuristic: the part before postcode and after comma
+  const parts = raw.split(',').map(s => s.trim());
+  if (parts.length >= 2) {
+    let candidate = parts[parts.length - 2];
+    if (pstCd) candidate = candidate.replace(new RegExp(pstCd.replace(/[-\s]/g, '\\s*'), 'i'), '').trim();
+    candidate = candidate.replace(/\b(UK|GB|US|DE|FR|NL|SG|HK|AE|IN|AU|CH|JP|CA)\b/gi, '').trim();
+    if (candidate.length > 1 && candidate.length < 50) return candidate;
+  }
+  return '';
+}
+
+function extractStreet(raw, city, pstCd) {
+  let work = raw;
+  // Remove city, postcode, country aliases from the string
+  if (city) work = work.replace(new RegExp(city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '');
+  if (pstCd) work = work.replace(new RegExp(pstCd.replace(/[-\s]/g, '\\s*'), 'i'), '');
+  for (const alias of Object.keys(COUNTRY_ALIASES)) {
+    work = work.replace(new RegExp('\\b' + alias + '\\b', 'gi'), '');
+  }
+  work = work.replace(/,+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+
+  // Try to split building number from street name
+  const numFirst = work.match(/^(\d+[A-Z]?)\s+(.+)$/i);
+  if (numFirst) return { bldgNb: numFirst[1], strtNm: numFirst[2].trim() };
+
+  const numLast = work.match(/^(.+?)\s+(\d+[A-Z]?)$/i);
+  if (numLast) return { bldgNb: numLast[2], strtNm: numLast[1].trim() };
+
+  return { bldgNb: '', strtNm: work };
+}
+
+function computeConfidence(parsed) {
+  let score = 0;
+  if (parsed.strtNm && parsed.strtNm.length > 2) score += 30;
+  if (parsed.bldgNb && parsed.bldgNb.length > 0) score += 20;
+  if (parsed.twnNm && parsed.twnNm.length > 1) score += 25;
+  if (parsed.pstCd && parsed.pstCd.length > 0) score += 15;
+  if (parsed.ctry && parsed.ctry.length === 2) score += 10;
+  if (score >= 80) return 'HIGH';
+  if (score >= 45) return 'MEDIUM';
+  return 'LOW';
+}
+
+function escapeXml(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function generateXml(addr) {
+  return `<PstlAdr>\n  <StrtNm>${escapeXml(addr.strtNm)}</StrtNm>\n  <BldgNb>${escapeXml(addr.bldgNb)}</BldgNb>\n  <PstCd>${escapeXml(addr.pstCd)}</PstCd>\n  <TwnNm>${escapeXml(addr.twnNm)}</TwnNm>\n  <Ctry>${escapeXml(addr.ctry)}</Ctry>\n</PstlAdr>`;
+}
+
+function parseAddress(raw, hintCtry) {
+  const ctry = hintCtry || detectCountry(raw);
+  const pstCd = extractPostcode(raw, ctry);
+  const twnNm = extractCity(raw, ctry, pstCd);
+  const { strtNm, bldgNb } = extractStreet(raw, twnNm, pstCd);
+  const confidence = computeConfidence({ strtNm, bldgNb, twnNm, pstCd, ctry });
+  return { strtNm, bldgNb, twnNm, pstCd, ctry, confidence, xml: generateXml({ strtNm, bldgNb, pstCd, twnNm, ctry }) };
+}
+
+function renderParseResult(r, out) {
+  const confClass = r.confidence === 'HIGH' ? 'high' : r.confidence === 'MEDIUM' ? 'medium' : 'low';
+  const confTag = r.confidence === 'HIGH' ? '<span class="pill pill-green">HIGH</span>' :
+                  r.confidence === 'MEDIUM' ? '<span class="pill pill-warn">MEDIUM</span>' :
+                  '<span class="pill pill-red">LOW — manual review required</span>';
+
+  let html = `<div class="sec-title">Parsed PostalAddress Fields</div>
+    <div class="addr-grid">`;
+  [{key:'StrtNm',val:r.strtNm},{key:'BldgNb',val:r.bldgNb},{key:'TwnNm',val:r.twnNm},{key:'PstCd',val:r.pstCd},{key:'Ctry',val:r.ctry}].forEach(f => {
+    const hasVal = f.val && f.val.length > 0;
+    html += `<div class="addr-field ${confClass}">
+      <div class="addr-field-key">${f.key}</div>
+      <div class="addr-field-val" style="color:${hasVal ? 'var(--bright)' : 'var(--muted)'}">${hasVal ? f.val : '— not detected —'}</div>
+      <div class="addr-field-conf" style="color:${hasVal ? 'var(--green)' : 'var(--red)'}">${hasVal ? '✓' : '✗ Missing'}</div>
+    </div>`;
+  });
+  html += `</div>
+    <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em">Parser Confidence</span>
+      ${confTag}
+    </div>`;
+
+  if (r.confidence === 'LOW') {
+    html += `<div class="alert alert-warn"><span class="alert-label warn">⚠ Manual Review Required</span>The parser could not confidently extract all required fields. Review each field above and correct before use in production messages.</div>`;
+  } else {
+    html += `<div class="alert alert-green"><span class="alert-label green">✓ November 2026 Compliant Format</span>This structured address format will be accepted by SWIFT CBPR+ after 15 November 2026.</div>`;
+  }
+
+  html += `<div class="sec-title">Generated ISO 20022 XML</div>
+    <pre id="xmlOutput">${escapeXml(r.xml)}</pre>
+    <div class="alert alert-teal" style="margin-top:.75rem;font-size:.7rem;color:var(--body);line-height:1.65">
+      <span class="alert-label teal">Parser Note</span>
+      This parser uses heuristic pattern matching for the 10 most common corridor countries (GB, US, DE, FR, NL, SG, HK, AE, IN, AU). Always validate parsed addresses against authoritative sources before production use. Confidence: ${r.confidence}.
+    </div>`;
+
+  out.innerHTML = html;
+  document.getElementById('copyXmlBtn').style.display = 'block';
+}
+
+function runParser() {
+  const raw = document.getElementById('rawAddr').value.trim();
+  if (!raw) return;
+  const hint = document.getElementById('countryHint').value;
+  const r = parseAddress(raw, hint || '');
+  state.s2.parsedResult = r;
+  state.s2.confidence = r.confidence;
+  state.s2.parseDone = true;
+  state.s2.rawAddr = raw;
+
+  const out = document.getElementById('s2Output');
+  renderParseResult(r, out);
+  hide('s2GateMsg');
+  saveState();
+}
+
+function runBatch() {
+  const lines = document.getElementById('batchAddr').value.trim().split('\n').filter(l => l.trim());
+  if (!lines.length) return;
+  const hint = document.getElementById('countryHint').value;
+  const out = document.getElementById('s2Output');
+
+  let html = `<div class="sec-title">Batch Parse Results (${lines.length} addresses)</div>
+    <table><thead><tr><th>#</th><th>StrtNm</th><th>BldgNb</th><th>TwnNm</th><th>PstCd</th><th>Ctry</th><th>Confidence</th></tr></thead><tbody>`;
+  lines.forEach((line, i) => {
+    const r = parseAddress(line, hint || '');
+    const conf = r.confidence === 'HIGH' ? '<span class="tag tag-green">HIGH</span>' :
+                 r.confidence === 'MEDIUM' ? '<span class="tag tag-warn">MED</span>' :
+                 '<span class="tag tag-red">LOW</span>';
+    html += `<tr><td>${i+1}</td><td>${r.strtNm||'—'}</td><td>${r.bldgNb||'—'}</td><td>${r.twnNm||'—'}</td><td>${r.pstCd||'—'}</td><td>${r.ctry||'—'}</td><td>${conf}</td></tr>`;
+  });
+  html += `</tbody></table>`;
+  out.innerHTML = html;
+  state.s2.parseDone = true;
+  state.s2.confidence = 'MEDIUM';
+  saveState();
+}
+
+function copyXml() {
+  const xml = document.getElementById('xmlOutput');
+  if (xml) { navigator.clipboard.writeText(xml.textContent); const b = document.getElementById('copyXmlBtn'); b.textContent = 'Copied ✓'; setTimeout(() => b.textContent = 'Copy XML', 1800); }
+}
+
+// ═══════════════════════════════════════════════════════════
+// STAGE 3 — RAIL SELECTION
+// ═══════════════════════════════════════════════════════════
+const RAIL_SCORES = {
+  'SWIFT CBPR+':  { cost:4, speed:5, dataRichness:10, compliance:10, iso20022Native:true,  nov2026Ready:true,  prefundHrs:0,   settleDays:2 },
+  'FedNow':       { cost:8, speed:10,dataRichness:7,  compliance:9,  iso20022Native:true,  nov2026Ready:true,  prefundHrs:2,   settleDays:0 },
+  'RTP':          { cost:8, speed:10,dataRichness:6,  compliance:8,  iso20022Native:false, nov2026Ready:false, prefundHrs:2,   settleDays:0 },
+  'Same-Day ACH': { cost:9, speed:6, dataRichness:4,  compliance:8,  iso20022Native:false, nov2026Ready:false, prefundHrs:0,   settleDays:0.5 },
+  'SEPA Instant': { cost:7, speed:10,dataRichness:8,  compliance:10, iso20022Native:true,  nov2026Ready:true,  prefundHrs:1,   settleDays:0 },
+  'SEPA Credit':  { cost:7, speed:4, dataRichness:7,  compliance:10, iso20022Native:true,  nov2026Ready:true,  prefundHrs:0,   settleDays:1 },
+};
+
+const DRIVER_WEIGHTS = {
+  'Cost':               { cost:0.40, speed:0.15, dataRichness:0.20, compliance:0.25 },
+  'Speed':              { cost:0.20, speed:0.45, dataRichness:0.15, compliance:0.20 },
+  'Data richness':      { cost:0.15, speed:0.15, dataRichness:0.50, compliance:0.20 },
+  'Regulatory compliance': { cost:0.15, speed:0.15, dataRichness:0.20, compliance:0.50 },
+};
+
+function initStage3() {
+  buildOptionGrid('directionGrid', 's3', 'direction', [
+    { lbl: 'Direction', val: 'Outbound', desc: 'You are sending payments to counterparties' },
+    { lbl: 'Direction', val: 'Inbound',  desc: 'You are receiving payments from counterparties' },
+    { lbl: 'Direction', val: 'Both',     desc: 'Bidirectional payment flows' },
+  ]);
+  buildOptionGrid('driverGrid', 's3', 'driver', [
+    { lbl: 'Primary driver', val: 'Cost',                  desc: 'Minimise per-transaction cost' },
+    { lbl: 'Primary driver', val: 'Speed',                 desc: 'Maximise settlement speed and finality' },
+    { lbl: 'Primary driver', val: 'Data richness',         desc: 'Maximise structured data for reconciliation' },
+    { lbl: 'Primary driver', val: 'Regulatory compliance', desc: 'Prioritise Nov 2026 ISO 20022 readiness' },
+  ]);
+}
+
+function runRailScore() {
+  if (!state.s3.direction || !state.s3.driver) { show('s3GateMsg'); return; }
+  hide('s3GateMsg');
+
+  const weights = DRIVER_WEIGHTS[state.s3.driver];
+  const scored = Object.entries(RAIL_SCORES).map(([rail, s]) => ({
+    rail,
+    score: Math.round(Object.entries(weights).reduce((sum, [dim, w]) => sum + (s[dim] || 0) * w, 0) * 10),
+    ...s
+  })).sort((a, b) => b.score - a.score);
+
+  state.s3.scores = scored;
+  state.s3.bestRail = scored[0].rail;
+  state.s3.railsDone = true;
+
+  // Pre-fill Stage 4
+  document.getElementById('prefundHours').value = scored[0].prefundHrs;
+
+  const out = document.getElementById('s3Output');
+  const corridor = state.s1.corridor || 'USD-EUR';
+
+  let html = `<div class="alert alert-teal" style="margin-bottom:1rem">
+    <span class="alert-label teal">Recommendation — ${corridor} · Driver: ${state.s3.driver}</span>
+    Best rail: <strong style="color:var(--teal-lt)">${scored[0].rail}</strong> — composite score ${scored[0].score}/100. ${scored[0].nov2026Ready ? '✓ November 2026 ready.' : '⚠ NOT November 2026 ready — requires migration.'}
+  </div>
+  <div class="sec-title">Rail Comparison Matrix</div>
+  <table>
+    <thead><tr><th>Rail</th><th>Cost</th><th>Speed</th><th>Data</th><th>Compliance</th><th>ISO 20022</th><th>Nov 2026</th><th>Score</th></tr></thead>
+    <tbody>`;
+
+  scored.forEach((s, i) => {
+    const best = i === 0;
+    const isoTag = s.iso20022Native ? '<span class="tag tag-teal">Native</span>' : '<span class="tag tag-warn">Legacy</span>';
+    const novTag = s.nov2026Ready ? '<span class="tag tag-green">Ready</span>' : '<span class="tag tag-red">Not Ready</span>';
+    html += `<tr style="${best ? 'background:var(--teal-dim)' : ''}">
+      <td style="color:${best ? 'var(--teal-lt)' : 'var(--bright)'}">${s.rail}${best ? ' ★' : ''}</td>
+      <td>${s.cost}/10</td><td>${s.speed}/10</td><td>${s.dataRichness}/10</td><td>${s.compliance}/10</td>
+      <td>${isoTag}</td><td>${novTag}</td>
+      <td style="color:${best ? 'var(--teal)' : 'var(--text)'};font-weight:${best ? '500' : '300'}">${s.score}/100</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>
+    <div class="alert alert-teal" style="font-size:.7rem;color:var(--body)">
+      <span class="alert-label teal">Note</span>
+      Scores weighted by primary driver: ${state.s3.driver}. For full routing analysis including volume sensitivity and cost modeling, see <a href="78-smart-routing-advisor.html" style="color:var(--teal-lt)">Tool 78 — Smart Routing Advisor ↗</a>
+    </div>`;
+
+  // Flag non-ready rails
+  const notReady = scored.filter(s => !s.nov2026Ready);
+  if (notReady.length > 0) {
+    html += `<div class="alert alert-warn" style="margin-top:.75rem"><span class="alert-label warn">⚠ Rails Requiring ISO 20022 Migration</span>${notReady.map(s => s.rail).join(', ')} are not natively ISO 20022 — organisations using these rails must complete structured address migration independently.</div>`;
+  }
+
+  out.innerHTML = html;
+  saveState();
+}
+
+// ═══════════════════════════════════════════════════════════
+// STAGE 4 — LIQUIDITY IMPACT
+// ═══════════════════════════════════════════════════════════
+function runLiquidity() {
+  const currentDays = parseFloat(document.getElementById('currentSettlement').value);
+  const dailyVol = parseFloat(document.getElementById('dailyVol').value) * 1e6;
+  const avgSize = parseFloat(document.getElementById('avgTxnSize').value);
+  const cof = parseFloat(document.getElementById('costOfFunds').value) / 100;
+  const prefundHrs = parseFloat(document.getElementById('prefundHours').value);
+
+  const best = state.s3.scores ? state.s3.scores[0] : { settleDays: 0, rail: 'Real-Time' };
+  const rtDays = best.settleDays;
+
+  const annualVol = dailyVol * 252; // trading days
+  const floatReduction = dailyVol * (currentDays - rtDays);
+  const idleCapitalSaving = floatReduction * cof;
+  const prefundRequired = dailyVol * (prefundHrs / 24);
+  const prefundCost = prefundRequired * cof;
+  const netBenefit = idleCapitalSaving - prefundCost;
+  const dsoImprovement = currentDays - rtDays;
+
+  // Data Opportunity Cost: ISO 20022 native data reduces exception investigation
+  const exceptionRate = 0.002;
+  const investigationCost = 15;
+  const iso20022Reduction = 0.30;
+  const txnPerDay = dailyVol / avgSize;
+  const dataOpportunityCost = txnPerDay * 252 * exceptionRate * investigationCost * iso20022Reduction;
+
+  const r = { floatReduction, idleCapitalSaving, prefundRequired, prefundCost, netBenefit, dsoImprovement, dataOpportunityCost, rtDays, currentDays };
+  state.s4.result = r;
+  state.s4.liquidityDone = true;
+
+  const fmt = (n) => '$' + Math.abs(n).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
+
+  const out = document.getElementById('s4Output');
+  let html = `
+    <div class="kpi-bar">
+      <div class="kc"><div class="kl">Float Reduction</div><div class="kv t">${fmt(floatReduction)}</div><div class="ks">capital freed daily</div></div>
+      <div class="kc"><div class="kl">Idle Capital Saving</div><div class="kv g">${fmt(idleCapitalSaving)}</div><div class="ks">per annum</div></div>
+      <div class="kc"><div class="kl">Prefunding Cost</div><div class="kv w">${fmt(prefundCost)}</div><div class="ks">per annum</div></div>
+      <div class="kc"><div class="kl">Net Benefit</div><div class="kv ${netBenefit >= 0 ? 'g' : 'r'}">${fmt(netBenefit)}</div><div class="ks">per annum</div></div>
+      <div class="kc"><div class="kl">DSO Improvement</div><div class="kv gold">${dsoImprovement} day${dsoImprovement !== 1 ? 's' : ''}</div><div class="ks">faster settlement</div></div>
+      <div class="kc"><div class="kl">Data Opportunity</div><div class="kv t">${fmt(dataOpportunityCost)}</div><div class="ks">exc. reduction / yr</div></div>
+    </div>
+
+    <div class="sec-title">Liquidity Model Detail</div>
+    <table>
+      <thead><tr><th>Metric</th><th>Current (T+${currentDays})</th><th>Post-Migration (${best.rail})</th><th>Change</th></tr></thead>
+      <tbody>
+        <tr><td>Settlement cycle</td><td>T+${currentDays}</td><td>T+${rtDays}</td><td style="color:var(--green)">-${dsoImprovement} day(s)</td></tr>
+        <tr><td>Daily float balance</td><td>${fmt(dailyVol * currentDays)}</td><td>${fmt(dailyVol * rtDays)}</td><td style="color:var(--green)">-${fmt(floatReduction)}</td></tr>
+        <tr><td>Annual idle capital cost</td><td>${fmt(dailyVol * currentDays * cof)}</td><td>${fmt(dailyVol * rtDays * cof)}</td><td style="color:var(--green)">-${fmt(idleCapitalSaving)}</td></tr>
+        <tr><td>Prefunding requirement</td><td>—</td><td>${fmt(prefundRequired)}</td><td style="color:var(--warn)">+${fmt(prefundCost)}/yr</td></tr>
+        <tr><td><strong>Net annual benefit</strong></td><td>—</td><td>—</td><td style="color:${netBenefit >= 0 ? 'var(--green)' : 'var(--red)'}"><strong>${netBenefit >= 0 ? '+' : ''}${fmt(netBenefit)}</strong></td></tr>
+      </tbody>
+    </table>
+
+    <div class="sec-title">Data Opportunity Cost</div>
+    <div class="alert alert-teal">
+      <span class="alert-label teal">ISO 20022 Native Data vs Legacy Wrapping</span>
+      Estimated annual saving from consuming native ISO 20022 structured data instead of legacy-wrapped messages: <strong style="color:var(--teal-lt)">${fmt(dataOpportunityCost)}/year</strong>
+      <br><span style="font-size:.68rem;color:var(--muted);margin-top:.4rem;display:block">Assumption: 0.2% exception rate, $15 investigation cost per exception, 30% reduction from ISO 20022 enrichment. For full liquidity simulation, see <a href="39-a2a-liquidity-simulator.html" style="color:var(--teal-lt)">Tool 39 ↗</a></span>
+    </div>`;
+
+  out.innerHTML = html;
+  saveState();
+}
+
+// ═══════════════════════════════════════════════════════════
+// STAGE 5 — READINESS EXPORT
+// ═══════════════════════════════════════════════════════════
+function buildStage5() {
+  const s1 = state.s1.auditResult || {};
+  const s2 = state.s2.parsedResult || {};
+  const s3 = state.s3;
+  const s4 = state.s4.result || {};
+
+  const deadline = new Date('2026-11-15T00:00:00Z');
+  const now = new Date();
+  const daysLeft = Math.ceil((deadline - now) / 86400000);
+
+  // Determine grades
+  const payloadGrade = s1.unstructuredAddr ? 'NOT READY' : (s1.truncationRisks && s1.truncationRisks.length > 0 ? 'AT RISK' : 'READY');
+  const addrGrade    = !state.s2.parseDone ? 'NOT READY' : (s2.confidence === 'HIGH' ? 'READY' : s2.confidence === 'MEDIUM' ? 'AT RISK' : 'NOT READY');
+  const railGrade    = !s3.railsDone ? 'NOT READY' : (s3.scores && s3.scores[0] && s3.scores[0].nov2026Ready ? 'READY' : 'AT RISK');
+  const liqGrade     = !state.s4.liquidityDone ? 'NOT READY' : ((s4.netBenefit || 0) >= 0 ? 'READY' : 'AT RISK');
+  const grades       = [payloadGrade, addrGrade, railGrade, liqGrade];
+  const notReadyCount = grades.filter(g => g === 'NOT READY').length;
+  const atRiskCount   = grades.filter(g => g === 'AT RISK').length;
+  const overallGrade  = notReadyCount > 0 ? 'NOT READY' : atRiskCount > 0 ? 'AT RISK' : 'READY';
+
+  const gradeColor = (g) => g === 'READY' ? 'grade-ready' : g === 'AT RISK' ? 'grade-risk' : 'grade-not';
+
+  // Scorecard
+  document.getElementById('readinessGrid').innerHTML = [
+    { label: 'Payload Compliance', grade: payloadGrade },
+    { label: 'Address Structure', grade: addrGrade },
+    { label: 'Rail Readiness', grade: railGrade },
+    { label: 'Liquidity Posture', grade: liqGrade },
+    { label: 'Overall', grade: overallGrade },
+  ].map(c => `<div class="readiness-cell">
+    <div class="readiness-cell-label">${c.label}</div>
+    <div class="readiness-cell-grade ${gradeColor(c.grade)}">${c.grade}</div>
+  </div>`).join('');
+
+  // Deadline message
+  const deadlineMsg = daysLeft > 0
+    ? `<strong style="color:var(--warn)">${daysLeft} days</strong> until the SWIFT CBPR+ structured address deadline (15 November 2026). ${notReadyCount > 0 ? `You have ${notReadyCount} NOT READY dimension(s) requiring immediate action.` : atRiskCount > 0 ? `You have ${atRiskCount} AT RISK dimension(s) requiring attention.` : 'Your organisation appears on track for compliance.'}`
+    : `<strong style="color:var(--red)">The SWIFT CBPR+ deadline has passed.</strong> All messages with unstructured addresses are now being rejected. Immediate remediation required.`;
+  document.getElementById('s5DeadlineMsg').innerHTML = deadlineMsg;
+
+  // KPI bar
+  const fmt = (n) => '$' + Math.abs(n || 0).toLocaleString('en-US', {maximumFractionDigits:0});
+  document.getElementById('s5KpiBar').innerHTML = `
+    <div class="kc"><div class="kl">Overall Grade</div><div class="kv ${gradeColor(overallGrade).replace('grade-','')}" style="font-size:.85rem">${overallGrade}</div></div>
+    <div class="kc"><div class="kl">Days to Deadline</div><div class="kv ${daysLeft < 60 ? 'r' : daysLeft < 120 ? 'w' : 'g'}">${daysLeft}</div></div>
+    <div class="kc"><div class="kl">Best Rail</div><div class="kv t" style="font-size:.75rem">${s3.bestRail || '—'}</div></div>
+    <div class="kc"><div class="kl">Net Annual Benefit</div><div class="kv g">${fmt(s4.netBenefit)}</div></div>
+    <div class="kc"><div class="kl">Data Opportunity</div><div class="kv t">${fmt(s4.dataOpportunityCost)}</div></div>
+  `;
+
+  // Remediation checklist
+  const items = [];
+  if (payloadGrade !== 'READY') {
+    items.push('Audit all outbound message templates for unstructured AdrLine fields. Replace with mandatory StrtNm / BldgNb / TwnNm / PstCd / Ctry structure.');
+    items.push('Validate all message types (pacs.008, camt.053, pain.001) against SWIFT CBPR+ SR2026 schema. Obtain schemas from SWIFT MyStandards.');
+    items.push('Update SWIFT message templates and origination systems to emit structured postal address by September 2026 to allow UAT buffer before November deadline.');
+  }
+  if (addrGrade !== 'READY') {
+    items.push('Run address structuring tool on complete counterparty address database. Flag LOW confidence outputs for manual review by compliance team.');
+    items.push('Establish a counterparty data enrichment process: request structured address data from all payment counterparties in writing before Q3 2026.');
+  }
+  if (railGrade !== 'READY' || railGrade === 'AT RISK') {
+    items.push(`Evaluate migration to ${s3.bestRail || 'an ISO 20022-native rail'} — scored highest on your primary driver (${s3.driver || 'compliance'}). Initiate vendor discovery Q2 2026.`);
+    if (s3.scores) {
+      const notReady = s3.scores.filter(r => !r.nov2026Ready).map(r => r.rail);
+      if (notReady.length) items.push(`Rails flagged as NOT November-2026-ready: ${notReady.join(', ')}. Complete address structuring independently on these rails or migrate to ISO 20022-native alternatives.`);
+    }
+  }
+  if (liqGrade !== 'READY') {
+    items.push('Model prefunding requirements for real-time settlement in detail with treasury team. Ensure intraday credit lines are in place before migration go-live.');
+    items.push('Update cash flow forecasting models to reflect T+0 settlement. Existing T+2 forecasting assumptions will overstate float availability post-migration.');
+  }
+  items.push('Engage your SWIFT connectivity provider or correspondent bank to confirm SR2026 release certification date.');
+  items.push('Test structured address migration end-to-end in SWIFT SWIFTNet Pilot environment before September 2026 production cut-over.');
+  items.push('Document migration decision in a formal Architecture Decision Record. Use this readiness memo as the evidence annex.');
+
+  document.getElementById('remediationList').innerHTML = items.map((item, i) =>
+    `<div class="checklist-item"><div class="checklist-n">${String(i+1).padStart(2,'0')}</div><div>${item}</div></div>`
+  ).join('');
+
+  // Risk register
+  const risks = [
+    { risk: 'Unstructured address rejection after 15 Nov 2026', severity: payloadGrade !== 'READY' ? 'CRITICAL' : 'LOW', mit: 'Complete address structuring migration before September 2026 UAT deadline' },
+    { risk: 'Counterparty address data quality insufficient for structured parsing', severity: 'HIGH', mit: 'Initiate counterparty data enrichment programme. Request ISO-formatted addresses in updated agreements' },
+    { risk: 'Prefunding liquidity shortfall on real-time rail', severity: liqGrade !== 'READY' ? 'MEDIUM' : 'LOW', mit: 'Establish intraday credit facility with correspondent bank before go-live. Model peak prefunding scenarios' },
+    { risk: 'SWIFT certification delay for correspondent banks', severity: 'MEDIUM', mit: 'Confirm SR2026 certification status with all correspondent banks by July 2026' },
+    { risk: 'Legacy system incompatibility with mandatory PostalAddress schema', severity: 'HIGH', mit: 'Assess all origination systems against SR2026 schema. Engage vendor for patch/upgrade timeline' },
+    { risk: 'Staff readiness: operations team unfamiliar with structured address format', severity: 'LOW', mit: 'Schedule ISO 20022 training for operations and compliance teams before Q3 2026' },
+  ];
+
+  const sevColor = { CRITICAL: 'var(--red)', HIGH: 'var(--warn)', MEDIUM: 'var(--gold)', LOW: 'var(--teal)' };
+  document.getElementById('riskBody').innerHTML = risks.map(r =>
+    `<tr><td>${r.risk}</td><td><span class="tag" style="background:${sevColor[r.severity]}22;color:${sevColor[r.severity]}">${r.severity}</span></td><td style="color:var(--body);font-size:.68rem">${r.mit}</td></tr>`
+  ).join('');
+
+  // Generate memo
+  const memo = buildMemo({ s1, s2, s3, s4, payloadGrade, addrGrade, railGrade, liqGrade, overallGrade, daysLeft, items, risks, fmt });
+  state.s5.generatedMemo = memo;
+  document.getElementById('memoOut').textContent = memo;
+  saveState();
+}
+
+function buildMemo({ s1, s2, s3, s4, payloadGrade, addrGrade, railGrade, liqGrade, overallGrade, daysLeft, items, risks, fmt }) {
+  const d = new Date().toISOString().split('T')[0];
+  const sep = '═'.repeat(68);
+  const sub = '─'.repeat(68);
+
+  return `ISO 20022 MIGRATION READINESS ASSESSMENT
+${sep}
+Date:                  ${d}
+SWIFT CBPR+ Deadline:  15 November 2026
+Days Remaining:        ${daysLeft}
+Institution Type:      ${state.s1.instType || 'Not specified'}
+Primary Corridor:      ${state.s1.corridor || 'Not specified'}
+Recommended Rail:      ${s3.bestRail || 'Not determined'}
+Generated by:          AINumbers.co Tool 81 — ISO 20022 Migration Navigator
+
+${sep}
+EXECUTIVE SUMMARY
+${sub}
+Overall readiness grade: ${overallGrade}
+
+${overallGrade === 'READY'
+  ? 'This organisation appears on track for SWIFT CBPR+ structured address compliance by 15 November 2026. Continue with planned testing and confirm correspondent bank certification status.'
+  : overallGrade === 'AT RISK'
+  ? `This organisation has ${[payloadGrade,addrGrade,railGrade,liqGrade].filter(g=>g==='AT RISK').length} dimension(s) AT RISK. Immediate attention is required in the areas identified below to achieve compliance by the November 2026 deadline.`
+  : `This organisation has ${[payloadGrade,addrGrade,railGrade,liqGrade].filter(g=>g==='NOT READY').length} NOT READY dimension(s). The November 2026 deadline is at significant risk. Escalate to senior leadership immediately and initiate emergency remediation programme.`
+}
+
+${sep}
+READINESS SCORECARD
+${sub}
+Dimension               Grade
+─────────────────────   ─────────
+Payload Compliance      ${payloadGrade}
+Address Structure       ${addrGrade}
+Rail Readiness          ${railGrade}
+Liquidity Posture       ${liqGrade}
+─────────────────────   ─────────
+OVERALL                 ${overallGrade}
+
+${sep}
+STAGE 1 — PAYLOAD AUDIT
+${sub}
+Message type analysed:    ${state.s1.msgType || 'pacs.008'}
+Unstructured addresses:   ${s1.unstructuredAddr ? 'YES — CRITICAL (will be rejected after Nov 2026)' : 'None detected'}
+Structured addresses:     ${s1.structuredAddr ? 'Present' : 'Not present'}
+Truncation risks:         ${(s1.truncationRisks||[]).length} field(s) exceed ISO 20022 length limits
+Transaction count:        ${s1.txCount || 'N/A'}
+Total value:              ${s1.totalValue ? '$'+s1.totalValue.toLocaleString() : 'N/A'}
+
+${s1.unstructuredAddr ? `CRITICAL: Unstructured AdrLine fields detected. SWIFT CBPR+ SR2026 requires all postal addresses to use structured fields (StrtNm, BldgNb, TwnNm, PstCd, Ctry). Messages with AdrLine will be REJECTED after 15 November 2026.` : 'Payload uses structured address fields. No immediate action required for this message type.'}
+
+${sep}
+STAGE 2 — ADDRESS STRUCTURING
+${sub}
+Parser confidence:        ${s2.confidence || 'Not run'}
+Detected country:         ${s2.ctry || 'N/A'}
+Parsed street:            ${s2.strtNm || 'N/A'}
+Parsed building number:   ${s2.bldgNb || 'N/A'}
+Parsed town/city:         ${s2.twnNm || 'N/A'}
+Parsed postcode:          ${s2.pstCd || 'N/A'}
+
+Generated ISO 20022 XML:
+${s2.xml ? s2.xml : '  (Address not parsed — run Stage 2)'}
+
+${sep}
+STAGE 3 — RAIL SELECTION
+${sub}
+Primary driver:           ${s3.driver || 'Not selected'}
+Payment direction:        ${s3.direction || 'Not selected'}
+Recommended rail:         ${s3.bestRail || 'Not scored'}
+November 2026 ready:      ${s3.scores && s3.scores[0] ? (s3.scores[0].nov2026Ready ? 'YES' : 'NO — migration required') : 'N/A'}
+
+${s3.scores ? 'Rail Scores (top 3):\n' + s3.scores.slice(0,3).map(r => `  ${r.rail.padEnd(20)} Score: ${r.score}/100   Nov 2026: ${r.nov2026Ready ? 'Ready' : 'Not Ready'}`).join('\n') : ''}
+
+${sep}
+STAGE 4 — LIQUIDITY IMPACT
+${sub}
+Current settlement:       T+${state.s4.currentSettlement || '2'}
+Post-migration:           T+${s4.rtDays !== undefined ? s4.rtDays : 'N/A'} (${s3.bestRail || 'selected rail'})
+Float reduction:          ${fmt(s4.floatReduction)} (daily capital freed)
+Idle capital saving:      ${fmt(s4.idleCapitalSaving)} per annum
+Prefunding cost:          ${fmt(s4.prefundCost)} per annum
+Net annual benefit:       ${fmt(s4.netBenefit)}
+DSO improvement:          ${s4.dsoImprovement !== undefined ? s4.dsoImprovement + ' day(s)' : 'N/A'}
+Data opportunity cost:    ${fmt(s4.dataOpportunityCost)} per annum (ISO 20022 exception reduction)
+
+${sep}
+REMEDIATION CHECKLIST
+${sub}
+${items.map((item, i) => `${String(i+1).padStart(2,'0')}. ${item}`).join('\n\n')}
+
+${sep}
+RISK REGISTER
+${sub}
+${'Risk'.padEnd(50)} ${'Severity'.padEnd(10)} Mitigation
+${'─'.repeat(50)} ${'─'.repeat(10)} ${'─'.repeat(30)}
+${risks.map(r => `${r.risk.padEnd(50)} ${r.severity.padEnd(10)} ${r.mit}`).join('\n')}
+
+${sep}
+DISCLAIMER
+${sub}
+This assessment was generated by AINumbers.co Tool 81 — ISO 20022 Migration Navigator
+as a modelling aid only. It has not been reviewed by legal or compliance counsel.
+SWIFT CBPR+ requirements sourced from SWIFT Standards Release 2026 (SR2026).
+ISO 20022 schemas sourced from iso20022.org. All figures are indicative estimates.
+Filing institutions are solely responsible for compliance with SWIFT deadlines.
+
+Post Oak Labs · AINumbers.co · CC BY 4.0 · Generated: ${new Date().toISOString()}
+`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// EXPORTS
+// ═══════════════════════════════════════════════════════════
+function exportMemo() {
+  if (!state.s5.generatedMemo) { alert('Complete all stages first.'); return; }
+  const a = document.createElement('a');
+  a.href = 'data:text/markdown;charset=utf-8,' + encodeURIComponent(state.s5.generatedMemo);
+  a.download = `iso20022-readiness-${new Date().toISOString().split('T')[0]}.md`;
+  a.click();
+}
+
+function exportAP2() {
+  const s1 = state.s1;
+  const s2 = state.s2;
+  const s3 = state.s3;
+  const s4 = state.s4;
+
+  const ap2 = {
+    ap2: '1.0',
+    tool: 'iso20022-migration-navigator',
+    toolNumber: 81,
+    timestamp: new Date().toISOString(),
+    inputs: {
+      stage1: {
+        messageType: s1.msgType,
+        corridor: s1.corridor,
+        institutionType: s1.instType,
+        addressFieldsFound: s1.auditResult ? (s1.auditResult.fields || []).map(f => f.field) : [],
+        truncationRisk: s1.auditResult && s1.auditResult.truncationRisks && s1.auditResult.truncationRisks.length > 0 ? 'HIGH' : 'LOW',
+        silentLossDetected: s1.auditResult ? !!s1.auditResult.unstructuredAddr : false,
+      },
+      stage2: {
+        rawAddress: s2.rawAddr,
+        parsedAddress: { StrtNm: s2.parsedResult?.strtNm || '', BldgNb: s2.parsedResult?.bldgNb || '', TwnNm: s2.parsedResult?.twnNm || '', PstCd: s2.parsedResult?.pstCd || '', Ctry: s2.parsedResult?.ctry || '' },
+        parserConfidence: s2.confidence || 'NOT_RUN',
+        validationStatus: s2.confidence === 'HIGH' ? 'PASS' : s2.confidence === 'MEDIUM' ? 'MANUAL_REVIEW' : 'FAIL',
+      },
+      stage3: {
+        corridor: s1.corridor,
+        direction: s3.direction,
+        primaryDriver: s3.driver,
+        recommendedRail: s3.bestRail,
+        nov2026Ready: s3.scores ? s3.scores[0]?.nov2026Ready : null,
+        railScore: s3.scores ? s3.scores[0]?.score : null,
+      },
+      stage4: {
+        currentSettlement: state.s4.currentSettlement,
+        dailyVolumeMUSD: state.s4.dailyVol,
+        costOfFundsPct: state.s4.costOfFunds,
+        prefundingWindowHours: state.s4.prefundHours,
+        floatReduction: s4.result?.floatReduction,
+        idleCapitalSavingPerAnnum: s4.result?.idleCapitalSaving,
+        prefundingCostPerAnnum: s4.result?.prefundCost,
+        netBenefitPerAnnum: s4.result?.netBenefit,
+        dsoImprovementDays: s4.result?.dsoImprovement,
+      },
+    },
+    outputs: {
+      readinessScore: ['NOT READY','AT RISK','AT RISK','READY'].indexOf(state.s5.generatedMemo ? 'READY' : 'AT RISK') * 33,
+      readinessGrade: s3.railsDone && state.s4.liquidityDone ? (s1.auditResult?.unstructuredAddr ? 'NOT READY' : 'AT RISK') : 'INCOMPLETE',
+      criticalGaps: s1.auditResult?.silentLoss?.map(s => s.field) || [],
+      dataOpportunityCostPerAnnum: s4.result?.dataOpportunityCost,
+      migrationMemoGenerated: !!state.s5.generatedMemo,
+    },
+    exportedBy: 'AINumbers.co · Post Oak Labs · CC BY 4.0',
+  };
+
+  const a = document.createElement('a');
+  a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(ap2, null, 2));
+  a.download = `ap2-iso20022-navigator-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+}
+
+function copyMemo() {
+  if (!state.s5.generatedMemo) { alert('Complete all stages first.'); return; }
+  navigator.clipboard.writeText(state.s5.generatedMemo).then(() => {
+    const btns = document.querySelectorAll('.arow .btn-ghost');
+    btns.forEach(b => { if (b.textContent.includes('Copy')) { b.textContent = '⎘ Copied ✓'; setTimeout(() => b.textContent = '⎘ Copy to Clipboard', 1800); } });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+function init() {
+  loadState();
+  initStage3();
+  goStage(state.currentStage || 1);
+}
+
+init();
+</script>
+</body>
+</html>

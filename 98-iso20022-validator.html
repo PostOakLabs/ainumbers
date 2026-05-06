@@ -1,0 +1,1970 @@
+<!-- PostOakLabs.com | MIT License -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tool 98 — ISO 20022 Message Validator + Field Explorer · AINumbers.co</title>
+<meta name="description" content="Validate ISO 20022 XML messages (pacs.008, pain.001, camt.053) against embedded schema rules, parse every field with business context, and explore 20+ message types. Client-side only. Zero PII.">
+<meta name="keywords" content="ISO 20022, pacs.008, pain.001, camt.053, XML validator, SWIFT CBPR+, SEPA, Fedwire, payment message, open banking">
+<meta name="robots" content="index, follow">
+<meta name="author" content="AINumbers.co">
+<link rel="canonical" href="https://ainumbers.co/tools/98-iso20022-validator.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Tool 98 — ISO 20022 Message Validator + Field Explorer · AINumbers.co">
+<meta property="og:description" content="Validate pacs.008, pain.001, camt.053 and 20+ ISO 20022 message types against embedded schema rules. Parse fields with business context. Zero PII, client-side only.">
+<meta property="og:url" content="https://ainumbers.co/tools/98-iso20022-validator.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════
+   POL DESIGN SYSTEM — TOKENS
+═══════════════════════════════════════════ */
+:root {
+  --bg: #080E1A; --bg-2: #0D1627; --bg-3: #111E35; --bg-4: #162340;
+  --border: #1E2F4A; --border-2: #263855; --muted: #3A5270; --body: #6888A8;
+  --text: #A8C4DE; --bright: #D4E8F8; --white: #EEF6FD;
+  --teal: #14B8A6; --teal-dim: rgba(20,184,166,.12); --teal-glow: rgba(20,184,166,.06); --teal-lt: #2DD4BF;
+  --gold: #D4A847; --gold-dim: rgba(212,168,71,.12); --gold-lt: #E8C06A;
+  --purple: #9B72F5; --purple-dim: rgba(155,114,245,.12);
+  --green: #22C55E; --green-dim: rgba(34,197,94,.12); --green-lt: #22C55E;
+  --red: #EF4444; --red-lt: #F87171; --warn: #F59E0B; --warn-lt: #FCD34D;
+  --radius: 6px; --radius-lg: 10px; --shadow: 0 4px 24px rgba(0,0,0,.4);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Sora', sans-serif; font-weight: 300;
+  line-height: 1.7; font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+h1,h2,h3,h4 { font-family: 'DM Serif Display', serif; font-weight: 400; line-height: 1.15; }
+a { color: inherit; text-decoration: none; }
+.container { max-width: 1140px; margin: 0 auto; padding: 0 2rem; }
+
+/* Background grid */
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(20,184,166,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20,184,166,.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ── NAV ── */
+nav {
+  padding: 0 2rem; height: 52px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(8,14,26,.92);
+  position: sticky; top: 0; z-index: 200;
+  backdrop-filter: blur(8px);
+}
+.nav-inner {
+  max-width: 1140px; margin: 0 auto; height: 100%;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.nav-logo { font-family: 'DM Serif Display', serif; font-size: 1.05rem; color: var(--bright); letter-spacing: 0.02em; }
+.nav-logo span { color: var(--gold); }
+.nav-links { display: flex; gap: 1.5rem; align-items: center; }
+.nav-links a {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.58rem;
+  letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--teal-lt); }
+.nav-cta {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.58rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--white); background: var(--teal); border: 1px solid var(--teal);
+  padding: 0.3rem 0.8rem; transition: all 0.2s; cursor: pointer;
+}
+.nav-cta:hover { background: var(--teal-lt); border-color: var(--teal-lt); }
+
+/* ── HERO ── */
+.hero {
+  padding: 3.5rem 0 3rem; border-bottom: 1px solid var(--border);
+  position: relative; overflow: hidden;
+}
+.hero::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent);
+}
+.hero-eyebrow {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.57rem;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--teal-lt); margin-bottom: 1rem;
+  display: flex; align-items: center; gap: 0.75rem;
+}
+.hero-eyebrow::before { content: ''; display: block; width: 28px; height: 1px; background: var(--teal); }
+.hero h1 { font-size: clamp(1.7rem, 3vw, 2.5rem); color: var(--white); max-width: 700px; margin-bottom: 0.75rem; }
+.hero-sub { font-size: 0.88rem; color: var(--body); max-width: 620px; line-height: 1.85; margin-bottom: 1.25rem; }
+.hero-meta { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.52rem;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 0.35rem 0.75rem; border: 1px solid;
+}
+.badge-privacy { color: var(--muted); border-color: var(--border); }
+.badge-privacy::before { content: '·'; color: var(--green-lt); margin-right: 4px; }
+.badge-spec { color: var(--gold); border-color: rgba(212,168,71,0.3); }
+.badge-cat { color: var(--teal); border-color: rgba(20,184,166,0.3); }
+
+/* ── TABS ── */
+.tab-bar {
+  display: flex; gap: 0; border-bottom: 1px solid var(--border);
+  margin-bottom: 2rem; overflow-x: auto;
+}
+.tab-btn {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.55rem;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  padding: 0.85rem 1.75rem; background: transparent;
+  color: var(--muted); border: none; border-bottom: 2px solid transparent;
+  cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--teal-lt); border-bottom-color: var(--teal); background: rgba(20,184,166,.04); }
+.tab-content { display: none; animation: fadeIn 0.2s ease; }
+.tab-content.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── STATS BANNER ── */
+.stats-banner {
+  background: var(--bg-4); border: 1px solid var(--border);
+  border-top: 2px solid var(--teal);
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 2px;
+  margin: 0 0 2rem;
+}
+.stats-banner-5 { grid-template-columns: repeat(5,1fr); }
+.stat-block { background: var(--bg-2); padding: 1.25rem 1.5rem; text-align: center; }
+.stat-num { font-family: 'DM Serif Display', serif; font-size: 2rem; color: var(--white); line-height: 1; margin-bottom: 0.25rem; }
+.stat-num.accent { color: var(--teal-lt); }
+.stat-num.gold   { color: var(--gold-lt); }
+.stat-num.green  { color: var(--green-lt); }
+.stat-num.red    { color: var(--red-lt); }
+.stat-label { font-family: 'JetBrains Mono', monospace; font-size: 0.46rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.stat-sub { font-size: 0.64rem; color: var(--body); margin-top: 0.2rem; }
+
+/* ── RESULT STATUS BAR ── */
+.result-status-bar {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.85rem 1.25rem; margin-bottom: 1.5rem;
+  border-radius: var(--radius); border: 1px solid var(--border);
+  border-left: 3px solid var(--teal); background: var(--bg-3);
+}
+.result-status-bar.invalid { border-left-color: var(--red); }
+.result-status-bar.warning { border-left-color: var(--gold); }
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--teal); flex-shrink: 0;
+  animation: pulse 2s infinite;
+}
+.result-status-bar.invalid .status-dot { background: var(--red); animation: none; }
+.result-status-bar.warning .status-dot { background: var(--gold); }
+.status-text { font-size: 0.82rem; color: var(--bright); }
+.status-meta { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--muted); margin-left: auto; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* ── DETECTION PILL ── */
+.detect-pill {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  background: var(--teal-dim); border: 1px solid rgba(20,184,166,.3);
+  border-radius: 4px; padding: 0.4rem 0.85rem; margin-bottom: 1rem;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--teal-lt);
+}
+.detect-pill.unknown { background: var(--gold-dim); border-color: rgba(212,168,71,.3); color: var(--gold-lt); }
+
+/* ── BUTTONS ── */
+.btn-primary {
+  padding: 0.65rem 1.5rem; background: var(--teal);
+  color: #080E1A; font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem; letter-spacing: 0.16em; text-transform: uppercase;
+  border: 1px solid var(--teal); cursor: pointer; transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-primary:hover { background: var(--teal-lt); border-color: var(--teal-lt); }
+.btn-secondary {
+  padding: 0.55rem 1.1rem; background: transparent;
+  color: var(--text); font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem; letter-spacing: 0.12em; text-transform: uppercase;
+  border: 1px solid var(--border-2); cursor: pointer; transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-secondary:hover { border-color: var(--text); color: var(--bright); }
+.btn-ghost {
+  padding: 0.35rem 0.75rem; background: transparent;
+  color: var(--muted); font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem; letter-spacing: 0.1em; text-transform: uppercase;
+  border: 1px solid var(--border); cursor: pointer; transition: all 0.2s;
+}
+.btn-ghost:hover { color: var(--teal); border-color: var(--teal-dim); }
+.btn-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin-top: 0.85rem; }
+
+/* ── INPUT GROUP ── */
+.input-group { margin-bottom: 1.25rem; }
+.input-label {
+  display: block; font-size: 0.75rem; color: var(--text);
+  margin-bottom: 0.4rem; font-weight: 400;
+}
+.input-hint { font-size: 0.65rem; color: var(--muted); margin-left: 0.5rem; }
+textarea, input[type="text"], input[type="search"], select {
+  width: 100%; background: var(--bg-3); border: 1px solid var(--border);
+  color: var(--bright); padding: 0.65rem 0.9rem;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
+  border-radius: var(--radius); outline: none; transition: border-color 0.2s;
+  -webkit-appearance: none;
+}
+textarea:focus, input:focus, select:focus { border-color: var(--teal); }
+textarea { resize: vertical; min-height: 200px; line-height: 1.6; }
+textarea::placeholder, input::placeholder { color: var(--muted); font-size: 0.72rem; }
+select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%233A5270'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.75rem center; padding-right: 2rem; cursor: pointer; }
+input[type="file"] { display: none; }
+
+/* ── SECTION LABEL ── */
+.section-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.44rem;
+  letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.75rem;
+}
+.section-head {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.52rem;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--body);
+  border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1rem;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+/* ── COMP GRID ── */
+.comp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px; margin-bottom: 1.5rem;
+}
+.comp-grid-3 { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.info-card {
+  background: var(--bg-3); border: 1px solid var(--border);
+  padding: 0.9rem 1rem; border-radius: var(--radius);
+  transition: border-color 0.2s;
+}
+.info-card:hover { border-color: var(--border-2); }
+.card-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.46rem;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.3rem;
+}
+.card-value { font-size: 0.85rem; color: var(--bright); word-break: break-all; line-height: 1.4; }
+.card-path { font-family: 'JetBrains Mono', monospace; font-size: 0.52rem; color: var(--teal); margin-top: 0.3rem; }
+
+/* ── ERROR / WARN ITEMS ── */
+.error-item {
+  background: rgba(239,68,68,.05); border-left: 3px solid var(--red);
+  padding: 0.75rem 1rem; margin-bottom: 0.5rem;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.warn-item {
+  background: rgba(212,168,71,.05); border-left: 3px solid var(--gold);
+  padding: 0.75rem 1rem; margin-bottom: 0.5rem;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.error-path { font-family: 'JetBrains Mono', monospace; font-size: 0.62rem; color: var(--teal-lt); margin-bottom: 0.2rem; }
+.error-rule { font-size: 0.78rem; color: var(--text); }
+.error-fix { font-size: 0.72rem; color: var(--muted); font-style: italic; margin-top: 0.2rem; }
+.issues-empty {
+  padding: 1rem; background: var(--bg-3); border: 1px solid var(--border);
+  border-radius: var(--radius); font-size: 0.78rem; color: var(--green-lt);
+  display: flex; align-items: center; gap: 0.5rem;
+}
+
+/* ── FMT BLOCK (XML) ── */
+.fmt-block {
+  background: var(--bg-3); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.25rem;
+  overflow-x: auto; position: relative;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+  line-height: 1.8; max-height: 400px; overflow-y: auto;
+}
+.copy-btn {
+  position: absolute; top: 0.75rem; right: 0.75rem;
+  background: var(--bg-4); border: 1px solid var(--border);
+  color: var(--muted); font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 0.3rem 0.6rem; border-radius: var(--radius); cursor: pointer;
+  transition: all 0.2s; z-index: 1;
+}
+.copy-btn:hover { color: var(--teal); border-color: var(--teal-dim); }
+.xml-tag { color: var(--muted); }
+.xml-attr { color: var(--gold); }
+.xml-val { color: var(--teal); }
+.xml-text { color: var(--text); }
+.xml-ns { color: var(--body); font-size: 0.65rem; }
+
+/* ── FIELD TREE ── */
+.field-tree { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; }
+.tree-node {
+  padding: 0.3rem 0 0.3rem 1.2rem; border-left: 1px solid var(--border);
+  margin-left: 0.8rem; position: relative; cursor: pointer;
+}
+.tree-node::before {
+  content: ''; position: absolute; left: -1px; top: 50%;
+  width: 12px; height: 1px; background: var(--border);
+}
+.tree-node:hover { background: rgba(20,184,166,.04); border-radius: 0 var(--radius) var(--radius) 0; }
+.tree-root { margin-left: 0; border-left: none; padding-left: 0; }
+.tree-root::before { display: none; }
+.tree-key { color: var(--gold); }
+.tree-sep { color: var(--muted); }
+.tree-val { color: var(--teal); }
+.tree-badge {
+  display: inline-flex; align-items: center;
+  font-size: 0.46rem; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 0.1rem 0.4rem; border-radius: 2px; margin-left: 0.5rem;
+  vertical-align: middle;
+}
+.badge-mandatory { background: var(--teal-dim); color: var(--teal); border: 1px solid rgba(20,184,166,.25); }
+.badge-conditional { background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(212,168,71,.25); }
+.badge-optional { background: var(--bg-4); color: var(--muted); border: 1px solid var(--border); }
+.tree-children { display: none; }
+.tree-children.open { display: block; }
+.tree-toggle { color: var(--muted); margin-right: 0.35rem; display: inline-block; transition: transform 0.15s; }
+.tree-toggle.open { transform: rotate(90deg); }
+
+/* ── COLLAPSIBLE ── */
+.collapsible { border: 1px solid var(--border); margin-bottom: 1.5rem; border-radius: var(--radius); overflow: hidden; }
+.collapsible-trigger {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.85rem 1rem; cursor: pointer; background: var(--bg-3);
+  font-family: 'JetBrains Mono', monospace; font-size: 0.55rem;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--body);
+  transition: background 0.2s; border: none; width: 100%; text-align: left;
+}
+.collapsible-trigger:hover { background: var(--bg-4); color: var(--text); }
+.collapsible-trigger.open { color: var(--teal-lt); }
+.collapsible-arrow { color: var(--muted); transition: transform 0.25s; font-size: 0.7rem; }
+.collapsible-trigger.open .collapsible-arrow { transform: rotate(180deg); }
+.collapsible-body { display: none; padding: 1.25rem; background: var(--bg-2); border-top: 1px solid var(--border); }
+.collapsible-body.open { display: block; }
+
+/* ── PRIVACY NOTICE ── */
+.privacy-notice {
+  display: flex; align-items: flex-start; gap: 0.6rem;
+  background: var(--teal-glow); border: 1px solid rgba(20,184,166,.15);
+  border-radius: var(--radius); padding: 0.65rem 0.9rem;
+  font-size: 0.72rem; color: var(--body); margin-top: 0.75rem;
+}
+.privacy-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--green-lt);
+  flex-shrink: 0; margin-top: 0.25rem; animation: pulse 2s infinite;
+}
+
+/* ── BATCH TABLE ── */
+.batch-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-bottom: 1.5rem; }
+.batch-table th {
+  background: var(--bg-4); font-family: 'JetBrains Mono', monospace;
+  font-size: 0.46rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted); padding: 0.75rem 0.85rem; text-align: left;
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.batch-table td { padding: 0.65rem 0.85rem; border-bottom: 1px solid rgba(30,47,74,.5); color: var(--text); }
+.batch-table tr:nth-child(even) td { background: rgba(255,255,255,.012); }
+.batch-table tr:hover td { background: var(--bg-3); }
+.status-badge {
+  display: inline-block; font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 0.2rem 0.55rem; border-radius: 3px;
+}
+.status-valid { background: var(--teal-dim); color: var(--teal); border: 1px solid rgba(20,184,166,.25); }
+.status-invalid { background: rgba(239,68,68,.1); color: var(--red-lt); border: 1px solid rgba(239,68,68,.25); }
+.status-warning { background: var(--gold-dim); color: var(--gold-lt); border: 1px solid rgba(212,168,71,.25); }
+
+/* ── MSG TYPE REFERENCE CARDS ── */
+.msg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.msg-card {
+  background: var(--bg-3); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.1rem; transition: border-color 0.2s;
+}
+.msg-card:hover { border-color: var(--border-2); }
+.msg-card-id { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--teal-lt); margin-bottom: 0.3rem; }
+.msg-card-name { font-family: 'DM Serif Display', serif; font-size: 0.95rem; color: var(--bright); margin-bottom: 0.5rem; line-height: 1.3; }
+.msg-card-cat {
+  display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 0.46rem;
+  letter-spacing: 0.1em; text-transform: uppercase; padding: 0.2rem 0.55rem;
+  border-radius: 3px; margin-bottom: 0.6rem;
+}
+.cat-clearing { background: var(--teal-dim); color: var(--teal); border: 1px solid rgba(20,184,166,.2); }
+.cat-initiation { background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(155,114,245,.2); }
+.cat-cash { background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(212,168,71,.2); }
+.cat-fx { background: rgba(34,197,94,.1); color: var(--green-lt); border: 1px solid rgba(34,197,94,.2); }
+.cat-ob { background: rgba(239,68,68,.1); color: var(--red-lt); border: 1px solid rgba(239,68,68,.2); }
+.msg-card-desc { font-size: 0.73rem; color: var(--body); margin-bottom: 0.75rem; line-height: 1.5; }
+.used-by-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 0.6rem; }
+.used-by-chip {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.46rem; letter-spacing: 0.06em;
+  background: var(--bg-4); border: 1px solid var(--border-2); color: var(--body);
+  padding: 0.15rem 0.5rem; border-radius: 3px;
+}
+.key-fields-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.field-chip {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.48rem;
+  background: var(--teal-dim); color: var(--teal); border: 1px solid rgba(20,184,166,.2);
+  padding: 0.15rem 0.5rem; border-radius: 3px;
+}
+.msg-card-footer {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 0.75rem; padding-top: 0.6rem; border-top: 1px solid var(--border);
+}
+.mandatory-count { font-family: 'JetBrains Mono', monospace; font-size: 0.55rem; color: var(--muted); }
+
+/* ── SEARCH + FILTER ── */
+.search-row { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; }
+.search-input-wrap { flex: 1; min-width: 200px; position: relative; }
+.search-input-wrap input { padding-left: 2.2rem; }
+.search-icon { position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 0.8rem; }
+.filter-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.filter-pill {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; letter-spacing: 0.08em;
+  padding: 0.3rem 0.7rem; border-radius: 3px; cursor: pointer;
+  background: var(--bg-3); border: 1px solid var(--border); color: var(--body);
+  transition: all 0.15s;
+}
+.filter-pill:hover { border-color: var(--border-2); color: var(--text); }
+.filter-pill.active { background: var(--teal-dim); border-color: rgba(20,184,166,.35); color: var(--teal); }
+.results-count { font-family: 'JetBrains Mono', monospace; font-size: 0.58rem; color: var(--muted); padding: 0.5rem 0; }
+
+/* ── FIELD EXPLORER ── */
+.field-result {
+  background: var(--bg-3); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.5rem; margin-top: 1.5rem;
+}
+.field-path-header {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;
+  color: var(--teal-lt); margin-bottom: 1.25rem; word-break: break-all;
+  padding-bottom: 0.85rem; border-bottom: 1px solid var(--border);
+}
+.field-meaning {
+  font-size: 0.85rem; color: var(--text); line-height: 1.7;
+  padding: 1rem; background: var(--bg-2); border-radius: var(--radius);
+  margin-bottom: 1rem; border-left: 3px solid var(--border-2);
+}
+.used-in-section { margin-bottom: 1rem; }
+.used-in-section .section-label { margin-bottom: 0.5rem; }
+.used-in-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.used-in-pill {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.52rem;
+  background: var(--teal-dim); color: var(--teal); border: 1px solid rgba(20,184,166,.25);
+  padding: 0.2rem 0.65rem; border-radius: 3px;
+}
+.quick-paths { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1rem; }
+.path-chip {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.52rem;
+  background: var(--bg-3); border: 1px solid var(--border); color: var(--body);
+  padding: 0.25rem 0.65rem; border-radius: 3px; cursor: pointer;
+  transition: all 0.15s;
+}
+.path-chip:hover { border-color: var(--teal-dim); color: var(--teal); background: var(--teal-dim); }
+.parent-child-row { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
+.parent-child-box { flex: 1; min-width: 200px; }
+.parent-child-box .section-label { margin-bottom: 0.4rem; }
+.parent-child-item { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text); padding: 0.3rem 0; }
+.parent-child-item::before { content: '›'; color: var(--muted); margin-right: 0.4rem; }
+
+/* ── EXAMPLE SELECTOR ── */
+.example-bar {
+  display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap;
+}
+.example-label { font-family: 'JetBrains Mono', monospace; font-size: 0.52rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+
+/* ── NO RESULTS ── */
+.no-results {
+  text-align: center; padding: 3rem 2rem; color: var(--muted);
+  font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+}
+
+/* ── SECTION DIVIDER ── */
+.section-divider { height: 1px; background: var(--border); margin: 1.5rem 0; }
+
+/* ── ABOUT / FOOTER ── */
+.about-section { padding: 3rem 0 1.5rem; border-top: 1px solid var(--border); margin-top: 3rem; }
+footer {
+  border-top: 1px solid var(--border); padding: 2.5rem 2rem; margin-top: 1rem;
+  background: var(--bg-2);
+}
+.footer-inner {
+  max-width: 1140px; margin: 0 auto;
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;
+}
+.footer-logo { font-family: 'DM Serif Display', serif; font-size: 0.95rem; color: var(--bright); }
+.footer-logo span { color: var(--gold); }
+.footer-links { display: flex; gap: 1.5rem; }
+.footer-links a {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.52rem;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); transition: color 0.2s;
+}
+.footer-links a:hover { color: var(--teal-lt); }
+.footer-copy { font-size: 0.65rem; color: var(--muted); }
+.footer-privacy { font-size: 0.68rem; color: var(--muted); max-width: 500px; line-height: 1.6; margin-top: 0.75rem; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .hero h1 { font-size: 1.7rem; }
+  .stats-banner { grid-template-columns: repeat(2,1fr); }
+  .stats-banner-5 { grid-template-columns: repeat(3,1fr); }
+  .tab-btn { padding: 0.7rem 1rem; font-size: 0.5rem; }
+  nav .nav-links { display: none; }
+  .msg-grid { grid-template-columns: 1fr; }
+  .comp-grid { grid-template-columns: repeat(2,1fr); }
+  .footer-inner { flex-direction: column; align-items: flex-start; }
+}
+@media (max-width: 480px) {
+  .comp-grid { grid-template-columns: 1fr; }
+  .hero { padding: 2rem 0 1.5rem; }
+}
+
+/* ── MAIN WRAPPER ── */
+.main-wrap { max-width: 1140px; margin: 0 auto; padding: 2.5rem 2rem 4rem; position: relative; z-index: 1; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="https://ainumbers.co" class="nav-logo"><span>AI</span>Numbers.co</a>
+    <div class="nav-links">
+      <a href="https://ainumbers.co">Home</a>
+      <a href="https://ainumbers.co/#cat-5">Open Banking</a>
+      <a href="https://ainumbers.co/tools/10-open-banking-api-explorer.html">API Explorer</a>
+      <a href="https://ainumbers.co/tools/16-iban-validator.html">IBAN Validator</a>
+      <a class="nav-cta" href="https://ainumbers.co">All Tools</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">Open Banking &amp; APIs — Tool 98</div>
+    <h1>ISO 20022 Message Validator<br>&amp; Field Explorer</h1>
+    <p class="hero-sub">Validate pacs.008, pain.001, camt.053 and 20+ ISO 20022 message types against embedded schema rules. Parse every field with its business meaning, run batch validation, and explore the full field dictionary — entirely in your browser.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-privacy">Zero PII · Client-Side Only</span>
+      <span class="hero-badge badge-spec">SWIFT CBPR+ · SEPA · Fedwire · ISO 20022</span>
+      <span class="hero-badge badge-cat">cat-5 · Open Banking &amp; APIs</span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main-wrap">
+
+  <!-- TABS -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('tab-validate', this)">① Single Validator</button>
+    <button class="tab-btn" onclick="switchTab('tab-batch', this)">② Batch Validation</button>
+    <button class="tab-btn" onclick="switchTab('tab-reference', this)">③ Message Reference</button>
+    <button class="tab-btn" onclick="switchTab('tab-fields', this)">④ Field Explorer</button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       TAB 1 — SINGLE VALIDATOR
+  ═══════════════════════════════════════════ -->
+  <div id="tab-validate" class="tab-content active">
+
+    <div class="example-bar">
+      <span class="example-label">Load Example:</span>
+      <button class="btn-ghost" onclick="loadExample('pacs008')">pacs.008 SEPA Credit Transfer</button>
+      <button class="btn-ghost" onclick="loadExample('pain001')">pain.001 Payment Initiation</button>
+      <button class="btn-ghost" onclick="loadExample('camt053')">camt.053 Bank Statement</button>
+    </div>
+
+    <div class="input-group">
+      <label class="input-label">Paste XML Message <span class="input-hint">(or drag &amp; drop an .xml file)</span></label>
+      <textarea id="xml-input" placeholder="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;&#10;&lt;Document xmlns=&quot;urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08&quot;&gt;&#10;  &lt;FIToFICstmrCdtTrf&gt;...&lt;/FIToFICstmrCdtTrf&gt;&#10;&lt;/Document&gt;" oninput="onXmlInput()"></textarea>
+    </div>
+
+    <div id="detect-banner" style="display:none;"></div>
+
+    <div class="btn-row">
+      <button class="btn-primary" onclick="validateMessage()">▶ Validate Message</button>
+      <button class="btn-secondary" onclick="document.getElementById('file-upload').click()">Upload .xml File</button>
+      <input type="file" id="file-upload" accept=".xml,.txt" onchange="handleFileUpload(event)">
+      <button class="btn-ghost" onclick="clearAll()">Clear</button>
+    </div>
+
+    <div class="privacy-notice">
+      <div class="privacy-dot"></div>
+      <span>No data leaves your browser. XML is parsed entirely in-memory using the native DOMParser API. Tab close = data gone.</span>
+    </div>
+
+    <div id="validate-results" style="margin-top:2rem; display:none;"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       TAB 2 — BATCH VALIDATION
+  ═══════════════════════════════════════════ -->
+  <div id="tab-batch" class="tab-content">
+
+    <div class="input-group">
+      <label class="input-label">Paste Multiple XML Messages <span class="input-hint">(separate each message with <code style="color:var(--teal)">---</code> on its own line, or paste complete XML documents)</span></label>
+      <textarea id="batch-input" style="min-height:280px;" placeholder="&lt;?xml version=&quot;1.0&quot;?&gt;&#10;&lt;Document xmlns=&quot;urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08&quot;&gt;...&lt;/Document&gt;&#10;---&#10;&lt;?xml version=&quot;1.0&quot;?&gt;&#10;&lt;Document xmlns=&quot;urn:iso:std:iso:20022:tech:xsd:pain.001.001.09&quot;&gt;...&lt;/Document&gt;"></textarea>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-primary" onclick="validateBatch()">▶ Validate Batch</button>
+      <button class="btn-secondary" onclick="document.getElementById('batch-upload').click()">Upload File</button>
+      <input type="file" id="batch-upload" accept=".xml,.txt" onchange="handleBatchUpload(event)">
+      <button class="btn-ghost" onclick="loadBatchExample()">Load Example Batch</button>
+    </div>
+
+    <div class="privacy-notice">
+      <div class="privacy-dot"></div>
+      <span>All messages processed locally. No data is transmitted. Up to 50 messages per batch.</span>
+    </div>
+
+    <div id="batch-results" style="margin-top:2rem; display:none;"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       TAB 3 — MESSAGE TYPE REFERENCE
+  ═══════════════════════════════════════════ -->
+  <div id="tab-reference" class="tab-content">
+
+    <div class="search-row">
+      <div class="search-input-wrap">
+        <span class="search-icon">⌕</span>
+        <input type="search" id="msg-search" placeholder="Search message ID or name..." oninput="filterMessages()">
+      </div>
+      <div class="filter-pills" id="cat-filters">
+        <button class="filter-pill active" data-cat="all" onclick="setCatFilter('all', this)">All</button>
+        <button class="filter-pill" data-cat="clearing" onclick="setCatFilter('clearing', this)">Payment Clearing (pacs)</button>
+        <button class="filter-pill" data-cat="initiation" onclick="setCatFilter('initiation', this)">Payment Initiation (pain)</button>
+        <button class="filter-pill" data-cat="cash_management" onclick="setCatFilter('cash_management', this)">Cash Management (camt)</button>
+        <button class="filter-pill" data-cat="fx_securities" onclick="setCatFilter('fx_securities', this)">FX &amp; Securities</button>
+        <button class="filter-pill" data-cat="open_banking" onclick="setCatFilter('open_banking', this)">Open Banking</button>
+      </div>
+    </div>
+
+    <div id="msg-results-count" class="results-count"></div>
+    <div id="msg-grid" class="msg-grid"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       TAB 4 — FIELD EXPLORER
+  ═══════════════════════════════════════════ -->
+  <div id="tab-fields" class="tab-content">
+
+    <p style="font-size:0.82rem; color:var(--body); margin-bottom:1.25rem; line-height:1.7;">
+      Enter any ISO 20022 element path to look up its data type, mandatory rules, business meaning, and which message types use it.
+    </p>
+
+    <div class="input-group">
+      <label class="input-label">ISO 20022 Element Path</label>
+      <input type="text" id="field-path-input" placeholder="Document/FIToFICstmrCdtTrf/CdtTrfTxInf/IntrBkSttlmAmt" style="font-size:0.75rem;">
+    </div>
+
+    <div class="section-label" style="margin-bottom:0.5rem;">Quick Access — Common Fields</div>
+    <div class="quick-paths" id="quick-paths"></div>
+
+    <div class="btn-row">
+      <button class="btn-primary" onclick="lookupField()">▶ Look Up Field</button>
+      <button class="btn-ghost" onclick="document.getElementById('field-path-input').value=''; document.getElementById('field-result').style.display='none';">Clear</button>
+    </div>
+
+    <div class="privacy-notice">
+      <div class="privacy-dot"></div>
+      <span>All field definitions are embedded in this page. No external lookups.</span>
+    </div>
+
+    <div id="field-result" style="display:none;"></div>
+  </div>
+
+  <!-- ABOUT COLLAPSIBLE -->
+  <div class="about-section">
+    <div class="collapsible">
+      <button class="collapsible-trigger" onclick="toggleCollapsible(this)">
+        <span>About This Tool</span>
+        <span class="collapsible-arrow">▼</span>
+      </button>
+      <div class="collapsible-body">
+        <p style="margin-bottom:0.85rem; font-size:0.82rem; line-height:1.75; color:var(--body);">
+          <strong style="color:var(--bright);">What it does:</strong> Accepts ISO 20022 XML messages (pacs.008, pain.001, camt.053, and more), auto-detects the message type from the XML namespace, validates structure against embedded schema rules, and parses every field with human-readable business context.
+        </p>
+        <p style="margin-bottom:0.85rem; font-size:0.82rem; line-height:1.75; color:var(--body);">
+          <strong style="color:var(--bright);">Why it exists:</strong> The SWIFT CBPR+ migration completed November 2025, Fedwire migrated in 2025, and every major RTGS system is now live on ISO 20022. Every bank, fintech, and payments engineer working with these messages needs a fast way to validate and understand them.
+        </p>
+        <p style="margin-bottom:0.85rem; font-size:0.82rem; line-height:1.75; color:var(--body);">
+          <strong style="color:var(--bright);">Data privacy:</strong> All parsing and validation runs in your browser using the native DOMParser API. Nothing is sent to any server. All validation rules and field definitions are embedded directly in this page.
+        </p>
+        <p style="font-size:0.82rem; line-height:1.75; color:var(--body);">
+          <strong style="color:var(--bright);">Built by:</strong> Post Oak Labs · <a href="https://ainumbers.co" style="color:var(--teal);">AINumbers.co</a> · CC BY 4.0
+        </p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end main-wrap -->
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="footer-logo"><span>AI</span>Numbers.co</div>
+      <div class="footer-privacy">Tool 98 of the Open Banking &amp; APIs suite. All tools are client-side, zero PII, no install required. Built by Post Oak Labs.</div>
+    </div>
+    <div>
+      <div class="footer-links">
+        <a href="https://ainumbers.co">Home</a>
+        <a href="https://ainumbers.co/#cat-5">Open Banking</a>
+        <a href="https://ainumbers.co/tools/10-open-banking-api-explorer.html">API Explorer</a>
+        <a href="https://ainumbers.co/tools/16-iban-validator.html">IBAN Validator</a>
+      </div>
+      <div class="footer-copy" style="margin-top:0.75rem;">© Post Oak Labs · CC BY 4.0</div>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ═══════════════════════════════════════════
+   DATA — ISO 20022 MESSAGES
+═══════════════════════════════════════════ */
+const ISO20022_MESSAGES = [
+  { id:'pacs.008.001.08', name:'FI to FI Customer Credit Transfer', category:'clearing',
+    namespace:'urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08',
+    description:'Interbank instruction to move funds from debtor agent to creditor agent for a single customer credit transfer.',
+    usedBy:['SEPA SCT','SWIFT CBPR+','Fedwire','CHAPS','T2'],
+    keyFields:['IntrBkSttlmAmt','Dbtr','Cdtr','DbtrAgt','CdtrAgt'], mandatoryCount:47 },
+  { id:'pacs.002.001.11', name:'FI to FI Payment Status Report', category:'clearing',
+    namespace:'urn:iso:std:iso:20022:tech:xsd:pacs.002.001.11',
+    description:'Status report from an agent to the instructing party covering ACCP, RJCT, PDNG, ACSC, and ACSP states.',
+    usedBy:['SEPA SCT','SWIFT CBPR+','FedNow','CHAPS'],
+    keyFields:['GrpHdr','OrgnlGrpInfAndSts','TxInfAndSts','TxSts'], mandatoryCount:12 },
+  { id:'pacs.003.001.08', name:'FI to FI Customer Direct Debit', category:'clearing',
+    namespace:'urn:iso:std:iso:20022:tech:xsd:pacs.003.001.08',
+    description:'Interbank direct debit instruction from a creditor agent to a debtor agent to collect funds.',
+    usedBy:['SEPA SDD Core','SEPA SDD B2B'],
+    keyFields:['DrctDbtTxInf','MndtRltdInf','CdtrSchmeId','IntrBkSttlmAmt'], mandatoryCount:39 },
+  { id:'pacs.004.001.09', name:'Payment Return', category:'clearing',
+    namespace:'urn:iso:std:iso:20022:tech:xsd:pacs.004.001.09',
+    description:'Return of a previously settled payment, sent by the creditor agent to the debtor agent.',
+    usedBy:['SEPA SCT','SEPA SDD','SWIFT CBPR+'],
+    keyFields:['TxInf','RtrdIntrBkSttlmAmt','RtrnRsnInf'], mandatoryCount:18 },
+  { id:'pacs.009.001.08', name:'Financial Institution Credit Transfer', category:'clearing',
+    namespace:'urn:iso:std:iso:20022:tech:xsd:pacs.009.001.08',
+    description:'Credit transfer between financial institutions, typically for treasury or nostro/vostro movements.',
+    usedBy:['SWIFT CBPR+','T2','Fedwire'],
+    keyFields:['CdtTrfTxInf','IntrBkSttlmAmt','Dbtr','Cdtr'], mandatoryCount:31 },
+  { id:'pacs.028.001.04', name:'FI to FI Payment Status Request', category:'clearing',
+    namespace:'urn:iso:std:iso:20022:tech:xsd:pacs.028.001.04',
+    description:'Request from one agent to another asking for the status of a previously submitted credit transfer.',
+    usedBy:['SWIFT CBPR+','FedNow','SEPA SCT Inst'],
+    keyFields:['GrpHdr','TxInf','OrgnlGrpInf'], mandatoryCount:9 },
+  { id:'pain.001.001.09', name:'Customer Credit Transfer Initiation', category:'initiation',
+    namespace:'urn:iso:std:iso:20022:tech:xsd:pain.001.001.09',
+    description:'Customer instruction to their bank to execute one or more credit transfers to beneficiaries.',
+    usedBy:['SEPA SCT','SEPA SCT Inst','UK Bacs','Corporate Treasury'],
+    keyFields:['PmtInf','CdtTrfTxInf','InstdAmt','ReqdExctnDt'], mandatoryCount:31 },
+  { id:'pain.002.001.11', name:'Customer Payment Status Report', category:'initiation',
+    namespace:'urn:iso:std:iso:20022:tech:xsd:pain.002.001.11',
+    description:'Status report from the debtor bank to the customer confirming or rejecting a payment initiation.',
+    usedBy:['SEPA SCT','SEPA SDD'],
+    keyFields:['OrgnlGrpInfAndSts','OrgnlPmtInfAndSts','TxInfAndSts'], mandatoryCount:9 },
+  { id:'pain.007.001.09', name:'Customer Payment Reversal', category:'initiation',
+    namespace:'urn:iso:std:iso:20022:tech:xsd:pain.007.001.09',
+    description:'Customer request to reverse a previously submitted direct debit collection.',
+    usedBy:['SEPA SDD Core'],
+    keyFields:['RvslPmtInf','RvslRsnInf','OrgnlPmtInfAndRvsl'], mandatoryCount:14 },
+  { id:'pain.008.001.08', name:'Customer Direct Debit Initiation', category:'initiation',
+    namespace:'urn:iso:std:iso:20022:tech:xsd:pain.008.001.08',
+    description:'Customer instruction to their bank to collect funds from debtor accounts via direct debit mandates.',
+    usedBy:['SEPA SDD Core','SEPA SDD B2B'],
+    keyFields:['PmtInf','DrctDbtTxInf','MndtRltdInf','CdtrSchmeId'], mandatoryCount:41 },
+  { id:'camt.052.001.09', name:'Bank to Customer Account Report', category:'cash_management',
+    namespace:'urn:iso:std:iso:20022:tech:xsd:camt.052.001.09',
+    description:'Intraday account activity report sent by a bank to a corporate client, showing transactions not yet on the statement.',
+    usedBy:['T2','Open Banking UK','Berlin Group'],
+    keyFields:['Rpt','Bal','Ntry','Acct'], mandatoryCount:7 },
+  { id:'camt.053.001.09', name:'Bank to Customer Statement', category:'cash_management',
+    namespace:'urn:iso:std:iso:20022:tech:xsd:camt.053.001.09',
+    description:'End-of-day account statement sent by a bank to a corporate, detailing all settled transactions.',
+    usedBy:['T2','SEPA','Open Banking UK'],
+    keyFields:['Stmt','Bal','Ntry','TxsSummry'], mandatoryCount:11 },
+  { id:'camt.054.001.09', name:'Bank to Customer Debit/Credit Notification', category:'cash_management',
+    namespace:'urn:iso:std:iso:20022:tech:xsd:camt.054.001.09',
+    description:'Real-time notification of a single debit or credit entry on a customer account, often triggered by instant payments.',
+    usedBy:['T2','SEPA Instant','FedNow'],
+    keyFields:['Ntfctn','Ntry','TxDtls','ValDt'], mandatoryCount:8 },
+  { id:'camt.056.001.09', name:'FI to FI Payment Cancellation Request', category:'cash_management',
+    namespace:'urn:iso:std:iso:20022:tech:xsd:camt.056.001.09',
+    description:'Request from one financial institution to another to cancel a previously submitted payment.',
+    usedBy:['SWIFT CBPR+','SEPA SCT'],
+    keyFields:['Assgnmt','CtrlData','Undrlyg','CxlRsnInf'], mandatoryCount:16 },
+  { id:'camt.029.001.11', name:'Resolution of Investigation', category:'cash_management',
+    namespace:'urn:iso:std:iso:20022:tech:xsd:camt.029.001.11',
+    description:'Response to a cancellation request or claim for non-receipt, indicating whether cancellation was accepted.',
+    usedBy:['SWIFT CBPR+'],
+    keyFields:['Assgnmt','Sts','CxlDtls','RsltnOfInvstgtn'], mandatoryCount:10 },
+  { id:'camt.060.001.06', name:'Account Reporting Request', category:'cash_management',
+    namespace:'urn:iso:std:iso:20022:tech:xsd:camt.060.001.06',
+    description:'Customer request to their bank for a specific account report or statement for a given date range.',
+    usedBy:['Open Banking UK','Berlin Group'],
+    keyFields:['RptgReq','Acct','AcctOwnr','RptgPrd'], mandatoryCount:5 },
+  { id:'fxtr.008.001.05', name:'Foreign Exchange Trade Instruction', category:'fx_securities',
+    namespace:'urn:iso:std:iso:20022:tech:xsd:fxtr.008.001.05',
+    description:'Instruction to settle a foreign exchange trade between two counterparties.',
+    usedBy:['FX Market','CLS Bank'],
+    keyFields:['TradgSdId','CtrPtySdId','TradDt','SttlmDt','ExchRate'], mandatoryCount:22 },
+  { id:'sese.023.001.11', name:'Securities Settlement Transaction Instruction', category:'fx_securities',
+    namespace:'urn:iso:std:iso:20022:tech:xsd:sese.023.001.11',
+    description:'Instruction to settle a securities trade between two parties, specifying the securities and cash legs.',
+    usedBy:['T2S','Euroclear','Clearstream'],
+    keyFields:['TxId','SttlmTpAndAddtlParams','Scties','SttlmAmt'], mandatoryCount:19 },
+  { id:'OBDomesticPayment-v3.1', name:'UK OB Domestic Payment (pain.001 wrapper)', category:'open_banking',
+    namespace:'https://openbanking.org.uk/ns/v3.1/pisp/domestic-payment',
+    description:'UK Open Banking payment initiation consent and execution for a single domestic payment, wrapping ISO 20022 pain.001 semantics.',
+    usedBy:['UK Open Banking CMA9'],
+    keyFields:['InstructionIdentification','EndToEndIdentification','InstructedAmount','CreditorAccount'], mandatoryCount:6 },
+  { id:'OBDomesticStandingOrder-v3.1', name:'UK OB Standing Order (pain.001 recurring)', category:'open_banking',
+    namespace:'https://openbanking.org.uk/ns/v3.1/pisp/standing-order',
+    description:'UK Open Banking standing order setup covering first, recurring, and final payment amounts with frequency.',
+    usedBy:['UK Open Banking CMA9'],
+    keyFields:['Frequency','FirstPaymentAmount','RecurringPaymentAmount','FinalPaymentAmount'], mandatoryCount:5 },
+  { id:'NDEAmountCredit-v1.0', name:'Berlin Group NextGenPSD2 Credit Transfer', category:'open_banking',
+    namespace:'https://api.berlin-group.org/v1/payments/sepa-credit-transfers',
+    description:'Berlin Group NextGenPSD2 payment initiation request for SEPA credit transfers via an ASPSP API.',
+    usedBy:['Berlin Group PSD2 ASPSPs'],
+    keyFields:['instructedAmount','creditorAccount','creditorName','debtorAccount'], mandatoryCount:4 },
+];
+
+/* ═══════════════════════════════════════════
+   DATA — FIELD DEFINITIONS
+═══════════════════════════════════════════ */
+const FIELD_DEFINITIONS = [
+  { path:'IntrBkSttlmAmt', fullPath:'Document/FIToFICstmrCdtTrf/CdtTrfTxInf/IntrBkSttlmAmt',
+    name:'Interbank Settlement Amount', dataType:'ActiveCurrencyAndAmount', maxLength:18, fractionDigits:5,
+    minOcc:1, maxOcc:1, mandatory:true,
+    businessMeaning:'The amount of money to be moved between the instructing agent and the instructed agent. This is the interbank settlement amount — not necessarily equal to the instructed amount to the end customer, which may differ due to charge deductions or FX conversion.',
+    conditionalRules:['Currency attribute (Ccy) is mandatory — must be an ISO 4217 3-letter code','Amount must be positive and greater than zero'],
+    usedIn:['pacs.008.001.08','pacs.009.001.08'], parent:'CdtTrfTxInf', children:[] },
+  { path:'MsgId', fullPath:'Document/FIToFICstmrCdtTrf/GrpHdr/MsgId',
+    name:'Message Identification', dataType:'Max35Text', maxLength:35,
+    minOcc:1, maxOcc:1, mandatory:true,
+    businessMeaning:'A unique identifier assigned by the instructing party to unambiguously identify the message. Must be unique per instructing party for a rolling period agreed between parties (typically 90 days). Often used for duplicate detection and audit trailing.',
+    conditionalRules:[],
+    usedIn:['pacs.008.001.08','pacs.002.001.11','pain.001.001.09','camt.053.001.09','pacs.028.001.04'],
+    parent:'GrpHdr', children:[] },
+  { path:'EndToEndId', fullPath:'Document/FIToFICstmrCdtTrf/CdtTrfTxInf/PmtId/EndToEndId',
+    name:'End-to-End Identification', dataType:'Max35Text', maxLength:35,
+    minOcc:1, maxOcc:1, mandatory:true,
+    businessMeaning:'Unique identification assigned by the initiating party to identify the transaction end-to-end. This reference must be passed unchanged throughout the entire payment chain from debtor to creditor. Critical for reconciliation and query resolution.',
+    conditionalRules:["If the value is 'NOTPROVIDED', the field is technically present but should only be used if a genuine end-to-end reference is not available"],
+    usedIn:['pacs.008.001.08','pain.001.001.09','pacs.002.001.11'],
+    parent:'PmtId', children:[] },
+  { path:'ChrgBr', fullPath:'Document/FIToFICstmrCdtTrf/CdtTrfTxInf/ChrgBr',
+    name:'Charge Bearer', dataType:'ChargeBearerType1Code', maxLength:4,
+    minOcc:1, maxOcc:1, mandatory:true,
+    businessMeaning:'Specifies which party bears the charges for the transaction. DEBT = all charges paid by debtor; CRED = all charges paid by creditor; SHAR = shared (each party pays own bank charges — standard for SEPA); SLEV = agreed service level.',
+    conditionalRules:['If SHAR is selected and charges are present, ChrgsInf must be populated','For SEPA SCT, only SLEV is permitted'],
+    usedIn:['pacs.008.001.08','pacs.003.001.08','pacs.009.001.08'],
+    parent:'CdtTrfTxInf', children:[] },
+  { path:'Dbtr/Nm', fullPath:'Document/FIToFICstmrCdtTrf/CdtTrfTxInf/Dbtr/Nm',
+    name:'Debtor Name', dataType:'Max140Text', maxLength:140,
+    minOcc:0, maxOcc:1, mandatory:false,
+    businessMeaning:'Name of the party that owes an amount of money to the creditor. In SEPA and SWIFT CBPR+, the debtor name is mandatory in practice even if technically optional in the base ISO 20022 schema. Used by the creditor for reconciliation.',
+    conditionalRules:['Mandatory under SEPA SCT Rulebook (EPC125-05)','Mandatory under SWIFT CBPR+ UHB for cross-border payments'],
+    usedIn:['pacs.008.001.08','pain.001.001.09'],
+    parent:'Dbtr', children:['Id','PstlAdr','CtctDtls'] },
+  { path:'CdtrAgt/FinInstnId/BICFI', fullPath:'Document/FIToFICstmrCdtTrf/CdtTrfTxInf/CdtrAgt/FinInstnId/BICFI',
+    name:'Creditor Agent BIC', dataType:'BICFIIdentifier', maxLength:11,
+    minOcc:0, maxOcc:1, mandatory:false,
+    businessMeaning:'Business Identifier Code (BIC/SWIFT code) of the financial institution acting as the creditor agent. Must be a valid registered BIC in the SWIFT BIC directory. Either BICFI or LEI must be present for the creditor agent identification.',
+    conditionalRules:['Must be 8 or 11 characters (AAAABBCC or AAAABBCCDDD)','Mandatory for SWIFT CBPR+ cross-border payments','For SEPA: BICFI or IBAN-only routing accepted'],
+    usedIn:['pacs.008.001.08','pain.001.001.09','pacs.009.001.08'],
+    parent:'FinInstnId', children:[] },
+  { path:'DbtrAgt/FinInstnId/BICFI', fullPath:'Document/FIToFICstmrCdtTrf/CdtTrfTxInf/DbtrAgt/FinInstnId/BICFI',
+    name:'Debtor Agent BIC', dataType:'BICFIIdentifier', maxLength:11,
+    minOcc:0, maxOcc:1, mandatory:false,
+    businessMeaning:'BIC of the financial institution acting as the debtor agent (the bank where the debtor holds their account). Used by the creditor agent for routing and settlement. Mandatory in SWIFT CBPR+ and SEPA SCT.',
+    conditionalRules:['Must be 8 or 11 characters','Required for SEPA and SWIFT CBPR+ processing'],
+    usedIn:['pacs.008.001.08','pacs.003.001.08'],
+    parent:'FinInstnId', children:[] },
+  { path:'RmtInf/Ustrd', fullPath:'Document/FIToFICstmrCdtTrf/CdtTrfTxInf/RmtInf/Ustrd',
+    name:'Unstructured Remittance Information', dataType:'Max140Text', maxLength:140,
+    minOcc:0, maxOcc:1, mandatory:false,
+    businessMeaning:'Free-text remittance information passed to the beneficiary. Used by the creditor for reconciliation of the incoming payment with an invoice or order. Must not contain IBAN or other sensitive personal data. Either Ustrd or Strd must be present, not both.',
+    conditionalRules:["Either Ustrd (unstructured) or Strd (structured) may be used — not both in the same transaction",'Maximum 140 characters; truncation by intermediary banks may occur on legacy SWIFT MT messages'],
+    usedIn:['pacs.008.001.08','pain.001.001.09'],
+    parent:'RmtInf', children:[] },
+  { path:'SttlmInf/SttlmMtd', fullPath:'Document/FIToFICstmrCdtTrf/GrpHdr/SttlmInf/SttlmMtd',
+    name:'Settlement Method', dataType:'SettlementMethod1Code', maxLength:4,
+    minOcc:1, maxOcc:1, mandatory:true,
+    businessMeaning:'Specifies how the interbank settlement between agents will be performed. INGA = settlement through a correspondent nostro/vostro account; INDA = settlement through account held at the instructed agent; COVE = settlement using a cover payment via another financial institution; CLRG = settlement through a clearing system.',
+    conditionalRules:['If INDA or INGA, SettlementAccount must be present','If COVE, InstructedReimbursementAgent must be populated'],
+    usedIn:['pacs.008.001.08','pacs.009.001.08','pacs.003.001.08'],
+    parent:'SttlmInf', children:['SttlmAcct','ClrSys','InstgRmbrsmntAgt'] },
+  { path:'InstrId', fullPath:'Document/FIToFICstmrCdtTrf/CdtTrfTxInf/PmtId/InstrId',
+    name:'Instruction Identification', dataType:'Max35Text', maxLength:35,
+    minOcc:0, maxOcc:1, mandatory:false,
+    businessMeaning:'Unique identification assigned by the instructing party to identify the instruction. Unlike EndToEndId, this reference does not pass beyond the immediate agent. Used for tracking within a bilateral relationship.',
+    conditionalRules:['Mandatory in many scheme implementations even if optional in base schema'],
+    usedIn:['pacs.008.001.08','pain.001.001.09'],
+    parent:'PmtId', children:[] },
+  { path:'CreDtTm', fullPath:'Document/FIToFICstmrCdtTrf/GrpHdr/CreDtTm',
+    name:'Creation Date Time', dataType:'ISODateTime', maxLength:null,
+    minOcc:1, maxOcc:1, mandatory:true,
+    businessMeaning:'Date and time at which the message was created by the instructing party. Must be in ISO 8601 format with timezone offset (e.g., 2026-01-12T10:30:00+00:00). Used for ordering and duplicate detection.',
+    conditionalRules:['Must be a valid ISO 8601 datetime','Timezone offset recommended; UTC (Z suffix) preferred for cross-border messages'],
+    usedIn:['pacs.008.001.08','pain.001.001.09','pacs.002.001.11','camt.053.001.09'],
+    parent:'GrpHdr', children:[] },
+  { path:'NbOfTxs', fullPath:'Document/FIToFICstmrCdtTrf/GrpHdr/NbOfTxs',
+    name:'Number of Transactions', dataType:'Max15NumericText', maxLength:15,
+    minOcc:1, maxOcc:1, mandatory:true,
+    businessMeaning:'Total number of individual transactions within the message. Must match the actual count of CdtTrfTxInf or DrctDbtTxInf blocks present. Used for reconciliation and validation — a mismatch will cause rejection.',
+    conditionalRules:['Must equal the exact count of transaction blocks in the message'],
+    usedIn:['pacs.008.001.08','pain.001.001.09','pacs.003.001.08'],
+    parent:'GrpHdr', children:[] },
+  { path:'TtlIntrBkSttlmAmt', fullPath:'Document/FIToFICstmrCdtTrf/GrpHdr/TtlIntrBkSttlmAmt',
+    name:'Total Interbank Settlement Amount', dataType:'ActiveCurrencyAndAmount', maxLength:18,
+    minOcc:0, maxOcc:1, mandatory:false,
+    businessMeaning:'Sum of all IntrBkSttlmAmt values in the message. If present, must equal the arithmetic sum of individual transaction amounts in the same currency. Used for batch reconciliation.',
+    conditionalRules:['If present, currency must match all IntrBkSttlmAmt entries','Conditional: mandatory in some RTGS systems (T2, Fedwire) for batch settlement'],
+    usedIn:['pacs.008.001.08'],
+    parent:'GrpHdr', children:[] },
+  { path:'Purp/Cd', fullPath:'Document/FIToFICstmrCdtTrf/CdtTrfTxInf/Purp/Cd',
+    name:'Purpose Code', dataType:'ExternalPurpose1Code', maxLength:4,
+    minOcc:0, maxOcc:1, mandatory:false,
+    businessMeaning:'ISO 20022 external code identifying the purpose of the credit transfer. Common codes include: SALA (salary), SUPP (supplier payment), TREA (treasury), GDDS (goods/services), BEXP (business expenses). Used for regulatory reporting and AML screening.',
+    conditionalRules:['Either Cd (code) or Prtry (proprietary) may be present, not both','For SEPA: purpose codes from EPC external code list'],
+    usedIn:['pacs.008.001.08','pain.001.001.09'],
+    parent:'Purp', children:[] },
+  { path:'CdtrAcct/Id/IBAN', fullPath:'Document/FIToFICstmrCdtTrf/CdtTrfTxInf/CdtrAcct/Id/IBAN',
+    name:'Creditor Account IBAN', dataType:'IBAN2007Identifier', maxLength:34,
+    minOcc:0, maxOcc:1, mandatory:false,
+    businessMeaning:'International Bank Account Number of the account to be credited. Must be a valid IBAN per ISO 13616-1:2020, validated by the modulo-97 checksum algorithm. Mandatory for SEPA payments. For non-SEPA: Othr/Id may be used instead.',
+    conditionalRules:['Must pass ISO 13616 modulo-97 checksum validation','Mandatory for SEPA SCT and SEPA SDD','For cross-border: either IBAN or Othr/Id/BBAN must be present'],
+    usedIn:['pacs.008.001.08','pacs.003.001.08','pain.001.001.09'],
+    parent:'Id', children:[] },
+];
+
+/* ═══════════════════════════════════════════
+   DATA — VALIDATION RULES
+═══════════════════════════════════════════ */
+const VALIDATION_RULES = {
+  'pacs.008.001.08': {
+    rootElement: 'FIToFICstmrCdtTrf',
+    mandatoryFields: [
+      { path: 'GrpHdr/MsgId', name: 'Message ID' },
+      { path: 'GrpHdr/CreDtTm', name: 'Creation DateTime' },
+      { path: 'GrpHdr/NbOfTxs', name: 'Number of Transactions' },
+      { path: 'GrpHdr/SttlmInf/SttlmMtd', name: 'Settlement Method' },
+      { path: 'CdtTrfTxInf/PmtId/InstrId', name: 'Instruction ID' },
+      { path: 'CdtTrfTxInf/PmtId/EndToEndId', name: 'End-to-End ID' },
+      { path: 'CdtTrfTxInf/IntrBkSttlmAmt', name: 'Interbank Settlement Amount' },
+      { path: 'CdtTrfTxInf/ChrgBr', name: 'Charge Bearer' },
+      { path: 'CdtTrfTxInf/DbtrAgt/FinInstnId', name: 'Debtor Agent' },
+      { path: 'CdtTrfTxInf/Dbtr/Nm', name: 'Debtor Name' },
+      { path: 'CdtTrfTxInf/DbtrAcct/Id', name: 'Debtor Account' },
+      { path: 'CdtTrfTxInf/CdtrAgt/FinInstnId', name: 'Creditor Agent' },
+      { path: 'CdtTrfTxInf/Cdtr/Nm', name: 'Creditor Name' },
+      { path: 'CdtTrfTxInf/CdtrAcct/Id', name: 'Creditor Account' },
+    ],
+    maxLengths: { 'MsgId':35, 'InstrId':35, 'EndToEndId':35, 'Nm':140 },
+    conditionalRules: [
+      { condition: 'ChrgBr === SHAR', message: 'When ChargeBearerType is SHAR, ChrgsInf should be populated with charges information.', severity:'warn' },
+      { condition: 'SttlmMtd === INDA or INGA', message: 'Settlement method INDA/INGA typically requires SettlementAccount to be specified.', severity:'warn' },
+    ]
+  },
+  'pain.001.001.09': {
+    rootElement: 'CstmrCdtTrfInitn',
+    mandatoryFields: [
+      { path: 'GrpHdr/MsgId', name: 'Message ID' },
+      { path: 'GrpHdr/CreDtTm', name: 'Creation DateTime' },
+      { path: 'GrpHdr/NbOfTxs', name: 'Number of Transactions' },
+      { path: 'GrpHdr/InitgPty', name: 'Initiating Party' },
+      { path: 'PmtInf/PmtInfId', name: 'Payment Info ID' },
+      { path: 'PmtInf/PmtMtd', name: 'Payment Method' },
+      { path: 'PmtInf/ReqdExctnDt', name: 'Requested Execution Date' },
+      { path: 'PmtInf/Dbtr/Nm', name: 'Debtor Name' },
+      { path: 'PmtInf/DbtrAcct/Id', name: 'Debtor Account' },
+      { path: 'PmtInf/DbtrAgt/FinInstnId', name: 'Debtor Agent' },
+      { path: 'PmtInf/CdtTrfTxInf/PmtId/EndToEndId', name: 'End-to-End ID' },
+      { path: 'PmtInf/CdtTrfTxInf/Amt/InstdAmt', name: 'Instructed Amount' },
+      { path: 'PmtInf/CdtTrfTxInf/Cdtr/Nm', name: 'Creditor Name' },
+      { path: 'PmtInf/CdtTrfTxInf/CdtrAcct/Id', name: 'Creditor Account' },
+    ],
+    maxLengths: { 'MsgId':35, 'PmtInfId':35, 'EndToEndId':35, 'Nm':140 },
+    conditionalRules: []
+  },
+  'camt.053.001.09': {
+    rootElement: 'BkToCstmrStmt',
+    mandatoryFields: [
+      { path: 'GrpHdr/MsgId', name: 'Message ID' },
+      { path: 'GrpHdr/CreDtTm', name: 'Creation DateTime' },
+      { path: 'Stmt/Id', name: 'Statement ID' },
+      { path: 'Stmt/Acct/Id', name: 'Account ID' },
+      { path: 'Stmt/Bal', name: 'Balance' },
+    ],
+    maxLengths: { 'MsgId':35, 'Id':35 },
+    conditionalRules: [
+      { condition: 'Ntry present without BookgDt', message: 'Entries should include BookgDt (Booking Date) for statement accuracy.', severity:'warn' },
+    ]
+  },
+  'camt.054.001.09': {
+    rootElement: 'BkToCstmrDbtCdtNtfctn',
+    mandatoryFields: [
+      { path: 'GrpHdr/MsgId', name: 'Message ID' },
+      { path: 'GrpHdr/CreDtTm', name: 'Creation DateTime' },
+      { path: 'Ntfctn/Id', name: 'Notification ID' },
+      { path: 'Ntfctn/Acct/Id', name: 'Account ID' },
+    ],
+    maxLengths: { 'MsgId':35, 'Id':35 },
+    conditionalRules: []
+  },
+  'pacs.002.001.11': {
+    rootElement: 'FIToFIPmtStsRpt',
+    mandatoryFields: [
+      { path: 'GrpHdr/MsgId', name: 'Message ID' },
+      { path: 'GrpHdr/CreDtTm', name: 'Creation DateTime' },
+      { path: 'TxInfAndSts/StsId', name: 'Status ID' },
+    ],
+    maxLengths: { 'MsgId':35 },
+    conditionalRules: [
+      { condition: 'TxSts === RJCT', message: 'When status is RJCT (Rejected), StsRsnInf (Status Reason Information) should contain a reason code.', severity:'warn' },
+    ]
+  },
+};
+
+/* ═══════════════════════════════════════════
+   DATA — SAMPLE XML EXAMPLES
+═══════════════════════════════════════════ */
+const EXAMPLES = {
+  pacs008: `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <FIToFICstmrCdtTrf>
+    <GrpHdr>
+      <MsgId>MSGID-20260112-001</MsgId>
+      <CreDtTm>2026-01-12T10:30:00+00:00</CreDtTm>
+      <NbOfTxs>1</NbOfTxs>
+      <TtlIntrBkSttlmAmt Ccy="EUR">12500.00</TtlIntrBkSttlmAmt>
+      <SttlmInf>
+        <SttlmMtd>CLRG</SttlmMtd>
+        <ClrSys>
+          <Cd>TGT</Cd>
+        </ClrSys>
+      </SttlmInf>
+    </GrpHdr>
+    <CdtTrfTxInf>
+      <PmtId>
+        <InstrId>INSTR-001</InstrId>
+        <EndToEndId>E2E-ACME-20260112-001</EndToEndId>
+        <TxId>TXN-20260112-001</TxId>
+      </PmtId>
+      <IntrBkSttlmAmt Ccy="EUR">12500.00</IntrBkSttlmAmt>
+      <IntrBkSttlmDt>2026-01-12</IntrBkSttlmDt>
+      <ChrgBr>SLEV</ChrgBr>
+      <DbtrAgt>
+        <FinInstnId>
+          <BICFI>DEUTDEDB</BICFI>
+        </FinInstnId>
+      </DbtrAgt>
+      <Dbtr>
+        <Nm>Acme Corp GmbH</Nm>
+        <PstlAdr>
+          <Ctry>DE</Ctry>
+        </PstlAdr>
+      </Dbtr>
+      <DbtrAcct>
+        <Id>
+          <IBAN>DE89370400440532013000</IBAN>
+        </Id>
+      </DbtrAcct>
+      <CdtrAgt>
+        <FinInstnId>
+          <BICFI>NWBKGB2L</BICFI>
+        </FinInstnId>
+      </CdtrAgt>
+      <Cdtr>
+        <Nm>Beta Financial Services SA</Nm>
+        <PstlAdr>
+          <Ctry>GB</Ctry>
+        </PstlAdr>
+      </Cdtr>
+      <CdtrAcct>
+        <Id>
+          <IBAN>GB29NWBK60161331926819</IBAN>
+        </Id>
+      </CdtrAcct>
+      <RmtInf>
+        <Ustrd>Invoice INV-2026-0042 payment - Q4 services</Ustrd>
+      </RmtInf>
+    </CdtTrfTxInf>
+  </FIToFICstmrCdtTrf>
+</Document>`,
+
+  pain001: `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.09">
+  <CstmrCdtTrfInitn>
+    <GrpHdr>
+      <MsgId>PAIN-20260112-ACME-001</MsgId>
+      <CreDtTm>2026-01-12T09:00:00+00:00</CreDtTm>
+      <NbOfTxs>2</NbOfTxs>
+      <CtrlSum>24750.50</CtrlSum>
+      <InitgPty>
+        <Nm>Acme Corp GmbH</Nm>
+      </InitgPty>
+    </GrpHdr>
+    <PmtInf>
+      <PmtInfId>PMTINF-001</PmtInfId>
+      <PmtMtd>TRF</PmtMtd>
+      <NbOfTxs>2</NbOfTxs>
+      <CtrlSum>24750.50</CtrlSum>
+      <PmtTpInf>
+        <SvcLvl>
+          <Cd>SEPA</Cd>
+        </SvcLvl>
+      </PmtTpInf>
+      <ReqdExctnDt>
+        <Dt>2026-01-13</Dt>
+      </ReqdExctnDt>
+      <Dbtr>
+        <Nm>Acme Corp GmbH</Nm>
+        <PstlAdr>
+          <Ctry>DE</Ctry>
+        </PstlAdr>
+      </Dbtr>
+      <DbtrAcct>
+        <Id>
+          <IBAN>DE89370400440532013000</IBAN>
+        </Id>
+        <Ccy>EUR</Ccy>
+      </DbtrAcct>
+      <DbtrAgt>
+        <FinInstnId>
+          <BICFI>DEUTDEDB</BICFI>
+        </FinInstnId>
+      </DbtrAgt>
+      <CdtTrfTxInf>
+        <PmtId>
+          <EndToEndId>E2E-SUPPLIER-001</EndToEndId>
+        </PmtId>
+        <Amt>
+          <InstdAmt Ccy="EUR">12500.00</InstdAmt>
+        </Amt>
+        <CdtrAgt>
+          <FinInstnId>
+            <BICFI>NWBKGB2L</BICFI>
+          </FinInstnId>
+        </CdtrAgt>
+        <Cdtr>
+          <Nm>Beta Financial Services SA</Nm>
+        </Cdtr>
+        <CdtrAcct>
+          <Id>
+            <IBAN>GB29NWBK60161331926819</IBAN>
+          </Id>
+        </CdtrAcct>
+        <RmtInf>
+          <Ustrd>Invoice INV-2026-0042</Ustrd>
+        </RmtInf>
+      </CdtTrfTxInf>
+      <CdtTrfTxInf>
+        <PmtId>
+          <EndToEndId>E2E-SUPPLIER-002</EndToEndId>
+        </PmtId>
+        <Amt>
+          <InstdAmt Ccy="EUR">12250.50</InstdAmt>
+        </Amt>
+        <CdtrAgt>
+          <FinInstnId>
+            <BICFI>SOGEFRPP</BICFI>
+          </FinInstnId>
+        </CdtrAgt>
+        <Cdtr>
+          <Nm>Gamma Solutions SARL</Nm>
+        </Cdtr>
+        <CdtrAcct>
+          <Id>
+            <IBAN>FR7630006000011234567890189</IBAN>
+          </Id>
+        </CdtrAcct>
+        <RmtInf>
+          <Ustrd>Invoice INV-2026-0043</Ustrd>
+        </RmtInf>
+      </CdtTrfTxInf>
+    </PmtInf>
+  </CstmrCdtTrfInitn>
+</Document>`,
+
+  camt053: `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.09">
+  <BkToCstmrStmt>
+    <GrpHdr>
+      <MsgId>STMT-20260112-001</MsgId>
+      <CreDtTm>2026-01-12T23:59:00+00:00</CreDtTm>
+      <MsgRcpt>
+        <Nm>Acme Corp GmbH</Nm>
+      </MsgRcpt>
+    </GrpHdr>
+    <Stmt>
+      <Id>STMT-DE89-20260112</Id>
+      <StmtPgntn>
+        <PgNb>1</PgNb>
+        <LastPgInd>true</LastPgInd>
+      </StmtPgntn>
+      <Acct>
+        <Id>
+          <IBAN>DE89370400440532013000</IBAN>
+        </Id>
+        <Nm>Acme Corp GmbH</Nm>
+        <Svcr>
+          <FinInstnId>
+            <BICFI>DEUTDEDB</BICFI>
+            <Nm>Deutsche Bank AG</Nm>
+          </FinInstnId>
+        </Svcr>
+      </Acct>
+      <Bal>
+        <Tp>
+          <CdOrPrtry>
+            <Cd>OPBD</Cd>
+          </CdOrPrtry>
+        </Tp>
+        <Amt Ccy="EUR">45000.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt>
+          <Dt>2026-01-12</Dt>
+        </Dt>
+      </Bal>
+      <Bal>
+        <Tp>
+          <CdOrPrtry>
+            <Cd>CLBD</Cd>
+          </CdOrPrtry>
+        </Tp>
+        <Amt Ccy="EUR">57500.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt>
+          <Dt>2026-01-12</Dt>
+        </Dt>
+      </Bal>
+      <TxsSummry>
+        <TtlNtries>
+          <NbOfNtries>2</NbOfNtries>
+          <Sum>25000.00</Sum>
+        </TtlNtries>
+        <TtlCdtNtries>
+          <NbOfNtries>1</NbOfNtries>
+          <Sum>25000.00</Sum>
+        </TtlCdtNtries>
+        <TtlDbtNtries>
+          <NbOfNtries>1</NbOfNtries>
+          <Sum>12500.00</Sum>
+        </TtlDbtNtries>
+      </TxsSummry>
+      <Ntry>
+        <Amt Ccy="EUR">25000.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>
+          <Cd>BOOK</Cd>
+        </Sts>
+        <BookgDt>
+          <Dt>2026-01-12</Dt>
+        </BookgDt>
+        <ValDt>
+          <Dt>2026-01-12</Dt>
+        </ValDt>
+        <BkTxCd>
+          <Domn>
+            <Cd>PMNT</Cd>
+            <Fmly>
+              <Cd>RCDT</Cd>
+              <SubFmlyCd>ESCT</SubFmlyCd>
+            </Fmly>
+          </Domn>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <EndToEndId>E2E-PAYMENT-IN-001</EndToEndId>
+            </Refs>
+            <RmtInf>
+              <Ustrd>Q4 service payment from Beta Financial</Ustrd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="EUR">12500.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>
+          <Cd>BOOK</Cd>
+        </Sts>
+        <BookgDt>
+          <Dt>2026-01-12</Dt>
+        </BookgDt>
+        <ValDt>
+          <Dt>2026-01-12</Dt>
+        </ValDt>
+        <BkTxCd>
+          <Domn>
+            <Cd>PMNT</Cd>
+            <Fmly>
+              <Cd>ICDT</Cd>
+              <SubFmlyCd>ESCT</SubFmlyCd>
+            </Fmly>
+          </Domn>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <EndToEndId>E2E-ACME-20260112-001</EndToEndId>
+            </Refs>
+            <RmtInf>
+              <Ustrd>Invoice INV-2026-0042 payment</Ustrd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>`
+};
+
+/* ═══════════════════════════════════════════
+   NAMESPACE → MESSAGE TYPE MAP
+═══════════════════════════════════════════ */
+const NS_MAP = {
+  'urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08': 'pacs.008.001.08',
+  'urn:iso:std:iso:20022:tech:xsd:pacs.008.001.07': 'pacs.008.001.07',
+  'urn:iso:std:iso:20022:tech:xsd:pacs.002.001.11': 'pacs.002.001.11',
+  'urn:iso:std:iso:20022:tech:xsd:pacs.002.001.10': 'pacs.002.001.10',
+  'urn:iso:std:iso:20022:tech:xsd:pacs.003.001.08': 'pacs.003.001.08',
+  'urn:iso:std:iso:20022:tech:xsd:pacs.004.001.09': 'pacs.004.001.09',
+  'urn:iso:std:iso:20022:tech:xsd:pacs.009.001.08': 'pacs.009.001.08',
+  'urn:iso:std:iso:20022:tech:xsd:pacs.028.001.04': 'pacs.028.001.04',
+  'urn:iso:std:iso:20022:tech:xsd:pain.001.001.09': 'pain.001.001.09',
+  'urn:iso:std:iso:20022:tech:xsd:pain.001.001.08': 'pain.001.001.08',
+  'urn:iso:std:iso:20022:tech:xsd:pain.002.001.11': 'pain.002.001.11',
+  'urn:iso:std:iso:20022:tech:xsd:pain.007.001.09': 'pain.007.001.09',
+  'urn:iso:std:iso:20022:tech:xsd:pain.008.001.08': 'pain.008.001.08',
+  'urn:iso:std:iso:20022:tech:xsd:camt.052.001.09': 'camt.052.001.09',
+  'urn:iso:std:iso:20022:tech:xsd:camt.053.001.09': 'camt.053.001.09',
+  'urn:iso:std:iso:20022:tech:xsd:camt.053.001.08': 'camt.053.001.09',
+  'urn:iso:std:iso:20022:tech:xsd:camt.054.001.09': 'camt.054.001.09',
+  'urn:iso:std:iso:20022:tech:xsd:camt.056.001.09': 'camt.056.001.09',
+  'urn:iso:std:iso:20022:tech:xsd:camt.029.001.11': 'camt.029.001.11',
+};
+
+/* ═══════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════ */
+let activeCatFilter = 'all';
+
+/* ═══════════════════════════════════════════
+   TAB SWITCHING
+═══════════════════════════════════════════ */
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+  if (id === 'tab-reference') renderMsgGrid();
+  if (id === 'tab-fields') renderQuickPaths();
+}
+
+/* ═══════════════════════════════════════════
+   COLLAPSIBLE
+═══════════════════════════════════════════ */
+function toggleCollapsible(trigger) {
+  trigger.classList.toggle('open');
+  const body = trigger.nextElementSibling;
+  body.classList.toggle('open');
+}
+
+/* ═══════════════════════════════════════════
+   XML UTILITIES
+═══════════════════════════════════════════ */
+function detectNamespace(xml) {
+  const m = xml.match(/xmlns\s*=\s*["']([^"']+)["']/);
+  if (!m) return null;
+  return m[1];
+}
+
+function getNodeValue(doc, path, ns) {
+  // Try multiple namespace approaches
+  const parts = path.split('/');
+  let current = doc;
+  for (const part of parts) {
+    const found = Array.from(current.children || current.childNodes || [])
+      .find(n => n.localName === part || n.nodeName === part || n.tagName === part || (n.tagName && n.tagName.includes(':') && n.tagName.split(':')[1] === part));
+    if (!found) return null;
+    current = found;
+  }
+  return current ? (current.textContent || '').trim() : null;
+}
+
+function getAllNodes(doc) {
+  const nodes = [];
+  function walk(node, depth=0) {
+    if (node.nodeType === 1) {
+      const val = node.children.length === 0 ? node.textContent.trim() : '';
+      nodes.push({ name: node.localName || node.tagName, depth, value: val, attrs: node.attributes });
+    }
+    for (const child of node.children || []) walk(child, depth+1);
+  }
+  walk(doc.documentElement || doc);
+  return nodes;
+}
+
+function parseXML(xmlStr) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlStr.trim(), 'application/xml');
+  const err = doc.querySelector('parsererror');
+  if (err) throw new Error('XML Parse Error: ' + err.textContent.split('\n')[0]);
+  return doc;
+}
+
+function syntaxHighlightXML(xml) {
+  return xml
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/(&lt;\/?)([\w:.-]+)/g,'<span class="xml-tag">$1</span><span class="xml-attr">$2</span>')
+    .replace(/([\w:.-]+)=(&quot;[^&]*&quot;)/g,'<span class="xml-attr">$1</span>=<span class="xml-val">$2</span>')
+    .replace(/(&gt;)([^&lt;&gt;\n]+)(&lt;)/g,'$1<span class="xml-text">$2</span>$3')
+    .replace(/(&amp;)/g,'<span class="xml-ns">&amp;</span>');
+}
+
+/* ═══════════════════════════════════════════
+   TAB 1 — SINGLE VALIDATOR
+═══════════════════════════════════════════ */
+function loadExample(key) {
+  document.getElementById('xml-input').value = EXAMPLES[key];
+  onXmlInput();
+}
+
+function onXmlInput() {
+  const val = document.getElementById('xml-input').value.trim();
+  const banner = document.getElementById('detect-banner');
+  if (!val) { banner.style.display='none'; return; }
+  try {
+    const ns = detectNamespace(val);
+    const msgType = ns ? NS_MAP[ns] : null;
+    const msgInfo = msgType ? ISO20022_MESSAGES.find(m=>m.id===msgType) : null;
+    if (msgInfo) {
+      banner.innerHTML = `<div class="detect-pill">◉ Detected: <strong>${msgInfo.id}</strong> — ${msgInfo.name}</div>`;
+    } else if (ns) {
+      banner.innerHTML = `<div class="detect-pill unknown">⚠ Namespace: ${ns} — Unknown message type, structural check only</div>`;
+    } else {
+      banner.innerHTML = `<div class="detect-pill unknown">⚠ No xmlns attribute found — attempting structural parse</div>`;
+    }
+    banner.style.display = 'block';
+  } catch(e) {
+    banner.innerHTML = `<div class="detect-pill unknown">⚠ Cannot detect namespace yet</div>`;
+    banner.style.display = 'block';
+  }
+}
+
+function handleFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('xml-input').value = e.target.result;
+    onXmlInput();
+  };
+  reader.readAsText(file);
+}
+
+function clearAll() {
+  document.getElementById('xml-input').value = '';
+  document.getElementById('detect-banner').style.display = 'none';
+  document.getElementById('validate-results').style.display = 'none';
+}
+
+function validateMessage() {
+  const xmlStr = document.getElementById('xml-input').value.trim();
+  const container = document.getElementById('validate-results');
+  container.style.display = 'block';
+  container.innerHTML = '';
+  if (!xmlStr) { container.innerHTML = '<div class="warn-item"><div class="error-rule">Please paste an ISO 20022 XML message first.</div></div>'; return; }
+
+  let doc;
+  try { doc = parseXML(xmlStr); }
+  catch(e) {
+    container.innerHTML = `
+      <div class="result-status-bar invalid"><div class="status-dot"></div><div class="status-text">❌ Invalid XML — Parse Error</div></div>
+      <div class="error-item"><div class="error-path">XML Parser</div><div class="error-rule">${e.message}</div><div class="error-fix">Check for unclosed tags, invalid characters, or encoding issues.</div></div>`;
+    return;
+  }
+
+  const ns = detectNamespace(xmlStr);
+  const msgTypeId = ns ? NS_MAP[ns] : null;
+  const msgInfo = msgTypeId ? ISO20022_MESSAGES.find(m=>m.id===msgTypeId) : null;
+  const rules = msgTypeId ? VALIDATION_RULES[msgTypeId] : null;
+  const root = doc.documentElement;
+
+  // ── Parse all nodes ──
+  const nodes = getAllNodes(doc);
+  const leafNodes = nodes.filter(n => n.value);
+
+  // ── Run validation ──
+  const errors = [];
+  const warnings = [];
+
+  if (rules) {
+    const rootEl = root.querySelector(rules.rootElement) || root.children[0];
+    rules.mandatoryFields.forEach(f => {
+      const parts = f.path.split('/');
+      let found = rootEl;
+      for (const p of parts) {
+        if (!found) { found = null; break; }
+        found = Array.from(found.children || []).find(c => c.localName === p || c.tagName === p);
+      }
+      if (!found || !found.textContent.trim()) {
+        errors.push({ path: rules.rootElement + '/' + f.path, rule: 'Mandatory field missing', fix: `Add the ${f.name} element. This field is required by the ISO 20022 ${msgTypeId} schema.` });
+      }
+    });
+    rules.conditionalRules.forEach(r => {
+      warnings.push({ path: 'Conditional Rule', rule: r.message, fix: 'Review applicable when building production implementations.' });
+    });
+    // MaxLength checks
+    Object.entries(rules.maxLengths).forEach(([field, max]) => {
+      nodes.forEach(n => {
+        if ((n.name === field || n.name.endsWith(field)) && n.value && n.value.length > max) {
+          errors.push({ path: n.name, rule: `Value exceeds maximum length of ${max} characters (actual: ${n.value.length})`, fix: `Truncate the value to ${max} characters maximum.` });
+        }
+      });
+    });
+  }
+
+  const totalParsed = nodes.length;
+  const valid = errors.length === 0;
+  const statusClass = errors.length > 0 ? 'invalid' : warnings.length > 0 ? 'warning' : '';
+  const statusIcon = errors.length > 0 ? '❌ Invalid' : warnings.length > 0 ? '⚠ Valid with Warnings' : '✓ Valid';
+
+  // ── Extract key fields for overview ──
+  function getVal(tagName) {
+    const n = nodes.find(x => x.name === tagName);
+    return n ? n.value : null;
+  }
+
+  const msgId = getVal('MsgId') || '—';
+  const creDtTm = getVal('CreDtTm') || '—';
+  const nbOfTxs = getVal('NbOfTxs') || '—';
+  const sttlmMtd = getVal('SttlmMtd') || '—';
+  const chrgBr = getVal('ChrgBr') || '—';
+  const amount = getVal('IntrBkSttlmAmt') || getVal('InstdAmt') || getVal('Amt') || '—';
+  const currency = (() => {
+    const amtNode = root.querySelector('[Ccy]');
+    return amtNode ? amtNode.getAttribute('Ccy') : '—';
+  })();
+
+  const dbtrNm = getVal('Nm') || '—';
+  const dbtrIBAN = getVal('IBAN') || '—';
+  const dbtrBIC = getVal('BICFI') || '—';
+  const e2eId = getVal('EndToEndId') || '—';
+  const instrId = getVal('InstrId') || '—';
+  const rmtInf = getVal('Ustrd') || '—';
+
+  container.innerHTML = `
+    <!-- Status Bar -->
+    <div class="result-status-bar ${statusClass}">
+      <div class="status-dot"></div>
+      <div class="status-text"><strong>${statusIcon}</strong> — ${msgInfo ? msgInfo.name : 'ISO 20022 Message'}</div>
+      <div class="status-meta">${msgTypeId || 'Unknown type'} · ${currency !== '—' ? currency + ' ' : ''}${amount !== '—' ? amount : ''}</div>
+    </div>
+
+    <!-- Stats Banner -->
+    <div class="stats-banner">
+      <div class="stat-block"><div class="stat-num accent">${totalParsed}</div><div class="stat-label">Fields Parsed</div></div>
+      <div class="stat-block"><div class="stat-num">${rules ? rules.mandatoryFields.length : '—'}</div><div class="stat-label">Mandatory Fields</div></div>
+      <div class="stat-block"><div class="stat-num ${errors.length>0?'red':'green'}">${errors.length}</div><div class="stat-label">Errors Found</div></div>
+      <div class="stat-block"><div class="stat-num ${warnings.length>0?'gold':'green'}">${warnings.length}</div><div class="stat-label">Warnings</div></div>
+    </div>
+
+    <!-- Message Overview -->
+    <div class="section-head">Message Overview</div>
+    <div class="comp-grid comp-grid-3" style="margin-bottom:1.75rem;">
+      <div class="info-card"><div class="card-label">Message Type</div><div class="card-value">${msgTypeId || 'Unknown'}</div></div>
+      <div class="info-card"><div class="card-label">Full Name</div><div class="card-value" style="font-size:0.75rem;">${msgInfo ? msgInfo.name : '—'}</div></div>
+      <div class="info-card"><div class="card-label">Namespace</div><div class="card-value" style="font-size:0.6rem; font-family:'JetBrains Mono',monospace; color:var(--teal);">${ns || '—'}</div></div>
+      <div class="info-card"><div class="card-label">Created</div><div class="card-value" style="font-size:0.78rem;">${creDtTm}</div></div>
+      <div class="info-card"><div class="card-label">Transactions</div><div class="card-value">${nbOfTxs}</div></div>
+      <div class="info-card"><div class="card-label">Settlement Method</div><div class="card-value">${sttlmMtd}</div></div>
+      <div class="info-card"><div class="card-label">Currency</div><div class="card-value">${currency}</div></div>
+      <div class="info-card"><div class="card-label">Amount</div><div class="card-value" style="color:var(--green-lt);">${amount}</div></div>
+      <div class="info-card"><div class="card-label">Charge Bearer</div><div class="card-value">${chrgBr}</div></div>
+    </div>
+
+    <!-- Parsed Components -->
+    <div class="section-head">Parsed Components</div>
+    <div class="comp-grid" style="margin-bottom:1.75rem;">
+      <div class="info-card"><div class="card-label">Message ID</div><div class="card-value">${msgId}</div><div class="card-path">GrpHdr/MsgId</div></div>
+      <div class="info-card"><div class="card-label">End-to-End ID</div><div class="card-value">${e2eId}</div><div class="card-path">PmtId/EndToEndId</div></div>
+      <div class="info-card"><div class="card-label">Instruction ID</div><div class="card-value">${instrId}</div><div class="card-path">PmtId/InstrId</div></div>
+      <div class="info-card"><div class="card-label">Debtor / Initiating Party</div><div class="card-value">${dbtrNm}</div><div class="card-path">Dbtr/Nm or InitgPty/Nm</div></div>
+      <div class="info-card"><div class="card-label">Debtor IBAN</div><div class="card-value" style="font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--teal);">${dbtrIBAN}</div><div class="card-path">DbtrAcct/Id/IBAN</div></div>
+      <div class="info-card"><div class="card-label">Agent BIC</div><div class="card-value" style="color:var(--gold);">${dbtrBIC}</div><div class="card-path">FinInstnId/BICFI</div></div>
+      <div class="info-card"><div class="card-label">Remittance Info</div><div class="card-value" style="font-size:0.75rem;">${rmtInf}</div><div class="card-path">RmtInf/Ustrd</div></div>
+    </div>
+
+    <!-- Field Tree -->
+    <div class="collapsible" style="margin-bottom:1.5rem;">
+      <button class="collapsible-trigger" onclick="toggleCollapsible(this)">
+        <span>Field Tree (${totalParsed} elements)</span>
+        <span class="collapsible-arrow">▼</span>
+      </button>
+      <div class="collapsible-body">
+        <div class="field-tree">${buildFieldTree(doc, rules)}</div>
+      </div>
+    </div>
+
+    <!-- Errors & Warnings -->
+    ${errors.length > 0 ? `
+    <div class="section-head" style="color:var(--red-lt);">Validation Errors (${errors.length})</div>
+    ${errors.map(e=>`<div class="error-item"><div class="error-path">${e.path}</div><div class="error-rule">${e.rule}</div><div class="error-fix">Fix: ${e.fix}</div></div>`).join('')}
+    ` : `<div class="issues-empty">✓ No validation errors found.</div>`}
+
+    ${warnings.length > 0 ? `
+    <div class="section-head" style="color:var(--gold-lt); margin-top:1.5rem;">Conditional Warnings (${warnings.length})</div>
+    ${warnings.map(w=>`<div class="warn-item"><div class="error-path">${w.path}</div><div class="error-rule">${w.rule}</div><div class="error-fix">${w.fix}</div></div>`).join('')}
+    ` : ''}
+
+    <!-- Raw XML -->
+    <div class="section-head" style="margin-top:1.5rem;">Raw XML (Syntax Highlighted)</div>
+    <div class="fmt-block">
+      <button class="copy-btn" onclick="copyXml()">Copy</button>
+      <pre id="xml-highlighted" style="white-space:pre-wrap;">${syntaxHighlightXML(xmlStr)}</pre>
+    </div>
+  `;
+}
+
+function buildFieldTree(doc, rules) {
+  const mandatoryPaths = rules ? rules.mandatoryFields.map(f=>f.path.split('/').pop()) : [];
+  let html = '';
+
+  function walk(node, depth) {
+    if (node.nodeType !== 1) return '';
+    const name = node.localName || node.tagName;
+    const val = node.children.length === 0 ? node.textContent.trim() : '';
+    const isMandatory = mandatoryPaths.includes(name);
+    const badge = isMandatory ? '<span class="tree-badge badge-mandatory">mandatory</span>' :
+                  depth <= 2 ? '<span class="tree-badge badge-optional">optional</span>' : '';
+    const hasChildren = node.children.length > 0;
+    const toggle = hasChildren ? '<span class="tree-toggle" onclick="toggleTree(this)">▶</span>' : '<span style="display:inline-block;width:16px;"></span>';
+    const valDisplay = val ? ` <span class="tree-sep">:</span> <span class="tree-val">${val.length>50?val.slice(0,50)+'…':val}</span>` : '';
+
+    let out = `<div class="tree-node ${depth===0?'tree-root':''}" style="padding-left:${depth*16+8}px">
+      ${toggle}<span class="tree-key">${name}</span>${badge}${valDisplay}`;
+    if (hasChildren) {
+      out += `<div class="tree-children">`;
+      for (const child of node.children) out += walk(child, depth+1);
+      out += `</div>`;
+    }
+    out += `</div>`;
+    return out;
+  }
+
+  return walk(doc.documentElement, 0);
+}
+
+function toggleTree(el) {
+  el.classList.toggle('open');
+  const children = el.parentElement.querySelector('.tree-children');
+  if (children) children.classList.toggle('open');
+}
+
+function copyXml() {
+  const xml = document.getElementById('xml-input').value;
+  navigator.clipboard.writeText(xml).then(()=>{
+    const btn = document.querySelector('.copy-btn');
+    if(btn){btn.textContent='Copied!'; btn.style.color='var(--teal)'; setTimeout(()=>{btn.textContent='Copy';btn.style.color='';},1500);}
+  });
+}
+
+/* ═══════════════════════════════════════════
+   TAB 2 — BATCH VALIDATION
+═══════════════════════════════════════════ */
+function handleBatchUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { document.getElementById('batch-input').value = e.target.result; };
+  reader.readAsText(file);
+}
+
+function loadBatchExample() {
+  document.getElementById('batch-input').value = EXAMPLES.pacs008 + '\n---\n' + EXAMPLES.pain001 + '\n---\n' + EXAMPLES.camt053;
+}
+
+function validateBatch() {
+  const raw = document.getElementById('batch-input').value.trim();
+  const container = document.getElementById('batch-results');
+  container.style.display = 'block';
+  if (!raw) { container.innerHTML = '<div class="warn-item"><div class="error-rule">Please paste XML messages first.</div></div>'; return; }
+
+  // Split on --- delimiter or on <?xml declaration
+  let messages = raw.split(/\n---\n|\n\s*---\s*\n/);
+  if (messages.length === 1) {
+    // Try splitting on <?xml
+    messages = raw.split(/(?=<\?xml)/).filter(s=>s.trim());
+  }
+  messages = messages.map(m=>m.trim()).filter(m=>m.length>0).slice(0,50);
+
+  const results = messages.map((xmlStr, i) => {
+    try {
+      const doc = parseXML(xmlStr);
+      const ns = detectNamespace(xmlStr);
+      const msgTypeId = ns ? NS_MAP[ns] : null;
+      const msgInfo = msgTypeId ? ISO20022_MESSAGES.find(m=>m.id===msgTypeId) : null;
+      const rules = msgTypeId ? VALIDATION_RULES[msgTypeId] : null;
+
+      let errors = 0, warnings = 0;
+      if (rules) {
+        const root = doc.documentElement;
+        const rootEl = root.querySelector(rules.rootElement) || root.children[0];
+        rules.mandatoryFields.forEach(f=>{
+          const parts = f.path.split('/');
+          let found = rootEl;
+          for(const p of parts){
+            if(!found){found=null;break;}
+            found = Array.from(found.children||[]).find(c=>c.localName===p||c.tagName===p);
+          }
+          if(!found||!found.textContent.trim()) errors++;
+        });
+        warnings = rules.conditionalRules.length;
+      }
+
+      const nodes = getAllNodes(doc);
+      const amtNode = doc.querySelector('[Ccy]');
+      const currency = amtNode ? amtNode.getAttribute('Ccy') : '—';
+      const amount = nodes.find(n=>n.name==='IntrBkSttlmAmt'||n.name==='InstdAmt'||n.name==='Amt');
+      const nbTxs = nodes.find(n=>n.name==='NbOfTxs');
+
+      return {
+        idx: i+1,
+        msgType: msgTypeId || 'Unknown',
+        name: msgInfo ? msgInfo.name.split(' ').slice(0,4).join(' ')+'…' : '—',
+        nbOfTxs: nbTxs ? nbTxs.value : '—',
+        amount: amount ? amount.value : '—',
+        currency,
+        errors,
+        warnings,
+        status: errors>0 ? 'invalid' : warnings>0 ? 'warning' : 'valid'
+      };
+    } catch(e) {
+      return { idx:i+1, msgType:'Parse Error', name:'—', nbOfTxs:'—', amount:'—', currency:'—', errors:1, warnings:0, status:'invalid' };
+    }
+  });
+
+  const totalValid = results.filter(r=>r.status==='valid').length;
+  const totalInvalid = results.filter(r=>r.status==='invalid').length;
+  const totalWarn = results.filter(r=>r.status==='warning').length;
+  const types = [...new Set(results.map(r=>r.msgType))].length;
+
+  const rows = results.map(r=>`
+    <tr>
+      <td style="font-family:'JetBrains Mono',monospace;color:var(--muted);">${r.idx}</td>
+      <td style="font-family:'JetBrains Mono',monospace;color:var(--teal-lt);">${r.msgType}</td>
+      <td style="font-size:0.72rem;">${r.name}</td>
+      <td style="text-align:center;">${r.nbOfTxs}</td>
+      <td style="font-family:'JetBrains Mono',monospace;">${r.amount}</td>
+      <td>${r.currency}</td>
+      <td><span class="status-badge status-${r.status}">${r.status==='valid'?'✓ Valid':r.status==='warning'?'⚠ Warning':'✗ Invalid'}</span></td>
+      <td style="text-align:center;color:${r.errors>0?'var(--red-lt)':'var(--muted)'};">${r.errors}</td>
+      <td style="text-align:center;color:${r.warnings>0?'var(--gold-lt)':'var(--muted)'};">${r.warnings}</td>
+    </tr>`).join('');
+
+  container.innerHTML = `
+    <div class="stats-banner stats-banner-5">
+      <div class="stat-block"><div class="stat-num">${results.length}</div><div class="stat-label">Total</div></div>
+      <div class="stat-block"><div class="stat-num green">${totalValid}</div><div class="stat-label">Valid</div></div>
+      <div class="stat-block"><div class="stat-num red">${totalInvalid}</div><div class="stat-label">Invalid</div></div>
+      <div class="stat-block"><div class="stat-num gold">${totalWarn}</div><div class="stat-label">Warnings</div></div>
+      <div class="stat-block"><div class="stat-num accent">${types}</div><div class="stat-label">Msg Types</div></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:0.75rem;">
+      <button class="btn-secondary" onclick="exportBatchCSV(${JSON.stringify(results).replace(/"/g,'&quot;')})">Export CSV</button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="batch-table">
+        <thead><tr>
+          <th>#</th><th>Message Type</th><th>Name</th><th>Txns</th>
+          <th>Amount</th><th>CCY</th><th>Status</th><th>Errors</th><th>Warns</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="privacy-notice" style="margin-top:1rem;">
+      <div class="privacy-dot"></div>
+      <span>All ${results.length} messages processed locally. No data was transmitted.</span>
+    </div>`;
+}
+
+function exportBatchCSV(data) {
+  try {
+    const results = typeof data === 'string' ? JSON.parse(data) : data;
+    const header = '#,Message Type,Name,Transactions,Amount,Currency,Status,Errors,Warnings\n';
+    const rows = results.map(r=>`${r.idx},"${r.msgType}","${r.name}",${r.nbOfTxs},${r.amount},${r.currency},${r.status},${r.errors},${r.warnings}`).join('\n');
+    const blob = new Blob([header+rows], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `iso20022-batch-${Date.now()}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  } catch(e) { alert('Export failed: ' + e.message); }
+}
+
+/* ═══════════════════════════════════════════
+   TAB 3 — MESSAGE REFERENCE
+═══════════════════════════════════════════ */
+const CAT_LABELS = {
+  clearing: 'Payment Clearing',
+  initiation: 'Payment Initiation',
+  cash_management: 'Cash Management',
+  fx_securities: 'FX & Securities',
+  open_banking: 'Open Banking'
+};
+const CAT_CLASSES = {
+  clearing:'cat-clearing', initiation:'cat-initiation',
+  cash_management:'cat-cash', fx_securities:'cat-fx', open_banking:'cat-ob'
+};
+
+function renderMsgGrid() {
+  const search = (document.getElementById('msg-search').value||'').toLowerCase();
+  const filtered = ISO20022_MESSAGES.filter(m=>{
+    const matchCat = activeCatFilter==='all' || m.category===activeCatFilter;
+    const matchSearch = !search || m.id.toLowerCase().includes(search) || m.name.toLowerCase().includes(search) || m.description.toLowerCase().includes(search);
+    return matchCat && matchSearch;
+  });
+  document.getElementById('msg-results-count').textContent = `Showing ${filtered.length} of ${ISO20022_MESSAGES.length} message types`;
+
+  document.getElementById('msg-grid').innerHTML = filtered.length ? filtered.map(m=>`
+    <div class="msg-card">
+      <div class="msg-card-id">${m.id}</div>
+      <div class="msg-card-name">${m.name}</div>
+      <span class="msg-card-cat ${CAT_CLASSES[m.category]}">${CAT_LABELS[m.category]}</span>
+      <div class="msg-card-desc">${m.description}</div>
+      <div class="section-label">Used By</div>
+      <div class="used-by-row">${m.usedBy.map(u=>`<span class="used-by-chip">${u}</span>`).join('')}</div>
+      <div class="section-label" style="margin-top:0.6rem;">Key Fields</div>
+      <div class="key-fields-row">${m.keyFields.map(f=>`<span class="field-chip">${f}</span>`).join('')}</div>
+      <div class="msg-card-footer">
+        <span class="mandatory-count">${m.mandatoryCount} mandatory fields</span>
+        <button class="btn-ghost" style="font-size:0.45rem;" onclick="loadMsgInValidator('${m.id}')">Open in Validator →</button>
+      </div>
+    </div>`).join('') : `<div class="no-results">No message types match your search.</div>`;
+}
+
+function filterMessages() { renderMsgGrid(); }
+
+function setCatFilter(cat, btn) {
+  activeCatFilter = cat;
+  document.querySelectorAll('.filter-pill').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  renderMsgGrid();
+}
+
+function loadMsgInValidator(msgId) {
+  const exMap = { 'pacs.008.001.08':'pacs008', 'pain.001.001.09':'pain001', 'camt.053.001.09':'camt053', 'camt.053.001.08':'camt053' };
+  const exKey = exMap[msgId];
+  if (exKey) {
+    switchTab('tab-validate', document.querySelector('.tab-btn'));
+    loadExample(exKey);
+  } else {
+    switchTab('tab-validate', document.querySelector('.tab-btn'));
+    alert(`Load a ${msgId} XML message into the validator to begin. No built-in example exists for this type yet.`);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   TAB 4 — FIELD EXPLORER
+═══════════════════════════════════════════ */
+const QUICK_PATHS = [
+  'IntrBkSttlmAmt','MsgId','EndToEndId','ChrgBr',
+  'Dbtr/Nm','CdtrAgt/FinInstnId/BICFI','RmtInf/Ustrd','SttlmInf/SttlmMtd',
+  'CdtrAcct/Id/IBAN','CreDtTm','NbOfTxs','InstrId','Purp/Cd','DbtrAgt/FinInstnId/BICFI'
+];
+
+function renderQuickPaths() {
+  document.getElementById('quick-paths').innerHTML = QUICK_PATHS.map(p=>`
+    <span class="path-chip" onclick="setAndLookup('${p}')">${p}</span>`).join('');
+}
+
+function setAndLookup(path) {
+  document.getElementById('field-path-input').value = path;
+  lookupField();
+}
+
+function lookupField() {
+  const input = document.getElementById('field-path-input').value.trim();
+  const container = document.getElementById('field-result');
+  container.style.display = 'block';
+  if (!input) { container.innerHTML = '<div class="warn-item"><div class="error-rule">Enter an element path to look up.</div></div>'; return; }
+
+  // Try matching by short name or full path
+  const def = FIELD_DEFINITIONS.find(f =>
+    f.path === input ||
+    f.fullPath === input ||
+    f.path.toLowerCase() === input.toLowerCase() ||
+    f.fullPath.toLowerCase().endsWith(input.toLowerCase()) ||
+    input.toLowerCase().endsWith(f.path.toLowerCase())
+  );
+
+  if (!def) {
+    container.innerHTML = `
+      <div class="field-result">
+        <div class="field-path-header">${input}</div>
+        <div class="warn-item"><div class="error-rule">Field path not found in the embedded dictionary. This may be a valid ISO 20022 field not yet in this tool's database.</div><div class="error-fix">Try searching by the short element name (e.g., "MsgId" instead of the full path). More field definitions will be added in future versions.</div></div>
+      </div>`;
+    return;
+  }
+
+  const mandatoryBadge = def.mandatory
+    ? '<span class="tree-badge badge-mandatory" style="font-size:0.6rem;padding:0.2rem 0.7rem;">Mandatory</span>'
+    : '<span class="tree-badge badge-optional" style="font-size:0.6rem;padding:0.2rem 0.7rem;">Optional</span>';
+
+  container.innerHTML = `
+    <div class="field-result">
+      <div class="field-path-header">${def.fullPath}</div>
+
+      <div class="comp-grid comp-grid-3">
+        <div class="info-card"><div class="card-label">Human-Readable Name</div><div class="card-value">${def.name} ${mandatoryBadge}</div></div>
+        <div class="info-card"><div class="card-label">Data Type</div><div class="card-value" style="font-family:'JetBrains Mono',monospace;">${def.dataType}</div></div>
+        ${def.maxLength ? `<div class="info-card"><div class="card-label">Max Length</div><div class="card-value">${def.maxLength} chars${def.fractionDigits?`, ${def.fractionDigits} decimals`:''}</div></div>` : ''}
+        <div class="info-card"><div class="card-label">Occurrences</div><div class="card-value">${def.minOcc}..${def.maxOcc}</div></div>
+        <div class="info-card"><div class="card-label">Parent Element</div><div class="card-value" style="font-family:'JetBrains Mono',monospace; color:var(--gold);">${def.parent}</div></div>
+        ${def.children.length>0?`<div class="info-card"><div class="card-label">Child Elements</div><div class="card-value" style="font-family:'JetBrains Mono',monospace; font-size:0.72rem;">${def.children.join(', ')}</div></div>`:''}
+      </div>
+
+      <div class="section-label">Business Meaning</div>
+      <div class="field-meaning">${def.businessMeaning}</div>
+
+      ${def.conditionalRules.length>0 ? `
+      <div class="section-label" style="margin-bottom:0.5rem;">Conditional Rules</div>
+      ${def.conditionalRules.map(r=>`<div class="warn-item" style="margin-bottom:0.4rem;"><div class="error-rule">${r}</div></div>`).join('')}` : ''}
+
+      <div class="used-in-section" style="margin-top:1rem;">
+        <div class="section-label">Used In Messages</div>
+        <div class="used-in-pills">${def.usedIn.map(m=>`<span class="used-in-pill">${m}</span>`).join('')}</div>
+      </div>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  // Drag & drop on textarea
+  const ta = document.getElementById('xml-input');
+  if (ta) {
+    ta.addEventListener('dragover', e => { e.preventDefault(); ta.style.borderColor='var(--teal)'; });
+    ta.addEventListener('dragleave', () => { ta.style.borderColor=''; });
+    ta.addEventListener('drop', e => {
+      e.preventDefault(); ta.style.borderColor='';
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = ev => { ta.value = ev.target.result; onXmlInput(); };
+        reader.readAsText(file);
+      }
+    });
+  }
+});
+</script>
+</body>
+</html>
