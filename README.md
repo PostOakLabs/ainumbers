@@ -3,7 +3,6 @@
 Fintech tools and applications.
 
 🌐 Live: https://ainumbers.co  
-🗂️ Host: DreamHost  
 🔒 Backup: GitHub → https://github.com/collectrix/ainumbers
 
 ## Tools
