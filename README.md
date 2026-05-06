@@ -12,4 +12,4 @@ Fintech tools and applications.
 ## Workflow
 1. Edit locally  
 2. `git push` → backup to GitHub  
-3. Upload to DreamHost via FTP
+3. Upload to Host via FTP
