@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>PvP Settlement Synchronisation Model · T218 · AINumbers.co</title>
+<meta name="description" content="Compare CLS, bilateral PvP, and sequential FX settlement. Settlement risk exposure, timing mismatch, netting efficiency. PvP design memo. Based on BIS PvP guidance (Nov 2022). Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/218-pvp-settlement-sync-model.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"PvP Settlement Synchronisation Model","url":"https://ainumbers.co/tools/218-pvp-settlement-sync-model.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "pvp-settlement-sync-model",
+  "version": "1.0.0",
+  "title": "PvP Settlement Synchronisation Model",
+  "description": "Compares CLS, bilateral PvP, and sequential FX settlement across settlement risk, timing mismatch, netting efficiency, and operational complexity. Based on BIS Nov 2022 PvP guidance.",
+  "category": "cat-18",
+  "tags": ["PvP","CLS","FX settlement","Herstatt risk","bilateral","sequential","settlement risk"],
+  "audience": ["treasury","risk","correspondent banking"],
+  "input_schema": {"type":"object","properties":{"notional":{"type":"number"},"currency_pair":{"type":"string"},"avg_daily_volume":{"type":"number"},"settlement_method":{"type":"string"}}},
+  "output_schema": {"type":"object","properties":{"comparison":{"type":"object"},"recommended":{"type":"string"},"memo":{"type":"string"}}},
+  "mcp_tool_definition": {"name":"model_pvp_settlement_sync","description":"Models PvP settlement mechanics comparing CLS, bilateral PvP, and sequential settlement across risk and efficiency dimensions.","inputSchema":{"type":"object","properties":{"notional":{"type":"number"},"currency_pair":{"type":"string"},"avg_daily_volume":{"type":"number"}},"required":["notional"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/218-pvp-settlement-sync-model.html","function_name":"runModel","timeout_ms":2000},
+  "ap2_export": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px;--accent:var(--teal);--accent-dim:var(--teal-dim);--accent-lt:var(--teal-lt)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+[dir=rtl] .lang-inner{justify-content:flex-start}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;z-index:101;position:relative}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--accent);color:var(--accent)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--accent)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--accent)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--accent)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1.25rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.tool-layout{display:grid;grid-template-columns:340px 1fr;gap:1.5rem;align-items:start}
+@media(max-width:860px){.tool-layout{grid-template-columns:1fr}}
+/* Input panel */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-hdr{padding:.9rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+.panel-body{padding:1.25rem;display:flex;flex-direction:column;gap:1rem}
+.field-group{display:flex;flex-direction:column;gap:.35rem}
+.field-group label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.field-group input,.field-group select{background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);padding:.5rem .75rem;border-radius:var(--radius);font-size:.82rem;font-family:'Sora',sans-serif;outline:none;transition:border-color .2s;width:100%;appearance:none;-webkit-appearance:none}
+.field-group select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%233A5270'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .65rem center;padding-right:2rem}
+.field-group input:focus,.field-group select:focus{border-color:var(--accent)}
+.field-hint{font-size:.66rem;color:var(--muted);margin-top:.2rem;line-height:1.4}
+.run-btn{width:100%;background:var(--accent);color:var(--bg);border:none;padding:.7rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:opacity .2s;margin-top:.5rem}
+.run-btn:hover{opacity:.85}
+/* Results */
+.results-panel{display:none}
+.results-panel.show{display:flex;flex-direction:column;gap:1.25rem}
+/* Method comparison */
+.cmp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+@media(max-width:700px){.cmp-grid{grid-template-columns:1fr}}
+.cmp-cell{background:var(--bg-2);padding:1.25rem}
+.cmp-cell.best{background:var(--teal-dim)}
+.cmp-name{font-family:'DM Serif Display',serif;font-size:.95rem;color:var(--bright);margin-bottom:.75rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.cmp-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;font-size:.72rem}
+.cmp-key{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.06em;text-transform:uppercase}
+.cmp-val{color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.65rem}
+.cmp-score{font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:500;margin-top:.75rem;padding-top:.6rem;border-top:1px solid var(--border)}
+.risk-bar-wrap{display:flex;align-items:center;gap:.5rem}
+.risk-bar-outer{flex:1;height:8px;background:var(--bg-3);border-radius:3px;overflow:hidden}
+.risk-bar-inner{height:100%;border-radius:3px}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.out-body{padding:1.25rem}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.7rem;color:var(--body);line-height:1.85;white-space:pre-wrap;font-family:'JetBrains Mono',monospace}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+.citation-list{list-style:none;display:flex;flex-direction:column;gap:.3rem;margin-top:.75rem}
+.citation-list li{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);display:flex;gap:.5rem}
+.citation-list li::before{content:attr(data-n);color:var(--teal);flex-shrink:0}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/fx-payments-intelligence-hub.html">FX Hub</a><span class="nav-sep">/</span><span>T-218</span></div>
+  <a href="../guides/fx-payments-intelligence-hub.html" class="nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-18 · T218 · Cross-Border FX &amp; Payments</div>
+  <h1>PvP Settlement <em>Synchronisation Model</em></h1>
+  <p class="hero-desc">Compare CLS, bilateral PvP, and sequential FX settlement across principal risk exposure, timing mismatch, netting efficiency, and operational complexity. Based on BIS PvP guidance (November 2022) and CPMI PvP progress report (July 2024). Client-side. Zero PII.</p>
+  <div class="hero-badges">
+    <span class="badge badge-teal">PvP · CLS</span>
+    <span class="badge badge-gold">Bilateral FX</span>
+    <span class="badge badge-purple">Settlement Risk</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="tool-layout">
+    <!-- Inputs -->
+    <div class="panel">
+      <div class="panel-hdr"><div class="panel-title">Settlement Parameters</div></div>
+      <div class="panel-body">
+        <div class="field-group">
+          <label for="pairSel">Currency Pair</label>
+          <select id="pairSel">
+            <option>EUR/USD</option><option>GBP/USD</option><option>USD/JPY</option>
+            <option>USD/CHF</option><option>AUD/USD</option><option>USD/CAD</option>
+            <option>EUR/GBP</option><option>USD/CNH</option><option>USD/SGD</option>
+            <option>Other (see note)</option>
+          </select>
+          <div class="field-hint">CLS eligibility varies by currency pair [1]</div>
+        </div>
+        <div class="field-group">
+          <label for="notionalInput">Transaction Notional (USD equiv.)</label>
+          <input type="number" id="notionalInput" value="10000000" min="0" step="100000">
+          <div class="field-hint">Single-leg notional for settlement risk calc</div>
+        </div>
+        <div class="field-group">
+          <label for="volumeInput">Avg Daily Volume (USD equiv.)</label>
+          <input type="number" id="volumeInput" value="50000000" min="0" step="1000000">
+          <div class="field-hint">Total bilateral daily FX volume with counterparty</div>
+        </div>
+        <div class="field-group">
+          <label for="nettingInput">Bilateral Netting Ratio (%)</label>
+          <input type="number" id="nettingInput" value="65" min="0" max="99" step="1">
+          <div class="field-hint">% of gross that nets to zero bilaterally (typical 60–85%) [2]</div>
+        </div>
+        <div class="field-group">
+          <label for="windowInput">Settlement Window (hrs)</label>
+          <select id="windowInput">
+            <option value="24">T+1 (~24 hrs)</option>
+            <option value="48" selected>T+2 (~48 hrs)</option>
+            <option value="72">T+3 (~72 hrs)</option>
+          </select>
+          <div class="field-hint">Conventional settlement cycle for the pair</div>
+        </div>
+        <div class="field-group">
+          <label for="clsEligSel">CLS Eligibility</label>
+          <select id="clsEligSel">
+            <option value="eligible">Eligible (CLS18 currency)</option>
+            <option value="partial">Partial (linked accounts)</option>
+            <option value="ineligible">Not eligible / corridor currency</option>
+          </select>
+        </div>
+        <button class="run-btn" onclick="runModel()">▶ Model Settlement Methods</button>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="results-panel" id="resultsPanel">
+      <div class="cmp-grid" id="cmpGrid"></div>
+      <div class="out-section">
+        <div class="out-header"><span class="out-title">PvP Design Memo</span><button class="copy-btn" onclick="copyMemo()">Copy</button></div>
+        <div class="out-body" style="padding:.75rem"><div class="memo-block" id="memoBlock"></div></div>
+      </div>
+      <div class="out-section">
+        <div class="out-header"><span class="out-title">Regulatory &amp; Reference Citations</span></div>
+        <div class="out-body">
+          <ul class="citation-list">
+            <li data-n="[1]">BIS CPMI (Nov 2022) — Facilitating increased adoption of PvP FX settlement. Available at bis.org/cpmi/publ/d208.htm</li>
+            <li data-n="[2]">CPMI Progress Report on Adoption of PvP FX Settlement (Jul 2024) — bis.org/cpmi/publ/d236.htm</li>
+            <li data-n="[3]">CLS Group — CLS Settlement Service: 18 eligible currencies, settles ~$6.5T daily gross. clsgroup.com</li>
+            <li data-n="[4]">FSB (2021) — FX Settlement Risk: Progress on the 2013 action plan. fsb.org</li>
+            <li data-n="[5]">Basel III LCR/NSFR requirements introduce settlement risk within the LCR stress scenario (BCBS 238)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </div></div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html" data-i18n="footer.alltools">All Tools</a>
+      <a href="../guides/fx-payments-intelligence-hub.html" data-i18n="footer.hub">FX Hub</a>
+      <a href="../sitemap.html" data-i18n="footer.sitemap">Sitemap</a>
+      <a href="../contact.html" data-i18n="footer.contact">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span>
+      <span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ── MODEL ──────────────────────────────────────────────── */
+/*
+ * Settlement risk (principal risk) = full notional at risk during settlement window
+ * for sequential (non-PvP) settlement.
+ *
+ * CLS: multilateral netting + simultaneous settlement. Residual exposure = net position.
+ * Bilateral PvP: full notional exchanged simultaneously → no principal risk, but
+ *   requires legal agreement and technical infrastructure.
+ * Sequential: one leg settles before other confirmed → full notional at risk.
+ *
+ * Netting efficiency: CLS achieves ~97% multilateral netting across all participants.
+ * Bilateral netting: user-specified ratio.
+ * Sequential: no netting of settlement risk (gross settlement).
+ *
+ * Settlement risk window: time between first irrevocable payment and confirmation of receipt.
+ * For sequential settlement this is typically 2–48 hrs depending on jurisdiction.
+ */
+function runModel() {
+  const pair      = document.getElementById('pairSel').value;
+  const notional  = parseFloat(document.getElementById('notionalInput').value) || 10e6;
+  const adv       = parseFloat(document.getElementById('volumeInput').value) || 50e6;
+  const netting   = parseFloat(document.getElementById('nettingInput').value)/100 || 0.65;
+  const window_h  = parseFloat(document.getElementById('windowInput').value) || 48;
+  const clsElig   = document.getElementById('clsEligSel').value;
+
+  // CLS params
+  const clsNetRatio   = 0.97; // CLS achieves ~97% multilateral netting
+  const clsAvail      = clsElig === 'eligible' ? true : false;
+  const clsNet        = notional * (1 - clsNetRatio);
+  const clsRiskExp    = clsAvail ? clsNet : notional; // if not CLS eligible, falls back to sequential risk
+  const clsComplexity = 'Medium — CLS membership, PVT schedules, in/out swaps';
+  const clsCost       = 'CLS per-instruction fee ~$0.20–$1.50; membership fees apply';
+
+  // Bilateral PvP params
+  const bilPvpNet       = notional * (1 - netting);
+  const bilPvpRiskExp   = 0; // true PvP = simultaneous exchange, zero principal risk
+  const bilPvpReplRisk  = bilPvpNet * 0.05; // replacement cost risk (5% haircut on net)
+  const bilPvpComplexity = 'High — bilateral legal agreements, real-time synchronisation';
+
+  // Sequential params
+  const seqRiskExp    = notional; // full notional at risk during settlement window
+  const seqReplacment = notional * 0.03 * (window_h/24); // simplified replacement cost
+  const seqComplexity = 'Low — standard correspondent banking; no special infrastructure';
+
+  // Scores (lower = better for risk; higher = better for netting/efficiency)
+  const methods = [
+    {
+      id: 'cls',
+      name: 'CLS Settlement',
+      available: clsAvail,
+      badge: clsAvail ? '✓ Eligible' : '✗ Not eligible',
+      badgeColor: clsAvail ? 'var(--green)' : 'var(--red)',
+      principalRisk: clsAvail ? clsRiskExp : notional,
+      riskPct: clsAvail ? (clsNetRatio * 100) : 0,  // % reduction in risk
+      netEff: clsAvail ? 97 : 0,
+      timingMismatch: clsAvail ? 'None — simultaneous multilateral settlement' : 'N/A',
+      opComplexity: clsAvail ? 3 : 5,
+      cost: clsAvail ? clsCost : 'Not available for this pair',
+      riskScore: clsAvail ? 1 : 5,
+      netScore: clsAvail ? 5 : 1,
+      overallScore: clsAvail ? 5 : 1,
+      color: 'var(--teal)',
+    },
+    {
+      id: 'pvp',
+      name: 'Bilateral PvP',
+      available: true,
+      badge: 'Requires ISDA/bilateral agreement',
+      badgeColor: 'var(--gold)',
+      principalRisk: 0,
+      replacementRisk: bilPvpReplRisk,
+      riskPct: 100,
+      netEff: netting * 100,
+      timingMismatch: 'None — payment-vs-payment synchronisation',
+      opComplexity: 4,
+      cost: 'System integration cost; no per-transaction fee',
+      riskScore: 5,
+      netScore: Math.round(netting * 5),
+      overallScore: 4,
+      color: 'var(--purple)',
+    },
+    {
+      id: 'seq',
+      name: 'Sequential Settlement',
+      available: true,
+      badge: 'No special infrastructure required',
+      badgeColor: 'var(--muted)',
+      principalRisk: seqRiskExp,
+      riskPct: 0,
+      netEff: 0,
+      timingMismatch: `${window_h}h window — full principal at risk`,
+      opComplexity: 1,
+      cost: 'Standard correspondent bank fees; no infrastructure investment',
+      riskScore: 1,
+      netScore: 1,
+      overallScore: clsAvail ? 1 : 2,
+      color: 'var(--body)',
+    }
+  ];
+
+  const best = methods.reduce((a,b) => a.overallScore >= b.overallScore ? a : b);
+
+  const scoreBar = (score, color) => `
+    <div class="risk-bar-wrap">
+      <div class="risk-bar-outer"><div class="risk-bar-inner" style="width:${score*20}%;background:${color}"></div></div>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:${color}">${score}/5</span>
+    </div>`;
+
+  document.getElementById('cmpGrid').innerHTML = methods.map(m => `
+    <div class="cmp-cell${m.id === best.id ? ' best' : ''}">
+      <div class="cmp-name">${m.name}${m.id === best.id ? ' ★' : ''}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:${m.badgeColor};margin-bottom:.75rem">${m.badge}</div>
+      <div class="cmp-row"><span class="cmp-key">Principal Risk Exp.</span><span class="cmp-val" style="color:${m.principalRisk===0?'var(--green)':'var(--red)'}">${m.principalRisk===0?'$0 (zero)':'$'+fmt(m.principalRisk)}</span></div>
+      <div class="cmp-row"><span class="cmp-key">Risk Reduction</span><span class="cmp-val">${m.riskPct.toFixed(0)}%</span></div>
+      <div class="cmp-row"><span class="cmp-key">Netting Efficiency</span><span class="cmp-val">${m.netEff.toFixed(0)}%</span></div>
+      <div class="cmp-row"><span class="cmp-key">Timing Mismatch</span><span class="cmp-val" style="font-size:.58rem">${m.timingMismatch}</span></div>
+      <div class="cmp-row"><span class="cmp-key">Op. Complexity</span>${scoreBar(m.opComplexity,'var(--gold)')}</div>
+      <div class="cmp-score" style="color:${m.color}">
+        <div class="cmp-row"><span class="cmp-key">Risk Score</span>${scoreBar(m.riskScore,m.color)}</div>
+        <div class="cmp-row"><span class="cmp-key">Overall</span>${scoreBar(m.overallScore,m.color)}</div>
+      </div>
+    </div>`).join('');
+
+  // Daily exposure calc
+  const advRisk = adv; // sequential: full daily volume at risk during window
+  const clsAdvRisk = adv * (1 - clsNetRatio);
+  const pvpAdvRisk = adv * (1 - netting);
+
+  const memo = `PVP SETTLEMENT SYNCHRONISATION MODEL
+Generated: ${new Date().toLocaleDateString()} | T218 · AINumbers.co
+Based on BIS CPMI PvP guidance (Nov 2022) and CPMI progress report (Jul 2024)
+====================================================
+
+INPUTS
+  Currency Pair:              ${pair}
+  Transaction Notional:       $${fmt(notional)}
+  Avg Daily FX Volume:        $${fmt(adv)} USD equiv.
+  Bilateral Netting Ratio:    ${(netting*100).toFixed(0)}%
+  Settlement Window:          ${window_h} hours
+  CLS Eligibility:            ${clsElig}
+
+SETTLEMENT RISK EXPOSURE (per transaction)
+  CLS:                  $${fmt(clsAvail ? clsRiskExp : notional)} (${clsAvail?'multilateral netting':'not eligible'})
+  Bilateral PvP:        $0 principal risk (replacement cost risk ~$${fmt(bilPvpReplRisk)})
+  Sequential:           $${fmt(seqRiskExp)} — full notional at risk for ${window_h}h
+
+DAILY AGGREGATE EXPOSURE
+  CLS:                  $${fmt(clsAdvRisk)} (97% multilateral netting)
+  Bilateral PvP:        $${fmt(pvpAdvRisk)} replacement risk (${(netting*100).toFixed(0)}% bilateral netting)
+  Sequential:           $${fmt(advRisk)} — full daily volume exposed during window
+
+SETTLEMENT METHOD COMPARISON
+  CLS Settlement:         Risk Score ${methods[0].riskScore}/5 | Netting ${methods[0].netEff.toFixed(0)}% | ${clsAvail?'AVAILABLE':'NOT ELIGIBLE'}
+  Bilateral PvP:          Risk Score ${methods[1].riskScore}/5 | Netting ${methods[1].netEff.toFixed(0)}%
+  Sequential:             Risk Score ${methods[2].riskScore}/5 | Netting 0%
+
+RECOMMENDATION
+  ${best.name} — Overall score: ${best.overallScore}/5
+  ${best.id === 'cls' ? 'CLS is preferred for eligible currency pairs. Achieves near-elimination of principal risk through multilateral netting and simultaneous settlement.' :
+    best.id === 'pvp' ? 'Bilateral PvP is recommended. Eliminates principal risk through payment-vs-payment synchronisation. Requires bilateral legal agreement and system integration.' :
+    'Sequential settlement is the baseline. Consider migrating to PvP or CLS where volume and counterparty relationships justify infrastructure investment.'}
+
+BIS CONTEXT
+  The BIS CPMI 2022 report estimated ~35% of global FX trades ($8.9T/day) still settle
+  without PvP, representing significant unmitigated Herstatt risk. CPMI 2024 progress
+  report notes slow adoption — regulators may impose mandatory PvP requirements
+  for systemically important FX flows by 2026-2027.
+
+REGULATORY CITATIONS
+  [1] BIS CPMI (Nov 2022) — Facilitating increased adoption of PvP FX settlement
+  [2] CPMI Progress Report on PvP FX Settlement Adoption (Jul 2024)
+  [3] CLS Group — CLS Settlement Service description
+  [4] FSB (2021) — FX Settlement Risk action plan progress
+  [5] Basel III LCR/NSFR — settlement risk within stress scenarios (BCBS 238)`;
+
+  document.getElementById('memoBlock').textContent = memo;
+  window._memo218 = memo;
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('resultsPanel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function copyMemo() {
+  if(window._memo218){navigator.clipboard.writeText(window._memo218).then(()=>{const b=document.querySelector('.copy-btn');if(b){b.textContent='Copied ✓';setTimeout(()=>b.textContent='Copy',2000);}});}
+}
+
+function fmt(n) {
+  if(Math.abs(n)>=1e9) return (n/1e9).toFixed(2)+'B';
+  if(Math.abs(n)>=1e6) return (n/1e6).toFixed(2)+'M';
+  if(Math.abs(n)>=1e3) return (n/1e3).toFixed(1)+'K';
+ 

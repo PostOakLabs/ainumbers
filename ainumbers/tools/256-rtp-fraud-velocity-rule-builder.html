@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+  <title>T256 · Real-Time Payment Fraud Velocity Rule Builder — AINumbers.co</title>
+  <link rel="canonical" href="https://ainumbers.co/tools/256-rtp-fraud-velocity-rule-builder.html">
+  <meta name="description" content="Configure fraud velocity rules within the sub-second RTP authorisation window. Covers mule detection, reverse-push patterns, velocity thresholds for FedNow/RTP/PIX/Faster Payments, rule conflict detection, latency budget analysis, and Policy Mandate JSON RTP fraud policy. Client-side. Zero PII.">
+  <script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Real-Time Payment Fraud Velocity Rule Builder — AINumbers.co","url":"https://ainumbers.co/tools/256-rtp-fraud-velocity-rule-builder.html","description":"Configure fraud velocity rules within the sub-second RTP authorisation window. Covers mule detection, reverse-push patterns, velocity thresholds for FedNow/RTP/PIX/Faster Payments, rule conflict detection, latency budget analysis, and Policy Mandate JSON RTP fraud policy. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* PolicyMandate — full validator (Phase 14); AP2Schema internal name retained */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+};
+</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    /* ══════════════════════════════════════════════════════════
+       CSS DESIGN TOKENS — AINumbers.co canonical set (v3.0)
+    ══════════════════════════════════════════════════════════ */
+    :root {
+      --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+      --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+      --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+      --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+      --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+      --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+      --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+      --warn:#F59E0B; --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+      --radius:6px; --radius-lg:10px;
+      --font-display:'DM Serif Display',serif;
+      --font-body:'Sora',sans-serif;
+      --font-mono:'JetBrains Mono',monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    .container{max-width:1100px;margin:0 auto;padding:0 2rem}
+    body {
+      font-family:'Sora',sans-serif; font-weight:300; font-size:15px; line-height:1.7;
+      -webkit-font-smoothing:antialiased; background: var(--bg); color: var(--text);
+      min-height: 100vh;
+    }
+    body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+
+    /* ── Lang bar ── */
+    .lang-bar { background: var(--bg-2); border-bottom: 1px solid var(--border); padding: 6px 0; }
+    .lang-inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; justify-content: flex-end; }
+    .lang-btn { font-family: 'JetBrains Mono',monospace; font-size: 0.66rem; font-weight: 500; letter-spacing: 0.06em; padding: 3px 10px; border-radius: var(--radius); border: 1px solid var(--border); background: transparent; color: var(--body); cursor: pointer; transition: all 0.15s; }
+    .lang-btn:hover { border-color: var(--teal); color: var(--teal); }
+    .lang-btn.active { background: var(--teal-dim); border-color: var(--teal); color: var(--teal-lt); }
+
+    /* ── Nav ── */
+    nav { background: rgba(8,14,26,.96); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+    .nav-inner { max-width: 1200px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+    .nav-logo { font-family: 'JetBrains Mono',monospace; font-size: 0.85rem; font-weight: 700; color: var(--teal-lt); text-decoration: none; letter-spacing: -0.02em; }
+    .nav-logo span { color: var(--white); }
+    /* ── Hero ── */
+    .hero { max-width: 1200px; margin: 0 auto; padding: 52px 24px 40px; }
+    .hero-eyebrow { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+    .tool-eyebrow { font-family: 'JetBrains Mono',monospace; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.1em; color: var(--body); text-transform: uppercase; }
+    .eyebrow-tag { font-family: 'JetBrains Mono',monospace; font-size: 0.62rem; font-weight: 700; padding: 3px 10px; border-radius: var(--radius); letter-spacing: 0.07em; }
+    .eyebrow-tag.teal { background: var(--teal-dim); border: 1px solid rgba(20,184,166,.3); color: var(--teal-lt); }
+    .eyebrow-tag.red  { background: var(--red-dim);  border: 1px solid rgba(239,68,68,.3);  color: var(--red); }
+    .hero h1 { font-family: 'DM Serif Display',serif; font-size: clamp(1.5rem, 3vw, 2.2rem); color: var(--white); line-height: 1.18; margin-bottom: 16px; letter-spacing: -0.02em; }
+    .hero-desc { font-size: 0.85rem; color: var(--text); max-width: 700px; line-height: 1.75; margin-bottom: 24px; }
+    .hero-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .meta-badge { font-family: 'JetBrains Mono',monospace; font-size: 0.6rem; font-weight: 600; padding: 4px 12px; border-radius: var(--radius); border: 1px solid var(--border); color: var(--body); letter-spacing: 0.05em; }
+    .meta-badge.teal   { border-color: rgba(20,184,166,.35); color: var(--teal);   background: var(--teal-dim); }
+    .meta-badge.gold   { border-color: rgba(212,168,71,.35); color: var(--gold);   background: var(--gold-dim); }
+    .meta-badge.purple { border-color: rgba(155,114,245,.35); color: var(--purple); background: var(--purple-dim); }
+    .meta-badge.green  { border-color: rgba(34,197,94,.35); color: var(--green);   background: var(--green-dim); }
+
+    /* ── Scope callout ── */
+    .scope-callout {
+      max-width: 1200px; margin: 0 auto 0; padding: 0 24px 32px;
+    }
+    .scope-box {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 12px 16px; background: var(--bg-3);
+      border: 1px solid var(--border); border-left: 3px solid var(--teal);
+      border-radius: var(--radius); font-size: 0.77rem; color: var(--text);
+      line-height: 1.55;
+    }
+    .scope-icon { font-size: 1rem; flex-shrink: 0; padding-top: 1px; }
+    .scope-box strong { color: var(--teal-lt); font-weight: 600; }
+
+    /* ── Main layout ── */
+    .main-wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px 64px; display: grid; grid-template-columns: 360px 1fr; gap: 24px; align-items: start; }
+
+    /* ── Panel ── */
+    .panel { background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+    .panel-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .panel-label { font-family: 'JetBrains Mono',monospace; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+    .panel-count { font-family: 'JetBrains Mono',monospace; font-size: 0.6rem; font-weight: 700; padding: 2px 10px; border-radius: var(--radius); background: var(--teal-dim); border: 1px solid rgba(20,184,166,.2); color: var(--teal); margin-left: auto; }
+    .panel-body { padding: 20px; }
+
+    /* ── Form fields ── */
+    .field-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .field-group:last-child { margin-bottom: 0; }
+    .field-group label { font-family: 'JetBrains Mono',monospace; font-size: 0.61rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+    .field-group select, .field-group input[type=number] {
+      font-family: 'Sora',sans-serif; font-size: 0.82rem;
+      padding: 9px 32px 9px 12px; background: var(--bg-3);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--bright); outline: none; appearance: none; cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233A5270' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center; background-size: 15px;
+      transition: border-color 0.15s;
+    }
+    .field-group input[type=number] { background-image: none; padding-right: 12px; }
+    .field-group select:focus, .field-group input:focus { border-color: var(--teal); }
+    .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+
+    /* ── Latency gauge ── */
+    .latency-gauge { margin-bottom: 14px; }
+    .latency-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .latency-label { font-family: 'JetBrains Mono',monospace; font-size: 0.61rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+    .latency-val { font-family: 'JetBrains Mono',monospace; font-size: 0.7rem; font-weight: 700; color: var(--teal); }
+    .latency-track { height: 8px; background: var(--bg-4); border-radius: 4px; overflow: hidden; position: relative; }
+    .latency-fill { height: 100%; border-radius: 4px; background: var(--teal); transition: width 0.4s ease, background 0.3s; }
+    .latency-fill.warn { background: var(--warn); }
+    .latency-fill.over { background: var(--red); }
+
+    /* ── Add rule button ── */
+    .add-rule-btn {
+      width: 100%; padding: 10px 16px; margin-bottom: 14px;
+      font-family: 'JetBrains Mono',monospace; font-size: 0.72rem; font-weight: 700;
+      letter-spacing: 0.07em; background: transparent;
+      border: 1px dashed var(--border-2); border-radius: var(--radius);
+      color: var(--body); cursor: pointer; transition: all 0.15s;
+    }
+    .add-rule-btn:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-dim); }
+
+    /* ── Rule cards ── */
+    .rules-list { display: flex; flex-direction: column; gap: 8px; }
+    .rule-card {
+      padding: 10px 14px; background: var(--bg-3);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      border-left: 3px solid var(--teal); position: relative;
+    }
+    .rule-card.conflict { border-left-color: var(--warn); }
+    .rule-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .rule-card-num { font-family: 'JetBrains Mono',monospace; font-size: 0.58rem; font-weight: 700; color: var(--muted); }
+    .rule-card-type { font-family: 'JetBrains Mono',monospace; font-size: 0.68rem; font-weight: 700; color: var(--teal-lt); flex: 1; }
+    .rule-del { font-size: 0.7rem; color: var(--muted); cursor: pointer; background: none; border: none; padding: 2px 6px; border-radius: var(--radius); transition: all 0.12s; }
+    .rule-del:hover { background: var(--red-dim); color: var(--red); }
+    .rule-card-desc { font-size: 0.7rem; color: var(--text); line-height: 1.4; }
+    .rule-chips { display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; }
+    .rchip { font-family: 'JetBrains Mono',monospace; font-size: 0.54rem; font-weight: 700; padding: 2px 7px; border-radius: var(--radius); border: 1px solid; }
+    .rchip.action-block   { border-color: rgba(239,68,68,.4); color: var(--red); background: var(--red-dim); }
+    .rchip.action-hold    { border-color: rgba(245,158,11,.4); color: var(--warn); background: rgba(245,158,11,.1); }
+    .rchip.action-alert   { border-color: rgba(212,168,71,.4); color: var(--gold); background: var(--gold-dim); }
+    .rchip.action-monitor { border-color: rgba(20,184,166,.4); color: var(--teal); background: var(--teal-dim); }
+    .rchip.latency        { border-color: rgba(155,114,245,.4); color: var(--purple); background: var(--purple-dim); }
+    .rchip.conflict-warn  { border-color: rgba(245,158,11,.4); color: var(--warn); background: rgba(245,158,11,.1); }
+
+    /* PII notice */
+    .pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+    /* Run button */
+    .run-btn { width: 100%; margin-top: 16px; padding: 14px 24px; font-family: 'JetBrains Mono',monospace; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; background: var(--teal); color: var(--bg); border: none; border-radius: var(--radius); cursor: pointer; transition: all 0.15s; }
+    .run-btn:hover { background: var(--teal-lt); transform: translateY(-1px); }
+    .run-btn:active { transform: translateY(0); }
+
+    /* ── Results panel ── */
+    .results-title { font-family: 'JetBrains Mono',monospace; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--teal); }
+    .results-empty { text-align: center; padding: 60px 24px; }
+    .empty-icon { font-size: 2.2rem; opacity: 0.3; margin-bottom: 14px; }
+    .empty-text { font-family: 'JetBrains Mono',monospace; font-size: 0.68rem; color: var(--muted); letter-spacing: 0.06em; line-height: 1.6; }
+
+    /* ── Latency waterfall ── */
+    .waterfall-section { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+    .section-heading { font-family: 'JetBrains Mono',monospace; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+    .waterfall-bar-wrap { margin-bottom: 8px; }
+    .waterfall-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .wf-name { font-family: 'JetBrains Mono',monospace; font-size: 0.63rem; font-weight: 700; color: var(--text); }
+    .wf-ms { font-family: 'JetBrains Mono',monospace; font-size: 0.63rem; font-weight: 700; color: var(--purple); }
+    .wf-track { height: 18px; background: var(--bg-4); border-radius: var(--radius); overflow: hidden; position: relative; }
+    .wf-fill { height: 100%; border-radius: var(--radius); transition: width 0.5s ease; display: flex; align-items: center; padding-left: 6px; }
+    .wf-fill-label { font-family: 'JetBrains Mono',monospace; font-size: 0.54rem; font-weight: 700; color: rgba(0,0,0,.6); white-space: nowrap; overflow: hidden; }
+    .wf-total-row { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--border); margin-top: 6px; }
+    .wf-total-label { font-family: 'JetBrains Mono',monospace; font-size: 0.65rem; font-weight: 700; color: var(--text); }
+    .wf-total-val { font-family: 'JetBrains Mono',monospace; font-size: 0.65rem; font-weight: 700; }
+    .budget-ok   { color: var(--green); }
+    .budget-warn { color: var(--warn); }
+    .budget-over { color: var(--red); }
+
+    /* ── Pseudocode output ── */
+    .code-section { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+    .code-block {
+      background: rgba(4,8,16,.7); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px 16px; overflow-x: auto;
+      font-family: 'JetBrains Mono',monospace; font-size: 0.68rem; line-height: 1.65;
+      color: var(--text); white-space: pre; max-height: 420px; overflow-y: auto;
+    }
+    /* Pseudocode syntax highlights */
+    .kw  { color: var(--teal-lt); }   /* keywords */
+    .cmt { color: var(--muted); }     /* comments */
+    .str { color: var(--gold); }      /* strings / values */
+    .num { color: var(--purple); }    /* numbers */
+    .act { color: var(--red); }       /* action words */
+
+    /* ── Conflict alerts ── */
+    .conflict-section { padding: 12px 20px; border-bottom: 1px solid var(--border); }
+    .conflict-item { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; background: rgba(245,158,11,.06); border: 1px solid rgba(245,158,11,.2); border-radius: var(--radius); margin-bottom: 6px; }
+    .conflict-item:last-child { margin-bottom: 0; }
+    .conflict-icon { font-size: 0.85rem; flex-shrink: 0; }
+    .conflict-text { font-size: 0.72rem; color: var(--text); line-height: 1.45; }
+
+    /* Export row */
+    .export-row { display: flex; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); }
+    .btn-export { flex: 1; padding: 10px 10px; font-family: 'JetBrains Mono',monospace; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.05em; text-align: center; border-radius: var(--radius); border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: not-allowed; opacity: 0.32; transition: all 0.15s; }
+    .btn-export.ready { opacity: 1; cursor: pointer; }
+    .btn-export-ap2.ready { border-color: rgba(155,114,245,.4); color: var(--purple); background: var(--purple-dim); }
+    .btn-export-ap2.ready:hover { border-color: var(--purple); }
+    .btn-export-md.ready { border-color: rgba(20,184,166,.35); color: var(--teal); background: var(--teal-dim); }
+    .btn-export-md.ready:hover { border-color: var(--teal); }
+
+    /* Toast */
+    .toast { position: fixed; bottom: 24px; right: 24px; padding: 11px 18px; border-radius: var(--radius); font-family: 'JetBrains Mono',monospace; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; opacity: 0; transform: translateY(8px); transition: all 0.22s; pointer-events: none; z-index: 1000; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.success { background: var(--green-dim); border: 1px solid var(--green); color: var(--green); }
+    .toast.info    { background: var(--teal-dim); border: 1px solid var(--teal); color: var(--teal-lt); }
+    .toast.error   { background: var(--red-dim); border: 1px solid var(--red); color: var(--red); }
+
+    /* RTL support */
+    [dir="rtl"] .nav-inner       { flex-direction: row-reverse; }
+    [dir="rtl"] .lang-inner      { justify-content: flex-end; }
+    [dir="rtl"] .hero-eyebrow    { flex-direction: row-reverse; }
+    [dir="rtl"] .panel-label     { text-align: right; }
+    [dir="rtl"] .export-row      { flex-direction: row-reverse; }
+    [dir="rtl"] [dir="rtl"] .rule-card       { border-left: none; border-right: 3px solid var(--teal); }
+    [dir="rtl"] .scope-box       { border-left: none; border-right: 3px solid var(--teal); }
+    [dir="rtl"] body             { font-family: 'Sora','Segoe UI',Tahoma,sans-serif; }
+    [dir="rtl"] .run-btn         { letter-spacing: 0; }
+
+    @media (max-width: 900px) {
+      .main-wrap { grid-template-columns: 1fr; }
+      .input-row { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 580px) {
+      .hero { padding: 32px 16px 24px; }
+      .main-wrap { padding: 0 16px 48px; }
+      .scope-callout { padding: 0 16px 24px; }
+    }
+
+    /* ── SVG Logo classes ── */
+    .logo { display:flex; align-items:center; gap:10px; flex-shrink:0; text-decoration:none; }
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+    .logo-mark-grid { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:32px; height:32px; }
+    .logo-text{display:flex;flex-direction:column;gap:.08rem;}
+    .logo-ai { color:var(--teal); }
+    .logo-co { color:var(--muted); font-size:.8rem; }
+    
+  
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-privacy{color:var(--teal);border-color:var(--teal)}
+.badge-warn{color:#f59e0b;border-color:#f59e0b}
+.badge-green{color:#10b981;border-color:#10b981}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- LANG BAR -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark-grid">
+        <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="#0D1627"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="#14B8A6" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".7"/>
+      </svg>
+      </div>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/realtime-payments-ops-hub.html">Real-Time Payments Hub</a><span class="nav-sep">/</span><span>T-256</span></div>
+
+    <a href="../guides/realtime-payments-ops-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-eyebrow">
+    <span class="tool-eyebrow">T256 · Cat-21 · Real-Time Payments · Operations & Compliance</span>
+    <span class="eyebrow-tag teal">CAT-21</span>
+    <span class="eyebrow-tag red">SUB-SECOND SCOPE</span>
+  </div>
+  <h1 class="tool-title">Real-Time Payment Fraud Velocity Rule Builder</h1>
+  <p class="hero-desc">Configure and validate fraud velocity rules within the sub-second RTP authorisation window (250ms–1,000ms). Covers mule account detection, reverse-push/refund patterns, velocity thresholds across FedNow, RTP/TCH, PIX, and Faster Payments, plus rule conflict detection. Outputs structured rule pseudocode, latency budget waterfall, and a Policy Mandate JSON RTP fraud policy.</p>
+  <div class="hero-meta">
+    <span class="meta-badge teal">FedNow · RTP · PIX · FPS</span>
+    <span class="meta-badge gold">250ms–1,000ms Window</span>
+    <span class="meta-badge purple">Rule Conflict Detection</span>
+    <span class="meta-badge green">Policy Mandate Export</span>
+    <span class="meta-badge">Client-side · Zero PII</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+</section>
+
+<!-- SCOPE CALLOUT -->
+<div class="scope-callout">
+  <div class="scope-box">
+    <span class="scope-icon">⚡</span>
+    <div><strong>Scope: sub-second authorisation window only.</strong> This tool configures rules that execute within the RTP payment authorisation path (250ms–1,000ms latency). For A2A invoice velocity and merchant threshold rules, see Tool 05. For post-payment fraud investigation and SAR narrative generation, see Tool 80 and T121.</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main-wrap">
+
+  <!-- LEFT: Rule builder -->
+  <div>
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label">Configuration</span>
+        <span class="panel-count" id="ruleCount">0 rules</span>
+      </div>
+      <div class="panel-body">
+
+        <!-- Global config -->
+        <div class="field-group">
+          <label data-i18n="label_rail" for="railSel">Target Rail</label>
+          <select id="railSel" onchange="updateBudgetHint()">
+            <option value="fednow">FedNow (US — Federal Reserve)</option>
+            <option value="rtp">RTP / TCH (US — The Clearing House)</option>
+            <option value="fps">Faster Payments (UK — Pay.UK)</option>
+            <option value="pix">PIX (Brazil — Banco Central)</option>
+            <option value="sepa_inst">SEPA Instant Credit Transfer (EU — EPC)</option>
+            <option value="paynow">PayNow (Singapore — MAS)</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label data-i18n="label_latency_budget" for="latBudget">Latency Budget (ms)</label>
+          <select id="latBudget" onchange="updateBudgetHint()">
+            <option value="250">250 ms — Aggressive (FedNow target)</option>
+            <option value="500" selected>500 ms — Standard</option>
+            <option value="750">750 ms — Conservative</option>
+            <option value="1000">1,000 ms — Maximum permissible</option>
+          </select>
+        </div>
+
+        <!-- Live latency gauge -->
+        <div class="latency-gauge">
+          <div class="latency-header">
+            <span class="latency-label">Budget Used</span>
+            <span class="latency-val" id="gaugeVal">0 / 500 ms</span>
+          </div>
+          <div class="latency-track">
+            <div class="latency-fill" id="gaugeFill" style="width:0%"></div>
+          </div>
+        </div>
+
+        <hr class="divider">
+
+        <!-- Rule form -->
+        <div class="field-group">
+          <label data-i18n="label_threshold_type" for="ruleType">Rule Type</label>
+          <select id="ruleType" onchange="updateRuleFormHints()">
+            <option value="velocity_count">Velocity Count — max N transactions in window</option>
+            <option value="velocity_amount">Velocity Amount — max $X total in window</option>
+            <option value="mule_detection">Mule Account Detection — new account + high amount</option>
+            <option value="reverse_push">Reverse-Push / Refund Pattern — push then refund</option>
+            <option value="amount_anomaly">Amount Anomaly — deviation from customer baseline</option>
+            <option value="device_ip_vel">Device / IP Velocity — same device, multiple payments</option>
+          </select>
+        </div>
+
+        <div class="input-row">
+          <div class="field-group">
+            <label for="ruleWindow">Lookback Window</label>
+            <select id="ruleWindow">
+              <option value="60">60 seconds</option>
+              <option value="300" selected>5 minutes</option>
+              <option value="900">15 minutes</option>
+              <option value="3600">60 minutes</option>
+              <option value="86400">24 hours</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label for="riskTier">Customer Risk Tier</label>
+            <select id="riskTier">
+              <option value="all">All Tiers</option>
+              <option value="high">High Risk</option>
+              <option value="medium">Medium Risk</option>
+              <option value="low">Low Risk</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="input-row" id="thresholdRow">
+          <div class="field-group">
+            <label for="threshCount" id="threshCountLabel">Max Count</label>
+            <input type="number" id="threshCount" value="5" min="1" max="999">
+          </div>
+          <div class="field-group">
+            <label for="threshAmount" id="threshAmountLabel">Max Amount ($)</label>
+            <input type="number" id="threshAmount" value="10000" min="0" step="100">
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label data-i18n="label_rule_action" for="ruleAction">Rule Action</label>
+          <select id="ruleAction">
+            <option value="block">Block — Reject payment immediately</option>
+            <option value="hold">Flag &amp; Hold — Queue for manual review (≤30s)</option>
+            <option value="alert">Flag &amp; Alert — Allow + real-time alert to fraud ops</option>
+            <option value="monitor">Enhanced Monitoring — Allow + log + increase surveillance</option>
+          </select>
+        </div>
+
+        <button class="add-rule-btn" onclick="addRule()">+ Add Rule to Set</button>
+
+        <!-- Built rules list -->
+        <div class="rules-list" id="rulesList"></div>
+
+        <div class="pii-notice">
+  <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+</div>
+
+        <button class="run-btn" onclick="runAnalysis()" data-i18n="run_btn">Generate Rule Set →</button>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Results -->
+  <div>
+    <div class="panel" id="resultsPanel">
+      <div class="panel-header">
+        <span class="results-title" data-i18n="results_title">Rule Set Output</span>
+      </div>
+
+      <div class="results-empty" id="resultsEmpty">
+        <div class="empty-icon">🛡️</div>
+        <div class="empty-text">Add rules to your set and click<br>Generate Rule Set to see<br>pseudocode and latency analysis</div>
+      </div>
+
+      <div id="resultsContent" style="display:none;">
+        <!-- Latency waterfall -->
+        <div class="waterfall-section" id="waterfallSection"></div>
+        <!-- Conflict alerts -->
+        <div class="conflict-section" id="conflictSection" style="display:none;"></div>
+        <!-- Pseudocode -->
+        <div class="code-section" id="codeSection"></div>
+      </div>
+
+      <div class="results-export-row export-row">
+        <button class="btn-export btn-export-ap2" id="ap2ExportBtn" disabled title="Generate rule set first">Export Policy Mandate</button>
+        <button class="btn-export btn-export-md"  id="mdBtn"  disabled title="Generate rule set first">Export Markdown</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/realtime-payments-ops-hub.html"><span data-i18n="footer.hub_realtime_payments_ops">Realtime Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   T256 · Real-Time Payment Fraud Velocity Rule Builder
+   AINumbers.co · Post Oak Labs · v1.0.0
+   Scope: sub-second RTP authorisation window (250ms–1,000ms).
+   Distinct from Tool 05 (A2A invoice velocity) and Tool 80 (fraud investigation).
+   MCP function: build_rtp_fraud_velocity_rules
+   AP2 mandate_type: payment_policy
+   Client-side only. Zero PII. Deterministic pseudocode generation.
+══════════════════════════════════════════════════════════════════ */
+
+/* ──────────────────────────────────────────────────────────────────
+   RULE TYPE METADATA
+   latency_ms: estimated processing cost in sub-second auth path
+   Sources: industry benchmarks for in-memory rule evaluation;
+   FedNow Technical Specs (250ms target); TCH RTP Operating Rules.
+────────────────────────────────────────────────────────────────── */
+const RULE_META = {
+  velocity_count: {
+    label: 'Velocity Count',
+    latency_ms: 14,
+    latency_desc: 'Sliding-window counter lookup + increment (in-memory / Redis)',
+    needsCount: true, needsAmount: false,
+    countLabel: 'Max Transactions', amountLabel: '—',
+    rejectCode: { fednow: 'AM05', rtp: 'VL01', fps: 'FF01', pix: 'AB11', sepa_inst: 'AM05', paynow: 'VL01' },
+  },
+  velocity_amount: {
+    label: 'Velocity Amount',
+    latency_ms: 19,
+    latency_desc: 'Sliding-window sum aggregation (in-memory)',
+    needsCount: false, needsAmount: true,
+    countLabel: '—', amountLabel: 'Max Total ($)',
+    rejectCode: { fednow: 'AM04', rtp: 'AM04', fps: 'AM04', pix: 'AM04', sepa_inst: 'AM04', paynow: 'AM04' },
+  },
+  mule_detection: {
+    label: 'Mule Account Detection',
+    latency_ms: 48,
+    latency_desc: 'Multi-signal join: account age + amount percentile + time-of-day lookup',
+    needsCount: false, needsAmount: true,
+    countLabel: '—', amountLabel: 'Amount Trigger ($)',
+    rejectCode: { fednow: 'FOCR', rtp: 'FR01', fps: 'FRAD', pix: 'AB03', sepa_inst: 'AG01', paynow: 'FR01' },
+  },
+  reverse_push: {
+    label: 'Reverse-Push / Refund Pattern',
+    latency_ms: 42,
+    latency_desc: 'Recent outbound payment match + inbound refund correlation (session graph)',
+    needsCount: true, needsAmount: false,
+    countLabel: 'Refund Attempts', amountLabel: '—',
+    rejectCode: { fednow: 'FOCF', rtp: 'FR02', fps: 'FRAD', pix: 'AB09', sepa_inst: 'AM09', paynow: 'FR02' },
+  },
+  amount_anomaly: {
+    label: 'Amount Anomaly',
+    latency_ms: 24,
+    latency_desc: 'Historical baseline lookup + deviation calculation (precomputed customer profile)',
+    needsCount: false, needsAmount: true,
+    countLabel: '—', amountLabel: 'Multiplier × Baseline',
+    rejectCode: { fednow: 'AM12', rtp: 'AM12', fps: 'AM12', pix: 'AM12', sepa_inst: 'AM12', paynow: 'AM12' },
+  },
+  device_ip_vel: {
+    label: 'Device / IP Velocity',
+    latency_ms: 31,
+    latency_desc: 'Device fingerprint hash lookup + IP-level counter (in-memory bloom filter)',
+    needsCount: true, needsAmount: false,
+    countLabel: 'Max Per Device', amountLabel: '—',
+    rejectCode: { fednow: 'AM05', rtp: 'VL02', fps: 'FF02', pix: 'AB13', sepa_inst: 'AM05', paynow: 'VL02' },
+  },
+};
+
+const RAIL_META = {
+  fednow:    { name: 'FedNow',          region: 'US', latency_sla_ms: 1000, target_ms: 250, maxTxn: 'None (institution-set)', currency: 'USD' },
+  rtp:       { name: 'RTP / TCH',       region: 'US', latency_sla_ms: 1000, target_ms: 500, maxTxn: '$1,000,000',            currency: 'USD' },
+  fps:       { name: 'Faster Payments', region: 'UK', latency_sla_ms: 1000, target_ms: 600, maxTxn: '£1,000,000',            currency: 'GBP' },
+  pix:       { name: 'PIX',             region: 'BR', latency_sla_ms: 1000, target_ms: 600, maxTxn: 'BRL 999,999,999.99',    currency: 'BRL' },
+  sepa_inst: { name: 'SEPA Instant',    region: 'EU', latency_sla_ms: 1000, target_ms: 800, maxTxn: '€100,000',              currency: 'EUR' },
+  paynow:    { name: 'PayNow',          region: 'SG', latency_sla_ms: 1000, target_ms: 500, maxTxn: 'SGD 200,000',           currency: 'SGD' },
+};
+
+/* ── State ── */
+let rules = [];
+let lastAP2 = null;
+let ruleIdCounter = 0;
+
+/* ── Update form hints when rule type changes ── */
+function updateRuleFormHints() {
+  const t = document.getElementById('ruleType').value;
+  const meta = RULE_META[t];
+  document.getElementById('threshCountLabel').textContent = meta.needsCount ? meta.countLabel : '— (not used)';
+  document.getElementById('threshAmountLabel').textContent = meta.needsAmount ? meta.amountLabel : '— (not used)';
+  document.getElementById('threshCount').disabled = !meta.needsCount;
+  document.getElementById('threshAmount').disabled = !meta.needsAmount;
+}
+
+/* ── Update latency gauge ── */
+function updateBudgetHint() {
+  const budget = parseInt(document.getElementById('latBudget').value);
+  const used = rules.reduce((s, r) => s + RULE_META[r.type].latency_ms, 0);
+  const pct = Math.min(100, (used / budget) * 100);
+  const fill = document.getElementById('gaugeFill');
+  fill.style.width = pct + '%';
+  fill.classList.remove('warn', 'over');
+  if (pct >= 100) fill.classList.add('over');
+  else if (pct >= 75) fill.classList.add('warn');
+  document.getElementById('gaugeVal').textContent = `${used} / ${budget} ms`;
+}
+
+/* ── Add rule ── */
+function addRule() {
+  if (rules.length >= 6) { showToast('Maximum 6 rules per set', 'error'); return; }
+
+  const type   = document.getElementById('ruleType').value;
+  const window = parseInt(document.getElementById('ruleWindow').value);
+  const tier   = document.getElementById('riskTier').value;
+  const count  = parseInt(document.getElementById('threshCount').value) || 5;
+  const amount = parseInt(document.getElementById('threshAmount').value) || 10000;
+  const action = document.getElementById('ruleAction').value;
+  const meta   = RULE_META[type];
+
+  const rule = { id: ++ruleIdCounter, type, window, tier, count, amount, action };
+  rules.push(rule);
+
+  renderRulesList();
+  updateBudgetHint();
+  updateRuleCount();
+  showToast(`Rule ${ruleIdCounter} added`, 'info');
+}
+
+/* ── Remove rule ── */
+function removeRule(id) {
+  rules = rules.filter(r => r.id !== id);
+  renderRulesList();
+  updateBudgetHint();
+  updateRuleCount();
+}
+
+function updateRuleCount() {
+  const el = document.getElementById('ruleCount');
+  if (el) el.textContent = `${rules.length} rule${rules.length !== 1 ? 's' : ''}`;
+}
+
+/* ── Render rules list ── */
+function renderRulesList() {
+  const container = document.getElementById('rulesList');
+  if (rules.length === 0) { container.innerHTML = ''; return; }
+
+  const conflicts = detectConflicts();
+  const conflictIds = new Set(conflicts.flatMap(c => c.ruleIds));
+
+  container.innerHTML = rules.map((r, idx) => {
+    const meta = RULE_META[r.type];
+    const windowLabel = formatWindow(r.window);
+    const actionClass = `action-${r.action}`;
+    const actionLabel = { block: 'BLOCK', hold: 'FLAG & HOLD', alert: 'FLAG & ALERT', monitor: 'ENHANCED MONITOR' }[r.action];
+    const hasConflict = conflictIds.has(r.id);
+
+    let threshDesc = '';
+    if (meta.needsCount && meta.needsAmount) threshDesc = `>${r.count} txns · >${formatAmount(r.amount)} · ${windowLabel}`;
+    else if (meta.needsCount)  threshDesc = `>${r.count} txns · ${windowLabel}`;
+    else if (meta.needsAmount) threshDesc = `>${formatAmount(r.amount)} · ${windowLabel}`;
+    else threshDesc = windowLabel;
+
+    return `<div class="rule-card ${hasConflict ? 'conflict' : ''}">
+      <div class="rule-card-header">
+        <span class="rule-card-num">R${idx+1}</span>
+        <span class="rule-card-type">${meta.label}</span>
+        <button class="rule-del" onclick="removeRule(${r.id})" title="Remove">✕</button>
+      </div>
+      <div class="rule-card-desc">${threshDesc}${r.tier !== 'all' ? ` · ${r.tier.toUpperCase()} tier` : ''}</div>
+      <div class="rule-chips">
+        <span class="rchip ${actionClass}">${actionLabel}</span>
+        <span class="rchip latency">~${meta.latency_ms}ms</span>
+        ${hasConflict ? '<span class="rchip conflict-warn">⚠ CONFLICT</span>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ── Format helpers ── */
+function formatWindow(secs) {
+  if (secs < 60)   return `${secs}s window`;
+  if (secs < 3600) return `${secs/60}min window`;
+  return `${secs/3600}hr window`;
+}
+
+function formatAmount(n) {
+  return n >= 1000000 ? `$${(n/1000000).toFixed(1)}M` : n >= 1000 ? `$${(n/1000).toFixed(0)}K` : `$${n}`;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   CONFLICT DETECTION
+────────────────────────────────────────────────────────────────── */
+function detectConflicts() {
+  const conflicts = [];
+
+  /* 1. Multiple BLOCK rules on same type → precedence ambiguity */
+  const typeActionMap = {};
+  rules.forEach(r => {
+    const key = r.type;
+    if (!typeActionMap[key]) typeActionMap[key] = [];
+    typeActionMap[key].push(r);
+  });
+  Object.entries(typeActionMap).forEach(([type, rs]) => {
+    const blockRules = rs.filter(r => r.action === 'block');
+    if (blockRules.length > 1) {
+      conflicts.push({
+        ruleIds: blockRules.map(r => r.id),
+        message: `Multiple BLOCK rules on ${RULE_META[type].label} — only the strictest threshold will fire. Remove redundant rules or merge thresholds.`,
+        severity: 'high'
+      });
+    }
+  });
+
+  /* 2. Budget exceeded */
+  const budget = parseInt(document.getElementById('latBudget').value);
+  const used   = rules.reduce((s, r) => s + RULE_META[r.type].latency_ms, 0);
+  if (used > budget) {
+    conflicts.push({
+      ruleIds: rules.map(r => r.id),
+      message: `Total rule latency (${used}ms) exceeds budget (${budget}ms). Remove or optimise rules, or increase latency budget. Sub-second SLA breach risk.`,
+      severity: 'critical'
+    });
+  }
+
+  /* 3. BLOCK + MONITOR on same type → MONITOR is unreachable */
+  Object.entries(typeActionMap).forEach(([type, rs]) => {
+    const hasBlock   = rs.some(r => r.action === 'block');
+    const hasMonitor = rs.some(r => r.action === 'monitor');
+    if (hasBlock && hasMonitor) {
+      const monitorRules = rs.filter(r => r.action === 'monitor');
+      conflicts.push({
+        ruleIds: monitorRules.map(r => r.id),
+        message: `ENHANCED MONITOR rule on ${RULE_META[type].label} is unreachable when a BLOCK rule is also present on the same type. BLOCK always takes precedence.`,
+        severity: 'medium'
+      });
+    }
+  });
+
+  /* 4. Velocity Count window < 60s with mule_detection */
+  rules.forEach(r => {
+    if (r.type === 'mule_detection' && r.window < 300) {
+      conflicts.push({
+        ruleIds: [r.id],
+        message: 'Mule Detection with window < 5 minutes generates excessive false positives. Consider a minimum 5-minute lookback for account-age signals.',
+        severity: 'low'
+      });
+    }
+  });
+
+  return conflicts;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   MAIN ANALYSIS
+   MCP callable: buildRTPFraudVelocityRules()
+────────────────────────────────────────────────────────────────── */
+function runAnalysis() {
+  if (rules.length === 0) { showToast('Add at least one rule first', 'error'); return; }
+
+  const rail   = document.getElementById('railSel').value;
+  const budget = parseInt(document.getElementById('latBudget').value);
+  const used   = rules.reduce((s, r) => s + RULE_META[r.type].latency_ms, 0);
+  const conflicts = detectConflicts();
+
+  document.getElementById('resultsEmpty').style.display = 'none';
+  document.getElementById('resultsContent').style.display = 'block';
+
+  renderWaterfall(rail, budget, used);
+  renderConflicts(conflicts);
+  renderPseudocode(rail);
+
+  lastAP2 = buildAP2({ rail, budget, used, conflicts });
+
+  const ap2Btn = document.getElementById('ap2Btn');
+  const mdBtn  = document.getElementById('mdBtn');
+  ap2Btn.disabled = false; ap2Btn.classList.add('ready'); ap2Btn.onclick = exportAP2;
+  mdBtn.disabled  = false; mdBtn.classList.add('ready');  mdBtn.onclick  = exportMarkdown;
+
+  const critical = conflicts.filter(c => c.severity === 'critical').length;
+  showToast(critical > 0 ? `Rule set generated — ${critical} critical conflict(s)` : `Rule set generated — ${used}ms of ${budget}ms budget used`, critical > 0 ? 'error' : 'success');
+}
+
+function buildRTPFraudVelocityRules() { runAnalysis(); return lastAP2; }
+
+/* ── Render latency waterfall ── */
+function renderWaterfall(rail, budget, used) {
+  const railMeta = RAIL_META[rail];
+  const pctUsed  = Math.min(100, (used / budget) * 100);
+  const budgetStatus = used <= budget * 0.75 ? 'ok' : used <= budget ? 'warn' : 'over';
+  const statusClass = { ok: 'budget-ok', warn: 'budget-warn', over: 'budget-over' }[budgetStatus];
+  const statusLabel = { ok: 'Within budget ✓', warn: 'Near limit ⚠', over: 'Budget exceeded ✗' }[budgetStatus];
+
+  const colors = ['#14B8A6','#2DD4BF','#0EA5A0','#5EEAD4','#99F6E4','#CCFBF1'];
+
+  let html = `<div class="section-heading">Latency Budget Waterfall — ${railMeta.name} · ${budget}ms budget</div>`;
+
+  rules.forEach((r, idx) => {
+    const meta = RULE_META[r.type];
+    const pct  = Math.min(100, (meta.latency_ms / budget) * 100);
+    const offset = rules.slice(0, idx).reduce((s, prev) => s + (RULE_META[prev.type].latency_ms / budget * 100), 0);
+    const color = colors[idx % colors.length];
+    html += `<div class="waterfall-bar-wrap">
+      <div class="waterfall-label">
+        <span class="wf-name">R${idx+1} · ${meta.label}</span>
+        <span class="wf-ms">${meta.latency_ms}ms</span>
+      </div>
+      <div class="wf-track">
+        <div class="wf-fill" style="width:${pct}%;margin-left:${Math.min(99,offset)}%;background:${color};">
+          <span class="wf-fill-label">${meta.latency_ms}ms</span>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  /* Remaining budget bar */
+  const remainPct = Math.max(0, 100 - pctUsed);
+  html += `<div class="waterfall-bar-wrap">
+    <div class="waterfall-label">
+      <span class="wf-name" style="color:var(--muted)">Network overhead (est.)</span>
+      <span class="wf-ms" style="color:var(--muted)">~30ms</span>
+    </div>
+    <div class="wf-track">
+      <div class="wf-fill" style="width:${Math.min(100,(30/budget*100))}%;margin-left:${Math.min(99,pctUsed)}%;background:var(--border-2);">
+      </div>
+    </div>
+  </div>`;
+
+  html += `<div class="wf-total-row">
+    <span class="wf-total-label">Total rule latency</span>
+    <span class="wf-total-val ${statusClass}">${used}ms / ${budget}ms — ${statusLabel}</span>
+  </div>`;
+
+  document.getElementById('waterfallSection').innerHTML = html;
+}
+
+/* ── Render conflict alerts ── */
+function renderConflicts(conflicts) {
+  const section = document.getElementById('conflictSection');
+  if (conflicts.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  const icons = { critical: '🚨', high: '⚠️', medium: '⚡', low: 'ℹ️' };
+  section.innerHTML = `<div class="section-heading">Rule Conflicts (${conflicts.length})</div>` +
+    conflicts.map(c => `<div class="conflict-item">
+      <span class="conflict-icon">${icons[c.severity] || '⚠️'}</span>
+      <div class="conflict-text"><strong>${c.severity.toUpperCase()}:</strong> ${c.message}</div>
+    </div>`).join('');
+}
+
+/* ── Generate pseudocode ── */
+function renderPseudocode(rail) {
+  const section = document.getElementById('codeSection');
+  const railMeta = RAIL_META[rail];
+
+  let code = `<span class="cmt">/*═══════════════════════════════════════════════════════════════
+  RTP Fraud Velocity Rule Set — Generated by AINumbers.co T256
+  Rail: ${railMeta.name} (${railMeta.region}) · ${railMeta.currency}
+  Latency Budget: ${document.getElementById('latBudget').value}ms · Scope: sub-second authorisation path
+  Generated: ${new Date().toISOString().slice(0,10)}
+  DO NOT translate or modify regulatory codes — cite ISO 20022 reason codes.
+═══════════════════════════════════════════════════════════════*/</span>
+
+`;
+
+  rules.forEach((r, idx) => {
+    const meta = RULE_META[r.type];
+    const rejCode = meta.rejectCode[rail] || 'AM05';
+    const windowLabel = formatWindow(r.window);
+    const tierFilter = r.tier === 'all' ? '["LOW", "MEDIUM", "HIGH"]' : `["${r.tier.toUpperCase()}"]`;
+    const actionComment = {
+      block:   '// Reject immediately — no fallback, no retry',
+      hold:    '// Queue for human review — max hold 30s per scheme rules',
+      alert:   '// Allow + fire real-time alert to fraud ops channel',
+      monitor: '// Allow + log + increment surveillance score'
+    }[r.action];
+
+    code += `<span class="kw">RULE</span> <span class="str">r${idx+1}_${r.type}_${r.action}</span> {
+  <span class="cmt">/* ${meta.label} · estimated latency: ~${meta.latency_ms}ms */</span>
+  <span class="cmt">/* Implementation: ${meta.latency_desc} */</span>
+
+  <span class="kw">TRIGGER</span>:  outbound_credit_transfer
+  <span class="kw">RAIL</span>:     <span class="str">"${rail.toUpperCase()}"</span>
+  <span class="kw">WINDOW</span>:   rolling_<span class="num">${r.window}</span>s  <span class="cmt">/* ${windowLabel} */</span>
+  <span class="kw">RISK_TIER</span>: <span class="str">${tierFilter}</span>
+
+  <span class="kw">CONDITION</span>:
+`;
+
+    if (r.type === 'velocity_count') {
+      code += `    customer_risk_tier IN ${tierFilter}
+    <span class="kw">AND</span> COUNT(outbound_txns, customer_id, <span class="num">${r.window}</span>s) <span class="kw">></span> <span class="num">${r.count}</span>
+`;
+    } else if (r.type === 'velocity_amount') {
+      code += `    customer_risk_tier IN ${tierFilter}
+    <span class="kw">AND</span> SUM(outbound_amount, customer_id, <span class="num">${r.window}</span>s) <span class="kw">></span> <span class="num">${r.amount}</span>
+`;
+    } else if (r.type === 'mule_detection') {
+      code += `    account_age_days <span class="kw"><</span> <span class="num">90</span>
+    <span class="kw">AND</span> txn_amount <span class="kw">></span> <span class="num">${r.amount}</span>
+    <span class="kw">AND</span> (hour_of_day <span class="kw"><</span> <span class="num">6</span> <span class="kw">OR</span> hour_of_day <span class="kw">></span> <span class="num">22</span>)
+    <span class="kw">AND</span> first_time_payee <span class="kw">==</span> <span class="str">true</span>
+`;
+    } else if (r.type === 'reverse_push') {
+      code += `    COUNT(inbound_refund_requests, customer_id, <span class="num">${r.window}</span>s) <span class="kw">>=</span> <span class="num">${r.count}</span>
+    <span class="kw">AND</span> MATCH(prior_outbound_txn, <span class="num">300</span>s) <span class="kw">==</span> <span class="str">true</span>  <span class="cmt">/* look-back 5min */</span>
+    <span class="kw">AND</span> refund_payee <span class="kw">!=</span> original_payee
+`;
+    } else if (r.type === 'amount_anomaly') {
+      code += `    txn_amount <span class="kw">></span> (customer_30d_avg_amount <span class="kw">*</span> <span class="num">${Math.max(2, Math.round(r.amount/1000))}</span>)
+    <span class="kw">AND</span> customer_30d_avg_amount <span class="kw">></span> <span class="num">0</span>  <span class="cmt">/* require established baseline */</span>
+    <span class="kw">AND</span> customer_risk_tier IN ${tierFilter}
+`;
+    } else if (r.type === 'device_ip_vel') {
+      code += `    COUNT(txns, device_fingerprint, <span class="num">${r.window}</span>s) <span class="kw">></span> <span class="num">${r.count}</span>
+    <span class="kw">OR</span>  COUNT(txns, ip_address,          <span class="num">${r.window}</span>s) <span class="kw">></span> <span class="num">${r.count}</span>
+`;
+    }
+
+    code += `
+  <span class="kw">ACTION</span>: <span class="act">${r.action.toUpperCase()}</span>  ${actionComment}
+`;
+    if (r.action === 'block') {
+      code += `    reject_code:    <span class="str">"${rejCode}"</span>  <span class="cmt">/* ISO 20022 / ${railMeta.name} scheme code */</span>
+    pacs_002_status: <span class="str">"RJCT"</span>
+    alert_channel:  FRAUD_OPS_QUEUE
+`;
+    } else if (r.action === 'hold') {
+      code += `    max_hold_secs:  <span class="num">30</span>  <span class="cmt">/* scheme maximum — do not exceed */</span>
+    queue:          FRAUD_REVIEW_QUEUE
+    escalate_after: <span class="num">25</span>s
+`;
+    } else if (r.action === 'alert') {
+      code += `    alert_channel:  FRAUD_OPS_REALTIME
+    alert_priority: HIGH
+    allow_payment:  <span class="str">true</span>
+`;
+    } else {
+      code += `    surveillance_score_increment: <span class="num">+10</span>
+    log_level:      ENHANCED
+    allow_payment:  <span class="str">true</span>
+`;
+    }
+
+    code += `  <span class="kw">LATENCY_BUDGET</span>: ~<span class="num">${meta.latency_ms}</span>ms
+}
+
+`;
+  });
+
+  /* Regulatory footer */
+  code += `<span class="cmt">/*─────────────────────────────────────────────────────────────────
+  Regulatory citations:
+  · ${railMeta.name} Operating Procedures — authorisation SLA ${railMeta.latency_sla_ms}ms
+  · FinCEN BSA 31 CFR 1020.320 — SAR filing requirements
+  · FedNow Fraud Classifier Model v1 (if rail=FedNow)
+  · BCBS 248 — intraday liquidity monitoring indicators
+  · ISO 20022 pacs.002 reject reason code registry
+─────────────────────────────────────────────────────────────────*/</span>`;
+
+  section.innerHTML = `<div class="section-heading">Rule Pseudocode</div>
+    <div class="code-block">${code}</div>`;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   AP2 JSON EXPORT
+────────────────────────────────────────────────────────────────── */
+function buildAP2({ rail, budget, used, conflicts }) {
+  const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+  const railMeta = RAIL_META[rail];
+  const budgetOk = used <= budget;
+
+  const rulePayloads = rules.map((r, idx) => ({
+    rule_index: idx + 1,
+    rule_type: r.type,
+    rule_label: RULE_META[r.type].label,
+    window_seconds: r.window,
+    customer_risk_tier: r.tier,
+    threshold_count: RULE_META[r.type].needsCount ? r.count : null,
+    threshold_amount: RULE_META[r.type].needsAmount ? r.amount : null,
+    action: r.action,
+    estimated_latency_ms: RULE_META[r.type].latency_ms,
+    reject_code: RULE_META[r.type].rejectCode[rail] || 'AM05',
+  }));
+
+  return {
+    ap2_version: "1.0",
+    mandate_id: uuid,
+    issued_at: new Date().toISOString(),
+    issued_by: "ainumbers.co",
+    tool_id: "rtp-fraud-velocity-rule-builder",
+    tool_version: "1.0.0",
+    mandate_type: "payment_policy",
+    jurisdiction: [railMeta.region],
+    regulatory_frameworks: [
+      `${railMeta.name} Operating Procedures — fraud monitoring requirements`,
+      "FinCEN Bank Secrecy Act 31 CFR 1020.320 — Suspicious Activity Reports",
+      "FedNow Fraud Classifier Model v1 — Federal Reserve implementation guidance",
+      "BCBS 248 — Monitoring indicators for intraday liquidity management",
+      "ISO 20022 pacs.002 Payment Status Report — reject reason code registry"
+    ],
+    payload: {
+      rail: rail,
+      rail_name: railMeta.name,
+      rail_region: railMeta.region,
+      latency_budget_ms: budget,
+      total_rule_latency_ms: used,
+      budget_remaining_ms: Math.max(0, budget - used),
+      budget_compliant: budgetOk,
+      rule_count: rules.length,
+      block_rules: rules.filter(r => r.action === 'block').length,
+      hold_rules: rules.filter(r => r.action === 'hold').length,
+      alert_rules: rules.filter(r => r.action === 'alert').length,
+      monitor_rules: rules.filter(r => r.action === 'monitor').length,
+      conflict_count: conflicts.length,
+      critical_conflicts: conflicts.filter(c => c.severity === 'critical').length,
+      rules: rulePayloads,
+    },
+    summary: `RTP fraud velocity rule set for ${railMeta.name} (${railMeta.region}). ${rules.length} rule(s) configured with total latency ${used}ms (budget: ${budget}ms). ${budgetOk ? 'Budget compliant.' : 'BUDGET EXCEEDED — reduce rule count or increase latency budget.'} ${conflicts.filter(c=>c.severity==='critical').length} critical conflict(s) detected.`,
+    agent_instructions: buildAgentInstructions({ rail, budget, used, budgetOk, conflicts }),
+    last_reviewed: "2026-05-09",
+    source_tool_inputs: {
+      rail,
+      latency_budget_ms: budget,
+      rules: rulePayloads
+    },
+    regulatory_citations: [
+      `${railMeta.name} Operating Procedures — fraud monitoring and authorisation SLA (${railMeta.latency_sla_ms}ms)`,
+      "FinCEN 31 CFR 1020.320 — Reports by banks of suspicious transactions",
+      "Federal Reserve FedNow Fraud Classifier Model v1 — pacs.008 fraud field population",
+      "BCBS 248 — Intraday liquidity monitoring indicators (April 2013)",
+      "ISO 20022 External Code List — pacs.002 StatusReasonCode"
+    ]
+  };
+}
+
+function buildAgentInstructions({ rail, budget, used, budgetOk, conflicts }) {
+  const railMeta = RAIL_META[rail];
+  const instructions = [];
+  if (!budgetOk) {
+    instructions.push(`CRITICAL: Reduce total rule latency from ${used}ms to ≤${budget}ms before deploying to ${railMeta.name} authorisation path — budget breach will cause SLA violations`);
+  }
+  const criticalConflicts = conflicts.filter(c => c.severity === 'critical' || c.severity === 'high');
+  if (criticalConflicts.length > 0) {
+    instructions.push(`Resolve ${criticalConflicts.length} critical/high rule conflict(s) before deployment — duplicate BLOCK rules create undefined precedence ordering`);
+  }
+  if (rules.some(r => r.action === 'block')) {
+    instructions.push(`Test all BLOCK rules in ${railMeta.name} staging environment with synthetic transaction profiles covering edge cases (new accounts, high-value legitimate payments, shared device scenarios)`);
+  }
+  if (rules.some(r => r.action === 'hold')) {
+    instructions.push(`Confirm fraud operations team has 24×7×365 capacity to review HOLD queue within 25-second escalation window — unreviewed holds auto-expire and must be configured as Allow or Block`);
+  }
+  instructions.push(`Populate FedNow Fraud Classifier Model v1 fields in all outbound pacs.008 messages regardless of rule outcome — Federal Reserve requires classifier data on every transaction`);
+  instructions.push(`Link SAR filing workflow to all BLOCK and FLAG & HOLD rule outcomes where rule fires ≥3 times on the same customer in 24 hours (FinCEN 31 CFR 1020.320 threshold)`);
+  instructions.push(`Set quarterly rule performance review cadence — monitor False Positive Rate (target <2%) and True Positive Rate (target >80%) per rule using post-auth fraud signal feedback`);
+  return instructions;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   EXPORT FUNCTIONS
+────────────────────────────────────────────────────────────────── */
+function exportAP2() {
+  if (!lastAP2) return;
+  try {
+    AP2Schema.validate(lastAP2);
+    const blob = new Blob([JSON.stringify(lastAP2, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rtp-fraud-velocity-rule-builder_${new Date().toISOString().slice(0,19).replace(/[T:]/g,'-')}.policy.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Policy Mandate JSON downloaded', 'success');
+  } catch(e) { showToast('Export failed', 'error'); }
+}
+
+function exportMarkdown() {
+  if (!lastAP2) return;
+  const p = lastAP2.payload;
+  const rail = document.getElementById('railSel').value;
+  const date = new Date().toISOString().slice(0,10);
+
+  let md = `# RTP Fraud Velocity Rule Set\n`;
+  md += `**Generated:** ${date}  \n**Tool:** T256 · Real-Time Payment Fraud Velocity Rule Builder — AINumbers.co\n\n---\n\n`;
+  md += `## Configuration\n| Parameter | Value |\n|---|---|\n`;
+  md += `| Rail | ${p.rail_name} (${p.rail_region}) |\n`;
+  md += `| Latency Budget | ${p.latency_budget_ms}ms |\n`;
+  md += `| Total Rule Latency | ${p.total_rule_latency_ms}ms |\n`;
+  md += `| Budget Compliant | ${p.budget_compliant ? '✓ Yes' : '✗ No — EXCEEDED'} |\n\n`;
+
+  md += `## Rule Summary\n| Rule | Type | Window | Action | Latency |\n|---|---|---|---|---|\n`;
+  p.rules.forEach((r, i) => {
+    md += `| R${i+1} | ${r.rule_label} | ${formatWindow(r.window_seconds)} | ${r.action.toUpperCase()} | ~${r.estimated_latency_ms}ms |\n`;
+  });
+
+  md += `\n## Rule Pseudocode\n\`\`\`\n`;
+  p.rules.forEach((r, i) => {
+    md += `RULE r${i+1}_${r.rule_type}_${r.action} {\n`;
+    md += `  /* ${r.rule_label} · ~${r.estimated_latency_ms}ms */\n`;
+    md += `  RAIL:    "${rail.toUpperCase()}"\n`;
+    md += `  WINDOW:  rolling_${r.window_seconds}s\n`;
+    if (r.threshold_count !== null) md += `  MAX_COUNT: ${r.threshold_count}\n`;
+    if (r.threshold_amount !== null) md += `  MAX_AMOUNT: ${r.threshold_amount}\n`;
+    md += `  ACTION:  ${r.action.toUpperCase()}\n`;
+    md += `  REJECT_CODE: "${r.reject_code}"\n}\n\n`;
+  });
+  md += `\`\`\`\n`;
+
+  md += `\n## Agent Instructions\n`;
+  lastAP2.agent_instructions.forEach((inst, i) => { md += `${i+1}. ${inst}\n`; });
+  md += `\n## Regulatory Citations\n`;
+  lastAP2.regulatory_citations.forEach(c => { md += `- ${c}\n`; });
+  md += `\n---\n*Client-side. Zero PII. Scope: sub-second RTP authorisation window only.*\n`;
+  md += `*Generated by AINumbers.co — T256 Real-Time Payment Fraud Velocity Rule Builder v1.0.0*\n`;
+
+  try {
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rtp-fraud-rules_${date}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Markdown report downloaded', 'info');
+  } catch(e) { showToast('Export failed', 'error'); }
+}
+
+/* ── Toast ── */
+function showToast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type}`;
+  setTimeout(() => t.classList.add('show'), 10);
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   i18n — Stage 2 UI Chrome Translations
+══════════════════════════════════════════════════════════════════ */
+const TRANSLATIONS = {
+  en: {
+    eyebrow: "T256 · Cat-21 · Real-Time Payments · Operations & Compliance",
+    hero_title: "Real-Time Payment Fraud Velocity Rule Builder",
+    hero_desc: "Configure and validate fraud velocity rules within the sub-second RTP authorisation window (250ms–1,000ms). Covers mule account detection, reverse-push patterns, velocity thresholds, and rule conflict detection.",
+    panel_config: "Configuration",
+    panel_about: "About this tool",
+    label_rail: "Target Rail",
+    label_latency_budget: "Latency Budget (ms)",
+    label_threshold_type: "Rule Type",
+    label_rule_action: "Rule Action",
+    run_btn: "Generate Rule Set →",
+    results_title: "Rule Set Output",
+    export_ap2: "Export Policy Mandate",
+    export_md: "Export Markdown",
+    pii_notice: "🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real customer or transaction data — use synthetic or anonymised values only.",
+    last_reviewed: "Last Reviewed",
+    nav_all_tools: "All 200+ Tools",
+    footer_badge: "Zero PII \u00a0 📡 No server calls \u00a0 💻 Client-side",
+    lang_dir: "ltr",
+  
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-21 Hub',
+  },
+  es: {
+    eyebrow: "T256 · Cat-21 · Pagos en Tiempo Real · Operaciones y Cumplimiento",
+    hero_title: "Constructor de Reglas de Velocidad de Fraude RTP",
+    hero_desc: "Configure y valide reglas de velocidad de fraude dentro de la ventana de autorización sub-segundo (250ms–1,000ms). Cubre detección de cuentas mula, patrones de reversa, umbrales de velocidad y detección de conflictos.",
+    panel_config: "Configuración", panel_about: "Sobre esta herramienta",
+    label_rail: "Riel Objetivo", label_latency_budget: "Presupuesto de Latencia (ms)",
+    label_threshold_type: "Tipo de Regla", label_rule_action: "Acción de Regla",
+    run_btn: "Generar Conjunto de Reglas →", results_title: "Salida del Conjunto de Reglas",
+    export_ap2: "Exportar Mandato de Política", export_md: "Exportar Markdown",
+    pii_notice: "🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos.",
+    last_reviewed: "Última Revisión", nav_all_tools: "Más de 200 Herramientas",
+    footer_badge: "Sin IIP \u00a0 📡 Sin llamadas al servidor \u00a0 💻 Solo cliente", lang_dir: "ltr",
+  
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-21',
+  },
+  fr: {
+    eyebrow: "T256 · Cat-21 · Paiements en Temps Réel · Opérations et Conformité",
+    hero_title: "Constructeur de Règles de Vélocité de Fraude RTP",
+    hero_desc: "Configurez et validez des règles de vélocité de fraude dans la fenêtre d'autorisation sous la seconde (250ms–1,000ms). Couvre la détection de comptes mules, les schémas de refacturation, les seuils de vélocité et la détection de conflits.",
+    panel_config: "Configuration", panel_about: "À propos de cet outil",
+    label_rail: "Rail Cible", label_latency_budget: "Budget de Latence (ms)",
+    label_threshold_type: "Type de Règle", label_rule_action: "Action de Règle",
+    run_btn: "Générer l'Ensemble de Règles →", results_title: "Sortie du Jeu de Règles",
+    export_ap2: "Exporter Mandat de Politique", export_md: "Exporter Markdown",
+    pii_notice: "🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n'est transmise.",
+    last_reviewed: "Dernière Révision", nav_all_tools: "Plus de 200 Outils",
+    footer_badge: "Zéro DPI \u00a0 📡 Aucun appel serveur \u00a0 💻 Côté client", lang_dir: "ltr",
+  
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-21',
+  },
+  ar: {
+    eyebrow: "T256 · القطاع 21 · المدفوعات الفورية · العمليات والامتثال",
+    hero_title: "منشئ قواعد سرعة احتيال مدفوعات RTP",
+    hero_desc: "قم بتهيئة والتحقق من صحة قواعد سرعة الاحتيال ضمن نافذة تفويض أقل من ثانية (250ms–1,000ms). يغطي اكتشاف الحسابات البغلية وأنماط الدفع العكسي وعتبات السرعة.",
+    panel_config: "الإعدادات", panel_about: "حول هذه الأداة",
+    label_rail: "الشبكة المستهدفة", label_latency_budget: "ميزانية وقت الاستجابة (مللي ثانية)",
+    label_threshold_type: "نوع القاعدة", label_rule_action: "إجراء القاعدة",
+    run_btn: "إنشاء مجموعة القواعد ←", results_title: "مخرجات مجموعة القواعد",
+    export_ap2: "تصدير تفويض السياسة", export_md: "تصدير Markdown",
+    pii_notice: "🔒 تتم معالجة جميع المدخلات محلياً في متصفحك. لا يتم نقل أي بيانات.",
+    last_reviewed: "آخر مراجعة", nav_all_tools: "أكثر من 200 أداة",
+    footer_badge: "بدون بيانات شخصية \u00a0 📡 بدون اتصال بالخادم \u00a0 💻 من جانب العميل", lang_dir: "rtl",
+  
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-21',
+  },
+  pt: {
+    eyebrow: "T256 · Cat-21 · Pagamentos em Tempo Real · Operações e Conformidade",
+    hero_title: "Construtor de Regras de Velocidade de Fraude RTP",
+    hero_desc: "Configure e valide regras de velocidade de fraude dentro da janela de autorização sub-segundo (250ms–1,000ms). Cobre detecção de contas mula, padrões de reverso, limites de velocidade e detecção de conflitos.",
+    panel_config: "Configuração", panel_about: "Sobre esta ferramenta",
+    label_rail: "Trilho Alvo", label_latency_budget: "Orçamento de Latência (ms)",
+    label_threshold_type: "Tipo de Regra", label_rule_action: "Ação da Regra",
+    run_btn: "Gerar Conjunto de Regras →", results_title: "Saída do Conjunto de Regras",
+    export_ap2: "Exportar Mandato de Política", export_md: "Exportar Markdown",
+    pii_notice: "🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido.",
+    last_reviewed: "Última Revisão", nav_all_tools: "Mais de 200 Ferramentas",
+    footer_badge: "Zero PII \u00a0 📡 Sem chamadas ao servidor \u00a0 💻 Lado do cliente", lang_dir: "ltr",
+  
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-21',
+  },
+  zh: {
+    eyebrow: "T256 · 第21类 · 实时支付 · 运营与合规",
+    hero_title: "实时支付欺诈速度规则构建器",
+    hero_desc: "在亚秒级RTP授权窗口（250ms–1,000ms）内配置和验证欺诈速度规则。涵盖骡子账户检测、反向推送模式、速度阈值和规则冲突检测。",
+    panel_config: "配置", panel_about: "关于此工具",
+    label_rail: "目标轨道", label_latency_budget: "延迟预算（毫秒）",
+    label_threshold_type: "规则类型", label_rule_action: "规则动作",
+    run_btn: "生成规则集 →", results_title: "规则集输出",
+    export_ap2: "导出政策授权书", export_md: "导出Markdown",
+    pii_notice: "🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。",
+    last_reviewed: "最后审查", nav_all_tools: "全部200+工具",
+    footer_badge: "零个人信息 \u00a0 📡 无服务器调用 \u00a0 💻 纯客户端", lang_dir: "ltr",
+  
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-21 中心',
+  },
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS['en'];
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`) || document.querySelector(`.lang-btn[onclick='setLang("${lang}")']`);
+  if (btn) btn.classList.add('active');
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  document.documentElement.dir = t.lang_dir || 'ltr';
+  document.body.dir = t.lang_dir || 'ltr';
+  const apply = (sel, key) => { const el = document.querySelector(sel); if (el && t[key] !== undefined) el.textContent = t[key]; };
+  apply('.tool-eyebrow', 'eyebrow'); apply('.hero h1', 'hero_title'); apply('.hero-desc', 'hero_desc');
+  apply('.pii-notice', 'pii_notice'); apply('.run-btn', 'run_btn'); apply('.results-title', 'results_title'); apply('.nav-cta', 'nav_all_tools');
+  const panelLabels = document.querySelectorAll('.panel-label');
+  const panelKeys = ['panel_config', 'panel_about'];
+  panelLabels.forEach((el, i) => { if (panelKeys[i] && t[panelKeys[i]]) el.textContent = t[panelKeys[i]]; });
+  document.querySelectorAll('.btn-export').forEach(b => {
+    if (b.classList.contains('btn-export-md')) { if (t['export_md']) b.textContent = t['export_md']; }
+    else { if (t['export_ap2']) b.textContent = t['export_ap2']; }
+  });
+  document.querySelectorAll('[data-i18n]').forEach(el => { const key = el.getAttribute('data-i18n'); if (t[key] !== undefined) el.textContent = t[key]; });
+  const badge = document.querySelector('.footer-badge-ai span:last-child');
+  if (badge) badge.textContent = t['footer_badge'];
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function initLang() {
+  try { const saved = sessionStorage.getItem('ain_lang'); if (saved && TRANSLATIONS[saved]) setLang(saved); } catch(e) {}
+})();
+
+/* Init form hints */
+updateRuleFormHints();
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "rtp-fraud-velocity-rule-builder", "version": "1.0.0", "title": "Real-Time Payment Fraud Velocity Rule Builder", "description": "Configures and validates fraud velocity rules within the sub-second RTP authorisation window (250ms–1,000ms) for FedNow, RTP/TCH, Faster Payments, PIX, SEPA Instant, and PayNow. Covers mule account detection, reverse-push/refund patterns, velocity thresholds, rule conflict detection, and latency budget waterfall analysis. Outputs structured rule pseudocode and Policy Mandate JSON RTP fraud policy. Scope: sub-second authorisation path only — distinct from Tool 05 (A2A invoice velocity) and Tool 80 (fraud investigation). Client-side. Zero PII.", "category": "cat-21", "tags": ["RTP fraud", "velocity rules", "FedNow", "real-time payments", "fraud monitoring", "mule detection", "push payment fraud", "latency budget", "rule conflict detection", "Policy Mandate", "export", "sub-second authorisation"], "audience": ["engineer", "fraud analyst", "compliance", "payments architect"], "input_schema": {"type": "object", "properties": {"rail": {"type": "string", "enum": ["fednow", "rtp", "fps", "pix", "sepa_inst", "paynow"], "description": "Target real-time payment rail"}, "latency_budget_ms": {"type": "integer", "enum": [250, 500, 750, 1000], "description": "Maximum permissible latency for the entire rule set in the authorisation path"}, "rules": {"type": "array", "maxItems": 6, "items": {"type": "object", "properties": {"type": {"type": "string", "enum": ["velocity_count", "velocity_amount", "mule_detection", "reverse_push", "amount_anomaly", "device_ip_vel"]}, "window_seconds": {"type": "integer", "enum": [60, 300, 900, 3600, 86400]}, "customer_risk_tier": {"type": "string", "enum": ["all", "high", "medium", "low"]}, "threshold_count": {"type": "integer", "minimum": 1}, "threshold_amount": {"type": "number", "minimum": 0}, "action": {"type": "string", "enum": ["block", "hold", "alert", "monitor"]}}, "required": ["type", "window_seconds", "action"]}, "description": "Array of fraud velocity rules to evaluate"}}, "required": ["rail", "latency_budget_ms", "rules"]}, "output_schema": {"type": "object", "properties": {"total_rule_latency_ms": {"type": "integer"}, "budget_compliant": {"type": "boolean"}, "budget_remaining_ms": {"type": "integer"}, "conflict_count": {"type": "integer"}, "critical_conflicts": {"type": "integer"}, "rules": {"type": "array", "items": {"type": "object", "properties": {"rule_index": {"type": "integer"}, "rule_type": {"type": "string"}, "rule_label": {"type": "string"}, "estimated_latency_ms": {"type": "integer"}, "reject_code": {"type": "string"}, "action": {"type": "string"}}}}, "agent_instructions": {"type": "array", "items": {"type": "string"}}, "ap2_mandate": {"type": "object"}}, "required": ["total_rule_latency_ms", "budget_compliant", "conflict_count", "rules", "ap2_mandate"]}, "mcp_tool_definition": {"name": "build_rtp_fraud_velocity_rules", "description": "Builds and validates a fraud velocity rule set for the sub-second RTP payment authorisation path. Checks latency budget compliance, detects rule conflicts, and generates structured pseudocode and a Policy Mandate JSON fraud policy. Use when a fraud engineer or compliance agent needs to configure velocity rules for FedNow, RTP/TCH, Faster Payments, PIX, SEPA Instant, or PayNow within the real-time authorisation SLA. Distinct from Tool 05 (A2A invoice velocity) and Tool 80 (post-payment fraud investigation).", "inputSchema": {"type": "object", "properties": {"rail": {"type": "string", "enum": ["fednow", "rtp", "fps", "pix", "sepa_inst", "paynow"]}, "latency_budget_ms": {"type": "integer", "enum": [250, 500, 750, 1000]}, "rules": {"type": "array", "maxItems": 6, "items": {"type": "object", "properties": {"type": {"type": "string", "enum": ["velocity_count", "velocity_amount", "mule_detection", "reverse_push", "amount_anomaly", "device_ip_vel"]}, "window_seconds": {"type": "integer"}, "action": {"type": "string", "enum": ["block", "hold", "alert", "monitor"]}, "threshold_count": {"type": "integer"}, "threshold_amount": {"type": "number"}}, "required": ["type", "window_seconds", "action"]}}}, "required": ["rail", "latency_budget_ms", "rules"]}}, "execution": {"type": "browser-javascript", "entry": "tools/256-rtp-fraud-velocity-rule-builder.html", "function_name": "buildRTPFraudVelocityRules", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+</script>
+</body>
+</html>

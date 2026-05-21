@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>CTR / SAR Threshold & Filing Obligation Simulator · AINumbers.co</title>
+<meta name="description" content="Model CTR and SAR filing obligations across jurisdictions. Input entity type, transaction type, currency, amount. Calculates CTR requirement (US $10k, AU $10k A">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/119-ctr-sar-threshold-simulator.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"CTR / SAR Threshold & Filing Obligation Simulator","url":"https://ainumbers.co/tools/119-ctr-sar-threshold-simulator.html","description":"Model CTR and SAR filing obligations across jurisdictions. Input entity type, transaction type, currency, amount. Calculates CTR requirement (US $10k, AU $10k AUD, CA $10k CAD), SAR trigger, aggregati","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:960px;margin:0 auto;padding:0 2rem}
+.content{max-width:960px;margin:0 auto;padding:2rem 1.5rem;position:relative;z-index:1}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(239,68,68,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(239,68,68,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* Lang bar */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:960px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--gold);color:var(--gold);}
+/* Nav */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:960px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+
+.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);transition:color .2s}
+.nav-links a:hover{color:var(--teal-lt)}
+.nav-back{border:1px solid var(--border);padding:.3rem .85rem;border-radius:var(--radius)}
+.nav-back:hover{border-color:var(--border-2);color:var(--text)!important}
+/* Hero */
+.hero{padding:3rem 0 2rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--gold);}
+.hero h1{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.85rem;color:var(--body);max-width:680px;line-height:1.85;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.43rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .4rem;border-radius:2px;white-space:nowrap;display:inline-block}
+.tag-teal{background:var(--teal-dim);color:var(--teal)}
+.tag-gold{background:var(--gold-dim);color:var(--gold)}
+.tag-green{background:var(--green-dim);color:var(--green)}
+.tag-purple{background:var(--purple-dim);color:var(--purple)}
+.tag-red{background:var(--red-dim);color:var(--red)}
+.tag-muted{background:var(--bg-3);color:var(--muted)}
+
+.overlap-note{font-size:.75rem;color:var(--warn);background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);padding:.6rem .85rem;margin:.75rem 0;font-style:italic;line-height:1.5;border-left:3px solid var(--warn)}
+/* Frameworks */
+.fw-bar{display:flex;flex-wrap:wrap;gap:.4rem;padding:.75rem 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin:.75rem 0}
+.fw-tag{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);padding:.15rem .45rem}
+/* Tool body */
+.tool-body{position:relative;z-index:1;padding:2.5rem 0}
+.tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+@media(max-width:720px){.tool-grid{grid-template-columns:1fr}}
+.panel{background:var(--bg-2);border:1px solid var(--border);padding:1.5rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+/* Form elements */
+label{display:block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem;margin-top:.85rem}
+label:first-of-type{margin-top:0}
+select,input[type="text"],input[type="number"],textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);padding:.5rem .75rem;font-family:'Sora',sans-serif;font-size:.8rem;border-radius:var(--radius);outline:none;transition:border-color .15s;appearance:none;-webkit-appearance:none}
+select:focus,input:focus,textarea:focus{border-color:var(--gold);}
+textarea{min-height:120px;resize:vertical;font-family:'JetBrains Mono',monospace;font-size:.75rem;line-height:1.6}
+.checkbox-group{display:flex;flex-direction:column;gap:.4rem;margin-top:.25rem}
+.cb-item{display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:.78rem;color:var(--body)}
+.cb-item input{width:auto;margin:0;accent-color:var(--gold);}
+.range-wrap{display:flex;align-items:center;gap:.75rem}
+input[type="range"]{flex:1;accent-color:var(--gold);height:4px}
+.range-val{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--bright);min-width:40px;text-align:right}
+/* Run button */
+.run-btn{width:100%;background:var(--gold);color:var(--bg);border:none;padding:.75rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;font-weight:500;border-radius:var(--radius);transition:opacity .2s;margin-top:1.25rem}
+.run-btn:hover{opacity:.88}
+/* Results */
+.results-panel{background:var(--bg-2);border:1px solid var(--border);margin-top:1.5rem;display:none}
+.results-panel.visible{display:block}
+.results-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.results-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.score-chip{font-family:'JetBrains Mono',monospace;font-size:.75rem;font-weight:500;padding:.3rem .75rem;border-radius:var(--radius)}
+.score-low{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.score-med{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.3)}
+.score-high{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.score-crit{background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.4)}
+.results-body{padding:1.25rem}
+.result-row{display:flex;justify-content:space-between;align-items:flex-start;padding:.5rem 0;border-bottom:1px solid var(--border);gap:1rem}
+.result-row:last-child{border-bottom:none}
+.result-key{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.06em;color:var(--muted);flex-shrink:0;padding-top:.1rem}
+.result-val{font-size:.78rem;color:var(--bright);text-align:right;line-height:1.5}
+.result-block{background:var(--bg-3);border:1px solid var(--border);padding:1rem;margin:.75rem 0;font-family:'JetBrains Mono',monospace;font-size:.72rem;line-height:1.75;color:var(--text);white-space:pre-wrap;word-break:break-word}
+.result-section{margin-bottom:1.25rem}
+.result-section-title{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.flag-row{display:flex;align-items:flex-start;gap:.6rem;padding:.4rem 0;font-size:.78rem;color:var(--body)}
+.flag-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:.45rem}
+.flag-dot.red{background:var(--red)}.flag-dot.gold{background:var(--gold)}.flag-dot.green{background:var(--green)}.flag-dot.teal{background:var(--teal)}
+/* Export */
+.export-row{display:flex;gap:.75rem;flex-wrap:wrap;padding:1rem 1.25rem;border-top:1px solid var(--border)}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border:1px solid var(--gold);color:var(--gold);background:transparent;border-radius:var(--radius);transition:all .15s}
+.btn-export:hover{background:var(--gold);color:var(--bg)}
+.btn-export-md{border-color:var(--border-2);color:var(--muted)}
+.btn-export-md:hover{background:var(--bg-3);color:var(--text)}
+/* Toast */
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--border-2);padding:.65rem 1.1rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--text);border-radius:var(--radius);z-index:1000;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+/* PII notice */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-privacy::before{content:'·';color:var(--green)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- LANG BAR (Phase 5 baseline insertion 2026-05-12) -->
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/aml-kyc-compliance-hub.html">AML/KYC Hub</a><span class="nav-sep">/</span><span>T-119</span></div>
+
+    <a href="../guides/aml-kyc-compliance-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<div class="content">
+
+  <div class="hero-eyebrow">T119 · Cat-12 · AML/KYC &amp; Financial Crime · Reporting & Filing</div>
+    <h1 class="tool-title">CTR / SAR Threshold & Filing Obligation Simulator</h1>
+    <p class="hero-desc">Model CTR and SAR filing obligations across jurisdictions. Input entity type, transaction type, currency, amount. Calculates CTR requirement (US $10k, AU $10k AUD, CA $10k CAD), SAR trigger, aggregation logic, Phase I/II FinCEN exemptions. Toggle US FinCEN, UK NCA, AUSTRAC, FINTRAC, MAS STR frameworks. Outputs filing decision tree and jurisdiction-specific form-field checklist. Client-side. Zero PII.</p>
+    <div class="hero-meta">
+      <span class="tag tag-gold">FinCEN</span><span class="tag tag-teal">CTR</span><span class="tag tag-teal">SAR</span><span class="tag tag-green">Multi-Jurisdiction</span>
+      <span class="tag tag-green">Policy Mandate</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-19</span></span>
+    <div class="fw-bar"><span class="fw-tag">FinCEN CTR 31 CFR 1010.311</span><span class="fw-tag">FinCEN SAR 31 CFR 1020.320</span><span class="fw-tag">AUSTRAC TTR</span><span class="fw-tag">FINTRAC LVCTR</span><span class="fw-tag">UK NCA SAR</span><span class="fw-tag">MAS STR Notice</span></div>
+    
+</div>
+
+<div class="tool-body">
+  <div class="container">
+    <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+    
+<div class="tool-grid">
+  <div class="panel">
+    <div class="panel-label">Inputs</div>
+    <label for="filingJur">Jurisdiction</label><select id="filingJur"><option value="us">United States — FinCEN</option><option value="uk">United Kingdom — NCA</option><option value="au">Australia — AUSTRAC</option><option value="ca">Canada — FINTRAC</option><option value="sg">Singapore — MAS</option></select>
+<label for="entityType">Reporting Entity Type</label><select id="entityType"><option value="bank">Bank / Credit Union</option><option value="msb">Money Services Business</option><option value="casino">Casino</option><option value="dealer">Dealer in Precious Metals</option><option value="insurance">Insurance Company</option></select>
+<label for="txnAmount">Transaction Amount (local currency)</label><input type="number" id="txnAmount" value="12500" min="0" placeholder="e.g. 12500">
+<label for="txnType">Transaction Type</label><select id="txnType"><option value="cash_in">Cash deposit / in</option><option value="cash_out">Cash withdrawal / out</option><option value="wire">International wire transfer</option><option value="monetary">Monetary instrument purchase</option><option value="crypto">Cryptocurrency exchange</option></select>
+<label for="exemptionCat">FinCEN Exemption Category (US only)</label><select id="exemptionCat"><option value="none">None / Not applicable</option><option value="phase1">Phase I — Listed company or subsidiary</option><option value="phase2">Phase II — Non-listed business customer</option></select>
+
+    <button class="run-btn" onclick="runTool()">Run Analysis →</button>
+  </div>
+  <div class="panel">
+    <div class="panel-label">About this tool</div>
+    <p style="font-size:.78rem;color:var(--body);line-height:1.75">Model CTR and SAR filing obligations across jurisdictions. Input entity type, transaction type, currency, amount. Calculates CTR requirement (US $10k, AU $10k AUD, CA $10k CAD), SAR trigger, aggregation logic, Phase I/II FinCEN exemptions. Toggle US FinCEN, UK NCA, AUSTRAC, FINTRAC, MAS STR frameworks. Outputs filing decision tree and jurisdiction-specific form-field checklist. Client-side. Zero PII.</p>
+    <div style="margin-top:1rem">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem">Regulatory Coverage</div>
+      <div class="flag-row"><div class="flag-dot teal"></div><div style="font-size:.75rem;color:var(--body)">FinCEN CTR 31 CFR 1010.311</div></div><div class="flag-row"><div class="flag-dot teal"></div><div style="font-size:.75rem;color:var(--body)">FinCEN SAR 31 CFR 1020.320</div></div><div class="flag-row"><div class="flag-dot teal"></div><div style="font-size:.75rem;color:var(--body)">AUSTRAC TTR</div></div><div class="flag-row"><div class="flag-dot teal"></div><div style="font-size:.75rem;color:var(--body)">FINTRAC LVCTR</div></div><div class="flag-row"><div class="flag-dot teal"></div><div style="font-size:.75rem;color:var(--body)">UK NCA SAR</div></div><div class="flag-row"><div class="flag-dot teal"></div><div style="font-size:.75rem;color:var(--body)">MAS STR Notice</div></div>
+    </div>
+  </div>
+</div>
+
+
+    <div id="resultsPanel" class="results-panel">
+      
+<div class="results-header">
+  <div class="results-title">Analysis Results</div>
+  <span id="toolScore" class="score-chip score-med">—</span>
+</div>
+<div class="results-body" id="toolResultsBody">
+  <p style="font-size:.78rem;color:var(--muted)">Run the tool to see results.</p>
+</div>
+
+      
+    <div class="results-export-row export-row">
+      <button id="ap2ExportBtn" class="btn-export" onclick="exportAP2()">Export Policy Mandate</button>
+      <button class="btn-export btn-export-md" onclick="exportMarkdown()">Export Markdown</button>
+    </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/aml-kyc-compliance-hub.html"><span data-i18n="footer.hub_aml_kyc_compliance">AML/KYC Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<div id="toast" class="toast"></div>
+
+<script>
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* AP2Schema — full validator (PM17; wired into cohort C) */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+if (typeof AP2Schema.validate !== 'function') {
+  AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    return true;
+  };
+}
+
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+    'nav.hub': '← Cat-12 Hub',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.hub': '← Centro Cat-12',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+    'nav.hub': '← Centre Cat-12',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+    'nav.hub': '← مركز Cat-12',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.hub': '← Central Cat-12',
+  }, zh:{
+    'nav.alltools': '所有工具',
+    'nav.hub': '← Cat-12 中心',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function showResults() {
+  document.getElementById('resultsPanel').classList.add('visible');
+  document.getElementById('resultsPanel').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function downloadFile(content, filename, mime) {
+  const a = document.createElement('a');
+  a.href = 'data:' + mime + ';charset=utf-8,' + encodeURIComponent(content);
+  a.download = filename; a.click();
+}
+
+function gv(id) { return (document.getElementById(id)||{}).value || ''; }
+function gc(id) { return (document.getElementById(id)||{}).checked; }
+function gs(id) { const el=document.getElementById(id); return el ? el.value : ''; }
+
+
+function runTool() {
+  const jur = gv('filingJur');
+  const entity = gv('entityType');
+  const amount = parseFloat(gv('txnAmount')) || 0;
+  const txnType = gv('txnType');
+  const exemption = gv('exemptionCat');
+
+  const thresholds = {us:10000,uk:0,au:10000,ca:10000,sg:0};
+  const ctrThreshold = thresholds[jur];
+  const sarLabels = {us:'Suspicious Activity Report (FinCEN SAR)',uk:'Suspicious Activity Report (NCA)',au:'Suspicious Matter Report (AUSTRAC)',ca:'Suspicious Transaction Report (FINTRAC)',sg:'Suspicious Transaction Report (MAS)'};
+  const ctrLabels = {us:'Currency Transaction Report (FinCEN CTR)',au:'Threshold Transaction Report (AUSTRAC TTR)',ca:'Large Cash Transaction Report (FINTRAC LVCTR)'};
+
+  const ctrRequired = ctrThreshold > 0 && amount > ctrThreshold && exemption === 'none' && ['cash_in','cash_out','monetary'].includes(txnType);
+  const ctrExempt = ctrThreshold > 0 && amount > ctrThreshold && exemption !== 'none';
+  const sarTrigger = txnType === 'crypto' || (amount > ctrThreshold * 0.9 && exemption === 'none') || txnType === 'wire' && amount > 25000;
+
+  const result = ctrRequired ? 'CTR Filing Required' : ctrExempt ? 'CTR Exempt — Document Exemption' : sarTrigger ? 'SAR Consideration — Review Required' : 'No Filing Obligation';
+  const cls = ctrRequired ? 'score-high' : ctrExempt ? 'score-med' : sarTrigger ? 'score-med' : 'score-low';
+  document.getElementById('toolScore').textContent = result.split(' — ')[0];
+  document.getElementById('toolScore').className = 'score-chip ' + cls;
+
+  let html = `<div class="result-row"><div class="result-key">Jurisdiction</div><div class="result-val">${jur.toUpperCase()} · ${sarLabels[jur]||'STR'}</div></div>`;
+  html += `<div class="result-row"><div class="result-key">Amount</div><div class="result-val">${amount.toLocaleString()} · Threshold: ${ctrThreshold>0?ctrThreshold.toLocaleString():'N/A — no CTR regime'}</div></div>`;
+  html += `<div class="result-row"><div class="result-key">CTR Required</div><div class="result-val">${ctrRequired?'Yes — '+ctrLabels[jur]:ctrExempt?'Exempt ('+exemption+')':'No'}</div></div>`;
+  html += `<div class="result-row"><div class="result-key">SAR Consideration</div><div class="result-val">${sarTrigger?'Yes — review transaction for suspicious indicators':'No — below threshold indicators'}</div></div>`;
+  html += `<div class="result-row"><div class="result-key">Filing Deadline</div><div class="result-val">${ctrRequired?(jur==='us'?'15 calendar days after transaction':jur==='au'?'10 business days':'30 days'):'N/A'}</div></div>`;
+
+  const fields = ctrRequired ? ['Reporting entity name and TIN','Customer full legal name','Date of birth','Address','Transaction amount and date','Type of transaction','Signature of compliance officer'] : [];
+  if (fields.length) {
+    html += '<div style="margin-top:.75rem;font-size:.44rem;font-family:JetBrains Mono,monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem">Required Form Fields</div>';
+    fields.forEach(f=>{ html += `<div class="flag-row"><div class="flag-dot teal"></div><div style="font-size:.78rem;color:var(--body)">${f}</div></div>`; });
+  }
+
+  window._ap2Payload = {jurisdiction:jur,amount,ctr_required:ctrRequired,ctr_exempt:ctrExempt,sar_consideration:sarTrigger,exemption_category:exemption};
+  window._ap2Instructions = [result, ctrRequired?'Submit '+ctrLabels[jur]+' within deadline':sarTrigger?'Initiate SAR review workflow':'No regulatory filing required'];
+  document.getElementById('toolResultsBody').innerHTML = html;
+  showResults();
+}
+
+function buildMarkdown() {
+  const body = document.getElementById('toolResultsBody');
+  return '# CTR / SAR Threshold & Filing Obligation Simulator\n**Generated:** ' + new Date().toISOString().slice(0,10) + ' | AINumbers.co T119\n\n' + (body ? body.innerText : '') + '\n\n*Client-side. Zero PII.*';
+}
+function buildAP2() { return buildDefaultAP2(); }
+
+
+function exportMarkdown() {
+  const md = buildMarkdown ? buildMarkdown() : '# ' + 'CTR / SAR Threshold & Filing Obligation Simulator' + '\n\nResults exported from AINumbers.co\n\nClient-side. Zero PII.\n';
+  downloadFile(md, '119-ctr-sar-threshold-simulator-export-' + new Date().toISOString().slice(0,10) + '.md', 'text/markdown');
+  showToast('Markdown exported');
+}
+
+function exportAP2() {
+  const mandate = buildAP2 ? buildAP2() : buildDefaultAP2();
+  AP2Schema.validate(mandate);
+  downloadFile(JSON.stringify(mandate, null, 2), '119-ctr-sar-threshold-simulator-ap2-' + new Date().toISOString().slice(0,10) + '.policy.json', 'application/json');
+  showToast('Policy Mandate JSON exported');
+}
+
+function buildDefaultAP2() {
+  return {
+    ap2_version: "1.0",
+    mandate_id: crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r=Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16); }),
+    issued_at: new Date().toISOString(),
+    issued_by: "ainumbers.co",
+    tool_id: "ctr-sar-threshold-simulator",
+    tool_version: "1.0.0",
+    mandate_type: "aml_rule",
+    jurisdiction: ["US","UK","EU"],
+    regulatory_frameworks: ['FinCEN CTR 31 CFR 1010.311', 'FinCEN SAR 31 CFR 1020.320', 'AUSTRAC TTR', 'FINTRAC LVCTR', 'UK NCA SAR', 'MAS STR Notice'],
+    payload: window._ap2Payload || {},
+    summary: "Mandate generated by CTR / SAR Threshold & Filing Obligation Simulator · AINumbers.co",
+    agent_instructions: window._ap2Instructions || [],
+    last_reviewed: "2026-05-07",
+    source_tool_inputs: window._ap2Inputs || {},
+    regulatory_citations: []
+  };
+}
+</script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "ctr-sar-threshold-simulator", "version": "1.0.0", "title": "CTR / SAR Threshold & Filing Obligation Simulator", "description": "Model CTR and SAR filing obligations across jurisdictions. Input entity type, transaction type, currency, amount. Calculates CTR requirement (US $10k, AU $10k A", "category": "aml-kyc-compliance", "tags": ["FinCEN", "CTR", "SAR", "Multi-Jurisdiction", "Policy Mandate"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"filingJur": {"type": "string"}, "entityType": {"type": "string"}, "txnAmount": {"type": "string"}, "txnType": {"type": "string"}, "exemptionCat": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "ctr_sar_threshold_simulator", "description": "Run CTR / SAR Threshold & Filing Obligation Simulator. Model CTR and SAR filing obligations across jurisdictions. Input entity type, transaction type, currency, amount. Calculates CTR requirement (US $10k, AU $10k A", "inputSchema": {"type": "object", "properties": {"filingJur": {"type": "string"}, "entityType": {"type": "string"}, "txnAmount": {"type": "string"}, "txnType": {"type": "string"}, "exemptionCat": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/119-ctr-sar-threshold-simulator.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

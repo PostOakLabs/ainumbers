@@ -1,0 +1,1714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Tool 82 — A2A Rail Optimization Command Center · AINumbers.co</title>
+<meta name="description" content="Five-stage A2A payment rail optimization workflow: Use Case & Rail Scoring → Cost Modeling → Liquidity Modeling → Compliance & Limits → Business Case & ADR Export. Covers FedNow, RTP, Same-Day ACH, SEPA Instant, SWIFT gpi. NPV/IRR payback analysis. Nygard ADR export. Client-side. Zero PII.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"A2A Rail Optimization Command Center","url":"https://ainumbers.co/tools/82-a2a-rail-command-center.html","description":"Five-stage A2A payment rail optimization workflow: Use Case & Rail Scoring → Cost Modeling → Liquidity Modeling → Compliance & Limits → Business Case & ADR Export. Covers FedNow, RTP, Same-Day ACH, SEPA Instant, SWIFT gpi. NPV/IRR payback analysis. Nygard ADR export. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-glow:rgba(20,184,166,.06);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;
+  --radius:6px;--radius-lg:10px;--shadow:0 4px 24px rgba(0,0,0,.4);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.15}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1200px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* NAV */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:0 2rem;height:34px;display:flex;align-items:center}
+.lang-inner{max-width:1200px;margin:0 auto;width:100%;display:flex;gap:.5rem;justify-content:flex-end}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid transparent;padding:.2rem .5rem;cursor:pointer;line-height:1;transition:color .15s}
+.lang-btn.active{color:var(--teal-lt);border-bottom:1px solid var(--teal)}
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1200px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-mark-grid{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:32px;height:32px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+@media(max-width:600px){}
+/* HERO */
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.7rem,3vw,2.6rem);color:var(--white);max-width:720px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:660px;line-height:1.85;margin-bottom:1.2rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.badge-privacy{color:var(--muted);border-color:var(--border)}.badge-privacy::before{content:'·';color:var(--green)}
+.badge-spec{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+
+/* STAGE BAR */
+.tool-section{padding:2.5rem 0 4rem;position:relative;z-index:1}
+.stage-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:2rem}
+.stage{background:var(--bg-2);padding:.85rem .75rem;text-align:center;cursor:pointer;transition:background .15s;border:none;width:100%}
+.stage:hover{background:var(--bg-3)}
+.stage.active{background:var(--bg-4);border-bottom:2px solid var(--teal)}
+.stage.done{background:rgba(34,197,94,.05);border-bottom:2px solid var(--green)}
+.stage-num{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.stage-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.06em;color:var(--text)}
+.stage.active .stage-label{color:var(--teal-lt)}
+.stage.done .stage-label{color:var(--green)}
+.stage-content{display:none}.stage-content.active{display:block}
+
+/* OPTION CARDS */
+.option-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.5rem;margin-bottom:1.5rem}
+.option-card{background:var(--bg-2);border:1px solid var(--border);padding:1rem;cursor:pointer;transition:all .15s;text-align:left}
+.option-card:hover{border-color:var(--teal)}
+.option-card.selected{border-color:var(--teal);background:var(--teal-dim)}
+.oc-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.oc-value{font-size:.82rem;color:var(--bright);margin-bottom:.2rem}
+.oc-desc{font-size:.68rem;color:var(--body);line-height:1.5}
+
+/* LAYOUT HELPERS */
+.sec-head{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-lt);margin:1.2rem 0 .7rem;display:flex;align-items:center;gap:.6rem}
+.sec-head::after{content:'';flex:1;height:1px;background:var(--border)}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
+.flbl{font-size:.74rem;color:var(--bright);display:block;margin-bottom:.3rem}
+.fhint{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);display:block;margin-top:.25rem}
+select,input[type=number],input[type=text]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.74rem;padding:.42rem .65rem;outline:none;transition:border-color .2s;-webkit-appearance:none;margin-bottom:.85rem}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a6a8a'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .7rem center;padding-right:2rem;cursor:pointer}
+select:focus,input:focus{border-color:var(--teal)}
+
+/* BUTTONS */
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.55rem 1rem;cursor:pointer;transition:all .2s;border:1px solid}
+.btn-primary{background:var(--teal);color:var(--bg);border-color:var(--teal)}
+.btn-primary:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+.btn-primary:disabled{background:var(--muted);border-color:var(--muted);cursor:not-allowed;opacity:.5}
+.btn-ghost{background:transparent;color:var(--text);border-color:var(--border-2)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal-lt)}
+.stage-nav{display:flex;justify-content:space-between;margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)}
+.arow{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+
+/* TWO-PANEL LAYOUT */
+.tool-grid{display:grid;grid-template-columns:320px 1fr;gap:2px;background:var(--border);border:1px solid var(--border)}
+@media(max-width:900px){.tool-grid{grid-template-columns:1fr}}
+.config-panel{background:var(--bg-2);padding:1.75rem;position:sticky;top:86px;max-height:calc(100vh - 86px);overflow-y:auto}
+.output-panel{background:var(--bg-3);display:flex;flex-direction:column;min-height:520px}
+.output-body{flex:1;padding:1.5rem;overflow-y:auto}
+.output-toolbar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.75rem 1.5rem;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.output-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+
+/* KPI BAR */
+.kpi-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:1.5rem}
+.kpi{background:var(--bg-2);padding:1rem 1.25rem}
+.kpi-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.kpi-val{font-family:'JetBrains Mono',monospace;font-size:1.05rem;color:var(--bright);line-height:1.2}
+.kpi-sub{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--body);margin-top:.2rem}
+.kpi-val.green{color:var(--green)}.kpi-val.teal{color:var(--teal-lt)}.kpi-val.gold{color:var(--gold)}.kpi-val.warn{color:var(--warn)}.kpi-val.red{color:var(--red)}
+
+/* RAIL TABLE */
+.rail-table{width:100%;border-collapse:collapse;margin-bottom:1.5rem;font-size:.72rem}
+.rail-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-2)}
+.rail-table td{padding:.6rem .75rem;border-bottom:1px solid var(--border);color:var(--text);background:var(--bg-3);vertical-align:middle}
+.rail-table tr:last-child td{border-bottom:none}
+.rail-table tr.recommended td{background:var(--teal-dim);color:var(--bright)}
+.rail-table tr.recommended td:first-child{border-left:2px solid var(--teal)}
+
+/* SCORE BAR */
+.score-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:.3rem}
+.score-fill{height:100%;border-radius:3px;transition:width .4s ease}
+
+/* COMPLIANCE CHECKLIST */
+.comp-row{display:flex;align-items:flex-start;gap:.75rem;padding:.75rem;border-bottom:1px solid var(--border);font-size:.72rem}
+.comp-row:last-child{border-bottom:none}
+.comp-badge{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.2rem .5rem;border-radius:3px;flex-shrink:0;margin-top:.1rem}
+.badge-applies{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.badge-na{background:var(--bg-2);color:var(--muted);border:1px solid var(--border)}
+.badge-warn{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.3)}
+
+/* ADR OUTPUT */
+.adr-out{background:var(--bg-2);border:1px solid var(--border);padding:1.5rem;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);line-height:1.85;white-space:pre-wrap;max-height:580px;overflow-y:auto}
+
+/* WARN INLINE */
+.inline-warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-left:3px solid var(--warn);padding:.75rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--warn);margin-bottom:1rem;display:none}
+
+/* RECOMMEND CARD */
+.rec-card{background:var(--teal-dim);border:1px solid rgba(20,184,166,.3);border-left:3px solid var(--teal);padding:1.25rem;margin-bottom:1.5rem}
+.rec-card-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:.4rem}
+.rec-card-rail{font-family:'DM Serif Display',serif;font-size:1.25rem;color:var(--white);margin-bottom:.3rem}
+.rec-card-why{font-size:.72rem;color:var(--body)}
+
+/* LINK BADGE */
+.link-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--teal-lt);border:1px solid rgba(20,184,166,.25);padding:.3rem .75rem;margin-bottom:.75rem;transition:all .15s}
+.link-badge:hover{border-color:var(--teal);background:var(--teal-dim)}
+
+/* HOW-TO BOX */
+.how-to{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);padding:1rem 1.25rem;margin-bottom:1.5rem;font-size:.72rem;color:var(--body);line-height:1.7}
+
+/* STAGE 5 SCORECARD */
+.scorecard{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:1.5rem}
+.sc-cell{background:var(--bg-2);padding:1rem}
+.sc-dim{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+.sc-status{font-family:'JetBrains Mono',monospace;font-size:.65rem;font-weight:500}
+.sc-ready{color:var(--green)}.sc-risk{color:var(--warn)}.sc-not{color:var(--red)}
+
+/* FOOTER */
+}
+
+/* SPINNER */
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(20,184,166,.3);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:.5rem}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── AP2 Export Button (.ap2-export-btn .ap2-btn-icon {
+  font-size: .82rem;
+  font-weight: 700;
+  color: var(--muted);
+  transition: color .2s;
+}
+.ap2-export-btn .ap2-btn-sub {
+  font-size: .44rem;
+  letter-spacing: .1em;
+  color: var(--muted);
+  transition: color .2s;
+}
+.ap2-export-btn.ready {
+  cursor: pointer;
+  opacity: 1;
+  border-color: var(--border-2);
+}
+.ap2-export-btn.ready:hover {
+  border-color: var(--teal);
+  color: var(--teal-lt);
+  background: var(--teal-dim);
+}
+.ap2-export-btn.ready .ap2-btn-icon,
+.ap2-export-btn.ready:hover .ap2-btn-icon { color: var(--teal-lt); }
+.ap2-export-btn.ready .ap2-btn-sub,
+.ap2-export-btn.ready:hover .ap2-btn-sub { color: var(--teal); }
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <div class="logo-mark-grid">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+    </div>
+    <div class="logo-text">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/b2b-payments-hub.html">B2B Payments Hub</a><span class="nav-sep">/</span><span>T-82</span></div>
+
+    <a href="../guides/b2b-payments-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Tool 82 · Core Infrastructure</div>
+  <h1 class="tool-title">A2A Payment Rail<br><em>Optimization Command Center</em></h1>
+  <p class="hero-desc">Five-stage strategic rail selection framework: score FedNow, RTP, Same-Day ACH, SEPA Instant, and SWIFT gpi against your use case → model all-in costs → quantify liquidity impact → map compliance obligations → export a Nygard ADR with NPV/IRR business case. Powered by the largest A2A tool cluster in the suite (Tools 01, 09, 17, 18, 23, 39, 46, 78). Entirely client-side. Zero PII.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-privacy">Zero PII · Client-Side Only</span>
+    <span class="hero-badge badge-spec">5 Stages · ADR Export</span>
+    <span class="hero-badge badge-teal">📊 NPV / IRR Analysis</span>
+    <span class="hero-badge badge-purple">8 Upstream Tools</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+</div></div>
+
+<section class="tool-section"><div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+
+<div class="stage-bar" id="stageBar"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     STAGE 1 — USE CASE & RAIL SCORING
+═══════════════════════════════════════════════════════════ -->
+<div id="stage1" class="stage-content active">
+  <div class="how-to">
+    <strong style="color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.35rem">How to use this tool</strong>
+    Work through all five stages in order. Each stage unlocks the next after required selections are made. Stage 1–4 gather your use-case inputs; Stage 5 generates a complete Nygard-format ADR with NPV/IRR business case. Use the stage bar above to navigate between completed stages. References Tool 78 (Smart Routing Advisor).
+  </div>
+
+  <div class="tool-grid">
+    <div class="config-panel">
+      <div class="panel-label">Stage 1 — Use Case & Rail Scoring</div>
+
+      <div class="sec-head">Payment Corridor</div>
+      <label class="flbl">Corridor<span class="fhint">Origin → Destination currency pair</span></label>
+      <select id="s1Corridor">
+        <option value="">— Select corridor —</option>
+        <option value="USD-USD">USD → USD (domestic)</option>
+        <option value="USD-EUR">USD → EUR</option>
+        <option value="USD-GBP">USD → GBP</option>
+        <option value="USD-JPY">USD → JPY</option>
+        <option value="USD-CAD">USD → CAD</option>
+        <option value="USD-MXN">USD → MXN</option>
+        <option value="EUR-EUR">EUR → EUR (domestic)</option>
+        <option value="EUR-USD">EUR → USD</option>
+        <option value="EUR-GBP">EUR → GBP</option>
+        <option value="GBP-GBP">GBP → GBP (domestic)</option>
+        <option value="OTHER">Other corridor</option>
+      </select>
+
+      <div class="sec-head">Payment Type</div>
+      <div class="option-grid" id="s1TypeGrid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))"></div>
+
+      <div class="sec-head">Monthly Volume</div>
+      <label class="flbl">Average monthly payment count<span class="fhint">Affects per-unit rail economics</span></label>
+      <input type="number" id="s1Vol" placeholder="e.g. 50000" min="1">
+
+      <label class="flbl">Average transaction size (USD)<span class="fhint">Used for limit screening in Stage 4</span></label>
+      <input type="number" id="s1AvgSize" placeholder="e.g. 2500" min="1">
+
+      <div class="sec-head">Primary Decision Driver</div>
+      <div class="option-grid" id="s1DriverGrid" style="grid-template-columns:repeat(auto-fill,minmax(155px,1fr))"></div>
+
+      <div class="inline-warn" id="s1Warn">⚠ Complete all required fields: corridor, payment type, volume, average size, and primary driver.</div>
+      <div class="stage-nav"><div></div><button class="btn btn-primary" onclick="goStage(2)">Next: Cost Modeling →</button></div>
+    </div>
+
+    <div class="output-panel">
+      <div class="output-toolbar">
+        <span class="output-title">Rail Scoring Matrix · Tool 78 reference</span>
+        <a href="78-smart-routing-advisor.html" class="link-badge">→ Open Tool 78</a>
+      </div>
+      <div class="output-body" id="s1OutputBody">
+        <p style="color:var(--body);font-size:.78rem;margin-bottom:1.5rem">Rail scores update live as you make selections. The composite score weights your primary driver at 40% and distributes 20% each across the remaining three dimensions.</p>
+        <div id="s1RailTable"><p style="color:var(--muted);font-size:.72rem;font-family:'JetBrains Mono',monospace">← Select a primary driver to see scored rail options.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     STAGE 2 — COST MODELING
+═══════════════════════════════════════════════════════════ -->
+<div id="stage2" class="stage-content">
+  <div class="tool-grid">
+    <div class="config-panel">
+      <div class="panel-label">Stage 2 — Cost Modeling</div>
+      <p style="font-size:.72rem;color:var(--body);margin-bottom:1.25rem">References <a href="01-a2a-fee-calculator.html" style="color:var(--teal-lt)">Tool 01 (A2A Fee Calculator)</a> and <a href="23-cross-border-corridor.html" style="color:var(--teal-lt)">Tool 23 (Cross-Border Corridor Savings)</a>.</p>
+
+      <div class="sec-head">Rail Selection</div>
+      <p style="font-size:.72rem;color:var(--body);margin-bottom:.75rem">Confirm your primary rail (pre-filled from Stage 1 recommendation):</p>
+      <div class="option-grid" id="s2RailGrid" style="grid-template-columns:1fr 1fr"></div>
+
+      <div class="sec-head">Current Rail Costs</div>
+      <label class="flbl">Current per-transaction fee (USD)<span class="fhint">Include interchange, wire fees, correspondent charges</span></label>
+      <input type="number" id="s2CurrentFee" placeholder="e.g. 4.25" step="0.01" min="0">
+
+      <label class="flbl">FX spread / margin (%, 0 if domestic)<span class="fhint">Applied to cross-border transactions only</span></label>
+      <input type="number" id="s2FxSpread" placeholder="e.g. 1.5" step="0.01" min="0" value="0">
+
+      <label class="flbl">Monthly fixed infrastructure cost (USD)<span class="fhint">Core banking, connectivity, ops — allocate proportion</span></label>
+      <input type="number" id="s2FixedCost" placeholder="e.g. 8000" min="0">
+
+      <div class="sec-head">Target Rail Fee Schedule</div>
+      <label class="flbl">Target per-transaction fee (USD)<span class="fhint">FedNow: ~$0.04–$0.45 · RTP: ~$0.01–$0.45 · SEPA Inst: €0.20 avg</span></label>
+      <input type="number" id="s2TargetFee" placeholder="e.g. 0.20" step="0.01" min="0">
+
+      <label class="flbl">Migration / integration one-time cost (USD)<span class="fhint">API build, testing, cert, ops training</span></label>
+      <input type="number" id="s2MigCost" placeholder="e.g. 125000" min="0">
+
+      <div class="inline-warn" id="s2Warn">⚠ Select a rail and enter current + target fee data to continue.</div>
+      <div class="stage-nav">
+        <button class="btn btn-ghost" onclick="goStage(1)">← Back</button>
+        <button class="btn btn-primary" onclick="goStage(3)">Next: Liquidity →</button>
+      </div>
+    </div>
+
+    <div class="output-panel">
+      <div class="output-toolbar">
+        <span class="output-title">Cost Analysis · Tools 01 &amp; 23</span>
+        <a href="01-a2a-fee-calculator.html" class="link-badge">→ Open Tool 01</a>
+      </div>
+      <div class="output-body" id="s2OutputBody">
+        <p style="color:var(--body);font-size:.78rem;margin-bottom:1.5rem">Annual cost comparison updates as you enter fee data. All figures annualised using your Stage 1 monthly volume × 12.</p>
+        <div id="s2CostOutput"><p style="color:var(--muted);font-size:.72rem;font-family:'JetBrains Mono',monospace">← Select rail and enter cost data to see comparison.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     STAGE 3 — LIQUIDITY MODELING
+═══════════════════════════════════════════════════════════ -->
+<div id="stage3" class="stage-content">
+  <div class="tool-grid">
+    <div class="config-panel">
+      <div class="panel-label">Stage 3 — Liquidity Modeling</div>
+      <p style="font-size:.72rem;color:var(--body);margin-bottom:1.25rem">References <a href="39-a2a-liquidity-simulator.html" style="color:var(--teal-lt)">Tool 39 (A2A Liquidity Simulator)</a>.</p>
+
+      <div class="sec-head">Settlement Timeline</div>
+      <label class="flbl">Current settlement cycle<span class="fhint">Days in float before funds settle</span></label>
+      <select id="s3CurrentSettle">
+        <option value="2">T+2 (standard ACH, correspondent)</option>
+        <option value="1">T+1 (next-day ACH)</option>
+        <option value="0.5">Same-Day (SDA)</option>
+        <option value="0">Real-time (FedNow, RTP)</option>
+      </select>
+
+      <label class="flbl">Daily payment value (USD millions)<span class="fhint">Average daily disbursement / receipt volume</span></label>
+      <input type="number" id="s3DailyVol" placeholder="e.g. 12.5" step="0.1" min="0.01">
+
+      <div class="sec-head">Cost of Funds</div>
+      <label class="flbl">Cost of capital / funds rate (%)<span class="fhint">Default 5.25% — US Fed Funds proxy. Adjust to your WACC.</span></label>
+      <input type="number" id="s3CoF" placeholder="5.25" step="0.01" value="5.25" min="0">
+
+      <div class="sec-head">Prefunding Requirements</div>
+      <label class="flbl">Prefunding window for target rail (hours)<span class="fhint">FedNow: 0–4 · RTP: 0–2 · SEPA Inst: 0 · SWIFT gpi: 4–24</span></label>
+      <input type="number" id="s3Prefund" placeholder="e.g. 2" step="0.5" min="0">
+
+      <label class="flbl">Average transaction value ($)<span class="fhint">Pre-filled from Stage 1</span></label>
+      <input type="number" id="s3AvgTxn" placeholder="2500" min="1">
+
+      <div class="inline-warn" id="s3Warn">⚠ Enter daily volume and cost of funds to continue.</div>
+      <div class="stage-nav">
+        <button class="btn btn-ghost" onclick="goStage(2)">← Back</button>
+        <button class="btn btn-primary" onclick="goStage(4)">Next: Compliance →</button>
+      </div>
+    </div>
+
+    <div class="output-panel">
+      <div class="output-toolbar">
+        <span class="output-title">Liquidity Impact · Tool 39</span>
+        <a href="39-a2a-liquidity-simulator.html" class="link-badge">→ Open Tool 39</a>
+      </div>
+      <div class="output-body" id="s3OutputBody">
+        <p style="color:var(--body);font-size:.78rem;margin-bottom:1.5rem">Liquidity model computes float reduction, idle capital saving, prefunding cost, and net annual benefit from accelerated settlement.</p>
+        <div id="s3LiqOutput"><p style="color:var(--muted);font-size:.72rem;font-family:'JetBrains Mono',monospace">← Enter settlement and liquidity parameters.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     STAGE 4 — COMPLIANCE & LIMITS
+═══════════════════════════════════════════════════════════ -->
+<div id="stage4" class="stage-content">
+  <div class="tool-grid">
+    <div class="config-panel">
+      <div class="panel-label">Stage 4 — Compliance &amp; Limits</div>
+      <p style="font-size:.72rem;color:var(--body);margin-bottom:1.25rem">References <a href="17-instant-payment-limits.html" style="color:var(--teal-lt)">Tool 17 (Instant Payment Limits)</a> and <a href="18-a2a-compliance-checklist.html" style="color:var(--teal-lt)">Tool 18 (A2A Compliance Checklist)</a>.</p>
+
+      <div class="sec-head">Jurisdictions</div>
+      <p style="font-size:.72rem;color:var(--body);margin-bottom:.75rem">Select all applicable jurisdictions for your payment flow:</p>
+      <div id="s4JurisGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin-bottom:1.25rem"></div>
+
+      <div class="sec-head">Originator Type</div>
+      <div class="option-grid" id="s4OriginGrid" style="grid-template-columns:1fr 1fr"></div>
+
+      <div class="sec-head">Transaction Characteristics</div>
+      <label style="display:flex;align-items:center;gap:.6rem;font-size:.72rem;color:var(--text);margin-bottom:.6rem;cursor:pointer">
+        <input type="checkbox" id="s4Cash"> Cash transaction (> $10,000)
+      </label>
+      <label style="display:flex;align-items:center;gap:.6rem;font-size:.72rem;color:var(--text);margin-bottom:.6rem;cursor:pointer">
+        <input type="checkbox" id="s4CrossBorder"> Cross-border transaction
+      </label>
+      <label style="display:flex;align-items:center;gap:.6rem;font-size:.72rem;color:var(--text);margin-bottom:.6rem;cursor:pointer">
+        <input type="checkbox" id="s4Consumer"> Consumer (retail) payments included
+      </label>
+
+      <div class="inline-warn" id="s4Warn">⚠ Select at least one jurisdiction and originator type to continue.</div>
+      <div class="stage-nav">
+        <button class="btn btn-ghost" onclick="goStage(3)">← Back</button>
+        <button class="btn btn-primary" onclick="goStage(5)">Next: Business Case →</button>
+      </div>
+    </div>
+
+    <div class="output-panel">
+      <div class="output-toolbar">
+        <span class="output-title">Compliance Obligations &amp; Limit Reference · Tools 17 &amp; 18</span>
+        <a href="17-instant-payment-limits.html" class="link-badge">→ Tool 17</a>
+      </div>
+      <div class="output-body" id="s4OutputBody">
+        <p style="color:var(--body);font-size:.78rem;margin-bottom:1.5rem">Compliance obligations and per-transaction limit tables for your selected rail and jurisdictions. Flags will carry into the Stage 5 business case.</p>
+        <div id="s4CompOutput"><p style="color:var(--muted);font-size:.72rem;font-family:'JetBrains Mono',monospace">← Select jurisdictions and originator type to generate compliance checklist.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     STAGE 5 — BUSINESS CASE & ADR EXPORT
+═══════════════════════════════════════════════════════════ -->
+<div id="stage5" class="stage-content">
+  <h2 style="font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--white);margin-bottom:.5rem">Stage 5 — Business Case &amp; ADR Export</h2>
+  <p style="font-size:.82rem;color:var(--body);margin-bottom:1.5rem">References <a href="46-payment-roi-builder.html" style="color:var(--teal-lt)">Tool 46 (Payment ROI Builder)</a> and <a href="09-a2a-reconciliation.html" style="color:var(--teal-lt)">Tool 09 (Reconciliation Workbench)</a>. Review your selections and generate the Nygard ADR with full financial model.</p>
+
+  <div class="sec-head">Selection Summary</div>
+  <div id="s5Summary" style="background:var(--bg-2);border:1px solid var(--border);padding:1.25rem;margin-bottom:1.5rem;font-size:.76rem;line-height:1.9;font-family:'JetBrains Mono',monospace"></div>
+
+  <div class="sec-head">Readiness Scorecard</div>
+  <div class="scorecard" id="s5Scorecard"></div>
+
+  <div class="sec-head">Business Case — NPV / IRR / Payback</div>
+  <div class="kpi-bar" id="s5KpiBar"></div>
+
+  <div class="sec-head">Architecture Decision Record</div>
+  <div class="results-export-row arow">
+    <button class="btn btn-primary" id="adrBtn" onclick="generateADR()">📋 Generate ADR</button>
+    <button class="btn btn-ghost" onclick="exportADR()">↓ Export ADR (Markdown)</button>
+
+    <button class="btn btn-ghost" onclick="copyToClipboard()">⧉ Copy to Clipboard</button>
+      <button class="btn btn-ghost" id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the analysis above to generate a Policy Mandate">{} Export Policy Mandate<span style="font-family:'JetBrains Mono',monospace;font-size:.44rem;opacity:.65;display:block;letter-spacing:.08em;margin-top:1px">API · audit trail</span></button>
+  </div>
+  <div id="adrLoading" style="display:none;padding:1.5rem;color:var(--teal)"><span class="spinner"></span><span style="font-family:'JetBrains Mono',monospace;font-size:.68rem">Building ADR…</span></div>
+  <div class="adr-out" id="adrOutput">Click "Generate ADR" to create a Nygard Architecture Decision Record with full business case for your A2A rail selection.</div>
+
+  <div class="stage-nav">
+    <button class="btn btn-ghost" onclick="goStage(4)">← Back</button>
+    <div></div>
+  </div>
+</div>
+
+</div></section>
+
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+const STATE_KEY = 'ap2-rail-v1';
+const state = {
+  stage1: { corridor:'', paymentType:'', volume:0, avgSize:0, primaryDriver:'', recommendedRail:'' },
+  stage2: { selectedRail:'', currentFee:0, fxSpread:0, fixedCost:0, targetFee:0, migCost:0, annualSaving:0 },
+  stage3: { currentSettleDays:2, dailyVolM:0, cof:5.25, prefundHours:2, avgTxn:0, netLiqBenefit:0 },
+  stage4: { jurisdictions:[], originatorType:'', cashTxn:false, crossBorder:false, consumerPayments:false },
+  stage5: { npv:0, irr:0, paybackMonths:0 }
+};
+let currentStage = 1;
+
+// Restore session
+try {
+  const saved = sessionStorage.getItem(STATE_KEY);
+  if (saved) Object.assign(state, JSON.parse(saved));
+} catch(e){}
+
+function saveState() {
+  try { sessionStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch(e){}
+}
+
+// ═══════════════════════════════════════════════════════════
+// RAIL DATA
+// ═══════════════════════════════════════════════════════════
+const RAILS = {
+  'FedNow': {
+    cost:8, speed:10, dataRichness:7, compliance:9,
+    iso20022Native:true, maxTxnUSD:500000,
+    corridors:['USD-USD'],
+    desc:'Real-time gross settlement · 24/7/365 · RNSF & STP · ISO 20022 native',
+    fee:'$0.04–$0.045/txn (Fed) + network overlay',
+    prefundHours:0, settleDays:0
+  },
+  'RTP': {
+    cost:8, speed:10, dataRichness:6, compliance:8,
+    iso20022Native:false, maxTxnUSD:1000000,
+    corridors:['USD-USD'],
+    desc:'The Clearing House RTP · 24/7 · immediate finality · 1M participants',
+    fee:'$0.01–$0.045/txn',
+    prefundHours:0, settleDays:0
+  },
+  'Same-Day ACH': {
+    cost:9, speed:5, dataRichness:4, compliance:8,
+    iso20022Native:false, maxTxnUSD:1000000,
+    corridors:['USD-USD'],
+    desc:'NACHA SDA · 3 daily windows · lower cost · high reach · NACHA March 2026 rules apply',
+    fee:'$0.26–$0.75/txn',
+    prefundHours:4, settleDays:0.5
+  },
+  'SEPA Instant': {
+    cost:7, speed:10, dataRichness:8, compliance:10,
+    iso20022Native:true, maxTxnUSD:115000,
+    corridors:['EUR-EUR','EUR-GBP'],
+    desc:'SCT Inst · 10-second finality · EPC rulebook · SCLX mandatory Jan 2025',
+    fee:'€0.10–€0.30/txn',
+    prefundHours:0, settleDays:0
+  },
+  'SEPA Credit': {
+    cost:7, speed:3, dataRichness:7, compliance:10,
+    iso20022Native:true, maxTxnUSD:999999999,
+    corridors:['EUR-EUR','EUR-GBP','EUR-USD'],
+    desc:'SCT · T+1 · no value cap · ISO 20022 · well-understood compliance posture',
+    fee:'€0.05–€0.20/txn',
+    prefundHours:8, settleDays:1
+  },
+  'SWIFT gpi': {
+    cost:3, speed:5, dataRichness:10, compliance:10,
+    iso20022Native:true, maxTxnUSD:999999999,
+    corridors:['USD-EUR','USD-GBP','USD-JPY','USD-CAD','USD-MXN','EUR-USD','EUR-GBP','GBP-GBP','OTHER'],
+    desc:'Global correspondent banking · ISO 20022 CBPR+ · richest data · Nov 2026 structured address mandate',
+    fee:'$5–$35/txn + correspondent charges',
+    prefundHours:12, settleDays:1
+  },
+};
+
+const DRIVER_WEIGHTS = {
+  cost:        { cost:0.40, speed:0.20, dataRichness:0.20, compliance:0.20 },
+  speed:       { cost:0.20, speed:0.40, dataRichness:0.20, compliance:0.20 },
+  data:        { cost:0.20, speed:0.20, dataRichness:0.40, compliance:0.20 },
+  compliance:  { cost:0.20, speed:0.20, dataRichness:0.20, compliance:0.40 },
+};
+
+const PAYMENT_TYPES = [
+  {v:'B2B',l:'B2B Payables',d:'Business-to-business supplier & vendor payments'},
+  {v:'B2C',l:'B2C Disbursements',d:'Payroll, insurance, gig economy payouts'},
+  {v:'P2P',l:'P2P Transfers',d:'Consumer person-to-person transfers'},
+  {v:'GOV',l:'Government',d:'Tax refunds, benefits, grants disbursement'},
+];
+
+const DRIVERS = [
+  {v:'cost',l:'Cost Reduction',d:'Minimize per-transaction and fixed rail costs'},
+  {v:'speed',l:'Speed / Finality',d:'Achieve real-time or near-real-time settlement'},
+  {v:'data',l:'Data Richness',d:'Maximize ISO 20022 structured data throughput'},
+  {v:'compliance',l:'Compliance Posture',d:'Prioritize regulatory certainty and audit trail'},
+];
+
+const JURISDICTIONS = ['US Federal','EU (PSD3)','UK (PSR)','Canada (Payments Canada)','Singapore (MAS)','UAE (CBUAE)','Australia (NPPA)'];
+const ORIGINATOR_TYPES = [
+  {v:'consumer',l:'Consumer',d:'Personal / retail payments'},
+  {v:'non-consumer',l:'Non-Consumer',d:'Business originator (NACHA rules apply >6M txns)'},
+  {v:'tps',l:'Third-Party Sender',d:'Originating on behalf of another entity'},
+  {v:'govt',l:'Government Entity',d:'Federal, state, or municipal'},
+];
+
+// ═══════════════════════════════════════════════════════════
+// STAGE BAR
+// ═══════════════════════════════════════════════════════════
+const STAGE_LABELS = ['Use Case & Scoring','Cost Modeling','Liquidity Model','Compliance & Limits','Business Case & ADR'];
+
+function renderStageBar() {
+  const bar = document.getElementById('stageBar');
+  bar.innerHTML = STAGE_LABELS.map((label, i) => {
+    const n = i + 1;
+    let cls = 'stage';
+    if (n === currentStage) cls += ' active';
+    else if (n < currentStage) cls += ' done';
+    return `<button class="${cls}" onclick="clickStage(${n})">
+      <div class="stage-num">Stage ${n}</div>
+      <div class="stage-label">${label}</div>
+    </button>`;
+  }).join('');
+}
+
+function clickStage(n) {
+  if (n <= currentStage) goStage(n);
+}
+
+function goStage(n) {
+  if (n === 2 && !validateStage1()) return;
+  if (n === 3 && !validateStage2()) return;
+  if (n === 4 && !validateStage3()) return;
+  if (n === 5 && !validateStage4()) return;
+
+  document.querySelectorAll('.stage-content').forEach(el => el.classList.remove('active'));
+  document.getElementById('stage' + n).classList.add('active');
+  currentStage = n;
+  renderStageBar();
+  saveState();
+  window.scrollTo({top:0,behavior:'smooth'});
+
+  if (n === 5) renderStage5();
+}
+
+// ═══════════════════════════════════════════════════════════
+// OPTION GRID BUILDER
+// ═══════════════════════════════════════════════════════════
+function buildOptionGrid(containerId, items, stateKey, stateObj, cb) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = items.map(item => `
+    <div class="option-card${stateObj[stateKey]===item.v?' selected':''}" onclick="selectOpt('${containerId}','${stateKey}',${JSON.stringify(stateObj).replace(/'/g,"\\'")},'${item.v}')">
+      <div class="oc-label">${item.v}</div>
+      <div class="oc-value">${item.l}</div>
+      <div class="oc-desc">${item.d}</div>
+    </div>`).join('');
+}
+
+function selectOpt(gridId, key, stateRef, val) {
+  // Determine which state stage this belongs to
+  const grid = document.getElementById(gridId);
+  grid.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+  grid.querySelectorAll('.option-card').forEach(c => {
+    if (c.querySelector('.oc-label').textContent === val) c.classList.add('selected');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// STAGE 1 LOGIC
+// ═══════════════════════════════════════════════════════════
+function initStage1() {
+  // Payment type grid
+  const typeGrid = document.getElementById('s1TypeGrid');
+  typeGrid.innerHTML = PAYMENT_TYPES.map(item => `
+    <div class="option-card${state.stage1.paymentType===item.v?' selected':''}" onclick="s1SelectType('${item.v}')">
+      <div class="oc-label">${item.v}</div><div class="oc-value">${item.l}</div><div class="oc-desc">${item.d}</div>
+    </div>`).join('');
+
+  // Driver grid
+  const driverGrid = document.getElementById('s1DriverGrid');
+  driverGrid.innerHTML = DRIVERS.map(item => `
+    <div class="option-card${state.stage1.primaryDriver===item.v?' selected':''}" onclick="s1SelectDriver('${item.v}')">
+      <div class="oc-label">${item.v}</div><div class="oc-value">${item.l}</div><div class="oc-desc">${item.d}</div>
+    </div>`).join('');
+
+  // Restore inputs
+  if (state.stage1.volume) document.getElementById('s1Vol').value = state.stage1.volume;
+  if (state.stage1.avgSize) document.getElementById('s1AvgSize').value = state.stage1.avgSize;
+
+  document.getElementById('s1Corridor').value = state.stage1.corridor || '';
+  document.getElementById('s1Corridor').addEventListener('change', () => {
+    state.stage1.corridor = document.getElementById('s1Corridor').value;
+    saveState(); updateS1Output();
+  });
+  document.getElementById('s1Vol').addEventListener('input', () => {
+    state.stage1.volume = parseFloat(document.getElementById('s1Vol').value) || 0;
+    saveState(); updateS1Output();
+  });
+  document.getElementById('s1AvgSize').addEventListener('input', () => {
+    state.stage1.avgSize = parseFloat(document.getElementById('s1AvgSize').value) || 0;
+    saveState(); updateS1Output();
+  });
+
+  if (state.stage1.primaryDriver) updateS1Output();
+}
+
+function s1SelectType(v) {
+  state.stage1.paymentType = v;
+  document.getElementById('s1TypeGrid').querySelectorAll('.option-card').forEach(c => {
+    c.classList.toggle('selected', c.querySelector('.oc-label').textContent === v);
+  });
+  saveState();
+}
+
+function s1SelectDriver(v) {
+  state.stage1.primaryDriver = v;
+  document.getElementById('s1DriverGrid').querySelectorAll('.option-card').forEach(c => {
+    c.classList.toggle('selected', c.querySelector('.oc-label').textContent === v);
+  });
+  saveState(); updateS1Output();
+}
+
+function scoreRails(driver, corridor) {
+  const weights = DRIVER_WEIGHTS[driver] || DRIVER_WEIGHTS.cost;
+  return Object.entries(RAILS)
+    .filter(([name, r]) => !corridor || corridor === '' || r.corridors.includes(corridor) || r.corridors.includes('OTHER'))
+    .map(([name, r]) => ({
+      name,
+      composite: Object.entries(weights).reduce((sum,[dim,w]) => sum + (r[dim]||0)*w, 0),
+      ...r,
+      scores: { cost:r.cost, speed:r.speed, data:r.dataRichness, compliance:r.compliance }
+    }))
+    .sort((a,b) => b.composite - a.composite);
+}
+
+function updateS1Output() {
+  const driver = state.stage1.primaryDriver;
+  const corridor = state.stage1.corridor;
+  if (!driver) return;
+
+  const scored = scoreRails(driver, corridor);
+  state.stage1.recommendedRail = scored[0]?.name || '';
+
+  const colorBar = (score) => {
+    const pct = (score/10)*100;
+    const col = pct >= 75 ? 'var(--teal)' : pct >= 50 ? 'var(--gold)' : 'var(--muted)';
+    return `<div class="score-bar"><div class="score-fill" style="width:${pct}%;background:${col}"></div></div>`;
+  };
+
+  const tableHTML = `
+    ${state.stage1.recommendedRail ? `
+    <div class="rec-card">
+      <div class="rec-card-label">★ Recommended Rail</div>
+      <div class="rec-card-rail">${state.stage1.recommendedRail}</div>
+      <div class="rec-card-why">${RAILS[state.stage1.recommendedRail].desc}</div>
+    </div>` : ''}
+    <table class="rail-table">
+      <thead><tr>
+        <th>Rail</th>
+        <th>Cost</th>
+        <th>Speed</th>
+        <th>Data</th>
+        <th>Compliance</th>
+        <th>Composite</th>
+        <th>ISO 20022</th>
+      </tr></thead>
+      <tbody>
+        ${scored.map((r, i) => `
+        <tr class="${i===0?'recommended':''}">
+          <td><strong style="color:var(--bright)">${r.name}</strong>${i===0?'<span style="margin-left:.5rem;font-family:\'JetBrains Mono\',monospace;font-size:.42rem;color:var(--teal-lt);text-transform:uppercase">★ Best</span>':''}<br><span style="font-size:.62rem;color:var(--body)">${r.fee}</span></td>
+          <td>${colorBar(r.cost)}<span style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--body)">${r.cost}/10</span></td>
+          <td>${colorBar(r.speed)}<span style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--body)">${r.speed}/10</span></td>
+          <td>${colorBar(r.dataRichness)}<span style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--body)">${r.dataRichness}/10</span></td>
+          <td>${colorBar(r.compliance)}<span style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--body)">${r.compliance}/10</span></td>
+          <td><span style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--bright)">${r.composite.toFixed(1)}</span></td>
+          <td><span style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:${r.iso20022Native?'var(--green)':'var(--warn)'}">${r.iso20022Native?'✓ Native':'○ Wrapper'}</span></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    <p style="font-size:.64rem;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:.75rem">Composite score = ${driver} driver weighted 40% + remaining 3 dimensions 20% each. Scores derived from Tool 78 (Smart Routing Advisor) scoring matrix.</p>`;
+
+  document.getElementById('s1RailTable').innerHTML = tableHTML;
+}
+
+function validateStage1() {
+  const w = document.getElementById('s1Warn');
+  const ok = state.stage1.corridor && state.stage1.paymentType && state.stage1.volume > 0 && state.stage1.avgSize > 0 && state.stage1.primaryDriver;
+  w.style.display = ok ? 'none' : 'block';
+  return ok;
+}
+
+// ═══════════════════════════════════════════════════════════
+// STAGE 2 LOGIC
+// ═══════════════════════════════════════════════════════════
+function initStage2() {
+  // Rail selection grid — pre-fill from Stage 1 recommendation
+  const scored = scoreRails(state.stage1.primaryDriver, state.stage1.corridor);
+  const railGrid = document.getElementById('s2RailGrid');
+  railGrid.innerHTML = scored.slice(0,4).map(r => `
+    <div class="option-card${state.stage2.selectedRail===r.name?' selected':''}" onclick="s2SelectRail('${r.name}')">
+      <div class="oc-label">${r.name === state.stage1.recommendedRail ? '★ Recommended' : 'Alternative'}</div>
+      <div class="oc-value" style="font-size:.75rem">${r.name}</div>
+      <div class="oc-desc">${r.fee}</div>
+    </div>`).join('');
+
+  // Auto-select recommended if none selected
+  if (!state.stage2.selectedRail && state.stage1.recommendedRail) {
+    state.stage2.selectedRail = state.stage1.recommendedRail;
+    railGrid.querySelector('.option-card').classList.add('selected');
+  }
+
+  ['s2CurrentFee','s2FxSpread','s2FixedCost','s2TargetFee','s2MigCost'].forEach(id => {
+    const el = document.getElementById(id);
+    const key = id.replace('s2','').toLowerCase().replace(/^./, c=>c.toLowerCase());
+    if (state.stage2[id.replace('s2','').toLowerCase()]) el.value = state.stage2[id.replace('s2','').toLowerCase()];
+    el.addEventListener('input', () => { updateS2Output(); saveState(); });
+  });
+
+  updateS2Output();
+}
+
+function s2SelectRail(name) {
+  state.stage2.selectedRail = name;
+  document.getElementById('s2RailGrid').querySelectorAll('.option-card').forEach(c => {
+    c.classList.toggle('selected', c.querySelector('.oc-value').textContent === name);
+  });
+
+  // Pre-fill target fee hint
+  const rail = RAILS[name];
+  if (rail && !document.getElementById('s2TargetFee').value) {
+    // extract midpoint from fee string for hint only
+  }
+  saveState(); updateS2Output();
+}
+
+function updateS2Output() {
+  const vol = (state.stage1.volume || 0) * 12;
+  const currentFee = parseFloat(document.getElementById('s2CurrentFee')?.value) || 0;
+  const fxSpread = parseFloat(document.getElementById('s2FxSpread')?.value) || 0;
+  const fixedCost = parseFloat(document.getElementById('s2FixedCost')?.value) || 0;
+  const targetFee = parseFloat(document.getElementById('s2TargetFee')?.value) || 0;
+  const migCost = parseFloat(document.getElementById('s2MigCost')?.value) || 0;
+  const avgSize = state.stage1.avgSize || 0;
+
+  state.stage2.currentFee = currentFee;
+  state.stage2.fxSpread = fxSpread;
+  state.stage2.fixedCost = fixedCost;
+  state.stage2.targetFee = targetFee;
+  state.stage2.migCost = migCost;
+
+  if (!vol || !currentFee) {
+    document.getElementById('s2CostOutput').innerHTML = '<p style="color:var(--muted);font-size:.72rem;font-family:\'JetBrains Mono\',monospace">← Enter current fee and volume to see cost comparison.</p>';
+    return;
+  }
+
+  const currentFxCost = avgSize > 0 ? (vol * avgSize * (fxSpread/100)) : 0;
+  const currentAnnual = (vol * currentFee) + currentFxCost + (fixedCost * 12);
+  const targetAnnual = (vol * targetFee) + (fixedCost * 12);
+  const annualSaving = currentAnnual - targetAnnual;
+  const paybackMonths = annualSaving > 0 ? (migCost / (annualSaving/12)) : null;
+
+  state.stage2.annualSaving = annualSaving;
+
+  const fmt = (n) => '$' + Math.abs(n).toLocaleString('en-US', {maximumFractionDigits:0});
+  const fmtPct = (n) => (n*100).toFixed(1)+'%';
+
+  document.getElementById('s2CostOutput').innerHTML = `
+    <div class="kpi-bar">
+      <div class="kpi"><div class="kpi-label">Current Annual Cost</div><div class="kpi-val red">${fmt(currentAnnual)}</div><div class="kpi-sub">txn fees + FX + fixed</div></div>
+      <div class="kpi"><div class="kpi-label">Target Annual Cost</div><div class="kpi-val teal">${fmt(targetAnnual)}</div><div class="kpi-sub">on ${state.stage2.selectedRail||'target rail'}</div></div>
+      <div class="kpi"><div class="kpi-label">Annual Saving</div><div class="kpi-val ${annualSaving>=0?'green':'red'}">${annualSaving>=0?'':'-'}${fmt(annualSaving)}</div><div class="kpi-sub">pre-migration cost</div></div>
+      <div class="kpi"><div class="kpi-label">Migration Cost</div><div class="kpi-val gold">${fmt(migCost)}</div><div class="kpi-sub">one-time</div></div>
+    </div>
+    <div style="background:var(--bg-2);border:1px solid var(--border);padding:1.25rem;margin-bottom:1.25rem">
+      <table style="width:100%;font-size:.72rem;border-collapse:collapse">
+        <thead><tr>
+          <th style="text-align:left;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:.4rem .6rem;border-bottom:1px solid var(--border)">Cost Item</th>
+          <th style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:.4rem .6rem;border-bottom:1px solid var(--border)">Current Rail</th>
+          <th style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:.4rem .6rem;border-bottom:1px solid var(--border)">${state.stage2.selectedRail||'Target Rail'}</th>
+          <th style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:.4rem .6rem;border-bottom:1px solid var(--border)">Delta</th>
+        </tr></thead>
+        <tbody>
+          <tr><td style="padding:.45rem .6rem;color:var(--text);border-bottom:1px solid var(--border)">Transaction Fees</td>
+            <td style="padding:.45rem .6rem;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--bright);border-bottom:1px solid var(--border)">${fmt(vol*currentFee)}</td>
+            <td style="padding:.45rem .6rem;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--bright);border-bottom:1px solid var(--border)">${fmt(vol*targetFee)}</td>
+            <td style="padding:.45rem .6rem;text-align:right;font-family:'JetBrains Mono',monospace;color:${vol*currentFee-vol*targetFee>=0?'var(--green)':'var(--red)'};border-bottom:1px solid var(--border)">${fmt(vol*currentFee-vol*targetFee)}</td>
+          </tr>
+          <tr><td style="padding:.45rem .6rem;color:var(--text);border-bottom:1px solid var(--border)">FX Spread Cost</td>
+            <td style="padding:.45rem .6rem;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--bright);border-bottom:1px solid var(--border)">${fmt(currentFxCost)}</td>
+            <td style="padding:.45rem .6rem;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--bright);border-bottom:1px solid var(--border)">${fmt(0)}</td>
+            <td style="padding:.45rem .6rem;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--green);border-bottom:1px solid var(--border)">${fmt(currentFxCost)}</td>
+          </tr>
+          <tr><td style="padding:.45rem .6rem;color:var(--text)">Fixed Infrastructure</td>
+            <td style="padding:.45rem .6rem;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--bright)">${fmt(fixedCost*12)}</td>
+            <td style="padding:.45rem .6rem;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--bright)">${fmt(fixedCost*12)}</td>
+            <td style="padding:.45rem .6rem;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--muted)">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    ${paybackMonths !== null ? `<p style="font-size:.72rem;color:var(--body)">At current saving rate, migration cost recovers in <strong style="color:var(--teal-lt);font-family:'JetBrains Mono',monospace">${paybackMonths.toFixed(1)} months</strong>.</p>` : ''}
+    <a href="23-cross-border-corridor.html" class="link-badge" style="margin-top:.75rem;display:inline-flex">→ Open Tool 23 for full cross-border corridor analysis</a>`;
+}
+
+function validateStage2() {
+  const ok = state.stage2.selectedRail && parseFloat(document.getElementById('s2CurrentFee')?.value) > 0;
+  document.getElementById('s2Warn').style.display = ok ? 'none' : 'block';
+  return ok;
+}
+
+// ═══════════════════════════════════════════════════════════
+// STAGE 3 LOGIC
+// ═══════════════════════════════════════════════════════════
+function initStage3() {
+  const rail = RAILS[state.stage2.selectedRail];
+
+  // Pre-fill from rail data
+  if (rail && !state.stage3.prefundSet) {
+    document.getElementById('s3Prefund').value = rail.prefundHours;
+    document.getElementById('s3CurrentSettle').value = '2'; // conservative default
+  }
+  if (state.stage1.avgSize) document.getElementById('s3AvgTxn').value = state.stage1.avgSize;
+
+  if (state.stage3.dailyVolM) document.getElementById('s3DailyVol').value = state.stage3.dailyVolM;
+  if (state.stage3.cof) document.getElementById('s3CoF').value = state.stage3.cof;
+
+  ['s3DailyVol','s3CoF','s3Prefund','s3AvgTxn'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', () => { updateS3Output(); saveState(); });
+  });
+  document.getElementById('s3CurrentSettle')?.addEventListener('change', () => { updateS3Output(); saveState(); });
+
+  updateS3Output();
+}
+
+function updateS3Output() {
+  const currentDays = parseFloat(document.getElementById('s3CurrentSettle')?.value) || 2;
+  const targetDays = RAILS[state.stage2.selectedRail]?.settleDays ?? 0;
+  const dailyVolM = parseFloat(document.getElementById('s3DailyVol')?.value) || 0;
+  const cof = (parseFloat(document.getElementById('s3CoF')?.value) || 5.25) / 100;
+  const prefundHours = parseFloat(document.getElementById('s3Prefund')?.value) || 0;
+  const avgTxn = parseFloat(document.getElementById('s3AvgTxn')?.value) || state.stage1.avgSize || 1;
+
+  state.stage3.currentSettleDays = currentDays;
+  state.stage3.dailyVolM = dailyVolM;
+  state.stage3.cof = parseFloat(document.getElementById('s3CoF')?.value) || 5.25;
+  state.stage3.prefundHours = prefundHours;
+  state.stage3.avgTxn = avgTxn;
+
+  if (!dailyVolM) {
+    document.getElementById('s3LiqOutput').innerHTML = '<p style="color:var(--muted);font-size:.72rem;font-family:\'JetBrains Mono\',monospace">← Enter daily payment volume to model liquidity impact.</p>';
+    return;
+  }
+
+  const dailyVol = dailyVolM * 1e6;
+  const floatReduction = dailyVol * (currentDays - targetDays);
+  const idleCapSaving = floatReduction * cof; // annual
+  const prefundReq = dailyVol * (prefundHours / 24);
+  const prefundCost = prefundReq * cof; // annual
+  const netBenefit = idleCapSaving - prefundCost;
+
+  // Data opportunity cost: 0.2% exception rate × $15/investigation × 30% ISO 20022 reduction
+  const monthlyTxns = (state.stage1.volume || 0) * 12;
+  const dataOppCost = monthlyTxns * 0.002 * 15 * 0.30;
+
+  state.stage3.netLiqBenefit = netBenefit;
+
+  const fmt = n => '$' + Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:0});
+  const fmtM = n => '$' + (Math.abs(n)/1e6).toFixed(2) + 'M';
+
+  document.getElementById('s3LiqOutput').innerHTML = `
+    <div class="kpi-bar">
+      <div class="kpi"><div class="kpi-label">Float Reduction</div><div class="kpi-val teal">${fmtM(floatReduction)}</div><div class="kpi-sub">funds released</div></div>
+      <div class="kpi"><div class="kpi-label">Idle Capital Saving</div><div class="kpi-val green">${fmt(idleCapSaving)}/yr</div><div class="kpi-sub">at ${(cof*100).toFixed(2)}% CoF</div></div>
+      <div class="kpi"><div class="kpi-label">Prefunding Cost</div><div class="kpi-val warn">${fmt(prefundCost)}/yr</div><div class="kpi-sub">${prefundHours}h window</div></div>
+      <div class="kpi"><div class="kpi-label">Net Liquidity Benefit</div><div class="kpi-val ${netBenefit>=0?'green':'red'}">${netBenefit>=0?'':'-'}${fmt(netBenefit)}/yr</div><div class="kpi-sub">saving − prefunding</div></div>
+      <div class="kpi"><div class="kpi-label">DSO Improvement</div><div class="kpi-val gold">${(currentDays-targetDays).toFixed(1)}d</div><div class="kpi-sub">days sales outstanding</div></div>
+    </div>
+    <div style="background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--purple);padding:1rem 1.25rem;margin-bottom:1.25rem">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple);margin-bottom:.4rem">Data Opportunity Cost</div>
+      <p style="font-size:.75rem;color:var(--text)">Estimated annual saving from consuming native ISO 20022 data vs. legacy wrapping: <strong style="color:var(--bright);font-family:'JetBrains Mono',monospace">${fmt(dataOppCost)}/yr</strong></p>
+      <p style="font-size:.64rem;color:var(--muted);margin-top:.3rem">Basis: 0.2% exception rate × $15/investigation × 30% ISO 20022 reduction × annual txn volume</p>
+    </div>
+    <div style="background:var(--bg-2);border:1px solid var(--border);padding:1rem 1.25rem">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:.6rem">Settlement Model Comparison</div>
+      <table style="width:100%;font-size:.72rem;border-collapse:collapse">
+        <thead><tr>
+          <th style="text-align:left;padding:.35rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)">Metric</th>
+          <th style="text-align:right;padding:.35rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)">Current</th>
+          <th style="text-align:right;padding:.35rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)">${state.stage2.selectedRail}</th>
+        </tr></thead>
+        <tbody>
+          <tr><td style="padding:.4rem .6rem;color:var(--text);border-bottom:1px solid var(--border)">Settlement Cycle</td><td style="padding:.4rem .6rem;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--bright);border-bottom:1px solid var(--border)">T+${currentDays}</td><td style="padding:.4rem .6rem;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--teal-lt);border-bottom:1px solid var(--border)">T+${targetDays === 0 ? '0 (RT)' : targetDays}</td></tr>
+          <tr><td style="padding:.4rem .6rem;color:var(--text);border-bottom:1px solid var(--border)">Daily Float in Transit</td><td style="padding:.4rem .6rem;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--bright);border-bottom:1px solid var(--border)">${fmtM(dailyVol*currentDays)}</td><td style="padding:.4rem .6rem;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--teal-lt);border-bottom:1px solid var(--border)">${fmtM(dailyVol*targetDays)}</td></tr>
+          <tr><td style="padding:.4rem .6rem;color:var(--text)">Prefunding Required</td><td style="padding:.4rem .6rem;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--bright)">—</td><td style="padding:.4rem .6rem;text-align:right;font-family:'JetBrains Mono',monospace;color:${prefundHours>0?'var(--warn)':'var(--green)'}">${fmtM(prefundReq)} (${prefundHours}h)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <a href="39-a2a-liquidity-simulator.html" class="link-badge" style="margin-top:1rem;display:inline-flex">→ Open Tool 39 for full A2A Liquidity Simulation</a>`;
+}
+
+function validateStage3() {
+  const ok = (parseFloat(document.getElementById('s3DailyVol')?.value) || 0) > 0;
+  document.getElementById('s3Warn').style.display = ok ? 'none' : 'block';
+  return ok;
+}
+
+// ═══════════════════════════════════════════════════════════
+// STAGE 4 LOGIC
+// ═══════════════════════════════════════════════════════════
+const COMPLIANCE_RULES = {
+  'US Federal': [
+    {id:'BSA-CTR',label:'BSA CTR Filing',req:'File CTR within 15 days if cash transaction > $10,000',applies:(s)=>s.cashTxn},
+    {id:'NACHA-FRAUD',label:'NACHA Fraud Monitoring (Mar 2026)',req:'Risk-based monitoring required for non-consumer originators > 6M entries/yr — effective March 2026',applies:()=>true},
+    {id:'OFAC-SDN',label:'OFAC SDN Screening',req:'Screen all parties against current OFAC SDN list before processing',applies:()=>true},
+    {id:'FEDNOW-RISK',label:'FedNow Risk Trilemma',req:'Irrevocable settlement — AML/OFAC must clear before settlement window',applies:(s)=>s.rail==='FedNow'},
+    {id:'BSA-SAR',label:'BSA SAR Obligation',req:'File SAR within 30 days if suspicious activity ≥ $5,000',applies:()=>true},
+    {id:'RTP-LIMIT',label:'RTP $1M Per-Transaction Cap',req:'Per-transaction limit: $1,000,000. Ensure payment routing logic enforces this cap.',applies:(s)=>s.rail==='RTP'},
+    {id:'FEDNOW-LIMIT',label:'FedNow $500K Per-Transaction Cap',req:'FedNow current limit: $500,000 per transaction. Tiered access available for higher limits.',applies:(s)=>s.rail==='FedNow'},
+    {id:'NACHA-TPS',label:'NACHA Third-Party Sender Rules',req:'TPS registration, audit rights, and originator due diligence required per NACHA Operating Rules',applies:(s)=>s.originatorType==='tps'},
+  ],
+  'EU (PSD3)': [
+    {id:'PSD3-SCA',label:'PSD3 Strong Customer Authentication',req:'SCA required for electronic remote payments > €30 unless exemption (trusted payee, low value, corporate) applies',applies:(s)=>s.consumerPayments},
+    {id:'AMLD6-STR',label:'EU AMLD6 STR Filing',req:'File STR with national FIU if suspicious activity detected — no de minimis threshold under EU rules',applies:()=>true},
+    {id:'EBA-FT',label:'EBA Fraud Taxonomy Classification',req:'Classify fraud using EBA taxonomy (FT-01 through FT-06) for regulatory reporting',applies:()=>true},
+    {id:'SEPA-INST-VERIF',label:'SEPA Instant IBAN Verification',req:'Mandatory payee name/IBAN verification (SCLX) required for EU instant payments from January 2025',applies:(s)=>s.rail==='SEPA Instant'||s.rail==='SEPA Credit'},
+  ],
+  'UK (PSR)': [
+    {id:'UK-APP',label:'UK APP Fraud Reimbursement',req:'Mandatory reimbursement for APP scam victims (up to £85,000) effective October 2024 — applies to FPS, CHAPS',applies:()=>true},
+    {id:'UK-COPv2',label:'Confirmation of Payee v2',req:'CoP v2 mandatory for all PSPs processing UK domestic payments — check payee name against account',applies:()=>true},
+  ],
+  'Canada (Payments Canada)': [
+    {id:'CA-RTR',label:'Real-Time Rail (RTR) Rules',req:'Payments Canada RTR participation requires PCMLTFA compliance and anti-fraud controls',applies:()=>true},
+    {id:'CA-FINTRAC',label:'FINTRAC Reporting',req:'File large cash transaction reports (> CAD $10,000) and suspicious transaction reports with FINTRAC',applies:()=>true},
+  ],
+  'Singapore (MAS)': [
+    {id:'SG-MAS-PSA',label:'MAS Payment Services Act',req:'MAS PSA licence required for digital payment token services and cross-border money transfer',applies:()=>true},
+    {id:'SG-PAYNOW',label:'PayNow Scheme Rules',req:'PayNow proxy lookup and alias registry requirements apply for SGD real-time transfers',applies:()=>true},
+  ],
+  'UAE (CBUAE)': [
+    {id:'UAE-CBUAE',label:'CBUAE Payment Systems Regulation',req:'CBUAE PSR licence required for payment service providers; AED transaction limits per CBUAE guidance',applies:()=>true},
+  ],
+  'Australia (NPPA)': [
+    {id:'AU-NPP',label:'NPP PayID & Osko Rules',req:'PayID registration and Osko overlay service rules apply for NPP instant payments',applies:()=>true},
+    {id:'AU-AML',label:'AUSTRAC AML/CTF',req:'Report suspicious matters and threshold transactions to AUSTRAC; AML/CTF programme required',applies:()=>true},
+  ],
+};
+
+const RAIL_LIMITS = {
+  'FedNow':       { limit:'$500,000 / txn', availability:'24/7/365', finality:'Immediate / irrevocable', iso:'ISO 20022 native' },
+  'RTP':          { limit:'$1,000,000 / txn', availability:'24/7/365', finality:'Immediate / irrevocable', iso:'ISO 20022 wrapper' },
+  'Same-Day ACH': { limit:'$1,000,000 / txn', availability:'3 windows / business day', finality:'Same-day / reversible (2-day window)', iso:'NACHA file format' },
+  'SEPA Instant': { limit:'€100,000 / txn (~$110K)', availability:'24/7/365', finality:'10 seconds / irrevocable', iso:'ISO 20022 native (pacs.008)' },
+  'SEPA Credit':  { limit:'No cap', availability:'Business days only', finality:'T+1 / irrevocable after settlement', iso:'ISO 20022 native (pacs.008)' },
+  'SWIFT gpi':    { limit:'No cap', availability:'Business days (cutoffs apply)', finality:'Variable (hours to T+1)', iso:'ISO 20022 CBPR+ (pacs.008)' },
+};
+
+function initStage4() {
+  // Jurisdiction checkboxes
+  const jurisGrid = document.getElementById('s4JurisGrid');
+  jurisGrid.innerHTML = JURISDICTIONS.map(j => `
+    <label style="display:flex;align-items:center;gap:.5rem;font-size:.72rem;color:var(--text);padding:.5rem .6rem;border:1px solid var(--border);cursor:pointer;transition:all .15s;background:${state.stage4.jurisdictions.includes(j)?'var(--teal-dim)':'var(--bg-2)'}">
+      <input type="checkbox" ${state.stage4.jurisdictions.includes(j)?'checked':''} onchange="s4ToggleJuris('${j}',this.checked)" style="width:auto;margin:0">
+      ${j}
+    </label>`).join('');
+
+  // Originator type
+  const origGrid = document.getElementById('s4OriginGrid');
+  origGrid.innerHTML = ORIGINATOR_TYPES.map(item => `
+    <div class="option-card${state.stage4.originatorType===item.v?' selected':''}" onclick="s4SelectOrigin('${item.v}')">
+      <div class="oc-label">${item.v}</div><div class="oc-value">${item.l}</div><div class="oc-desc">${item.d}</div>
+    </div>`).join('');
+
+  document.getElementById('s4Cash').checked = state.stage4.cashTxn;
+  document.getElementById('s4CrossBorder').checked = state.stage4.crossBorder;
+  document.getElementById('s4Consumer').checked = state.stage4.consumerPayments;
+
+  ['s4Cash','s4CrossBorder','s4Consumer'].forEach(id => {
+    document.getElementById(id).addEventListener('change', () => {
+      state.stage4.cashTxn = document.getElementById('s4Cash').checked;
+      state.stage4.crossBorder = document.getElementById('s4CrossBorder').checked;
+      state.stage4.consumerPayments = document.getElementById('s4Consumer').checked;
+      saveState(); updateS4Output();
+    });
+  });
+
+  updateS4Output();
+}
+
+function s4ToggleJuris(j, checked) {
+  if (checked) { if (!state.stage4.jurisdictions.includes(j)) state.stage4.jurisdictions.push(j); }
+  else { state.stage4.jurisdictions = state.stage4.jurisdictions.filter(x=>x!==j); }
+  // Update bg
+  document.getElementById('s4JurisGrid').querySelectorAll('label').forEach(l => {
+    const jName = l.textContent.trim();
+    l.style.background = state.stage4.jurisdictions.includes(jName) ? 'var(--teal-dim)' : 'var(--bg-2)';
+  });
+  saveState(); updateS4Output();
+}
+
+function s4SelectOrigin(v) {
+  state.stage4.originatorType = v;
+  document.getElementById('s4OriginGrid').querySelectorAll('.option-card').forEach(c => {
+    c.classList.toggle('selected', c.querySelector('.oc-label').textContent === v);
+  });
+  saveState(); updateS4Output();
+}
+
+function updateS4Output() {
+  const juris = state.stage4.jurisdictions;
+  const rail = state.stage2.selectedRail;
+  const avgSize = state.stage1.avgSize || 0;
+
+  if (!juris.length || !state.stage4.originatorType) {
+    document.getElementById('s4CompOutput').innerHTML = '<p style="color:var(--muted);font-size:.72rem;font-family:\'JetBrains Mono\',monospace">← Select at least one jurisdiction and originator type.</p>';
+    return;
+  }
+
+  // Limit check
+  const limit = RAIL_LIMITS[rail];
+  const limitOK = limit && avgSize > 0;
+
+  let html = '';
+
+  // Per-transaction limit card
+  if (limit) {
+    html += `
+    <div style="background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--gold);padding:1rem 1.25rem;margin-bottom:1.5rem">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:.6rem">Per-Transaction Limits · ${rail}</div>
+      <table style="width:100%;font-size:.72rem;border-collapse:collapse">
+        ${Object.entries(limit).map(([k,v]) => `<tr><td style="padding:.35rem .6rem;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;width:45%;border-bottom:1px solid var(--border)">${k.charAt(0).toUpperCase()+k.slice(1)}</td><td style="padding:.35rem .6rem;color:var(--bright);font-family:'JetBrains Mono',monospace;border-bottom:1px solid var(--border)">${v}</td></tr>`).join('')}
+      </table>
+      ${avgSize > 0 && rail === 'FedNow' && avgSize > 500000 ? `<p style="font-size:.68rem;color:var(--red);margin-top:.75rem">⚠ Your average transaction size ($${avgSize.toLocaleString()}) exceeds the FedNow $500,000 per-transaction limit. Transactions must be split or routed to an alternate rail.</p>` : ''}
+      ${avgSize > 0 && rail === 'RTP' && avgSize > 1000000 ? `<p style="font-size:.68rem;color:var(--red);margin-top:.75rem">⚠ Your average transaction size ($${avgSize.toLocaleString()}) exceeds the RTP $1,000,000 limit.</p>` : ''}
+    </div>`;
+  }
+
+  // Compliance checklist
+  const ctxInputs = {
+    cashTxn: state.stage4.cashTxn,
+    crossBorder: state.stage4.crossBorder,
+    consumerPayments: state.stage4.consumerPayments,
+    originatorType: state.stage4.originatorType,
+    rail,
+    amount: avgSize,
+  };
+
+  juris.forEach(j => {
+    const rules = COMPLIANCE_RULES[j];
+    if (!rules) return;
+    html += `<div style="margin-bottom:1.5rem"><div class="sec-head">${j}</div>`;
+    html += `<div style="border:1px solid var(--border);overflow:hidden">`;
+    rules.forEach(r => {
+      const applies = r.applies(ctxInputs);
+      html += `
+      <div class="comp-row">
+        <span class="comp-badge ${applies?'badge-applies':'badge-na'}">${applies?'APPLIES':'N/A'}</span>
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--bright);margin-bottom:.2rem">${r.id} — ${r.label}</div>
+          <div style="font-size:.68rem;color:var(--body)">${r.req}</div>
+        </div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+
+  html += `<a href="18-a2a-compliance-checklist.html" class="link-badge" style="margin-top:.75rem;display:inline-flex">→ Open Tool 18 for full A2A Compliance Checklist</a>`;
+  html += `<a href="17-instant-payment-limits.html" class="link-badge" style="margin-top:.75rem;margin-left:.5rem;display:inline-flex">→ Open Tool 17 for full Limit Reference</a>`;
+
+  document.getElementById('s4CompOutput').innerHTML = html;
+
+  // Store compliance flags
+  state.stage4.complianceFlags = {};
+  juris.forEach(j => {
+    const rules = COMPLIANCE_RULES[j] || [];
+    rules.forEach(r => { state.stage4.complianceFlags[r.id] = r.applies(ctxInputs); });
+  });
+}
+
+function validateStage4() {
+  const ok = state.stage4.jurisdictions.length > 0 && !!state.stage4.originatorType;
+  document.getElementById('s4Warn').style.display = ok ? 'none' : 'block';
+  return ok;
+}
+
+// ═══════════════════════════════════════════════════════════
+// STAGE 5 LOGIC
+// ═══════════════════════════════════════════════════════════
+function renderStage5() {
+  // Summary
+  const s = state;
+  const summaryLines = [
+    `Corridor           : ${s.stage1.corridor || '—'}`,
+    `Payment Type       : ${s.stage1.paymentType || '—'} (${PAYMENT_TYPES.find(p=>p.v===s.stage1.paymentType)?.l||'—'})`,
+    `Monthly Volume     : ${(s.stage1.volume||0).toLocaleString()} transactions`,
+    `Avg Txn Size       : $${(s.stage1.avgSize||0).toLocaleString()}`,
+    `Primary Driver     : ${s.stage1.primaryDriver} — ${DRIVERS.find(d=>d.v===s.stage1.primaryDriver)?.l||'—'}`,
+    `────────────────────────────────────`,
+    `Recommended Rail   : ${s.stage1.recommendedRail || '—'}`,
+    `Selected Rail      : ${s.stage2.selectedRail || '—'}`,
+    `Annual Rail Saving : $${(s.stage2.annualSaving||0).toLocaleString('en-US',{maximumFractionDigits:0})}`,
+    `Migration Cost     : $${(s.stage2.migCost||0).toLocaleString('en-US',{maximumFractionDigits:0})}`,
+    `────────────────────────────────────`,
+    `Net Liquidity Benefit: $${(s.stage3.netLiqBenefit||0).toLocaleString('en-US',{maximumFractionDigits:0})}/yr`,
+    `DSO Improvement    : ${(s.stage3.currentSettleDays-(RAILS[s.stage2.selectedRail]?.settleDays||0)).toFixed(1)} days`,
+    `────────────────────────────────────`,
+    `Jurisdictions      : ${s.stage4.jurisdictions.join(', ')||'—'}`,
+    `Originator Type    : ${s.stage4.originatorType||'—'}`,
+  ];
+  document.getElementById('s5Summary').textContent = summaryLines.join('\n');
+
+  // NPV/IRR/Payback
+  const annualBenefit = (s.stage2.annualSaving || 0) + (s.stage3.netLiqBenefit || 0);
+  const migCost = s.stage2.migCost || 0;
+  const discountRate = 0.10; // 10% discount rate
+
+  // 3-year NPV
+  let npv = -migCost;
+  for (let yr=1; yr<=3; yr++) npv += annualBenefit / Math.pow(1+discountRate, yr);
+  const paybackMonths = annualBenefit > 0 ? (migCost / (annualBenefit/12)) : null;
+
+  // IRR estimate (simplified Newton-Raphson for 3-year flat cashflows)
+  let irr = 0;
+  if (migCost > 0 && annualBenefit > 0) {
+    let rate = 0.2;
+    for (let iter=0; iter<50; iter++) {
+      let npvX = -migCost + annualBenefit/(1+rate) + annualBenefit/Math.pow(1+rate,2) + annualBenefit/Math.pow(1+rate,3);
+      let dnpv = -annualBenefit/Math.pow(1+rate,2) - 2*annualBenefit/Math.pow(1+rate,3) - 3*annualBenefit/Math.pow(1+rate,4);
+      rate = rate - npvX/dnpv;
+      if (rate < -1) { rate = -0.99; break; }
+    }
+    irr = rate;
+  }
+
+  state.stage5.npv = npv;
+  state.stage5.irr = irr;
+  state.stage5.paybackMonths = paybackMonths || 0;
+
+  const fmt = n => '$' + Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:0});
+  const kpiBar = document.getElementById('s5KpiBar');
+  kpiBar.innerHTML = `
+    <div class="kpi"><div class="kpi-label">Annual Benefit</div><div class="kpi-val ${annualBenefit>=0?'green':'red'}">${fmt(annualBenefit)}</div><div class="kpi-sub">cost saving + liquidity</div></div>
+    <div class="kpi"><div class="kpi-label">3-Year NPV (10%)</div><div class="kpi-val ${npv>=0?'teal':'red'}">${npv>=0?'':'-'}${fmt(npv)}</div><div class="kpi-sub">discounted cashflows</div></div>
+    <div class="kpi"><div class="kpi-label">IRR (3-Year)</div><div class="kpi-val ${irr>0.1?'green':irr>0?'gold':'red'}">${irr!==0?((irr*100).toFixed(1)+'%'):'—'}</div><div class="kpi-sub">internal rate of return</div></div>
+    <div class="kpi"><div class="kpi-label">Payback Period</div><div class="kpi-val gold">${paybackMonths!==null?paybackMonths.toFixed(1)+' mo':'—'}</div><div class="kpi-sub">months to recover migration</div></div>`;
+
+  // Scorecard
+  const rail = RAILS[s.stage2.selectedRail] || {};
+  const scorecardDims = [
+    { label:'Cost Economics', status: s.stage2.annualSaving > 0 ? 'READY' : s.stage2.annualSaving < 0 ? 'NOT READY' : 'AT RISK' },
+    { label:'Liquidity Posture', status: s.stage3.netLiqBenefit > 0 ? 'READY' : 'AT RISK' },
+    { label:'ISO 20022 Readiness', status: rail.iso20022Native ? 'READY' : 'AT RISK' },
+    { label:'Compliance Coverage', status: s.stage4.jurisdictions.length > 0 ? 'READY' : 'AT RISK' },
+    { label:'Overall Business Case', status: npv > 0 ? 'READY' : npv > -100000 ? 'AT RISK' : 'NOT READY' },
+  ];
+  document.getElementById('s5Scorecard').innerHTML = scorecardDims.map(d => {
+    const cls = d.status === 'READY' ? 'sc-ready' : d.status === 'AT RISK' ? 'sc-risk' : 'sc-not';
+    return `<div class="sc-cell"><div class="sc-dim">${d.label}</div><div class="sc-status ${cls}">${d.status === 'READY' ? '✓ ' : d.status === 'AT RISK' ? '⚠ ' : '✗ '}${d.status}</div></div>`;
+  }).join('');
+}
+
+function generateADR() {
+  const btn = document.getElementById('adrBtn');
+  btn.disabled = true;
+  document.getElementById('adrLoading').style.display = 'block';
+  document.getElementById('adrOutput').style.display = 'none';
+
+  setTimeout(() => {
+    const s = state;
+    const rail = s.stage2.selectedRail;
+    const railData = RAILS[rail] || {};
+    const corridor = s.stage1.corridor;
+    const payType = PAYMENT_TYPES.find(p=>p.v===s.stage1.paymentType)?.l || s.stage1.paymentType;
+    const driver = DRIVERS.find(d=>d.v===s.stage1.primaryDriver)?.l || s.stage1.primaryDriver;
+    const annualBenefit = (s.stage2.annualSaving||0) + (s.stage3.netLiqBenefit||0);
+    const fmt = n => '$' + Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:0});
+    const npv = s.stage5.npv || 0;
+    const irr = s.stage5.irr || 0;
+    const payback = s.stage5.paybackMonths;
+
+    const complianceItems = Object.entries(s.stage4.complianceFlags||{})
+      .filter(([,v])=>v)
+      .map(([k])=>`• ${k}`)
+      .slice(0,8)
+      .join('\n') || '• No compliance flags identified in selected jurisdictions';
+
+    const adrText = `# ADR: A2A Payment Rail Selection for ${corridor} ${payType}
+${'═'.repeat(60)}
+Generated: ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}
+Format: Nygard Architecture Decision Record
+Tool: AINumbers.co Tool 82 · A2A Rail Optimization Command Center
+
+## Status: Proposed
+
+## Context
+The organisation processes ${payType} payments on the ${corridor} corridor at ${(s.stage1.volume||0).toLocaleString()} transactions per month, with an average transaction size of $${(s.stage1.avgSize||0).toLocaleString()}. The primary optimisation driver is ${driver.toLowerCase()}. Current settlement operates on a T+${s.stage3.currentSettleDays} cycle, resulting in an estimated $${((s.stage3.dailyVolM||0)*1e6*s.stage3.currentSettleDays).toLocaleString('en-US',{maximumFractionDigits:0})} daily float balance.
+
+The decision to evaluate alternative A2A payment rails is driven by:
+1. Cost pressure on per-transaction fees (current: $${(s.stage2.currentFee||0).toFixed(2)}/txn)
+2. Settlement speed requirements for ${payType.toLowerCase()}
+3. ISO 20022 migration readiness (SWIFT CBPR+ November 2026 deadline)
+4. Regulatory obligations across: ${s.stage4.jurisdictions.join(', ')||'jurisdictions selected in Stage 4'}
+
+A full rail scoring was performed across FedNow, RTP, Same-Day ACH, SEPA Instant, SEPA Credit, and SWIFT gpi against the four dimensions (cost, speed, data richness, compliance) weighted for the ${driver.toLowerCase()} primary driver.
+
+## Decision
+Adopt **${rail}** as the primary A2A payment rail for ${payType.toLowerCase()} on the ${corridor} corridor.
+
+${railData.desc || ''}
+Per-transaction fee: ${railData.fee || 'See pricing schedule'}
+Settlement finality: ${RAIL_LIMITS[rail]?.finality || 'See rail documentation'}
+ISO 20022 support: ${RAIL_LIMITS[rail]?.iso || '—'}
+Per-transaction limit: ${RAIL_LIMITS[rail]?.limit || '—'}
+
+## Rationale
+
+### Financial Case
+Migrating from the current rail to ${rail} is projected to deliver:
+
+| Metric                    | Current Rail | ${rail.padEnd(12)} | Delta      |
+|---------------------------|--------------|-------------------------------|------------|
+| Per-transaction fee       | $${(s.stage2.currentFee||0).toFixed(2).padEnd(11)} | $${(s.stage2.targetFee||0).toFixed(2).padEnd(28)} | ${fmt((s.stage2.currentFee||0)-(s.stage2.targetFee||0))} saving |
+| Annual transaction cost   | ${fmt((s.stage1.volume||0)*12*(s.stage2.currentFee||0)).padEnd(12)} | ${fmt((s.stage1.volume||0)*12*(s.stage2.targetFee||0)).padEnd(30)} | ${fmt(s.stage2.annualSaving)} |
+| Settlement cycle          | T+${String(s.stage3.currentSettleDays).padEnd(10)} | T+${String(railData.settleDays||0).padEnd(27)} | ${(s.stage3.currentSettleDays-(railData.settleDays||0)).toFixed(1)} days |
+| Net liquidity benefit     | —            | —                             | ${fmt(s.stage3.netLiqBenefit)}/yr |
+
+Three-year NPV (10% discount rate): ${npv >= 0 ? '' : '-'}${fmt(npv)}
+IRR (3-year flat cashflows):        ${irr !== 0 ? (irr*100).toFixed(1)+'%' : '—'}
+Payback period:                     ${payback ? payback.toFixed(1)+' months' : '—'}
+One-time migration cost:            ${fmt(s.stage2.migCost||0)}
+
+### Strategic Alignment
+${rail} scores highest for the ${driver.toLowerCase()} driver among eligible rails on the ${corridor} corridor. ${railData.iso20022Native ? `It is ISO 20022 native, providing a compliant data pathway ahead of the November 2026 SWIFT CBPR+ structured address mandate.` : `Note: ${rail} uses an ISO 20022 wrapper rather than native message format. Monitor the November 2026 SWIFT CBPR+ deadline and plan a secondary migration if SWIFT gpi volumes are material.`}
+
+### Data Opportunity
+Consuming native ISO 20022 structured data is estimated to reduce payment exceptions by 30%, translating to approximately $${((s.stage1.volume||0)*12*0.002*15*0.30).toLocaleString('en-US',{maximumFractionDigits:0})} in annual investigation cost savings.
+
+## Consequences
+
+### Positive
+• Annual run-rate saving of ${fmt(annualBenefit)} from combined fee reduction and liquidity benefit
+• Faster settlement (T+${railData.settleDays||0}) accelerates DSO by ${(s.stage3.currentSettleDays-(railData.settleDays||0)).toFixed(1)} days
+• ${railData.iso20022Native ? 'ISO 20022 native — meets SWIFT CBPR+ November 2026 structured address requirement without wrapping' : 'Existing ISO 20022 wrapper approach preserved; plan native migration by Nov 2026 for SWIFT corridors'}
+• Improved counterparty data quality supports downstream fraud detection and reconciliation (Tool 09)
+• Irrevocable settlement ${railData.settleDays===0 ? 'removes chargeback window exposure' : 'reduces settlement risk'}
+
+### Negative / Risks
+• Migration integration cost: ${fmt(s.stage2.migCost||0)} (API build, certification, ops training)
+• ${railData.settleDays === 0 ? 'Real-time irrevocable settlement removes the ability to recall erroneous payments — enhanced pre-payment validation required' : 'Batch settlement windows may limit intraday liquidity flexibility'}
+• Prefunding requirement of ${s.stage3.prefundHours}h ties up ${fmt((s.stage3.dailyVolM||0)*1e6*(s.stage3.prefundHours/24))} in daily locked liquidity
+• Staff retraining and ops procedure updates required across payment operations team
+• ${s.stage4.jurisdictions.length > 0 ? `Compliance obligations active across ${s.stage4.jurisdictions.length} jurisdiction(s) — see below` : 'Ensure compliance review is completed before go-live'}
+
+### Compliance Obligations (by jurisdiction)
+Active compliance items for this rail and originator type:
+${complianceItems}
+
+See Tool 18 (A2A Compliance Checklist) for full requirement detail.
+
+### Risk Register
+| Risk | Severity | Mitigation |
+|---|---|---|
+| Integration delay | Medium | Phased API build; dedicated fintech engineer; stub testing in staging |
+| Prefunding liquidity strain | Medium | Negotiate intraday credit facility; model prefunding windows with Tool 39 |
+| Compliance gap | High | Engage compliance counsel; run full Tool 18 checklist before launch |
+| ${railData.settleDays===0?'Payment error irrevocability':'Settlement cutoff miss'} | ${railData.settleDays===0?'High':'Low'} | ${railData.settleDays===0?'Pre-payment beneficiary name/account validation; real-time anomaly scoring':'Implement batch submission SLA monitoring and cutoff alerts'} |
+| ISO 20022 November 2026 deadline | ${railData.iso20022Native?'Low — already native':'Medium'} | ${railData.iso20022Native?'No action required for this rail — monitor SWIFT CBPR+ field changes':'Plan ISO 20022 native migration; use Tool 81 Navigator for timeline'} |
+
+${'─'.repeat(60)}
+Selection Summary:
+  Corridor               : ${corridor}
+  Payment type           : ${payType}
+  Monthly volume         : ${(s.stage1.volume||0).toLocaleString()} transactions
+  Average txn size       : $${(s.stage1.avgSize||0).toLocaleString()}
+  Primary driver         : ${driver}
+  Selected rail          : ${rail}
+  Annual total benefit   : ${fmt(annualBenefit)}/yr
+  3-year NPV (10%)       : ${fmt(npv)}
+  IRR                    : ${irr!==0?(irr*100).toFixed(1)+'%':'—'}
+  Payback                : ${payback?payback.toFixed(1)+' months':'—'}
+  Jurisdictions          : ${s.stage4.jurisdictions.join(', ')||'—'}
+  Originator type        : ${s.stage4.originatorType||'—'}
+${'─'.repeat(60)}
+Generated by AINumbers.co Tool 82 · A2A Rail Optimization Command Center
+Client-side computation · Zero PII · May 2026 data
+Post Oak Labs · CC BY 4.0
+
+DISCLAIMER: This ADR is a decision-support template generated from your inputs using static scoring models. All financial projections are illustrative estimates based on disclosed assumptions. Engage your treasury, compliance, and legal teams before executing any rail migration. Rail fees and limits are subject to change; verify against current published schedules from each rail operator.`;
+
+    document.getElementById('adrOutput').textContent = adrText;
+    document.getElementById('adrOutput').style.display = '';
+    document.getElementById('adrLoading').style.display = 'none';
+    btn.disabled = false;
+    window._adrText = adrText;
+    enableAP2Btn();
+    saveState();
+  }, 180);
+}
+
+function exportADR() {
+  const text = window._adrText || document.getElementById('adrOutput').textContent;
+  const a = document.createElement('a');
+  a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(text);
+  a.download = `a2a-rail-adr-${state.stage2.selectedRail?.toLowerCase().replace(/\s+/g,'-')||'selection'}.md`;
+  a.click();
+}
+
+/* ═══════════════════════════════════════════════════════
+   AP2 SCHEMA HELPER
+═══════════════════════════════════════════════════════ */
+const AP2Schema = {
+  version: '1.0',
+  type: '@ainumbers.co/mandate-v1',
+  build(toolId, toolSlug, payload, inputs) {
+    return {
+      '@type':      AP2Schema.type,
+      '@version':   AP2Schema.version,
+      '@generated': new Date().toISOString(),
+      tool_id:      toolId,
+      tool_slug:    toolSlug,
+      mandate_id:   (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2)),
+      issued_by:    'ainumbers.co',
+      ap2_export:   true,
+      payload,
+      source_tool_inputs: inputs,
+      last_reviewed: '2025-01-15'
+    };
+  },
+  download(manifest, filename) {
+    const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename || `ainumbers-${manifest.mandate_id}.policy.json`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(a.href);
+  }
+,
+  validate: function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+}};
+
+function exportAP2() {
+  const payload = {
+    mandate_type:          'a2a_rail_optimization',
+    recommended_rail:      state.stage1.recommendedRail || null,
+    selected_rail:         state.stage2.selectedRail || null,
+    annual_saving:         state.stage2.annualSaving || null,
+    net_liquidity_benefit: state.stage3.netLiqBenefit || null,
+    npv:                   state.stage5?.npv || null,
+    irr:                   state.stage5?.irr || null,
+    payback_months:        state.stage5?.paybackMonths || null,
+    implementation_memo:   window._adrText || null,
+    stage_inputs: {
+      stage1: state.stage1,
+      stage2: { selectedRail: state.stage2.selectedRail, annualSaving: state.stage2.annualSaving },
+      stage3: { netLiquidityBenefit: state.stage3.netLiqBenefit },
+      stage4: state.stage4
+    }
+  };
+  const inputs = { annualVolume: state.stage1?.annualVol, currentRail: state.stage1?.currentRail, primaryDriver: state.stage1?.driver };
+  const fmt = n => n != null ? '$' + Number(n).toLocaleString() : 'N/A';
+  const summary = `A2A Rail Command Center: recommended ${payload.recommended_rail || 'N/A'} → selected ${payload.selected_rail || 'N/A'}. Annual saving ${fmt(payload.annual_saving)}, liquidity benefit ${fmt(payload.net_liquidity_benefit)}, NPV ${fmt(payload.npv)}, payback ${payload.payback_months ? payload.payback_months + ' months' : 'N/A'}.`;
+  const agent_instructions = [
+    payload.selected_rail ? `Proceed with migration to ${payload.selected_rail}. Implementation memo is embedded in this mandate.` : `Complete all five stages before initiating rail migration.`,
+    payload.annual_saving ? `Expected annual fee saving: ${fmt(payload.annual_saving)}.` : '',
+    payload.npv ? `Business case: NPV ${fmt(payload.npv)}, IRR ${payload.irr ? payload.irr.toFixed(1) + '%' : 'N/A'}, payback ${payload.payback_months} months. Present to CFO for approval.` : '',
+    `Use Tool 01 (A2A Fee Calculator) to validate per-transaction pricing before go-live.`
+  ].filter(Boolean);
+  const mandate = {
+    ...AP2Schema.build('T82', 'a2a-rail-command-center', payload, inputs),
+    summary,
+    agent_instructions,
+    regulatory_citations: [
+      'Federal Reserve FedNow Service Operating Procedures (2024)',
+      'The Clearing House RTP Network Rules (2024)',
+      'NACHA Operating Rules & Guidelines (2024)',
+      'EPC SEPA Credit Transfer Rulebook v1.1 (2024)',
+      'SWIFT CBPR+ Migration Handbook (2025)'
+    ]
+  };
+  AP2Schema.validate(mandate);
+  AP2Schema.download(mandate, 'a2a-rail-command-center.policy.json');
+  showAP2Toast();
+}
+
+
+function enableAP2Btn() {
+  const btn = document.getElementById('ap2ExportBtn');
+  if (!btn) return;
+  btn.classList.add('ready');
+  btn.disabled = false;
+  btn.title = 'For API integration · audit trail';
+}
+function showAP2Toast() {
+  let el = document.getElementById('ap2Toast82');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'ap2Toast82';
+    el.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--green);padding:.7rem 1.25rem;font-family:"JetBrains Mono",monospace;font-size:.58rem;color:var(--green);z-index:9999;display:flex;align-items:center;gap:.5rem;border-radius:var(--radius);box-shadow:0 4px 24px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s';
+    el.innerHTML = '<strong>{}</strong>&nbsp;Policy Mandate JSON downloaded';
+    document.body.appendChild(el);
+  }
+  el.style.opacity = '1'; el.style.transform = 'translateY(0)';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateY(8px)'; }, 2200);
+}
+
+function copyToClipboard() {
+  const text = window._adrText || document.getElementById('adrOutput').textContent;
+  navigator.clipboard?.writeText(text).then(() => {
+    const btns = document.querySelectorAll('.arow .btn-ghost');
+    btns.forEach(b => { if (b.textContent.includes('Copy')) { b.textContent = '✓ Copied'; setTimeout(()=>{ b.textContent='⧉ Copy to Clipboard'; },2000); }});
+  }).catch(() => {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+renderStageBar();
+initStage1();
+
+// Stage observer — init stages as they become active
+const stageObserver = new MutationObserver(mutations => {
+  mutations.forEach(m => {
+    if (m.target.classList.contains('active')) {
+      const id = m.target.id;
+      if (id === 'stage2') initStage2();
+      if (id === 'stage3') initStage3();
+      if (id === 'stage4') initStage4();
+    }
+  });
+});
+document.querySelectorAll('.stage-content').forEach(el => {
+  stageObserver.observe(el, {attributes: true, attributeFilter: ['class']});
+});
+
+</script>
+<script>
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+  }, zh:{
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+</script>
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "a2a-rail-command-center", "version": "1.0.0", "title": "Tool 82 — A2A Rail Optimization Command Center", "description": "Five-stage A2A payment rail optimization workflow: Use Case & Rail Scoring → Cost Modeling → Liquidity Modeling → Compliance & Limits → Business Case & ADR Export. Covers FedNow, RTP, Same-Day ACH, SEPA Instant, SWIFT gpi. NPV/IRR payback analysis. Nygard ADR export. Client-side. Zero PII.", "category": "b2b-payments", "tags": ["Tool", "A2A", "Rail", "Optimization", "Command"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"s1Corridor": {"type": "string"}, "s1Vol": {"type": "string"}, "s1AvgSize": {"type": "string"}, "s2CurrentFee": {"type": "string"}, "s2FxSpread": {"type": "string"}, "s2FixedCost": {"type": "string"}, "s2TargetFee": {"type": "string"}, "s2MigCost": {"type": "string"}, "s3CurrentSettle": {"type": "string"}, "s3DailyVol": {"type": "string"}, "s3CoF": {"type": "string"}, "s3Prefund": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "a2a_rail_command_center", "description": "Run Tool 82 — A2A Rail Optimization Command Center. Five-stage A2A payment rail optimization workflow: Use Case & Rail Scoring → Cost Modeling → Liquidity Modeling → Compliance & Limits → Business Case & ADR Export. Covers FedNow, RTP, Same-Day ACH, SE", "inputSchema": {"type": "object", "properties": {"s1Corridor": {"type": "string"}, "s1Vol": {"type": "string"}, "s1AvgSize": {"type": "string"}, "s2CurrentFee": {"type": "string"}, "s2FxSpread": {"type": "string"}, "s2FixedCost": {"type": "string"}, "s2TargetFee": {"type": "string"}, "s2MigCost": {"type": "string"}, "s3CurrentSettle": {"type": "string"}, "s3DailyVol": {"type": "string"}, "s3CoF": {"type": "string"}, "s3Prefund": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/82-a2a-rail-command-center.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(s); }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

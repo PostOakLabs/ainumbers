@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>AP2 MCP Policy Validator & Bridge · T320 · AINumbers.co</title>
+<meta name="description" content="Validate Policy Mandate JSON payloads against the Unified Build Contract v1.0 schema, auto-generate MCP tool definitions, and simulate agent ingestion of agent_instructions. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/320-ap2-mcp-policy-validator">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"AP2 MCP Policy Validator & Bridge · T320","url":"https://ainumbers.co/tools/320-ap2-mcp-policy-validator","description":"Validate Policy Mandate JSON payloads against the Unified Build Contract v1.0 schema, auto-generate MCP tool definitions, and simulate agent ingestion of agent_instructions. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* PolicyMandate — full validator (Phase 14); AP2Schema internal name retained */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+};
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner,[dir="rtl"] [dir="rtl"] .hero-eyebrow{flex-direction:row-reverse}
+[dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+
+/* Lang bar */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:201}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+
+/* Nav */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+/* Hero */
+.hero{padding:2.8rem 0 2.4rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(20,184,166,.06) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.5rem);color:var(--white);max-width:740px;margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal)}
+.hero-desc{font-size:.84rem;color:var(--body);max-width:660px;line-height:1.85;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.3rem .7rem;border:1px solid}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+
+/* Main layout */
+.main-content{position:relative;z-index:1;padding:2.5rem 0 4rem}
+
+/* Tab bar */
+.tab-bar{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.75rem}
+.tab-btn{flex:1;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.6rem .5rem;border:none;background:var(--bg-2);color:var(--muted);transition:all .2s;border-right:1px solid var(--border);position:relative}
+.tab-btn:last-child{border-right:none}
+.tab-btn.active{background:var(--teal-dim);color:var(--teal)}
+.tab-btn:hover:not(.active){color:var(--text);background:var(--bg-3)}
+.tab-num{display:block;font-size:.38rem;color:var(--muted);margin-bottom:.15rem;letter-spacing:.06em}
+.tab-btn.active .tab-num{color:rgba(20,184,166,.6)}
+
+/* Panels */
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* Panel boxes */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.6rem}
+.panel-label::before{content:'';display:block;width:14px;height:1px;background:var(--teal)}
+.panel-row{margin-bottom:1rem}
+.panel-row:last-child{margin-bottom:0}
+.panel-row label{display:block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--body);margin-bottom:.45rem}
+
+/* Inputs */
+textarea,input[type="text"]{width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.75rem;resize:vertical;transition:border-color .2s;line-height:1.6}
+textarea:focus,input[type="text"]:focus{outline:none;border-color:var(--teal)}
+textarea::placeholder,input[type="text"]::placeholder{color:var(--muted)}
+textarea{min-height:200px}
+
+/* PII banner */
+.pii-banner{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--muted);border-radius:var(--radius);padding:.7rem 1rem;font-size:.7rem;color:var(--body);line-height:1.6;margin-top:.75rem}
+.pii-banner strong{color:var(--text)}
+
+/* Run button */
+.run-btn{width:100%;background:var(--teal);color:var(--bg);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;padding:.85rem 1.5rem;border:none;border-radius:var(--radius);font-weight:500;transition:opacity .2s;margin-bottom:1.25rem}
+.run-btn:hover{opacity:.88}
+.run-btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* Score ring */
+.score-ring-wrap{display:flex;align-items:center;gap:1.5rem;margin-bottom:1.5rem}
+.score-ring-svg{flex-shrink:0}
+.score-ring-info{}
+.score-ring-val{font-family:'DM Serif Display',serif;font-size:2.2rem;color:var(--white);line-height:1}
+.score-ring-lbl{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:.2rem}
+.score-ring-grade{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-top:.35rem}
+
+/* Validation table */
+.val-table-wrap{overflow-x:auto;margin-bottom:1.25rem}
+.val-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.val-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.45rem .75rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-3);white-space:nowrap}
+.val-table td{padding:.55rem .75rem;border-bottom:1px solid rgba(30,47,74,.45);vertical-align:top;line-height:1.5}
+.val-table tr:last-child td{border-bottom:none}
+.val-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal)}
+.pill-pass{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.5rem;padding:.1rem .4rem;border-radius:2px;background:var(--green-dim);color:var(--green)}
+.pill-fail{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.5rem;padding:.1rem .4rem;border-radius:2px;background:var(--red-dim);color:var(--red)}
+.pill-miss{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.5rem;padding:.1rem .4rem;border-radius:2px;background:var(--warn-dim);color:var(--warn)}
+.pill-warn{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.5rem;padding:.1rem .4rem;border-radius:2px;background:var(--purple-dim);color:var(--purple)}
+
+/* Code output block */
+.code-out{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--body);line-height:1.7;overflow-x:auto;white-space:pre;margin-bottom:1rem}
+
+/* Readiness bars */
+.readiness-bar-wrap{margin-bottom:.75rem}
+.readiness-bar-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem}
+.readiness-bar-label span:first-child{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body)}
+.readiness-bar-label span:last-child{font-family:'JetBrains Mono',monospace;font-size:.52rem;font-weight:500}
+.readiness-bar-bg{background:var(--border);border-radius:2px;height:5px;overflow:hidden}
+.readiness-bar-fill{height:100%;border-radius:2px;transition:width .6s ease}
+
+/* Agent step */
+.agent-step{display:flex;gap:.85rem;align-items:flex-start;padding:.75rem 0;border-bottom:1px solid rgba(30,47,74,.4)}
+.agent-step:last-child{border-bottom:none}
+.agent-step-num{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--teal);background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:.1rem}
+.agent-step-text{font-size:.76rem;color:var(--text);line-height:1.65;flex:1}
+.agent-step-flag{font-family:'JetBrains Mono',monospace;font-size:.46rem;margin-top:.25rem}
+.flag-ok{color:var(--green)}
+.flag-warn{color:var(--warn)}
+.flag-miss{color:var(--red)}
+
+/* Export row */
+.results-export-row{display:flex;gap:.65rem;flex-wrap:wrap;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;border-radius:var(--radius);border:1px solid;cursor:pointer;transition:all .2s;display:inline-flex;flex-direction:column;align-items:center;gap:.15rem;background:transparent}
+.btn-ghost{color:var(--text);border-color:var(--border)}
+.btn-ghost:hover:not(:disabled){border-color:var(--teal);color:var(--teal)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-ghost.ready{border-color:rgba(20,184,166,.4);color:var(--teal)}
+.btn-subtitle{font-size:.42rem;color:var(--muted);letter-spacing:.08em;text-transform:none}
+.btn-ghost.ready .btn-subtitle{color:rgba(20,184,166,.65)}
+.btn-copy{color:var(--purple);border-color:rgba(155,114,245,.35);background:var(--purple-dim)}
+.btn-copy:hover{background:rgba(155,114,245,.2)}
+
+/* Callouts */
+.info-callout{background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);border-left:3px solid var(--teal);border-radius:var(--radius);padding:.85rem 1rem;font-size:.75rem;color:var(--text);line-height:1.65;margin-bottom:1.25rem}
+.warn-callout{background:var(--warn-dim);border:1px solid rgba(245,158,11,.25);border-left:3px solid var(--warn);border-radius:var(--radius);padding:.85rem 1rem;font-size:.75rem;color:var(--text);line-height:1.65;margin-bottom:1.25rem}
+.error-callout{background:var(--red-dim);border:1px solid rgba(239,68,68,.25);border-left:3px solid var(--red);border-radius:var(--radius);padding:.85rem 1rem;font-size:.75rem;color:var(--text);line-height:1.65;margin-bottom:1.25rem}
+.depr-callout{background:var(--purple-dim);border:1px solid rgba(155,114,245,.25);border-left:3px solid var(--purple);border-radius:var(--radius);padding:.85rem 1rem;font-size:.75rem;color:var(--text);line-height:1.65;margin-bottom:1.25rem}
+
+/* Toast */
+#toast{position:fixed;bottom:1.75rem;right:1.75rem;background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:var(--radius);padding:.85rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--text);z-index:999;transform:translateY(120%);transition:transform .3s;max-width:340px;letter-spacing:.05em}
+#toast.show{transform:translateY(0)}
+#toast.error{border-left-color:var(--red)}
+
+@media(max-width:640px){.tab-btn{padding:.5rem .25rem;font-size:.44rem}}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-body pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;overflow-x:auto;margin:0}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- Lang bar -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="#0D1627"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".7"/></svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/b2b-payments-hub.html">B2B Payments Hub</a><span class="nav-sep">/</span><span>T-320</span></div>
+
+    <a href="../guides/b2b-payments-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">
+      <span id="heroEyebrow">T320 · Cat-01 · AP2 · MCP · Agentic · Schema Validator</span>
+    </div>
+    <h1 class="tool-title" id="heroTitle">AP2 MCP Policy Validator <em>&amp; Bridge</em></h1>
+    <p class="hero-desc" id="heroDesc">Validate Policy Mandate JSON payloads against the Unified Build Contract v1.0 schema, auto-generate MCP tool definitions, and simulate agent ingestion of your agent_instructions array. Three panels — validate, generate, simulate.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-teal">AP2 Schema v1.0</span>
+      <span class="hero-badge badge-teal">MCP v1+ Definition Generator</span>
+      <span class="hero-badge badge-purple">Agent Runtime Simulator</span>
+      <span class="hero-badge badge-gold">Deprecated Field Detection</span>
+      <span class="hero-badge badge-muted">Client-Side · Zero PII</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+  </div>
+</section>
+
+<!-- Main -->
+<main class="main-content">
+  <div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+
+    <!-- Tab bar -->
+    <div class="tab-bar" role="tablist">
+      <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-validate" onclick="switchTab('validate')">
+        <span class="tab-num">Panel 01</span>
+        ✓ Validate
+      </button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-generate" onclick="switchTab('generate')">
+        <span class="tab-num">Panel 02</span>
+        ⊞ Generate MCP Def
+      </button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-simulate" onclick="switchTab('simulate')">
+        <span class="tab-num">Panel 03</span>
+        ⚡ Simulate Agent
+      </button>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         TAB 1 — VALIDATE
+    ══════════════════════════════════════ -->
+    <div id="tab-validate" class="tab-panel active" role="tabpanel">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start">
+
+        <!-- Input -->
+        <div>
+          <div class="panel">
+            <div class="panel-label">Policy Mandate JSON Payload</div>
+            <div class="panel-row">
+              <label for="validateInput" id="lblValidate">Paste Policy Mandate JSON payload to validate</label>
+              <textarea id="validateInput" rows="14" placeholder='{
+  "ap2_version": "1.0",
+  "mandate_id": "...",
+  "issued_at": "...",
+  "mandate_type": "compliance_control",
+  ...
+}'></textarea>
+            </div>
+            <div class="pii-banner">
+              🔒 <strong>All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</strong>
+            </div>
+          </div>
+          <button class="run-btn" id="runValidateBtn" onclick="runValidate()">✓ Validate AP2 Schema</button>
+
+          <!-- Schema reference -->
+          <div class="panel" style="font-size:.72rem;color:var(--body);line-height:1.7">
+            <div class="panel-label">Required Fields (UBC §3.1)</div>
+            <div style="display:flex;flex-wrap:wrap;gap:.4rem">
+              <span id="schemaFields"></span>
+            </div>
+            <div style="margin-top:.85rem">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem">Valid mandate_type values</div>
+              <div id="mandateTypeList" style="display:flex;flex-wrap:wrap;gap:.3rem"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <div>
+          <div id="validatePlaceholder" class="panel" style="text-align:center;padding:3rem 1.5rem">
+            <div style="font-size:2rem;margin-bottom:1rem;opacity:.3">✓</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1rem;color:var(--bright);margin-bottom:.5rem" id="validatePlaceholderTitle">Paste a Policy Mandate JSON payload</div>
+            <div style="font-size:.76rem;color:var(--body)" id="validatePlaceholderDesc">Validation results, compliance score, and deprecated field warnings will appear here.</div>
+          </div>
+
+          <div id="validateResults" style="display:none">
+            <!-- Score ring -->
+            <div class="panel">
+              <div class="panel-label">Compliance Score</div>
+              <div class="score-ring-wrap">
+                <svg class="score-ring-svg" width="80" height="80" viewBox="0 0 80 80">
+                  <circle cx="40" cy="40" r="32" fill="none" stroke="var(--border)" stroke-width="7"/>
+                  <circle id="scoreArc" cx="40" cy="40" r="32" fill="none" stroke="var(--teal)" stroke-width="7"
+                    stroke-dasharray="201" stroke-dashoffset="201" stroke-linecap="round"
+                    transform="rotate(-90 40 40)" style="transition:stroke-dashoffset .8s ease"/>
+                </svg>
+                <div class="score-ring-info">
+                  <div class="score-ring-val" id="scoreVal">—</div>
+                  <div class="score-ring-lbl">/ 100 AP2 Compliance</div>
+                  <div class="score-ring-grade" id="scoreGrade"></div>
+                </div>
+              </div>
+              <div id="deprecatedWarn" style="display:none" class="depr-callout"></div>
+            </div>
+
+            <!-- Validation table -->
+            <div class="panel" style="padding:0;overflow:hidden">
+              <div style="padding:.85rem 1.25rem;border-bottom:1px solid var(--border)">
+                <div class="panel-label" style="margin-bottom:0">Field-Level Validation</div>
+              </div>
+              <div class="val-table-wrap" style="padding:0">
+                <table class="val-table">
+                  <thead><tr><th>Field</th><th>Status</th><th>Detail</th></tr></thead>
+                  <tbody id="valTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Export row — Validate tab -->
+            <div class="results-export-row">
+              <button class="btn btn-ghost" id="copyJsonBtn" onclick="copyValidatedJson()">
+                ⎘ Copy JSON
+                <span class="btn-subtitle">cleaned payload</span>
+              </button>
+              <button class="btn btn-ghost" id="mdValidateBtn" onclick="exportValidateMarkdown()">
+                ⬇ Export Markdown
+                <span class="btn-subtitle">validation report</span>
+              </button>
+              <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportValidateAP2()">
+                {} Export Policy Mandate
+                <span class="btn-subtitle">API · audit trail</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /tab-validate -->
+
+    <!-- ══════════════════════════════════════
+         TAB 2 — GENERATE MCP DEF
+    ══════════════════════════════════════ -->
+    <div id="tab-generate" class="tab-panel" role="tabpanel">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start">
+
+        <!-- Input -->
+        <div>
+          <div class="panel">
+            <div class="panel-label">Source — Valid AP2 Payload</div>
+            <div class="panel-row">
+              <label for="generateInput" id="lblGenerate">Paste a valid Policy Mandate JSON payload — MCP definition will be derived from it</label>
+              <textarea id="generateInput" rows="12" placeholder='{
+  "tool_id": "my-tool-id",
+  "mandate_type": "compliance_control",
+  "payload": { ... },
+  ...
+}'></textarea>
+            </div>
+            <div class="info-callout" style="font-size:.73rem">
+              The generator derives <code style="font-family:JetBrains Mono,monospace;font-size:.68rem;color:var(--teal)">mcp_tool_definition.name</code> from the <code style="font-family:JetBrains Mono,monospace;font-size:.68rem;color:var(--teal)">tool_id</code> field using <code style="font-family:JetBrains Mono,monospace;font-size:.68rem;color:var(--teal)">verb_noun_context</code> snake_case. It maps <code style="font-family:JetBrains Mono,monospace;font-size:.68rem;color:var(--teal)">mandate_type</code> to a recommended verb prefix. You can override the generated name.
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-label">Override Options</div>
+            <div class="panel-row">
+              <label for="mcpNameOverride" id="lblMcpOverride">MCP function name override (optional)</label>
+              <input type="text" id="mcpNameOverride" placeholder="e.g. validate_my_custom_policy" spellcheck="false">
+            </div>
+            <div class="panel-row">
+              <label for="mcpDescOverride" id="lblDescOverride">MCP description override (optional)</label>
+              <input type="text" id="mcpDescOverride" placeholder="Custom LLM instruction for this tool">
+            </div>
+          </div>
+
+          <button class="run-btn" id="runGenerateBtn" onclick="runGenerate()">⊞ Generate MCP Definition</button>
+        </div>
+
+        <!-- Output -->
+        <div>
+          <div id="generatePlaceholder" class="panel" style="text-align:center;padding:3rem 1.5rem">
+            <div style="font-size:2rem;margin-bottom:1rem;opacity:.3">⊞</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1rem;color:var(--bright);margin-bottom:.5rem">Paste a payload and generate</div>
+            <div style="font-size:.76rem;color:var(--body)">The MCP tool definition JSON block will appear here, ready to paste into your manifest.json.</div>
+          </div>
+
+          <div id="generateResults" style="display:none">
+            <div class="panel">
+              <div class="panel-label">Generated mcp_tool_definition</div>
+              <div id="generatedMcpBlock" class="code-out"></div>
+              <div style="display:flex;gap:.65rem;flex-wrap:wrap;margin-top:.5rem">
+                <button class="btn btn-copy" onclick="copyMcpDef()">⎘ Copy to Clipboard</button>
+                <button class="btn btn-ghost" onclick="copyMcpToTab3()">→ Send to Simulate Agent</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-label">Name Derivation Logic</div>
+              <div id="nameDerivationLog" style="font-size:.73rem;color:var(--body);line-height:1.75"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /tab-generate -->
+
+    <!-- ══════════════════════════════════════
+         TAB 3 — SIMULATE AGENT
+    ══════════════════════════════════════ -->
+    <div id="tab-simulate" class="tab-panel" role="tabpanel">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start">
+
+        <!-- Input -->
+        <div>
+          <div class="panel">
+            <div class="panel-label">AP2 Payload for Agent Simulation</div>
+            <div class="panel-row">
+              <label for="simulateInput" id="lblSimulate">Paste Policy Mandate JSON — the agent_instructions array will be stepped through</label>
+              <textarea id="simulateInput" rows="12" placeholder='{
+  "agent_instructions": [
+    "Step 1: check X",
+    "Step 2: validate Y"
+  ],
+  "valid_until": "2027-01-01T00:00:00Z",
+  "jurisdiction": ["GB"],
+  ...
+}'></textarea>
+            </div>
+          </div>
+          <button class="run-btn" id="runSimulateBtn" onclick="runSimulate()">⚡ Simulate Agent Ingestion</button>
+
+          <div class="panel" style="font-size:.73rem;color:var(--body);line-height:1.7">
+            <div class="panel-label">What the simulator checks</div>
+            <ul style="list-style:none;display:flex;flex-direction:column;gap:.45rem">
+              <li>→ <strong style="color:var(--text)">agent_instructions</strong> — present, non-empty array, each instruction is a non-empty string</li>
+              <li>→ <strong style="color:var(--text)">valid_until</strong> — present, future-dated, ISO 8601 format</li>
+              <li>→ <strong style="color:var(--text)">jurisdiction</strong> — present, non-empty array of ISO 3166-1 alpha-2 codes</li>
+              <li>→ <strong style="color:var(--text)">mandate_type</strong> — present, valid enum value</li>
+              <li>→ <strong style="color:var(--text)">audit_metadata</strong> — all three boolean flags present and true</li>
+              <li>→ <strong style="color:var(--text)">Guardrail coverage</strong> — checks for action words (block, escalate, alert, reject, report) in instructions</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Output -->
+        <div>
+          <div id="simulatePlaceholder" class="panel" style="text-align:center;padding:3rem 1.5rem">
+            <div style="font-size:2rem;margin-bottom:1rem;opacity:.3">⚡</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1rem;color:var(--bright);margin-bottom:.5rem">Paste a payload and simulate</div>
+            <div style="font-size:.76rem;color:var(--body)">The agent runtime simulation will step through each instruction and output a deployment readiness assessment.</div>
+          </div>
+
+          <div id="simulateResults" style="display:none">
+
+            <!-- Readiness assessment -->
+            <div class="panel">
+              <div class="panel-label">Agent Deployment Readiness</div>
+              <div id="readinessBars"></div>
+              <div id="readinessSummary" style="margin-top:1rem;font-size:.75rem;color:var(--text);line-height:1.7;padding:.85rem;background:var(--bg-3);border-radius:var(--radius);border:1px solid var(--border)"></div>
+            </div>
+
+            <!-- Instruction steps -->
+            <div class="panel" style="padding:0;overflow:hidden">
+              <div style="padding:.85rem 1.25rem;border-bottom:1px solid var(--border)">
+                <div class="panel-label" style="margin-bottom:0">agent_instructions — Step-through</div>
+              </div>
+              <div style="padding:.75rem 1.25rem">
+                <div id="agentSteps"></div>
+              </div>
+            </div>
+
+            <!-- Guardrail flags -->
+            <div id="guardrailPanel" class="panel"></div>
+
+          </div>
+        </div>
+      </div>
+    </div><!-- /tab-simulate -->
+
+  </div>
+</main>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Footer -->
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────
+   AP2 SCHEMA V1.0 — Unified Build Contract §3.1
+   Source: Unified_Build_Contracts.md v1.0
+   No deprecated fields in mandate_type enum;
+   ap2_version must be "1.0" (NOT "1.0.0")
+───────────────────────────────────────────── */
+const AP2_SCHEMA_V1 = {
+  required_fields: ['ap2_version','mandate_id','issued_at','issued_by','tool_id','tool_version','mandate_type','jurisdiction','payload','audit_metadata'],
+  optional_fields: ['summary','agent_instructions','valid_from','valid_until','last_reviewed','source_tool_inputs','regulatory_citations','regulatory_frameworks'],
+  mandate_type_enum: [
+    'payment_policy','aml_rule','kyc_requirement','routing_policy','compliance_control',
+    'risk_parameter','credit_assessment','fx_policy','scheme_rule','disclosure_template',
+    'fee_schedule_mandate','velocity_rule_mandate','incident_classification_mandate',
+    'routing_policy_mandate','agent_guardrail_mandate'
+  ],
+  deprecated_fields: ['output_payload','audit_signature','policy_parameters','ap2_version_1_0_0'],
+  audit_metadata_required_booleans: ['client_side_executed','zero_pii_verified','deterministic_run'],
+  // Verb prefix map per mandate_type
+  verb_prefix_map: {
+    payment_policy: 'build', aml_rule: 'score', kyc_requirement: 'check',
+    routing_policy: 'route', compliance_control: 'assess', risk_parameter: 'score',
+    credit_assessment: 'assess', fx_policy: 'calculate', scheme_rule: 'validate',
+    disclosure_template: 'generate', fee_schedule_mandate: 'calculate',
+    velocity_rule_mandate: 'enforce', incident_classification_mandate: 'classify',
+    routing_policy_mandate: 'route', agent_guardrail_mandate: 'validate'
+  }
+};
+
+// Populate schema reference UI
+(function initSchemaDisplay() {
+  const sf = document.getElementById('schemaFields');
+  if (sf) {
+    sf.innerHTML = AP2_SCHEMA_V1.required_fields.map(f =>
+      `<span style="font-family:JetBrains Mono,monospace;font-size:.5rem;padding:.1rem .35rem;background:var(--teal-dim);color:var(--teal);border-radius:2px;border:1px solid rgba(20,184,166,.2)">${f}</span>`
+    ).join(' ');
+  }
+  const mtl = document.getElementById('mandateTypeList');
+  if (mtl) {
+    mtl.innerHTML = AP2_SCHEMA_V1.mandate_type_enum.map(m =>
+      `<span style="font-family:JetBrains Mono,monospace;font-size:.46rem;padding:.1rem .35rem;background:var(--bg-4);color:var(--body);border-radius:2px;border:1px solid var(--border)">${m}</span>`
+    ).join(' ');
+  }
+})();
+
+/* ─── State ─── */
+let lastValidateResult = null;
+let lastParsedPayload = null;
+let lastGeneratedMcp = null;
+let activeTab = 'validate';
+
+/* ─── Tab switching ─── */
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
+  document.getElementById('tab-' + tab).classList.add('active');
+  const btn = document.querySelector(`.tab-btn[onclick="switchTab('${tab}')"]`);
+  if (btn) { btn.classList.add('active'); btn.setAttribute('aria-selected', 'true'); }
+}
+
+/* ═══════════════════════════════════════════
+   TAB 1 — VALIDATE
+═══════════════════════════════════════════ */
+function runValidate() {
+  const raw = document.getElementById('validateInput').value.trim();
+  if (!raw) { showToast('Paste a Policy Mandate JSON payload first.', true); return; }
+
+  let parsed;
+  try { parsed = JSON.parse(raw); }
+  catch(e) { showToast('Invalid JSON — parse error: ' + e.message.slice(0,60), true); return; }
+
+  lastParsedPayload = parsed;
+  const result = validateAP2Schema(parsed);
+  lastValidateResult = result;
+
+  document.getElementById('validatePlaceholder').style.display = 'none';
+  document.getElementById('validateResults').style.display = '';
+
+  renderValidationScore(result);
+  renderValidationTable(result);
+
+  // Enable Policy Mandate
+  const btn = document.getElementById('ap2ExportBtn');
+  if (btn) { btn.disabled = false; btn.classList.add('ready'); }
+}
+
+/* ─── Core schema validator (also callable by MCP) ─── */
+function validateAP2Schema(obj) {
+  const rows = [];
+  let points = 0;
+  const maxPoints = 100;
+
+  // 1. Required fields — 55 points (5.5 per field, 10 required)
+  const reqWeight = 55 / AP2_SCHEMA_V1.required_fields.length;
+  AP2_SCHEMA_V1.required_fields.forEach(field => {
+    const present = obj.hasOwnProperty(field) && obj[field] !== null && obj[field] !== '';
+    if (present) points += reqWeight;
+    rows.push({
+      field,
+      status: present ? 'PASS' : 'MISSING',
+      detail: present ? fieldDetail(field, obj[field]) : `Required field is missing. Add "${field}" to your AP2 payload.`
+    });
+  });
+
+  // 2. ap2_version must be exactly "1.0" — flag "1.0.0" as deprecated
+  const versionRow = rows.find(r => r.field === 'ap2_version');
+  if (obj.ap2_version === '1.0.0') {
+    points -= 5;
+    if (versionRow) { versionRow.status = 'FAIL'; versionRow.detail = 'ap2_version must be "1.0" (string), not "1.0.0". Update per UBC §3.1.'; }
+  } else if (obj.ap2_version && obj.ap2_version !== '1.0') {
+    points -= 5;
+    if (versionRow) { versionRow.status = 'FAIL'; versionRow.detail = `ap2_version "${obj.ap2_version}" is not recognised. Must be "1.0".`; }
+  }
+
+  // 3. mandate_type enum check — 10 points
+  if (obj.mandate_type) {
+    const validMt = AP2_SCHEMA_V1.mandate_type_enum.includes(obj.mandate_type);
+    if (validMt) {
+      points += 10;
+      rows.push({ field: 'mandate_type (enum)', status: 'PASS', detail: `"${obj.mandate_type}" is a valid mandate_type value.` });
+    } else {
+      rows.push({ field: 'mandate_type (enum)', status: 'FAIL', detail: `"${obj.mandate_type}" is not a valid mandate_type. See valid values in schema reference.` });
+    }
+  }
+
+  // 4. audit_metadata booleans — 15 points (5 each)
+  if (obj.audit_metadata && typeof obj.audit_metadata === 'object') {
+    const boolWeight = 15 / AP2_SCHEMA_V1.audit_metadata_required_booleans.length;
+    AP2_SCHEMA_V1.audit_metadata_required_booleans.forEach(key => {
+      const val = obj.audit_metadata[key];
+      const ok = val === true;
+      if (ok) points += boolWeight;
+      rows.push({
+        field: `audit_metadata.${key}`,
+        status: ok ? 'PASS' : (val === false ? 'FAIL' : 'MISSING'),
+        detail: ok ? 'Set to true.' : (val === false ? `Must be true for UBC compliance (currently false).` : `Missing from audit_metadata.`)
+      });
+    });
+  } else if (obj.audit_metadata) {
+    rows.push({ field: 'audit_metadata (structure)', status: 'FAIL', detail: 'audit_metadata must be an object, not a ' + typeof obj.audit_metadata });
+  }
+
+  // 5. ISO 8601 date checks — 5 points
+  const dateFields = ['issued_at','valid_from','valid_until','last_reviewed'];
+  let dateOk = 0;
+  dateFields.forEach(df => {
+    if (obj[df]) {
+      const ok = isISO8601(obj[df]);
+      if (ok) dateOk++;
+      rows.push({ field: `${df} (ISO 8601)`, status: ok ? 'PASS' : 'FAIL', detail: ok ? `Valid ISO 8601: "${obj[df]}"` : `"${obj[df]}" is not a valid ISO 8601 date/datetime.` });
+    }
+  });
+  if (dateOk > 0) points += Math.min(5, dateOk * 1.5);
+
+  // 6. agent_instructions array — 5 points
+  if (obj.agent_instructions) {
+    const ok = Array.isArray(obj.agent_instructions) && obj.agent_instructions.length > 0;
+    if (ok) points += 5;
+    rows.push({ field: 'agent_instructions', status: ok ? 'PASS' : 'FAIL', detail: ok ? `Array with ${obj.agent_instructions.length} instruction(s).` : 'Must be a non-empty array of strings.' });
+  }
+
+  // 7. jurisdiction array — 5 points
+  if (obj.jurisdiction) {
+    const ok = Array.isArray(obj.jurisdiction) && obj.jurisdiction.length > 0 && obj.jurisdiction.every(j => /^[A-Z]{2}$/.test(j));
+    if (ok) points += 5;
+    rows.push({ field: 'jurisdiction (ISO 3166-1)', status: ok ? 'PASS' : 'WARN', detail: ok ? `Valid country codes: ${obj.jurisdiction.join(', ')}` : `Some jurisdiction values may not be ISO 3166-1 alpha-2 codes.` });
+  }
+
+  // 8. Deprecated field detection
+  const foundDeprecated = AP2_SCHEMA_V1.deprecated_fields.filter(f => obj.hasOwnProperty(f));
+  if (foundDeprecated.length > 0) {
+    points -= foundDeprecated.length * 5;
+    foundDeprecated.forEach(f => {
+      rows.push({ field: `⚠ ${f} (DEPRECATED)`, status: 'FAIL', detail: `"${f}" is a deprecated AP2 field and must be removed. See UBC §3.1.` });
+    });
+  }
+
+  const score = Math.max(0, Math.min(100, Math.round(points)));
+  return { score, rows, deprecatedFields: foundDeprecated, parsed: obj };
+}
+
+function fieldDetail(field, val) {
+  if (field === 'jurisdiction') return Array.isArray(val) ? `Array: [${val.join(', ')}]` : String(val);
+  if (field === 'payload') return typeof val === 'object' ? `Object with ${Object.keys(val).length} key(s)` : String(val);
+  if (field === 'audit_metadata') return typeof val === 'object' ? `Object with ${Object.keys(val).length} key(s)` : String(val);
+  if (typeof val === 'string') return `"${val.slice(0, 60)}${val.length > 60 ? '…' : ''}"`;
+  if (typeof val === 'object') return `Object / Array`;
+  return String(val);
+}
+
+function isISO8601(str) {
+  return /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$/.test(str);
+}
+
+function renderValidationScore(result) {
+  const score = result.score;
+  const arcEl = document.getElementById('scoreArc');
+  const circumference = 201;
+  const offset = circumference - (score / 100) * circumference;
+  arcEl.style.strokeDashoffset = offset;
+  const color = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--warn)' : 'var(--red)';
+  arcEl.style.stroke = color;
+  document.getElementById('scoreVal').textContent = score;
+  document.getElementById('scoreVal').style.color = color;
+  const grade = score >= 90 ? 'Fully Compliant' : score >= 70 ? 'Mostly Compliant' : score >= 50 ? 'Partially Compliant' : 'Non-Compliant';
+  document.getElementById('scoreGrade').innerHTML = `<span style="color:${color}">${grade}</span>`;
+
+  // Deprecated warning
+  const dw = document.getElementById('deprecatedWarn');
+  if (result.deprecatedFields.length > 0) {
+    dw.style.display = '';
+    dw.innerHTML = `⚠ <strong>Deprecated fields detected:</strong> ${result.deprecatedFields.map(f => `<code style="font-family:JetBrains Mono,monospace;font-size:.68rem">${f}</code>`).join(', ')} — These fields are from a prior AP2 spec version and must be removed per UBC §3.1.`;
+  } else {
+    dw.style.display = 'none';
+  }
+}
+
+function renderValidationTable(result) {
+  const tbody = document.getElementById('valTableBody');
+  tbody.innerHTML = '';
+  result.rows.forEach(row => {
+    const pill = row.status === 'PASS' ? `<span class="pill-pass">PASS</span>`
+      : row.status === 'FAIL' ? `<span class="pill-fail">FAIL</span>`
+      : row.status === 'MISSING' ? `<span class="pill-miss">MISSING</span>`
+      : `<span class="pill-warn">WARN</span>`;
+    tbody.innerHTML += `<tr>
+      <td>${row.field}</td>
+      <td>${pill}</td>
+      <td style="font-size:.7rem;color:var(--body)">${row.detail}</td>
+    </tr>`;
+  });
+}
+
+function copyValidatedJson() {
+  if (!lastParsedPayload) { showToast('Run validation first.', true); return; }
+  navigator.clipboard.writeText(JSON.stringify(lastParsedPayload, null, 2))
+    .then(() => showToast('JSON copied to clipboard.'))
+    .catch(() => showToast('Copy failed — use Ctrl+C on the textarea.', true));
+}
+
+function exportValidateMarkdown() {
+  if (!lastValidateResult) return;
+  const r = lastValidateResult;
+  let md = `# AP2 Schema Validation Report\n_Generated by AINumbers.co T320 · ${new Date().toISOString()}_\n\n`;
+  md += `## Compliance Score: ${r.score}/100\n\n`;
+  if (r.deprecatedFields.length > 0) md += `> ⚠ Deprecated fields found: ${r.deprecatedFields.join(', ')} — remove per UBC §3.1\n\n`;
+  md += `## Field-Level Results\n\n| Field | Status | Detail |\n|-------|--------|--------|\n`;
+  r.rows.forEach(row => { md += `| ${row.field} | ${row.status} | ${row.detail} |\n`; });
+  md += `\n---\n_AP2 Schema v1.0 · Unified Build Contract §3.1 · ainumbers.co_\n`;
+  const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  triggerDownload(md, `ap2-validation-report_${ts}.md`, 'text/markdown');
+  showToast('Markdown report exported.');
+}
+
+function exportValidateAP2() {
+  if (!lastValidateResult) return;
+  const r = lastValidateResult;
+  const now = new Date();
+  const payload = {
+    ap2_version: '1.0',
+    mandate_id: generateUUID(),
+    issued_at: now.toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: 'ap2-mcp-policy-validator',
+    tool_version: '1.0.0',
+    mandate_type: 'agent_guardrail_mandate',
+    jurisdiction: ['GB', 'EU', 'US'],
+    regulatory_frameworks: ['AINumbers.co Unified Build Contract v1.0'],
+    payload: {
+      validated_payload_tool_id: lastParsedPayload?.tool_id || null,
+      compliance_score: r.score,
+      field_results: r.rows.map(row => ({ field: row.field, status: row.status, detail: row.detail })),
+      deprecated_fields_found: r.deprecatedFields,
+      agent_deployment_recommended: r.score >= 80
+    },
+    summary: `AP2 schema validation completed. Compliance score: ${r.score}/100. ${r.deprecatedFields.length > 0 ? 'Deprecated fields found — remediation required.' : 'No deprecated fields.'}`,
+    agent_instructions: [
+      `Only deploy the validated AP2 payload to an agent if the compliance score is >= 80.`,
+      `Remove deprecated fields before deployment: ${r.deprecatedFields.length > 0 ? r.deprecatedFields.join(', ') : 'none detected'}.`,
+      `Ensure all required fields pass before using mandate in production: ${r.rows.filter(row => row.status === 'MISSING' || row.status === 'FAIL').map(row => row.field).join(', ') || 'all required fields pass'}.`
+    ],
+    valid_from: now.toISOString(),
+    valid_until: new Date(now.getTime() + 365 * 86400000).toISOString(),
+    last_reviewed: '2026-05-11',
+    source_tool_inputs: { tool_id_validated: lastParsedPayload?.tool_id || null },
+    regulatory_citations: ['AINumbers.co Unified Build Contract v1.0 §3.1'],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+
+  const required = ['ap2_version','mandate_id','issued_at','issued_by','tool_id','tool_version','mandate_type','jurisdiction','payload','audit_metadata'];
+  const missing = required.filter(f => !payload[f]);
+  if (missing.length > 0) { showToast('AP2 validation failed: missing ' + missing.join(', '), true); return; }
+
+  const ts = now.toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  AP2Schema.validate(payload);
+  triggerDownload(JSON.stringify(payload, null, 2), `ap2-mcp-policy-validator_${ts}.policy.json`, 'application/json');
+  showToast('Policy Mandate JSON exported successfully.');
+}
+
+/* ═══════════════════════════════════════════
+   TAB 2 — GENERATE MCP DEFINITION
+═══════════════════════════════════════════ */
+function runGenerate() {
+  const raw = document.getElementById('generateInput').value.trim();
+  if (!raw) { showToast('Paste a Policy Mandate JSON payload first.', true); return; }
+
+  let parsed;
+  try { parsed = JSON.parse(raw); }
+  catch(e) { showToast('Invalid JSON: ' + e.message.slice(0, 60), true); return; }
+
+  const toolId = parsed.tool_id || 'unknown-tool';
+  const mandateType = parsed.mandate_type || '';
+  const nameOverride = document.getElementById('mcpNameOverride').value.trim();
+  const descOverride = document.getElementById('mcpDescOverride').value.trim();
+
+  // Derive function name: verb_noun_context from tool_id + mandate_type verb prefix
+  const verb = AP2_SCHEMA_V1.verb_prefix_map[mandateType] || 'run';
+  // Convert tool-id to noun_context (replace hyphens with underscores, strip leading numbers)
+  const nounContext = toolId.replace(/^\d+-/, '').replace(/-/g, '_');
+  const derivedName = nameOverride || `${verb}_${nounContext}`;
+
+  // Build inputSchema from payload keys
+  const payloadKeys = parsed.payload && typeof parsed.payload === 'object'
+    ? Object.keys(parsed.payload)
+    : [];
+
+  const inputSchemaProps = {};
+  ['jurisdiction','mandate_type','payload'].forEach(k => { inputSchemaProps[k] = { type: 'string' }; });
+  if (payloadKeys.length > 0) {
+    inputSchemaProps.payload_override = { type: 'object', description: `Keys: ${payloadKeys.slice(0,8).join(', ')}` };
+  }
+
+  const description = descOverride
+    || `Executes the ${toolId} mandate (${mandateType}). Returns a validated Policy Mandate JSON payload with agent_instructions and audit_metadata. Client-side. Zero PII.`;
+
+  const mcpDef = {
+    mcp_tool_definition: {
+      name: derivedName,
+      description,
+      inputSchema: {
+        type: 'object',
+        properties: inputSchemaProps,
+        required: ['jurisdiction']
+      }
+    }
+  };
+
+  lastGeneratedMcp = { mcpDef, derivedName, verb, nounContext, toolId, mandateType, nameOverride: !!nameOverride };
+
+  document.getElementById('generatePlaceholder').style.display = 'none';
+  document.getElementById('generateResults').style.display = '';
+  document.getElementById('generatedMcpBlock').textContent = JSON.stringify(mcpDef, null, 2);
+
+  // Derivation log
+  let log = `<strong style="color:var(--text)">tool_id:</strong> <span style="font-family:JetBrains Mono,monospace;color:var(--teal)">${toolId}</span><br>`;
+  log += `<strong style="color:var(--text)">mandate_type:</strong> <span style="font-family:JetBrains Mono,monospace;color:var(--teal)">${mandateType}</span><br>`;
+  log += `<strong style="color:var(--text)">Verb prefix (from mandate_type map):</strong> <span style="font-family:JetBrains Mono,monospace;color:var(--gold)">${verb}</span><br>`;
+  log += `<strong style="color:var(--text)">Noun context (from tool_id):</strong> <span style="font-family:JetBrains Mono,monospace;color:var(--gold)">${nounContext}</span><br>`;
+  log += `<strong style="color:var(--text)">Derived name:</strong> <span style="font-family:JetBrains Mono,monospace;color:var(--green)">${derivedName}</span>${nameOverride ? ' <span style="color:var(--muted)">(overridden)</span>' : ' <span style="color:var(--muted)">(auto-derived)</span>'}<br>`;
+  if (payloadKeys.length > 0) {
+    log += `<strong style="color:var(--text)">Payload keys detected:</strong> <span style="font-family:JetBrains Mono,monospace;font-size:.66rem;color:var(--body)">${payloadKeys.join(', ')}</span>`;
+  }
+  document.getElementById('nameDerivationLog').innerHTML = log;
+  showToast('MCP definition generated.');
+}
+
+function copyMcpDef() {
+  const content = document.getElementById('generatedMcpBlock').textContent;
+  navigator.clipboard.writeText(content)
+    .then(() => showToast('MCP definition copied to clipboard.'))
+    .catch(() => showToast('Copy failed.', true));
+}
+
+function copyMcpToTab3() {
+  const sourceJson = document.getElementById('generateInput').value.trim();
+  if (sourceJson) {
+    document.getElementById('simulateInput').value = sourceJson;
+    switchTab('simulate');
+    showToast('Payload copied to Simulate Agent tab.');
+  }
+}
+
+/* ═══════════════════════════════════════════
+   TAB 3 — SIMULATE AGENT
+═══════════════════════════════════════════ */
+function runSimulate() {
+  const raw = document.getElementById('simulateInput').value.trim();
+  if (!raw) { showToast('Paste a Policy Mandate JSON payload first.', true); return; }
+
+  let parsed;
+  try { parsed = JSON.parse(raw); }
+  catch(e) { showToast('Invalid JSON: ' + e.message.slice(0, 60), true); return; }
+
+  const result = simulateAgentIngestion(parsed);
+
+  document.getElementById('simulatePlaceholder').style.display = 'none';
+  document.getElementById('simulateResults').style.display = '';
+
+  renderReadiness(result);
+  renderAgentSteps(result);
+  renderGuardrails(result);
+}
+
+function simulateAgentIngestion(obj) {
+  const checks = {};
+
+  // Check agent_instructions
+  const instructions = obj.agent_instructions;
+  checks.instructions = {
+    label: 'agent_instructions',
+    ok: Array.isArray(instructions) && instructions.length > 0,
+    score: 0,
+    detail: ''
+  };
+  if (!instructions) { checks.instructions.detail = 'Missing — agent has no instructions to execute.'; }
+  else if (!Array.isArray(instructions)) { checks.instructions.detail = 'Must be an array.'; }
+  else if (instructions.length === 0) { checks.instructions.detail = 'Array is empty — no instructions for agent.'; }
+  else { checks.instructions.ok = true; checks.instructions.score = 30; checks.instructions.detail = `${instructions.length} instruction(s) found.`; }
+
+  // Check valid_until
+  const vu = obj.valid_until;
+  checks.validity = { label: 'valid_until', ok: false, score: 0, detail: '' };
+  if (!vu) { checks.validity.detail = 'Missing — agent cannot determine when mandate expires.'; }
+  else if (!isISO8601(vu)) { checks.validity.detail = `"${vu}" is not a valid ISO 8601 datetime.`; }
+  else {
+    const expires = new Date(vu);
+    const now = new Date();
+    if (expires <= now) { checks.validity.detail = `Mandate has EXPIRED (${vu}). Agent should not use expired mandates.`; }
+    else { checks.validity.ok = true; checks.validity.score = 25; checks.validity.detail = `Expires: ${vu}`; }
+  }
+
+  // Check jurisdiction
+  const jur = obj.jurisdiction;
+  checks.jurisdiction = { label: 'jurisdiction', ok: false, score: 0, detail: '' };
+  if (!jur || !Array.isArray(jur) || jur.length === 0) { checks.jurisdiction.detail = 'Missing or empty — agent cannot determine applicable jurisdiction.'; }
+  else { checks.jurisdiction.ok = true; checks.jurisdiction.score = 15; checks.jurisdiction.detail = `Jurisdictions: ${jur.join(', ')}`; }
+
+  // Check mandate_type
+  const mt = obj.mandate_type;
+  checks.mandateType = { label: 'mandate_type', ok: false, score: 0, detail: '' };
+  if (!mt) { checks.mandateType.detail = 'Missing.'; }
+  else if (!AP2_SCHEMA_V1.mandate_type_enum.includes(mt)) { checks.mandateType.detail = `"${mt}" is not a valid mandate_type.`; }
+  else { checks.mandateType.ok = true; checks.mandateType.score = 15; checks.mandateType.detail = `Valid: "${mt}"`; }
+
+  // Check audit_metadata booleans
+  const am = obj.audit_metadata;
+  checks.auditMeta = { label: 'audit_metadata', ok: false, score: 0, detail: '' };
+  if (!am || typeof am !== 'object') { checks.auditMeta.detail = 'Missing or invalid.'; }
+  else {
+    const allTrue = AP2_SCHEMA_V1.audit_metadata_required_booleans.every(k => am[k] === true);
+    if (allTrue) { checks.auditMeta.ok = true; checks.auditMeta.score = 15; checks.auditMeta.detail = 'All three boolean flags are true.'; }
+    else {
+      const failing = AP2_SCHEMA_V1.audit_metadata_required_booleans.filter(k => am[k] !== true);
+      checks.auditMeta.detail = `Flags not set to true: ${failing.join(', ')}`;
+    }
+  }
+
+  const totalScore = Object.values(checks).reduce((s, c) => s + c.score, 0);
+
+  // Guardrail analysis
+  const actionWords = ['block','escalate','alert','reject','report','flag','stop','freeze','notify','refuse'];
+  const guardrailCoverage = {};
+  actionWords.forEach(w => { guardrailCoverage[w] = false; });
+  if (Array.isArray(instructions)) {
+    const allText = instructions.join(' ').toLowerCase();
+    actionWords.forEach(w => { if (allText.includes(w)) guardrailCoverage[w] = true; });
+  }
+  const coveredActions = actionWords.filter(w => guardrailCoverage[w]);
+  const missingActions = actionWords.filter(w => !guardrailCoverage[w]);
+
+  return { checks, totalScore, instructions: instructions || [], guardrailCoverage, coveredActions, missingActions };
+}
+
+function renderReadiness(result) {
+  const barsWrap = document.getElementById('readinessBars');
+  barsWrap.innerHTML = '';
+  Object.values(result.checks).forEach(check => {
+    const pct = check.ok ? 100 : 0;
+    const color = check.ok ? 'var(--green)' : 'var(--red)';
+    barsWrap.innerHTML += `<div class="readiness-bar-wrap">
+      <div class="readiness-bar-label">
+        <span>${check.label}</span>
+        <span style="color:${color}">${check.ok ? '✓ READY' : '✕ MISSING'}</span>
+      </div>
+      <div class="readiness-bar-bg"><div class="readiness-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+      <div style="font-size:.66rem;color:var(--muted);margin-top:.2rem">${check.detail}</div>
+    </div>`;
+  });
+
+  // Overall summary
+  const ready = result.totalScore >= 80;
+  const summaryColor = ready ? 'var(--green)' : result.totalScore >= 50 ? 'var(--warn)' : 'var(--red)';
+  const summaryLabel = ready ? '✓ Ready for autonomous deployment' : result.totalScore >= 50 ? '⚠ Partially ready — remediate issues before deployment' : '✕ Not ready — critical guardrails missing';
+  document.getElementById('readinessSummary').innerHTML = `<strong style="color:${summaryColor}">${summaryLabel}</strong> — Readiness score: <span style="font-family:JetBrains Mono,monospace;color:${summaryColor}">${result.totalScore}/100</span>`;
+}
+
+function renderAgentSteps(result) {
+  const wrap = document.getElementById('agentSteps');
+  if (!result.instructions || result.instructions.length === 0) {
+    wrap.innerHTML = '<div class="error-callout">No agent_instructions found in payload. Agents require an ordered instruction array to operate.</div>';
+    return;
+  }
+  wrap.innerHTML = result.instructions.map((instr, i) => {
+    const hasAction = ['block','escalate','alert','reject','report','flag','stop','freeze','notify','refuse']
+      .some(w => instr.toLowerCase().includes(w));
+    const flagHtml = hasAction
+      ? `<div class="agent-step-flag flag-ok">✓ Contains action verb</div>`
+      : `<div class="agent-step-flag flag-warn">⚠ No action verb detected — consider adding block/escalate/alert/reject</div>`;
+    return `<div class="agent-step">
+      <div class="agent-step-num">${i + 1}</div>
+      <div class="agent-step-text">${escapeHtml(String(instr))}${flagHtml}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderGuardrails(result) {
+  const panel = document.getElementById('guardrailPanel');
+  panel.innerHTML = '';
+  const covered = result.coveredActions;
+  const missing = result.missingActions;
+
+  panel.innerHTML = `<div class="panel-label">Guardrail Coverage Analysis</div>
+    <div style="font-size:.75rem;color:var(--body);margin-bottom:.85rem">Action verbs detected in agent_instructions array:</div>
+    <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.75rem">
+      ${covered.map(w => `<span style="font-family:JetBrains Mono,monospace;font-size:.5rem;padding:.15rem .45rem;background:var(--green-dim);color:var(--green);border-radius:2px;border:1px solid rgba(34,197,94,.2)">✓ ${w}</span>`).join('')}
+      ${missing.map(w => `<span style="font-family:JetBrains Mono,monospace;font-size:.5rem;padding:.15rem .45rem;background:var(--bg-4);color:var(--muted);border-radius:2px;border:1px solid var(--border)">— ${w}</span>`).join('')}
+    </div>
+    ${missing.length > 5 ? `<div class="warn-callout" style="font-size:.73rem">⚠ Only ${covered.length} of 10 action verbs detected. Consider adding explicit ${missing.slice(0, 3).join(', ')} instructions to ensure full guardrail coverage for autonomous agent operation.</div>` : ''}`;
+}
+
+/* ─── Utilities ─── */
+function isISO8601(str) {
+  return /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$/.test(str);
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+function triggerDownload(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+let toastTimer;
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 2800);
+}
+
+/* ─── i18n Stage 2 ─── */
+const TRANSLATIONS = {
+  en: { eyebrow: 'T320 · Cat-01 · AP2 · MCP · Agentic · Schema Validator', hero_title: 'AP2 MCP Policy Validator & Bridge', hero_desc: 'Validate Policy Mandate JSON payloads against the Unified Build Contract v1.0 schema, auto-generate MCP tool definitions, and simulate agent ingestion of your agent_instructions array. Three panels — validate, generate, simulate.', nav_cta: 'All Tools', lang_dir: 'ltr' 
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+  },
+  es: { eyebrow: 'T320 · Cat-01 · AP2 · MCP · Agéntico · Validador de Esquema', hero_title: 'Validador y Puente AP2 MCP', hero_desc: 'Valida payloads Mandato de Política contra el esquema UBC v1.0, genera automáticamente definiciones de herramientas MCP y simula la ingesta de agentes.', nav_cta: 'Todas las herramientas', lang_dir: 'ltr' 
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+  },
+  fr: { eyebrow: 'T320 · Cat-01 · AP2 · MCP · Agentique · Validateur de Schéma', hero_title: 'Validateur et Passerelle AP2 MCP', hero_desc: 'Validez les payloads Mandat de Politique contre le schéma UBC v1.0, générez automatiquement des définitions d\'outils MCP et simulez l\'ingestion par les agents.', nav_cta: 'Tous les outils', lang_dir: 'ltr' 
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+  },
+  ar: { eyebrow: 'T320 · الفئة-01 · AP2 · MCP · وكيل · مدقق المخطط', hero_title: 'مدقق سياسة AP2 MCP والجسر', hero_desc: 'تحقق من صحة حمولات تفويض السياسة مقابل مخطط UBC v1.0، وأنشئ تعريفات أدوات MCP تلقائيًا، وقم بمحاكاة استيعاب الوكيل.', nav_cta: 'جميع الأدوات', lang_dir: 'rtl' 
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+  },
+  pt: { eyebrow: 'T320 · Cat-01 · AP2 · MCP · Agêntico · Validador de Esquema', hero_title: 'Validador e Bridge AP2 MCP', hero_desc: 'Valide payloads Mandato de Política contra o esquema UBC v1.0, gere automaticamente definições de ferramentas MCP e simule a ingestão de agentes.', nav_cta: 'Todas as ferramentas', lang_dir: 'ltr' 
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+  },
+  zh: { eyebrow: 'T320 · 类别-01 · AP2 · MCP · 智能代理 · 模式验证器', hero_title: 'AP2 MCP 策略验证器与桥接器', hero_desc: '根据统一构建合同v1.0模式验证政策授权书载荷，自动生成MCP工具定义，并模拟代理对agent_instructions数组的处理。', nav_cta: '所有工具', lang_dir: 'ltr' 
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+  }
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`);
+  if (btn) btn.classList.add('active');
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  document.documentElement.dir = t.lang_dir || 'ltr';
+  document.body.dir = t.lang_dir || 'ltr';
+  const ap = (id, key) => { const e = document.getElementById(id); if (e && t[key] !== undefined) e.textContent = t[key]; };
+  ap('heroEyebrow', 'eyebrow'); ap('heroTitle', 'hero_title'); ap('heroDesc', 'hero_desc'); ap('navCta', 'nav_cta');
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function() {
+  try { const s = sessionStorage.getItem('ain_lang'); if (s && TRANSLATIONS[s]) setLang(s); } catch(e) {}
+})();
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "ap2-mcp-policy-validator", "version": "1.0.0", "title": "AP2 MCP Policy Validator & Bridge", "description": "Validates Policy Mandate JSON payloads against UBC v1.0 schema (required fields, mandate_type enum, audit_metadata booleans, ISO 8601 dates), detects deprecated fields, generates MCP tool definitions, and simulates agent ingestion of agent_instructions. Client-side. Zero PII.", "category": "cat-1", "tags": ["AP2", "MCP", "agent-policy", "validator", "schema", "bridge", "agentic"], "audience": ["engineer", "compliance", "agent-developer"], "input_schema": {"type": "object", "properties": {"payload": {"type": "string", "description": "Stringified Mandato de Política payload to validate"}, "mode": {"type": "string", "enum": ["validate", "generate", "simulate"], "description": "Panel mode"}}, "required": ["payload"]}, "output_schema": {"type": "object", "properties": {"score": {"type": "integer", "minimum": 0, "maximum": 100}, "rows": {"type": "array"}, "deprecatedFields": {"type": "array", "items": {"type": "string"}}, "agent_deployment_recommended": {"type": "boolean"}}}, "mcp_tool_definition": {"name": "validate_ap2_policy_schema", "description": "Validates a Policy Mandate JSON payload against the AINumbers.co Unified Build Contract v1.0 schema. Returns a 0-100 compliance score, field-level PASS/FAIL/MISSING results, deprecated field flags, and agent deployment readiness assessment.", "inputSchema": {"type": "object", "properties": {"payload": {"type": "string", "description": "Stringified Mandato de Política payload"}, "mode": {"type": "string", "enum": ["validate", "generate", "simulate"]}}, "required": ["payload"]}}, "execution": {"type": "browser-javascript", "entry": "tools/320-ap2-mcp-policy-validator.html", "function_name": "validateAP2Schema", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

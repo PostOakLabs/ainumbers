@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Synthetic Identity Fraud Risk Scorer · T321 · AINumbers.co</title>
+<meta name="description" content="Pre-application synthetic identity risk scoring — evaluates 7 structural identity attributes before a credit or account decision is made. Distinct from T04 (transaction-level fraud scoring at authorisation time) and T80 (post-event fraud investigation). FRB SR 2022 · FinCEN FIN-2021-A003. Policy Mandate. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/321-synthetic-identity-fraud-scorer">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Synthetic Identity Fraud Risk Scorer · T321","url":"https://ainumbers.co/tools/321-synthetic-identity-fraud-scorer","description":"Pre-application synthetic identity risk scoring — evaluates 7 structural identity attributes before a credit or account decision is made. Distinct from T04 (transaction-level fraud scoring at authorisation time) and T80 (post-event fraud investigation). FRB SR 2022 · FinCEN FIN-2021-A003. Policy Mandate. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<script>
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* PolicyMandate — full validator (Phase 14); AP2Schema internal name retained */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+};
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(239,68,68,.010) 1px,transparent 1px),linear-gradient(90deg,rgba(239,68,68,.010) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner,[dir="rtl"] [dir="rtl"] .hero-eyebrow{flex-direction:row-reverse}
+[dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+
+/* Lang bar */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:201}
+.lang-inner{max-width:1060px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--red);color:var(--red)}
+
+/* Nav */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+/* Hero */
+.hero{padding:2.8rem 0 2.4rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--red),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(239,68,68,.05) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--red);margin-bottom:.85rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--red)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.5rem);color:var(--white);max-width:720px;margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--red)}
+.hero-desc{font-size:.84rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.3rem .7rem;border:1px solid}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+
+
+/* Layout */
+.main-content{position:relative;z-index:1;padding:2.5rem 0 4rem}
+.tool-layout{display:grid;grid-template-columns:380px 1fr;gap:1.5rem;align-items:start}
+@media(max-width:900px){.tool-layout{grid-template-columns:1fr}}
+
+/* Panel */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--red);margin-bottom:1rem;display:flex;align-items:center;gap:.6rem}
+.panel-label::before{content:'';display:block;width:14px;height:1px;background:var(--red)}
+.panel-row{margin-bottom:1.1rem}
+.panel-row:last-child{margin-bottom:0}
+.panel-row label{display:flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--body);margin-bottom:.4rem}
+.tooltip-icon{width:14px;height:14px;border-radius:50%;background:var(--bg-3);border:1px solid var(--border);color:var(--muted);font-size:.55rem;display:inline-flex;align-items:center;justify-content:center;cursor:help;flex-shrink:0;font-family:'Sora',sans-serif;font-style:italic;position:relative}
+.tooltip-icon:hover::after{content:attr(data-tip);position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);background:var(--bg-4);border:1px solid var(--border);border-radius:var(--radius);padding:.5rem .75rem;font-family:'Sora',sans-serif;font-style:normal;font-size:.68rem;color:var(--text);white-space:nowrap;max-width:240px;white-space:normal;width:220px;z-index:50;line-height:1.5;letter-spacing:0;text-transform:none}
+
+/* Number input */
+.num-input-wrap{display:flex;align-items:center;gap:.5rem}
+.num-input{width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.8rem;padding:.55rem .75rem;transition:border-color .2s}
+.num-input:focus{outline:none;border-color:var(--red)}
+.num-input::placeholder{color:var(--muted)}
+.num-unit{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);white-space:nowrap}
+
+/* Toggle */
+.bool-toggle{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.bool-btn{flex:1;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem;border:none;background:transparent;color:var(--muted);transition:all .2s}
+.bool-btn.active-yes{background:var(--red-dim);color:var(--red)}
+.bool-btn.active-no{background:var(--green-dim);color:var(--green)}
+.bool-btn:hover:not(.active-yes):not(.active-no){color:var(--text);background:var(--bg-3)}
+
+/* PII banner */
+.pii-banner{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--muted);border-radius:var(--radius);padding:.7rem 1rem;font-size:.7rem;color:var(--body);line-height:1.6}
+.pii-banner strong{color:var(--text)}
+
+/* Run button */
+.run-btn{width:100%;background:var(--red);color:var(--white);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;padding:.85rem 1.5rem;border:none;border-radius:var(--radius);font-weight:500;transition:opacity .2s;margin-bottom:1.25rem}
+.run-btn:hover{opacity:.88}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* Results */
+.results-panel{display:none}
+.results-panel.visible{display:block}
+
+/* Lifecycle banner */
+.lifecycle-banner{background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);border-left:3px solid var(--teal);border-radius:var(--radius);padding:.85rem 1rem;font-size:.73rem;color:var(--text);line-height:1.65;margin-bottom:1.25rem}
+.lifecycle-banner strong{color:var(--teal)}
+
+/* Score dial */
+.dial-wrap{display:flex;align-items:center;gap:1.75rem;margin-bottom:1.5rem}
+.dial-svg{flex-shrink:0}
+.dial-info{}
+.dial-score{font-family:'DM Serif Display',serif;font-size:2.8rem;line-height:1;color:var(--white)}
+.dial-tier{font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:500;margin-top:.3rem;letter-spacing:.08em;text-transform:uppercase}
+.dial-sub{font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted);margin-top:.25rem;letter-spacing:.1em;text-transform:uppercase}
+
+/* Risk tier badge */
+.tier-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;font-weight:500;padding:.45rem 1rem;border:1px solid;border-radius:var(--radius)}
+.tier-low{color:var(--green);border-color:rgba(34,197,94,.35);background:var(--green-dim)}
+.tier-moderate{color:var(--warn);border-color:rgba(245,158,11,.35);background:var(--warn-dim)}
+.tier-high{color:var(--red);border-color:rgba(239,68,68,.35);background:var(--red-dim)}
+.tier-reject{color:var(--white);border-color:var(--red);background:var(--red)}
+
+/* Signal table */
+.signal-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.signal-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.45rem .75rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.signal-table td{padding:.6rem .75rem;border-bottom:1px solid rgba(30,47,74,.45);vertical-align:middle}
+.signal-table tr:last-child td{border-bottom:none}
+.signal-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--text)}
+.contrib-bar-bg{background:var(--border);border-radius:2px;height:6px;width:80px;overflow:hidden;display:inline-block;vertical-align:middle}
+.contrib-bar-fill{height:100%;border-radius:2px}
+.flag-chip{font-family:'JetBrains Mono',monospace;font-size:.46rem;padding:.1rem .35rem;border-radius:2px}
+
+/* CIP steps */
+.cip-list{display:flex;flex-direction:column;gap:.55rem}
+.cip-item{display:flex;gap:.65rem;align-items:flex-start;font-size:.75rem;color:var(--body);line-height:1.6}
+.cip-bullet{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--red);flex-shrink:0;margin-top:.15rem}
+
+/* Export row */
+.results-export-row{display:flex;gap:.65rem;flex-wrap:wrap;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;border-radius:var(--radius);border:1px solid;cursor:pointer;transition:all .2s;display:inline-flex;flex-direction:column;align-items:center;gap:.15rem;background:transparent}
+.btn-ghost{color:var(--text);border-color:var(--border)}
+.btn-ghost:hover:not(:disabled){border-color:var(--red);color:var(--red)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-ghost.ready{border-color:rgba(239,68,68,.4);color:var(--red)}
+.btn-subtitle{font-size:.42rem;color:var(--muted);text-transform:none}
+
+/* Toast */
+#toast{position:fixed;bottom:1.75rem;right:1.75rem;background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--red);border-radius:var(--radius);padding:.85rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--text);z-index:999;transform:translateY(120%);transition:transform .3s;max-width:320px}
+#toast.show{transform:translateY(0)}
+#toast.ok{border-left-color:var(--teal)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-body pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;overflow-x:auto;margin:0}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- Lang bar -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="#0D1627"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".7"/></svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/fraud-risk-hub.html">Fraud & Risk Hub</a><span class="nav-sep">/</span><span>T-321</span></div>
+
+    <a href="../guides/fraud-risk-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">
+      <span id="heroEyebrow">T321 · Cat-03 · Fraud & Risk · Synthetic Identity · Pre-Application</span>
+    </div>
+    <h1 class="tool-title" id="heroTitle">Synthetic Identity <em>Fraud Risk Scorer</em></h1>
+    <p class="hero-desc" id="heroDesc">Multi-signal synthetic identity risk scoring across 7 structural identity attributes — evaluated before a credit or account decision. Composite score with signal breakdown, CIP enhancement recommendations, and Policy Mandate. FRB SR 2022 · FinCEN FIN-2021-A003. No PII required.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-red">Synthetic ID · Pre-Application</span>
+      <span class="hero-badge badge-red">FRB SR 2022 · FinCEN FIN-2021-A003</span>
+      <span class="hero-badge badge-gold">7 Signal Dimensions</span>
+      <span class="hero-badge badge-teal">CIP Enhancement Guidance</span>
+      <span class="hero-badge badge-muted">Client-Side · Zero PII</span>
+    <span class="hero-badge badge-warn" data-i18n="hero.badge.var">Avoids FRB SR 2022 enforcement; synthetic ID fraud losses exceed $2B/year industry-wide.</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+    
+  </div>
+</section>
+
+<!-- Main -->
+<main class="main-content">
+  <div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+    <div class="tool-layout">
+
+      <!-- LEFT: Inputs -->
+      <div class="col-left">
+        <div class="panel">
+          <div class="panel-label">Identity Signal Inputs</div>
+          <div style="font-size:.73rem;color:var(--body);margin-bottom:1.25rem;line-height:1.6">Enter observable, non-PII structural attributes. No names, SSNs, or personal data required.</div>
+
+          <!-- Signal 1: SSN issue year -->
+          <div class="panel-row">
+            <label for="ssnIssueYear">
+              SSN Issue Year
+              <span class="tooltip-icon" data-tip="The year the Social Security Number was issued. Compare to birth year to test chronological plausibility. Issued after age 18 is a strong synthetic indicator.">i</span>
+            </label>
+            <div class="num-input-wrap">
+              <input type="number" class="num-input" id="ssnIssueYear" placeholder="e.g. 2015" min="1936" max="2026">
+              <span class="num-unit">year</span>
+            </div>
+          </div>
+
+          <!-- Signal 2: Applicant age -->
+          <div class="panel-row">
+            <label for="applicantAge">
+              Applicant Age
+              <span class="tooltip-icon" data-tip="Age of the applicant in years. Used to derive expected birth year and test SSN chronological consistency.">i</span>
+            </label>
+            <div class="num-input-wrap">
+              <input type="number" class="num-input" id="applicantAge" placeholder="e.g. 28" min="18" max="100">
+              <span class="num-unit">years</span>
+            </div>
+          </div>
+
+          <!-- Signal 3: Credit file age -->
+          <div class="panel-row">
+            <label for="creditFileAge">
+              Credit File Age
+              <span class="tooltip-icon" data-tip="Age of the oldest tradeline in the applicant's credit file in months. Files under 24 months are considered thin files — a key synthetic identity indicator.">i</span>
+            </label>
+            <div class="num-input-wrap">
+              <input type="number" class="num-input" id="creditFileAge" placeholder="e.g. 18" min="0" max="600">
+              <span class="num-unit">months</span>
+            </div>
+          </div>
+
+          <!-- Signal 4: Address tenure -->
+          <div class="panel-row">
+            <label for="addressTenure">
+              Address Tenure
+              <span class="tooltip-icon" data-tip="How long the applicant has been at their current address in months. Very short tenure is a proxy for NCOA non-match and synthetic identity patterns.">i</span>
+            </label>
+            <div class="num-input-wrap">
+              <input type="number" class="num-input" id="addressTenure" placeholder="e.g. 6" min="0" max="600">
+              <span class="num-unit">months</span>
+            </div>
+          </div>
+
+          <!-- Signal 5: Account velocity 90d -->
+          <div class="panel-row">
+            <label for="accountVelocity">
+              New Account Velocity (90 days)
+              <span class="tooltip-icon" data-tip="Number of new account openings at the same address in the past 90 days. High velocity is a strong credit bust-out and synthetic identity indicator.">i</span>
+            </label>
+            <div class="num-input-wrap">
+              <input type="number" class="num-input" id="accountVelocity" placeholder="e.g. 3" min="0" max="50">
+              <span class="num-unit">accounts</span>
+            </div>
+          </div>
+
+          <!-- Signal 6: Phone age -->
+          <div class="panel-row">
+            <label for="phoneAge">
+              Phone Number Age
+              <span class="tooltip-icon" data-tip="Age of the phone number associated with the application in months. Very new numbers (under 3 months) are associated with SIM swap fraud and synthetic identity applications.">i</span>
+            </label>
+            <div class="num-input-wrap">
+              <input type="number" class="num-input" id="phoneAge" placeholder="e.g. 4" min="0" max="360">
+              <span class="num-unit">months</span>
+            </div>
+          </div>
+
+          <!-- Signal 7: Device anomaly -->
+          <div class="panel-row">
+            <label for="deviceAnomaly">
+              Device Fingerprint Anomaly
+              <span class="tooltip-icon" data-tip="Whether the device fingerprint from the application session is inconsistent with prior sessions or flagged by device intelligence (emulator, VPN, headless browser, spoofed attributes).">i</span>
+            </label>
+            <div class="bool-toggle" role="group" aria-label="Device anomaly flag">
+              <button class="bool-btn active-no" id="deviceNo" onclick="setDevice(false)">No Anomaly</button>
+              <button class="bool-btn" id="deviceYes" onclick="setDevice(true)">Anomaly Detected</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="pii-banner" style="margin-bottom:1.25rem">
+          🔒 <strong>All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</strong>
+        </div>
+
+        <button class="run-btn" id="runBtn" onclick="runScorer()">⟶ Score Risk</button>
+      </div><!-- /col-left -->
+
+      <!-- RIGHT: Results -->
+      <div class="col-right">
+
+        <!-- Pre-run placeholder -->
+        <div id="preRunPlaceholder" class="panel" style="text-align:center;padding:4rem 2rem">
+          <div style="font-size:2.5rem;margin-bottom:1rem;opacity:.2">◈</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--bright);margin-bottom:.5rem" id="placeholderTitle">Enter the 7 identity signals</div>
+          <div style="font-size:.76rem;color:var(--body);max-width:320px;margin:0 auto" id="placeholderDesc">Composite score, risk tier, signal breakdown, and CIP enhancement recommendations will appear here.</div>
+        </div>
+
+        <!-- Results -->
+        <div id="resultsPanel" class="results-panel">
+
+          <!-- Lifecycle banner — always at top per spec -->
+          <div class="lifecycle-banner">
+            <strong>⏱ Pre-application identity check</strong> &nbsp;·&nbsp; Evaluate before a credit or account decision — not at transaction time. For transaction-level fraud scoring use <a href="../tools/04-fraud-score-simulator.html" style="color:var(--teal);border-bottom:1px solid rgba(20,184,166,.3)">T04 Fraud Score Simulator</a>; for post-event investigation use <a href="../tools/80-fraud-investigation-lab.html" style="color:var(--teal);border-bottom:1px solid rgba(20,184,166,.3)">T80 Fraud Investigation Lab</a>.
+          </div>
+
+          <!-- Score dial + tier badge -->
+          <div class="panel">
+            <div class="panel-label">Composite Risk Score</div>
+            <div class="dial-wrap">
+              <!-- SVG dial -->
+              <svg class="dial-svg" width="110" height="110" viewBox="0 0 110 110">
+                <!-- Background arc -->
+                <path d="M 55 95 m -40 0 a 40 40 0 1 1 80 0" fill="none" stroke="var(--border)" stroke-width="8" stroke-linecap="round"/>
+                <!-- Score arc -->
+                <path id="dialArc" d="M 55 95 m -40 0 a 40 40 0 1 1 80 0" fill="none" stroke="var(--red)" stroke-width="8" stroke-linecap="round"
+                  stroke-dasharray="188" stroke-dashoffset="188" style="transition:stroke-dashoffset .9s ease,stroke .3s"/>
+                <!-- Score text -->
+                <text id="dialText" x="55" y="72" text-anchor="middle" font-family="DM Serif Display,serif" font-size="28" fill="var(--white)">—</text>
+                <text x="55" y="86" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7" fill="var(--muted)" letter-spacing="1">/ 100</text>
+              </svg>
+              <div class="dial-info">
+                <div id="tierBadge" style="margin-bottom:.65rem"></div>
+                <div class="dial-sub" id="dialSub">Composite score across 6 weighted dimensions</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Signal breakdown table -->
+          <div class="panel" style="padding:0;overflow:hidden">
+            <div style="padding:.85rem 1.25rem;border-bottom:1px solid var(--border)">
+              <div class="panel-label" style="margin-bottom:0">Signal Breakdown</div>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="signal-table">
+                <thead>
+                  <tr>
+                    <th>Signal</th>
+                    <th>Your Input</th>
+                    <th>Weight</th>
+                    <th>Contribution</th>
+                    <th>Flag</th>
+                  </tr>
+                </thead>
+                <tbody id="signalTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- CIP enhancement steps -->
+          <div class="panel">
+            <div class="panel-label">CIP Enhancement Recommendations</div>
+            <div id="cipSteps" class="cip-list"></div>
+          </div>
+
+          <!-- Export row -->
+          <div class="results-export-row">
+            <button class="btn btn-ghost" id="mdExportBtn" onclick="exportMarkdown()">
+              ⬇ Export Markdown
+              <span class="btn-subtitle">human-readable</span>
+            </button>
+            <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()">
+              {} Export Policy Mandate
+              <span class="btn-subtitle">API · audit trail</span>
+            </button>
+          </div>
+
+        </div><!-- /resultsPanel -->
+      </div><!-- /col-right -->
+    </div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<!-- Footer -->
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/fraud-risk-hub.html"><span data-i18n="footer.hub_fraud_risk">Fraud Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────
+   REGULATORY CONST BLOCK
+   Source: FRB SR 2022 · FinCEN FIN-2021-A003 · CFPB 2023-FR-0090
+   Weights modelled on FRB SR 2022 synthetic identity guidance
+───────────────────────────────────────────── */
+const SYNTH_ID_WEIGHTS = {
+  ssn_age_consistency: 0.25,
+  credit_file_age:     0.20,
+  address_tenure:      0.15,
+  account_velocity:    0.20,
+  phone_age:           0.12,
+  device_anomaly:      0.08
+};
+
+// Risk tier thresholds (composite 0–100)
+const SYNTH_ID_THRESHOLDS = { low: 25, moderate: 55, high: 80 };
+
+const REGULATORY_REFS = ['FRB SR 2022', 'FinCEN FIN-2021-A003', 'CFPB 2023-FR-0090'];
+
+const CURRENT_YEAR = 2026;
+
+/* ─── State ─── */
+let deviceAnomaly = false;
+let lastResult = null;
+
+/* ─── Device toggle ─── */
+function setDevice(val) {
+  deviceAnomaly = val;
+  document.getElementById('deviceNo').className = 'bool-btn' + (!val ? ' active-no' : '');
+  document.getElementById('deviceYes').className = 'bool-btn' + (val ? ' active-yes' : '');
+}
+
+/* ─── Main scoring function (callable by MCP agent) ─── */
+function scoreSyntheticIdentityFraudRisk(inputs) {
+  const { ssn_issue_year, applicant_age, credit_file_age_months, address_tenure_months,
+          new_account_velocity_90d, phone_age_months, device_anomaly_flag } = inputs;
+
+  const signals = [];
+  let totalScore = 0;
+
+  // ── 1. SSN Age Consistency (weight 0.25, max 25 pts) ──────────────────
+  // Expected birth year; SSN should be issued close to birth
+  const birthYear = CURRENT_YEAR - applicant_age;
+  const ssnAgeDelta = ssn_issue_year - birthYear; // years after birth SSN was issued
+  let ssnRaw = 0; // 0–100 component score (higher = more suspicious)
+  let ssnFlag = 'Normal';
+
+  if (ssnAgeDelta < 0) {
+    // SSN issued before applicant was born — impossible, very suspicious
+    ssnRaw = 100; ssnFlag = 'Impossible — SSN predates birth';
+  } else if (ssnAgeDelta <= 2) {
+    ssnRaw = 0; ssnFlag = 'Consistent — issued near birth';
+  } else if (ssnAgeDelta <= 10) {
+    ssnRaw = 30; ssnFlag = 'Moderate — issued in childhood';
+  } else if (ssnAgeDelta <= 18) {
+    ssnRaw = 65; ssnFlag = 'Elevated — issued in late childhood';
+  } else {
+    ssnRaw = 100; ssnFlag = 'High — issued in adulthood (strong synthetic indicator)';
+  }
+  const ssnContrib = ssnRaw * SYNTH_ID_WEIGHTS.ssn_age_consistency;
+  totalScore += ssnContrib;
+  signals.push({ dim: 'SSN Age Consistency', weight: SYNTH_ID_WEIGHTS.ssn_age_consistency, rawScore: ssnRaw, contrib: ssnContrib, input: `${ssn_issue_year} (${ssnAgeDelta >= 0 ? '+' : ''}${ssnAgeDelta}y from birth)`, flag: ssnFlag });
+
+  // ── 2. Credit File Age (weight 0.20, max 20 pts) ──────────────────────
+  let cfRaw = 0; let cfFlag = 'Normal';
+  if (credit_file_age_months < 6) { cfRaw = 100; cfFlag = 'Thin file — <6 months (strong indicator)'; }
+  else if (credit_file_age_months < 12) { cfRaw = 80; cfFlag = 'Thin file — <12 months'; }
+  else if (credit_file_age_months < 24) { cfRaw = 55; cfFlag = 'Thin file — <24 months'; }
+  else if (credit_file_age_months < 48) { cfRaw = 15; cfFlag = 'Established — 2–4 years'; }
+  else { cfRaw = 0; cfFlag = 'Established — >4 years'; }
+  const cfContrib = cfRaw * SYNTH_ID_WEIGHTS.credit_file_age;
+  totalScore += cfContrib;
+  signals.push({ dim: 'Credit File Age', weight: SYNTH_ID_WEIGHTS.credit_file_age, rawScore: cfRaw, contrib: cfContrib, input: `${credit_file_age_months} months`, flag: cfFlag });
+
+  // ── 3. Address Tenure (weight 0.15, max 15 pts) ───────────────────────
+  let atRaw = 0; let atFlag = 'Normal';
+  if (address_tenure_months < 1) { atRaw = 100; atFlag = 'Very new — <1 month'; }
+  else if (address_tenure_months < 3) { atRaw = 80; atFlag = 'New — <3 months'; }
+  else if (address_tenure_months < 12) { atRaw = 45; atFlag = 'Recent — <12 months'; }
+  else if (address_tenure_months < 24) { atRaw = 15; atFlag = 'Moderate — 1–2 years'; }
+  else { atRaw = 0; atFlag = 'Established — >2 years'; }
+  const atContrib = atRaw * SYNTH_ID_WEIGHTS.address_tenure;
+  totalScore += atContrib;
+  signals.push({ dim: 'Address Tenure', weight: SYNTH_ID_WEIGHTS.address_tenure, rawScore: atRaw, contrib: atContrib, input: `${address_tenure_months} months`, flag: atFlag });
+
+  // ── 4. Account Velocity 90d (weight 0.20, max 20 pts) ────────────────
+  let avRaw = 0; let avFlag = 'Normal';
+  if (new_account_velocity_90d === 0) { avRaw = 0; avFlag = 'Normal — no new accounts'; }
+  else if (new_account_velocity_90d === 1) { avRaw = 10; avFlag = 'Low — 1 new account'; }
+  else if (new_account_velocity_90d === 2) { avRaw = 35; avFlag = 'Moderate — 2 new accounts'; }
+  else if (new_account_velocity_90d <= 4) { avRaw = 70; avFlag = 'High — credit bust-out pattern'; }
+  else { avRaw = 100; avFlag = 'Very High — strong bust-out / synthetic indicator'; }
+  const avContrib = avRaw * SYNTH_ID_WEIGHTS.account_velocity;
+  totalScore += avContrib;
+  signals.push({ dim: 'Account Velocity (90d)', weight: SYNTH_ID_WEIGHTS.account_velocity, rawScore: avRaw, contrib: avContrib, input: `${new_account_velocity_90d} accounts`, flag: avFlag });
+
+  // ── 5. Phone Age (weight 0.12, max 12 pts) ───────────────────────────
+  let paRaw = 0; let paFlag = 'Normal';
+  if (phone_age_months < 1) { paRaw = 100; paFlag = 'Very new — <1 month (SIM swap risk)'; }
+  else if (phone_age_months < 3) { paRaw = 80; paFlag = 'New — <3 months'; }
+  else if (phone_age_months < 12) { paRaw = 35; paFlag = 'Moderate — <12 months'; }
+  else { paRaw = 0; paFlag = 'Established — >12 months'; }
+  const paContrib = paRaw * SYNTH_ID_WEIGHTS.phone_age;
+  totalScore += paContrib;
+  signals.push({ dim: 'Phone Number Age', weight: SYNTH_ID_WEIGHTS.phone_age, rawScore: paRaw, contrib: paContrib, input: `${phone_age_months} months`, flag: paFlag });
+
+  // ── 6. Device Anomaly (weight 0.08, max 8 pts) ───────────────────────
+  const daRaw = device_anomaly_flag ? 100 : 0;
+  const daContrib = daRaw * SYNTH_ID_WEIGHTS.device_anomaly;
+  totalScore += daContrib;
+  signals.push({ dim: 'Device Fingerprint Anomaly', weight: SYNTH_ID_WEIGHTS.device_anomaly, rawScore: daRaw, contrib: daContrib, input: device_anomaly_flag ? 'Anomaly detected' : 'No anomaly', flag: device_anomaly_flag ? 'Anomaly flagged' : 'Normal' });
+
+  const score = Math.min(100, Math.round(totalScore));
+  const tier = score >= SYNTH_ID_THRESHOLDS.high ? 'Reject'
+    : score >= SYNTH_ID_THRESHOLDS.moderate ? 'High'
+    : score >= SYNTH_ID_THRESHOLDS.low ? 'Moderate'
+    : 'Low';
+
+  const cipSteps = buildCIPSteps(tier, signals);
+
+  return { score, tier, signals, cipSteps, inputs };
+}
+
+function buildCIPSteps(tier, signals) {
+  const steps = [];
+  const highSignals = signals.filter(s => s.rawScore >= 65);
+
+  if (tier === 'Low') {
+    steps.push('Proceed with standard CIP identity verification per 31 CFR 1020.220.');
+    steps.push('Retain identity document copies and applicant attestations for regulatory review.');
+  }
+
+  if (tier === 'Moderate') {
+    steps.push('Perform enhanced CIP — require government-issued photo ID with in-person or video-based liveness verification.');
+    steps.push('Cross-reference provided address against USPS NCOA database to confirm address continuity.');
+    if (signals.find(s => s.dim === 'Credit File Age' && s.rawScore >= 55)) {
+      steps.push('Thin file detected — require supplemental documentation (utility bills, rental history) to corroborate identity tenure.');
+    }
+    steps.push('Document enhanced due diligence rationale in the applicant file per FinCEN FIN-2021-A003 guidance.');
+  }
+
+  if (tier === 'High') {
+    steps.push('Place application on hold — initiate enhanced synthetic identity review workflow.');
+    steps.push('Require out-of-wallet knowledge-based authentication (KBA) questions that cannot be answered from synthetic profile data.');
+    steps.push('Conduct manual SSN tracing via SSNVS or e-verify to confirm SSN issuance history.');
+    steps.push('Perform velocity check across consortium data (e.g. LexisNexis InstantID, TransUnion TLOxp) for multi-bureau thin file correlation.');
+    steps.push('Document all findings and escalate to fraud operations team before any approval decision.');
+  }
+
+  if (tier === 'Reject') {
+    steps.push('Decline application — composite risk score meets or exceeds rejection threshold per internal credit policy.');
+    steps.push('File suspicious activity observation with fraud operations team. Do not notify applicant of specific rejection reason beyond standard adverse action notice.');
+    steps.push('Evaluate whether a Suspicious Activity Report (SAR) is warranted under 31 CFR 1020.320 if there are clear indicators of intentional fraud.');
+    steps.push('Block associated device fingerprint, IP address, and phone number from future application attempts.');
+    steps.push('Retain all application data for 5 years per BSA recordkeeping requirements.');
+  }
+
+  // Signal-specific additions
+  if (signals.find(s => s.dim === 'SSN Age Consistency' && s.rawScore >= 65)) {
+    steps.push('SSN chronological inconsistency detected — verify SSN issuance via SSA SSNVS. SSNs issued significantly after birth require documented explanation.');
+  }
+  if (signals.find(s => s.dim === 'Account Velocity (90d)' && s.rawScore >= 70)) {
+    steps.push('High account velocity at address — check consortium velocity feeds for credit bust-out ring participation.');
+  }
+  if (signals.find(s => s.dim === 'Device Fingerprint Anomaly' && s.rawScore > 0)) {
+    steps.push('Device anomaly flagged — investigate device intelligence attributes (emulator, VPN, spoofed OS) before proceeding.');
+  }
+
+  return steps;
+}
+
+/* ─── Run scorer ─── */
+function runScorer() {
+  // Validate inputs
+  const ssnIssueYear = parseInt(document.getElementById('ssnIssueYear').value);
+  const applicantAge = parseInt(document.getElementById('applicantAge').value);
+  const creditFileAge = parseInt(document.getElementById('creditFileAge').value);
+  const addressTenure = parseInt(document.getElementById('addressTenure').value);
+  const accountVelocity = parseInt(document.getElementById('accountVelocity').value);
+  const phoneAge = parseInt(document.getElementById('phoneAge').value);
+
+  const errors = [];
+  if (isNaN(ssnIssueYear) || ssnIssueYear < 1936 || ssnIssueYear > CURRENT_YEAR) errors.push('SSN Issue Year (1936–2026)');
+  if (isNaN(applicantAge) || applicantAge < 18 || applicantAge > 100) errors.push('Applicant Age (18–100)');
+  if (isNaN(creditFileAge) || creditFileAge < 0) errors.push('Credit File Age (≥0)');
+  if (isNaN(addressTenure) || addressTenure < 0) errors.push('Address Tenure (≥0)');
+  if (isNaN(accountVelocity) || accountVelocity < 0) errors.push('Account Velocity (≥0)');
+  if (isNaN(phoneAge) || phoneAge < 0) errors.push('Phone Age (≥0)');
+
+  if (errors.length > 0) {
+    showToast('Please fix: ' + errors.join(', '));
+    return;
+  }
+
+  const inputs = {
+    ssn_issue_year: ssnIssueYear,
+    applicant_age: applicantAge,
+    credit_file_age_months: creditFileAge,
+    address_tenure_months: addressTenure,
+    new_account_velocity_90d: accountVelocity,
+    phone_age_months: phoneAge,
+    device_anomaly_flag: deviceAnomaly
+  };
+
+  lastResult = scoreSyntheticIdentityFraudRisk(inputs);
+  renderResults(lastResult);
+}
+
+/* ─── Render results ─── */
+function renderResults(r) {
+  document.getElementById('preRunPlaceholder').style.display = 'none';
+  document.getElementById('resultsPanel').classList.add('visible');
+
+  // Score dial
+  const arcEl = document.getElementById('dialArc');
+  const totalArcLen = 188;
+  const filled = (r.score / 100) * totalArcLen;
+  arcEl.style.strokeDashoffset = totalArcLen - filled;
+
+  const dialColor = r.tier === 'Low' ? 'var(--green)'
+    : r.tier === 'Moderate' ? 'var(--warn)'
+    : r.tier === 'High' ? 'var(--red)'
+    : '#ff1744';
+  arcEl.style.stroke = dialColor;
+  document.getElementById('dialText').textContent = r.score;
+  document.getElementById('dialText').style.fill = dialColor;
+
+  // Tier badge
+  const tierClass = r.tier === 'Low' ? 'tier-low' : r.tier === 'Moderate' ? 'tier-moderate' : r.tier === 'High' ? 'tier-high' : 'tier-reject';
+  const tierIcon = r.tier === 'Low' ? '✓' : r.tier === 'Moderate' ? '⚠' : r.tier === 'High' ? '!' : '✕';
+  document.getElementById('tierBadge').innerHTML = `<div class="tier-badge ${tierClass}">${tierIcon} ${r.tier} Risk</div>`;
+
+  // Signal table
+  const tbody = document.getElementById('signalTableBody');
+  tbody.innerHTML = '';
+  r.signals.forEach(sig => {
+    const pct = sig.rawScore;
+    const barColor = pct >= 65 ? 'var(--red)' : pct >= 35 ? 'var(--warn)' : 'var(--green)';
+    const flagColor = pct >= 65 ? 'var(--red)' : pct >= 35 ? 'var(--warn)' : 'var(--green)';
+    const flagBg = pct >= 65 ? 'var(--red-dim)' : pct >= 35 ? 'var(--warn-dim)' : 'var(--green-dim)';
+    tbody.innerHTML += `<tr>
+      <td>${sig.dim}</td>
+      <td style="font-family:JetBrains Mono,monospace;font-size:.62rem;color:var(--body)">${sig.input}</td>
+      <td style="font-family:JetBrains Mono,monospace;font-size:.6rem;color:var(--muted)">${(sig.weight * 100).toFixed(0)}%</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <div class="contrib-bar-bg"><div class="contrib-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
+          <span style="font-family:JetBrains Mono,monospace;font-size:.58rem;color:${barColor}">${sig.contrib.toFixed(1)}</span>
+        </div>
+      </td>
+      <td><span class="flag-chip" style="color:${flagColor};background:${flagBg}">${sig.flag}</span></td>
+    </tr>`;
+  });
+
+  // CIP steps
+  const cipEl = document.getElementById('cipSteps');
+  cipEl.innerHTML = r.cipSteps.map((step, i) =>
+    `<div class="cip-item"><span class="cip-bullet">→</span><span>${step}</span></div>`
+  ).join('');
+
+  // Enable exports
+  document.getElementById('ap2Btn').disabled = false;
+  document.getElementById('ap2Btn').classList.add('ready');
+
+  if (window.innerWidth < 900) {
+    document.getElementById('resultsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+/* ─── AP2 Export ─── */
+function exportAP2() {
+  if (!lastResult) return;
+  const now = new Date();
+  const payload = {
+    ap2_version: '1.0',
+    mandate_id: generateUUID(),
+    issued_at: now.toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: 'synthetic-identity-fraud-scorer',
+    tool_version: '1.0.0',
+    mandate_type: 'risk_parameter',
+    jurisdiction: ['US'],
+    regulatory_frameworks: ['FRB SR 2022', 'FinCEN FIN-2021-A003', 'CFPB 2023-FR-0090', '31 CFR 1020.220'],
+    payload: {
+      composite_score: lastResult.score,
+      risk_tier: lastResult.tier,
+      signal_weights: SYNTH_ID_WEIGHTS,
+      thresholds: SYNTH_ID_THRESHOLDS,
+      signal_results: lastResult.signals.map(s => ({
+        dimension: s.dim,
+        weight: s.weight,
+        raw_score: s.rawScore,
+        contribution: parseFloat(s.contrib.toFixed(2)),
+        input_value: s.input,
+        flag: s.flag
+      })),
+      cip_enhancement_steps: lastResult.cipSteps,
+      inputs: lastResult.inputs
+    },
+    summary: `Synthetic identity risk score: ${lastResult.score}/100 — tier: ${lastResult.tier}. ${lastResult.cipSteps.length} CIP enhancement step(s) recommended. Evaluated against FRB SR 2022 guidance.`,
+    agent_instructions: [
+      `Risk tier is ${lastResult.tier} with composite score ${lastResult.score}/100.`,
+      lastResult.tier === 'Reject'
+        ? 'Decline application immediately. Evaluate SAR filing under 31 CFR 1020.320. Retain all data for 5 years.'
+        : lastResult.tier === 'High'
+        ? 'Place application on hold. Initiate enhanced synthetic identity review. Require SSN verification via SSNVS before any approval.'
+        : lastResult.tier === 'Moderate'
+        ? 'Perform enhanced CIP. Require photo ID liveness check and NCOA address corroboration before proceeding.'
+        : 'Proceed with standard CIP per 31 CFR 1020.220. Retain documentation.',
+      ...lastResult.cipSteps.slice(0, 3).map(s => s)
+    ],
+    valid_from: now.toISOString(),
+    valid_until: new Date(now.getTime() + 90 * 86400000).toISOString(),
+    last_reviewed: '2026-05-11',
+    source_tool_inputs: lastResult.inputs,
+    regulatory_citations: [
+      'FRB SR 2022 — Synthetic Identity Fraud',
+      'FinCEN FIN-2021-A003 — Synthetic Identity Fraud Patterns',
+      'CFPB 2023-FR-0090',
+      '31 CFR 1020.220 — Customer Identification Program',
+      '31 CFR 1020.320 — Reports of Suspicious Transactions'
+    ],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+
+  const required = ['ap2_version','mandate_id','issued_at','issued_by','tool_id','tool_version','mandate_type','jurisdiction','payload','audit_metadata'];
+  const missing = required.filter(f => !payload[f]);
+  if (missing.length > 0) { showToast('Policy Mandate error: missing ' + missing.join(', ')); return; }
+
+  const ts = now.toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  AP2Schema.validate(payload);
+  triggerDownload(JSON.stringify(payload, null, 2), `synthetic-identity-fraud-scorer_${ts}.policy.json`, 'application/json');
+  showToast('Policy Mandate JSON exported.', true);
+}
+
+function exportMarkdown() {
+  if (!lastResult) return;
+  const r = lastResult;
+  let md = `# Synthetic Identity Fraud Risk Assessment\n`;
+  md += `_Generated by AINumbers.co T321 · ${new Date().toISOString()}_\n\n`;
+  md += `## Risk Score: ${r.score}/100 — Tier: ${r.tier}\n\n`;
+  md += `## Signal Breakdown\n\n`;
+  md += `| Signal | Input | Weight | Contribution | Flag |\n|--------|-------|--------|-------------|------|\n`;
+  r.signals.forEach(s => { md += `| ${s.dim} | ${s.input} | ${(s.weight*100).toFixed(0)}% | ${s.contrib.toFixed(1)} | ${s.flag} |\n`; });
+  md += `\n## CIP Enhancement Steps\n\n`;
+  r.cipSteps.forEach((step, i) => { md += `${i+1}. ${step}\n`; });
+  md += `\n---\n_FRB SR 2022 · FinCEN FIN-2021-A003 · ainumbers.co T321_\n`;
+  const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  triggerDownload(md, `synthetic-identity-fraud-scorer_${ts}.md`, 'text/markdown');
+  showToast('Markdown exported.', true);
+}
+
+/* ─── Utilities ─── */
+
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+function triggerDownload(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+let toastTimer;
+function showToast(msg, isOk) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isOk ? ' ok' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 2800);
+}
+
+/* ─── i18n Stage 2 ─── */
+const TRANSLATIONS = {
+  en: { eyebrow: 'T321 · Cat-03 · Fraud & Risk · Synthetic Identity · Pre-Application', hero_title: 'Synthetic Identity Fraud Risk Scorer', hero_desc: 'Multi-signal synthetic identity risk scoring across 7 structural identity attributes — evaluated before a credit or account decision. Composite score with signal breakdown, CIP enhancement recommendations, and Policy Mandate. FRB SR 2022 · FinCEN FIN-2021-A003. No PII required.', nav_cta: 'All Tools', run_btn: '⟶ Score Risk', lang_dir: 'ltr' 
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-03 Hub',
+  },
+  es: { eyebrow: 'T321 · Cat-03 · Fraude y Riesgo · Identidad Sintética · Pre-Solicitud', hero_title: 'Calificador de Riesgo de Fraude de Identidad Sintética', hero_desc: 'Puntuación de riesgo de identidad sintética en 7 atributos estructurales de identidad antes de una decisión de crédito o cuenta.', nav_cta: 'Todas las herramientas', run_btn: '⟶ Calificar Riesgo', lang_dir: 'ltr' 
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-03',
+  },
+  fr: { eyebrow: 'T321 · Cat-03 · Fraude et Risque · Identité Synthétique · Pré-Application', hero_title: 'Évaluateur de Risque de Fraude d\'Identité Synthétique', hero_desc: 'Notation du risque d\'identité synthétique sur 7 attributs d\'identité structurels avant une décision de crédit ou de compte.', nav_cta: 'Tous les outils', run_btn: '⟶ Évaluer le Risque', lang_dir: 'ltr' 
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-03',
+  },
+  ar: { eyebrow: 'T321 · القط-03 · الاحتيال والمخاطر · الهوية الاصطناعية · ما قبل الطلب', hero_title: 'مُقيِّم مخاطر احتيال الهوية الاصطناعية', hero_desc: 'تسجيل متعدد الإشارات لمخاطر الهوية الاصطناعية عبر 7 سمات هوية هيكلية قبل قرار ائتماني أو حساب.', nav_cta: 'جميع الأدوات', run_btn: '⟶ تقييم المخاطر', lang_dir: 'rtl' 
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-03',
+  },
+  pt: { eyebrow: 'T321 · Cat-03 · Fraude e Risco · Identidade Sintética · Pré-Solicitação', hero_title: 'Avaliador de Risco de Fraude de Identidade Sintética', hero_desc: 'Pontuação de risco de identidade sintética em 7 atributos de identidade estruturais antes de uma decisão de crédito ou conta.', nav_cta: 'Todas as ferramentas', run_btn: '⟶ Avaliar Risco', lang_dir: 'ltr' 
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-03',
+  },
+  zh: { eyebrow: 'T321 · 类别-03 · 欺诈与风险 · 合成身份 · 申请前', hero_title: '合成身份欺诈风险评分器', hero_desc: '在信用或账户决策前，对7个结构性身份属性进行多信号合成身份风险评分。包含综合评分、信号分解和CIP增强建议。', nav_cta: '所有工具', run_btn: '⟶ 评估风险', lang_dir: 'ltr' 
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-03 中心',
+  }
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`);
+  if (btn) btn.classList.add('active');
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  document.documentElement.dir = t.lang_dir || 'ltr';
+  document.body.dir = t.lang_dir || 'ltr';
+  const ap = (id, key) => { const e = document.getElementById(id); if (e && t[key]) e.textContent = t[key]; };
+  ap('heroEyebrow','eyebrow'); ap('heroTitle','hero_title'); ap('heroDesc','hero_desc'); ap('navCta','nav_cta'); ap('runBtn','run_btn');
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function() { try { const s = sessionStorage.getItem('ain_lang'); if (s && TRANSLATIONS[s]) setLang(s); } catch(e) {} })();
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "synthetic-identity-fraud-scorer", "version": "1.0.0", "title": "Synthetic Identity Fraud Risk Scorer", "description": "Pre-application synthetic identity risk scoring across 7 structural identity attributes (SSN age consistency, credit file age, address tenure, account velocity, phone age, device anomaly). Returns composite score, risk tier, signal breakdown, and CIP enhancement steps. FRB SR 2022 · FinCEN FIN-2021-A003. Client-side. Zero PII.", "category": "cat-3", "tags": ["synthetic-identity", "fraud", "risk-scoring", "CIP", "KYC", "FRB-SR-2022", "FinCEN", "zero-pii"], "audience": ["fraud", "compliance", "credit-risk"], "input_schema": {"type": "object", "properties": {"ssn_issue_year": {"type": "integer", "minimum": 1936, "maximum": 2026}, "applicant_age": {"type": "integer", "minimum": 18, "maximum": 100}, "credit_file_age_months": {"type": "integer", "minimum": 0}, "address_tenure_months": {"type": "integer", "minimum": 0}, "new_account_velocity_90d": {"type": "integer", "minimum": 0}, "phone_age_months": {"type": "integer", "minimum": 0}, "device_anomaly_flag": {"type": "boolean"}}, "required": ["ssn_issue_year", "applicant_age", "credit_file_age_months", "address_tenure_months", "new_account_velocity_90d", "phone_age_months", "device_anomaly_flag"]}, "output_schema": {"type": "object", "properties": {"score": {"type": "integer", "minimum": 0, "maximum": 100}, "tier": {"type": "string", "enum": ["Low", "Moderate", "High", "Reject"]}, "signals": {"type": "array"}, "cipSteps": {"type": "array", "items": {"type": "string"}}}}, "mcp_tool_definition": {"name": "score_synthetic_identity_fraud_risk", "description": "Scores synthetic identity fraud risk across 7 structural identity attributes before a credit or account decision. Returns composite score (0-100), risk tier (Low/Moderate/High/Reject), per-signal breakdown with contribution bars, and CIP enhancement steps calibrated to FRB SR 2022 guidance.", "inputSchema": {"type": "object", "properties": {"ssn_issue_year": {"type": "integer"}, "applicant_age": {"type": "integer"}, "credit_file_age_months": {"type": "integer"}, "address_tenure_months": {"type": "integer"}, "new_account_velocity_90d": {"type": "integer"}, "phone_age_months": {"type": "integer"}, "device_anomaly_flag": {"type": "boolean"}}, "required": ["ssn_issue_year", "applicant_age", "credit_file_age_months", "address_tenure_months", "new_account_velocity_90d", "phone_age_months", "device_anomaly_flag"]}}, "execution": {"type": "browser-javascript", "entry": "tools/321-synthetic-identity-fraud-scorer.html", "function_name": "scoreSyntheticIdentityFraudRisk", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

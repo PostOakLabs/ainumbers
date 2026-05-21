@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>T224 · NACHA ACH Rule Compliance Checker · AINumbers.co</title>
+<meta name="description" content="Check ACH programme configurations against NACHA Operating Rules §2–§9. March 2026 Fraud Monitoring rules embedded. Return code reference, compliance status per section, Policy Mandate JSON. Client-side. Zero PII.">
+<link rel="canonical" href="https://ainumbers.co/tools/224-nacha-ach-rule-compliance-checker">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"NACHA ACH Rule Compliance Checker","url":"https://ainumbers.co/tools/224-nacha-ach-rule-compliance-checker","description":"Check ACH programme configurations against NACHA Operating Rules §2–§9. March 2026 Fraud Monitoring rules embedded. Return code reference, compliance status per section, Policy Mandate JSON. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* PolicyMandate — full validator (Phase 14); AP2Schema internal name retained */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+};
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%239B72F5'>AI</text></svg>">
+<style>
+/* Edu disclaimer (canonical §9.3) */
+.edu-disclaimer {
+  border: 1px solid var(--warn);
+  border-left: 3px solid var(--warn);
+  background: rgba(245, 158, 11, 0.06);
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  font-size: 0.76rem;
+  color: var(--body);
+  line-height: 1.7;
+  border-radius: var(--radius);
+}
+.edu-disclaimer-label {
+  display: block;
+  color: var(--warn);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px;--accent:var(--purple);--accent-dim:var(--purple-dim)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+.content{max-width:1100px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+[dir="rtl"] .nav-inner,[dir="rtl"] .hero-eyebrow,[dir="rtl"] [dir="rtl"] .lang-inner{justify-content:flex-start}
+[dir="rtl"] .panel-label,[dir="rtl"] .section-rule th,[dir="rtl"] .section-rule td{text-align:right}
+[dir="rtl"] .run-btn{letter-spacing:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--accent);color:var(--accent)}
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--accent)}.logo-co{color:var(--muted);font-size:.8rem}
+
+.hero{padding:3rem 0 1.5rem;position:relative;z-index:1}
+.hero-eyebrow{display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem}
+.tool-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+.hero h1{font-size:clamp(1.75rem,3vw,2.5rem);color:var(--bright);max-width:700px;margin-bottom:.75rem}
+.hero-desc{font-size:.93rem;color:var(--body);max-width:660px;line-height:1.75;margin-bottom:1.25rem}
+
+.last-reviewed-dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;position:relative;z-index:1;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem 1.25rem}
+.form-group{display:flex;flex-direction:column;gap:.4rem}.form-group.full{grid-column:1/-1}
+label{font-size:.78rem;letter-spacing:.04em;color:var(--text);font-family:'JetBrains Mono',monospace}
+select,input[type=number]{background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);padding:.55rem .75rem;border-radius:var(--radius);font-size:.88rem;font-family:'Sora',sans-serif;width:100%;transition:border-color .2s;-webkit-appearance:none;appearance:none}
+select:focus,input:focus{outline:none;border-color:var(--accent)}
+select option{background:var(--bg-3)}.field-hint{font-size:.7rem;color:var(--muted);margin-top:.15rem}
+.run-btn{font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bg);background:var(--accent);border:1px solid var(--accent);padding:.55rem 2rem;border-radius:var(--radius);transition:all .2s;margin-top:1.25rem}
+.run-btn:hover{opacity:.88}
+/* Results */
+.results-panel{display:none;position:relative;z-index:1;margin-bottom:1.25rem}
+.results-panel.show{display:block}
+.results-title{font-family:'DM Serif Display',serif;font-size:1.35rem;color:var(--bright);margin-bottom:1.25rem}
+/* Compliance score row */
+.score-row{display:flex;align-items:flex-start;gap:1.25rem;flex-wrap:wrap;margin-bottom:1.25rem}
+.score-cell{display:flex;flex-direction:column;gap:.2rem}
+.score-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.score-value{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+/* Rule section cards */
+.sections-grid{display:flex;flex-direction:column;gap:.65rem;margin-bottom:1.5rem}
+.section-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.section-header{display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;cursor:pointer;user-select:none;transition:background .15s}
+.section-header:hover{background:var(--bg-3)}
+.section-badge{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;color:var(--bg);padding:.18rem .55rem;border-radius:var(--radius);flex-shrink:0;font-weight:500}
+.badge-pass{background:var(--green)}.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}.badge-fail{background:var(--red)}.badge-na{background:var(--muted)}
+.section-name{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text);flex:1}
+.section-chevron{font-size:.7rem;color:var(--muted);transition:transform .2s;flex-shrink:0}
+.section-card.open .section-chevron{transform:rotate(90deg)}
+.section-body{display:none;padding:.75rem 1rem;border-top:1px solid var(--border)}
+.section-card.open .section-body{display:block}
+.finding-list{list-style:none;display:flex;flex-direction:column;gap:.35rem}
+.finding-list li{font-size:.8rem;color:var(--text);display:flex;align-items:flex-start;gap:.55rem;line-height:1.55}
+.fi{flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:.7rem;margin-top:.12rem}
+.fi-pass{color:var(--green)}.fi-warn{color:var(--warn)}.fi-fail{color:var(--red)}.fi-info{color:var(--body)}
+/* Return codes table */
+.rc-wrap{overflow-x:auto;margin-bottom:1.5rem}
+.rc-search{background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);padding:.45rem .75rem;border-radius:var(--radius);font-size:.82rem;font-family:'Sora',sans-serif;width:100%;margin-bottom:.65rem;transition:border-color .2s}
+.rc-search:focus{outline:none;border-color:var(--accent)}
+.rc-table{width:100%;border-collapse:collapse;font-size:.78rem}
+.rc-table th{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.4rem .65rem;text-align:left;border-bottom:1px solid var(--border)}
+.rc-table td{padding:.45rem .65rem;border-bottom:1px solid var(--border);vertical-align:top}
+.rc-table tr:last-child td{border-bottom:none}
+.rc-code{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--accent);white-space:nowrap}
+.rc-type{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.12rem .4rem;border-radius:var(--radius)}
+.rct-admin{background:var(--teal-dim);color:var(--teal)}.rct-unauth{background:var(--red-dim);color:var(--red)}.rct-other{background:var(--bg-4);color:var(--muted)}
+.rc-row-highlight td{background:rgba(155,114,245,.06)}
+/* Alert */
+.alert{padding:.7rem 1rem;border-radius:var(--radius);font-size:.8rem;color:var(--text);margin-bottom:.75rem;line-height:1.65}
+.alert-warn{background:var(--warn-dim);border:1px solid var(--warn);border-left:3px solid var(--warn)}
+.alert-info{background:var(--accent-dim);border:1px solid var(--accent);border-left:3px solid var(--accent)}
+.alert strong{color:var(--bright);font-weight:500}
+/* Citations */
+.citations{padding-top:.85rem;border-top:1px solid var(--border);margin-top:1rem}
+.cite-head{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.cite-list{list-style:none;display:flex;flex-direction:column;gap:.22rem}
+.cite-list li{font-size:.73rem;color:var(--muted)}.cite-list span{color:var(--body)}
+/* About */
+.about-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;position:relative;z-index:1;margin-bottom:1.25rem}
+.about-body{font-size:.82rem;color:var(--body);line-height:1.75}
+.about-body+.about-body{margin-top:.6rem}
+.about-disclaimer{font-size:.76rem;color:var(--muted);border-top:1px solid var(--border);padding-top:.65rem;margin-top:.75rem}
+/* Footer — T211 pattern */
+.ap2-btn-inner{display:flex;flex-direction:column;gap:.05rem;text-align:left}
+.ap2-btn-label{font-size:.5rem;letter-spacing:.09em;text-transform:uppercase}
+.ap2-btn-sub{font-size:.42rem;color:rgba(34,197,94,.55);text-transform:none;letter-spacing:0;font-weight:300;line-height:1}
+.ap2-icon{font-size:.72rem;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-weight:700}
+.export-toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--green);padding:.7rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--green);z-index:9999;pointer-events:none;display:flex;align-items:center;gap:.5rem;border-radius:var(--radius);box-shadow:0 4px 24px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s}
+.export-toast.show{opacity:1;transform:translateY(0)}
+}
+@media(max-width:680px){.form-grid{grid-template-columns:1fr}.hero h1{font-size:1.6rem}.score-row{flex-direction:column}.rc-table{font-size:.72rem}}
+@media(max-width:480px){.container{padding:0 1rem}}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo"><svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--purple)" opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".7"/></svg>
+      <div class="logo-text">
+    <div class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></div>
+  </div></a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/payment-scheme-network-hub.html">Payment Scheme Hub</a><span class="nav-sep">/</span><span>T-224</span></div>
+
+    <a href="../guides/payment-scheme-network-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="content">
+<section class="hero">
+  <div class="hero-eyebrow"><span class="tool-eyebrow">T224 · Cat-19 · Payment Schemes · NACHA / ACH</span></div>
+  <h1 class="tool-title">NACHA ACH Rule Compliance Checker</h1>
+  <p class="hero-desc">Check your ACH programme configuration against NACHA Operating Rules §2–§9. March 2026 Fraud Monitoring rules embedded. Outputs compliance status per section, return code reference, Markdown memo, and compliance Policy Mandate JSON. Client-side. Zero PII.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-privacy"><span data-i18n="hero.badge.privacy">Zero PII · Client-side</span></span>
+    <span class="hero-badge badge-warn"><span data-i18n="hero.badge.warn">Avoids NACHA fines (up to $500K per breach) under March 2026 fraud rules.</span></span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+  
+  <p class="pii-notice" data-i18n="pii_notice">
+  <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+</p>
+  <!-- Edu disclaimer (canonical §9.3) -->
+  <div class="edu-disclaimer">
+    <strong class="edu-disclaimer-label" data-i18n="disclaimer.label">Educational Use Only</strong>
+    <span data-i18n="disclaimer.body">This tool provides a self-assessment / educational framework for internal planning purposes only. It is not a regulatory audit, legal advice, or a substitute for a formal compliance review by a qualified advisor. Verify all interpretations against the official source text and applicable RTS/ITS/guidance published by the relevant authority.</span>
+  </div>
+
+</section>
+
+<!-- Input panel -->
+<div class="panel" id="inputPanel">
+  <div class="panel-label" data-i18n="panel_config">Programme Configuration</div>
+  <div class="form-grid">
+    <div class="form-group">
+      <label data-i18n="label_org_role" for="orgRole">Organisation Role</label>
+      <select id="orgRole">
+        <option value="odfi">ODFI — Originating Depository Financial Institution</option>
+        <option value="rdfi">RDFI — Receiving Depository Financial Institution</option>
+        <option value="both">Both ODFI and RDFI</option>
+        <option value="tps">Third-Party Sender (TPS)</option>
+        <option value="tpsp">Third-Party Service Provider (TPSP)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label data-i18n="label_entry_class" for="entryClass">Primary SEC / Entry Class Code</label>
+      <select id="entryClass">
+        <option value="PPD">PPD — Prearranged Payment &amp; Deposit (consumer)</option>
+        <option value="CCD">CCD — Corporate Credit or Debit</option>
+        <option value="WEB">WEB — Internet-Initiated Entry (consumer debit)</option>
+        <option value="TEL">TEL — Telephone-Initiated Entry (consumer)</option>
+        <option value="IAT">IAT — International ACH Transaction</option>
+        <option value="CTX">CTX — Corporate Trade Exchange</option>
+        <option value="RCK">RCK — Re-presented Check Entry</option>
+        <option value="POP">POP — Point-of-Purchase Entry</option>
+        <option value="ARC">ARC — Accounts Receivable Entry</option>
+        <option value="BOC">BOC — Back Office Conversion Entry</option>
+        <option value="CIE">CIE — Customer-Initiated Entry</option>
+        <option value="MTE">MTE — Machine Transfer Entry</option>
+        <option value="POS">POS — Point of Sale</option>
+        <option value="TRX">TRX — Consumer-Initiated ACH Debits</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label data-i18n="label_account_type" for="accountType">Account / Receiver Type</label>
+      <select id="accountType">
+        <option value="consumer">Consumer (personal)</option>
+        <option value="corporate">Corporate / Business</option>
+        <option value="both">Both consumer and corporate</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label data-i18n="label_monthly_volume" for="monthlyVolume">Monthly Entry Volume (approx.)</label>
+      <select id="monthlyVolume">
+        <option value="under1k">Under 1,000 entries</option>
+        <option value="1k-10k">1,000 – 10,000 entries</option>
+        <option value="10k-100k">10,000 – 100,000 entries</option>
+        <option value="100k-1m">100,000 – 1,000,000 entries</option>
+        <option value="over1m">Over 1,000,000 entries</option>
+      </select>
+      <span class="field-hint">Used to assess return rate threshold monitoring requirements</span>
+    </div>
+    <div class="form-group">
+      <label data-i18n="label_avg_amount" for="avgAmount">Average Entry Amount (USD)</label>
+      <input type="number" id="avgAmount" placeholder="e.g. 1500" min="0">
+      <span class="field-hint">Relevant to Same-Day ACH $1M per-entry limit</span>
+    </div>
+    <div class="form-group">
+      <label data-i18n="label_uses_sda" for="usesSDA">Uses Same-Day ACH (SDA)</label>
+      <select id="usesSDA">
+        <option value="no">No — standard next-day / 2-day settlement only</option>
+        <option value="yes">Yes — same-day settlement used</option>
+        <option value="both">Both SDA and standard settlement</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label data-i18n="label_uses_tps" for="usesTPS">Uses a Third-Party Sender</label>
+      <select id="usesTPS">
+        <option value="no">No — direct ODFI relationship</option>
+        <option value="yes">Yes — originates via a TPS</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label data-i18n="label_web_validation" for="webValidation">Account Validation for WEB Debits</label>
+      <select id="webValidation">
+        <option value="na">Not applicable — no WEB entries originated</option>
+        <option value="avs">Yes — account validation service used (Req §3.3.2(b))</option>
+        <option value="micro">Yes — micro-entry verification process used</option>
+        <option value="none">No — account validation not in place</option>
+      </select>
+      <span class="field-hint">NACHA requires validation for new external accounts used in WEB debits</span>
+    </div>
+    <div class="form-group full">
+      <label data-i18n="label_data_security" for="dataSecurity">Data Security — Account Number Encryption</label>
+      <select id="dataSecurity">
+        <option value="yes">Yes — DFI account numbers encrypted at rest and in transit</option>
+        <option value="partial">Partial — some systems not yet upgraded</option>
+        <option value="no">No — encryption programme not implemented</option>
+      </select>
+      <span class="field-hint">NACHA Supplementing Data Security Requirements (§1.6) — phased deadlines 2023–2026</span>
+    </div>
+  </div>
+  <button class="run-btn" onclick="runCheck()" data-i18n="run_btn">Run Compliance Check →</button>
+</div>
+
+<!-- Results -->
+<div class="results-panel" id="resultsPanel">
+  <div class="panel" style="margin-bottom:1.25rem">
+    <div class="results-title" data-i18n="results_title">Compliance Assessment Results</div>
+    <div id="summaryContent"></div>
+  </div>
+  <div class="panel" style="margin-bottom:1.25rem">
+    <div class="panel-label">Rule Section Findings</div>
+    <div id="sectionsContent"></div>
+  </div>
+  <div class="panel" style="margin-bottom:1.25rem">
+    <div class="panel-label">ACH Return Code Reference</div>
+    <input class="rc-search" id="rcSearch" type="text" placeholder="Search return codes (e.g. R05, unauthorized, insufficient)" oninput="filterRC()">
+    <div class="rc-wrap"><table class="rc-table" id="rcTable">
+      <thead><tr><th>Code</th><th>Description</th><th>Type</th><th>Timeframe</th></tr></thead>
+      <tbody id="rcBody"></tbody>
+    </table></div>
+  </div>
+  <div class="panel" style="margin-bottom:1.25rem">
+    <div class="panel-label">Regulatory Citations</div>
+    <ul class="cite-list">
+      <li><span>[1]</span> NACHA, <em>NACHA Operating Rules &amp; Guidelines 2024</em></li>
+      <li><span>[2]</span> NACHA, <em>March 2026 Rules Amendments — Fraud Monitoring, Return Rate Thresholds</em>, effective March 2026</li>
+      <li><span>[3]</span> NACHA, <em>Supplementing Data Security Requirements</em>, §1.6, phased implementation 2023–2026</li>
+      <li><span>[4]</span> NACHA, <em>WEB Debit Account Validation Rule</em>, §3.3.2(b)</li>
+      <li><span>[5]</span> NACHA, <em>Micro-Entry Rule</em>, effective Sept 2022 (Micro-Entry requirements)</li>
+      <li><span>[6]</span> NACHA, <em>Same-Day ACH Rules</em>, Phase 3 — $1,000,000 per-entry limit effective March 2020</li>
+      <li><span>[7]</span> Federal Reserve, <em>Regulation E: Electronic Fund Transfers</em>, 12 CFR Part 1005</li>
+    </ul>
+  </div>
+</div>
+
+<div class="about-panel">
+  <div class="panel-label" data-i18n="panel_about">About This Tool</div>
+  <p class="about-body">This tool checks ACH programme configurations against NACHA Operating Rules §2–§9, with March 2026 Fraud Monitoring rules embedded. It covers ODFI origination warranties, RDFI posting and return obligations, Third-Party Sender requirements, WEB debit account validation, Same-Day ACH eligibility, and the Supplementing Data Security Requirements (DFI account number encryption).</p>
+  <p class="about-body"><strong style="color:var(--text)">March 2026 rule changes covered:</strong> Updated return rate thresholds (§2.17), enhanced fraud monitoring obligations, Third-Party Sender registration and monitoring requirements, and data security implementation deadline enforcement.</p>
+  <p class="about-disclaimer">⚠ This tool provides compliance guidance only. It does not constitute legal advice and is not a substitute for formal NACHA Operating Rules review by qualified counsel or your ODFI's compliance team. Return rate thresholds and rule sections should be verified against the current NACHA Operating Rules publication. Last Reviewed: 2026-05-09.</p>
+</div>
+</div><!-- /container -->
+
+
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/payment-scheme-network-hub.html"><span data-i18n="footer.hub_payment_scheme_network">Scheme Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+<div class="export-toast" id="exportToast"><span style="font-size:.85rem">✓</span><span id="toastMsg"></span></div>
+<script>
+/* ═══════════════════════════════════════════════════════
+   i18n Stage 2 — EN/ES/FR/AR/PT/ZH
+   Do NOT translate: NACHA, ACH, ODFI, RDFI, TPS, TPSP,
+   SEC codes (PPD, CCD, WEB, TEL, IAT, CTX etc.),
+   SDA, Return codes (R01–R85), Regulation E, §2–§9
+═══════════════════════════════════════════════════════ */
+const TRANSLATIONS={
+en:{ey:"T224 · Cat-19 · Payment Schemes · NACHA / ACH",ht:"NACHA ACH Rule Compliance Checker",hd:"Check your ACH programme configuration against NACHA Operating Rules §2–§9. March 2026 Fraud Monitoring rules embedded. Outputs compliance status per section, return code reference, and Policy Mandate JSON.",pc:"Programme Configuration",ab:"About This Tool",or:"Organisation Role",ec:"Primary SEC / Entry Class Code",at:"Account / Receiver Type",mv:"Monthly Entry Volume",aa:"Average Entry Amount (USD)",us:"Uses Same-Day ACH (SDA)",ut:"Uses a Third-Party Sender",wv:"Account Validation for WEB Debits",ds:"Data Security — Account Number Encryption",rb:"Run Compliance Check →",rt:"Compliance Assessment Results",ea:"Export Policy Mandate",em:"MD",pn:"🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real account or routing numbers — use synthetic inputs only.",na:"All Tools",fb:"🔒 Zero PII \u00a0 📡 No server calls \u00a0 💻 Client-side",dir:"ltr"
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-19 Hub',
+  },
+es:{ey:"T224 · Cat-19 · Esquemas de Pago · NACHA / ACH",ht:"Verificador de Cumplimiento de Reglas NACHA ACH",hd:"Verifique la configuración de su programa ACH según las Reglas Operativas NACHA §2–§9. Reglas de Monitoreo de Fraude de marzo 2026 incluidas.",pc:"Configuración del Programa",ab:"Acerca de Esta Herramienta",or:"Rol de la Organización",ec:"Código SEC / Clase de Entrada Principal",at:"Tipo de Cuenta / Receptor",mv:"Volumen Mensual de Entradas",aa:"Importe Medio por Entrada (USD)",us:"Usa ACH de Mismo Día (SDA)",ut:"Usa un Remitente Tercero",wv:"Validación de Cuenta para Débitos WEB",ds:"Seguridad de Datos — Cifrado de Números de Cuenta",rb:"Ejecutar Verificación →",rt:"Resultados de Evaluación de Cumplimiento",ea:"Exportar Mandato de Política",em:"MD",pn:"🔒 Todas las entradas se procesan localmente. No se transmiten datos.",na:"Todas las herramientas",fb:"🔒 Sin PII \u00a0 📡 Sin llamadas al servidor \u00a0 💻 Del lado del cliente",dir:"ltr"
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-19',
+  },
+fr:{ey:"T224 · Cat-19 · Schémas de Paiement · NACHA / ACH",ht:"Vérificateur de Conformité aux Règles NACHA ACH",hd:"Vérifiez la configuration de votre programme ACH par rapport aux Règles d'exploitation NACHA §2–§9. Règles de surveillance des fraudes de mars 2026 intégrées.",pc:"Configuration du Programme",ab:"À Propos de Cet Outil",or:"Rôle de l'Organisation",ec:"Code SEC / Classe d'Entrée Principal",at:"Type de Compte / Destinataire",mv:"Volume Mensuel d'Entrées",aa:"Montant Moyen par Entrée (USD)",us:"Utilise ACH Same-Day (SDA)",ut:"Utilise un Expéditeur Tiers",wv:"Validation de Compte pour Débits WEB",ds:"Sécurité des Données — Chiffrement des Numéros de Compte",rb:"Lancer la Vérification →",rt:"Résultats de l'Évaluation de Conformité",ea:"Exporter Mandat de Politique",em:"MD",pn:"🔒 Toutes les entrées sont traitées localement. Aucune donnée n'est transmise.",na:"Tous les outils",fb:"🔒 Zéro PII \u00a0 📡 Aucun appel serveur \u00a0 💻 Côté client",dir:"ltr"
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-19',
+  },
+ar:{ey:"T224 · Cat-19 · أنظمة الدفع · NACHA / ACH",ht:"مدقق امتثال قواعد NACHA ACH",hd:"تحقق من تكوين برنامج ACH الخاص بك وفقاً لقواعد التشغيل NACHA §2–§9. قواعد مراقبة الاحتيال لمارس 2026 مدمجة.",pc:"تكوين البرنامج",ab:"حول هذه الأداة",or:"دور المنظمة",ec:"رمز SEC / فئة الإدخال الرئيسية",at:"نوع الحساب / المستلم",mv:"حجم الإدخالات الشهري",aa:"متوسط مبلغ الإدخال (USD)",us:"يستخدم ACH في نفس اليوم (SDA)",ut:"يستخدم مُرسِلاً طرفاً ثالثاً",wv:"التحقق من الحساب لمدفوعات WEB",ds:"أمان البيانات — تشفير أرقام الحسابات",rb:"← تشغيل فحص الامتثال",rt:"نتائج تقييم الامتثال",ea:"تصدير تفويض السياسة",em:"MD",pn:"🔒 تتم معالجة جميع المدخلات محلياً. لا يتم نقل أي بيانات.",na:"جميع الأدوات",fb:"🔒 صفر PII \u00a0 📡 لا اتصالات \u00a0 💻 من جانب العميل",dir:"rtl"
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-19',
+  },
+pt:{ey:"T224 · Cat-19 · Esquemas de Pagamento · NACHA / ACH",ht:"Verificador de Conformidade às Regras NACHA ACH",hd:"Verifique a configuração do seu programa ACH conforme as Regras Operacionais NACHA §2–§9. Regras de Monitoramento de Fraude de março 2026 incluídas.",pc:"Configuração do Programa",ab:"Sobre Esta Ferramenta",or:"Papel da Organização",ec:"Código SEC / Classe de Entrada Principal",at:"Tipo de Conta / Destinatário",mv:"Volume Mensal de Entradas",aa:"Valor Médio por Entrada (USD)",us:"Usa ACH no Mesmo Dia (SDA)",ut:"Usa um Remetente Terceiro",wv:"Validação de Conta para Débitos WEB",ds:"Segurança de Dados — Criptografia de Números de Conta",rb:"Executar Verificação →",rt:"Resultados da Avaliação de Conformidade",ea:"Exportar Mandato de Política",em:"MD",pn:"🔒 Todas as entradas são processadas localmente. Nenhum dado é transmitido.",na:"Todas as ferramentas",fb:"🔒 Zero PII \u00a0 📡 Sem chamadas ao servidor \u00a0 💻 Do lado do cliente",dir:"ltr"
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-19',
+  },
+zh:{ey:"T224 · Cat-19 · 支付方案 · NACHA / ACH",ht:"NACHA ACH规则合规检查器",hd:"根据NACHA操作规则§2–§9检查ACH项目配置。内置2026年3月欺诈监控规则。输出各章节合规状态、退款代码参考及政策授权书合规授权。",pc:"项目配置",ab:"关于本工具",or:"组织角色",ec:"主要SEC/条目类别代码",at:"账户/收款方类型",mv:"每月条目量",aa:"平均条目金额（美元）",us:"使用当日ACH（SDA）",ut:"使用第三方发送方",wv:"WEB借记账户验证",ds:"数据安全——账户号码加密",rb:"运行合规检查 →",rt:"合规评估结果",ea:"导出政策授权书",em:"MD",pn:"🔒 所有输入均在您的浏览器本地处理。不传输任何数据。",na:"所有工具",fb:"🔒 零PII \u00a0 📡 无服务器调用 \u00a0 💻 纯客户端",dir:"ltr"
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-19 中心',
+  }
+};
+/* Legacy internal handle — existing call sites use `T[lang]`, `T.en`, `T[s]`.
+   Preserved to keep the rename minimal. The canonical, spec-named identifier
+   is `TRANSLATIONS` above (CANONICAL_HEADER_FOOTER_SPEC §13). */
+const T=TRANSLATIONS;
+const TRANSLATIONS_KEY_MAP={nav_all_tools:'na',panel_config:'pc',panel_about:'ab',label_org_role:'or',label_entry_class:'ec',label_account_type:'at',label_monthly_volume:'mv',label_avg_amount:'aa',label_uses_sda:'us',label_uses_tps:'ut',label_web_validation:'wv',label_data_security:'ds',run_btn:'rb',results_title:'rt',export_ap2:'ea',export_md:'em',pii_notice:'pn',footer_badge:'fb'};
+function setLang(lang){
+  const t=T[lang]||T.en;
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`);
+  if(btn)btn.classList.add('active');
+  document.documentElement.lang=lang==='zh'?'zh-Hans':lang;
+  document.documentElement.dir=t.dir||'ltr';
+  document.body.dir=t.dir||'ltr';
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const k=TRANSLATIONS_KEY_MAP[el.getAttribute('data-i18n')];
+    if(k&&t[k]!==undefined)el.textContent=t[k];
+  });
+  const a=(s,k)=>{const el=document.querySelector(s);if(el&&t[k])el.textContent=t[k];};
+  a('.tool-eyebrow','ey');a('.hero h1','ht');a('.hero-desc','hd');
+  const al=document.querySelector('.ap2-btn-label');if(al)al.textContent=t.ea;
+  const mb=document.querySelector('.footer-md-btn');if(mb)mb.textContent=t.em;
+  try{sessionStorage.setItem('ain_lang',lang);}catch(e){}
+}
+(function(){try{const s=sessionStorage.getItem('ain_lang');if(s&&T[s])setLang(s);}catch(e){}})();
+/* ═══════════════════════════════════════════════════════
+   NACHA STATIC REFERENCE DATA
+   Source: NACHA Operating Rules 2024 + March 2026 amendments
+   Last Reviewed: 2026-05-09
+═══════════════════════════════════════════════════════ */
+
+/* Return codes — code, description, type, timeframe */
+const RETURN_CODES=[
+  ['R01','Insufficient Funds','debit','2 banking days'],
+  ['R02','Account Closed','admin','2 banking days'],
+  ['R03','No Account / Unable to Locate Account','admin','2 banking days'],
+  ['R04','Invalid Account Number Structure','admin','2 banking days'],
+  ['R05','Unauthorized Debit to Consumer Account Using Corporate SEC Code','unauth','60 calendar days'],
+  ['R06','Returned per ODFI Request','admin','2 banking days'],
+  ['R07','Authorization Revoked by Consumer (adjustment entries)','unauth','60 calendar days'],
+  ['R08','Payment Stopped / Stop Payment Order','debit','2 banking days'],
+  ['R09','Uncollected Funds','debit','2 banking days'],
+  ['R10','Customer Advises Originator Not Known / Not Authorized','unauth','60 calendar days'],
+  ['R11','Customer Advises Entry Not in Accordance with Authorization','unauth','60 calendar days'],
+  ['R12','Branch Sold to Another DFI','admin','2 banking days'],
+  ['R13','RDFI Not Qualified to Participate','admin','2 banking days'],
+  ['R14','Representative Payee Deceased or Unable to Continue','admin','2 banking days'],
+  ['R15','Beneficiary or Account Holder Deceased','admin','2 banking days'],
+  ['R16','Account Frozen / Ofac Hold','admin','2 banking days'],
+  ['R17','File Record Edit Criteria / Suspected Fraud','fraud','2 banking days'],
+  ['R18','Improper Effective Entry Date','admin','2 banking days'],
+  ['R19','Amount Field Error','admin','2 banking days'],
+  ['R20','Non-Transaction Account','admin','2 banking days'],
+  ['R21','Invalid Company Identification','admin','2 banking days'],
+  ['R22','Invalid Individual ID Number','admin','2 banking days'],
+  ['R23','Credit Entry Refused by Receiver','admin','2 banking days'],
+  ['R24','Duplicate Entry','admin','2 banking days'],
+  ['R25','Addenda Error','admin','2 banking days'],
+  ['R26','Mandatory Field Error','admin','2 banking days'],
+  ['R27','Trace Number Error','admin','2 banking days'],
+  ['R28','Transit/Routing Number Check Digit Error','admin','2 banking days'],
+  ['R29','Corporate Customer Advises Not Authorized','unauth','2 banking days'],
+  ['R30','RDFI Not Participant in Check Truncation Program','admin','2 banking days'],
+  ['R31','Permissible Return Entry (CCD / CTX only)','admin','Varies'],
+  ['R33','Return of XCK Entry','admin','60 calendar days'],
+  ['R34','Limited Participation DFI','admin','2 banking days'],
+  ['R35','Return of Improper Debit Entry','admin','2 banking days'],
+  ['R36','Return of Improper Credit Entry','admin','2 banking days'],
+  ['R37','Source Document Presented for Payment','admin','60 calendar days'],
+  ['R38','Stop Payment on Source Document','admin','60 calendar days'],
+  ['R39','Improper Source Document','admin','2 banking days'],
+  ['R51','Item Related to RCK Entry Ineligible or Entry Improper','admin','60 calendar days'],
+  ['R52','Stop Payment on Item (RCK)','admin','60 calendar days'],
+  ['R53','Item and ACH Entry Presented for Payment','admin','60 calendar days'],
+  ['R61','Misrouted Return','admin','Handled by ODFI'],
+  ['R67','Duplicate Return','admin','Handled by ODFI'],
+  ['R68','Untimely Return','admin','Handled by ODFI'],
+  ['R69','Field Error(s)','admin','Handled by ODFI'],
+  ['R70','Permissible Return Entry Not Accepted','admin','Handled by ODFI'],
+  ['R80','IAT Entry Coding Error','iat','2 banking days'],
+  ['R81','Non-Participant in IAT Program','iat','2 banking days'],
+  ['R82','Invalid Foreign Receiving DFI Identification','iat','2 banking days'],
+  ['R83','Foreign Receiving DFI Unable to Settle','iat','2 banking days'],
+  ['R84','Entry Not Processed by Gateway','iat','2 banking days'],
+  ['R85','Incorrectly Coded Outbound International Payment','iat','2 banking days']
+];
+
+/* Render return code table */
+(function buildRC(){
+  const body=document.getElementById('rcBody');
+  const typeLabel={debit:'Debit Return',unauth:'Unauthorized',admin:'Administrative',fraud:'Fraud/Edit',iat:'IAT',other:'Other'};
+  const typeCls={debit:'rct-other',unauth:'rct-unauth',admin:'rct-admin',fraud:'rct-unauth',iat:'rct-other',other:'rct-other'};
+  body.innerHTML=RETURN_CODES.map(([code,desc,type,tf])=>
+    `<tr class="${type==='unauth'||type==='fraud'?'rc-row-highlight':''}">
+      <td><span class="rc-code">${code}</span></td>
+      <td style="color:var(--text);font-size:.78rem">${desc}</td>
+      <td><span class="rc-type ${typeCls[type]||'rct-other'}">${typeLabel[type]||type}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted)">${tf}</td>
+    </tr>`
+  ).join('');
+})();
+
+function filterRC(){
+  const q=document.getElementById('rcSearch').value.toLowerCase();
+  document.querySelectorAll('#rcBody tr').forEach(row=>{
+    row.style.display=row.textContent.toLowerCase().includes(q)?'':'none';
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   NACHA RULE SECTIONS — Compliance evaluation logic
+   §2 Network Participation · §3 Originator/ODFI ·
+   §4 RDFI · §5 Returns · §6 Risk Management ·
+   §7 Third-Party Senders · §8 IAT · §9 Same-Day ACH
+   March 2026 Fraud Monitoring rules embedded
+═══════════════════════════════════════════════════════ */
+function evaluateRules(inp){
+  const isODFI=inp.role==='odfi'||inp.role==='both'||inp.role==='tps';
+  const isRDFI=inp.role==='rdfi'||inp.role==='both';
+  const isTPS=inp.role==='tps'||inp.role==='tpsp';
+  const isIAT=inp.sec==='IAT';
+  const isWEB=inp.sec==='WEB';
+  const isSDA=inp.sda!=='no';
+  const isHighVol=inp.vol==='100k-1m'||inp.vol==='over1m';
+  const avgAmt=parseFloat(inp.avg)||0;
+  const sections=[];
+
+  /* §2 — Network Participation */
+  const s2finds=[];
+  s2finds.push({s:'pass',t:'§2.1 — NACHA Operating Rules compliance obligation acknowledged for all network participants'});
+  if(isHighVol){
+    s2finds.push({s:'warn',t:'§2.17 — High volume detected: return rate monitoring mandatory. Thresholds: overall debit returns ≤15%, administrative returns ≤3%, unauthorized (R05/R07/R10/R29) returns ≤0.5%'});
+    s2finds.push({s:'warn',t:'§2.17 — March 2026: Enhanced fraud monitoring reporting required for ODFIs originating >100K entries/month'});
+  } else {
+    s2finds.push({s:'pass',t:'§2.17 — Volume below elevated monitoring thresholds; standard return rate monitoring applies (overall ≤15%, admin ≤3%, unauthorized ≤0.5%)'});
+  }
+  sections.push({id:'s2',name:'§2 · ACH Network Participation & Return Rate Standards',status:isHighVol?'warn':'pass',finds:s2finds});
+
+  /* §3 — Originator / ODFI */
+  if(isODFI){
+    const s3finds=[];
+    s3finds.push({s:'pass',t:'§3.1 — ODFI warranties: ODFI warrants each entry is authorised, complies with rules, and that the Originator has an authorisation agreement with the Receiver'});
+    s3finds.push({s:'pass',t:'§3.2 — Originator Agreement: ODFI must execute a written agreement with each Originator and conduct due diligence'});
+    if(isWEB && inp.webVal==='none'){
+      s3finds.push({s:'fail',t:'§3.3.2(b) — WEB Debit Account Validation NOT in place: ODFIs originating WEB entries must use a commercially reasonable fraudulent account detection method. Immediate remediation required'});
+    } else if(isWEB && (inp.webVal==='avs'||inp.webVal==='micro')){
+      s3finds.push({s:'pass',t:'§3.3.2(b) — WEB Debit Account Validation in place ('+inp.webVal+'). Compliant with account validation requirement for new external accounts'});
+    }
+    if(inp.sec==='TEL'){
+      s3finds.push({s:'warn',t:'§3.3.3 — TEL Entry: Oral authorisation required. One-time TEL entries require express oral authorisation; recurring require written notice sent to Receiver before first entry'});
+    }
+    if(inp.sec==='RCK'){
+      s3finds.push({s:'warn',t:'§3.3.8 — RCK Entry: Re-presented check must meet strict eligibility (NSF cheque ≤$2,500, represented within 180 days). Verify eligibility before originating'});
+    }
+    if(inp.sec==='ARC'||inp.sec==='BOC'||inp.sec==='POP'){
+      s3finds.push({s:'warn',t:'§3.3 — Source Document SEC: Written notice to consumer required at point of purchase. Retain source documents per NACHA retention requirements'});
+    }
+    s3finds.push({s:'pass',t:'§3.4 — ODFI Exposure Limits: ODFI must establish and monitor credit and debit exposure limits for each Originator'});
+    sections.push({id:'s3',name:'§3 · Originator / ODFI Warranties & Authorisation',status:isWEB&&inp.webVal==='none'?'fail':'pass',finds:s3finds});
+  }
+
+  /* §4 — RDFI */
+  if(isRDFI){
+    const s4finds=[];
+    s4finds.push({s:'pass',t:"§4.1 — RDFI must post each credit entry to the Receiver's account by the Settlement Date stated on the entry"});
+    s4finds.push({s:'pass',t:'§4.2 — RDFI must return any entry it cannot post within the applicable return timeframe (2 banking days for most codes)'});
+    s4finds.push({s:'warn',t:'§4.3 — Extended Return Timeframe: Unauthorised consumer debit returns (R05/R07/R10/R11) may be returned within 60 calendar days. Ensure procedures cover this extended window'});
+    s4finds.push({s:'pass',t:"§4.4 — RDFI liability: RDFI is not liable for loss resulting from an Originator's erroneous entry if it has complied with these Rules"});
+    sections.push({id:'s4',name:'§4 · RDFI Posting, Returns & Obligations',status:'pass',finds:s4finds});
+  }
+
+  /* §5 — Returns */
+  const s5finds=[];
+  s5finds.push({s:'pass',t:'§5.1 — RDFI return window: Most debit entries must be returned within 2 banking days of the Settlement Date'});
+  s5finds.push({s:'warn',t:'§5.2 — Late returns (R68): Returns submitted after the 2-day window require RDFI to obtain consent from ODFI and may face dishonoured return'});
+  s5finds.push({s:'info',t:'§5.3 — Unauthorised return rate (R05/R07/R10/R29): If RDFI return rate for unauthorised items exceeds 0.5% of origination volume in rolling 60 days, ODFI/NACHA review is triggered (March 2026 threshold)'});
+  s5finds.push({s:'info',t:'§5.4 — ODFI Reversal: ODFI may initiate reversals for erroneous entries within 5 banking days of Settlement Date of the original entry. Receiver notification required within 24 hours'});
+  sections.push({id:'s5',name:'§5 · Returns, Reversals & Return Rate Thresholds',status:'pass',finds:s5finds});
+
+  /* §6 — Risk Management */
+  const s6finds=[];
+  if(inp.dataSec==='yes'){
+    s6finds.push({s:'pass',t:'§6.1 — Supplementing Data Security Requirements: DFI account numbers encrypted at rest and in transit. Compliant with NACHA phased implementation (final deadline passed)'});
+  } else if(inp.dataSec==='partial'){
+    s6finds.push({s:'warn',t:'§6.1 — Supplementing Data Security Requirements: PARTIAL. Account number encryption not yet complete on all systems. Phase 3 deadline (2026) enforcement is now active — complete remediation immediately'});
+  } else {
+    s6finds.push({s:'fail',t:'§6.1 — Supplementing Data Security Requirements: NOT IMPLEMENTED. Encryption of DFI account numbers required at rest and in transit. This is an active violation — immediate action required'});
+  }
+  s6finds.push({s:'pass',t:'§6.2 — Commercially reasonable fraud detection: ODFIs and RDFIs must implement commercially reasonable fraud detection. Document your fraud detection programme'});
+  s6finds.push({s:'warn',t:'§6.3 — March 2026 Fraud Monitoring: Enhanced obligation to detect and respond to elevated return rates within 24 hours. Implement real-time return rate dashboards for high-volume programmes'});
+  sections.push({id:'s6',name:'§6 · Risk Management, Data Security & Fraud Monitoring',status:inp.dataSec==='no'?'fail':inp.dataSec==='partial'?'warn':'pass',finds:s6finds});
+
+  /* §7 — Third-Party Senders */
+  if(isTPS||inp.tps==='yes'){
+    const s7finds=[];
+    if(inp.role==='tps'){
+      s7finds.push({s:'warn',t:'§7.1 — TPS Qualification: As a Third-Party Sender, you must be registered with NACHA and maintain a written agreement with each ODFI through which you transmit entries'});
+      s7finds.push({s:'warn',t:'§7.2 — TPS Liability: TPS assumes the obligations of the Originator with respect to each entry it transmits. ODFI remains liable to NACHA but may seek indemnification from TPS'});
+      s7finds.push({s:'warn',t:'§7.3 — March 2026: Enhanced TPS registration and due diligence requirements in effect. ODFIs must conduct annual monitoring reviews of all TPS relationships'});
+      s7finds.push({s:'warn',t:'§7.4 — Nested TPS: If you use a Third-Party Service Provider (TPSP) to transmit entries, you remain responsible for compliance with all applicable rules'});
+    } else {
+      s7finds.push({s:'warn',t:'§7.2 — Using a Third-Party Sender: Your ODFI remains responsible for the compliance of your TPS. Ensure your TPS is NACHA-registered and you have a written agreement covering their obligations'});
+      s7finds.push({s:'warn',t:'§7.3 — March 2026: ODFIs are required to conduct annual monitoring reviews of TPS relationships. Document your TPS due diligence process'});
+    }
+    sections.push({id:'s7',name:'§7 · Third-Party Senders & Service Providers',status:'warn',finds:s7finds});
+  }
+
+  /* §8 — International ACH (IAT) */
+  if(isIAT){
+    const s8finds=[];
+    s8finds.push({s:'warn',t:'§8.1 — IAT Entry Format: IAT entries require specific addenda records with full beneficiary and foreign bank information. Verify format compliance with NACHA IAT specifications'});
+    s8finds.push({s:'warn',t:'§8.2 — OFAC Screening: All IAT entries must be screened against OFAC SDN list. Both the Gateway Operator and RDFI have independent OFAC obligations'});
+    s8finds.push({s:'warn',t:'§8.3 — Foreign Correspondent Banking: Ensure your foreign correspondent bank (Gateway) participates in the ACH network and can settle IAT entries'});
+    s8finds.push({s:'warn',t:'§8.4 — Regulatory Compliance: IAT entries may trigger Bank Secrecy Act (BSA), CTR, and FinCEN obligations. Coordinate with your BSA/AML compliance team'});
+    sections.push({id:'s8',name:'§8 · International ACH Transactions (IAT)',status:'warn',finds:s8finds});
+  }
+
+  /* §9 — Same-Day ACH */
+  if(isSDA){
+    const s9finds=[];
+    if(avgAmt>0&&avgAmt>1000000){
+      s9finds.push({s:'fail',t:'§9.3 — Same-Day ACH Per-Entry Dollar Limit: Average entry amount exceeds $1,000,000 limit. Entries above $1,000,000 are NOT eligible for Same-Day ACH processing (Phase 3, effective March 2020)'});
+    } else if(avgAmt>0){
+      s9finds.push({s:'pass',t:`§9.3 — Same-Day ACH Per-Entry Dollar Limit: Average entry amount $${avgAmt.toLocaleString()} is within the $1,000,000 per-entry limit`});
+    } else {
+      s9finds.push({s:'warn',t:'§9.3 — Same-Day ACH Dollar Limit: Verify all entries are at or below $1,000,000 per entry. Entries above this threshold are ineligible for SDA'});
+    }
+    s9finds.push({s:'warn',t:'§9.1 — SDA Settlement Windows: SDA entries must be submitted by 10:30am (Window 1: 1:00pm settlement) or 2:45pm ET (Window 2: 5:00pm settlement). Confirm your ODFI supports desired window'});
+    s9finds.push({s:'pass',t:'§9.2 — SDA Eligibility: Most ACH credit and debit entry types are eligible for SDA. Verify your SEC code supports Same-Day ACH'});
+    s9finds.push({s:'info',t:'§9.4 — SDA Fee: An interbank fee of $0.052 per SDA entry (as of latest NACHA schedule) applies. Budget accordingly'});
+    sections.push({id:'s9',name:'§9 · Same-Day ACH Settlement',status:(avgAmt>1000000)?'fail':'warn',finds:s9finds});
+  }
+
+  return sections;
+}
+/* ── State ── */
+let lastInputs=null,lastSections=null;
+
+/* ═══════════════════════════════════════════════════════
+   MAIN COMPLIANCE RUNNER
+═══════════════════════════════════════════════════════ */
+function runCheck(){
+  const inp={
+    role:document.getElementById('orgRole').value,
+    sec:document.getElementById('entryClass').value,
+    accountType:document.getElementById('accountType').value,
+    vol:document.getElementById('monthlyVolume').value,
+    avg:document.getElementById('avgAmount').value,
+    sda:document.getElementById('usesSDA').value,
+    tps:document.getElementById('usesTPS').value,
+    webVal:document.getElementById('webValidation').value,
+    dataSec:document.getElementById('dataSecurity').value
+  };
+  lastInputs=inp;
+
+  const sections=evaluateRules(inp);
+  lastSections=sections;
+
+  /* Tally */
+  const counts={pass:0,warn:0,fail:0,na:0};
+  sections.forEach(s=>counts[s.status]=(counts[s.status]||0)+1);
+  const total=sections.length;
+  const overallStatus=counts.fail>0?'fail':counts.warn>0?'warn':'pass';
+  const statusLabel={'pass':'Compliant','warn':'Review Required','fail':'Non-Compliant'};
+  const statusColor={'pass':'var(--green)','warn':'var(--warn)','fail':'var(--red)'};
+
+  /* Summary row */
+  document.getElementById('summaryContent').innerHTML=`
+    <div class="score-row">
+      <div class="score-cell"><span class="score-label">Overall Status</span>
+        <span class="score-value" style="color:${statusColor[overallStatus]}">${statusLabel[overallStatus]}</span></div>
+      <div class="score-cell"><span class="score-label">Sections Checked</span>
+        <span class="score-value" style="color:var(--accent)">${total}</span></div>
+      <div class="score-cell"><span class="score-label">Compliant</span>
+        <span class="score-value" style="color:var(--green)">${counts.pass||0}</span></div>
+      <div class="score-cell"><span class="score-label">Review Required</span>
+        <span class="score-value" style="color:var(--warn)">${counts.warn||0}</span></div>
+      <div class="score-cell"><span class="score-label">Non-Compliant</span>
+        <span class="score-value" style="color:var(--red)">${counts.fail||0}</span></div>
+      <div class="score-cell"><span class="score-label">SEC Code</span>
+        <span class="score-value" style="color:var(--accent)">${inp.sec}</span></div>
+    </div>
+    ${counts.fail>0?`<div class="alert alert-warn">⚠ <strong>${counts.fail} non-compliant finding${counts.fail>1?'s':''} identified.</strong> Review all sections marked NON-COMPLIANT and implement remediation before originating ACH entries. Contact your ODFI compliance team and NACHA member services if required.</div>`:''}
+    ${counts.warn>0?`<div class="alert alert-info">ℹ <strong>${counts.warn} section${counts.warn>1?'s':''} require review.</strong> These findings require attention but do not necessarily constitute current violations. Review each flagged item against the full NACHA Operating Rules.</div>`:''}`;
+
+  /* Section cards */
+  const badgeCls={pass:'badge-pass',warn:'badge-warn',fail:'badge-fail',na:'badge-na'};
+  const badgeLbl={pass:'COMPLIANT',warn:'REVIEW',fail:'NON-COMPLIANT',na:'N/A'};
+  const statusIcon={'pass':'✓','warn':'⚠','fail':'✗','info':'ℹ'};
+  const fiCls={'pass':'fi-pass','warn':'fi-warn','fail':'fi-fail','info':'fi-info'};
+
+  document.getElementById('sectionsContent').innerHTML=
+    `<div class="sections-grid">${sections.map(sec=>`
+      <div class="section-card" id="${sec.id}">
+        <div class="section-header" onclick="toggleSection('${sec.id}')">
+          <span class="section-badge ${badgeCls[sec.status]}">${badgeLbl[sec.status]}</span>
+          <span class="section-name">${sec.name}</span>
+          <span class="section-chevron">▶</span>
+        </div>
+        <div class="section-body">
+          <ul class="finding-list">${sec.finds.map(f=>
+            `<li><span class="fi ${fiCls[f.s]}">${statusIcon[f.s]}</span><span>${f.t}</span></li>`
+          ).join('')}</ul>
+        </div>
+      </div>`).join('')}
+    </div>`;
+
+  /* Auto-open non-compliant and first warn section */
+  sections.forEach(sec=>{
+    if(sec.status==='fail'){const el=document.getElementById(sec.id);if(el){el.classList.add('open');}}
+  });
+  if(counts.fail===0&&counts.warn>0){
+    const firstWarn=sections.find(s=>s.status==='warn');
+    if(firstWarn){const el=document.getElementById(firstWarn.id);if(el)el.classList.add('open');}
+  }
+
+  /* Show panel, unlock exports */
+  const panel=document.getElementById('resultsPanel');
+  panel.classList.add('show');
+  var _ab=document.getElementById('ap2ExportBtn');if(_ab)_ab.classList.add('ready');
+  document.getElementById('ap2ExportBtn').title='For API integration · audit trail';
+  document.getElementById('mdExportBtn').classList.add('ready');
+  document.getElementById('mdExportBtn').title='Download Markdown compliance memo';
+  setTimeout(()=>panel.scrollIntoView({behavior:'smooth',block:'start'}),120);
+}
+
+function toggleSection(id){
+  const el=document.getElementById(id);
+  if(el)el.classList.toggle('open');
+}
+
+/* ═══════════════════════════════════════════════════════
+   AP2 JSON EXPORT
+   mandate_type: "compliance_control"
+   Last Reviewed: 2026-05-09
+═══════════════════════════════════════════════════════ */
+function generateAP2(){
+  if(!lastInputs||!lastSections)return null;
+  const uuid='xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);});
+  const counts={pass:0,warn:0,fail:0};
+  lastSections.forEach(s=>counts[s.status]=(counts[s.status]||0)+1);
+  const overallStatus=counts.fail>0?'non_compliant':counts.warn>0?'review_required':'compliant';
+  return{
+    ap2_version:"1.0",mandate_id:uuid,
+    issued_at:new Date().toISOString(),issued_by:"ainumbers.co",
+    tool_id:"nacha-ach-rule-compliance-checker",tool_version:"1.0.0",
+    mandate_type:"compliance_control",
+    jurisdiction:["US"],
+    regulatory_frameworks:["NACHA Operating Rules 2024","NACHA March 2026 Fraud Monitoring Rules","NACHA Supplementing Data Security Requirements","Regulation E (12 CFR Part 1005)"],
+    payload:{
+      organisation_role:lastInputs.role,
+      sec_code:lastInputs.sec,
+      account_type:lastInputs.accountType,
+      monthly_volume:lastInputs.vol,
+      average_entry_amount:parseFloat(lastInputs.avg)||0,
+      uses_same_day_ach:lastInputs.sda!=='no',
+      uses_third_party_sender:lastInputs.tps==='yes',
+      web_debit_account_validation:lastInputs.webVal,
+      data_security_encryption:lastInputs.dataSec,
+      overall_status:overallStatus,
+      sections_checked:lastSections.length,
+      compliant_count:counts.pass||0,
+      review_required_count:counts.warn||0,
+      non_compliant_count:counts.fail||0,
+      sections:lastSections.map(s=>({section:s.id,name:s.name,status:s.status,finding_count:s.finds.length}))
+    },
+    summary:`NACHA ACH Rule Compliance assessment for ${lastInputs.role.toUpperCase()} originating ${lastInputs.sec} entries. Overall status: ${overallStatus.replace(/_/g,' ')}. ${lastSections.length} rule sections checked — ${counts.pass||0} compliant, ${counts.warn||0} review required, ${counts.fail||0} non-compliant.`,
+    agent_instructions:[
+      `Review all non-compliant findings immediately and implement remediation before originating ACH entries.`,
+      lastInputs.sec==='WEB'&&lastInputs.webVal==='none'?'URGENT: Implement WEB Debit Account Validation per NACHA §3.3.2(b). This is a direct rule violation.':'Maintain WEB Debit Account Validation programme per §3.3.2(b) if originating WEB entries.',
+      lastInputs.dataSec!=='yes'?'URGENT: Complete DFI account number encryption programme per NACHA §6.1 Supplementing Data Security Requirements — enforcement deadlines have passed.':'Maintain DFI account number encryption programme per §6.1.',
+      `Monitor return rates against NACHA thresholds: overall debits ≤15%, administrative ≤3%, unauthorized (R05/R07/R10/R29) ≤0.5% (rolling period).`,
+      lastInputs.tps==='yes'?'Conduct annual monitoring review of Third-Party Sender relationship per NACHA §7 March 2026 requirements.':'Not applicable — no Third-Party Sender in use.',
+      `Re-validate compliance quarterly and after any NACHA rule change effective date.`
+    ],
+    valid_from:new Date().toISOString().split('T')[0],
+    valid_until:new Date(Date.now()+365*24*60*60*1000).toISOString().split('T')[0],
+    last_reviewed:"2026-05-09",
+    source_tool_inputs:lastInputs,
+    regulatory_citations:[
+      "NACHA Operating Rules & Guidelines 2024",
+      "NACHA March 2026 Rules Amendments — Fraud Monitoring",
+      "NACHA Supplementing Data Security Requirements §1.6",
+      "NACHA WEB Debit Account Validation Rule §3.3.2(b)",
+      "Regulation E: Electronic Fund Transfers, 12 CFR Part 1005"
+    ]
+  };
+}
+
+function exportAP2(){
+  const m=generateAP2();if(!m)return;
+  const fn=`ap2-nacha-ach-${m.mandate_id.substring(0,8)}.policy.json`;
+  AP2Schema.validate(m);
+  const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([JSON.stringify(m,null,2)],{type:'application/json'})),download:fn});
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
+  showToast(`{} ${fn} downloaded`);
+}
+
+/* ── Markdown export ── */
+function exportMarkdown(){
+  if(!lastInputs||!lastSections)return;
+  const today=new Date().toISOString().split('T')[0];
+  const counts={pass:0,warn:0,fail:0};
+  lastSections.forEach(s=>counts[s.status]=(counts[s.status]||0)+1);
+  const overall=counts.fail>0?'Non-Compliant':counts.warn>0?'Review Required':'Compliant';
+  const strip=s=>s.replace(/<[^>]+>/g,'');
+  const statusSym={pass:'✓',warn:'⚠',fail:'✗',info:'ℹ'};
+  const lines=[
+    `# NACHA ACH Rule Compliance Assessment`,``,
+    `> **Generated:** AINumbers.co · T224 · ${today}`,
+    `> **Last Reviewed:** 2026-05-09 · NACHA March 2026 rules embedded`,
+    `> **⚠ Disclaimer:** Compliance guidance only. Verify against current NACHA Operating Rules and consult your ODFI compliance team.`,
+    ``,`---`,``,`## Executive Summary`,``,
+    `| Field | Value |`,`|---|---|`,
+    `| **Overall Status** | **${overall}** |`,
+    `| Organisation Role | ${lastInputs.role.toUpperCase()} |`,
+    `| SEC / Entry Class Code | ${lastInputs.sec} |`,
+    `| Account Type | ${lastInputs.accountType} |`,
+    `| Monthly Volume | ${lastInputs.vol} |`,
+    `| Same-Day ACH | ${lastInputs.sda} |`,
+    `| Third-Party Sender | ${lastInputs.tps} |`,
+    `| WEB Account Validation | ${lastInputs.webVal} |`,
+    `| Data Security Encryption | ${lastInputs.dataSec} |`,
+    `| Sections Checked | ${lastSections.length} |`,
+    `| Compliant | ${counts.pass||0} |`,
+    `| Review Required | ${counts.warn||0} |`,
+    `| Non-Compliant | ${counts.fail||0} |`,
+    ``,`---`,``,`## Rule Section Findings`,``,
+    ...lastSections.flatMap(sec=>[
+      `### ${sec.name} — ${sec.status.toUpperCase()}`,``,
+      ...sec.finds.map(f=>`- ${statusSym[f.s]} ${f.t}`),``
+    ]),
+    `---`,``,`## Regulatory Citations`,``,
+    `1. NACHA Operating Rules & Guidelines 2024`,
+    `2. NACHA March 2026 Rules Amendments — Fraud Monitoring`,
+    `3. NACHA Supplementing Data Security Requirements §1.6`,
+    `4. NACHA WEB Debit Account Validation Rule §3.3.2(b)`,
+    `5. Regulation E: Electronic Fund Transfers, 12 CFR Part 1005`,
+    ``,`---`,`*Client-side. Zero PII. AINumbers.co · Post Oak Labs · T224 · Cat-19*`
+  ].join('\n');
+  const fn=`nacha-ach-compliance-${today}.md`;
+  const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([lines],{type:'text/markdown'})),download:fn});
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
+  showToast(`MD ${fn} downloaded`);
+}
+
+function showToast(msg){
+  const t=document.getElementById('exportToast');
+  document.getElementById('toastMsg').textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "nacha-ach-rule-compliance-checker", "version": "1.0.0", "title": "NACHA ACH Rule Compliance Checker", "description": "Check ACH programme configurations against NACHA Operating Rules §2–§9. March 2026 Fraud Monitoring rules embedded. Outputs compliance status per section, return code reference, Markdown memo, and compliance Policy Mandate JSON.", "category": "cat-19", "tags": ["NACHA", "ACH", "ODFI", "RDFI", "return codes", "fraud monitoring", "data security", "compliance", "Policy Mandate"], "audience": ["compliance", "engineer", "payments operations", "BSA officer"], "input_schema": {"type": "object", "properties": {"org_role": {"type": "string", "enum": ["odfi", "rdfi", "both", "tps", "tpsp"]}, "sec_code": {"type": "string", "enum": ["PPD", "CCD", "WEB", "TEL", "IAT", "CTX", "RCK", "POP", "ARC", "BOC", "CIE", "MTE", "POS", "TRX"]}, "account_type": {"type": "string", "enum": ["consumer", "corporate", "both"]}, "monthly_volume": {"type": "string", "enum": ["under1k", "1k-10k", "10k-100k", "100k-1m", "over1m"]}, "average_entry_amount": {"type": "number", "minimum": 0}, "uses_same_day_ach": {"type": "string", "enum": ["no", "yes", "both"]}, "uses_third_party_sender": {"type": "string", "enum": ["no", "yes"]}, "web_debit_account_validation": {"type": "string", "enum": ["na", "avs", "micro", "none"]}, "data_security_encryption": {"type": "string", "enum": ["yes", "partial", "no"]}}, "required": ["org_role", "sec_code"]}, "output_schema": {"type": "object", "properties": {"overall_status": {"type": "string", "enum": ["compliant", "review_required", "non_compliant"]}, "sections_checked": {"type": "integer"}, "compliant_count": {"type": "integer"}, "review_required_count": {"type": "integer"}, "non_compliant_count": {"type": "integer"}, "sections": {"type": "array", "items": {"type": "object"}}, "ap2_mandate": {"type": "object"}}}, "mcp_tool_definition": {"name": "check_nacha_ach_compliance", "description": "Checks an ACH programme configuration against NACHA Operating Rules §2–§9 with March 2026 Fraud Monitoring amendments. Returns compliance status per section, findings, and a Policy Mandate JSON. Use when an agent needs to assess NACHA compliance posture, validate SEC code configurations, or generate a compliance mandate for an ACH origination programme.", "inputSchema": {"type": "object", "properties": {"org_role": {"type": "string"}, "sec_code": {"type": "string"}, "monthly_volume": {"type": "string"}, "uses_same_day_ach": {"type": "string"}, "data_security_encryption": {"type": "string"}}, "required": ["org_role", "sec_code"]}}, "execution": {"type": "browser-javascript", "entry": "tools/224-nacha-ach-rule-compliance-checker.html", "function_name": "runCheck", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

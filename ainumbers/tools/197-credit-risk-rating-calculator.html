@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>T197 · Credit Risk Rating Calculator · AINumbers.co</title>
+<meta name="description" content="Input financial ratios to derive an internal credit rating mapped to S&P, Moody's, and Fitch equivalents (AAA–D). Configurable by industry sector and counterparty type. Outputs rating scorecard, rationale narrative, Markdown memo, and Policy Mandate JSON credit profile. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/197-credit-risk-rating-calculator">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Credit Risk Rating Calculator","url":"https://ainumbers.co/tools/197-credit-risk-rating-calculator","description":"","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ─── Design tokens ─────────────────────────────────────────── */
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+
+/* Grid background — gold tint */
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(212,168,71,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(212,168,71,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* ── RTL support ── */
+[dir="rtl"] .nav-inner{flex-direction:row-reverse}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+[dir="rtl"] .lang-inner{justify-content:flex-start}
+[dir="rtl"] .hero-eyebrow{flex-direction:row-reverse}
+[dir="rtl"] .panel-label{text-align:right}
+[dir="rtl"] .result-row{flex-direction:row-reverse}
+[dir="rtl"] [dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+[dir="rtl"] .run-btn{letter-spacing:0}
+
+/* Lang bar */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+/* Nav */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+/* Hero */
+.hero{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:360px;height:360px;background:radial-gradient(circle,rgba(212,168,71,.06) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:.9rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--gold)}
+.tool-eyebrow{color:var(--gold)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.5rem);color:var(--white);max-width:700px;margin-bottom:.65rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.85rem;color:var(--body);max-width:620px;line-height:1.85;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.28rem .65rem;border:1px solid}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+
+/* Main layout */
+.main-content{position:relative;z-index:1;padding:2.5rem 0 1rem}
+.tool-layout{display:grid;grid-template-columns:1fr 340px;gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:1.5rem}
+@media(max-width:820px){.tool-layout{grid-template-columns:1fr}}
+.panel{background:var(--bg-2);padding:1.75rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+
+/* Form */
+.field-group{display:flex;flex-direction:column;gap:1.1rem;margin-bottom:1.5rem}
+.field{display:flex;flex-direction:column;gap:.35rem}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:560px){.field-row{grid-template-columns:1fr}}
+label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text);display:flex;align-items:center;gap:.5rem}
+label .hint{font-size:.46rem;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:300}
+input[type="number"],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.5rem .75rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;border-radius:var(--radius);width:100%;transition:border-color .2s;-webkit-appearance:none}
+input[type="number"]:focus,select:focus{outline:none;border-color:var(--gold)}
+select option{background:var(--bg-3)}
+.field-sub{font-size:.65rem;color:var(--muted);line-height:1.5}
+
+/* PII notice */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+/* Run button */
+.run-btn{width:100%;background:var(--gold);color:var(--bg);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;padding:.85rem 1.5rem;border:none;border-radius:var(--radius);font-weight:500;transition:all .2s;margin-top:.5rem}
+.run-btn:hover{opacity:.88;transform:translateY(-1px)}
+.run-btn:active{transform:translateY(0)}
+
+/* About panel */
+.about-section{display:flex;flex-direction:column;gap:1rem}
+.about-block{border-bottom:1px solid var(--border);padding-bottom:1rem}
+.about-block:last-child{border-bottom:none;padding-bottom:0}
+.about-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.about-text{font-size:.74rem;color:var(--body);line-height:1.7}
+.about-text strong{color:var(--text)}
+.rating-ref{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-top:.6rem}
+.rating-ref-row{display:contents}
+.rating-chip{font-family:'JetBrains Mono',monospace;font-size:.5rem;padding:.2rem .45rem;background:var(--bg-3);border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.rating-chip .rtg{color:var(--bright);font-weight:500}
+.rating-chip .rng{color:var(--muted)}
+
+.last-reviewed::before{content:'⏱';font-size:.6rem}
+
+/* Results */
+.results-panel{background:var(--bg-2);border:1px solid var(--border);margin-bottom:1.5rem;display:none}
+.results-panel.visible{display:block}
+.results-header{padding:1.25rem 1.75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem}
+.results-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
+.results-body{padding:1.75rem}
+
+/* Rating display */
+.rating-display{display:grid;grid-template-columns:auto 1fr auto;gap:2rem;align-items:center;background:var(--bg-3);border:1px solid var(--border);border-left:4px solid var(--gold);padding:1.5rem 1.75rem;margin-bottom:2rem}
+@media(max-width:640px){.rating-display{grid-template-columns:1fr;gap:1rem}}
+.rating-main{text-align:center}
+.rating-grade{font-family:'DM Serif Display',serif;font-size:3.5rem;line-height:1;color:var(--white)}
+.rating-grade.ig{color:var(--teal)}
+.rating-grade.hy{color:var(--warn)}
+.rating-grade.dist{color:var(--red)}
+.rating-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-top:.25rem}
+.rating-score-display{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--muted);text-align:center;margin-top:.15rem}
+.rating-equiv{display:flex;flex-direction:column;gap:.6rem}
+.equiv-row{display:flex;align-items:center;gap:.75rem}
+.equiv-agency{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;color:var(--muted);width:52px;flex-shrink:0}
+.equiv-grade{font-family:'JetBrains Mono',monospace;font-size:.9rem;color:var(--bright);font-weight:500}
+.equiv-label{font-size:.7rem;color:var(--body)}
+.rating-meta{display:flex;flex-direction:column;gap:.5rem;align-items:flex-end}
+@media(max-width:640px){.rating-meta{align-items:flex-start}}
+.meta-chip{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;padding:.2rem .55rem;border-radius:2px;white-space:nowrap}
+.chip-ig{background:var(--teal-dim);color:var(--teal)}
+.chip-hy{background:rgba(245,158,11,.12);color:var(--warn)}
+.chip-dist{background:var(--red-dim);color:var(--red)}
+
+/* Score table */
+.score-table{width:100%;border-collapse:collapse;margin-bottom:2rem}
+.score-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.6rem .75rem;border-bottom:1px solid var(--border-2);text-align:left;font-weight:400}
+.score-table td{padding:.65rem .75rem;border-bottom:1px solid var(--border);font-size:.78rem;color:var(--text);vertical-align:middle}
+.score-table tr:last-child td{border-bottom:none}
+.score-table tr:hover td{background:rgba(255,255,255,.012)}
+.ratio-name{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--bright)}
+.ratio-value{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--gold)}
+.score-bar-wrap{width:120px;height:6px;background:var(--bg-4);border-radius:3px;overflow:hidden;display:inline-block;vertical-align:middle}
+.score-bar{height:100%;border-radius:3px;transition:width .6s ease}
+.bar-high{background:var(--teal)}
+.bar-mid{background:var(--gold)}
+.bar-low{background:var(--warn)}
+.bar-crit{background:var(--red)}
+.score-num{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-left:.5rem}
+.weight-badge{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);padding:.1rem .35rem}
+
+/* Rationale */
+.rationale-block{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);padding:1.25rem 1.5rem;margin-bottom:2rem}
+.rationale-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem}
+.rationale-text{font-size:.82rem;color:var(--text);line-height:1.8}
+.rationale-text strong{color:var(--bright)}
+
+/* Export row (within results — Markdown only) */
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;padding-top:1.25rem;border-top:1px solid var(--border)}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;border-radius:var(--radius);border:1px solid;cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;transition:all .2s;background:transparent}
+.btn-export-md{color:var(--teal);border-color:rgba(20,184,166,.35)}
+.btn-export-md:hover{border-color:var(--teal);background:var(--teal-dim)}
+
+}
+
+/* ── Export button enhancements ─────────────────────────────── */
+.ap2-btn-inner{display:flex;flex-direction:column;gap:.05rem;text-align:left}
+.ap2-btn-label{font-size:.5rem;letter-spacing:.09em;text-transform:uppercase}
+.ap2-btn-sub{font-size:.42rem;color:rgba(212,168,71,.55);text-transform:none;letter-spacing:0;font-weight:300;line-height:1}
+.ap2-icon{font-size:.72rem;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-weight:700}
+.md-badge{font-size:.44rem;background:var(--teal-dim);color:var(--teal);border:1px solid rgba(20,184,166,.3);padding:.1rem .35rem;border-radius:2px;font-weight:600;letter-spacing:.04em;margin-right:.3rem;flex-shrink:0}
+/* ── Export success toast ────────────────────────────────────── */
+.export-toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--green);padding:.7rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--green);z-index:9999;pointer-events:none;display:flex;align-items:center;gap:.5rem;border-radius:var(--radius);box-shadow:0 4px 24px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s}
+.export-toast.show{opacity:1;transform:translateY(0)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* ── MCP manifest section ── */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted);padding:.3rem .75rem;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- LANG BAR -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick='setLang("zh")'>中文</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--gold)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".7"/>
+      </svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/counterparty-credit-risk-hub.html">Credit Risk Hub</a><span class="nav-sep">/</span><span>T-197</span></div>
+
+    <a href="../guides/counterparty-credit-risk-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">
+      <span class="tool-eyebrow">T197 · Cat-17 · Counterparty Credit Risk · Credit Rating</span>
+    </div>
+    <h1 class="tool-title">Credit Risk <em>Rating Calculator</em></h1>
+    <p class="hero-desc">Input financial ratios to derive an internal credit rating mapped to S&amp;P, Moody's, and Fitch scales (AAA–D). Configurable weighting by industry sector and counterparty type. Outputs a ratio-by-ratio scorecard, rating rationale narrative, Markdown memo, and Policy Mandate JSON credit profile.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-gold">S&amp;P · Moody's · Fitch</span>
+      <span class="hero-badge badge-teal">Basel III / CRR3</span>
+      <span class="hero-badge badge-muted">Zero PII · Client-side</span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main-content">
+<div class="container">
+
+  <!-- TOOL LAYOUT: config + about -->
+  <div class="tool-layout">
+
+    <!-- CONFIG PANEL -->
+    <div class="panel">
+      <div class="panel-label">Configuration</div>
+
+      <!-- PII Notice -->
+      <div class="pii-notice">
+  <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+</div>
+
+      <div class="field-group">
+
+        <!-- Counterparty type + sector -->
+        <div class="field-row">
+          <div class="field">
+            <label for="counterpartyType" data-i18n="label_counterparty_type">Counterparty Type <span class="hint">— entity class</span></label>
+            <select id="counterpartyType">
+              <option value="corporate">Corporate</option>
+              <option value="bank">Bank / FI</option>
+              <option value="sovereign">Sovereign</option>
+              <option value="sme">SME</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="sector" data-i18n="label_sector">Industry Sector <span class="hint">— benchmark set</span></label>
+            <select id="sector">
+              <option value="general">General Corporate</option>
+              <option value="tech">Technology</option>
+              <option value="healthcare">Healthcare</option>
+              <option value="utilities">Utilities / Infrastructure</option>
+              <option value="realestate">Real Estate</option>
+              <option value="energy">Energy / Commodities</option>
+              <option value="retail">Retail / Consumer</option>
+              <option value="financial">Financial Services</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Weighting profile -->
+        <div class="field">
+          <label for="weightingProfile" data-i18n="label_weighting">Weighting Profile <span class="hint">— emphasis</span></label>
+          <select id="weightingProfile">
+            <option value="balanced">Balanced (equal weight)</option>
+            <option value="leverage">Leverage-Heavy (debt focus)</option>
+            <option value="coverage">Coverage-Heavy (cash flow focus)</option>
+            <option value="liquidity">Liquidity-Heavy (balance sheet focus)</option>
+          </select>
+        </div>
+
+        <!-- Financial ratios -->
+        <div class="field">
+          <label data-i18n="label_ratios">Financial Ratios <span class="hint">— enter actuals or LTM</span></label>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="netDebtEbitda">Net Debt / EBITDA <span class="hint">× — leverage</span></label>
+            <input type="number" id="netDebtEbitda" placeholder="e.g. 2.5" step="0.1" min="0" max="30">
+            <div class="field-sub">Net financial debt ÷ last 12-month EBITDA. 0 = net cash.</div>
+          </div>
+          <div class="field">
+            <label for="ebitdaInterest">EBITDA / Interest <span class="hint">× — coverage</span></label>
+            <input type="number" id="ebitdaInterest" placeholder="e.g. 6.0" step="0.1" min="0" max="50">
+            <div class="field-sub">EBITDA ÷ net interest expense. Higher = stronger coverage.</div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="ebitdaMargin">EBITDA Margin <span class="hint">% — profitability</span></label>
+            <input type="number" id="ebitdaMargin" placeholder="e.g. 22.0" step="0.1" min="-50" max="100">
+            <div class="field-sub">EBITDA ÷ revenue × 100. Sector benchmarks applied.</div>
+          </div>
+          <div class="field">
+            <label for="fcfDebt">FCF / Debt <span class="hint">% — repayment</span></label>
+            <input type="number" id="fcfDebt" placeholder="e.g. 15.0" step="0.1" min="-100" max="200">
+            <div class="field-sub">Free cash flow ÷ total debt × 100. Capacity to repay.</div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="currentRatio">Current Ratio <span class="hint">× — liquidity</span></label>
+            <input type="number" id="currentRatio" placeholder="e.g. 1.4" step="0.05" min="0" max="10">
+            <div class="field-sub">Current assets ÷ current liabilities. 1.0× = break-even.</div>
+          </div>
+          <div class="field">
+            <label for="debtEquity">Debt / Equity <span class="hint">% — gearing</span></label>
+            <input type="number" id="debtEquity" placeholder="e.g. 65.0" step="1" min="0" max="1000">
+            <div class="field-sub">Total debt ÷ total equity × 100. Net gearing ratio.</div>
+          </div>
+        </div>
+
+      </div>
+
+      <button class="run-btn" onclick="runRating()" data-i18n="run_btn">Run Analysis →</button>
+    </div>
+
+    <!-- ABOUT PANEL -->
+    <div class="panel">
+      <div class="panel-label">About This Tool</div>
+      <div class="about-section">
+
+        <div class="about-block">
+          <div class="about-label">Methodology</div>
+          <div class="about-text">Six financial ratios are scored on a 0–100 scale against sector-calibrated benchmarks. Weighted composite score maps to an internal rating grade with S&amp;P, Moody's, and Fitch equivalents. <strong>Rule-based deterministic model</strong> — no machine learning inference.</div>
+        </div>
+
+        <div class="about-block">
+          <div class="about-label">Rating Scale</div>
+          <div class="rating-ref">
+            <div class="rating-chip"><span class="rtg">AAA</span><span class="rng">90–100</span></div>
+            <div class="rating-chip"><span class="rtg">AA</span><span class="rng">80–89</span></div>
+            <div class="rating-chip"><span class="rtg">A</span><span class="rng">70–79</span></div>
+            <div class="rating-chip"><span class="rtg">BBB</span><span class="rng">60–69</span></div>
+            <div class="rating-chip"><span class="rtg">BB</span><span class="rng">48–59</span></div>
+            <div class="rating-chip"><span class="rtg">B</span><span class="rng">36–47</span></div>
+            <div class="rating-chip"><span class="rtg">CCC</span><span class="rng">22–35</span></div>
+            <div class="rating-chip"><span class="rtg">CC/C</span><span class="rng">10–21</span></div>
+            <div class="rating-chip"><span class="rtg">D</span><span class="rng">0–9</span></div>
+          </div>
+        </div>
+
+        <div class="about-block">
+          <div class="about-label">Weighting profiles</div>
+          <div class="about-text"><strong>Balanced:</strong> equal weight across all six ratios.<br><strong>Leverage-Heavy:</strong> 35% Net Debt/EBITDA, reduced liquidity weight — suited to LBO / leveraged counterparties.<br><strong>Coverage-Heavy:</strong> 35% EBITDA/Interest — suited to high-capex infrastructure / utilities.<br><strong>Liquidity-Heavy:</strong> 30% Current Ratio + FCF/Debt — suited to SME / trading counterparties.</div>
+        </div>
+
+        <div class="about-block">
+          <div class="about-label">Limitations</div>
+          <div class="about-text">This tool produces a <strong>quantitative ratio-based score</strong>. It does not incorporate qualitative factors (management, governance, market position), macro/country risk overlays, or forward-looking forecasts. Always apply analyst judgement and cross-check against public agency ratings where available.</div>
+        </div>
+
+        </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2025-01-15</span></span>
+    </div>
+
+  </div><!-- /tool-layout -->
+
+  <!-- RESULTS PANEL -->
+  <div class="results-panel" id="resultsPanel">
+    <div class="results-header">
+      <div class="results-title results-title-el">Analysis Results</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--muted)" id="runMeta"></div>
+    </div>
+    <div class="results-body">
+
+      <!-- Rating display -->
+      <div class="rating-display" id="ratingDisplay">
+        <div class="rating-main">
+          <div class="rating-grade" id="ratingGrade">—</div>
+          <div class="rating-label">Internal Rating</div>
+          <div class="rating-score-display" id="ratingScore"></div>
+        </div>
+        <div class="rating-equiv" id="ratingEquiv"></div>
+        <div class="rating-meta" id="ratingMeta"></div>
+      </div>
+
+      <!-- Score breakdown table -->
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.85rem">Ratio Scorecard</div>
+      <table class="score-table">
+        <thead>
+          <tr>
+            <th>Ratio</th>
+            <th>Input Value</th>
+            <th>Score (0–100)</th>
+            <th>Weight</th>
+            <th>Weighted Score</th>
+            <th>Signal</th>
+          </tr>
+        </thead>
+        <tbody id="scorecardBody"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);padding:.75rem">Composite Score</td>
+            <td style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">100%</td>
+            <td colspan="2" style="font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--gold)" id="compositeScore"></td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <!-- Rationale -->
+      <div class="rationale-block">
+        <div class="rationale-label">Rating Rationale</div>
+        <div class="rationale-text" id="rationaleText"></div>
+      </div>
+
+      <!-- Markdown export (within results) -->
+      <div class="results-export-row">
+        <button class="btn-export btn-export-md" onclick="exportMarkdown()" data-i18n="export_md"><span class="md-badge">MD</span><span class="md-btn-text">Export Markdown</span></button>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /container -->
+</div><!-- /main-content -->
+
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/counterparty-credit-risk-hub.html"><span data-i18n="footer.hub_counterparty_credit_risk">CCR Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* AP2Schema — full validator (PM17; wired into cohort C) */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+if (typeof AP2Schema.validate !== 'function') {
+  AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    return true;
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   T197 · Credit Risk Rating Calculator
+   Methodology: Weighted ratio scoring → internal grade → agency equiv
+   AP2 mandate_type: risk_parameter
+   All processing client-side. Zero PII. Zero external calls.
+═══════════════════════════════════════════════════════════════ */
+
+/* ── i18n ─────────────────────────────────────────────────── */
+const TRANSLATIONS = {
+  en: {
+    eyebrow:        "T197 · Cat-17 · Counterparty Credit Risk · Credit Rating",
+    hero_title:     "Credit Risk Rating Calculator",
+    hero_desc:      "Input financial ratios to derive an internal credit rating mapped to S&P, Moody's, and Fitch scales (AAA–D). Configurable weighting by industry sector and counterparty type. Outputs a ratio-by-ratio scorecard, rating rationale narrative, Markdown memo, and Policy Mandate JSON credit profile.",
+    panel_config:   "Configuration",
+    panel_about:    "About This Tool",
+    label_counterparty_type: "Counterparty Type",
+    label_sector:   "Industry Sector",
+    label_weighting:"Weighting Profile",
+    label_ratios:   "Financial Ratios",
+    run_btn:        "Run Analysis →",
+    results_title:  "Analysis Results",
+    export_ap2:     "Export Policy Mandate",
+    export_md:      "⬇ Export Markdown",
+    pii_notice:     "🔒 All inputs are processed locally in your browser. No data is transmitted. Use synthetic or anonymised financial data only — do not enter real counterparty identifiers.",
+    last_reviewed:  "Last Reviewed",
+    nav_all_tools:  "All Tools",
+    footer_badge:   "🔒 Zero PII · 📡 Client-Side · 💻 No Server Calls",
+    lang_dir:       "ltr",
+  
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-17 Hub',
+  },
+  es: {
+    eyebrow:        "T197 · Cat-17 · Riesgo de Crédito · Calificación",
+    hero_title:     "Calculadora de Calificación de Riesgo Crediticio",
+    hero_desc:      "Ingrese ratios financieros para obtener una calificación crediticia interna mapeada a las escalas de S&P, Moody's y Fitch (AAA–D). Ponderación configurable por sector y tipo de contraparte.",
+    panel_config:   "Configuración",
+    panel_about:    "Acerca de esta herramienta",
+    label_counterparty_type: "Tipo de Contraparte",
+    label_sector:   "Sector Industrial",
+    label_weighting:"Perfil de Ponderación",
+    label_ratios:   "Ratios Financieros",
+    run_btn:        "Ejecutar Análisis →",
+    results_title:  "Resultados del Análisis",
+    export_ap2:     "Exportar Mandato de Política",
+    export_md:      "⬇ Exportar Markdown",
+    pii_notice:     "🔒 Todos los datos se procesan localmente en su navegador. No se transmite ningún dato. Use únicamente datos financieros sintéticos o anonimizados.",
+    last_reviewed:  "Última Revisión",
+    nav_all_tools:  "Todas las Herramientas",
+    footer_badge:   "🔒 Sin PII · 📡 En el cliente · 💻 Sin servidor",
+    lang_dir:       "ltr",
+  
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-17',
+  },
+  fr: {
+    eyebrow:        "T197 · Cat-17 · Risque de Crédit · Notation",
+    hero_title:     "Calculateur de Notation du Risque de Crédit",
+    hero_desc:      "Saisissez des ratios financiers pour obtenir une notation crédit interne mappée aux échelles S&P, Moody's et Fitch (AAA–D). Pondération configurable par secteur et type de contrepartie.",
+    panel_config:   "Configuration",
+    panel_about:    "À propos de cet outil",
+    label_counterparty_type: "Type de Contrepartie",
+    label_sector:   "Secteur Industriel",
+    label_weighting:"Profil de Pondération",
+    label_ratios:   "Ratios Financiers",
+    run_btn:        "Lancer l'Analyse →",
+    results_title:  "Résultats de l'Analyse",
+    export_ap2:     "Exporter Mandat de Politique",
+    export_md:      "⬇ Exporter Markdown",
+    pii_notice:     "🔒 Toutes les données sont traitées localement dans votre navigateur. Aucune donnée n'est transmise. Utilisez uniquement des données financières synthétiques ou anonymisées.",
+    last_reviewed:  "Dernière Révision",
+    nav_all_tools:  "Tous les Outils",
+    footer_badge:   "🔒 Zéro PII · 📡 Côté client · 💻 Aucun serveur",
+    lang_dir:       "ltr",
+  
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-17',
+  },
+  ar: {
+    eyebrow:        "T197 · القسم 17 · مخاطر الائتمان · التصنيف",
+    hero_title:     "حاسبة تصنيف مخاطر الائتمان",
+    hero_desc:      "أدخل النسب المالية للحصول على تصنيف ائتماني داخلي مرتبط بمقاييس S&P وMoody's وFitch (AAA–D). أوزان قابلة للتكوين حسب القطاع ونوع الطرف المقابل.",
+    panel_config:   "الإعدادات",
+    panel_about:    "حول هذه الأداة",
+    label_counterparty_type: "نوع الطرف المقابل",
+    label_sector:   "القطاع الصناعي",
+    label_weighting:"ملف الأوزان",
+    label_ratios:   "النسب المالية",
+    run_btn:        "تشغيل التحليل →",
+    results_title:  "نتائج التحليل",
+    export_ap2:     "تصدير تفويض السياسة",
+    export_md:      "⬇ تصدير Markdown",
+    pii_notice:     "🔒 تتم معالجة جميع المدخلات محليًا في متصفحك. لا يتم نقل أي بيانات. استخدم بيانات مالية اصطناعية أو مجهولة فقط.",
+    last_reviewed:  "آخر مراجعة",
+    nav_all_tools:  "جميع الأدوات",
+    footer_badge:   "🔒 بدون بيانات شخصية · 📡 من جانب العميل · 💻 بدون خادم",
+    lang_dir:       "rtl",
+  
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-17',
+  },
+  pt: {
+    eyebrow:        "T197 · Cat-17 · Risco de Crédito · Classificação",
+    hero_title:     "Calculadora de Rating de Risco de Crédito",
+    hero_desc:      "Insira rácios financeiros para derivar uma classificação de crédito interna mapeada às escalas S&P, Moody's e Fitch (AAA–D). Ponderação configurável por sector e tipo de contraparte.",
+    panel_config:   "Configuração",
+    panel_about:    "Sobre esta ferramenta",
+    label_counterparty_type: "Tipo de Contraparte",
+    label_sector:   "Sector Industrial",
+    label_weighting:"Perfil de Ponderação",
+    label_ratios:   "Rácios Financeiros",
+    run_btn:        "Executar Análise →",
+    results_title:  "Resultados da Análise",
+    export_ap2:     "Exportar Mandato de Política",
+    export_md:      "⬇ Exportar Markdown",
+    pii_notice:     "🔒 Todos os dados são processados localmente no seu navegador. Nenhum dado é transmitido. Use apenas dados financeiros sintéticos ou anonimizados.",
+    last_reviewed:  "Última Revisão",
+    nav_all_tools:  "Todas as Ferramentas",
+    footer_badge:   "🔒 Zero PII · 📡 Lado cliente · 💻 Sem servidor",
+    lang_dir:       "ltr",
+  
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-17',
+  },
+  zh: {
+    eyebrow:        "T197 · 第17类 · 交易对手信用风险 · 信用评级",
+    hero_title:     "信用风险评级计算器",
+    hero_desc:      "输入财务比率，得出与标普、穆迪和惠誉评级（AAA–D）对应的内部信用评级。可按行业和交易对手类型配置权重。",
+    panel_config:   "配置",
+    panel_about:    "关于本工具",
+    label_counterparty_type: "交易对手类型",
+    label_sector:   "行业板块",
+    label_weighting:"权重方案",
+    label_ratios:   "财务比率",
+    run_btn:        "运行分析 →",
+    results_title:  "分析结果",
+    export_ap2:     "导出政策授权书",
+    export_md:      "⬇ 导出 Markdown",
+    pii_notice:     "🔒 所有输入均在您的浏览器中本地处理，不传输任何数据。请仅使用合成或匿名化的财务数据。",
+    last_reviewed:  "最近审核",
+    nav_all_tools:  "全部工具",
+    footer_badge:   "🔒 零个人信息 · 📡 客户端 · 💻 无服务器",
+    lang_dir:       "ltr",
+  
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-17 中心',
+  },
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS['en'];
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`) ||
+              document.querySelector(`.lang-btn[onclick='setLang("${lang}")']`);
+  if (btn) btn.classList.add('active');
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  document.documentElement.dir = t.lang_dir || 'ltr';
+  document.body.dir = t.lang_dir || 'ltr';
+  const apply = (sel, key) => { const el = document.querySelector(sel); if (el && t[key] !== undefined) el.textContent = t[key]; };
+  apply('.tool-eyebrow',    'eyebrow');
+  apply('.hero h1',         'hero_title');
+  apply('.hero-desc',       'hero_desc');
+  apply('.pii-notice',      'pii_notice');
+  apply('.run-btn',         'run_btn');
+  apply('.results-title-el','results_title');
+  apply('.nav-cta',         'nav_all_tools');
+  const panelLabels = document.querySelectorAll('.panel-label');
+  ['panel_config','panel_about'].forEach((k,i) => { if (panelLabels[i] && t[k]) panelLabels[i].textContent = t[k]; });
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const k = el.getAttribute('data-i18n');
+    if (t[k] !== undefined) el.textContent = t[k];
+  });
+  document.querySelectorAll('.btn-export-md').forEach(b => { if (t['export_md']) b.textContent = t['export_md']; });
+  const ap2btn = document.getElementById('footerAp2Btn');
+  if (ap2btn && t['export_ap2']) ap2btn.textContent = '⬇ ' + t['export_ap2'];
+  const lr = document.querySelector('.last-reviewed');
+  if (lr) { const d = lr.textContent.match(/\d{4}-\d{2}-\d{2}/); if (d) lr.textContent = `⏱ ${t['last_reviewed']} ${d[0]}`; }
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function initLang() { try { const s = sessionStorage.getItem('ain_lang'); if (s && TRANSLATIONS[s]) setLang(s); } catch(e) {} })();
+
+/* ── Scoring engine ───────────────────────────────────────── */
+
+/* Score a ratio on 0-100 using a breakpoint table (linear interpolation) */
+function scoreFromTable(value, table) {
+  // table: [[threshold, score], ...] sorted descending by threshold
+  if (value === null || isNaN(value)) return null;
+  for (let i = 0; i < table.length; i++) {
+    if (value >= table[i][0]) {
+      if (i === 0) return table[0][1];
+      // linear interp between table[i-1] and table[i]
+      const hi = table[i-1], lo = table[i];
+      const frac = (value - lo[0]) / (hi[0] - lo[0]);
+      return Math.round(lo[1] + frac * (hi[1] - lo[1]));
+    }
+  }
+  return table[table.length - 1][1];
+}
+
+/* Ratio scoring tables — sector-neutral baselines */
+/* Net Debt / EBITDA: lower is better */
+function scoreNetDebtEbitda(v) {
+  return scoreFromTable(v, [
+    [0, 100], [1, 95], [2, 82], [3, 68], [4, 52], [5, 38], [6, 24], [7, 14], [10, 5]
+  ]);
+}
+
+/* EBITDA / Interest: higher is better */
+function scoreEbitdaInterest(v) {
+  return scoreFromTable(v, [
+    [15, 100], [10, 88], [7, 74], [5, 60], [3, 44], [2, 28], [1, 14], [0, 5]
+  ]);
+}
+
+/* EBITDA Margin %: higher is better, sector-adjusted below */
+function scoreEbitdaMargin(v, sector) {
+  const adj = { utilities: 5, realestate: 5, financial: 3, energy: 2,
+                tech: -3, healthcare: -2, retail: 4, general: 0 };
+  const offset = adj[sector] || 0;
+  const adjusted = v - offset; // shift benchmark by sector offset
+  return scoreFromTable(adjusted, [
+    [40, 100], [30, 90], [22, 78], [15, 64], [10, 50], [5, 36], [0, 20], [-10, 8]
+  ]);
+}
+
+/* FCF / Debt %: higher is better */
+function scoreFcfDebt(v) {
+  return scoreFromTable(v, [
+    [40, 100], [25, 88], [15, 74], [8, 58], [3, 42], [0, 28], [-5, 16], [-20, 5]
+  ]);
+}
+
+/* Current Ratio: higher is better */
+function scoreCurrentRatio(v) {
+  return scoreFromTable(v, [
+    [2.5, 100], [2.0, 90], [1.5, 76], [1.2, 62], [1.0, 46], [0.8, 30], [0.6, 16], [0, 5]
+  ]);
+}
+
+/* Debt / Equity %: lower is better */
+function scoreDebtEquity(v) {
+  return scoreFromTable(v, [
+    [0, 100], [20, 94], [50, 82], [80, 68], [120, 52], [180, 36], [300, 20], [500, 8]
+  ]);
+}
+
+/* Weight tables by profile */
+const WEIGHTS = {
+  balanced:  { nd_eb: 1/6, eb_int: 1/6, eb_mg: 1/6, fcf: 1/6, cr: 1/6, de: 1/6 },
+  leverage:  { nd_eb: .35, eb_int: .20, eb_mg: .15, fcf: .15, cr: .08, de: .07 },
+  coverage:  { nd_eb: .20, eb_int: .35, eb_mg: .20, fcf: .15, cr: .05, de: .05 },
+  liquidity: { nd_eb: .15, eb_int: .15, eb_mg: .15, fcf: .25, cr: .20, de: .10 },
+};
+
+/* Grade from composite score */
+function gradeFromScore(s) {
+  if (s >= 90) return { grade:'AAA', sp:'AAA', moodys:'Aaa', fitch:'AAA', cat:'ig', label:'Prime', desc:'Extremely strong capacity to meet financial commitments.' };
+  if (s >= 83) return { grade:'AA+', sp:'AA+', moodys:'Aa1', fitch:'AA+', cat:'ig', label:'High Grade', desc:'Very strong capacity; differs from AAA only in small degree.' };
+  if (s >= 77) return { grade:'AA',  sp:'AA',  moodys:'Aa2', fitch:'AA',  cat:'ig', label:'High Grade', desc:'Very strong capacity to meet financial commitments.' };
+  if (s >= 72) return { grade:'AA-', sp:'AA-', moodys:'Aa3', fitch:'AA-', cat:'ig', label:'High Grade', desc:'Very strong capacity; susceptible to adverse economic conditions.' };
+  if (s >= 67) return { grade:'A+',  sp:'A+',  moodys:'A1',  fitch:'A+',  cat:'ig', label:'Upper Medium', desc:'Strong capacity, but somewhat susceptible to adverse conditions.' };
+  if (s >= 62) return { grade:'A',   sp:'A',   moodys:'A2',  fitch:'A',   cat:'ig', label:'Upper Medium', desc:'Strong capacity to meet financial commitments.' };
+  if (s >= 57) return { grade:'A-',  sp:'A-',  moodys:'A3',  fitch:'A-',  cat:'ig', label:'Upper Medium', desc:'Strong capacity; more susceptible to adverse economic changes.' };
+  if (s >= 53) return { grade:'BBB+',sp:'BBB+',moodys:'Baa1',fitch:'BBB+',cat:'ig', label:'Lower Medium', desc:'Adequate capacity; adverse conditions more likely to weaken.' };
+  if (s >= 48) return { grade:'BBB', sp:'BBB', moodys:'Baa2',fitch:'BBB', cat:'ig', label:'Lower Medium', desc:'Adequate capacity. Lowest investment-grade category.' };
+  if (s >= 43) return { grade:'BBB-',sp:'BBB-',moodys:'Baa3',fitch:'BBB-',cat:'ig', label:'Lower Medium', desc:'Adequate; considered lowest investment grade by most definitions.' };
+  if (s >= 38) return { grade:'BB+', sp:'BB+', moodys:'Ba1', fitch:'BB+', cat:'hy', label:'Non-Investment', desc:'Less vulnerable in the near term; faces ongoing uncertainty.' };
+  if (s >= 33) return { grade:'BB',  sp:'BB',  moodys:'Ba2', fitch:'BB',  cat:'hy', label:'Speculative',  desc:'Less vulnerable; faces major ongoing uncertainties.' };
+  if (s >= 28) return { grade:'BB-', sp:'BB-', moodys:'Ba3', fitch:'BB-', cat:'hy', label:'Speculative',  desc:'Less vulnerable; exposed to adverse business or economic conditions.' };
+  if (s >= 23) return { grade:'B+',  sp:'B+',  moodys:'B1',  fitch:'B+',  cat:'hy', label:'Speculative',  desc:'More vulnerable; adverse conditions will likely impair repayment.' };
+  if (s >= 18) return { grade:'B',   sp:'B',   moodys:'B2',  fitch:'B',   cat:'hy', label:'Speculative',  desc:'More vulnerable; current capacity to meet commitments is limited.' };
+  if (s >= 14) return { grade:'B-',  sp:'B-',  moodys:'B3',  fitch:'B-',  cat:'hy', label:'Speculative',  desc:'More vulnerable; significant uncertainty on long-term viability.' };
+  if (s >= 10) return { grade:'CCC+',sp:'CCC+',moodys:'Caa1',fitch:'CCC+',cat:'dist',label:'Distressed', desc:'Currently vulnerable; dependent on favourable conditions to meet commitments.' };
+  if (s >=  6) return { grade:'CCC', sp:'CCC', moodys:'Caa2',fitch:'CCC', cat:'dist',label:'Distressed', desc:'Currently vulnerable; likely default without favourable circumstances.' };
+  if (s >=  3) return { grade:'CC',  sp:'CC',  moodys:'Ca',  fitch:'CC',  cat:'dist',label:'Distressed', desc:'Currently highly vulnerable; near or in default.' };
+  return         { grade:'D',   sp:'D',   moodys:'C',   fitch:'D',   cat:'dist',label:'Default',   desc:'Default. Has failed to meet a financial commitment.' };
+}
+
+/* Signal label from sub-score */
+function signal(s) {
+  if (s === null) return '—';
+  if (s >= 75) return '✦ Strong';
+  if (s >= 55) return '◆ Adequate';
+  if (s >= 35) return '◇ Weak';
+  return '⚠ Critical';
+}
+function barClass(s) {
+  if (s === null) return '';
+  if (s >= 75) return 'bar-high';
+  if (s >= 55) return 'bar-mid';
+  if (s >= 35) return 'bar-low';
+  return 'bar-crit';
+}
+
+/* ── State ────────────────────────────────────────────────── */
+let lastResult = null;
+
+/* ── Main run function ────────────────────────────────────── */
+function runRating() {
+  // Read inputs
+  const cType    = document.getElementById('counterpartyType').value;
+  const sector   = document.getElementById('sector').value;
+  const profile  = document.getElementById('weightingProfile').value;
+
+  const nd_eb  = parseFloat(document.getElementById('netDebtEbitda').value);
+  const eb_int = parseFloat(document.getElementById('ebitdaInterest').value);
+  const eb_mg  = parseFloat(document.getElementById('ebitdaMargin').value);
+  const fcf    = parseFloat(document.getElementById('fcfDebt').value);
+  const cr     = parseFloat(document.getElementById('currentRatio').value);
+  const de     = parseFloat(document.getElementById('debtEquity').value);
+
+  // Validate
+  const inputs = [nd_eb, eb_int, eb_mg, fcf, cr, de];
+  if (inputs.some(v => isNaN(v))) {
+    alert('Please fill in all six financial ratio fields before running the analysis.');
+    return;
+  }
+
+  // Score each ratio
+  const scores = {
+    nd_eb:  scoreNetDebtEbitda(nd_eb),
+    eb_int: scoreEbitdaInterest(eb_int),
+    eb_mg:  scoreEbitdaMargin(eb_mg, sector),
+    fcf:    scoreFcfDebt(fcf),
+    cr:     scoreCurrentRatio(cr),
+    de:     scoreDebtEquity(de),
+  };
+
+  // Apply weights
+  const w = WEIGHTS[profile];
+  const composite = Math.round(
+    scores.nd_eb  * w.nd_eb  +
+    scores.eb_int * w.eb_int +
+    scores.eb_mg  * w.eb_mg  +
+    scores.fcf    * w.fcf    +
+    scores.cr     * w.cr     +
+    scores.de     * w.de
+  );
+
+  const ratingObj = gradeFromScore(composite);
+
+  // Build rows
+  const rows = [
+    { name:'Net Debt / EBITDA',  fmt: nd_eb.toFixed(1) + '×',  score: scores.nd_eb,  weight: w.nd_eb },
+    { name:'EBITDA / Interest',  fmt: eb_int.toFixed(1) + '×', score: scores.eb_int, weight: w.eb_int },
+    { name:'EBITDA Margin',      fmt: eb_mg.toFixed(1) + '%',   score: scores.eb_mg,  weight: w.eb_mg },
+    { name:'FCF / Debt',         fmt: fcf.toFixed(1) + '%',     score: scores.fcf,    weight: w.fcf },
+    { name:'Current Ratio',      fmt: cr.toFixed(2) + '×',      score: scores.cr,     weight: w.cr },
+    { name:'Debt / Equity',      fmt: de.toFixed(1) + '%',      score: scores.de,     weight: w.de },
+  ];
+
+  // Store for export
+  lastResult = { cType, sector, profile, inputs: { nd_eb, eb_int, eb_mg, fcf, cr, de },
+                 scores, composite, ratingObj, rows, runAt: new Date().toISOString() };
+
+  renderResults(ratingObj, composite, rows);
+  enableAP2Button();
+}
+
+function renderResults(r, composite, rows) {
+  // Grade display
+  const gradeEl = document.getElementById('ratingGrade');
+  gradeEl.textContent = r.grade;
+  gradeEl.className = 'rating-grade ' + r.cat;
+  document.getElementById('ratingScore').textContent = 'Score ' + composite + ' / 100';
+
+  // Equivalents
+  document.getElementById('ratingEquiv').innerHTML = `
+    <div class="equiv-row"><span class="equiv-agency">S&amp;P</span><span class="equiv-grade">${r.sp}</span><span class="equiv-label">${r.label}</span></div>
+    <div class="equiv-row"><span class="equiv-agency">Moody's</span><span class="equiv-grade">${r.moodys}</span></div>
+    <div class="equiv-row"><span class="equiv-agency">Fitch</span><span class="equiv-grade">${r.fitch}</span></div>
+  `;
+
+  // Meta chips
+  const catLabel = r.cat === 'ig' ? 'Investment Grade' : r.cat === 'hy' ? 'High Yield' : 'Distressed';
+  const catClass = 'chip-' + r.cat;
+  document.getElementById('ratingMeta').innerHTML = `
+    <span class="meta-chip ${catClass}">${catLabel}</span>
+    <span class="meta-chip" style="background:var(--bg-3);color:var(--muted)">${composite >= 48 ? 'IG' : 'Sub-IG'}</span>
+  `;
+
+  // Scorecard
+  const tbody = document.getElementById('scorecardBody');
+  tbody.innerHTML = rows.map(row => {
+    const ws = Math.round(row.score * row.weight);
+    return `<tr>
+      <td class="ratio-name">${row.name}</td>
+      <td class="ratio-value">${row.fmt}</td>
+      <td>
+        <div class="score-bar-wrap"><div class="score-bar ${barClass(row.score)}" style="width:${row.score}%"></div></div>
+        <span class="score-num">${row.score}</span>
+      </td>
+      <td><span class="weight-badge">${Math.round(row.weight * 100)}%</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--gold)">${ws}</td>
+      <td style="font-size:.72rem;color:var(--body)">${signal(row.score)}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('compositeScore').textContent = composite + ' / 100';
+
+  // Rationale
+  const weakRatios  = rows.filter(r => r.score < 40).map(r => r.name);
+  const strongRatios = rows.filter(r => r.score >= 75).map(r => r.name);
+  const cTypeLabels = { corporate:'corporate counterparty', bank:'banking institution', sovereign:'sovereign entity', sme:'SME counterparty' };
+  let rationale = `<strong>${r.grade}</strong> (${r.label}) — Composite score of <strong>${composite}/100</strong> across six weighted financial ratios. ${r.desc}`;
+  if (strongRatios.length) rationale += ` <strong>Strengths:</strong> ${strongRatios.join(', ')} all score in the strong tier (≥75), indicating solid financial foundations for a ${cTypeLabels[lastResult.cType]}.`;
+  if (weakRatios.length)   rationale += ` <strong>Weaknesses:</strong> ${weakRatios.join(', ')} score below 40 — these are the primary drivers of rating pressure and warrant closer monitoring.`;
+  if (!weakRatios.length && !strongRatios.length) rationale += ' All ratio scores fall in the adequate range, indicating balanced but not exceptional creditworthiness.';
+  if (composite >= 48) rationale += ' <strong>Investment grade</strong> threshold maintained (≥BBB−).';
+  else if (composite >= 28) rationale += ' <strong>Below investment grade.</strong> Suitable for speculative-grade credit facilities with appropriate covenants and pricing premium.';
+  else rationale += ' <strong>Distressed / default territory.</strong> Facility exposure should be carefully collateralised and actively monitored.';
+  document.getElementById('rationaleText').innerHTML = rationale;
+
+  // Run meta
+  document.getElementById('runMeta').textContent = new Date().toLocaleTimeString();
+
+  // Show results
+  const panel = document.getElementById('resultsPanel');
+  panel.classList.add('visible');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function enableAP2Button() {
+  const _ab=document.getElementById('footerAp2Btn'); _ab.classList.add('ready'); _ab.title='For API integration · audit trail';
+}
+
+/* ── AP2 Export ───────────────────────────────────────────── */
+function exportAP2() {
+  if (!lastResult) return;
+  const r = lastResult;
+  const mandate = {
+    ap2_version:  "1.0",
+    mandate_id:   crypto.randomUUID(),
+    issued_at:    new Date().toISOString(),
+    issued_by:    "ainumbers.co",
+    tool_id:      "credit-risk-rating-calculator",
+    tool_version: "4.0.0",
+    mandate_type: "risk_parameter",
+    jurisdiction: ["global"],
+    regulatory_frameworks: ["Basel III", "CRR3", "IFRS 9", "ISDA"],
+    payload: {
+      counterparty_type:    r.cType,
+      industry_sector:      r.sector,
+      weighting_profile:    r.profile,
+      composite_score:      r.composite,
+      internal_rating:      r.ratingObj.grade,
+      sp_equivalent:        r.ratingObj.sp,
+      moodys_equivalent:    r.ratingObj.moodys,
+      fitch_equivalent:     r.ratingObj.fitch,
+      rating_category:      r.ratingObj.cat,
+      rating_label:         r.ratingObj.label,
+      is_investment_grade:  r.composite >= 48,
+      net_debt_ebitda:      r.inputs.nd_eb,
+      ebitda_interest:      r.inputs.eb_int,
+      ebitda_margin_pct:    r.inputs.eb_mg,
+      fcf_debt_pct:         r.inputs.fcf,
+      current_ratio:        r.inputs.cr,
+      debt_equity_pct:      r.inputs.de,
+      score_net_debt_ebitda:r.scores.nd_eb,
+      score_ebitda_interest:r.scores.eb_int,
+      score_ebitda_margin:  r.scores.eb_mg,
+      score_fcf_debt:       r.scores.fcf,
+      score_current_ratio:  r.scores.cr,
+      score_debt_equity:    r.scores.de,
+    },
+    summary: `Internal credit rating of ${r.ratingObj.grade} (${r.ratingObj.sp} S&P equivalent) derived from a weighted six-ratio model for a ${r.cType} counterparty in the ${r.sector} sector. Composite score ${r.composite}/100. ${r.composite >= 48 ? 'Investment grade.' : 'Below investment grade.'}`,
+    agent_instructions: [
+      `Treat counterparty as ${r.ratingObj.cat === 'ig' ? 'investment grade' : r.ratingObj.cat === 'hy' ? 'sub-investment grade / high yield' : 'distressed'} for credit limit and collateral purposes.`,
+      `Apply ${r.ratingObj.sp} S&P-equivalent risk weight under Basel III standardised approach when calculating RWA. Feed into T201 calculate_basel_rwa.`,
+      `Use composite score of ${r.composite} as PD proxy input for T198 model_pd_lgd_ead to derive IFRS 9 ECL parameters.`,
+      `If rating is BBB- or above, counterparty qualifies for standard unsecured credit facilities. Below BBB-, require enhanced covenants — run T199 check_covenant_compliance.`,
+      r.composite < 48 ? `Pricing premium required. Run T203 model_raroc_loan_pricing with elevated hurdle rate for sub-investment grade.` : `Standard RAROC pricing applicable. Run T203 model_raroc_loan_pricing with standard hurdle rate.`,
+    ],
+    valid_from:   r.runAt,
+    last_reviewed:"2025-01-15",
+    source_tool_inputs: {
+      counterparty_type: r.cType,
+      sector: r.sector,
+      weighting_profile: r.profile,
+      net_debt_ebitda: r.inputs.nd_eb,
+      ebitda_interest: r.inputs.eb_int,
+      ebitda_margin_pct: r.inputs.eb_mg,
+      fcf_debt_pct: r.inputs.fcf,
+      current_ratio: r.inputs.cr,
+      debt_equity_pct: r.inputs.de,
+    },
+    regulatory_citations: [
+      "Basel III: BIS BCBS 189 (2010, rev. 2011) — standardised approach risk weights by external rating",
+      "CRR3: EU Regulation 2024/1623 — updated SA risk weight table",
+      "IFRS 9: IASB (2014) — ECL staging and PD estimation",
+      "S&P Global Rating Definitions — long-term issuer credit ratings",
+    ],
+  };
+  AP2Schema.validate(mandate);
+  const blob = new Blob([JSON.stringify(mandate, null, 2)], { type:'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), { href: url, download: `ap2-t197-credit-rating-${Date.now()}.policy.json` });
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  showExportToast('Policy Mandate JSON downloaded', 'ap2');
+}
+
+/* ── Markdown Export ──────────────────────────────────────── */
+function exportMarkdown() {
+  if (!lastResult) return;
+  const r = lastResult;
+  const d = new Date(r.runAt).toISOString().split('T')[0];
+  const rows = r.rows.map(row =>
+    `| ${row.name.padEnd(22)} | ${row.fmt.padStart(10)} | ${String(row.score).padStart(5)} | ${(Math.round(row.weight*100)+'%').padStart(6)} | ${String(Math.round(row.score*row.weight)).padStart(14)} |`
+  ).join('\n');
+
+  const md = `# Credit Risk Rating — Assessment Memo
+**Tool:** T197 · Credit Risk Rating Calculator · AINumbers.co
+**Date:** ${d}
+**Counterparty Type:** ${r.cType} · **Sector:** ${r.sector} · **Weighting:** ${r.profile}
+
+---
+
+## Rating Outcome
+
+| Dimension         | Result         |
+|-------------------|----------------|
+| **Internal Grade**| **${r.ratingObj.grade}** |
+| S&P Equivalent    | ${r.ratingObj.sp} |
+| Moody's Equivalent| ${r.ratingObj.moodys} |
+| Fitch Equivalent  | ${r.ratingObj.fitch} |
+| Category          | ${r.ratingObj.label} |
+| Composite Score   | ${r.composite} / 100 |
+| Investment Grade  | ${r.composite >= 48 ? 'Yes (≥BBB−)' : 'No (sub-BBB−)'} |
+
+---
+
+## Ratio Scorecard
+
+| Ratio                  | Input Value | Score | Weight | Weighted Score |
+|------------------------|-------------|-------|--------|----------------|
+${rows}
+| **Composite**          |             |       |  100%  | **${r.composite}** |
+
+---
+
+## Rating Rationale
+
+${r.ratingObj.grade} (${r.ratingObj.label}) — Composite score of ${r.composite}/100. ${r.ratingObj.desc}
+
+${r.rows.filter(x => x.score >= 75).length ? '**Strengths:** ' + r.rows.filter(x => x.score >= 75).map(x => x.name).join(', ') : ''}
+${r.rows.filter(x => x.score < 40).length ? '**Weaknesses / Key Risks:** ' + r.rows.filter(x => x.score < 40).map(x => x.name).join(', ') : ''}
+
+---
+
+## Regulatory Citations
+
+1. Basel III: BIS BCBS 189 (2010, rev. 2011) — standardised approach risk weights by external rating
+2. CRR3: EU Regulation 2024/1623 — updated SA risk weight table
+3. IFRS 9: IASB (2014) — ECL staging and PD estimation
+4. S&P Global Rating Definitions — long-term issuer credit ratings
+
+---
+
+*Generated by AINumbers.co T197. Client-side. Zero PII. CC BY 4.0 · Post Oak Labs.*
+*Last Reviewed: 2025-01-15*
+`;
+  const blob = new Blob([md], { type:'text/markdown' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), { href: url, download: `t197-credit-rating-memo-${Date.now()}.md` });
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  showExportToast('Markdown downloaded', 'md');
+}
+
+/* ── Export success feedback ──────────────────────────────────── */
+function showExportToast(msg, type) {
+  let el = document.getElementById('exportToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'exportToast';
+    el.className = 'export-toast';
+    document.body.appendChild(el);
+  }
+  const isAp2 = type === 'ap2';
+  el.style.borderLeftColor = isAp2 ? 'var(--green)' : 'var(--teal)';
+  el.style.color = isAp2 ? 'var(--green)' : 'var(--teal)';
+  el.innerHTML = '<span style="font-weight:700">' + (isAp2 ? '{}' : 'MD') + '</span>&nbsp;' + msg;
+  el.classList.add('show');
+  clearTimeout(el._tm);
+  el._tm = setTimeout(function(){ el.classList.remove('show'); }, 2200);
+}
+
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "credit-risk-rating-calculator", "version": "4.0.0", "title": "Credit Risk Rating Calculator", "description": "Input financial ratios to derive an internal credit rating mapped to S&P, Moody\'s, and Fitch equivalents (AAA–D). Configurable weighting by industry sector and counterparty type. Outputs rating scorecard, rationale narrative, Markdown memo, and Policy Mandate JSON credit profile. Client-side. Zero PII.", "category": "cat-17", "tags": ["Credit Rating", "S&P", "Moody\'s", "Fitch", "Basel III", "IFRS 9", "Policy Mandate", "export"], "audience": ["credit-analyst", "risk-officer", "relationship-manager"], "input_schema": {"type": "object", "properties": {"counterparty_type": {"type": "string", "enum": ["corporate", "bank", "sovereign", "sme"]}, "sector": {"type": "string", "enum": ["general", "tech", "healthcare", "utilities", "realestate", "energy", "retail", "financial"]}, "weighting_profile": {"type": "string", "enum": ["balanced", "leverage", "coverage", "liquidity"]}, "net_debt_ebitda": {"type": "number", "description": "Net Debt / EBITDA ratio (×)"}, "ebitda_interest": {"type": "number", "description": "EBITDA / Interest Expense (×)"}, "ebitda_margin": {"type": "number", "description": "EBITDA Margin (%)"}, "fcf_debt": {"type": "number", "description": "Free Cash Flow / Debt (%)"}, "current_ratio": {"type": "number", "description": "Current Ratio (×)"}, "debt_equity": {"type": "number", "description": "Debt / Equity (%)"}}, "required": ["counterparty_type", "sector", "weighting_profile", "net_debt_ebitda", "ebitda_interest", "ebitda_margin", "fcf_debt", "current_ratio", "debt_equity"]}, "output_schema": {"type": "object", "properties": {"composite_score": {"type": "number", "description": "Weighted composite score 0–100"}, "internal_rating": {"type": "string", "description": "Internal rating grade e.g. BBB+"}, "sp_equivalent": {"type": "string"}, "moodys_equivalent": {"type": "string"}, "fitch_equivalent": {"type": "string"}, "rating_category": {"type": "string", "enum": ["ig", "hy", "dist"]}, "scorecard": {"type": "array", "items": {"type": "object"}}, "ap2_mandate": {"type": "object"}}}, "mcp_tool_definition": {"name": "calculate_credit_risk_rating", "description": "Derives an internal credit rating (AAA–D) from six financial ratios using a weighted scoring model calibrated by sector and counterparty type. Maps to S&P, Moody\'s, and Fitch equivalents. Use when a credit agent needs to establish a counterparty rating before computing PD, RWA, or RAROC.", "inputSchema": {"type": "object", "properties": {"counterparty_type": {"type": "string", "enum": ["corporate", "bank", "sovereign", "sme"]}, "sector": {"type": "string"}, "weighting_profile": {"type": "string", "enum": ["balanced", "leverage", "coverage", "liquidity"]}, "net_debt_ebitda": {"type": "number"}, "ebitda_interest": {"type": "number"}, "ebitda_margin": {"type": "number"}, "fcf_debt": {"type": "number"}, "current_ratio": {"type": "number"}, "debt_equity": {"type": "number"}}, "required": ["counterparty_type", "sector", "weighting_profile", "net_debt_ebitda", "ebitda_interest", "ebitda_margin", "fcf_debt", "current_ratio", "debt_equity"]}}, "execution": {"type": "browser-javascript", "entry": "tools/197-credit-risk-rating-calculator.html", "function_name": "runRating", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

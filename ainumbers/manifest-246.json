@@ -1,0 +1,64 @@
+{
+  "tool_id": "sme-cashflow-stress-test",
+  "version": "1.0.0",
+  "title": "Cash Flow Stress Test for SMEs",
+  "description": "Applies configurable stress shocks (revenue drop −20%/−40%, payment delay +15/+30 days, unexpected capex) to a 13-week rolling cash flow model. Returns cash runway, minimum cash balance, and week-by-week stressed cash flow table with breach alerts. Markdown cash management memo export. Client-side. Zero PII.",
+  "category": "cat-20",
+  "tags": ["cash flow", "stress test", "13-week model", "liquidity", "SME", "export"],
+  "audience": ["SME owner", "finance director", "CFO", "lender", "administrator"],
+  "input_schema": {
+    "type": "object",
+    "required": ["currency", "openingCash", "weeklyReceivables", "weeklyPayables"],
+    "properties": {
+      "currency":          { "type": "string", "enum": ["GBP","USD","EUR"] },
+      "openingCash":       { "type": "number", "minimum": 0 },
+      "weeklyReceivables": { "type": "number", "minimum": 0 },
+      "weeklyPayables":    { "type": "number", "minimum": 0 },
+      "minCashBuffer":     { "type": "number", "minimum": 0, "description": "Alert threshold — minimum acceptable cash balance" },
+      "shocks": {
+        "type": "object",
+        "properties": {
+          "rev20":   { "type": "boolean", "description": "Apply −20% revenue shock from week 3" },
+          "rev40":   { "type": "boolean", "description": "Apply −40% revenue shock from week 3 (severe)" },
+          "delay15": { "type": "boolean", "description": "Apply +15 day payment delay weeks 4–8" },
+          "delay30": { "type": "boolean", "description": "Apply +30 day payment delay weeks 4–10" },
+          "capex":   { "type": "boolean", "description": "Apply unexpected capex in week 5" }
+        }
+      },
+      "capexAmount": { "type": "number", "minimum": 0, "description": "Unexpected capex amount if shock enabled" }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "baseRunway":    { "type": ["integer","null"], "description": "Week number when base cash drops below buffer, or null if 13+ weeks" },
+      "stressRunway":  { "type": ["integer","null"], "description": "Week number when stressed cash drops below buffer, or null if 13+ weeks" },
+      "minStressed":   { "type": "number", "description": "Minimum cash balance over 13 weeks under stress" },
+      "weeklyModel":   { "type": "array", "items": { "type": "object" }, "description": "Week-by-week cash flow table" }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "stress_test_sme_cashflow",
+    "description": "Run a 13-week rolling cash flow stress test for an SME. Apply configurable shocks (revenue drops, payment delays, unexpected capex) and return cash runway, minimum cash balance, and week-by-week stressed cash flow. Use to assess near-term liquidity risk and generate cash management recommendations. The 13-week horizon is the FCA standard for near-term liquidity stress assessment.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["currency", "openingCash", "weeklyReceivables", "weeklyPayables"],
+      "properties": {
+        "currency":          { "type": "string", "enum": ["GBP","USD","EUR"] },
+        "openingCash":       { "type": "number", "minimum": 0 },
+        "weeklyReceivables": { "type": "number", "minimum": 0 },
+        "weeklyPayables":    { "type": "number", "minimum": 0 },
+        "minCashBuffer":     { "type": "number", "minimum": 0 },
+        "shocks":            { "type": "object" },
+        "capexAmount":       { "type": "number", "minimum": 0 }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/246-sme-cashflow-stress-test.html",
+    "function_name": "runAnalysis",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false
+}

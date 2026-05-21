@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>DLT Consensus Partition & Recovery Simulator · AINumbers.co</title>
+<meta name="description" content="Simulate network partitions and Byzantine fault scenarios for Hyperledger Fabric (Raft), Besu (QBFT), R3 Corda, and Canton. Generate a platform-specific numbered recovery runbook, transaction re-verification manifest, and governance voting worksheet. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/108-dlt-partition-recovery-sim">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"DLT Consensus Partition & Recovery Simulator","url":"https://ainumbers.co/tools/108-dlt-partition-recovery-sim","description":"Simulate network partitions and Byzantine fault scenarios for Hyperledger Fabric (Raft), Besu (QBFT), R3 Corda, and Canton. Generate a platform-specific numbered recovery runbook, transaction re-verification manifest, and governance voting worksheet. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased;padding-bottom:88px}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button,input,select,textarea{font-family:'Sora',sans-serif}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:960px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.78rem}
+.back-link{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.3rem .8rem;border-radius:4px;transition:all .2s}
+.back-link:hover{color:var(--teal);border-color:var(--teal)}
+.content{max-width:960px;margin:0 auto;padding:2rem 1.5rem;position:relative;z-index:1}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.5rem}
+.tool-title{font-size:clamp(1.4rem,2.8vw,2rem);color:var(--white);margin-bottom:.5rem}
+.hero-desc{font-size:.8rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1.5rem}
+
+.module{background:var(--bg-2);border:1px solid var(--border);padding:1.5rem;margin-bottom:1.5rem;border-left:3px solid var(--teal)}
+.module-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:1.25rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+label{font-size:.65rem;color:var(--body);display:block;margin-bottom:.2rem}
+input[type="number"],input[type="text"],select{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.4rem .65rem;font-size:.74rem;border-radius:4px;outline:none;transition:border-color .15s}
+input:focus,select:focus{border-color:var(--teal)}
+.field-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.85rem;margin-bottom:.85rem}
+.field-grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:.85rem;margin-bottom:.85rem}
+@media(max-width:640px){.field-grid,.field-grid-2{grid-template-columns:1fr}}
+
+/* AZ distribution */
+.az-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1rem}
+.az-cell{background:var(--bg-3);border:1px solid var(--border);padding:.85rem;text-align:center}
+.az-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.az-count{font-family:'DM Serif Display',serif;font-size:1.6rem;line-height:1;margin-bottom:.2rem}
+.az-isolated{background:var(--red-dim);border-color:var(--red)}
+.az-quorum{background:var(--green-dim);border-color:var(--green)}
+
+/* Status badges */
+.status-finalized{background:var(--green-dim);color:var(--green);font-family:'JetBrains Mono',monospace;font-size:.44rem;padding:.15rem .4rem;border-radius:2px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.status-inflight{background:var(--gold-dim);color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.44rem;padding:.15rem .4rem;border-radius:2px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.status-divergent{background:var(--red-dim);color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.44rem;padding:.15rem .4rem;border-radius:2px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+
+/* Runbook */
+.runbook{background:var(--bg-3);border:1px solid var(--border);padding:1.25rem;max-height:480px;overflow-y:auto;border-radius:var(--radius)}
+.runbook-header{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--warn);margin-bottom:.75rem;border-bottom:1px solid var(--border);padding-bottom:.5rem}
+.runbook-step{margin-bottom:1rem}
+.runbook-step-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);margin-bottom:.2rem}
+.runbook-step-title{font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--white);margin-bottom:.25rem}
+.runbook-step-body{font-size:.72rem;color:var(--body);line-height:1.65}
+.runbook-cmd{font-family:'JetBrains Mono',monospace;font-size:.68rem;background:var(--bg-4);color:var(--teal-lt);padding:.3rem .6rem;display:block;margin:.2rem 0;border-radius:3px;border:1px solid var(--border-2)}
+
+/* Quorum panel */
+.quorum-panel{display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap;padding:1rem 1.25rem;background:var(--bg-3);border:1px solid var(--border);margin-bottom:1.25rem}
+.quorum-stat{text-align:center}
+.quorum-label{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.2rem}
+.quorum-val{font-family:'DM Serif Display',serif;font-size:1.3rem;line-height:1}
+
+/* Timeline SVG */
+.timeline-wrap{overflow-x:auto;margin-top:.75rem}
+
+/* TX table */
+.tx-table{width:100%;border-collapse:collapse}
+.tx-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:left;padding:.4rem .65rem;border-bottom:1px solid var(--border)}
+.tx-table td{font-size:.71rem;padding:.45rem .65rem;border-bottom:1px solid var(--border);color:var(--text)}
+.tx-table tr:nth-child(even) td{background:var(--bg-3)}
+
+/* Governance worksheet */
+.governance-box{background:var(--bg-3);border:1px solid var(--border);padding:1.25rem;font-size:.74rem;color:var(--body);line-height:1.8}
+.gov-motion{color:var(--bright);font-style:italic;margin-bottom:.75rem}
+.sig-line{border-bottom:1px solid var(--border-2);padding:.4rem 0;margin:.35rem 0;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted)}
+
+/* Export bar */
+.export-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:1100px;background:var(--bg-2);border-top:1px solid var(--border);border-left:1px solid var(--border);border-right:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;padding:.75rem 1.5rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;z-index:100}
+.export-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;padding:.5rem 1.1rem;border-radius:4px;cursor:pointer;transition:all .2s;border:none}
+.export-btn-md{background:var(--teal);color:var(--bg)}.export-btn-md:hover{background:var(--teal-lt)}
+.export-btn-gov{background:var(--gold);color:var(--bg)}.export-btn-gov:hover{background:#E8BF5C}
+.export-btn-ap2{background:var(--green);color:var(--bg)}.export-btn-ap2:hover{background:#34d369}
+.export-btn-svg{background:var(--purple);color:var(--white)}.export-btn-svg:hover{background:#B08EF7}
+.export-info{font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted);margin-left:auto}
+.sec-divider{border:none;border-top:1px solid var(--border);margin:1.5rem 0}
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);padding-bottom:.6rem;border-bottom:1px solid var(--border);margin-bottom:1.5rem}
+.gen-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;background:var(--teal);color:var(--bg);border:none;padding:.6rem 1.4rem;border-radius:4px;cursor:pointer;margin-top:.75rem}
+.gen-btn:hover{background:var(--teal-lt)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-privacy::before{content:'·';color:var(--green)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+<style>
+/* AIN-5D-nav-grid-override */
+.nav-inner{display:grid!important;grid-template-columns:auto 1fr auto!important;align-items:center!important;justify-content:unset!important;gap:1rem!important;max-width:1100px!important}
+.nav-bc{justify-self:center!important;margin-left:0!important;flex-direction:row!important}
+.nav-right{justify-self:end!important;margin-left:0!important}
+</style>
+</head>
+<body>
+
+<!-- LANG BAR (Phase 5 baseline insertion 2026-05-12) -->
+<style>
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:0 2rem;height:34px;display:flex;align-items:center;width:100%}
+.lang-inner{max-width:1200px;margin:0 auto;display:flex;gap:0;align-items:center;width:100%;justify-content:flex-end}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;background:transparent;border:none;color:var(--muted);padding:.4rem .9rem;cursor:pointer;text-transform:uppercase;transition:color .2s}
+.lang-btn:hover{color:var(--text)}
+.lang-btn.active{color:var(--teal)}
+</style>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<script>
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+// Phase 5 baseline stub — visual-state only. Full TRANSLATIONS object lands in the next sweep.
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+    'nav.hub': '← Cat-11 Hub',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.hub': '← Centro Cat-11',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+    'nav.hub': '← Centre Cat-11',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+    'nav.hub': '← مركز Cat-11',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.hub': '← Central Cat-11',
+  }, zh:{
+    'nav.alltools': '所有工具',
+    'nav.hub': '← Cat-11 中心',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+</script>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/dlt-tokenization-hub.html">DLT Hub</a><span class="nav-sep">/</span><span>T-108</span></div>
+    <a href="../guides/dlt-tokenization-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<div class="content">
+  <div class="hero-eyebrow">Tool 108 · Cat-11 · DLT &amp; Tokenization</div>
+  <h1 class="tool-title">DLT Consensus Partition &amp; Recovery Simulator</h1>
+  <p class="hero-desc">Simulate network partitions and Byzantine fault scenarios across Hyperledger Fabric (Raft), Besu (QBFT), R3 Corda, and Canton. Configure your topology and partition event — the tool generates a platform-specific numbered recovery runbook. This is what your ops team needs at 3 AM.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-privacy"><span data-i18n="hero.badge.privacy">Zero PII · Client-side</span></span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+
+  <!-- Module 1: Network Topology -->
+  <div class="module">
+    <div class="module-title">Module 1 · Network Topology Builder</div>
+    <div class="field-grid">
+      <div>
+        <label>Platform</label>
+        <select id="platform" onchange="onTopologyChange()">
+          <option value="fabric">Hyperledger Fabric (Raft)</option>
+          <option value="besu">Besu (QBFT)</option>
+          <option value="corda">R3 Corda</option>
+          <option value="canton">Canton</option>
+        </select>
+      </div>
+      <div>
+        <label>Total Node Count (odd numbers enforce quorum)</label>
+        <input type="number" id="node-count" value="5" min="3" max="21" step="2" oninput="onTopologyChange()">
+      </div>
+      <div id="platform-config-wrap">
+        <!-- Platform-specific config injected here -->
+      </div>
+    </div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem">Node Distribution Across Availability Zones</div>
+    <div class="az-grid">
+      <div class="az-cell" id="az-a-cell">
+        <div class="az-label">AZ-A</div>
+        <div class="az-count" style="color:var(--teal)" id="az-a-count">3</div>
+        <input type="number" id="az-a" value="3" min="0" oninput="onTopologyChange()" style="margin-top:.4rem;text-align:center">
+      </div>
+      <div class="az-cell" id="az-b-cell">
+        <div class="az-label">AZ-B</div>
+        <div class="az-count" style="color:var(--teal)" id="az-b-count">1</div>
+        <input type="number" id="az-b" value="1" min="0" oninput="onTopologyChange()" style="margin-top:.4rem;text-align:center">
+      </div>
+      <div class="az-cell" id="az-c-cell">
+        <div class="az-label">AZ-C</div>
+        <div class="az-count" style="color:var(--teal)" id="az-c-count">1</div>
+        <input type="number" id="az-c" value="1" min="0" oninput="onTopologyChange()" style="margin-top:.4rem;text-align:center">
+      </div>
+    </div>
+  </div>
+
+  <!-- Module 2: Partition Scenario -->
+  <div class="module">
+    <div class="module-title">Module 2 · Partition Scenario Engine</div>
+    <div class="field-grid-2">
+      <div>
+        <label>Which AZ loses connectivity?</label>
+        <select id="isolated-az" onchange="runPartitionEngine()">
+          <option value="c">AZ-C isolated</option>
+          <option value="b">AZ-B isolated</option>
+          <option value="bc">AZ-B + AZ-C isolated</option>
+          <option value="a">AZ-A isolated</option>
+        </select>
+      </div>
+      <div>
+        <label>In-flight Transaction Count</label>
+        <input type="number" id="inflight-tx" value="12" min="0" oninput="runPartitionEngine()">
+      </div>
+    </div>
+    <div class="field-grid-2">
+      <div>
+        <label>Approximate Block Height at Partition</label>
+        <input type="number" id="block-height" value="14832" min="0" oninput="runPartitionEngine()">
+      </div>
+      <div>
+        <label>Endorsement Status</label>
+        <select id="endorsement-status" onchange="runPartitionEngine()">
+          <option value="none">No endorsements written to minority</option>
+          <option value="partial">Partial endorsements on minority</option>
+          <option value="full">Full endorsements on both partitions (divergent)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Quorum panel -->
+    <div class="quorum-panel" id="quorum-panel">
+      <div class="quorum-stat"><div class="quorum-label">Quorum Holder</div><div class="quorum-val" style="color:var(--green)" id="quorum-holder">—</div></div>
+      <div class="quorum-stat"><div class="quorum-label">Majority Nodes</div><div class="quorum-val" style="color:var(--teal)" id="quorum-nodes">—</div></div>
+      <div class="quorum-stat"><div class="quorum-label">Minority Nodes</div><div class="quorum-val" style="color:var(--warn)" id="minority-nodes">—</div></div>
+      <div class="quorum-stat"><div class="quorum-label">Fault Tolerance (f)</div><div class="quorum-val" style="color:var(--muted)" id="fault-tolerance">—</div></div>
+    </div>
+
+    <!-- TX status table -->
+    <div style="font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem">In-Flight Transaction Status</div>
+    <div style="overflow-x:auto">
+      <table class="tx-table">
+        <thead><tr><th>TX-ID</th><th>Status</th><th>Location</th><th>Recommended Action</th></tr></thead>
+        <tbody id="tx-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Module 3: Recovery Runbook -->
+  <div class="module">
+    <div class="module-title">Module 3 · Split-Brain Recovery Playbook</div>
+    <div class="runbook" id="runbook-wrap">
+      <div style="color:var(--muted);font-size:.74rem">Configure topology and partition scenario above to generate runbook.</div>
+    </div>
+  </div>
+
+  <!-- Module 4: Governance Worksheet -->
+  <div class="module">
+    <div class="module-title">Module 4 · Governance Voting Worksheet</div>
+    <div class="governance-box" id="gov-box">
+      <div style="color:var(--muted);font-size:.72rem">Generate runbook above to populate governance motion.</div>
+    </div>
+  </div>
+
+  <!-- Module 5: Post-Incident SVG Timeline -->
+  <div class="module">
+    <div class="module-title">Module 5 · Post-Incident Timeline</div>
+    <div class="timeline-wrap">
+      <svg id="timeline-svg" viewBox="0 0 800 120" style="width:100%;min-width:600px;display:block"></svg>
+    </div>
+  </div>
+
+</div>
+
+<!-- EXPORT BAR -->
+<div class="results-export-row export-bar">
+  <button class="export-btn export-btn-md" onclick="exportRunbook()">⬇ Runbook (.md)</button>
+  <button class="export-btn export-btn-gov" onclick="exportGovernance()">⬇ Gov Vote (.md)</button>
+  <button class="export-btn export-btn-svg" onclick="exportTimeline()">⬇ Timeline (.svg)</button>
+  <button class="export-btn export-btn-ap2" id="ap2ExportBtn" onclick="exportAP2()">⬇ Policy Mandate</button>
+  <span class="export-info">Tool 108 · DLT Partition Sim</span>
+</div>
+
+<script>
+const AP2Schema={version:'1.0',type:'@ainumbers.co/mandate-v1',
+  async build(i,s,p,st){const hb=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(st)));const h=Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,'0')).join('');return{'@type':AP2Schema.type,'@version':AP2Schema.version,'@generated':new Date().toISOString(),'tool_id':i,'tool_slug':s,'mandate_id':`AIN-${i}-${Date.now().toString(36).toUpperCase()}`,'audit_trail_hash':h,...p};},
+  download(m,f){const b=new Blob([JSON.stringify(m,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=f;a.click();URL.revokeObjectURL(a.href);}
+,
+  validate: function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+}
+};
+
+let _state = {};
+
+function onTopologyChange() {
+  const platform = document.getElementById('platform').value;
+  const nodeCount = Math.max(3, parseInt(document.getElementById('node-count').value)||5);
+  // Enforce odd
+  if (nodeCount % 2 === 0) { document.getElementById('node-count').value = nodeCount + 1; return; }
+
+  // Platform-specific config
+  const cfgWrap = document.getElementById('platform-config-wrap');
+  if (platform === 'fabric') {
+    cfgWrap.innerHTML = `<div><label>Orderer Nodes</label><input type="number" id="orderer-count" value="${Math.min(3,nodeCount)}" min="1" max="${nodeCount}" oninput="runPartitionEngine()"></div>`;
+  } else if (platform === 'besu') {
+    const f = Math.floor((nodeCount-1)/3);
+    cfgWrap.innerHTML = `<div><label>Validators (Byzantine f = ${f})</label><input type="number" id="validator-count" value="${nodeCount}" min="4" max="${nodeCount}" readonly style="color:var(--muted)"></div>`;
+  } else if (platform === 'corda') {
+    cfgWrap.innerHTML = `<div><label>Notary Cluster Size</label><input type="number" id="notary-size" value="${Math.min(3,nodeCount)}" min="1" max="${nodeCount}" oninput="runPartitionEngine()"></div>`;
+  } else if (platform === 'canton') {
+    cfgWrap.innerHTML = `<div><label>Mediator Count</label><input type="number" id="mediator-count" value="1" min="1" max="5" oninput="runPartitionEngine()"></div>`;
+  }
+
+  // Update AZ counts display
+  ['a','b','c'].forEach(az => {
+    const v = parseInt(document.getElementById(`az-${az}`).value)||0;
+    document.getElementById(`az-${az}-count`).textContent = v;
+  });
+  runPartitionEngine();
+}
+
+function runPartitionEngine() {
+  const platform = document.getElementById('platform').value;
+  const nodeCount = parseInt(document.getElementById('node-count').value)||5;
+  const azA = parseInt(document.getElementById('az-a').value)||0;
+  const azB = parseInt(document.getElementById('az-b').value)||0;
+  const azC = parseInt(document.getElementById('az-c').value)||0;
+  const isolatedAZ = document.getElementById('isolated-az').value;
+  const inflightTx = parseInt(document.getElementById('inflight-tx').value)||0;
+  const blockHeight = parseInt(document.getElementById('block-height').value)||0;
+  const endorsementStatus = document.getElementById('endorsement-status').value;
+
+  // Update az display
+  document.getElementById('az-a-count').textContent = azA;
+  document.getElementById('az-b-count').textContent = azB;
+  document.getElementById('az-c-count').textContent = azC;
+
+  // Determine partition sizes
+  let majorityNodes, minorityNodes, majorityAZ, minorityAZLabel;
+  if (isolatedAZ === 'c') {
+    majorityNodes = azA + azB; minorityNodes = azC; majorityAZ = 'AZ-A + AZ-B'; minorityAZLabel = 'AZ-C';
+  } else if (isolatedAZ === 'b') {
+    majorityNodes = azA + azC; minorityNodes = azB; majorityAZ = 'AZ-A + AZ-C'; minorityAZLabel = 'AZ-B';
+  } else if (isolatedAZ === 'bc') {
+    majorityNodes = azA; minorityNodes = azB + azC; majorityAZ = 'AZ-A'; minorityAZLabel = 'AZ-B + AZ-C';
+  } else {
+    majorityNodes = azB + azC; minorityNodes = azA; majorityAZ = 'AZ-B + AZ-C'; minorityAZLabel = 'AZ-A';
+  }
+
+  const quorum = Math.floor(nodeCount / 2) + 1;
+  const hasQuorum = majorityNodes >= quorum;
+  const f = Math.floor((nodeCount-1)/3);
+
+  document.getElementById('quorum-holder').textContent = hasQuorum ? majorityAZ : '⚠ No quorum';
+  document.getElementById('quorum-holder').style.color = hasQuorum ? 'var(--green)' : 'var(--red)';
+  document.getElementById('quorum-nodes').textContent = majorityNodes;
+  document.getElementById('minority-nodes').textContent = minorityNodes;
+  document.getElementById('fault-tolerance').textContent = `f = ${f}`;
+
+  // Color AZ cells
+  const isolatedSet = new Set(isolatedAZ.split(''));
+  ['a','b','c'].forEach(az => {
+    const cell = document.getElementById(`az-${az}-cell`);
+    cell.className = 'az-cell' + (isolatedSet.has(az) ? ' az-isolated' : (majorityAZ.toLowerCase().includes(`az-${az}`) ? ' az-quorum' : ''));
+  });
+
+  // TX table
+  const txStatuses = [];
+  for (let t = 1; t <= Math.min(inflightTx, 10); t++) {
+    const txId = `TX-${String(blockHeight).slice(-3)}-${String(t).padStart(3,'0')}`;
+    let status, loc, action;
+    if (endorsementStatus === 'none' || t <= Math.floor(inflightTx * 0.6)) {
+      status = 'finalized'; loc = majorityAZ + ' (canonical ledger)'; action = 'Verify TX-ID against application source of truth — no re-submission needed.';
+    } else if (endorsementStatus === 'partial' || t <= Math.floor(inflightTx * 0.85)) {
+      status = 'inflight'; loc = 'In-flight at partition boundary'; action = 'Hold. Verify endorsement count post-recovery before re-submitting.';
+    } else {
+      status = 'divergent'; loc = minorityAZLabel + ' (minority — potentially divergent)'; action = 'Do NOT re-submit. Verify TX state against canonical ledger hash before any action.';
+    }
+    txStatuses.push({ txId, status, loc, action });
+  }
+  document.getElementById('tx-tbody').innerHTML = txStatuses.map(t => `<tr>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--teal)">${t.txId}</td>
+    <td><span class="status-${t.status}">${t.status.replace('-',' ')}</span></td>
+    <td style="font-size:.68rem;color:var(--body)">${t.loc}</td>
+    <td style="font-size:.67rem;color:var(--muted)">${t.action}</td></tr>`).join('');
+
+  // Generate runbook
+  generateRunbook(platform, nodeCount, majorityAZ, minorityAZLabel, azA, azB, azC, majorityNodes, minorityNodes, quorum, f, txStatuses, blockHeight, endorsementStatus);
+
+  // Governance worksheet
+  generateGovernance(platform, nodeCount, majorityAZ, minorityAZLabel, quorum, blockHeight, txStatuses.filter(t=>t.status==='divergent').length);
+
+  // Timeline SVG
+  drawTimeline(platform, majorityAZ, minorityAZLabel);
+
+  _state = { platform, nodeCount, isolatedAZ, majorityAZ, minorityAZLabel, majorityNodes, minorityNodes, quorum, f, inflightTx, blockHeight, txStatuses };
+}
+
+function generateRunbook(platform, n, majAZ, minAZ, azA, azB, azC, majN, minN, quorum, f, txs, blockH, endorsement) {
+  const platformNames = { fabric:'Hyperledger Fabric (Raft)', besu:'Besu (QBFT)', corda:'R3 Corda', canton:'Canton' };
+  const pname = platformNames[platform];
+  const ts = new Date().toISOString();
+  const divergentCount = txs.filter(t=>t.status==='divergent').length;
+  const inflightCount = txs.filter(t=>t.status==='inflight').length;
+
+  let steps = [];
+  const nodeList = (az) => { const counts={a:azA,b:azB,c:azC}; let ns=[]; let start=1; ['a','b','c'].forEach((z,i)=>{if(az.toLowerCase().includes(`az-${z}`)){for(let j=0;j<counts[z];j++)ns.push(`Node-${String(start+j).padStart(2,'0')}`);}start+=counts[z];}); return ns.join(', '); };
+
+  steps.push({ num:'STEP 1', title:'Verify quorum partition', body: `On a node in ${majAZ} (majority with ${majN} nodes): confirm quorum is intact.`, cmd: platform==='fabric'?`peer channel fetch newest --channelID mychannel`:platform==='besu'?`curl http://node-01:8545 -X POST --data '{"jsonrpc":"2.0","method":"eth_blockNumber","id":1}'`:platform==='corda'?`ssh node01 "run vaultQuery"`:platform==='canton'?`canton-console$ node.health.status` : '' });
+
+  steps.push({ num:'STEP 2', title:'Isolate minority partition', body: `Firewall nodes in ${minAZ} (${minN} nodes: ${nodeList(minAZ)}) from write traffic. Rationale: prevent clients retrying writes on a read-only minority partition.`, cmd: `# Block inbound write traffic on ${minAZ} nodes\n# iptables -A INPUT -p tcp --dport ${platform==='fabric'?'7050':platform==='besu'?'30303':platform==='corda'?'10002':'4567'} -j DROP` });
+
+  steps.push({ num:'STEP 3', title:`Audit ${txs.length} in-flight transactions`, body: `Verify each TX-ID against your off-chain application source of truth. Do NOT re-submit transactions until ledger consistency is confirmed.`, cmd: txs.slice(0,5).map(t=>`# Verify ${t.txId} — Status: ${t.status}`).join('\n') + (txs.length>5?'\n# ... and '+( txs.length-5)+' more':'') });
+
+  steps.push({ num:'STEP 4', title:'Restore network connectivity', body: `Re-enable the network path between ${majAZ} and ${minAZ}. Expected behaviour: minority nodes begin log replication from the canonical leader.`, cmd: `# Remove firewall rules applied in STEP 2\n# iptables -D INPUT -p tcp --dport ${platform==='fabric'?'7050':platform==='besu'?'30303':platform==='corda'?'10002':'4567'} -j DROP` });
+
+  if (platform === 'fabric') {
+    steps.push({ num:'STEP 5', title:'Verify Raft log replication', body: `After reconnection, confirm all nodes have the same block height. Node discrepancies indicate incomplete log sync.`, cmd: `# Run on each node:\npeer channel fetch newest --channelID mychannel\n# Compare returned block numbers — all nodes must match block ${blockH}` });
+  } else if (platform === 'besu') {
+    steps.push({ num:'STEP 5', title:'Verify QBFT state sync', body: `Confirm all validators have converged on the same block hash. f=${f} so up to ${f} divergent node(s) are tolerable.`, cmd: `# Run on each node:\ncurl http://nodeN:8545 -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["latest",false],"id":1}'\n# Compare "hash" field across all responses` });
+  } else if (platform === 'corda') {
+    steps.push({ num:'STEP 5', title:'Verify notary cluster sync', body: `Confirm the notary cluster has processed any pending notarization requests. Check for duplicate spend attempts on previously in-flight transactions.`, cmd: `ssh notary01 "flow start CheckNotaryState"` });
+  } else {
+    steps.push({ num:'STEP 5', title:'Verify mediator and sequencer sync', body: `Confirm the mediator has received all pending confirmation packets. Check sequencer ordering logs for gaps.`, cmd: `canton-console$ mediator.status\ncanton-console$ sequencer.pruningStatus` });
+  }
+
+  if (divergentCount > 0) {
+    steps.push({ num:'STEP 6', title:`Re-verify ${divergentCount} potentially divergent transaction(s)`, body: `These transactions had endorsements on both partitions. Verify each against the canonical ledger before taking any action.`, cmd: txs.filter(t=>t.status==='divergent').map(t=>`# Check ${t.txId} against canonical block hash at height ${blockH}`).join('\n') });
+  }
+
+  steps.push({ num: divergentCount > 0 ? 'STEP 7' : 'STEP 6', title:'Re-submit safe in-flight transactions', body: `Re-submit ${inflightCount} in-flight transaction(s) with their original idempotency keys. Do NOT re-submit divergent transactions without governance approval.`, cmd: `# Re-submit with original idempotency key per transaction\n# Verify application-side idempotency before triggering retry` });
+
+  const runbookHtml = steps.map(s => `
+    <div class="runbook-step">
+      <div class="runbook-step-num">${s.num}</div>
+      <div class="runbook-step-title">${s.title}</div>
+      <div class="runbook-step-body">${s.body}</div>
+      ${s.cmd?`<code class="runbook-cmd">${s.cmd.replace(/\n/g,'<br>')}</code>`:''}
+    </div>`).join('');
+
+  document.getElementById('runbook-wrap').innerHTML = `
+    <div class="runbook-header">RECOVERY RUNBOOK — ${pname} — ${ts.slice(0,19).replace('T',' ')}<br>Partition: ${minAZ} isolated · Quorum: ${majAZ} (${majN}/${n} nodes)</div>
+    ${runbookHtml}`;
+
+  _state._steps = steps;
+}
+
+function generateGovernance(platform, n, majAZ, minAZ, quorum, blockH, divergentCount) {
+  const threshold = quorum;
+  const motion = `Motion: The network accepts Ledger-A (blocks 0–${blockH}, hash [hash]) as canonical and formally discards divergent Ledger-B forks recorded after block [fork_point]. The partition event in ${minAZ} is recorded in the incident log. ${divergentCount} transactions require manual re-verification before re-submission. Proposed by: [node operator — fill in]. Voting threshold: >${threshold} validator signatures required.`;
+  const sigs = Array.from({length:threshold+1},(_,i)=>`<div class="sig-line">Validator ${i+1}: ______________________________ Date: __________ Block Height Attested: ${blockH}</div>`).join('');
+  document.getElementById('gov-box').innerHTML = `<div class="gov-motion">${motion}</div><div style="font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem">Validator Signatures (${threshold+1} required)</div>${sigs}`;
+}
+
+function drawTimeline(platform, majAZ, minAZ) {
+  const events = ['Partition Event', 'Quorum Determined', 'Minority Isolated', 'Network Restored', 'Log Synced', 'Recovery Complete'];
+  const W = 800, H = 100;
+  const step = (W - 60) / (events.length - 1);
+  const colors = ['var(--red)','var(--warn)','var(--gold)','var(--teal)','var(--teal)','var(--green)'];
+  let svg = `<line x1="30" y1="50" x2="${W-30}" y2="50" stroke="var(--border)" stroke-width="1"/>`;
+  events.forEach((ev, i) => {
+    const x = 30 + i * step;
+    svg += `<circle cx="${x}" cy="50" r="8" fill="var(--bg-3)" stroke="${colors[i]}" stroke-width="2"/>`;
+    svg += `<text x="${x}" y="78" text-anchor="middle" font-family="JetBrains Mono" font-size="7" fill="var(--muted)">${ev.split(' ').map((w,j)=>`<tspan x="${x}" dy="${j===0?0:9}">${w}</tspan>`).join('')}</text>`;
+  });
+  document.getElementById('timeline-svg').innerHTML = svg;
+}
+
+function exportRunbook() {
+  const s = _state;
+  if (!s._steps) { alert('Generate runbook first.'); return; }
+  const pnames={fabric:'Hyperledger Fabric (Raft)',besu:'Besu (QBFT)',corda:'R3 Corda',canton:'Canton'};
+  const ts = new Date().toISOString();
+  let md = `# Recovery Runbook — ${pnames[s.platform]}\n**Generated:** ${ts}\n**Partition:** ${s.minorityAZLabel} isolated · Quorum: ${s.majorityAZ}\n\n`;
+  s._steps.forEach(step => {
+    md += `## ${step.num} — ${step.title}\n${step.body}\n`;
+    if (step.cmd) md += `\`\`\`\n${step.cmd}\n\`\`\`\n`;
+    md += '\n';
+  });
+  md += `---\n*Generated by AINumbers.co Tool 108. All client-side. Zero PII.*\n`;
+  const blob=new Blob([md],{type:'text/markdown'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='partition-recovery-runbook.md';a.click();URL.revokeObjectURL(a.href);
+}
+
+function exportGovernance() {
+  const s = _state;
+  if (!s.blockHeight) { alert('Run partition engine first.'); return; }
+  const ts = new Date().toISOString();
+  let md = `# DLT Governance Voting Worksheet\n**Generated:** ${ts}\n\n`;
+  md += `## Motion\nThe network accepts Ledger-A (blocks 0–${s.blockHeight}) as canonical and formally discards divergent Ledger-B forks after block [fork_point].\n\n`;
+  md += `## Voting Threshold: >${s.quorum} validator signatures required\n\n`;
+  for (let i = 1; i <= s.quorum+1; i++) md += `**Validator ${i}:** ______________________________ Block: ${s.blockHeight}  Date: __________\n\n`;
+  md += `---\n*Generated by AINumbers.co Tool 108.*\n`;
+  const blob=new Blob([md],{type:'text/markdown'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='governance-vote.md';a.click();URL.revokeObjectURL(a.href);
+}
+
+function exportTimeline() {
+  const svgEl = document.getElementById('timeline-svg');
+  const svgContent = `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 120" style="background:#080E1A">${svgEl.innerHTML}</svg>`;
+  const blob=new Blob([svgContent],{type:'image/svg+xml'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='partition-timeline.svg';a.click();URL.revokeObjectURL(a.href);
+}
+
+async function exportAP2() {
+  const s = _state;
+  if (!s.platform) { alert('Run partition engine first.'); return; }
+  const payload = {
+    tool_id:'T108',tool_slug:'dlt-partition-recovery-sim',
+    platform:s.platform,node_count:s.nodeCount,
+    partition_config:{az_a:parseInt(document.getElementById('az-a').value)||0,az_b:parseInt(document.getElementById('az-b').value)||0,az_c:parseInt(document.getElementById('az-c').value)||0},
+    quorum_holder:s.majorityAZ,in_flight_tx_count:s.inflightTx,
+    recovery_steps_count:s._steps?s._steps.length:6
+  };
+  const manifest=await AP2Schema.build('T108','dlt-partition-recovery-sim',payload,{platform:s.platform,nodeCount:s.nodeCount});
+  AP2Schema.validate(manifest);
+  AP2Schema.download(manifest,`dlt-partition-${manifest.mandate_id}.policy.json`);
+}
+
+// Init
+onTopologyChange();
+</script>
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "dlt-partition-recovery-sim", "version": "1.0.0", "title": "DLT Consensus Partition & Recovery Simulator", "description": "Simulate network partitions and Byzantine fault scenarios for Hyperledger Fabric (Raft), Besu (QBFT), R3 Corda, and Canton. Generate a platform-specific numbered recovery runbook, transaction re-verification manifest, and governance voting worksheet. Client-side. Zero PII.", "category": "dlt-tokenization", "tags": ["DLT", "Consensus", "Partition", "Recovery", "Simulator"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"platform": {"type": "string"}, "node-count": {"type": "string"}, "az-a": {"type": "string"}, "az-b": {"type": "string"}, "az-c": {"type": "string"}, "isolated-az": {"type": "string"}, "inflight-tx": {"type": "string"}, "block-height": {"type": "string"}, "endorsement-status": {"type": "string"}, "orderer-count": {"type": "string"}, "validator-count": {"type": "string"}, "notary-size": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "dlt_partition_recovery_sim", "description": "Run DLT Consensus Partition & Recovery Simulator. Simulate network partitions and Byzantine fault scenarios for Hyperledger Fabric (Raft), Besu (QBFT), R3 Corda, and Canton. Generate a platform-specific numbered recovery runbook, transaction re-verif", "inputSchema": {"type": "object", "properties": {"platform": {"type": "string"}, "node-count": {"type": "string"}, "az-a": {"type": "string"}, "az-b": {"type": "string"}, "az-c": {"type": "string"}, "isolated-az": {"type": "string"}, "inflight-tx": {"type": "string"}, "block-height": {"type": "string"}, "endorsement-status": {"type": "string"}, "orderer-count": {"type": "string"}, "validator-count": {"type": "string"}, "notary-size": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/108-dlt-partition-recovery-sim.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

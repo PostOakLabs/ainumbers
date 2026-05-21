@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+  <title>T255 · FedNow Participation Readiness Scorer — AINumbers.co</title>
+  <link rel="canonical" href="https://ainumbers.co/tools/255-fednow-participation-readiness-scorer.html">
+  <meta name="description" content="Score institution readiness against 47 FedNow technical and operational participation requirements across 6 domains. Outputs gap checklist, implementation roadmap, and Policy Mandate JSON. Client-side. Zero PII.">
+  <script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FedNow Participation Readiness Scorer — AINumbers.co","url":"https://ainumbers.co/tools/255-fednow-participation-readiness-scorer.html","description":"Score institution readiness against 47 FedNow technical and operational participation requirements across 6 domains. Outputs gap checklist, implementation roadmap, and Policy Mandate JSON. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* PolicyMandate — full validator (Phase 14); AP2Schema internal name retained */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+};
+</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    /* ══════════════════════════════════════════════════════════
+       CSS DESIGN TOKENS — AINumbers.co canonical set (v3.0)
+    ══════════════════════════════════════════════════════════ */
+    :root {
+      --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+      --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+      --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+      --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+      --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+      --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+      --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+      --warn:#F59E0B; --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+      --radius:6px; --radius-lg:10px;
+      --font-display:'DM Serif Display',serif;
+      --font-body:'Sora',sans-serif;
+      --font-mono:'JetBrains Mono',monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family:'Sora',sans-serif;
+      font-weight:300;
+      font-size:15px;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height:1.7;
+      -webkit-font-smoothing:antialiased;
+      /* grid background texture — Cat-21 teal */
+      background-image:
+        linear-gradient(rgba(20,184,166,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(20,184,166,.025) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    /* ── Lang bar ── */
+    .lang-bar { background: var(--bg-2); border-bottom: 1px solid var(--border); padding: 6px 0; }
+    .lang-inner {
+      max-width: 1200px; margin: 0 auto; padding: 0 24px;
+      display: flex; gap: 4px; justify-content: flex-end;
+    }
+    .lang-btn {
+      font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500;
+      letter-spacing: 0.06em; padding: 3px 10px;
+      border-radius: var(--radius); border: 1px solid var(--border);
+      background: transparent; color: var(--body); cursor: pointer; transition: all 0.15s;
+    }
+    .lang-btn:hover { border-color: var(--teal); color: var(--teal); }
+    .lang-btn.active { background: var(--teal-dim); border-color: var(--teal); color: var(--teal-lt); }
+
+    /* ── Nav ── */
+    nav {
+      background: rgba(8,14,26,.96); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .nav-inner {
+      max-width: 1200px; margin: 0 auto; padding: 14px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+    .nav-logo {
+      font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700;
+      color: var(--teal-lt); text-decoration: none; letter-spacing: -0.02em;
+    }
+    .nav-logo span { color: var(--white); }
+    /* ── Hero ── */
+    .hero { max-width: 1200px; margin: 0 auto; padding: 52px 24px 40px; }
+    .hero-eyebrow {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 18px; flex-wrap: wrap;
+    }
+    .tool-eyebrow {
+      font-family: var(--font-mono); font-size: 0.66rem; font-weight: 700;
+      letter-spacing: 0.1em; color: var(--body); text-transform: uppercase;
+    }
+    .eyebrow-tag {
+      font-family: var(--font-mono); font-size: 0.62rem; font-weight: 700;
+      padding: 3px 10px; border-radius: var(--radius); letter-spacing: 0.07em;
+    }
+    .eyebrow-tag.teal { background: var(--teal-dim); border: 1px solid rgba(20,184,166,.3); color: var(--teal-lt); }
+    .eyebrow-tag.gold { background: var(--gold-dim); border: 1px solid rgba(212,168,71,.3); color: var(--gold); }
+    .hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(1.8rem, 3.8vw, 2.75rem);
+      color: var(--white); line-height: 1.18;
+      margin-bottom: 16px; letter-spacing: -0.02em;
+    }
+    .hero-desc {
+      font-size: 0.97rem; color: var(--text);
+      max-width: 700px; line-height: 1.75; margin-bottom: 24px;
+    }
+    .hero-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .meta-badge {
+      font-family: var(--font-mono); font-size: 0.6rem; font-weight: 600;
+      padding: 4px 12px; border-radius: var(--radius);
+      border: 1px solid var(--border); color: var(--body); letter-spacing: 0.05em;
+    }
+    .meta-badge.teal { border-color: rgba(20,184,166,.35); color: var(--teal); background: var(--teal-dim); }
+    .meta-badge.gold { border-color: rgba(212,168,71,.35); color: var(--gold); background: var(--gold-dim); }
+    .meta-badge.green { border-color: rgba(34,197,94,.35); color: var(--green); background: var(--green-dim); }
+
+    /* ── Main layout ── */
+    .main-wrap {
+      max-width: 1200px; margin: 0 auto;
+      padding: 0 24px 64px;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 24px; align-items: start;
+    }
+
+    /* ── Panel ── */
+    .panel {
+      background: var(--bg-2); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); overflow: hidden;
+    }
+    .panel-header {
+      padding: 14px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .panel-label {
+      font-family: var(--font-mono); font-size: 0.66rem; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+    }
+    .panel-count {
+      font-family: var(--font-mono); font-size: 0.6rem; font-weight: 700;
+      padding: 2px 10px; border-radius: var(--radius);
+      background: var(--teal-dim); border: 1px solid rgba(20,184,166,.2);
+      color: var(--teal); margin-left: auto;
+    }
+    .panel-body { padding: 20px; }
+
+    /* ── Config grid ── */
+    .config-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 14px; margin-bottom: 22px;
+    }
+    .field-group { display: flex; flex-direction: column; gap: 6px; }
+    .field-group label {
+      font-family: var(--font-mono); font-size: 0.61rem; font-weight: 700;
+      letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted);
+    }
+    .field-group select {
+      font-family:'Sora',sans-serif;
+      font-weight:300;
+      font-size:15px; font-size: 0.8rem;
+      padding: 9px 32px 9px 12px;
+      background: var(--bg-3); border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--bright);
+      outline: none; cursor: pointer; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233A5270' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center; background-size: 15px;
+      transition: border-color 0.15s;
+    }
+    .field-group select:focus { border-color: var(--teal); }
+
+    .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+    /* ── Category accordion ── */
+    .cat-section { margin-bottom: 10px; }
+    .cat-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; background: var(--bg-3);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      cursor: pointer; user-select: none; transition: border-color 0.15s;
+    }
+    .cat-header:hover { border-color: var(--border-2); }
+    .cat-header.open { border-color: var(--teal); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+    .cat-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--teal); flex-shrink: 0; opacity: 0.5;
+      transition: opacity 0.2s;
+    }
+    .cat-header.open .cat-dot { opacity: 1; }
+    .cat-title {
+      font-family: var(--font-mono); font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.04em; color: var(--text); flex: 1;
+    }
+    .cat-mini {
+      font-family: var(--font-mono); font-size: 0.62rem; font-weight: 700; color: var(--muted);
+    }
+    .cat-toggle {
+      font-size: 0.6rem; color: var(--muted); transition: transform 0.2s;
+    }
+    .cat-header.open .cat-toggle { transform: rotate(180deg); }
+
+    .cat-body {
+      display: none; overflow: hidden;
+      border: 1px solid var(--teal); border-top: none;
+      border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius);
+      background: rgba(8,14,26,.6);
+    }
+    .cat-body.open { display: block; }
+
+    /* ── Requirement row ── */
+    .req-row {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 9px 14px; border-bottom: 1px solid rgba(30,47,74,.5);
+    }
+    .req-row:last-child { border-bottom: none; }
+    .req-num {
+      font-family: var(--font-mono); font-size: 0.56rem; font-weight: 700;
+      color: var(--muted); padding-top: 2px; min-width: 24px; flex-shrink: 0;
+    }
+    .req-text { font-size: 0.76rem; color: var(--text); flex: 1; line-height: 1.5; }
+    .req-status { display: flex; gap: 3px; flex-shrink: 0; padding-top: 1px; }
+    .status-btn {
+      font-family: var(--font-mono); font-size: 0.58rem; font-weight: 700;
+      padding: 3px 7px; border-radius: var(--radius);
+      border: 1px solid var(--border); background: transparent;
+      color: var(--muted); cursor: pointer; transition: all 0.1s;
+    }
+    .status-btn:hover { border-color: var(--border-2); color: var(--body); }
+    .status-btn.yes  { border-color: var(--green); background: var(--green-dim); color: var(--green); }
+    .status-btn.partial { border-color: var(--warn); background: rgba(245,158,11,.1); color: var(--warn); }
+    .status-btn.no   { border-color: var(--red); background: var(--red-dim); color: var(--red); }
+
+    /* ── PII notice ── */
+    .pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+    /* ── Run button ── */
+    .run-btn {
+      width: 100%; margin-top: 18px; padding: 14px 24px;
+      font-family: var(--font-mono); font-size: 0.8rem; font-weight: 700;
+      letter-spacing: 0.08em; background: var(--teal); color: var(--bg);
+      border: none; border-radius: var(--radius); cursor: pointer;
+      transition: all 0.15s;
+    }
+    .run-btn:hover { background: var(--teal-lt); transform: translateY(-1px); }
+    .run-btn:active { transform: translateY(0); }
+
+    /* ── Results panel ── */
+    .results-col { position: sticky; top: 78px; }
+
+    .results-empty {
+      text-align: center; padding: 52px 24px;
+    }
+    .empty-icon { font-size: 2.2rem; opacity: 0.3; margin-bottom: 12px; }
+    .empty-text {
+      font-family: var(--font-mono); font-size: 0.68rem;
+      color: var(--muted); letter-spacing: 0.06em; line-height: 1.6;
+    }
+
+    .results-title {
+      font-family: var(--font-mono); font-size: 0.68rem; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase; color: var(--teal);
+    }
+
+    /* ── Score ring ── */
+    .score-wrap {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 24px 16px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .score-ring-svg { width: 130px; height: 130px; }
+    .ring-track { fill: none; stroke: var(--bg-4); stroke-width: 11; }
+    .ring-fill {
+      fill: none; stroke: var(--teal); stroke-width: 11; stroke-linecap: round;
+      transform: rotate(-90deg); transform-origin: 65px 65px;
+      stroke-dasharray: 340.3; stroke-dashoffset: 340.3;
+      transition: stroke-dashoffset 0.7s ease, stroke 0.4s ease;
+    }
+    .ring-pct {
+      font-family: var(--font-display); font-size: 1.9rem;
+      fill: var(--white); text-anchor: middle; dominant-baseline: central;
+      transition: fill 0.4s;
+    }
+    .ring-sub-label {
+      font-size: 0.48rem; fill: var(--muted); text-anchor: middle;
+      letter-spacing: 0.1em; font-family: 'Sora', sans-serif;
+    }
+    .score-tier-label {
+      font-family: var(--font-mono); font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--teal); margin-top: 10px;
+    }
+    .score-sub-text { font-size: 0.7rem; color: var(--muted); margin-top: 3px; text-align: center; max-width: 220px; }
+
+    /* ── Category bars ── */
+    .cat-bars { padding: 16px 18px; border-bottom: 1px solid var(--border); }
+    .cat-bar-row {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    }
+    .cat-bar-row:last-child { margin-bottom: 0; }
+    .cbl {
+      font-family: var(--font-mono); font-size: 0.57rem; font-weight: 600;
+      color: var(--body); min-width: 118px; letter-spacing: 0.01em; line-height: 1.3;
+    }
+    .cb-track {
+      flex: 1; height: 5px; background: var(--bg-4);
+      border-radius: 3px; overflow: hidden;
+    }
+    .cb-fill {
+      height: 100%; border-radius: 3px;
+      background: var(--teal); transition: width 0.55s ease;
+    }
+    .cb-pct {
+      font-family: var(--font-mono); font-size: 0.58rem; font-weight: 700;
+      color: var(--teal); min-width: 30px; text-align: right;
+    }
+
+    /* ── Cross-link box ── */
+    .crosslink {
+      margin: 14px 18px; padding: 11px 14px;
+      background: var(--bg-3); border: 1px solid var(--border);
+      border-radius: var(--radius); border-left: 3px solid var(--teal);
+    }
+    .crosslink-label {
+      font-family: var(--font-mono); font-size: 0.58rem; font-weight: 700;
+      letter-spacing: 0.08em; color: var(--teal); margin-bottom: 4px;
+    }
+    .crosslink-text { font-size: 0.72rem; color: var(--text); line-height: 1.5; }
+    .crosslink-text a {
+      font-family: var(--font-mono); font-size: 0.63rem;
+      color: var(--teal); text-decoration: none;
+    }
+    .crosslink-text a:hover { text-decoration: underline; }
+
+    /* ── Gap list ── */
+    .gap-section { padding: 14px 18px; }
+    .gap-heading {
+      font-family: var(--font-mono); font-size: 0.6rem; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 10px;
+    }
+    .gap-item {
+      display: flex; gap: 8px; align-items: flex-start;
+      padding: 6px 0; border-bottom: 1px solid rgba(30,47,74,.5);
+    }
+    .gap-item:last-child { border-bottom: none; }
+    .gap-badge {
+      font-family: var(--font-mono); font-size: 0.52rem; font-weight: 700;
+      padding: 2px 6px; border-radius: var(--radius); flex-shrink: 0; margin-top: 1px;
+    }
+    .gap-badge.open    { background: var(--red-dim); border: 1px solid rgba(239,68,68,.3); color: var(--red); }
+    .gap-badge.partial { background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.3); color: var(--warn); }
+    .gap-text { font-size: 0.7rem; color: var(--text); line-height: 1.45; }
+    .gap-more { font-size: 0.62rem; color: var(--muted); font-family: var(--font-mono); padding: 6px 0 0; }
+
+    /* ── Export row ── */
+    .export-row {
+      display: flex; gap: 10px;
+      padding: 14px 18px; border-top: 1px solid var(--border);
+    }
+    .btn-export {
+      flex: 1; padding: 10px 10px;
+      font-family: var(--font-mono); font-size: 0.6rem; font-weight: 700;
+      letter-spacing: 0.05em; text-align: center;
+      border-radius: var(--radius); border: 1px solid var(--border);
+      background: transparent; color: var(--muted);
+      cursor: not-allowed; opacity: 0.32; transition: all 0.15s;
+    }
+    .btn-export.ready { opacity: 1; cursor: pointer; }
+    .btn-export-ap2.ready {
+      border-color: rgba(155,114,245,.4);
+      color: var(--purple); background: var(--purple-dim);
+    }
+    .btn-export-ap2.ready:hover { border-color: var(--purple); }
+    .btn-export-md.ready { border-color: rgba(20,184,166,.35); color: var(--teal); background: var(--teal-dim); }
+    .btn-export-md.ready:hover { border-color: var(--teal); }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      padding: 11px 18px; border-radius: var(--radius);
+      font-family: var(--font-mono); font-size: 0.7rem; font-weight: 600;
+      letter-spacing: 0.04em; opacity: 0; transform: translateY(8px);
+      transition: all 0.22s; pointer-events: none; z-index: 1000;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.success { background: var(--green-dim); border: 1px solid var(--green); color: var(--green); }
+    .toast.info    { background: var(--teal-dim); border: 1px solid var(--teal); color: var(--teal-lt); }
+    .toast.error   { background: var(--red-dim); border: 1px solid var(--red); color: var(--red); }
+
+    /* ── RTL support (Arabic) ── */
+    [dir="rtl"] .nav-inner       { flex-direction: row-reverse; }
+    [dir="rtl"] .lang-inner      { justify-content: flex-end; }
+    [dir="rtl"] .hero-eyebrow    { flex-direction: row-reverse; }
+    [dir="rtl"] .panel-label     { text-align: right; }
+    [dir="rtl"] .req-row         { flex-direction: row-reverse; }
+    [dir="rtl"] .cat-header      { flex-direction: row-reverse; }
+    [dir="rtl"] .export-row      { flex-direction: row-reverse; }
+    [dir="rtl"] [dir="rtl"] body             { font-family: 'Sora','Segoe UI',Tahoma,sans-serif; }
+    [dir="rtl"] .run-btn         { letter-spacing: 0; }
+    [dir="rtl"] .cat-bar-row     { flex-direction: row-reverse; }
+    [dir="rtl"] .cbl             { text-align: right; }
+
+    /* ── Responsive ── */
+    @media (max-width: 920px) {
+      .main-wrap { grid-template-columns: 1fr; }
+      .config-grid { grid-template-columns: 1fr 1fr; }
+      .results-col { position: static; }
+    }
+    @media (max-width: 580px) {
+      .hero { padding: 32px 16px 24px; }
+      .main-wrap { padding: 0 16px 48px; }
+      .config-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── SVG Logo classes ── */
+    .logo { display:flex; align-items:center; gap:10px; flex-shrink:0; text-decoration:none; }
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+    .logo-mark-grid { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:32px; height:32px; }
+    .logo-text{display:flex;flex-direction:column;gap:.08rem;}
+    .logo-ai { color:var(--teal); }
+    .logo-co { color:var(--muted); font-size:.8rem; }
+    
+  
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+
+.container{max-width:960px;margin:0 auto;padding:0 1.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-privacy{color:var(--teal);border-color:var(--teal)}
+.badge-warn{color:#f59e0b;border-color:#f59e0b}
+.badge-green{color:#10b981;border-color:#10b981}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- ═══ LANG BAR ═══ -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<!-- ═══ NAV ═══ -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark-grid">
+        <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="#0D1627"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="#14B8A6" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".7"/>
+      </svg>
+      </div>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/realtime-payments-ops-hub.html">Real-Time Payments Hub</a><span class="nav-sep">/</span><span>T-255</span></div>
+
+    <a href="../guides/realtime-payments-ops-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<!-- ═══ HERO ═══ -->
+<section class="hero">
+  <div class="hero-eyebrow">
+    <span class="tool-eyebrow">T255 · Cat-21 · Real-Time Payments · Operations & Compliance</span>
+    <span class="eyebrow-tag teal">CAT-21</span>
+    <span class="eyebrow-tag gold">ANCHOR TOOL</span>
+  </div>
+  <h1 class="tool-title">FedNow Participation Readiness Scorer</h1>
+  <p class="hero-desc">Score your institution's readiness against all 47 FedNow technical and operational participation requirements across 6 domains: Core Banking Connectivity, ISO 20022 Messaging, Fraud Monitoring, Liquidity Management, Dispute &amp; Return Handling, and Operational SLA &amp; Governance. Outputs a prioritised gap checklist, implementation roadmap, and participation Policy Mandate JSON.</p>
+  <div class="hero-meta">
+    <span class="meta-badge teal">FedNow Service</span>
+    <span class="meta-badge gold">ISO 20022</span>
+    <span class="meta-badge teal">47 Requirements</span>
+    <span class="meta-badge teal">6 Domains</span>
+    <span class="meta-badge green">Policy Mandate Export</span>
+    <span class="meta-badge">Client-side · Zero PII</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+</section>
+
+<!-- ═══ MAIN ═══ -->
+<div class="main-wrap">
+
+  <!-- ── LEFT: Assessment Panel ── -->
+  <div>
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label">Configuration</span>
+        <span class="panel-count" id="completedCount">0 / 47 assessed</span>
+      </div>
+      <div class="panel-body">
+
+        <!-- Institution config fields -->
+        <div class="config-grid">
+          <div class="field-group">
+            <label data-i18n="label_institution_type" for="instType">Institution Type</label>
+            <select id="instType">
+              <option value="">Select type…</option>
+              <option value="community-bank">Community Bank</option>
+              <option value="credit-union">Credit Union</option>
+              <option value="regional-bank">Regional Bank</option>
+              <option value="large-bank">Large / GSiB-affiliated Bank</option>
+              <option value="non-bank-psp">Non-Bank Payment Institution</option>
+              <option value="core-vendor">Core Banking Vendor</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label data-i18n="label_core_system" for="coreSystem">Core Banking System</label>
+            <select id="coreSystem">
+              <option value="">Select system…</option>
+              <option value="jack-henry">Jack Henry (Symitar / Silverlake)</option>
+              <option value="fis">FIS (Horizon / Modern Banking)</option>
+              <option value="fiserv">Fiserv (DNA / Signature)</option>
+              <option value="temenos">Temenos Transact</option>
+              <option value="thought-machine">Thought Machine Vault</option>
+              <option value="ncr">NCR Voyix</option>
+              <option value="inhouse">In-house / Proprietary</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label data-i18n="label_connectivity_type" for="connectType">FedNow Connectivity</label>
+            <select id="connectType">
+              <option value="">Select connectivity…</option>
+              <option value="fedline-direct">FedLine Direct (API)</option>
+              <option value="fedline-command">FedLine Command (GUI)</option>
+              <option value="fedline-web">FedLine Web</option>
+              <option value="passthrough">Pass-through / Correspondent</option>
+              <option value="tbd">Not yet determined</option>
+            </select>
+          </div>
+        </div>
+
+        <hr class="divider">
+
+        <!-- 47-item checklist — rendered by JS -->
+        <div id="checklistRoot"></div>
+
+        <div class="pii-notice">
+  <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+</div>
+
+        <button class="run-btn" onclick="runAssessment()" data-i18n="run_btn">Score Readiness →</button>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT: Results Panel ── -->
+  <div class="results-col">
+    <div class="panel" id="resultsPanel">
+      <div class="panel-header">
+        <span class="results-title" data-i18n="results_title">Readiness Assessment</span>
+      </div>
+
+      <!-- Empty state -->
+      <div class="results-empty" id="resultsEmpty">
+        <div class="empty-icon">⚡</div>
+        <div class="empty-text">Complete the checklist and<br>click Score Readiness to<br>see your gap analysis</div>
+      </div>
+
+      <!-- Populated results — hidden until run -->
+      <div id="resultsContent" style="display:none;">
+
+        <!-- Score ring -->
+        <div class="score-wrap">
+          <svg class="score-ring-svg" viewBox="0 0 130 130">
+            <circle class="ring-track" cx="65" cy="65" r="54"/>
+            <circle class="ring-fill" id="ringFill" cx="65" cy="65" r="54"/>
+            <text class="ring-pct" id="ringPct" x="65" y="61">—</text>
+            <text class="ring-sub-label" x="65" y="78">READINESS SCORE</text>
+          </svg>
+          <div class="score-tier-label" id="scoreTierLabel">—</div>
+          <div class="score-sub-text" id="scoreSubText">—</div>
+        </div>
+
+        <!-- Category bars -->
+        <div class="cat-bars" id="catBars"></div>
+
+        <!-- Cross-link to Tool 06 -->
+        <div class="crosslink">
+          <div class="crosslink-label">→ Cross-link · Tool 06</div>
+          <div class="crosslink-text">Check if your counterparties are already on FedNow:
+            <a href="../tools/06-fednow-participant-lookup.html">FedNow Participant Directory Lookup →</a>
+          </div>
+        </div>
+
+        <!-- Gap list -->
+        <div class="gap-section" id="gapSection"></div>
+
+      </div>
+
+      <!-- Export row — always visible -->
+      <div class="results-export-row export-row">
+        <button class="btn-export btn-export-ap2" id="ap2ExportBtn" disabled
+                title="Run the assessment above to generate a Policy Mandate">Export Policy Mandate</button>
+        <button class="btn-export btn-export-md" id="mdBtn" disabled
+                title="Run the assessment above to export Markdown">Export Markdown</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.main-wrap -->
+
+<!-- ═══ FOOTER ═══ -->
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/realtime-payments-ops-hub.html"><span data-i18n="footer.hub_realtime_payments_ops">Realtime Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   T255 · FedNow Participation Readiness Scorer
+   AINumbers.co · Post Oak Labs · v1.0.0
+   Client-side only. Zero PII. Deterministic scoring.
+   MCP function name: score_fednow_participation_readiness
+   AP2 mandate_type: payment_policy
+══════════════════════════════════════════════════════════════════════ */
+
+/* ──────────────────────────────────────────────────────────────────
+   REQUIREMENTS DATA
+   47 FedNow participation requirements across 6 domains.
+   Source: Federal Reserve FedNow Service Operating Procedures,
+   Federal Reserve FedNow Technical Specifications, 12 CFR 210.
+────────────────────────────────────────────────────────────────── */
+const REQUIREMENTS = [
+  {
+    id: 'cbc',
+    label: 'Core Banking Connectivity',
+    items: [
+      { id: 'cbc1', text: 'Core system supports real-time, 24×7×365 payment processing with no maintenance blackout windows that block inbound credit transfers' },
+      { id: 'cbc2', text: 'FedNow-certified connectivity solution selected and contractually confirmed (FedLine Direct API, FedLine Command GUI, or FedLine Web)' },
+      { id: 'cbc3', text: 'Network connectivity to Federal Reserve FedNow Service meets IP specifications and latency requirements documented in FedNow Technical Specifications' },
+      { id: 'cbc4', text: 'Message routing and queuing infrastructure demonstrated to support sub-second throughput at projected peak transaction volumes' },
+      { id: 'cbc5', text: 'Production and test (FedNow Pilot) environments are fully segregated with no data crossover' },
+      { id: 'cbc6', text: 'Disaster recovery (DR) site has equivalent FedNow connectivity and failover has been tested with simulated message traffic' },
+      { id: 'cbc7', text: 'End-to-end connectivity certification testing completed with Federal Reserve district bank and certification letter received' },
+      { id: 'cbc8', text: 'Third-party technology vendors and core processors have confirmed FedNow readiness in writing with applicable SLA coverage' },
+    ]
+  },
+  {
+    id: 'iso',
+    label: 'ISO 20022 Message Formats',
+    items: [
+      { id: 'iso1', text: 'pacs.008 (FedNow Customer Credit Transfer) message construction, UETR generation, and transmission validated in FedNow Pilot environment' },
+      { id: 'iso2', text: 'pacs.002 (FedNow Payment Status Report) receipt, parsing, and downstream processing logic implemented and tested for all status codes' },
+      { id: 'iso3', text: 'pacs.004 (FedNow Payment Return) origination and receipt workflows built, including correct R-code population and end-to-end tested' },
+      { id: 'iso4', text: 'camt.056 (FedNow Request for Payment Cancellation) supported as both sender and receiver with appropriate timeout and fallback handling' },
+      { id: 'iso5', text: 'camt.029 (FedNow Negative Answer to Cancellation Request) handling implemented for scenarios where cancellation cannot be fulfilled' },
+      { id: 'iso6', text: 'admi.002 (FedNow Service Not Available) alert handling implemented with automatic message queuing and retry logic on service restoration' },
+      { id: 'iso7', text: 'Maximum message size constraint (100 KB per message) enforced programmatically at origination layer with appropriate error response' },
+      { id: 'iso8', text: 'UTF-8 encoding, field-length constraints, mandatory element rules, and FedNow Overlay Service schema validation passing in all test scenarios' },
+    ]
+  },
+  {
+    id: 'fraud',
+    label: 'Fraud Monitoring',
+    items: [
+      { id: 'fraud1', text: 'Real-time fraud screening engine processes outbound credit transfers within 250 ms latency threshold to meet FedNow sub-second SLA' },
+      { id: 'fraud2', text: 'FedNow Fraud Classifier Model v1 fields fully mapped and correctly populated in all outbound pacs.008 credit transfer messages' },
+      { id: 'fraud3', text: 'Account validation / positive pay controls implemented at the instant credit transfer origination layer prior to submission to FedNow' },
+      { id: 'fraud4', text: 'Mule account detection logic configured specifically for push-payment / APP fraud typologies (refund reversal, impersonation, advance-fee scams)' },
+      { id: 'fraud5', text: 'Velocity controls configured for outbound instant credit transfers at both individual customer and aggregate institutional level' },
+      { id: 'fraud6', text: 'Transaction monitoring alert triage confirmed staffed 24×7×365 with no after-hours or weekend coverage gaps' },
+      { id: 'fraud7', text: 'Fraud escalation path and on-call contact tree defined, documented, and tested for after-hours and holiday incidents' },
+      { id: 'fraud8', text: 'FinCEN SAR filing workflow programmatically linked to instant payment fraud event detection and threshold triggers (31 CFR 1020.320)' },
+    ]
+  },
+  {
+    id: 'liq',
+    label: 'Liquidity Management',
+    items: [
+      { id: 'liq1', text: 'FedNow master account or eligible pass-through institution arrangement confirmed in writing with the relevant Federal Reserve district bank' },
+      { id: 'liq2', text: 'Joint account or correspondent pass-through arrangement fully documented and operationally tested with simulated transaction flows (if applicable)' },
+      { id: 'liq3', text: 'Intraday FedNow account position monitoring system active with real-time balance visibility and alert capability for Treasury operations' },
+      { id: 'liq4', text: 'Automated low-balance alert thresholds configured with a defined and tested funding replenishment playbook (e.g., Fedwire credit transfer)' },
+      { id: 'liq5', text: 'Settlement finality accounting entries and general ledger (GL) posting logic configured in core banking system for irrevocable FedNow credits and debits' },
+      { id: 'liq6', text: 'Prefunded balance management policy documented, reviewed by Treasury, and approved by appropriate governance body' },
+      { id: 'liq7', text: 'End-of-day RTGS account reconciliation procedure defined, documented, and operationally tested against FedNow settlement statements' },
+      { id: 'liq8', text: 'Intraday credit (daylight overdraft) capacity with Federal Reserve assessed, documented, and collateral position confirmed (BCBS 248 indicators noted)' },
+    ]
+  },
+  {
+    id: 'dispute',
+    label: 'Dispute & Return Handling',
+    items: [
+      { id: 'dispute1', text: 'Request for Return (pacs.004) origination and receipt workflow built, including correct R-code selection and end-to-end tested across payment scenarios' },
+      { id: 'dispute2', text: 'FedNow dispute resolution SLA (24-hour initial response; 5-business-day resolution) operationalised with a named process owner and tracking system' },
+      { id: 'dispute3', text: 'Customer-facing notification templates prepared for all payment outcomes: rejected, returned, recalled, and delayed credit transfer scenarios' },
+      { id: 'dispute4', text: 'Fraudulent transaction recall procedure tested end-to-end including cross-institution coordination steps and Federal Reserve district bank escalation path' },
+      { id: 'dispute5', text: 'Dispute logging and full message audit trail system retains ISO 20022 message history for a minimum of 5 years per Regulation E recordkeeping rules' },
+      { id: 'dispute6', text: 'Correspondent and beneficiary institution communication protocol prepared including escalation contacts and secure message channel' },
+      { id: 'dispute7', text: 'Regulatory complaint handling process (CFPB, state regulators) linked to FedNow transaction records with defined response timeline' },
+    ]
+  },
+  {
+    id: 'sla',
+    label: 'Operational SLA & Governance',
+    items: [
+      { id: 'sla1', text: '24×7×365 operations centre coverage confirmed in writing with no payment-blocking maintenance windows for inbound FedNow credit transfers' },
+      { id: 'sla2', text: 'Message acknowledgment SLA (≤1 second for inbound credit transfer receipt acknowledgment) confirmed and load-tested' },
+      { id: 'sla3', text: 'Real-time monitoring and alerting system in place for FedNow service availability, message queue depth, response latency, and rejection rates' },
+      { id: 'sla4', text: 'Incident response playbook documented and tabletop-tested for: FedNow outage, degraded performance, mass message rejection, and connectivity loss' },
+      { id: 'sla5', text: 'Staff training on FedNow operations, ISO 20022 message flows, fraud typologies, and dispute resolution procedures completed across all relevant teams' },
+      { id: 'sla6', text: 'Change management process established for FedNow Operating Procedure updates and ISO 20022 message schema version upgrades with defined impact-assessment steps' },
+      { id: 'sla7', text: 'Business Continuity Plan (BCP) and Disaster Recovery (DR) plan explicitly cover FedNow payment flows with defined RPO and RTO targets' },
+      { id: 'sla8', text: 'Board or senior management FedNow participation approval obtained and programme governance structure (ownership, escalation, budget) documented' },
+    ]
+  }
+];
+
+/* ── State ── */
+const itemStatus = {}; // itemId → 'yes' | 'partial' | 'no'
+let lastAP2 = null;
+
+/* ──────────────────────────────────────────────────────────────────
+   BUILD CHECKLIST DOM
+────────────────────────────────────────────────────────────────── */
+function buildChecklist() {
+  const root = document.getElementById('checklistRoot');
+  let globalNum = 1;
+
+  REQUIREMENTS.forEach(cat => {
+    const section = document.createElement('div');
+    section.className = 'cat-section';
+    section.id = 'cat_' + cat.id;
+
+    /* Header */
+    const header = document.createElement('div');
+    header.className = 'cat-header';
+    header.innerHTML = `
+      <span class="cat-dot"></span>
+      <span class="cat-title">${cat.label}</span>
+      <span class="cat-mini" id="mini_${cat.id}">0 / ${cat.items.length}</span>
+      <span class="cat-toggle">▼</span>`;
+    header.addEventListener('click', () => {
+      header.classList.toggle('open');
+      body.classList.toggle('open');
+    });
+
+    /* Body */
+    const body = document.createElement('div');
+    body.className = 'cat-body';
+
+    cat.items.forEach(item => {
+      itemStatus[item.id] = 'no'; // default
+
+      const row = document.createElement('div');
+      row.className = 'req-row';
+      row.innerHTML = `
+        <span class="req-num">${String(globalNum).padStart(2,'0')}</span>
+        <span class="req-text">${item.text}</span>
+        <div class="req-status" id="status_${item.id}">
+          <button class="status-btn" data-val="yes"     onclick="setStatus('${item.id}','yes',this)"     title="Complete">✓</button>
+          <button class="status-btn" data-val="partial" onclick="setStatus('${item.id}','partial',this)" title="Partial">~</button>
+          <button class="status-btn no"  data-val="no"  onclick="setStatus('${item.id}','no',this)"     title="Not Started">✗</button>
+        </div>`;
+      body.appendChild(row);
+      globalNum++;
+    });
+
+    section.appendChild(header);
+    section.appendChild(body);
+    root.appendChild(section);
+  });
+
+  /* Open first category by default */
+  const first = root.querySelector('.cat-header');
+  const firstBody = root.querySelector('.cat-body');
+  if (first && firstBody) { first.classList.add('open'); firstBody.classList.add('open'); }
+}
+
+/* ── Set item status ── */
+function setStatus(itemId, val, btn) {
+  itemStatus[itemId] = val;
+
+  /* Update button visual state in row */
+  const statusRow = document.getElementById('status_' + itemId);
+  statusRow.querySelectorAll('.status-btn').forEach(b => b.classList.remove('yes','partial','no'));
+  btn.classList.add(val);
+
+  /* Refresh mini-score for the owning category */
+  refreshCatMini(itemId);
+  refreshCompletedCount();
+}
+
+function refreshCatMini(changedId) {
+  REQUIREMENTS.forEach(cat => {
+    if (!cat.items.find(i => i.id === changedId)) return;
+    const score = cat.items.reduce((sum, i) => {
+      const s = itemStatus[i.id] || 'no';
+      return sum + (s === 'yes' ? 1 : s === 'partial' ? 0.5 : 0);
+    }, 0);
+    const el = document.getElementById('mini_' + cat.id);
+    if (el) el.textContent = `${score} / ${cat.items.length}`;
+  });
+}
+
+function refreshCompletedCount() {
+  const n = Object.values(itemStatus).filter(v => v !== 'no').length;
+  const el = document.getElementById('completedCount');
+  if (el) el.textContent = `${n} / 47 assessed`;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SCORING & RENDERING
+   MCP callable function: scoreFedNowParticipationReadiness()
+────────────────────────────────────────────────────────────────── */
+function runAssessment() {
+  /* Gather institution config */
+  const instType    = document.getElementById('instType').value    || 'not-specified';
+  const coreSystem  = document.getElementById('coreSystem').value  || 'not-specified';
+  const connectType = document.getElementById('connectType').value || 'not-specified';
+
+  /* Calculate category and overall scores */
+  let totalWeighted = 0;
+  const catResults = {};
+
+  REQUIREMENTS.forEach(cat => {
+    const catScore = cat.items.reduce((sum, item) => {
+      const s = itemStatus[item.id] || 'no';
+      return sum + (s === 'yes' ? 1 : s === 'partial' ? 0.5 : 0);
+    }, 0);
+    totalWeighted += catScore;
+    catResults[cat.id] = {
+      label: cat.label,
+      score: catScore,
+      total: cat.items.length,
+      pct: Math.round((catScore / cat.items.length) * 100)
+    };
+  });
+
+  const overallPct = Math.round((totalWeighted / 47) * 100);
+  const tier = classifyTier(overallPct);
+
+  /* Build sorted gap list: 'no' items first, then 'partial' */
+  const gaps = [];
+  REQUIREMENTS.forEach(cat => {
+    cat.items.forEach(item => {
+      const s = itemStatus[item.id] || 'no';
+      if (s !== 'yes') gaps.push({ ...item, status: s, catLabel: cat.label });
+    });
+  });
+  gaps.sort((a, b) => {
+    if (a.status === 'no' && b.status !== 'no') return -1;
+    if (b.status === 'no' && a.status !== 'no') return 1;
+    return 0;
+  });
+
+  /* Render */
+  renderResults(overallPct, tier, catResults, gaps);
+
+  /* Build AP2 output */
+  lastAP2 = buildAP2({ instType, coreSystem, connectType, overallPct, tier, catResults, gaps, totalWeighted });
+
+  /* Enable export buttons */
+  const ap2Btn = document.getElementById('ap2Btn');
+  const mdBtn  = document.getElementById('mdBtn');
+  ap2Btn.disabled = false; ap2Btn.classList.add('ready'); ap2Btn.onclick = exportAP2;
+  mdBtn.disabled  = false; mdBtn.classList.add('ready');  mdBtn.onclick  = exportMarkdown;
+
+  showToast(`Assessment complete · ${gaps.length} gap${gaps.length !== 1 ? 's' : ''} identified`, 'success');
+}
+
+/* ── Alias for MCP headless invocation ── */
+function scoreFedNowParticipationReadiness() { runAssessment(); return lastAP2; }
+
+/* ── Tier classification ── */
+function classifyTier(pct) {
+  if (pct >= 90) return { label: 'Ready to Launch',   color: 'var(--green)', sub: 'Meets all core participation thresholds — proceed to Federal Reserve review' };
+  if (pct >= 75) return { label: 'Near Ready',         color: 'var(--teal)',  sub: 'Address remaining gaps before scheduling go-live date' };
+  if (pct >= 50) return { label: 'In Progress',        color: 'var(--gold)',  sub: 'Significant gaps remain — structured remediation programme required' };
+  if (pct >= 25) return { label: 'Early Stage',        color: 'var(--warn)',  sub: 'Multiple critical domains not yet addressed — 90–180 day programme recommended' };
+  return              { label: 'Pre-Planning',          color: 'var(--red)',   sub: 'FedNow participation programme not yet initiated — begin with connectivity and ISO 20022' };
+}
+
+/* ── Render results panel ── */
+function renderResults(pct, tier, catResults, gaps) {
+  document.getElementById('resultsEmpty').style.display = 'none';
+  document.getElementById('resultsContent').style.display = 'block';
+
+  /* Score ring — circumference of r=54 circle = 2π×54 ≈ 339.3 */
+  const circ = 339.3;
+  const offset = circ - (pct / 100) * circ;
+  const ring = document.getElementById('ringFill');
+  ring.style.strokeDashoffset = offset;
+  ring.style.stroke = tier.color;
+
+  const pctEl = document.getElementById('ringPct');
+  pctEl.textContent = pct + '%';
+  pctEl.style.fill = tier.color;
+
+  const tierEl = document.getElementById('scoreTierLabel');
+  tierEl.textContent = tier.label;
+  tierEl.style.color = tier.color;
+  document.getElementById('scoreSubText').textContent = tier.sub;
+
+  /* Category bars */
+  const barsEl = document.getElementById('catBars');
+  barsEl.innerHTML = '';
+  Object.values(catResults).forEach(cat => {
+    const barColor = cat.pct >= 80 ? 'var(--green)'
+                   : cat.pct >= 50 ? 'var(--teal)'
+                   : cat.pct >= 25 ? 'var(--warn)' : 'var(--red)';
+    /* Truncate label to fit bar row */
+    const shortLabel = cat.label.length > 18 ? cat.label.substring(0, 18) + '…' : cat.label;
+    barsEl.innerHTML += `
+      <div class="cat-bar-row">
+        <span class="cbl">${shortLabel}</span>
+        <div class="cb-track">
+          <div class="cb-fill" style="width:${cat.pct}%;background:${barColor};"></div>
+        </div>
+        <span class="cb-pct" style="color:${barColor};">${cat.pct}%</span>
+      </div>`;
+  });
+
+  /* Gap list — show up to 10, remainder in export */
+  const gapEl = document.getElementById('gapSection');
+  if (gaps.length === 0) {
+    gapEl.innerHTML = `<div class="gap-heading">Gaps</div>
+      <div style="font-size:.72rem;color:var(--green);padding:6px 0;">✓ All 47 requirements complete — excellent readiness.</div>`;
+  } else {
+    const shown = gaps.slice(0, 10);
+    gapEl.innerHTML = `<div class="gap-heading">Priority Gaps (${gaps.length} total)</div>` +
+      shown.map(g => `
+        <div class="gap-item">
+          <span class="gap-badge ${g.status === 'no' ? 'open' : 'partial'}">${g.status === 'no' ? 'OPEN' : 'PARTIAL'}</span>
+          <span class="gap-text">${g.text.length > 95 ? g.text.substring(0, 95) + '…' : g.text}</span>
+        </div>`).join('') +
+      (gaps.length > 10 ? `<div class="gap-more">+ ${gaps.length - 10} more gaps — export Markdown for full list</div>` : '');
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   AP2 JSON EXPORT
+   Schema: ap2_version 1.0 · mandate_type: payment_policy
+   Regulatory frameworks: FedNow Operating Procedures, 12 CFR 210,
+   FinCEN BSA, Regulation E
+────────────────────────────────────────────────────────────────── */
+function buildAP2({ instType, coreSystem, connectType, overallPct, tier, catResults, gaps, totalWeighted }) {
+  /* UUID v4 — client-side deterministic generation */
+  const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+
+  const catScorePayload = {};
+  Object.entries(catResults).forEach(([k, v]) => {
+    catScorePayload[k + '_readiness_pct'] = v.pct;
+  });
+
+  return {
+    ap2_version: "1.0",
+    mandate_id: uuid,
+    issued_at: new Date().toISOString(),
+    issued_by: "ainumbers.co",
+    tool_id: "fednow-participation-readiness-scorer",
+    tool_version: "1.0.0",
+    mandate_type: "payment_policy",
+    jurisdiction: ["US"],
+    regulatory_frameworks: [
+      "Federal Reserve FedNow Service Operating Procedures (current edition)",
+      "12 CFR 210 — Collection of Checks and Other Items by Federal Reserve Banks (Regulation J)",
+      "Federal Reserve FRFS ISO 20022 Implementation Guide — FedNow Overlay Service",
+      "FinCEN Bank Secrecy Act 31 CFR Part 1020 — Rules for Banks",
+      "CFPB Regulation E (12 CFR 1005) — Electronic Fund Transfers",
+      "BCBS 248 — Monitoring indicators for intraday liquidity management"
+    ],
+    payload: {
+      institution_type: instType,
+      core_banking_system: coreSystem,
+      connectivity_type: connectType,
+      overall_readiness_pct: overallPct,
+      readiness_tier: tier.label,
+      total_requirements_assessed: 47,
+      total_weighted_score: parseFloat(totalWeighted.toFixed(2)),
+      gap_count_total: gaps.length,
+      gaps_not_started: gaps.filter(g => g.status === 'no').length,
+      gaps_partial: gaps.filter(g => g.status === 'partial').length,
+      ...catScorePayload,
+      top_open_gap_ids: gaps.filter(g => g.status === 'no').map(g => g.id).slice(0, 8)
+    },
+    summary: `Institution scored ${overallPct}% overall readiness (${tier.label}) against all 47 FedNow participation requirements. ${gaps.filter(g => g.status === 'no').length} requirements are not started and ${gaps.filter(g => g.status === 'partial').length} are partially complete. ${tier.sub}.`,
+    agent_instructions: buildAgentInstructions(tier, catResults, gaps),
+    last_reviewed: "2026-05-09",
+    source_tool_inputs: {
+      institution_type: instType,
+      core_banking_system: coreSystem,
+      connectivity_type: connectType,
+      item_status_snapshot: JSON.parse(JSON.stringify(itemStatus))
+    },
+    regulatory_citations: [
+      "Federal Reserve FedNow Service Operating Procedures — Participation and Eligibility Requirements",
+      "12 CFR 210.25–210.32 — Fedwire Funds Service and FedNow settlement finality",
+      "Federal Reserve ISO 20022 FedNow Overlay Service Technical Specifications (SR2026)",
+      "FinCEN 31 CFR 1020.320 — Reports by banks of suspicious transactions",
+      "CFPB 12 CFR 1005.12 — Recordkeeping and periodic statement requirements",
+      "BCBS 248 (April 2013) — Monitoring indicators for intraday liquidity management",
+      "Federal Reserve FedNow Fraud Classifier Model v1 — Implementation Guidance"
+    ]
+  };
+}
+
+/* ── Build agent instructions from scoring results ── */
+function buildAgentInstructions(tier, catResults, gaps) {
+  const instructions = [];
+  const openCount = gaps.filter(g => g.status === 'no').length;
+
+  if (openCount > 0) {
+    instructions.push(`Initiate a structured remediation programme to close ${openCount} open FedNow participation gaps before scheduling go-live with the Federal Reserve district bank`);
+  }
+
+  /* Identify lowest-scoring domain */
+  let lowest = null, lowestPct = 101;
+  Object.values(catResults).forEach(c => { if (c.pct < lowestPct) { lowestPct = c.pct; lowest = c; } });
+  if (lowest && lowest.pct < 100) {
+    instructions.push(`Prioritise the '${lowest.label}' domain (${lowest.pct}% complete) as the highest-gap area — assign a domain owner with a 30-day remediation milestone`);
+  }
+
+  if (catResults['cbc'] && catResults['cbc'].pct < 80) {
+    instructions.push('Begin FedLine connectivity certification with Federal Reserve immediately — allow 60–90 days lead time for FedLine Direct API certification testing');
+  }
+  if (catResults['fraud'] && catResults['fraud'].pct < 80) {
+    instructions.push('Escalate fraud monitoring gaps to BSA Officer — FedNow Fraud Classifier Model v1 compliance is a mandatory Federal Reserve participation requirement, not optional');
+  }
+  if (catResults['liq'] && catResults['liq'].pct < 80) {
+    instructions.push('Engage Federal Reserve district bank relationship manager to confirm master account / pass-through arrangement and document daylight overdraft capacity within 2 weeks');
+  }
+  if (catResults['iso'] && catResults['iso'].pct < 80) {
+    instructions.push('Accelerate ISO 20022 FedNow Overlay Service message testing — all six message types (pacs.008, pacs.002, pacs.004, camt.056, camt.029, admi.002) must pass Pilot certification');
+  }
+  if (catResults['sla'] && catResults['sla'].pct < 80) {
+    instructions.push('Complete BCP/DR documentation and obtain Board approval for FedNow participation — governance documentation is reviewed during Federal Reserve participation assessment');
+  }
+
+  instructions.push(`Target an overall readiness score ≥ 90% before submitting the FedNow participation application to the Federal Reserve district bank; current score: ${catResults && Object.values(catResults)[0] ? Object.values(catResults).reduce((s,c) => s + c.pct, 0) / Object.values(catResults).length : 0}% average domain score`);
+
+  return instructions;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   EXPORT FUNCTIONS
+────────────────────────────────────────────────────────────────── */
+function exportAP2() {
+  if (!lastAP2) return;
+  try {
+    AP2Schema.validate(lastAP2);
+    const blob = new Blob([JSON.stringify(lastAP2, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fednow-participation-readiness-scorer_${new Date().toISOString().slice(0,19).replace(/[T:]/g,'-')}.policy.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Policy Mandate JSON downloaded', 'success');
+  } catch(e) {
+    showToast('Export failed — see console', 'error');
+    console.error('[T255] Policy Mandate error:', e);
+  }
+}
+
+function exportMarkdown() {
+  if (!lastAP2) return;
+  const p = lastAP2.payload;
+  const date = new Date().toISOString().slice(0, 10);
+
+  let md = `# FedNow Participation Readiness Report\n`;
+  md += `**Generated:** ${date}  \n**Tool:** T255 · FedNow Participation Readiness Scorer — AINumbers.co  \n`;
+  md += `**Mandate ID:** \`${lastAP2.mandate_id}\`\n\n---\n\n`;
+
+  md += `## Institution Profile\n| Parameter | Value |\n|---|---|\n`;
+  md += `| Institution Type | ${p.institution_type} |\n`;
+  md += `| Core Banking System | ${p.core_banking_system} |\n`;
+  md += `| FedNow Connectivity | ${p.connectivity_type} |\n\n`;
+
+  md += `## Overall Readiness\n| Metric | Value |\n|---|---|\n`;
+  md += `| **Readiness Score** | **${p.overall_readiness_pct}%** |\n`;
+  md += `| **Readiness Tier** | **${p.readiness_tier}** |\n`;
+  md += `| Total Requirements | ${p.total_requirements_assessed} |\n`;
+  md += `| Weighted Score | ${p.total_weighted_score} / 47.0 |\n`;
+  md += `| Gaps — Not Started | ${p.gaps_not_started} |\n`;
+  md += `| Gaps — Partial | ${p.gaps_partial} |\n\n`;
+
+  md += `## Domain Scores\n| Domain | Score |\n|---|---|\n`;
+  REQUIREMENTS.forEach(cat => {
+    md += `| ${cat.label} | ${p[cat.id + '_readiness_pct']}% |\n`;
+  });
+
+  md += `\n## Agent Instructions\n`;
+  lastAP2.agent_instructions.forEach((inst, i) => { md += `${i + 1}. ${inst}\n`; });
+
+  md += `\n## Full Gap List\n`;
+  const allGaps = [];
+  REQUIREMENTS.forEach(cat => {
+    cat.items.forEach(item => {
+      const s = itemStatus[item.id] || 'no';
+      if (s !== 'yes') allGaps.push({ ...item, status: s, catLabel: cat.label });
+    });
+  });
+  allGaps.sort((a, b) => (a.status === 'no' && b.status !== 'no') ? -1 : (b.status === 'no' && a.status !== 'no') ? 1 : 0);
+
+  if (allGaps.length === 0) {
+    md += `✓ All 47 requirements complete.\n`;
+  } else {
+    allGaps.forEach((g, i) => {
+      md += `${i + 1}. **[${g.status === 'no' ? 'OPEN' : 'PARTIAL'}]** *(${g.catLabel})* ${g.text}\n`;
+    });
+  }
+
+  md += `\n## Regulatory Citations\n`;
+  lastAP2.regulatory_citations.forEach(c => { md += `- ${c}\n`; });
+
+  md += `\n---\n`;
+  md += `*Client-side. Zero PII. Generated by AINumbers.co — T255 FedNow Participation Readiness Scorer v1.0.0*  \n`;
+  md += `*This tool is for operational planning purposes only and does not constitute legal or regulatory advice.*  \n`;
+  md += `*Consult your Federal Reserve district bank for authoritative FedNow participation requirements.*\n`;
+
+  try {
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fednow-readiness-report_${date}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Markdown report downloaded', 'info');
+  } catch(e) {
+    showToast('Export failed', 'error');
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   TOAST
+────────────────────────────────────────────────────────────────── */
+function showToast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type}`;
+  setTimeout(() => t.classList.add('show'), 10);
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   i18n — Stage 2 UI Chrome Translations
+   Regulatory citations and financial codes stay in EN.
+   Tool output content stays in EN (professional B2B audience).
+   UI labels, buttons, and nav translate to all 6 languages.
+══════════════════════════════════════════════════════════════════ */
+const TRANSLATIONS = {
+  en: {
+    eyebrow:                 "T255 · Cat-21 · Real-Time Payments · Operations & Compliance",
+    hero_title:              "FedNow Participation Readiness Scorer",
+    hero_desc:               "Score your institution's readiness against all 47 FedNow technical and operational participation requirements across 6 domains. Outputs a prioritised gap checklist, implementation roadmap, and participation Policy Mandate JSON.",
+    panel_config:            "Configuration",
+    panel_about:             "About this tool",
+    label_institution_type:  "Institution Type",
+    label_core_system:       "Core Banking System",
+    label_connectivity_type: "FedNow Connectivity",
+    run_btn:                 "Score Readiness →",
+    results_title:           "Readiness Assessment",
+    export_ap2:              "Export Policy Mandate",
+    export_md:               "Export Markdown",
+    pii_notice:              "🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real institutional data — use synthetic or anonymised inputs only.",
+    last_reviewed:           "Last Reviewed",
+    nav_all_tools:           "All 200+ Tools",
+    footer_badge:            "Zero PII \u00a0 📡 No server calls \u00a0 💻 Client-side",
+    lang_dir:                "ltr",
+  
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-21 Hub',
+  },
+  es: {
+    eyebrow:                 "T255 · Cat-21 · Pagos en Tiempo Real · Operaciones y Cumplimiento",
+    hero_title:              "Evaluador de Preparación para FedNow",
+    hero_desc:               "Evalúe la preparación de su institución frente a los 47 requisitos técnicos y operativos de participación en FedNow en 6 dominios. Genera lista de brechas prioritizada, hoja de ruta de implementación y Mandato de Política.",
+    panel_config:            "Configuración",
+    panel_about:             "Sobre esta herramienta",
+    label_institution_type:  "Tipo de Institución",
+    label_core_system:       "Sistema Bancario Central",
+    label_connectivity_type: "Conectividad FedNow",
+    run_btn:                 "Evaluar Preparación →",
+    results_title:           "Evaluación de Preparación",
+    export_ap2:              "Exportar Mandato de Política",
+    export_md:               "Exportar Markdown",
+    pii_notice:              "🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No ingrese datos institucionales reales — use solo entradas sintéticas o anonimizadas.",
+    last_reviewed:           "Última Revisión",
+    nav_all_tools:           "Más de 200 Herramientas",
+    footer_badge:            "Sin IIP \u00a0 📡 Sin llamadas al servidor \u00a0 💻 Solo cliente",
+    lang_dir:                "ltr",
+  
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-21',
+  },
+  fr: {
+    eyebrow:                 "T255 · Cat-21 · Paiements en Temps Réel · Opérations et Conformité",
+    hero_title:              "Évaluateur de Préparation FedNow",
+    hero_desc:               "Évaluez la préparation de votre institution par rapport aux 47 exigences techniques et opérationnelles de participation FedNow sur 6 domaines. Génère une liste d'écarts priorisée, une feuille de route et un Mandat de Politique.",
+    panel_config:            "Configuration",
+    panel_about:             "À propos de cet outil",
+    label_institution_type:  "Type d'Institution",
+    label_core_system:       "Système Bancaire Central",
+    label_connectivity_type: "Connectivité FedNow",
+    run_btn:                 "Évaluer la Préparation →",
+    results_title:           "Évaluation de la Préparation",
+    export_ap2:              "Exporter Mandat de Politique",
+    export_md:               "Exporter Markdown",
+    pii_notice:              "🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n'est transmise. N'entrez pas de données institutionnelles réelles — utilisez uniquement des entrées synthétiques ou anonymisées.",
+    last_reviewed:           "Dernière Révision",
+    nav_all_tools:           "Plus de 200 Outils",
+    footer_badge:            "Zéro DPI \u00a0 📡 Aucun appel serveur \u00a0 💻 Côté client",
+    lang_dir:                "ltr",
+  
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-21',
+  },
+  ar: {
+    eyebrow:                 "T255 · القطاع 21 · المدفوعات الفورية · العمليات والامتثال",
+    hero_title:              "مقيّم جاهزية المشاركة في FedNow",
+    hero_desc:               "قيّم جاهزية مؤسستك مقابل 47 متطلبًا تقنيًا وتشغيليًا للمشاركة في FedNow عبر 6 مجالات. يُنتج قائمة الثغرات المرتبة حسب الأولوية وخارطة طريق التنفيذ وتفويض السياسة.",
+    panel_config:            "الإعدادات",
+    panel_about:             "حول هذه الأداة",
+    label_institution_type:  "نوع المؤسسة",
+    label_core_system:       "نظام الخدمات المصرفية الأساسية",
+    label_connectivity_type: "اتصال FedNow",
+    run_btn:                 "تقييم الجاهزية ←",
+    results_title:           "تقييم الجاهزية",
+    export_ap2:              "تصدير تفويض السياسة",
+    export_md:               "تصدير Markdown",
+    pii_notice:              "🔒 تتم معالجة جميع المدخلات محلياً في متصفحك. لا يتم نقل أي بيانات. لا تدخل بيانات مؤسسية حقيقية — استخدم مدخلات اصطناعية أو مجهولة الهوية فقط.",
+    last_reviewed:           "آخر مراجعة",
+    nav_all_tools:           "أكثر من 200 أداة",
+    footer_badge:            "بدون بيانات شخصية \u00a0 📡 بدون اتصال بالخادم \u00a0 💻 من جانب العميل",
+    lang_dir:                "rtl",
+  
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-21',
+  },
+  pt: {
+    eyebrow:                 "T255 · Cat-21 · Pagamentos em Tempo Real · Operações e Conformidade",
+    hero_title:              "Avaliador de Prontidão FedNow",
+    hero_desc:               "Avalie a prontidão da sua instituição em relação aos 47 requisitos técnicos e operacionais de participação no FedNow em 6 domínios. Gera lista de lacunas priorizada, roteiro de implementação e Mandato de Política.",
+    panel_config:            "Configuração",
+    panel_about:             "Sobre esta ferramenta",
+    label_institution_type:  "Tipo de Instituição",
+    label_core_system:       "Sistema Bancário Central",
+    label_connectivity_type: "Conectividade FedNow",
+    run_btn:                 "Avaliar Prontidão →",
+    results_title:           "Avaliação de Prontidão",
+    export_ap2:              "Exportar Mandato de Política",
+    export_md:               "Exportar Markdown",
+    pii_notice:              "🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido. Não insira dados institucionais reais — use apenas entradas sintéticas ou anonimizadas.",
+    last_reviewed:           "Última Revisão",
+    nav_all_tools:           "Mais de 200 Ferramentas",
+    footer_badge:            "Zero PII \u00a0 📡 Sem chamadas ao servidor \u00a0 💻 Lado do cliente",
+    lang_dir:                "ltr",
+  
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-21',
+  },
+  zh: {
+    eyebrow:                 "T255 · 第21类 · 实时支付 · 运营与合规",
+    hero_title:              "FedNow参与准备度评分器",
+    hero_desc:               "评估贵机构在6个领域47项FedNow技术和运营参与要求方面的准备情况。生成优先排序的差距清单、实施路线图和政策授权书参与授权书。",
+    panel_config:            "配置",
+    panel_about:             "关于此工具",
+    label_institution_type:  "机构类型",
+    label_core_system:       "核心银行系统",
+    label_connectivity_type: "FedNow连接方式",
+    run_btn:                 "评估准备度 →",
+    results_title:           "准备度评估",
+    export_ap2:              "导出政策授权书",
+    export_md:               "导出Markdown",
+    pii_notice:              "🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。请勿输入真实机构数据——仅使用合成或匿名输入。",
+    last_reviewed:           "最后审查",
+    nav_all_tools:           "全部200+工具",
+    footer_badge:            "零个人信息 \u00a0 📡 无服务器调用 \u00a0 💻 纯客户端",
+    lang_dir:                "ltr",
+  
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-21 中心',
+  },
+};
+
+/* ── setLang() — full Stage 2 implementation ── */
+function setLang(lang) {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS['en'];
+
+  /* 1. Button active state */
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`) ||
+              document.querySelector(`.lang-btn[onclick='setLang("${lang}")']`);
+  if (btn) btn.classList.add('active');
+
+  /* 2. Document language + direction */
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  document.documentElement.dir = t.lang_dir || 'ltr';
+  document.body.dir = t.lang_dir || 'ltr';
+
+  /* 3. Fixed CSS-selector elements */
+  const apply = (sel, key) => {
+    const el = document.querySelector(sel);
+    if (el && t[key] !== undefined) el.textContent = t[key];
+  };
+  apply('.tool-eyebrow',  'eyebrow');
+  apply('.hero h1',       'hero_title');
+  apply('.hero-desc',     'hero_desc');
+  apply('.pii-notice',    'pii_notice');
+  apply('.run-btn',       'run_btn');
+  apply('.results-title', 'results_title');
+  apply('.nav-cta',       'nav_all_tools');
+
+  /* 4. Panel labels */
+  const panelLabels = document.querySelectorAll('.panel-label');
+  const panelKeys   = ['panel_config', 'panel_about'];
+  panelLabels.forEach((el, i) => { if (panelKeys[i] && t[panelKeys[i]]) el.textContent = t[panelKeys[i]]; });
+
+  /* 5. Export buttons */
+  const exportBtns = document.querySelectorAll('.btn-export');
+  exportBtns.forEach(b => {
+    if (b.classList.contains('btn-export-md')) {
+      if (t['export_md']) b.textContent = t['export_md'];
+    } else {
+      if (t['export_ap2']) b.textContent = t['export_ap2'];
+    }
+  });
+
+  /* 6. data-i18n attributes (form labels etc.) */
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (t[key] !== undefined) el.textContent = t[key];
+  });
+
+  /* 7. Footer badge */
+  const badge = document.querySelector('.footer-badge-ai span:last-child');
+  if (badge) badge.textContent = t['footer_badge'];
+
+  /* 8. Persist preference — sessionStorage (not localStorage per CLAUDE.md) */
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+/* ── Restore language preference on page load ── */
+(function initLang() {
+  try {
+    const saved = sessionStorage.getItem('ain_lang');
+    if (saved && TRANSLATIONS[saved]) setLang(saved);
+  } catch(e) {}
+})();
+
+/* ── Initialise checklist ── */
+buildChecklist();
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "fednow-participation-readiness-scorer", "version": "1.0.0", "title": "FedNow Participation Readiness Scorer", "description": "Scores institution readiness against all 47 FedNow technical and operational participation requirements across 6 domains: Core Banking Connectivity, ISO 20022 Message Formats, Fraud Monitoring, Liquidity Management, Dispute & Return Handling, and Operational SLA & Governance. Outputs a prioritised gap checklist, implementation roadmap, and participation Policy Mandate JSON. Client-side. Zero PII.", "category": "cat-21", "tags": ["FedNow", "real-time payments", "ISO 20022", "participation readiness", "gap analysis", "Federal Reserve", "liquidity management", "fraud monitoring", "Policy Mandate", "export", "12 CFR 210", "Regulation J"], "audience": ["engineer", "compliance", "operations", "treasury", "payments architect"], "input_schema": {"type": "object", "properties": {"institution_type": {"type": "string", "enum": ["community-bank", "credit-union", "regional-bank", "large-bank", "non-bank-psp", "core-vendor"], "description": "Type of financial institution seeking FedNow participation"}, "core_banking_system": {"type": "string", "enum": ["jack-henry", "fis", "fiserv", "temenos", "thought-machine", "ncr", "inhouse", "other"], "description": "Core banking platform — used to contextualise integration complexity"}, "connectivity_type": {"type": "string", "enum": ["fedline-direct", "fedline-command", "fedline-web", "passthrough", "tbd"], "description": "Planned FedNow connectivity method"}, "item_statuses": {"type": "object", "description": "Map of requirement IDs to completion status. Keys: cbc1–cbc8, iso1–iso8, fraud1–fraud8, liq1–liq8, dispute1–dispute7, sla1–sla8. Values: \'yes\' | \'partial\' | \'no\'.", "additionalProperties": {"type": "string", "enum": ["yes", "partial", "no"]}}}, "required": ["institution_type", "item_statuses"]}, "output_schema": {"type": "object", "properties": {"overall_readiness_pct": {"type": "number", "minimum": 0, "maximum": 100, "description": "Weighted readiness score as a percentage of 47 requirements"}, "readiness_tier": {"type": "string", "enum": ["Ready to Launch", "Near Ready", "In Progress", "Early Stage", "Pre-Planning"]}, "domain_scores": {"type": "object", "description": "Per-domain readiness percentage scores keyed by domain ID", "properties": {"cbc_readiness_pct": {"type": "number"}, "iso_readiness_pct": {"type": "number"}, "fraud_readiness_pct": {"type": "number"}, "liq_readiness_pct": {"type": "number"}, "dispute_readiness_pct": {"type": "number"}, "sla_readiness_pct": {"type": "number"}}}, "gap_count_total": {"type": "integer", "description": "Total number of incomplete requirements"}, "gaps_not_started": {"type": "integer", "description": "Requirements with status \'no\'"}, "gaps_partial": {"type": "integer", "description": "Requirements with status \'partial\'"}, "top_open_gap_ids": {"type": "array", "items": {"type": "string"}, "description": "IDs of up to 8 most critical open gaps"}, "agent_instructions": {"type": "array", "items": {"type": "string"}, "description": "Ordered remediation actions for an agent or programme manager"}, "ap2_mandate": {"type": "object", "description": "Full Mandato de Política mandate object — ap2_version 1.0, mandate_type payment_policy"}}, "required": ["overall_readiness_pct", "readiness_tier", "gap_count_total", "agent_instructions", "ap2_mandate"]}, "mcp_tool_definition": {"name": "score_fednow_participation_readiness", "description": "Scores a financial institution\'s readiness against all 47 FedNow participation requirements across 6 domains and outputs a gap checklist, implementation roadmap, and Policy Mandate JSON. Use when an agent needs to assess FedNow readiness, identify participation gaps, generate a remediation roadmap, or produce a FedNow policy mandate for a US bank, credit union, or non-bank payment institution. Distinct from Tool 06 (FedNow participant directory lookup) — this tool assesses internal operational readiness, not counterparty participation status.", "inputSchema": {"type": "object", "properties": {"institution_type": {"type": "string", "enum": ["community-bank", "credit-union", "regional-bank", "large-bank", "non-bank-psp", "core-vendor"]}, "core_banking_system": {"type": "string", "enum": ["jack-henry", "fis", "fiserv", "temenos", "thought-machine", "ncr", "inhouse", "other"]}, "connectivity_type": {"type": "string", "enum": ["fedline-direct", "fedline-command", "fedline-web", "passthrough", "tbd"]}, "item_statuses": {"type": "object", "description": "47 requirement statuses — keys: cbc1–cbc8, iso1–iso8, fraud1–fraud8, liq1–liq8, dispute1–dispute7, sla1–sla8. Values: \'yes\' | \'partial\' | \'no\'.", "additionalProperties": {"type": "string", "enum": ["yes", "partial", "no"]}}}, "required": ["institution_type", "item_statuses"]}}, "execution": {"type": "browser-javascript", "entry": "tools/255-fednow-participation-readiness-scorer.html", "function_name": "scoreFedNowParticipationReadiness", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

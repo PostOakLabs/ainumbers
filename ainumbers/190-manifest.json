@@ -1,0 +1,151 @@
+{
+  "tool_id": "bnpl-affordability-assessment-modeller",
+  "version": "1.0.0",
+  "title": "BNPL Affordability Assessment Modeller",
+  "description": "Model BNPL affordability assessment methodology options against FCA CONC 5, EU CCD2 Art. 18, and CFPB ability-to-repay requirements. Derives product risk tier from transaction value, repayment count, and APR. Scores methodology against per-framework requirements and outputs a proportionality analysis, gap table, and Markdown report. Scope: compliance methodology assessment only — not actual credit decisions.",
+  "category": "cat-16",
+  "tags": ["BNPL", "Affordability", "Ability-to-Repay", "FCA CONC 5", "CCD2 Art. 18", "CFPB", "Creditworthiness", "Compliance", "Proportionality"],
+  "audience": ["compliance", "risk", "product", "legal"],
+
+  "scope_disclaimer": "COMPLIANCE METHODOLOGY ASSESSMENT ONLY. This tool evaluates whether a BNPL provider's affordability assessment methodology meets regulatory minimum requirements. It does NOT make, model, or advise on individual consumer credit decisions.",
+
+  "input_schema": {
+    "type": "object",
+    "required": ["jurisdictions", "income_signal", "credit_bureau"],
+    "properties": {
+      "jurisdictions": {
+        "type": "array",
+        "items": { "type": "string", "enum": ["fca", "ccd2", "cfpb"] },
+        "minItems": 1
+      },
+      "product_value_tier": {
+        "type": "string",
+        "enum": ["under50", "50to250", "250to1000", "over1000"],
+        "description": "Typical transaction value range. Drives proportionality tier."
+      },
+      "repayment_count": {
+        "type": "string",
+        "enum": ["2to4", "5to12", "13plus"],
+        "description": "Number of repayment instalments."
+      },
+      "apr_tier": {
+        "type": "string",
+        "enum": ["zero", "low", "high"],
+        "description": "Product APR category: zero (0%), low (1-24%), high (25%+)."
+      },
+      "income_signal": {
+        "type": "string",
+        "enum": ["none", "stated", "soft_behavioural", "open_banking", "hard_verification"],
+        "description": "Income verification method used in affordability assessment."
+      },
+      "credit_bureau": {
+        "type": "string",
+        "enum": ["none", "soft_search", "hard_search", "multi_bureau"],
+        "description": "Credit bureau / register data usage."
+      },
+      "checks_commitments": { "type": "boolean", "default": false },
+      "calcs_disposable": { "type": "boolean", "default": false },
+      "stress_tests": { "type": "boolean", "default": false },
+      "screens_vulnerability": { "type": "boolean", "default": false },
+      "has_documentation": { "type": "boolean", "default": false },
+      "periodic_review": { "type": "boolean", "default": false },
+      "refusal_mechanism": { "type": "boolean", "default": false },
+      "consumer_warning": { "type": "boolean", "default": false }
+    }
+  },
+
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "risk_tier": {
+        "type": "string",
+        "enum": ["low", "medium", "high"],
+        "description": "Derived product risk tier."
+      },
+      "proportionality_status": {
+        "type": "string",
+        "enum": ["ok", "warn", "fail"],
+        "description": "Whether methodology depth is proportionate to product risk tier."
+      },
+      "framework_scores": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "framework": { "type": "string" },
+            "score": { "type": "number" },
+            "tier": { "type": "string", "enum": ["ok", "warn", "fail"] },
+            "tier_label": { "type": "string" },
+            "requirement_results": { "type": "array" }
+          }
+        }
+      },
+      "gap_rows": {
+        "type": "array",
+        "description": "Missing and partial requirement items across all selected frameworks.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "framework": { "type": "string" },
+            "requirement": { "type": "string" },
+            "type": { "type": "string", "enum": ["MUST", "SHOULD"] },
+            "status": { "type": "string", "enum": ["miss", "partial"] },
+            "action": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+
+  "mcp_tool_definition": {
+    "name": "model_bnpl_affordability_methodology_compliance",
+    "description": "Assess whether a BNPL provider's affordability assessment methodology meets FCA CONC 5, EU CCD2 Art. 18, and CFPB ability-to-repay requirements. Derives product risk tier and checks methodology proportionality. Returns per-framework compliance scores (0-100), proportionality verdict, and a gap table with remediation actions. Scope: compliance methodology assessment only — not individual credit decisions.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["jurisdictions", "income_signal", "credit_bureau"],
+      "properties": {
+        "jurisdictions": { "type": "array", "items": { "type": "string" } },
+        "product_value_tier": { "type": "string" },
+        "repayment_count": { "type": "string" },
+        "apr_tier": { "type": "string" },
+        "income_signal": { "type": "string" },
+        "credit_bureau": { "type": "string" },
+        "checks_commitments": { "type": "boolean" },
+        "calcs_disposable": { "type": "boolean" },
+        "stress_tests": { "type": "boolean" },
+        "screens_vulnerability": { "type": "boolean" },
+        "has_documentation": { "type": "boolean" },
+        "periodic_review": { "type": "boolean" },
+        "refusal_mechanism": { "type": "boolean" }
+      }
+    }
+  },
+
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/190-bnpl-affordability-assessment-modeller.html",
+    "function_name": "runModel",
+    "timeout_ms": 2000
+  },
+
+  "ap2_export": false,
+
+  "risk_tier_matrix": {
+    "description": "Proportionality tier derived by summing dimension scores: value (0-3) + repayments (0-2) + APR (0-2). Total 0-1=low, 2-4=medium, 5+=high.",
+    "minimum_income_by_tier": {
+      "low": "stated",
+      "medium": "soft_behavioural",
+      "high": "open_banking"
+    },
+    "minimum_bureau_by_tier": {
+      "low": "soft_search",
+      "medium": "soft_search",
+      "high": "hard_search"
+    }
+  },
+
+  "scoring_methodology": "Requirements scored: 1.0 (met), 0.5 (partially met — income/bureau depth insufficient for risk tier), 0.0 (not met). MUST items weight 1.5; SHOULD items weight 0.75. Score = weighted sum / weighted max × 100. Tiers: >=80 Compliant, 60-79 Adequate, 40-59 Needs Improvement, <40 Non-Compliant.",
+
+  "last_reviewed": "2026-05-08",
+  "notes": "Client-side. Zero PII. Gold accent (--gold). Compliance methodology assessment only — not credit decisions. Explicit scope disclaimer is a mandatory UI element."
+}

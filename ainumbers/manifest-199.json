@@ -1,0 +1,65 @@
+{
+  "tool_id": "financial-covenant-compliance-checker",
+  "version": "4.0.0",
+  "title": "Financial Covenant Compliance Checker",
+  "description": "Input covenant terms and current financial metrics to check compliance and calculate headroom to breach. Covers leverage, interest cover, liquidity, and custom covenants with maintenance vs incurrence classification. Stress-tests headroom under revenue and margin shocks. Client-side. Zero PII.",
+  "category": "cat-17",
+  "tags": ["Covenants", "Headroom", "LMA", "ISDA", "Stress Test", "EBITDA", "AP2", "export"],
+  "audience": ["credit-analyst", "relationship-manager", "risk-officer"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "covenants": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["nd_eb","eb_int","fccr","min_eb","min_liq","de","cr","capex"] },
+            "direction": { "type": "string", "enum": ["lte","gte"] },
+            "threshold": { "type": "number" },
+            "actual_ltm": { "type": "number" },
+            "test_type": { "type": "string", "enum": ["maintenance","incurrence"] }
+          },
+          "required": ["type","direction","threshold","actual_ltm","test_type"]
+        },
+        "minItems": 1,
+        "maxItems": 6
+      },
+      "revenue_shock": { "type": "number", "description": "Revenue shock fraction e.g. 0.20 = 20% decline" },
+      "margin_compression_pp": { "type": "number", "description": "EBITDA margin compression in percentage points" }
+    },
+    "required": ["covenants","revenue_shock","margin_compression_pp"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "covenants_tested": { "type": "integer" },
+      "base_case_breaches": { "type": "integer" },
+      "stress_breaches": { "type": "integer" },
+      "tight_covenants": { "type": "integer" },
+      "overall_status": { "type": "string", "enum": ["compliant","breach"] },
+      "covenant_detail": { "type": "array" },
+      "ap2_mandate": { "type": "object" }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "check_covenant_compliance",
+    "description": "Checks financial covenant compliance against current LTM metrics, calculates headroom to breach as a percentage, and stress-tests headroom under revenue and EBITDA margin shocks. Covers Net Debt/EBITDA, EBITDA/Interest, minimum liquidity, and other LMA/ISDA standard covenant types. Use after calculate_credit_risk_rating to verify covenant standing before facility drawdown or credit committee.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "covenants": { "type": "array", "items": { "type": "object" } },
+        "revenue_shock": { "type": "number" },
+        "margin_compression_pp": { "type": "number" }
+      },
+      "required": ["covenants","revenue_shock","margin_compression_pp"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/199-financial-covenant-compliance-checker.html",
+    "function_name": "runChecker",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true
+}

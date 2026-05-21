@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Network Scheme Compliance Simulator · Visa VAMP · Mastercard DIMP · RBE·12 · AINumbers.co</title>
+<meta name="description" content="Browser-based Visa VAMP and Mastercard DIMP/VIMP threshold simulation engine. Separate acquirer vs. merchant thresholds with phased timelines. VAAI enumeration rate as third compliance dimension. Generates remediation action plan and Policy Mandate JSON scheme compliance mandate. Zero PII. Client-side.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Network Scheme Compliance Simulator · Visa VAMP · Mastercard DIMP · RBE·12","url":"https://ainumbers.co/tools/rbe-12-scheme-compliance-simulator.html","description":"Browser-based Visa VAMP and Mastercard DIMP/VIMP threshold simulation engine. Separate acquirer vs. merchant thresholds with phased timelines. VAAI enumeration rate as third compliance dimension. Generates remediation action plan and Policy Mandate JSON scheme compliance mandate. Zero PII. Client-side.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Edu disclaimer (canonical §9.3) */
+.edu-disclaimer {
+  border: 1px solid var(--warn);
+  border-left: 3px solid var(--warn);
+  background: rgba(245, 158, 11, 0.06);
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  font-size: 0.76rem;
+  color: var(--body);
+  line-height: 1.7;
+  border-radius: var(--radius);
+}
+.edu-disclaimer-label {
+  display: block;
+  color: var(--warn);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--gold-lt:#F0C060;
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:14px;line-height:1.6;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.03) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+body>*{position:relative;z-index:1}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:6px 0}
+.lang-inner{max-width:1200px;margin:0 auto;padding:0 24px;display:flex;gap:4px;justify-content:flex-end}
+.lang-btn{background:transparent;border:1px solid transparent;color:var(--body);font-family:'Sora',sans-serif;font-size:11px;font-weight:500;letter-spacing:.06em;padding:3px 10px;border-radius:var(--radius);cursor:pointer;transition:all .15s}
+.lang-btn:hover{color:var(--text);border-color:var(--border-2)}
+.lang-btn.active{background:var(--gold-dim);color:var(--purple);border-color:rgba(212,168,71,.3)}
+nav{background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.nav-inner{max-width:1200px;margin:0 auto;padding:0 24px;height:56px;display:grid;grid-template-columns:1fr auto 1fr;}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center;justify-self:center;text-align:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{justify-self:end;display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.nav-brand{font-family:'DM Serif Display',serif;font-size:18px;color:var(--white);text-decoration:none;display:flex;align-items:center;gap:10px}
+.nav-brand-dot{width:8px;height:8px;border-radius:50%;background:var(--purple);box-shadow:0 0 8px var(--purple)}
+.hero{padding:52px 24px 40px;max-width:1200px;margin:0 auto}
+.hero-eyebrow{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.tool-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);letter-spacing:.1em;text-transform:uppercase}
+.hero-badge{background:var(--purple-dim);color:var(--purple);font-size:10px;font-weight:600;padding:3px 10px;border-radius:20px;border:1px solid rgba(155,114,245,.25)}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(26px,4vw,40px);color:var(--white);line-height:1.2;margin-bottom:14px;max-width:780px}
+.hero-desc{color:var(--body);font-size:14px;max-width:680px;line-height:1.7}
+.hero-meta{display:flex;gap:16px;margin-top:20px;flex-wrap:wrap}
+.hero-meta-pill{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--body);background:var(--bg-3);border:1px solid var(--border);padding:4px 12px;border-radius:20px}
+.hero-meta-pill span:first-child{color:var(--gold)}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+.tag{font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;letter-spacing:.04em;border:1px solid}
+.tag-gold{background:var(--gold-dim);color:var(--gold);border-color:rgba(212,168,71,.25)}
+.tag-teal{background:var(--teal-dim);color:var(--teal);border-color:rgba(20,184,166,.25)}
+.tag-green{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.25)}
+.tag-red{background:var(--red-dim);color:var(--red);border-color:rgba(239,68,68,.25)}
+.tag-purple{background:var(--purple-dim);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.tool-body{max-width:1200px;margin:0 auto;padding:0 24px 60px;display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
+@media(max-width:900px){.tool-body{grid-template-columns:1fr}}
+.main-col,.side-col{display:flex;flex-direction:column;gap:20px}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);letter-spacing:.08em;text-transform:uppercase;font-weight:500}
+.panel-body{padding:20px}
+.panel-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.panel-row.three{grid-template-columns:1fr 1fr 1fr}
+.panel-row:last-child{margin-bottom:0}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:11px;color:var(--body);font-weight:500;letter-spacing:.04em}
+.field input,.field select{background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);font-family:'Sora',sans-serif;font-size:13px;padding:8px 10px;border-radius:var(--radius);outline:none;transition:border-color .15s;width:100%}
+.field input:focus,.field select:focus{border-color:var(--purple)}
+.field select option{background:var(--bg-3)}
+.radio-group{display:flex;gap:8px;flex-wrap:wrap}
+.radio-opt{display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;color:var(--text)}
+.radio-opt input{accent-color:var(--gold)}
+.live-calc{background:var(--gold-dim);border:1px solid rgba(212,168,71,.2);border-radius:var(--radius);padding:8px 12px;font-size:12px;margin-top:8px;display:flex;align-items:center;gap:10px}
+.live-calc .ratio-val{font-family:'JetBrains Mono',monospace;font-size:18px;color:var(--gold);font-weight:600}
+.live-calc .ratio-label{font-size:11px;color:var(--body)}
+.btn{display:inline-flex;align-items:center;gap:6px;font-family:'Sora',sans-serif;font-size:12px;font-weight:500;padding:7px 16px;border-radius:var(--radius);cursor:pointer;border:1px solid transparent;transition:all .15s;white-space:nowrap}
+.btn-gold{background:var(--purple);color:#080E1A;border-color:var(--purple)}
+.btn-gold:hover{background:var(--purple-lt)}
+.btn-ghost{background:transparent;color:var(--text);border-color:var(--border-2)}
+.btn-ghost:hover{background:var(--bg-3);border-color:var(--gold);color:var(--gold)}
+.btn-sm{font-size:11px;padding:5px 12px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.btn-subtitle{display:block;font-size:10px;opacity:.65;margin-top:1px}
+.run-btn{width:100%;background:var(--purple);color:#080E1A;border:none;font-family:'Sora',sans-serif;font-size:14px;font-weight:600;padding:14px 24px;border-radius:var(--radius-lg);cursor:pointer;transition:all .2s;letter-spacing:.02em;box-shadow:0 0 20px rgba(155,114,245,.2)}
+.run-btn:hover{background:var(--purple-lt);box-shadow:0 0 30px rgba(155,114,245,.35)}
+.run-btn:active{transform:scale(.99)}
+
+/* ── Status dashboard ── */
+.status-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:12px}
+.status-card:last-child{margin-bottom:0}
+.status-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.status-card-title{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:.08em}
+.status-badge-large{font-size:11px;font-weight:700;padding:3px 12px;border-radius:10px;letter-spacing:.08em;text-transform:uppercase;border:1px solid}
+.badge-green{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-ew{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-amber{background:var(--warn-dim);color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-red{background:var(--red-dim);color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-scope{background:var(--bg-4);color:var(--body);border-color:var(--border)}
+.ratio-display{font-family:'DM Serif Display',serif;font-size:32px;margin-bottom:4px}
+.ratio-vs{font-size:12px;color:var(--body)}
+.threshold-bands{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.band-pill{font-size:10px;padding:3px 10px;border-radius:10px;font-weight:600;border:1px solid}
+.band-ew{background:rgba(245,158,11,.08);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.band-as{background:rgba(239,68,68,.08);color:var(--red);border-color:rgba(239,68,68,.25)}
+.band-ex{background:rgba(239,68,68,.15);color:#F87171;border-color:rgba(239,68,68,.4)}
+.headroom-row{display:flex;justify-content:space-between;font-size:11px;padding:5px 0;border-bottom:1px solid var(--border)}
+.headroom-row:last-child{border-bottom:none}
+.headroom-label{color:var(--body)}
+.headroom-val{font-family:'JetBrains Mono',monospace;color:var(--bright);font-size:11px}
+.enforcement-box{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius);padding:8px 12px;font-size:11px;color:var(--text);margin-top:10px}
+.enforcement-box .amount{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--red);font-weight:600}
+.progress-bar-wrap{background:var(--bg-4);border-radius:3px;height:8px;overflow:hidden;margin:6px 0}
+.progress-bar-fill{height:100%;border-radius:3px;transition:width .4s}
+.fill-green{background:var(--green)}
+.fill-amber{background:var(--warn)}
+.fill-red{background:var(--red)}
+
+/* ── What-if ── */
+.whatif-result{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:14px 16px;margin-top:12px;display:none}
+.whatif-result.visible{display:block}
+
+/* ── Remediation ── */
+.remed-item{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:8px;font-size:12px}
+.remed-item:last-child{margin-bottom:0}
+.remed-priority{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);font-weight:600;margin-bottom:3px}
+.remed-ref{font-size:10px;color:var(--body);margin-top:3px;font-style:italic}
+
+/* ── Export / Results ── */
+.results-panel{display:none}
+.results-panel.visible{display:flex;flex-direction:column;gap:14px}
+.results-title{font-family:'DM Serif Display',serif;font-size:20px;color:var(--white)}
+.results-export-row{display:flex;gap:8px;flex-wrap:wrap;padding:16px 20px;background:var(--bg-3);border-top:1px solid var(--border)}
+.results-export-row .btn{flex-direction:column;align-items:flex-start;padding:10px 16px}
+.results-export-row .btn[disabled]{opacity:.28;cursor:not-allowed}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat-box{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
+.stat-box .lbl{font-size:10px;color:var(--body);margin-bottom:2px}
+.stat-box .val{font-size:18px;font-family:'DM Serif Display',serif}
+.about-item{padding:10px 0;border-bottom:1px solid var(--border);font-size:12px}
+.about-item:last-child{border-bottom:none}
+.about-item strong{color:var(--text);display:block;margin-bottom:3px}
+.about-item .cite{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold)}
+
+.mcp-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:14px 20px;user-select:none;font-size:12px;color:var(--body);background:none;border:none;width:100%;font-family:'Sora',sans-serif;transition:color .15s}
+.mcp-toggle:hover{color:var(--text)}
+
+.mcp-code{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--body);overflow-x:auto;line-height:1.6;white-space:pre}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:12px 18px;font-size:13px;color:var(--bright);box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:9999;transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.error{border-color:rgba(239,68,68,.4);color:var(--red)}
+.toast.success{border-color:rgba(155,114,245,.4);color:var(--purple)}
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner,[dir="rtl"] .hero-eyebrow,[dir="rtl"] [dir="rtl"] .panel-label{text-align:right}
+[dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+[dir="rtl"] .run-btn{letter-spacing:0}
+
+/* ── DORA-style logo & nav ── */
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.container{max-width:1200px;margin:0 auto;padding:0 1.5rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-body pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;overflow-x:auto;margin:0}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo"><svg width="32" height="32" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="#0D1627"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".7"/></svg>
+    <div class="logo-text">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </div></a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/rbe-deterministic-suite-hub.html">RBE Suite Hub</a><span class="nav-sep">/</span><span>Tool RBE-12</span></div>
+
+    <a href="../guides/rbe-deterministic-suite-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="hero">
+  <div class="hero-eyebrow">
+    <span class="tool-eyebrow">RBE·12 · RBE Deterministic Suite · Network Scheme Compliance</span>
+    <span class="hero-badge">VAMP Enforcement Live · Oct 2025</span>
+  </div>
+  <h1 class="tool-title">Network Scheme Compliance Simulator</h1>
+  <p class="hero-desc">Simulate Visa VAMP ratios and Mastercard DIMP/VIMP thresholds with phased enforcement timelines. Separate acquirer vs. merchant thresholds. VAAI enumeration rate as a third compliance dimension. Headroom calculation, what-if scenarios, enforcement fee exposure, and deterministic remediation action plan.</p>
+  <div class="tag-row">
+    <span class="tag tag-gold">Visa VAMP Framework</span>
+    <span class="tag tag-gold">VAAI Enumeration</span>
+    <span class="tag tag-teal">Mastercard DIMP/VIMP</span>
+    <span class="tag tag-red">Jan 2026 · Apr 2026 Phases</span>
+    <span class="tag tag-purple">Enforcement Fee Exposure</span>
+    <span class="tag tag-green">Policy Mandate · Zero PII</span>
+  </div>
+  <div class="hero-meta">
+    <div class="hero-meta-pill"><span>⚡</span> Client-side · No server calls</div>
+    <div class="hero-meta-pill"><span>🔒</span> Zero PII</div>
+    <div class="hero-meta-pill"><span>📦</span> MCP-compatible · manifest.json</div>
+    <div class="hero-meta-pill"><span>v</span> RBE Suite v1.0</div>
+  </div>
+</div>
+
+<div class="tool-body">
+<div class="main-col">
+
+  <!-- Panel A: Entity Config -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label" data-i18n="panel_entity">A — Entity Configuration</span>
+      <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-04-01</span></span>
+    </div>
+    <div class="panel-body">
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;color:var(--body);margin-bottom:8px" data-i18n="label_entity_type">Entity Type</div>
+        <div class="radio-group">
+          <label class="radio-opt"><input type="radio" name="entityType" value="merchant" checked onchange="updateThresholdDisplay()"> Merchant</label>
+          <label class="radio-opt"><input type="radio" name="entityType" value="acquirer" onchange="updateThresholdDisplay()"> Acquirer / ISO</label>
+          <label class="radio-opt"><input type="radio" name="entityType" value="payment_facilitator" onchange="updateThresholdDisplay()"> Payment Facilitator</label>
+        </div>
+      </div>
+      <div class="panel-row three">
+        <div class="field">
+          <label data-i18n="label_region" for="region">Region</label>
+          <select id="region" onchange="updateThresholdDisplay()">
+            <option value="US">US</option>
+            <option value="Canada">Canada</option>
+            <option value="EU" selected>EU</option>
+            <option value="APAC">APAC</option>
+            <option value="LATAM">LATAM</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-i18n="label_monitoring_period" for="monPeriod">Monitoring Period</label>
+          <input type="month" id="monPeriod" value="2026-04">
+        </div>
+        <div class="field">
+          <label data-i18n="label_months_monitoring" for="monthsMonitoring">Months already in monitoring</label>
+          <select id="monthsMonitoring">
+            <option value="0" selected>0 — Not identified</option>
+            <option value="1">1 month</option>
+            <option value="2">2 months</option>
+            <option value="3">3 months (grace ends)</option>
+            <option value="4">4+ months (fees apply)</option>
+          </select>
+        </div>
+      </div>
+      <div class="panel-row">
+        <div class="field">
+          <label data-i18n="label_mcc" for="mcc">MCC (Primary)</label>
+          <select id="mcc">
+            <option value="5411">5411 — Grocery Stores</option>
+            <option value="5732">5732 — Electronics</option>
+            <option value="5912">5912 — Drug Stores / Pharmacy</option>
+            <option value="5999">5999 — Miscellaneous Retail</option>
+            <option value="7011">7011 — Hotels / Accommodation</option>
+            <option value="7372" selected>7372 — Computer Services / SaaS</option>
+            <option value="7995">7995 — Gambling</option>
+            <option value="4816">4816 — Computer Network Services</option>
+            <option value="5122">5122 — Drugs / Pharmaceuticals</option>
+            <option value="0000">Other / Custom</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-i18n="label_currency" for="processCurrency">Processing Currency</label>
+          <select id="processCurrency">
+            <option value="USD">USD</option>
+            <option value="EUR" selected>EUR</option>
+            <option value="GBP">GBP</option>
+            <option value="CAD">CAD</option>
+          </select>
+        </div>
+      </div>
+      <!-- Threshold display -->
+      <div id="thresholdDisplay" style="background:var(--bg-3);border:1px solid rgba(212,168,71,.2);border-radius:var(--radius);padding:10px 14px;font-size:11px;margin-top:4px"></div>
+      <div class="pii-notice" style="margin-top:12px">
+  <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+</div>
+  <!-- Edu disclaimer (canonical §9.3) -->
+  <div class="edu-disclaimer">
+    <strong class="edu-disclaimer-label" data-i18n="disclaimer.label">Educational Use Only</strong>
+    <span data-i18n="disclaimer.body">This tool provides a self-assessment / educational framework for internal planning purposes only. It is not a regulatory audit, legal advice, or a substitute for a formal compliance review by a qualified advisor. Verify all interpretations against the official source text and applicable RTS/ITS/guidance published by the relevant authority.</span>
+  </div>
+
+    </div>
+  </div>
+
+  <!-- Panel B: Visa VAMP Inputs -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label" data-i18n="panel_vamp">B — Visa VAMP Inputs</span>
+    </div>
+    <div class="panel-body">
+      <div class="panel-row three">
+        <div class="field">
+          <label data-i18n="label_tc40" for="tc40">TC40 Fraud Alerts (count)</label>
+          <input type="number" id="tc40" value="1200" min="0" oninput="liveVAMP()">
+        </div>
+        <div class="field">
+          <label data-i18n="label_tc15" for="tc15">TC15 Non-fraud Disputes</label>
+          <input type="number" id="tc15" value="800" min="0" oninput="liveVAMP()">
+        </div>
+        <div class="field">
+          <label data-i18n="label_excluded" for="excluded">Excluded (CE 3.0 / pre-dispute)</label>
+          <input type="number" id="excluded" value="100" min="0" oninput="liveVAMP()">
+        </div>
+      </div>
+      <div class="panel-row">
+        <div class="field">
+          <label data-i18n="label_settled_cnp" for="settledCNP">Settled CNP Transactions</label>
+          <input type="number" id="settledCNP" value="200000" min="1" oninput="liveVAMP()">
+        </div>
+        <div class="field">
+          <label data-i18n="label_settled_cp" for="settledCP">Settled Card-Present Transactions (ref.)</label>
+          <input type="number" id="settledCP" value="80000" min="0">
+        </div>
+      </div>
+      <div class="live-calc" id="vampLive">
+        <div><div class="ratio-val" id="vampRatioLive">—</div><div class="ratio-label">VAMP Ratio</div></div>
+        <div style="border-left:1px solid rgba(212,168,71,.2);padding-left:12px"><div id="vampStatusLive" style="font-size:11px;color:var(--body)">Enter values above</div></div>
+      </div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+      <div style="font-size:11px;color:var(--gold);font-weight:600;margin-bottom:10px">VAAI Enumeration Rate (v3 — independent compliance dimension)</div>
+      <div class="panel-row">
+        <div class="field">
+          <label data-i18n="label_total_tx" for="totalTx">Total Monthly Transactions</label>
+          <input type="number" id="totalTx" value="280000" min="0" oninput="liveVAMP()">
+        </div>
+        <div class="field">
+          <label data-i18n="label_enumerated" for="enumTx">Confirmed Enumerated Transactions</label>
+          <input type="number" id="enumTx" value="4000" min="0" oninput="liveVAMP()">
+        </div>
+      </div>
+      <div class="live-calc" id="vaaiLive" style="background:rgba(155,114,245,.06);border-color:rgba(155,114,245,.2)">
+        <div><div class="ratio-val" id="vaaiRatioLive" style="color:var(--purple)">—</div><div class="ratio-label">VAAI Enum. Rate</div></div>
+        <div style="border-left:1px solid rgba(155,114,245,.2);padding-left:12px"><div id="vaaiStatusLive" style="font-size:11px;color:var(--body)">Threshold: 20% (if ≥300k txns)</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel C: Mastercard DIMP / VIMP -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label" data-i18n="panel_mc">C — Mastercard DIMP / VIMP Inputs</span>
+    </div>
+    <div class="panel-body">
+      <div style="font-size:11px;color:var(--gold);margin-bottom:8px;font-weight:600">DIMP — Data Integrity Monitoring Program</div>
+      <div class="panel-row">
+        <div class="field">
+          <label data-i18n="label_fraud_amount" for="fraudAmount">Fraud Amount (€)</label>
+          <input type="number" id="fraudAmount" value="48000" min="0" oninput="liveDIMP()">
+        </div>
+        <div class="field">
+          <label data-i18n="label_total_sales" for="totalSales">Total Sales Volume (€)</label>
+          <input type="number" id="totalSales" value="52000000" min="1" oninput="liveDIMP()">
+        </div>
+      </div>
+      <div class="live-calc" id="dimpLive" style="background:rgba(20,184,166,.06);border-color:rgba(20,184,166,.2);margin-bottom:14px">
+        <div><div class="ratio-val" id="dimpRatioLive" style="color:var(--teal)">—</div><div class="ratio-label">DIMP Ratio</div></div>
+        <div style="border-left:1px solid rgba(20,184,166,.2);padding-left:12px"><div id="dimpStatusLive" style="font-size:11px;color:var(--body)">Threshold: 0.10%</div></div>
+      </div>
+      <div style="font-size:11px;color:var(--gold);margin-bottom:8px;font-weight:600">VIMP — Visa/MC Issuer Monitoring Program (if applicable)</div>
+      <div class="panel-row">
+        <div class="field">
+          <label data-i18n="label_cnp_disputes" for="cnpDisputes">CNP Dispute Count</label>
+          <input type="number" id="cnpDisputes" value="520" min="0" oninput="liveVIMP()">
+        </div>
+        <div class="field">
+          <label data-i18n="label_total_cnp" for="totalCNP">Total CNP Transactions</label>
+          <input type="number" id="totalCNP" value="280000" min="1" oninput="liveVIMP()">
+        </div>
+      </div>
+      <div class="live-calc" id="vimpLive" style="background:rgba(34,197,94,.06);border-color:rgba(34,197,94,.2)">
+        <div><div class="ratio-val" id="vimpRatioLive" style="color:var(--green)">—</div><div class="ratio-label">VIMP Ratio</div></div>
+        <div style="border-left:1px solid rgba(34,197,94,.2);padding-left:12px"><div id="vimpStatusLive" style="font-size:11px;color:var(--body)">Threshold: 0.30%</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel D: Status Dashboard (populated after run) -->
+  <div class="panel" id="dashPanel" style="display:none">
+    <div class="panel-header">
+      <span class="panel-label" data-i18n="panel_dashboard">D — Threshold Status Dashboard</span>
+    </div>
+    <div class="panel-body" id="dashBody"></div>
+  </div>
+
+  <!-- Panel E: What-If -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label" data-i18n="panel_whatif">E — What-If Scenario Simulator</span>
+    </div>
+    <div class="panel-body">
+      <div class="panel-row three">
+        <div class="field">
+          <label data-i18n="label_scenario_type">Scenario Type</label>
+          <select id="scenarioType">
+            <option value="add_disputes">Additional disputes</option>
+            <option value="reduce_fraud">Fraud volume reduction</option>
+            <option value="volume_increase">CNP volume increase</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-i18n="label_adjustment">Adjustment (count or %)</label>
+          <input type="number" id="scenarioAdj" value="500" min="0">
+        </div>
+        <div class="field" style="justify-content:flex-end">
+          <label style="opacity:0">Run</label>
+          <button class="btn btn-gold" onclick="runScenario()">⚡ Run Scenario →</button>
+        </div>
+      </div>
+      <div class="whatif-result" id="whatifResult"></div>
+    </div>
+  </div>
+
+  <!-- Panel F: Remediation -->
+  <div class="panel" id="remedPanel" style="display:none">
+    <div class="panel-header">
+      <span class="panel-label" data-i18n="panel_remed">F — Remediation Action Plan</span>
+    </div>
+    <div class="panel-body" id="remedBody"></div>
+  </div>
+
+</div><!-- /main-col -->
+
+<div class="side-col">
+  <div class="panel">
+    <div class="panel-header"><span class="panel-label">Simulate &amp; Export</span></div>
+    <div class="panel-body" style="padding:16px">
+      <button class="run-btn" onclick="runAnalysis()" data-i18n="run_btn">Run Analysis →</button>
+    </div>
+    <div class="results-export-row" id="exportRow">
+      <button class="btn btn-ghost btn-sm btn-export" id="ap2ExportBtn" disabled onclick="exportAP2()" title="Run analysis first">
+        {} Export Policy Mandate
+        <span class="btn-subtitle">scheme_compliance_mandate</span>
+      </button>
+      <button class="btn btn-ghost btn-sm btn-export btn-export-md" id="mdExportBtn" disabled onclick="exportMarkdown()" title="Run analysis first">
+        ↓ Compliance Report
+        <span class="btn-subtitle">Markdown · board-ready</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="panel results-panel" id="resultsPanel">
+    <div class="panel-header"><span class="panel-label results-title" data-i18n="results_title">Compliance Summary</span></div>
+    <div class="panel-body" id="resultsSummary" style="padding:16px"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-label" data-i18n="panel_about">About this tool</span></div>
+    <div class="panel-body">
+      <div class="about-item"><strong>Three compliance dimensions</strong>Visa VAMP ratio (fraud + disputes / settled CNP), VAAI Enumeration Rate (separate identification trigger, effective June 2025), and Mastercard DIMP/VIMP. Each is independent — a merchant can breach on enumeration even if VAMP ratio is green.</div>
+      <div class="about-item"><strong>Phased thresholds</strong>Acquirer bands (EW 0.4% / AS 0.5% / Excessive 0.7%) effective January 2026. Merchant tightening from 2.2% to 1.5% in April 2026 for US/Canada/EU/APAC. LATAM remains at 1.5%.</div>
+      <div class="about-item"><strong>Grace period logic</strong>First-time identification carries a 3-month grace period before enforcement fees begin. Fees: $4/txn (Above Standard) or $8/txn (Excessive).</div>
+      <div class="about-item"><strong>Regulatory coverage</strong><span class="cite">Visa VAMP Framework (Oct 2025)</span> · <span class="cite">Visa VAAI (Jun 2025)</span> · <span class="cite">Mastercard DIMP/VIMP</span> · <span class="cite">PSD2 Art. 96</span></div>
+      
+    </div>
+  </div>
+
+  <div class="panel">
+    <button class="mcp-toggle" onclick="toggleMCP()">
+      <span>📦 MCP manifest.json · simulate_scheme_compliance_thresholds</span>
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" id="mcpArrow"><path d="M2 4l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+    <div class="mcp-panel" id="mcpPanel">
+      <pre class="mcp-code">{
+  "tool_id": "rbe-12-scheme-compliance-simulator",
+  "version": "1.0.0",
+  "title": "Network Scheme Compliance Simulator",
+  "category": "ai",
+  "ap2_export": true,
+  "mandate_type": "scheme_compliance_mandate",
+  "mcp_tool_definition": {
+    "name": "simulate_scheme_compliance_thresholds",
+    "description": "Simulate Visa VAMP and Mastercard
+DIMP/VIMP threshold positions. Compute ratios,
+RAG status, headroom, what-if, remediation.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["entity_type","tc40_count",
+        "tc15_count","settled_cnp_count"],
+      "properties": {
+        "entity_type": { "type": "string" },
+        "mcc": { "type": "string" },
+        "region": { "type": "string" },
+        "tc40_count": { "type": "integer" },
+        "tc15_count": { "type": "integer" },
+        "settled_cnp_count": { "type": "integer" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/rbe-12-scheme-compliance-simulator.html",
+    "function_name": "runAnalysis",
+    "timeout_ms": 5000
+  }
+}</pre>
+    </div>
+  </div>
+</div>
+</div><!-- /tool-body -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<!-- FOOTER -->
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/rbe-deterministic-suite-hub.html"><span data-i18n="footer.hub_rbe_deterministic_suite">RBE Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+<div class="toast" id="toast"></div>
+
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* AP2Schema — full validator (PM17; wired into cohort C) */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+if (typeof AP2Schema.validate !== 'function') {
+  AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    return true;
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RBE·12 — Network Scheme Compliance Simulator
+   Version: 1.0  |  Suite: RBE Deterministic Intelligence Suite
+   Client-side. Zero PII. Deterministic.
+   Regulatory: Visa VAMP · VAAI · Mastercard DIMP/VIMP
+═══════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════
+   CONFIGURABLE SCHEME THRESHOLDS
+   Source: Visa VAMP Framework (enforcement Oct 2025;
+           acquirer bands Jan 2026; merchant Apr 2026)
+           Mastercard DIMP/VIMP (Q1 2025 update)
+   UPDATE THIS CONST at each Visa/MC rules publication cycle.
+═══════════════════════════════════════════════════════════ */
+const SCHEME_THRESHOLDS = {
+  visa_vamp: {
+    version: "VAMP Framework — enforcement from October 1, 2025; acquirer bands from January 1, 2026; merchant tightening April 1, 2026",
+    last_updated: "2026-04-01",
+    acquirer: {
+      early_warning_ratio: 0.004,
+      above_standard_ratio: 0.005,
+      excessive_ratio: 0.007,
+      above_standard_effective: "2026-01-01",
+      enforcement_fee_above_standard: 4,
+      enforcement_fee_excessive: 8,
+      grace_period_months: 3,
+      minimum_event_count: 1500,
+    },
+    merchant: {
+      excessive_ratio_phase1: 0.022,
+      excessive_ratio_phase2: 0.015,
+      excessive_ratio_latam: 0.015,
+      phase2_effective_date: "2026-04-01",
+      phase2_regions: ["US","Canada","EU","APAC"],
+      enforcement_fee_excessive: 8,
+      grace_period_months: 3,
+      minimum_event_count: 1500,
+    },
+    formula: "(TC40 + TC15 - CE30_excluded - pre_dispute_excluded) / settled_CNP",
+    ce30_exclusion: true,
+    pre_dispute_exclusion: true,
+  },
+  visa_vaai_enumeration: {
+    version: "VAMP Enumeration component — effective June 1, 2025",
+    enumeration_ratio_threshold: 0.20,
+    minimum_enumeration_count: 300000,
+    formula: "confirmed_enumerated_transactions / total_transactions",
+  },
+  mastercard_dimp: {
+    version: "DIMP Framework, updated Q1 2025",
+    fraud_to_sales_threshold: 0.001,
+    excessive_fraud_to_sales: 0.002,
+  },
+  mastercard_vimp: {
+    version: "VIMP Framework, updated Q1 2025",
+    dispute_to_transaction_threshold: 0.003,
+  },
+};
+
+/* ── i18n Stage 2 ── */
+const TRANSLATIONS = {
+  en:{eyebrow:"RBE·12 · RBE Deterministic Suite · Network Scheme Compliance",hero_title:"Network Scheme Compliance Simulator",hero_desc:"Simulate Visa VAMP ratios and Mastercard DIMP/VIMP thresholds with phased enforcement timelines. Separate acquirer vs. merchant thresholds. VAAI enumeration rate as a third compliance dimension. Headroom calculation, what-if scenarios, enforcement fee exposure, and deterministic remediation action plan.",panel_entity:"A — Entity Configuration",panel_vamp:"B — Visa VAMP Inputs",panel_mc:"C — Mastercard DIMP / VIMP Inputs",panel_dashboard:"D — Threshold Status Dashboard",panel_whatif:"E — What-If Scenario Simulator",panel_remed:"F — Remediation Action Plan",panel_about:"About this tool",label_entity_type:"Entity Type",label_region:"Region",label_monitoring_period:"Monitoring Period",label_months_monitoring:"Months already in monitoring",label_mcc:"MCC (Primary)",label_currency:"Processing Currency",label_tc40:"TC40 Fraud Alerts (count)",label_tc15:"TC15 Non-fraud Disputes",label_excluded:"Excluded (CE 3.0 / pre-dispute)",label_settled_cnp:"Settled CNP Transactions",label_settled_cp:"Settled Card-Present (ref.)",label_total_tx:"Total Monthly Transactions",label_enumerated:"Confirmed Enumerated Transactions",label_fraud_amount:"Fraud Amount (€)",label_total_sales:"Total Sales Volume (€)",label_cnp_disputes:"CNP Dispute Count",label_total_cnp:"Total CNP Transactions",label_scenario_type:"Scenario Type",label_adjustment:"Adjustment (count or %)",run_btn:"Run Analysis →",results_title:"Compliance Summary",export_ap2:"Export Policy Mandate",export_md:"Export Markdown",pii_notice:"🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.",last_reviewed:"Last Reviewed",nav_all_tools:"All 200+ Tools",footer_badge:"🔒 Zero PII \u00a0 📡 No server calls \u00a0 💻 Client-side",lang_dir:"ltr"
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+  },
+  es:{eyebrow:"RBE·12 · Suite RBE · Cumplimiento de Esquemas de Red",hero_title:"Simulador de Cumplimiento de Esquemas de Red",hero_desc:"Simule ratios Visa VAMP y umbrales Mastercard DIMP/VIMP con calendarios de ejecución escalonados.",panel_entity:"A — Configuración de Entidad",panel_vamp:"B — Entradas Visa VAMP",panel_mc:"C — Entradas Mastercard DIMP/VIMP",panel_dashboard:"D — Panel de Estado de Umbrales",panel_whatif:"E — Simulador de Escenarios What-If",panel_remed:"F — Plan de Acción Correctiva",panel_about:"Acerca de esta herramienta",label_entity_type:"Tipo de Entidad",label_region:"Región",label_monitoring_period:"Período de Monitoreo",label_months_monitoring:"Meses ya en monitoreo",label_mcc:"MCC (Principal)",label_currency:"Moneda de Procesamiento",label_tc40:"Alertas TC40 de Fraude",label_tc15:"Disputas TC15 sin fraude",label_excluded:"Excluidos (CE 3.0)",label_settled_cnp:"Transacciones CNP Liquidadas",label_settled_cp:"Transacciones CP (ref.)",label_total_tx:"Transacciones Totales Mensuales",label_enumerated:"Transacciones Enumeradas Confirmadas",label_fraud_amount:"Importe de Fraude (€)",label_total_sales:"Volumen Total de Ventas (€)",label_cnp_disputes:"Disputas CNP",label_total_cnp:"Transacciones CNP Totales",label_scenario_type:"Tipo de Escenario",label_adjustment:"Ajuste",run_btn:"Ejecutar Análisis →",results_title:"Resumen de Cumplimiento",export_ap2:"Exportar Mandato de Política",export_md:"Exportar Markdown",pii_notice:"🔒 Todas las entradas se procesan localmente. No se transmiten datos.",last_reviewed:"Última Revisión",nav_all_tools:"Todas las Herramientas",footer_badge:"🔒 Zero PII \u00a0 📡 Sin servidor \u00a0 💻 Cliente",lang_dir:"ltr"
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+  },
+  fr:{eyebrow:"RBE·12 · Suite RBE · Conformité Schémas Réseau",hero_title:"Simulateur de Conformité aux Schémas de Réseau",hero_desc:"Simulez les ratios Visa VAMP et les seuils Mastercard DIMP/VIMP avec des calendriers d'application progressifs.",panel_entity:"A — Configuration de l'Entité",panel_vamp:"B — Entrées Visa VAMP",panel_mc:"C — Entrées Mastercard DIMP/VIMP",panel_dashboard:"D — Tableau de Bord des Seuils",panel_whatif:"E — Simulateur de Scénarios What-If",panel_remed:"F — Plan d'Action Correctif",panel_about:"À propos de cet outil",label_entity_type:"Type d'Entité",label_region:"Région",label_monitoring_period:"Période de Surveillance",label_months_monitoring:"Mois déjà en surveillance",label_mcc:"MCC (Principal)",label_currency:"Devise de Traitement",label_tc40:"Alertes TC40",label_tc15:"Litiges TC15",label_excluded:"Exclus (CE 3.0)",label_settled_cnp:"Transactions CNP Réglées",label_settled_cp:"Transactions CP (réf.)",label_total_tx:"Total Transactions Mensuelles",label_enumerated:"Transactions Énumérées Confirmées",label_fraud_amount:"Montant Fraude (€)",label_total_sales:"Volume Total Ventes (€)",label_cnp_disputes:"Litiges CNP",label_total_cnp:"Transactions CNP Totales",label_scenario_type:"Type de Scénario",label_adjustment:"Ajustement",run_btn:"Lancer l'Analyse →",results_title:"Résumé de Conformité",export_ap2:"Exporter Mandat de Politique",export_md:"Exporter Markdown",pii_notice:"🔒 Toutes les saisies sont traitées localement. Aucune donnée n'est transmise.",last_reviewed:"Dernière Révision",nav_all_tools:"Tous les Outils",footer_badge:"🔒 Zéro PII \u00a0 📡 Sans serveur \u00a0 💻 Côté client",lang_dir:"ltr"
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+  },
+  ar:{eyebrow:"RBE·12 · مجموعة RBE · امتثال مخططات الشبكة",hero_title:"محاكي امتثال مخططات الشبكة",hero_desc:"محاكاة نسب Visa VAMP وعتبات Mastercard DIMP/VIMP مع جداول زمنية للتطبيق المتدرج.",panel_entity:"أ — تكوين الكيان",panel_vamp:"ب — مدخلات Visa VAMP",panel_mc:"ج — مدخلات Mastercard DIMP/VIMP",panel_dashboard:"د — لوحة حالة العتبات",panel_whatif:"هـ — محاكي سيناريوهات ماذا لو",panel_remed:"و — خطة العمل التصحيحية",panel_about:"حول هذه الأداة",label_entity_type:"نوع الكيان",label_region:"المنطقة",label_monitoring_period:"فترة الرصد",label_months_monitoring:"أشهر في الرصد",label_mcc:"MCC",label_currency:"عملة المعالجة",label_tc40:"تنبيهات TC40",label_tc15:"نزاعات TC15",label_excluded:"المستبعدة (CE 3.0)",label_settled_cnp:"معاملات CNP المُسواة",label_settled_cp:"معاملات CP (مرجع)",label_total_tx:"إجمالي المعاملات الشهرية",label_enumerated:"معاملات التعداد المؤكدة",label_fraud_amount:"مبلغ الاحتيال (€)",label_total_sales:"إجمالي حجم المبيعات (€)",label_cnp_disputes:"نزاعات CNP",label_total_cnp:"إجمالي معاملات CNP",label_scenario_type:"نوع السيناريو",label_adjustment:"التعديل",run_btn:"تشغيل التحليل →",results_title:"ملخص الامتثال",export_ap2:"تصدير تفويض السياسة",export_md:"تصدير Markdown",pii_notice:"🔒 تتم معالجة جميع المدخلات محليًا. لا يتم نقل أي بيانات.",last_reviewed:"آخر مراجعة",nav_all_tools:"جميع الأدوات",footer_badge:"🔒 بدون بيانات شخصية \u00a0 📡 بدون خادم \u00a0 💻 من جانب العميل",lang_dir:"rtl"
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+  },
+  pt:{eyebrow:"RBE·12 · Suíte RBE · Conformidade com Esquemas de Rede",hero_title:"Simulador de Conformidade com Esquemas de Rede",hero_desc:"Simule ratios Visa VAMP e limites Mastercard DIMP/VIMP com cronogramas de aplicação faseados.",panel_entity:"A — Configuração da Entidade",panel_vamp:"B — Entradas Visa VAMP",panel_mc:"C — Entradas Mastercard DIMP/VIMP",panel_dashboard:"D — Painel de Estado dos Limites",panel_whatif:"E — Simulador de Cenários What-If",panel_remed:"F — Plano de Ação Corretiva",panel_about:"Sobre esta ferramenta",label_entity_type:"Tipo de Entidade",label_region:"Região",label_monitoring_period:"Período de Monitorização",label_months_monitoring:"Meses já em monitorização",label_mcc:"MCC (Principal)",label_currency:"Moeda de Processamento",label_tc40:"Alertas TC40",label_tc15:"Disputas TC15",label_excluded:"Excluídos (CE 3.0)",label_settled_cnp:"Transações CNP Liquidadas",label_settled_cp:"Transações CP (ref.)",label_total_tx:"Total de Transações Mensais",label_enumerated:"Transações Enumeradas Confirmadas",label_fraud_amount:"Montante de Fraude (€)",label_total_sales:"Volume Total de Vendas (€)",label_cnp_disputes:"Disputas CNP",label_total_cnp:"Transações CNP Totais",label_scenario_type:"Tipo de Cenário",label_adjustment:"Ajustamento",run_btn:"Executar Análise →",results_title:"Resumo de Conformidade",export_ap2:"Exportar Mandato de Política",export_md:"Exportar Markdown",pii_notice:"🔒 Todas as entradas são processadas localmente. Nenhum dado é transmitido.",last_reviewed:"Última Revisão",nav_all_tools:"Todas as Ferramentas",footer_badge:"🔒 Zero PII \u00a0 📡 Sem servidor \u00a0 💻 Cliente",lang_dir:"ltr"
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+  },
+  zh:{eyebrow:"RBE·12 · RBE确定性套件 · 网络方案合规",hero_title:"网络方案合规模拟器",hero_desc:"模拟Visa VAMP比率和Mastercard DIMP/VIMP阈值，含分阶段执行时间表。独立的VAAI枚举率合规维度。水位计算、假设场景、执法费用暴露及确定性整改行动计划。",panel_entity:"A — 实体配置",panel_vamp:"B — Visa VAMP输入",panel_mc:"C — Mastercard DIMP/VIMP输入",panel_dashboard:"D — 阈值状态仪表板",panel_whatif:"E — 假设场景模拟器",panel_remed:"F — 整改行动计划",panel_about:"关于此工具",label_entity_type:"实体类型",label_region:"地区",label_monitoring_period:"监控期",label_months_monitoring:"已在监控中的月数",label_mcc:"MCC（主要）",label_currency:"处理货币",label_tc40:"TC40欺诈警报（笔数）",label_tc15:"TC15非欺诈争议",label_excluded:"排除笔数（CE 3.0）",label_settled_cnp:"已结算CNP交易",label_settled_cp:"已结算实体卡交易（参考）",label_total_tx:"月度总交易笔数",label_enumerated:"已确认枚举交易",label_fraud_amount:"欺诈金额（欧元）",label_total_sales:"总销售额（欧元）",label_cnp_disputes:"CNP争议笔数",label_total_cnp:"CNP总交易笔数",label_scenario_type:"场景类型",label_adjustment:"调整量",run_btn:"运行分析 →",results_title:"合规摘要",export_ap2:"导出政策授权书",export_md:"导出Markdown",pii_notice:"🔒 所有输入均在您的浏览器本地处理。不传输任何数据。",last_reviewed:"最后审查",nav_all_tools:"全部工具",footer_badge:"🔒 零PII \u00a0 📡 无服务器 \u00a0 💻 客户端",lang_dir:"ltr"
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+  },
+};
+function setLang(lang){
+  const t=TRANSLATIONS[lang]||TRANSLATIONS['en'];
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`);
+  if(btn)btn.classList.add('active');
+  document.documentElement.lang=lang==='zh'?'zh-Hans':lang;
+  document.documentElement.dir=t.lang_dir||'ltr';
+  document.body.dir=t.lang_dir||'ltr';
+  const apply=(s,k)=>{const el=document.querySelector(s);if(el&&t[k]!==undefined)el.textContent=t[k];};
+  apply('.tool-eyebrow','eyebrow');apply('.hero h1','hero_title');apply('.hero-desc','hero_desc');
+  apply('.run-btn','run_btn');apply('.results-title','results_title');apply('.nav-cta','nav_all_tools');
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n');if(t[k]!==undefined)el.textContent=t[k];});
+  const fb=document.querySelector('.footer-badge-ai span:last-child');if(fb)fb.textContent=t['footer_badge'];
+  document.querySelectorAll('.last-reviewed').forEach(lr=>{const d=lr.textContent.match(/\d{4}-\d{2}-\d{2}/);lr.textContent=`⏱ ${t['last_reviewed']} ${d?d[0]:'2026-04-01'}`;});
+  try{sessionStorage.setItem('ain_lang',lang);}catch(e){}
+}
+(function initLang(){try{const s=sessionStorage.getItem('ain_lang');if(s&&TRANSLATIONS[s])setLang(s);}catch(e){}})();
+
+/* ── State ── */
+let lastAP2=null;
+let lastMD=null;
+let lastResults=null;
+
+/* ── Utilities ── */
+function showToast(msg,type='success'){const t=document.getElementById('toast');t.textContent=msg;t.className=`toast ${type} show`;setTimeout(()=>t.classList.remove('show'),3000);}
+function generateUUID(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);});}
+function triggerDownload(content,filename,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);}
+function toggleMCP(){const p=document.getElementById('mcpPanel');const a=document.getElementById('mcpArrow');p.classList.toggle('open');a.style.transform=p.classList.contains('open')?'rotate(180deg)':'';}
+function n(id){return parseInt(document.getElementById(id).value)||0;}
+function f(id){return parseFloat(document.getElementById(id).value)||0;}
+function pct(v){return(v*100).toFixed(3)+'%';}
+
+/* ── Threshold resolution ── */
+function getEntityType(){return document.querySelector('input[name="entityType"]:checked')?.value||'merchant';}
+function getRegion(){return document.getElementById('region').value;}
+function isPhase2Active(){
+  const d=document.getElementById('monPeriod').value;
+  return d>='2026-04'&&SCHEME_THRESHOLDS.visa_vamp.merchant.phase2_regions.includes(getRegion());
+}
+function getVAMPThreshold(){
+  const et=getEntityType();
+  const T=SCHEME_THRESHOLDS.visa_vamp;
+  if(et==='acquirer'||et==='payment_facilitator'){
+    const mon=document.getElementById('monPeriod').value;
+    const isJan2026=mon>='2026-01';
+    if(!isJan2026)return{ew:null,as:null,ex:null,note:'Acquirer bands effective January 2026 — using merchant thresholds until then'};
+    return{ew:T.acquirer.early_warning_ratio,as:T.acquirer.above_standard_ratio,ex:T.acquirer.excessive_ratio,feeAS:T.acquirer.enforcement_fee_above_standard,feeEx:T.acquirer.enforcement_fee_excessive};
+  } else {
+    const ex=getRegion()==='LATAM'?T.merchant.excessive_ratio_latam:isPhase2Active()?T.merchant.excessive_ratio_phase2:T.merchant.excessive_ratio_phase1;
+    const phase2Upcoming=!isPhase2Active()&&getRegion()!=='LATAM'&&getRegion()!=='Other';
+    return{ew:null,as:null,ex,feeEx:T.merchant.enforcement_fee_excessive,phase2Upcoming,phase2Rate:T.merchant.excessive_ratio_phase2,phase2Date:T.merchant.phase2_effective_date};
+  }
+}
+
+function computeVAMPRatio(){
+  const tc40=n('tc40');const tc15=n('tc15');const excl=n('excluded');const cnp=n('settledCNP');
+  if(!cnp)return 0;
+  return Math.max(0,(tc40+tc15-excl)/cnp);
+}
+
+function getVAMPStatus(ratio,thresh){
+  if(thresh.ew&&ratio<=thresh.ew)return'green';
+  if(thresh.ew&&ratio>thresh.ew&&ratio<=thresh.as)return'early_warning';
+  if(thresh.as&&ratio>thresh.as&&ratio<=thresh.ex)return'above_standard';
+  if(ratio>thresh.ex)return'excessive';
+  return ratio>=thresh.ex*0.8?'amber':'green';
+}
+
+/* ── Live calculators ── */
+function liveVAMP(){
+  const ratio=computeVAMPRatio();
+  const thresh=getVAMPThreshold();
+  const ratioEl=document.getElementById('vampRatioLive');
+  const statusEl=document.getElementById('vampStatusLive');
+  if(ratioEl)ratioEl.textContent=pct(ratio);
+  if(statusEl){
+    const status=thresh.ex?getVAMPStatus(ratio,thresh):'calculating';
+    const statusMap={green:'🟢 GREEN',early_warning:'🟡 EARLY WARNING',above_standard:'🟠 ABOVE STANDARD',excessive:'🔴 EXCESSIVE',amber:'🟡 AMBER',calculating:'—'};
+    statusEl.textContent=statusMap[status]||(ratio>0?`${pct(ratio)} of threshold`:'Enter values');
+  }
+  const totalTx=n('totalTx');const enumTx=n('enumTx');
+  const vaaiRatio=totalTx>0?enumTx/totalTx:0;
+  const vaaiEl=document.getElementById('vaaiRatioLive');
+  const vaaiStatusEl=document.getElementById('vaaiStatusLive');
+  if(vaaiEl)vaaiEl.textContent=pct(vaaiRatio);
+  if(vaaiStatusEl){
+    const inScope=totalTx>=SCHEME_THRESHOLDS.visa_vaai_enumeration.minimum_enumeration_count;
+    if(!inScope)vaaiStatusEl.textContent=`Below 300k minimum — not in scope`;
+    else if(vaaiRatio>=0.20)vaaiStatusEl.textContent='🔴 BREACH — enumeration trigger';
+    else if(vaaiRatio>=0.16)vaaiStatusEl.textContent='🟡 AMBER — within 20% of 20% threshold';
+    else vaaiStatusEl.textContent='🟢 GREEN — below 20% threshold';
+  }
+}
+
+function liveDIMP(){
+  const fr=f('fraudAmount');const sales=f('totalSales');
+  const ratio=sales>0?fr/sales:0;
+  const T=SCHEME_THRESHOLDS.mastercard_dimp;
+  const el=document.getElementById('dimpRatioLive');const sel=document.getElementById('dimpStatusLive');
+  if(el)el.textContent=pct(ratio);
+  if(sel){
+    if(ratio>=T.excessive_fraud_to_sales)sel.textContent='🔴 EXCESSIVE (>0.20%)';
+    else if(ratio>=T.fraud_to_sales_threshold)sel.textContent='🟠 ABOVE THRESHOLD (>0.10%)';
+    else if(ratio>=T.fraud_to_sales_threshold*0.8)sel.textContent='🟡 AMBER (>80% of threshold)';
+    else sel.textContent='🟢 GREEN — below 0.10%';
+  }
+}
+
+function liveVIMP(){
+  const d=n('cnpDisputes');const t=n('totalCNP');
+  const ratio=t>0?d/t:0;
+  const T=SCHEME_THRESHOLDS.mastercard_vimp;
+  const el=document.getElementById('vimpRatioLive');const sel=document.getElementById('vimpStatusLive');
+  if(el)el.textContent=pct(ratio);
+  if(sel){
+    if(ratio>=T.dispute_to_transaction_threshold)sel.textContent='🔴 ABOVE THRESHOLD (>0.30%)';
+    else if(ratio>=T.dispute_to_transaction_threshold*0.8)sel.textContent='🟡 AMBER (near threshold)';
+    else sel.textContent='🟢 GREEN — below 0.30%';
+  }
+}
+
+/* ── Threshold display ── */
+function updateThresholdDisplay(){
+  const thresh=getVAMPThreshold();
+  const et=getEntityType();
+  const region=getRegion();
+  let html='<span style="color:var(--body);font-size:11px">Applicable thresholds: </span>';
+  if(thresh.ew)html+=`<span style="color:var(--warn);font-size:11px;margin-right:10px">EW: ${pct(thresh.ew)}</span>`;
+  if(thresh.as)html+=`<span style="color:var(--red);font-size:11px;margin-right:10px">Above Standard: ${pct(thresh.as)}</span>`;
+  html+=`<span style="color:#F87171;font-size:11px;font-weight:600">Excessive: ${pct(thresh.ex)}</span>`;
+  if(thresh.phase2Upcoming)html+=`<span style="color:var(--gold);font-size:10px;margin-left:10px">→ ${pct(thresh.phase2Rate)} from ${thresh.phase2Date} (${region})</span>`;
+  document.getElementById('thresholdDisplay').innerHTML=html;
+  liveVAMP();
+}
+
+/* ── Enforcement fee calculation ── */
+function computeEnforcementFee(status,thresh,cnp,monthsMonitoring){
+  const graceActive=monthsMonitoring<=(thresh.grace_period_months||3);
+  if(graceActive||monthsMonitoring===0)return{amount:0,graceActive:true};
+  if(status==='above_standard'&&thresh.feeAS){return{amount:thresh.feeAS*cnp,graceActive:false};}
+  if(status==='excessive'&&thresh.feeEx){return{amount:thresh.feeEx*cnp,graceActive:false};}
+  return{amount:0,graceActive:false};
+}
+
+/* ── Status to badge HTML ── */
+function statusBadge(status){
+  const map={green:['badge-green','🟢 GREEN'],early_warning:['badge-ew','🟡 EARLY WARNING'],above_standard:['badge-red','🟠 ABOVE STANDARD'],excessive:['badge-red','🔴 EXCESSIVE'],amber:['badge-amber','🟡 AMBER'],green_scope:['badge-scope','⚪ NOT IN SCOPE']};
+  const [cls,label]=map[status]||['badge-scope',status];
+  return `<span class="status-badge-large ${cls}">${label}</span>`;
+}
+
+/* ── Main Analysis ── */
+function runAnalysis(){
+  const tc40=n('tc40');const tc15=n('tc15');const excl=n('excluded');
+  const cnp=n('settledCNP');const totalTx=n('totalTx');const enumTx=n('enumTx');
+  const fraudAmt=f('fraudAmount');const totalSales=f('totalSales');
+  const cnpDisp=n('cnpDisputes');const totalCNP=n('totalCNP');
+  const monthsMon=parseInt(document.getElementById('monthsMonitoring').value)||0;
+  const mcc=document.getElementById('mcc').value;
+  const region=getRegion();
+  const et=getEntityType();
+
+  if(!cnp){showToast('Enter settled CNP transaction count (Panel B)','error');return;}
+
+  const T=SCHEME_THRESHOLDS;
+  const thresh=getVAMPThreshold();
+
+  // VAMP
+  const vampRatio=computeVAMPRatio();
+  const vampStatus=thresh.ex?(()=>{
+    if(thresh.ew&&thresh.as){
+      if(vampRatio<=thresh.ew)return'green';
+      if(vampRatio<=thresh.as)return'early_warning';
+      if(vampRatio<=thresh.ex)return'above_standard';
+      return'excessive';
+    }
+    if(vampRatio>=thresh.ex)return'excessive';
+    if(vampRatio>=thresh.ex*0.8)return'amber';
+    return'green';
+  })():'green';
+
+  const headroomTx=thresh.ex?Math.max(0,Math.floor(thresh.ex*cnp-(tc40+tc15-excl))):0;
+  const pctOfThreshold=thresh.ex?vampRatio/thresh.ex:0;
+  const fee=thresh.ex?computeEnforcementFee(vampStatus,thresh,cnp,monthsMon):{amount:0,graceActive:true};
+  const minEventsMet=(tc40+tc15)>=((et==='acquirer'?T.visa_vamp.acquirer:T.visa_vamp.merchant).minimum_event_count||1500);
+
+  // VAAI
+  const vaaiRatio=totalTx>0?enumTx/totalTx:0;
+  const vaaiInScope=totalTx>=T.visa_vaai_enumeration.minimum_enumeration_count;
+  const vaaiStatus=vaaiInScope?(vaaiRatio>=T.visa_vaai_enumeration.enumeration_ratio_threshold?'excessive':vaaiRatio>=T.visa_vaai_enumeration.enumeration_ratio_threshold*0.8?'amber':'green'):'green_scope';
+
+  // DIMP
+  const dimpRatio=totalSales>0?fraudAmt/totalSales:0;
+  const dimpStatus=dimpRatio>=T.mastercard_dimp.excessive_fraud_to_sales?'excessive':dimpRatio>=T.mastercard_dimp.fraud_to_sales_threshold?'above_standard':dimpRatio>=T.mastercard_dimp.fraud_to_sales_threshold*0.8?'amber':'green';
+  const dimpHeadroomEur=totalSales>0?Math.max(0,T.mastercard_dimp.fraud_to_sales_threshold*totalSales-fraudAmt):0;
+  const dimpPct=T.mastercard_dimp.fraud_to_sales_threshold>0?dimpRatio/T.mastercard_dimp.fraud_to_sales_threshold:0;
+
+  // VIMP
+  const vimpRatio=totalCNP>0?cnpDisp/totalCNP:0;
+  const vimpStatus=vimpRatio>=T.mastercard_vimp.dispute_to_transaction_threshold?'excessive':vimpRatio>=T.mastercard_vimp.dispute_to_transaction_threshold*0.8?'amber':'green';
+  const vimpPct=T.mastercard_vimp.dispute_to_transaction_threshold>0?vimpRatio/T.mastercard_vimp.dispute_to_transaction_threshold:0;
+
+  // Breach risk score = weighted avg of pct_of_threshold across programmes, capped 1.0
+  const breachRisk=Math.min(1,Math.max(pctOfThreshold*0.5,dimpPct*0.3,vimpPct*0.2));
+
+  lastResults={vampRatio,vampStatus,headroomTx,pctOfThreshold,fee,thresh,vaaiRatio,vaaiInScope,vaaiStatus,dimpRatio,dimpStatus,dimpHeadroomEur,dimpPct,vimpRatio,vimpStatus,vimpPct,breachRisk,tc40,tc15,excl,cnp,monthsMon,mcc,region,et,totalTx,enumTx,fraudAmt,totalSales,cnpDisp,totalCNP,minEventsMet};
+
+  renderDashboard(lastResults);
+  renderRemediation(lastResults);
+  buildAP2(lastResults);
+  buildMarkdown(lastResults);
+
+  document.getElementById('resultsPanel').classList.add('visible');
+  document.getElementById('resultsSummary').innerHTML=`
+    <div class="stat-grid">
+      <div class="stat-box"><div class="lbl">VAMP Status</div><div class="val" style="color:${vampStatus==='green'?'var(--green)':vampStatus==='early_warning'?'var(--warn)':vampStatus==='above_standard'||vampStatus==='amber'?'var(--warn)':'var(--red)'};font-size:14px">${vampStatus.replace(/_/g,' ').toUpperCase()}</div></div>
+      <div class="stat-box"><div class="lbl">Breach Risk Score</div><div class="val" style="color:${breachRisk>0.7?'var(--red)':breachRisk>0.4?'var(--warn)':'var(--green)'}">${(breachRisk*10).toFixed(1)}<span style="font-size:12px;color:var(--body)">/10</span></div></div>
+      <div class="stat-box"><div class="lbl">VAMP Ratio</div><div class="val" style="color:var(--gold)">${pct(vampRatio)}</div></div>
+      <div class="stat-box"><div class="lbl">Headroom (disputes)</div><div class="val" style="color:${headroomTx<500?'var(--red)':'var(--text)'}">${headroomTx.toLocaleString()}</div></div>
+    </div>
+    ${fee.amount>0?`<div style="background:var(--red-dim);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius);padding:8px 12px;font-size:11px;margin-top:10px">⚠ Enforcement fee exposure: <b style="color:var(--red)">$${fee.amount.toLocaleString()}/month</b></div>`:''}
+    <div style="font-size:11px;color:var(--body);border-top:1px solid var(--border);padding-top:10px;margin-top:10px">Mandate ID: <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold)">${lastAP2?.mandate_id?.substring(0,16)||'—'}…</span></div>`;
+
+  document.getElementById('ap2ExportBtn').disabled=false;
+  document.getElementById('mdExportBtn').disabled=false;
+  showToast(`Analysis complete — VAMP: ${vampStatus.replace(/_/g,' ')} · Breach risk: ${(breachRisk*10).toFixed(1)}/10`,'success');
+}
+
+/* ── Dashboard render ── */
+function renderDashboard(r){
+  const dashEl=document.getElementById('dashPanel');dashEl.style.display='block';
+  const cur=document.getElementById('processCurrency').value;
+
+  let html='';
+
+  // VAMP card
+  const barFill=Math.min(100,(r.pctOfThreshold*100).toFixed(0));
+  const fillCls=r.vampStatus==='green'?'fill-green':r.vampStatus==='excessive'?'fill-red':'fill-amber';
+  html+=`<div class="status-card">
+    <div class="status-card-header"><span class="status-card-title">Visa VAMP</span>${statusBadge(r.vampStatus)}</div>
+    <div class="ratio-display" style="color:${r.vampStatus==='green'?'var(--green)':r.vampStatus==='excessive'?'var(--red)':'var(--warn)'}">${(r.vampRatio*100).toFixed(3)}%</div>
+    <div class="ratio-vs">VAMP ratio vs. ${r.thresh.ex?(r.vampRatio*100/r.thresh.ex).toFixed(0)+'% of ':'' }excessive threshold (${(r.thresh.ex*100).toFixed(1)}%)</div>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill ${fillCls}" style="width:${barFill}%"></div></div>
+    <div class="threshold-bands">
+      ${r.thresh.ew?`<span class="band-pill band-ew">EW: ${(r.thresh.ew*100).toFixed(1)}%</span>`:''}
+      ${r.thresh.as?`<span class="band-pill band-as">Above Standard: ${(r.thresh.as*100).toFixed(1)}%</span>`:''}
+      <span class="band-pill band-ex">Excessive: ${(r.thresh.ex*100).toFixed(1)}%</span>
+      ${r.thresh.phase2Upcoming?`<span class="band-pill" style="background:var(--gold-dim);color:var(--gold);border-color:rgba(212,168,71,.3)">→ ${(r.thresh.phase2Rate*100).toFixed(1)}% from ${r.thresh.phase2Date}</span>`:''}
+    </div>
+    <div class="headroom-row"><span class="headroom-label">Headroom before excessive</span><span class="headroom-val">${r.headroomTx.toLocaleString()} disputes</span></div>
+    <div class="headroom-row"><span class="headroom-label">TC40 + TC15 − excluded</span><span class="headroom-val">${(r.tc40+r.tc15-r.excl).toLocaleString()} events</span></div>
+    <div class="headroom-row"><span class="headroom-label">Settled CNP transactions</span><span class="headroom-val">${r.cnp.toLocaleString()}</span></div>
+    <div class="headroom-row"><span class="headroom-label">Grace period</span><span class="headroom-val">${r.monthsMon<=3?`Active (month ${r.monthsMon}/3)`:'Elapsed — fees apply'}</span></div>
+    ${r.fee.amount>0?`<div class="enforcement-box">Enforcement fee exposure: <span class="amount">$${r.fee.amount.toLocaleString()}/month</span><div style="font-size:10px;color:var(--body);margin-top:3px">Based on ${r.vampStatus==='above_standard'?'$4':'$8'}/CNP transaction</div></div>`:''}
+  </div>`;
+
+  // VAAI card
+  const vaaiPct=r.thresh?Math.min(100,(r.vaaiRatio/SCHEME_THRESHOLDS.visa_vaai_enumeration.enumeration_ratio_threshold*100).toFixed(0)):0;
+  html+=`<div class="status-card">
+    <div class="status-card-header"><span class="status-card-title">Visa VAAI Enumeration Rate</span>${statusBadge(r.vaaiStatus)}</div>
+    <div class="ratio-display" style="color:${r.vaaiStatus==='excessive'?'var(--red)':r.vaaiStatus==='amber'?'var(--warn)':'var(--green)'}">${(r.vaaiRatio*100).toFixed(3)}%</div>
+    <div class="ratio-vs">Enumeration rate vs. 20.0% threshold (${vaaiPct}% of threshold) · Effective June 2025</div>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill ${r.vaaiStatus==='excessive'?'fill-red':r.vaaiStatus==='amber'?'fill-amber':'fill-green'}" style="width:${vaaiPct}%"></div></div>
+    <div class="headroom-row"><span class="headroom-label">Eligible (≥300,000 txns)</span><span class="headroom-val">${r.vaaiInScope?'Yes — in scope':'No — below minimum'}</span></div>
+    <div class="headroom-row"><span class="headroom-label">Confirmed enumerated</span><span class="headroom-val">${r.enumTx.toLocaleString()} / ${r.totalTx.toLocaleString()}</span></div>
+    ${r.vaaiStatus==='excessive'?'<div class="enforcement-box" style="border-color:rgba(239,68,68,.3)"><span style="color:var(--red);font-weight:600">⚠ Enumeration breach — triggers VAMP identification independently of fraud/dispute ratio</span></div>':''}
+  </div>`;
+
+  // DIMP card
+  html+=`<div class="status-card">
+    <div class="status-card-header"><span class="status-card-title">Mastercard DIMP</span>${statusBadge(r.dimpStatus==='above_standard'?'excessive':r.dimpStatus)}</div>
+    <div class="ratio-display" style="color:${r.dimpStatus==='excessive'||r.dimpStatus==='above_standard'?'var(--red)':r.dimpStatus==='amber'?'var(--warn)':'var(--teal)'}">${(r.dimpRatio*100).toFixed(3)}%</div>
+    <div class="ratio-vs">Fraud-to-sales ratio vs. 0.10% threshold (${(r.dimpPct*100).toFixed(0)}% of threshold)</div>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill ${r.dimpPct>1?'fill-red':r.dimpPct>0.8?'fill-amber':'fill-green'}" style="width:${Math.min(100,(r.dimpPct*100).toFixed(0))}%"></div></div>
+    <div class="headroom-row"><span class="headroom-label">Headroom to 0.10% threshold</span><span class="headroom-val">€${r.dimpHeadroomEur.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
+    <div class="headroom-row"><span class="headroom-label">Fraud amount</span><span class="headroom-val">€${r.fraudAmt.toLocaleString()}</span></div>
+  </div>`;
+
+  // VIMP card
+  html+=`<div class="status-card">
+    <div class="status-card-header"><span class="status-card-title">Mastercard VIMP</span>${statusBadge(r.vimpStatus==='excessive'?'excessive':r.vimpStatus)}</div>
+    <div class="ratio-display" style="color:${r.vimpStatus==='excessive'?'var(--red)':r.vimpStatus==='amber'?'var(--warn)':'var(--green)'}">${(r.vimpRatio*100).toFixed(3)}%</div>
+    <div class="ratio-vs">Dispute-to-transaction ratio vs. 0.30% threshold (${(r.vimpPct*100).toFixed(0)}% of threshold)</div>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill ${r.vimpPct>1?'fill-red':r.vimpPct>0.8?'fill-amber':'fill-green'}" style="width:${Math.min(100,(r.vimpPct*100).toFixed(0))}%"></div></div>
+  </div>`;
+
+  document.getElementById('dashBody').innerHTML=html;
+}
+
+/* ── What-if scenarios ── */
+function runScenario(){
+  if(!lastResults){showToast('Run analysis first','error');return;}
+  const type=document.getElementById('scenarioType').value;
+  const adj=parseInt(document.getElementById('scenarioAdj').value)||0;
+  const r=lastResults;
+
+  let newTc40=r.tc40,newTc15=r.tc15,newCNP=r.cnp;
+  if(type==='add_disputes')newTc15=r.tc15+adj;
+  else if(type==='reduce_fraud')newTc40=Math.max(0,r.tc40-adj);
+  else if(type==='volume_increase')newCNP=r.cnp+adj;
+
+  const newRatio=newCNP>0?Math.max(0,(newTc40+newTc15-r.excl)/newCNP):0;
+  const newStatus=r.thresh.ex?(()=>{
+    if(r.thresh.ew&&r.thresh.as){
+      if(newRatio<=r.thresh.ew)return'green';
+      if(newRatio<=r.thresh.as)return'early_warning';
+      if(newRatio<=r.thresh.ex)return'above_standard';
+      return'excessive';
+    }
+    return newRatio>=r.thresh.ex?'excessive':newRatio>=r.thresh.ex*0.8?'amber':'green';
+  })():'green';
+
+  const headroom=r.thresh.ex?Math.max(0,Math.floor(r.thresh.ex*newCNP-(newTc40+newTc15-r.excl))):0;
+  const statusColors={green:'var(--green)',early_warning:'var(--warn)',above_standard:'var(--warn)',amber:'var(--warn)',excessive:'var(--red)'};
+
+  const whatifEl=document.getElementById('whatifResult');
+  whatifEl.classList.add('visible');
+  whatifEl.innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <div><div style="font-size:24px;font-family:'DM Serif Display',serif;color:${statusColors[newStatus]}">${(newRatio*100).toFixed(3)}%</div><div style="font-size:11px;color:var(--body)">Projected VAMP ratio</div></div>
+      <div style="border-left:1px solid var(--border);padding-left:12px">${statusBadge(newStatus)}</div>
+    </div>
+    <div style="font-size:12px;color:var(--body)">
+      <div>Scenario: <b style="color:var(--text)">${type.replace(/_/g,' ')}</b> by ${adj.toLocaleString()}</div>
+      <div>Headroom after scenario: <b style="color:var(--text)">${headroom.toLocaleString()} disputes</b> to excessive threshold</div>
+      <div style="color:var(--body);font-size:11px;margin-top:4px">${type==='add_disputes'?`+${adj} additional disputes → ratio moves from ${(r.vampRatio*100).toFixed(3)}% to ${(newRatio*100).toFixed(3)}%`:type==='reduce_fraud'?`-${adj} fraud alerts → ratio improves to ${(newRatio*100).toFixed(3)}%`:`+${adj} CNP volume → ratio dilutes to ${(newRatio*100).toFixed(3)}%`}</div>
+    </div>`;
+}
+
+/* ── Remediation ── */
+const REMEDIATION_RULES=[
+  {priority:1,condition:r=>r.vampStatus==='excessive'||r.vampStatus==='above_standard',control:'Implement 3DS2 authentication on all CNP transactions above €30',reference:'Visa VAMP Framework, Section 4.2 — Fraud Prevention Controls'},
+  {priority:2,condition:r=>r.tc40>r.tc15,control:'Enrol in Visa Compelling Evidence 3.0 (CE 3.0) for recurring/subscription disputes — excluded from VAMP numerator',reference:'Visa CE 3.0 Programme Rules, effective May 2023'},
+  {priority:3,condition:r=>r.et==='acquirer',control:'Review merchant-level BRAM programme enrolment — acquirer-level VAMP may be driven by one or more high-ratio sub-merchants',reference:'Visa VAMP Framework, Section 6.1 — Merchant Portfolio Monitoring'},
+  {priority:4,condition:r=>r.vaaiStatus==='excessive'||r.vaaiStatus==='amber',control:'Deploy VAAI Score-based enumeration detection at authorisation gateway — block or step-up requests scoring above 90th percentile',reference:'Visa VAAI Documentation — Enumeration Detection Controls (effective June 2025)'},
+  {priority:5,condition:r=>r.dimpStatus==='above_standard'||r.dimpStatus==='excessive',control:'Implement Mastercard Automatic Billing Updater (ABU) for recurring transactions to reduce authorisation failures that lead to fraud',reference:'Mastercard DIMP Rules — Remediation Guidance Q1 2025'},
+  {priority:6,condition:r=>r.vimpStatus==='excessive'||r.vimpStatus==='amber',control:'Activate Mastercard Merchant Advice Code (MAC) routing to prevent repeat authorisation attempts after soft declines',reference:'Mastercard VIMP Framework — Dispute Reduction Controls'},
+  {priority:7,condition:r=>r.mcc.startsWith('7995'),control:'Apply enhanced real-time velocity checks specific to gambling MCCs (7995) — high-risk segment requires lower fraud tolerance thresholds per Visa Core Rules',reference:'Visa Core Rules — MCC 7995 risk controls'},
+  {priority:8,condition:r=>r.monthsMon>=3&&(r.vampStatus==='above_standard'||r.vampStatus==='excessive'),control:'Grace period elapsed — file a Compliance Remediation Plan with Visa within 30 days to document corrective actions and projected exit timeline',reference:'Visa VAMP Framework, Section 7 — Monitoring Programme Exit'},
+];
+
+function renderRemediation(r){
+  const applicable=REMEDIATION_RULES.filter(rule=>rule.condition(r));
+  if(applicable.length===0){
+    document.getElementById('remedPanel').style.display='none';return;
+  }
+  document.getElementById('remedPanel').style.display='block';
+  document.getElementById('remedBody').innerHTML=applicable.map(rule=>`
+    <div class="remed-item">
+      <div class="remed-priority">Priority ${rule.priority}</div>
+      <div>${rule.control}</div>
+      <div class="remed-ref">📎 ${rule.reference}</div>
+    </div>`).join('');
+}
+
+/* ── AP2 export ── */
+function buildAP2(r){
+  const mon=document.getElementById('monPeriod').value;
+  lastAP2={
+    ap2_version:"1.0",
+    mandate_id:generateUUID(),
+    issued_at:new Date().toISOString(),
+    issued_by:"ainumbers.co",
+    tool_id:"rbe-12-scheme-compliance-simulator",
+    tool_version:"1.0",
+    suite:"RBE Deterministic Intelligence Suite",
+    mandate_type:"scheme_compliance_mandate",
+    generated_at:new Date().toISOString(),
+    jurisdiction:[r.region],
+    regulatory_frameworks:["Visa VAMP Framework (Oct 2025)","Visa VAAI Enumeration (Jun 2025)","Mastercard DIMP","Mastercard VIMP","PSD2 Art. 96"],
+    entity:{type:r.et,mcc:document.getElementById('mcc').value,region:r.region,monitoring_period:mon,effective_date:new Date().toISOString().slice(0,10),months_in_monitoring_period:r.monthsMon,grace_period_active:r.monthsMon<=3},
+    visa_vamp:{tc40_count:r.tc40,tc15_count:r.tc15,settled_cnp_count:r.cnp,excluded_count:r.excl,vamp_ratio:parseFloat((r.vampRatio).toFixed(6)),applicable_thresholds:{early_warning:r.thresh.ew||null,above_standard:r.thresh.as||null,excessive:r.thresh.ex,phase2_excessive:r.thresh.phase2Rate||null,phase2_effective_date:r.thresh.phase2Date||null},status:r.vampStatus,headroom_transactions:r.headroomTx,pct_of_threshold:parseFloat((r.pctOfThreshold).toFixed(4)),enforcement_fee_exposure_usd_per_month:r.fee.amount||0},
+    visa_vaai_enumeration:{total_transactions:r.totalTx,confirmed_enumerated:r.enumTx,enumeration_rate:parseFloat((r.vaaiRatio).toFixed(6)),threshold:SCHEME_THRESHOLDS.visa_vaai_enumeration.enumeration_ratio_threshold,minimum_count_met:r.vaaiInScope,status:r.vaaiStatus,triggered_independently:r.vaaiStatus==='excessive'},
+    mastercard_dimp:{fraud_amount_eur:r.fraudAmt,total_sales_eur:r.totalSales,fraud_to_sales_ratio:parseFloat((r.dimpRatio).toFixed(6)),threshold:SCHEME_THRESHOLDS.mastercard_dimp.fraud_to_sales_threshold,status:r.dimpStatus,headroom_eur:parseFloat(r.dimpHeadroomEur.toFixed(2)),pct_of_threshold:parseFloat((r.dimpPct).toFixed(4))},
+    mastercard_vimp:{cnp_dispute_count:r.cnpDisp,total_cnp_count:r.totalCNP,dispute_ratio:parseFloat((r.vimpRatio).toFixed(6)),threshold:SCHEME_THRESHOLDS.mastercard_vimp.dispute_to_transaction_threshold,status:r.vimpStatus,pct_of_threshold:parseFloat((r.vimpPct).toFixed(4))},
+    breach_risk_score:parseFloat((r.breachRisk).toFixed(4)),
+    remediation_controls:REMEDIATION_RULES.filter(rule=>rule.condition(r)).map((rule,i)=>({priority:rule.priority,control:rule.control,network_guidance_reference:rule.reference,applicable_if:rule.priority.toString()})),
+    what_if_scenarios:[],
+    threshold_versions:{visa_vamp:SCHEME_THRESHOLDS.visa_vamp.version,visa_vaai:SCHEME_THRESHOLDS.visa_vaai_enumeration.version,mastercard_dimp:SCHEME_THRESHOLDS.mastercard_dimp.version,mastercard_vimp:SCHEME_THRESHOLDS.mastercard_vimp.version},
+    summary:`${r.et} (${r.region}, MCC ${document.getElementById('mcc').value}): VAMP ${(r.vampRatio*100).toFixed(3)}% — ${r.vampStatus.replace(/_/g,' ')}. VAAI enumeration ${(r.vaaiRatio*100).toFixed(3)}% — ${r.vaaiStatus}. DIMP ${(r.dimpRatio*100).toFixed(3)}% — ${r.dimpStatus}. Breach risk score: ${(r.breachRisk*10).toFixed(1)}/10.`,
+    agent_instructions:"visa_vamp.status and visa_vaai_enumeration.status are independent VAMP compliance dimensions — a merchant can breach on enumeration even if vamp_ratio is green. status hierarchy: excessive > above_standard > early_warning > green. breach_risk_score > 0.7 requires immediate remediation_controls[] implementation. Check grace_period_active before computing enforcement_fee_exposure. headroom_transactions / headroom_eur give absolute capacity before breach.",
+    regulatory_citations:["Visa Acquirer Monitoring Program (VAMP) Framework — enforcement October 2025; acquirer thresholds January 2026; merchant phase 2 April 2026","Visa Account Attack Intelligence (VAAI) Score system — enumeration rate component effective June 2025","Visa Core Rules and Visa Product and Service Rules — April 2026 edition","Mastercard Data Integrity Monitoring Program (DIMP)","Mastercard Visa Issuer Monitoring Program (VIMP)","EU PSD2 Art. 96 — payment security incident reporting"],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true},
+  };
+}
+
+function buildMarkdown(r){
+  const ts=new Date().toISOString();
+  const mon=document.getElementById('monPeriod').value;
+  let md=`# Network Scheme Compliance Report\n`;
+  md+=`**Period:** ${mon} · **Entity:** ${r.et} (MCC ${document.getElementById('mcc').value}, ${r.region})\n`;
+  md+=`**Generated:** ${ts} · **Tool:** RBE·12 · AINumbers.co\n`;
+  md+=`**Suite:** RBE Deterministic Intelligence Suite\n\n---\n\n`;
+  md+=`## Threshold Status Summary\n\n`;
+  md+=`| Programme | Your Ratio | Threshold | Status | Headroom |\n|-----------|------------|-----------|--------|----------|\n`;
+  md+=`| Visa VAMP | ${(r.vampRatio*100).toFixed(3)}% | ${(r.thresh.ex*100).toFixed(1)}% excessive | ${r.vampStatus.replace(/_/g,' ').toUpperCase()} | ${r.headroomTx.toLocaleString()} disputes |\n`;
+  md+=`| Visa VAAI Enumeration | ${(r.vaaiRatio*100).toFixed(3)}% | 20.000% | ${r.vaaiStatus.replace(/_/g,' ').toUpperCase()} | — |\n`;
+  md+=`| Mastercard DIMP | ${(r.dimpRatio*100).toFixed(3)}% | 0.100% | ${r.dimpStatus.replace(/_/g,' ').toUpperCase()} | €${r.dimpHeadroomEur.toLocaleString(undefined,{maximumFractionDigits:0})} |\n`;
+  md+=`| Mastercard VIMP | ${(r.vimpRatio*100).toFixed(3)}% | 0.300% | ${r.vimpStatus.replace(/_/g,' ').toUpperCase()} | — |\n\n`;
+  md+=`## Breach Risk Score: ${(r.breachRisk*10).toFixed(1)}/10\n\n`;
+  if(r.fee.amount>0)md+=`## Enforcement Fee Exposure\n\n$${r.fee.amount.toLocaleString()}/month (${r.vampStatus==='above_standard'?'$4/txn Above Standard':'$8/txn Excessive'})\n\n`;
+  const remeds=REMEDIATION_RULES.filter(rule=>rule.condition(r));
+  if(remeds.length>0){
+    md+=`## Remediation Action Plan\n\n`;
+    remeds.forEach(rule=>{md+=`**Priority ${rule.priority}:** ${rule.control}\n*${rule.reference}*\n\n`;});
+  }
+  md+=`## Threshold Versions Applied\n\n`;
+  md+=`- Visa VAMP: ${SCHEME_THRESHOLDS.visa_vamp.version}\n`;
+  md+=`- Visa VAAI: ${SCHEME_THRESHOLDS.visa_vaai_enumeration.version}\n`;
+  md+=`- Mastercard DIMP: ${SCHEME_THRESHOLDS.mastercard_dimp.version}\n`;
+  md+=`- Mastercard VIMP: ${SCHEME_THRESHOLDS.mastercard_vimp.version}\n\n`;
+  md+=`## Regulatory Citations\n\n`;
+  md+=`- Visa VAMP Framework — enforcement October 2025; acquirer thresholds January 2026; merchant phase 2 April 2026\n`;
+  md+=`- Visa VAAI Enumeration — effective June 2025\n`;
+  md+=`- Mastercard DIMP/VIMP — Q1 2025 edition\n`;
+  md+=`- EU PSD2 Art. 96 — payment security incident reporting\n\n`;
+  md+=`---\n*Client-side. Zero PII. Generated by RBE·12 · AINumbers.co · RBE Deterministic Intelligence Suite*\n`;
+  lastMD=md;
+}
+
+AP2Schema.validate(lastAP2);
+function exportAP2(){if(!lastAP2){showToast('Run analysis first','error');return;}const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);triggerDownload(JSON.stringify(lastAP2,null,2),`rbe-12-scheme-compliance_${ts}.policy.json`,'application/json');showToast('Policy Mandate JSON exported','success');}
+function exportMarkdown(){if(!lastMD){showToast('Run analysis first','error');return;}const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);triggerDownload(lastMD,`rbe-12-compliance-report_${ts}.md`,'text/markdown');showToast('Compliance report exported','success');}
+
+/* ── Init ── */
+(function init(){updateThresholdDisplay();liveVAMP();liveDIMP();liveVIMP();})();
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "rbe-12-scheme-compliance-simulator", "version": "1.0.0", "title": "Network Scheme Compliance Simulator (Visa VAMP / Mastercard DIMP)", "description": "Deterministic Visa VAMP and Mastercard DIMP/VIMP threshold simulation engine. Separate acquirer vs. merchant thresholds with phased enforcement timelines (Oct 2025, Jan 2026 acquirer bands, Apr 2026 merchant tightening). VAAI enumeration rate as a third independent compliance dimension. Computes VAMP ratio, RAG status, headroom, enforcement fee exposure, what-if scenarios, and deterministic remediation action plan. Policy Mandate JSON scheme_compliance_mandate export. Client-side. Zero PII.", "category": "ai", "tags": ["Visa-VAMP", "Mastercard-DIMP", "VAAI", "scheme-compliance", "fraud-disputes", "network-monitoring", "phased-enforcement", "Policy Mandate", "export", "Zero-PII"], "audience": ["card-programme-manager", "fraud-team", "payment-operations", "acquirer-risk", "psp-compliance"], "last_reviewed": "2026-04-01", "input_schema": {"type": "object", "required": ["entity_type", "tc40_count", "tc15_count", "settled_cnp_count"], "properties": {"entity_type": {"type": "string", "enum": ["merchant", "acquirer", "payment_facilitator"]}, "region": {"type": "string", "enum": ["US", "Canada", "EU", "APAC", "LATAM", "Other"]}, "mcc": {"type": "string", "description": "4-digit Merchant Category Code"}, "monitoring_period": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}$", "description": "YYYY-MM — affects which phased threshold applies"}, "months_in_monitoring_period": {"type": "integer", "minimum": 0, "maximum": 12}, "tc40_count": {"type": "integer", "minimum": 0, "description": "TC40 fraud alert count for the monitoring period"}, "tc15_count": {"type": "integer", "minimum": 0, "description": "TC15 non-fraud dispute count"}, "excluded_count": {"type": "integer", "minimum": 0, "description": "CE 3.0 / pre-dispute excluded transactions"}, "settled_cnp_count": {"type": "integer", "minimum": 1, "description": "Total settled CNP transactions (VAMP denominator)"}, "total_transactions": {"type": "integer", "description": "Total monthly transactions (for VAAI enumeration rate)"}, "confirmed_enumerated_count": {"type": "integer", "description": "VAAI-confirmed enumerated transactions"}, "fraud_amount_eur": {"type": "number", "description": "Mastercard DIMP fraud amount"}, "total_sales_eur": {"type": "number", "description": "Mastercard DIMP total sales volume"}, "cnp_dispute_count": {"type": "integer", "description": "Mastercard VIMP CNP dispute count"}, "total_cnp_count": {"type": "integer", "description": "Mastercard VIMP total CNP transactions"}}}, "output_schema": {"type": "object", "properties": {"visa_vamp": {"type": "object", "properties": {"vamp_ratio": {"type": "number"}, "status": {"type": "string", "enum": ["green", "early_warning", "above_standard", "excessive", "amber"]}, "headroom_transactions": {"type": "integer"}, "enforcement_fee_exposure_usd_per_month": {"type": "number"}}}, "visa_vaai_enumeration": {"type": "object"}, "mastercard_dimp": {"type": "object"}, "mastercard_vimp": {"type": "object"}, "breach_risk_score": {"type": "number", "minimum": 0, "maximum": 1}, "remediation_controls": {"type": "array"}, "what_if_scenarios": {"type": "array"}, "ap2_mandate": {"type": "object"}}}, "mcp_tool_definition": {"name": "simulate_scheme_compliance_thresholds", "description": "Simulate Visa VAMP and Mastercard DIMP/VIMP threshold positions using phased enforcement timelines. Three independent compliance dimensions: VAMP ratio (TC40+TC15-excluded)/settled_CNP, VAAI enumeration rate (effective June 2025, triggers independently), and Mastercard DIMP/VIMP ratios. Acquirer bands (EW 0.4%/AS 0.5%/Excessive 0.7%) effective January 2026; merchant phase 2 tightening (2.2%→1.5%) from April 2026 for US/Canada/EU/APAC. Computes headroom to each threshold, enforcement fee exposure after grace period, and deterministic remediation controls. Use when a card programme manager or fraud team needs to assess scheme compliance threshold position.", "inputSchema": {"type": "object", "required": ["entity_type", "tc40_count", "tc15_count", "settled_cnp_count"], "properties": {"entity_type": {"type": "string", "enum": ["merchant", "acquirer", "payment_facilitator"]}, "region": {"type": "string"}, "mcc": {"type": "string"}, "monitoring_period": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}$"}, "months_in_monitoring_period": {"type": "integer"}, "tc40_count": {"type": "integer"}, "tc15_count": {"type": "integer"}, "excluded_count": {"type": "integer"}, "settled_cnp_count": {"type": "integer"}, "total_transactions": {"type": "integer"}, "confirmed_enumerated_count": {"type": "integer"}, "fraud_amount_eur": {"type": "number"}, "total_sales_eur": {"type": "number"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/rbe-12-scheme-compliance-simulator.html", "function_name": "runAnalysis", "timeout_ms": 5000}, "ap2_export": true, "mandate_type": "scheme_compliance_mandate", "deterministic": true, "pii_transmitted": false, "execution_context": "client_side_browser", "threshold_source": "SCHEME_THRESHOLDS const — embedded configurable threshold object. Update at each Visa/Mastercard rules publication cycle.", "threshold_versions": {"visa_vamp": "VAMP Framework — enforcement October 2025; acquirer bands January 2026; merchant phase 2 April 2026", "visa_vaai": "VAAI Enumeration component — effective June 2025", "mastercard_dimp": "DIMP Framework Q1 2025 update", "mastercard_vimp": "VIMP Framework Q1 2025 update"}, "regulatory_citations": ["Visa Acquirer Monitoring Program (VAMP) Framework — enforcement October 2025", "Visa Account Attack Intelligence (VAAI) Score — enumeration rate effective June 2025", "Visa Core Rules and Product and Service Rules — April 2026 edition", "Mastercard Data Integrity Monitoring Program (DIMP)", "Mastercard Visa Issuer Monitoring Program (VIMP)", "EU PSD2 Art. 96 — payment security incident reporting", "FCA Approach to Payment Services and Electronic Money (2019 update)"], "cross_links": ["rbe-08-fee-schedule-engine", "rbe-10-velocity-rule-simulator", "rbe-13-interchange-qualification-engine", "rbe-11-dora-incident-classifier"]}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

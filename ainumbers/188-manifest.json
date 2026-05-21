@@ -1,0 +1,125 @@
+{
+  "tool_id": "merchant-bnpl-compliance-mapper",
+  "version": "1.0.0",
+  "title": "Merchant BNPL Integration Compliance Mapper",
+  "description": "Map compliance obligations for merchants integrating BNPL at checkout. Covers PCI DSS scope determination by integration method, FCA Financial Promotions, EU CCD2 checkout disclosure standards, CFPB Reg Z advertising rules, and checkout UX standards. Outputs a prioritised compliance checklist and downloadable Markdown integration guide.",
+  "category": "cat-16",
+  "tags": ["BNPL", "Merchant", "PCI DSS", "FCA Financial Promotions", "EU CCD2", "CFPB Reg Z", "Checkout UX", "UDAAP"],
+  "audience": ["merchant", "product", "engineering", "compliance", "legal"],
+
+  "input_schema": {
+    "type": "object",
+    "required": ["jurisdictions", "integration_method", "promotes_bnpl", "merchant_type"],
+    "properties": {
+      "jurisdictions": {
+        "type": "array",
+        "description": "Jurisdictions of operation. At least one required.",
+        "minItems": 1,
+        "items": { "type": "string", "enum": ["uk", "eu", "us"] }
+      },
+      "integration_method": {
+        "type": "string",
+        "description": "How BNPL is integrated into the merchant checkout flow.",
+        "enum": ["redirect", "iframe", "whitelabel", "inhouse"]
+      },
+      "promotes_bnpl": {
+        "type": "boolean",
+        "description": "Whether the merchant actively promotes or advertises BNPL in marketing materials (emails, ads, banners, social). Triggers financial promotion and Reg Z advertising rules."
+      },
+      "merchant_type": {
+        "type": "string",
+        "description": "Whether the merchant operates online, in physical retail, or both.",
+        "enum": ["ecommerce", "physical", "both"]
+      }
+    }
+  },
+
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "pci_saq_type": {
+        "type": "string",
+        "description": "Applicable PCI DSS SAQ type based on integration method."
+      },
+      "total_items": {
+        "type": "integer",
+        "description": "Total number of compliance checklist items generated."
+      },
+      "high_priority_count": {
+        "type": "integer",
+        "description": "Number of high-priority compliance items (regulatory breach risk)."
+      },
+      "domains": {
+        "type": "array",
+        "description": "Compliance domains with their items.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "domain_id": { "type": "string" },
+            "domain_title": { "type": "string" },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "detail": { "type": "string" },
+                  "priority": { "type": "string", "enum": ["high", "med", "low"] },
+                  "tags": { "type": "array", "items": { "type": "string" } },
+                  "cite": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "markdown_guide": {
+        "type": "string",
+        "description": "Full Markdown integration guide text."
+      }
+    }
+  },
+
+  "mcp_tool_definition": {
+    "name": "map_merchant_bnpl_compliance_obligations",
+    "description": "Generate a tailored BNPL integration compliance map for a merchant. Returns PCI DSS scope determination (SAQ type), per-jurisdiction regulatory disclosure requirements (FCA, EU CCD2, CFPB Reg Z), checkout UX standards, and a Markdown integration guide. Use when a merchant or platform team needs to identify compliance obligations before integrating a BNPL payment option at checkout.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["jurisdictions", "integration_method", "promotes_bnpl", "merchant_type"],
+      "properties": {
+        "jurisdictions": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["uk", "eu", "us"] }
+        },
+        "integration_method": {
+          "type": "string",
+          "enum": ["redirect", "iframe", "whitelabel", "inhouse"]
+        },
+        "promotes_bnpl": { "type": "boolean" },
+        "merchant_type": {
+          "type": "string",
+          "enum": ["ecommerce", "physical", "both"]
+        }
+      }
+    }
+  },
+
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/188-merchant-bnpl-compliance-mapper.html",
+    "function_name": "generateMap",
+    "timeout_ms": 2000
+  },
+
+  "ap2_export": false,
+
+  "integration_method_pci_scope": {
+    "redirect":    "SAQ A — lowest scope; all payment functions outsourced to BNPL provider",
+    "iframe":      "SAQ A-EP — moderate scope; Req. 6.4.3 script management mandatory",
+    "whitelabel":  "SAQ D or QSA assessment — payment data flows through merchant systems",
+    "inhouse":     "SAQ D or QSA assessment — full PCI DSS v4.0 scope; Req. 6.4.3 mandatory"
+  },
+
+  "last_reviewed": "2026-05-08",
+  "notes": "Client-side. Zero PII. All compliance item data is embedded in the HTML file. No external API calls. Output includes a downloadable Markdown integration guide."
+}

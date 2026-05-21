@@ -1,0 +1,115 @@
+{
+  "tool_id": "peppol-xml-auditor",
+  "version": "1.0.0",
+  "title": "Peppol BIS Billing 3.0 / KSeF XML Auditor",
+  "description": "In-browser XML validator for Peppol BIS 3.0 (EN 16931-1:2017+A1:2019) and KSeF FA(3). Validates against embedded Schematron-equivalent business rules with country overlays for France PPF/PDP, Poland KSeF, Belgium PEPPOL-BE, Germany XRechnung, and AU PINT A-NZ. Client-side. Zero PII.",
+  "category": "cat-15",
+  "tags": ["Peppol", "EN 16931", "KSeF", "XML", "E-Invoice", "Validation", "UBL", "CII", "VAT"],
+  "audience": ["engineer", "compliance", "finance"],
+
+  "input_schema": {
+    "type": "object",
+    "required": ["xml_content"],
+    "properties": {
+      "xml_content": {
+        "type": "string",
+        "description": "Raw XML content of the e-invoice to validate (UBL 2.1 Invoice/CreditNote or CII CrossIndustryInvoice)"
+      },
+      "country_overlay": {
+        "type": "string",
+        "enum": ["none", "fr", "pl", "be", "de", "au"],
+        "default": "none",
+        "description": "Country-specific validation overlay: none (core only), fr (France PPF/PDP), pl (Poland KSeF FA3), be (Belgium PEPPOL-BE), de (Germany XRechnung 3.0), au (AU PINT A-NZ)"
+      }
+    }
+  },
+
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "overall_status": {
+        "type": "string",
+        "enum": ["PASS", "WARN", "FAIL"],
+        "description": "PASS = all rules satisfied; WARN = warnings only; FAIL = one or more errors"
+      },
+      "rule_results": {
+        "type": "array",
+        "description": "Individual rule check results, sorted errors-first",
+        "items": {
+          "type": "object",
+          "properties": {
+            "rule_id":   { "type": "string", "description": "Rule identifier, e.g. BR-01, PEPPOL-R004, FR-PPF-01" },
+            "severity":  { "type": "string", "enum": ["error", "warning", "info"] },
+            "status":    { "type": "string", "enum": ["pass", "fail"] },
+            "element":   { "type": "string", "description": "XPath or element hint, e.g. cbc:CustomizationID" },
+            "message":   { "type": "string", "description": "Human-readable pass or fail message" },
+            "standard":  { "type": "string", "description": "Regulatory citation, e.g. EN 16931 §7.1" }
+          }
+        }
+      },
+      "counts": {
+        "type": "object",
+        "properties": {
+          "passed":   { "type": "integer" },
+          "warnings": { "type": "integer" },
+          "errors":   { "type": "integer" },
+          "total":    { "type": "integer" }
+        }
+      },
+      "schema_version":  { "type": "string", "description": "Version string of the embedded rule set" },
+      "country_overlay": { "type": "string", "description": "Overlay applied to this validation run" },
+      "validated_at":    { "type": "string", "format": "date-time" },
+      "parse_error":     { "type": "boolean", "description": "True if the XML could not be parsed" },
+      "error_message":   { "type": "string",  "description": "Parse error detail, if parse_error is true" }
+    }
+  },
+
+  "mcp_tool_definition": {
+    "name": "validate_peppol_xml",
+    "description": "Validates an e-invoice XML document against Peppol BIS Billing 3.0 (EN 16931-1:2017) business rules and optional country-specific overlays. Returns a structured list of rule results with severity, element path, pass/fail status, and regulatory citation. Use when an agent needs to verify invoice compliance before submission to PPF, KSeF, Peppol network, or any CTC platform.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["xml_content"],
+      "properties": {
+        "xml_content": {
+          "type": "string",
+          "description": "Raw XML content of the invoice (UBL 2.1 or CII)"
+        },
+        "country_overlay": {
+          "type": "string",
+          "enum": ["none", "fr", "pl", "be", "de", "au"],
+          "default": "none",
+          "description": "Country overlay: none | fr (France PPF) | pl (Poland KSeF) | be (Belgium) | de (Germany XRechnung) | au (AU PINT)"
+        }
+      }
+    }
+  },
+
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/174-peppol-xml-auditor.html",
+    "function_name": "validatePeppolXML",
+    "timeout_ms": 10000
+  },
+
+  "ap2_export": false,
+
+  "_meta": {
+    "spec_version": "3.1",
+    "category_hub": "einvoicing-vat-vida-hub.html",
+    "anchor_tool": true,
+    "last_reviewed": "2026-05-08",
+    "mandate_dates": {
+      "france_ppf": "2026-09-01",
+      "belgium_b2b": "2026-01-01",
+      "poland_ksef_large": "2026-02-01"
+    },
+    "schema_versions": {
+      "peppol_bis": "3.0.17",
+      "en16931": "EN 16931-1:2017+A1:2019",
+      "ksef": "FA(3) v1-FA(3)",
+      "ubl": "OASIS UBL 2.1",
+      "xrechnung": "3.0"
+    }
+  }
+}

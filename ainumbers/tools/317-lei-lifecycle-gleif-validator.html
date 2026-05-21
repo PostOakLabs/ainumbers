@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>LEI Lifecycle &amp; GLEIF Validation Tool · T317 · AINumbers.co</title>
+<meta name="description" content="Validate LEIs against ISO 17442 check digit (MOD 97-10). Detect ISSUED / LAPSED / RETIRED / FORMAT ERROR. Batch validate up to 100 LEIs. Map LEI fields to ISO 20022 CBPR+, MiFID II RTS 22, and EMIR. Zero PII. Client-side.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/317-lei-lifecycle-gleif-validator">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"LEI Lifecycle & GLEIF Validation Tool · T317","url":"https://ainumbers.co/tools/317-lei-lifecycle-gleif-validator","description":"Validate LEIs against ISO 17442 check digit (MOD 97-10). Detect ISSUED / LAPSED / RETIRED / FORMAT ERROR. Batch validate up to 100 LEIs. Map LEI fields to ISO 20022 CBPR+, MiFID II RTS 22, and EMIR. Zero PII. Client-side.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* Edu disclaimer (canonical §9.3) */
+.edu-disclaimer {
+  border: 1px solid var(--warn);
+  border-left: 3px solid var(--warn);
+  background: rgba(245, 158, 11, 0.06);
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  font-size: 0.76rem;
+  color: var(--body);
+  line-height: 1.7;
+  border-radius: var(--radius);
+}
+.edu-disclaimer-label {
+  display: block;
+  color: var(--warn);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+select,input,textarea{font-family:'Sora',sans-serif}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner,[dir="rtl"] [dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+[dir="rtl"] .run-btn{letter-spacing:0}
+
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;z-index:201;position:relative}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:420px;height:420px;background:radial-gradient(circle,rgba(20,184,166,.06) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.tool-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal)}
+.hero h1{font-size:clamp(1.8rem,3.5vw,2.9rem);color:var(--white);max-width:780px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--teal)}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:680px;line-height:1.85;margin-bottom:1.5rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-privacy::before{content:'·';color:var(--teal)}
+
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);padding-bottom:.6rem;border-bottom:1px solid var(--border);margin-bottom:1.75rem}
+.main-content{position:relative;z-index:1;padding:3rem 0}
+
+.mode-tabs{display:flex;gap:1px;background:var(--border);margin-bottom:2rem;overflow:hidden;border-radius:var(--radius) var(--radius) 0 0}
+.mode-tab{flex:1;background:var(--bg-3);padding:.75rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center;cursor:pointer;border:none;transition:all .2s}
+.mode-tab.active{background:var(--teal-dim);color:var(--teal);border-bottom:2px solid var(--teal)}
+.mode-tab:hover:not(.active){background:var(--bg-4);color:var(--text)}
+.mode-panel{display:none}.mode-panel.active{display:block}
+
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:2rem;overflow:hidden}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);padding:1rem 1.5rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.panel-body{padding:1.5rem}
+.form-group{display:flex;flex-direction:column;gap:.45rem;margin-bottom:1.1rem}
+.form-group label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text)}
+.form-group input,.form-group select,.form-group textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.6rem .8rem;border-radius:var(--radius);font-size:.82rem;transition:border-color .2s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--teal)}
+.form-group select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%233A5270'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .8rem center;padding-right:2rem}
+.form-group textarea{font-family:'JetBrains Mono',monospace;font-size:.76rem;min-height:130px;resize:vertical;line-height:1.8}
+.lei-input-big{font-family:'JetBrains Mono',monospace!important;font-size:1.1rem!important;letter-spacing:.18em;text-transform:uppercase}
+
+.run-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bg);background:var(--teal);border:none;padding:.65rem 2rem;border-radius:var(--radius);transition:opacity .2s}
+.run-btn:hover{opacity:.85}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+/* Result cards */
+.res-card{margin-top:1.5rem;border-radius:var(--radius-lg);overflow:hidden;display:none}
+.rc-head{padding:1.1rem 1.4rem;display:flex;align-items:center;gap:.9rem}
+.rc-icon{font-size:1.75rem;flex-shrink:0}
+.rc-label{flex:1}
+.rc-status{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--white)}
+.rc-sub{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:.2rem}
+.rc-body{background:var(--bg-2);border-top:1px solid var(--border)}
+.rc-green{border:1px solid rgba(34,197,94,.25)}.rc-green .rc-head{background:var(--green-dim)}
+.rc-amber{border:1px solid rgba(245,158,11,.25)}.rc-amber .rc-head{background:var(--warn-dim)}
+.rc-red{border:1px solid rgba(239,68,68,.25)}.rc-red .rc-head{background:var(--red-dim)}
+
+.bd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border)}
+@media(max-width:580px){.bd-grid{grid-template-columns:1fr}}
+.bd-cell{background:var(--bg-3);padding:.85rem 1.1rem}
+.bd-lbl{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.bd-val{font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--bright);word-break:break-all}
+.bd-val.ok{color:var(--green)}.bd-val.warn{color:var(--warn)}.bd-val.err{color:var(--red)}
+.bd-note{font-size:.68rem;color:var(--body);margin-top:.2rem}
+
+/* Anatomy */
+.lei-anatomy{display:flex;flex-wrap:wrap;gap:3px;margin:.85rem 0;align-items:flex-end}
+.lei-seg{display:flex;flex-direction:column;align-items:center;gap:.3rem}
+.lei-chars{font-family:'JetBrains Mono',monospace;font-size:1rem;letter-spacing:.12em;color:var(--bright);background:var(--bg-3);border:1px solid var(--border);padding:.28rem .45rem;border-radius:var(--radius)}
+.lc-teal{border-color:rgba(20,184,166,.45);color:var(--teal)}.lc-purple{border-color:rgba(155,114,245,.35);color:var(--purple)}.lc-gold{border-color:rgba(212,168,71,.3);color:var(--gold)}.lc-green{border-color:rgba(34,197,94,.35);color:var(--green)}
+.seg-lbl{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+/* Batch table */
+.bt{width:100%;border-collapse:collapse;font-size:.75rem}
+.bt th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .65rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-3);white-space:nowrap}
+.bt td{padding:.5rem .65rem;border-bottom:1px solid rgba(30,47,74,.45);vertical-align:middle}
+.bt tr:last-child td{border-bottom:none}
+.bt-lei{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--bright);letter-spacing:.05em}
+.sb{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.06em;text-transform:uppercase;padding:.12rem .4rem;border-radius:2px}
+.s-issued{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+.s-lapsed{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.s-retired{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.s-fmterr{background:var(--bg-4);color:var(--muted);border:1px solid var(--border)}
+.s-pending{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(155,114,245,.25)}
+
+/* Field table */
+.ft{width:100%;border-collapse:collapse;font-size:.75rem}
+.ft th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.ft td{padding:.6rem .75rem;border-bottom:1px solid rgba(30,47,74,.45);color:var(--body);vertical-align:top;line-height:1.5}
+.ft td:first-child{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--teal);white-space:nowrap}
+.ft tr:last-child td{border-bottom:none}
+.rq-m{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.rq-c{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.25)}
+.rq-o{background:var(--bg-4);color:var(--muted);border:1px solid var(--border)}
+.rq{font-family:'JetBrains Mono',monospace;font-size:.42rem;padding:.1rem .35rem;border-radius:2px}
+
+/* Buttons */
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1.1rem;border-radius:var(--radius);transition:all .2s;cursor:pointer;border:1px solid;background:var(--teal-dim);color:var(--teal);border-color:rgba(20,184,166,.3)}
+.btn-export:hover{background:var(--teal);color:var(--bg)}
+.btn-export.sec{background:var(--bg-4);color:var(--text);border-color:var(--border)}
+.btn-export.sec:hover{border-color:var(--teal);color:var(--teal)}
+
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* ── MCP manifest section (canonical) ── */
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted);padding:.3rem .75rem;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="#0D1627"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".7"/></svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/regulatory-compliance-consent-hub.html">Regulatory Hub</a><span class="nav-sep">/</span><span>T-317</span></div>
+
+    <a href="../guides/regulatory-compliance-consent-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">
+      <span class="tool-eyebrow">T317 · Cat-2 · Compliance · LEI · ISO 17442 · GLEIF · ISO 20022 CBPR+</span>
+    </div>
+    <h1 class="tool-title">LEI Lifecycle &amp; <em>GLEIF Validation</em> Tool</h1>
+    <p class="hero-desc">Validate Legal Entity Identifiers against GLEIF structural rules and the ISO 17442 check digit algorithm (MOD 97-10). Detect ISSUED, LAPSED, RETIRED, and FORMAT ERROR status. Batch validate up to 100 LEIs, or use the field mapper to generate ISO 20022 CBPR+, MiFID II RTS 22, and EMIR field population guidance.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-teal">ISO 17442</span>
+      <span class="hero-badge badge-gold">GLEIF</span>
+      <span class="hero-badge badge-purple">MiFID II / EMIR</span>
+      <span class="hero-badge badge-green">ISO 20022 CBPR+</span>
+      <span class="hero-badge badge-privacy">Client-Side. Zero PII.</span>
+    </div>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2025-05-01</span></span>
+</section>
+
+<main class="main-content">
+  <div class="container">
+    <div class="sec-label">Select Mode</div>
+
+    <div class="mode-tabs">
+      <button class="mode-tab active" onclick="switchMode('single',this)">Mode 1 &#8212; Single LEI Validation</button>
+      <button class="mode-tab" onclick="switchMode('batch',this)">Mode 2 &#8212; Batch (up to 100)</button>
+      <button class="mode-tab" onclick="switchMode('mapper',this)">Mode 3 &#8212; Field Population Mapper</button>
+    </div>
+
+    <!-- MODE 1: SINGLE -->
+    <div id="mode-single" class="mode-panel active">
+      <div class="panel">
+        <div class="panel-label">Single LEI Validation &#8212; ISO 17442 MOD 97-10 Check Digit</div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label data-i18n="label_lei_input">LEI (20 characters)</label>
+            <input type="text" id="singleLEI" class="lei-input-big" maxlength="20" placeholder="e.g. 2138003UXJIZAK9Y2E65" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" autocomplete="off" spellcheck="false">
+          </div>
+          <div style="font-size:.73rem;color:var(--muted);margin-bottom:1rem;line-height:1.6">
+            Structure: <span style="color:var(--teal)">LOU prefix (4)</span> &nbsp;+&nbsp;
+            <span style="color:var(--purple)">Entity identifier (14)</span> &nbsp;+&nbsp;
+            <span style="color:var(--green)">Check digits (2)</span>. All alphanumeric A&#8211;Z 0&#8211;9.
+          </div>
+          <button class="run-btn" onclick="validateSingle()">Validate LEI &#8594;</button>
+          <div id="singleErr" style="display:none;margin-top:.65rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--red)"></div>
+          <div id="singleResult"></div>
+          <div class="pii-notice">
+  <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+</div>
+  <!-- Edu disclaimer (canonical §9.3) -->
+  <div class="edu-disclaimer">
+    <strong class="edu-disclaimer-label" data-i18n="disclaimer.label">Educational Use Only</strong>
+    <span data-i18n="disclaimer.body">This tool provides a self-assessment / educational framework for internal planning purposes only. It is not a regulatory audit, legal advice, or a substitute for a formal compliance review by a qualified advisor. Verify all interpretations against the official source text and applicable RTS/ITS/guidance published by the relevant authority.</span>
+  </div>
+
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-label">ISO 17442 Structure &amp; Lifecycle Reference</div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
+            <div>
+              <div style="font-size:.8rem;color:var(--bright);margin-bottom:.6rem;font-family:'DM Serif Display',serif">20-character anatomy</div>
+              <div class="lei-anatomy">
+                <div class="lei-seg"><span class="lei-chars lc-teal">2138</span><span class="seg-lbl">LOU (4)</span></div>
+                <div class="lei-seg" style="align-self:center;padding-bottom:.6rem"><span style="color:var(--muted);font-size:.8rem">+</span></div>
+                <div class="lei-seg"><span class="lei-chars lc-purple">003UXJIZAK9Y2E</span><span class="seg-lbl">Entity ID (14)</span></div>
+                <div class="lei-seg" style="align-self:center;padding-bottom:.6rem"><span style="color:var(--muted);font-size:.8rem">+</span></div>
+                <div class="lei-seg"><span class="lei-chars lc-green">65</span><span class="seg-lbl">Check (2)</span></div>
+              </div>
+              <div style="font-size:.73rem;color:var(--body);line-height:1.65;margin-top:.5rem">
+                <strong style="color:var(--text)">LOU prefix (1&#8211;4):</strong> Identifies the issuing Local Operating Unit (e.g. 2138 = GLEIF Foundation, 529900 = DTCC, 3358 = London Stock Exchange).<br>
+                <strong style="color:var(--text)">Entity ID (5&#8211;18):</strong> Assigned by the LOU. Alphanumeric, LOU-defined.<br>
+                <strong style="color:var(--text)">Check digits (19&#8211;20):</strong> ISO 7064 MOD 97-10 over positions 1&#8211;18 with appended 00, then 98 minus remainder.
+              </div>
+            </div>
+            <div>
+              <div style="font-size:.8rem;color:var(--bright);margin-bottom:.6rem;font-family:'DM Serif Display',serif">Lifecycle states</div>
+              <div style="display:flex;flex-direction:column;gap:.45rem">
+                <div style="background:var(--green-dim);border:1px solid rgba(34,197,94,.2);padding:.5rem .75rem;border-radius:var(--radius)"><span style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--green)">ISSUED</span> <span style="font-size:.72rem;color:var(--body)">&#8212; Valid, current, renewal fee paid. Use freely in all regulatory messages.</span></div>
+                <div style="background:var(--warn-dim);border:1px solid rgba(245,158,11,.2);padding:.5rem .75rem;border-radius:var(--radius)"><span style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--warn)">LAPSED</span> <span style="font-size:.72rem;color:var(--body)">&#8212; Renewal overdue (&gt;365 days). Structurally valid but MiFID II / EMIR / CBPR+ will reject.</span></div>
+                <div style="background:var(--red-dim);border:1px solid rgba(239,68,68,.2);padding:.5rem .75rem;border-radius:var(--radius)"><span style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--red)">RETIRED</span> <span style="font-size:.72rem;color:var(--body)">&#8212; Entity closed/merged. Do not use for new transactions or reports.</span></div>
+                <div style="background:var(--purple-dim);border:1px solid rgba(155,114,245,.2);padding:.5rem .75rem;border-radius:var(--radius)"><span style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--purple)">PENDING TRANSFER</span> <span style="font-size:.72rem;color:var(--body)">&#8212; LOU transfer in progress. Verify before use.</span></div>
+                <div style="background:var(--bg-4);border:1px solid var(--border);padding:.5rem .75rem;border-radius:var(--radius)"><span style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)">FORMAT ERROR</span> <span style="font-size:.72rem;color:var(--body)">&#8212; Failed ISO 17442 structural or check digit validation.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODE 2: BATCH -->
+    <div id="mode-batch" class="mode-panel">
+      <div class="panel">
+        <div class="panel-label">Batch LEI Validation &#8212; Paste up to 100 LEIs (one per line or comma-separated)</div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label data-i18n="label_batch_mode">LEI List</label>
+            <textarea id="batchInput" placeholder="2138003UXJIZAK9Y2E65&#10;529900T8BM49AURSDO55&#10;3358002FMXPXF43UNE10&#10;INVALIDLEI00000000XX&#10;..."></textarea>
+          </div>
+          <button class="run-btn" onclick="validateBatch()">Validate Batch &#8594;</button>
+          <div id="batchErr" style="display:none;margin-top:.65rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--red)"></div>
+          <div id="batchResult" style="margin-top:1.5rem"></div>
+          <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODE 3: MAPPER -->
+    <div id="mode-mapper" class="mode-panel">
+      <div class="panel">
+        <div class="panel-label">LEI Field Population Mapper &#8212; ISO 20022 CBPR+ &#183; MiFID II &#183; EMIR &#183; SFTR</div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem">
+            <div class="form-group" style="margin-bottom:0">
+              <label data-i18n="label_lei_input">LEI to Map (optional)</label>
+              <input type="text" id="mapperLEI" class="lei-input-big" maxlength="20" placeholder="Leave blank for all fields" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" autocomplete="off">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label data-i18n="label_use_case">Reporting Standard</label>
+              <select id="mapperUseCase">
+                <option value="">&#8212; All standards &#8212;</option>
+                <option value="cbpr-pacs008">ISO 20022 CBPR+ &#8212; pacs.008 (Credit Transfer)</option>
+                <option value="cbpr-pain001">ISO 20022 CBPR+ &#8212; pain.001 (Customer Credit Transfer)</option>
+                <option value="cbpr-camt056">ISO 20022 CBPR+ &#8212; camt.056 (Payment Recall)</option>
+                <option value="mifid-rts22">MiFID II &#8212; RTS 22 Transaction Reporting</option>
+                <option value="emir-tr">EMIR &#8212; Trade Repository Reporting</option>
+                <option value="sftr">SFTR &#8212; Securities Financing</option>
+              </select>
+            </div>
+          </div>
+          <button class="run-btn" onclick="runMapper()">Generate Field Map &#8594;</button>
+          <div id="mapperResult" style="margin-top:1.5rem"></div>
+          <div class="pii-notice" style="margin-top:1rem">&#128274; Field mapping uses embedded static reference data only. Verify against latest SWIFT SR2025/SR2026 publications and ESMA RTS before implementation.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<!-- FOOTER -->
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/regulatory-compliance-consent-hub.html"><span data-i18n="footer.hub_regulatory_compliance_consent">Consent Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* ── i18n Stage 2 ── */
+const TRANSLATIONS = {
+  en:{eyebrow:"T317 · Cat-2 · Compliance · LEI · ISO 17442 · GLEIF · ISO 20022 CBPR+",hero_title:"LEI Lifecycle & GLEIF Validation Tool",hero_desc:"Validate Legal Entity Identifiers against GLEIF structural rules and the ISO 17442 check digit algorithm (MOD 97-10). Detect ISSUED, LAPSED, RETIRED, and FORMAT ERROR status.",label_lei_input:"LEI (20 characters)",label_use_case:"Reporting Standard",label_batch_mode:"LEI List",nav_all_tools:"All 200+ Tools",last_reviewed:"Last Reviewed",footer_badge:"🔒 Zero PII \u00a0 No server calls \u00a0 Client-side",lang_dir:"ltr"
+    'nav.alltools': 'All Tools',
+    'nav.hub': '← Cat-02 Hub',
+  },
+  es:{eyebrow:"T317 · Cat-2 · Cumplimiento · LEI · ISO 17442 · GLEIF",hero_title:"Herramienta de Validación LEI y Ciclo de Vida GLEIF",hero_desc:"Valide Identificadores de Entidades Legales contra las reglas estructurales GLEIF y el algoritmo de dígito de control ISO 17442 (MOD 97-10).",label_lei_input:"LEI (20 caracteres)",label_use_case:"Estándar de reporte",label_batch_mode:"Lista de LEI",nav_all_tools:"Todas las herramientas (200+)",last_reviewed:"Última revisión",footer_badge:"🔒 Cero PII \u00a0 Sin llamadas al servidor \u00a0 Solo cliente",lang_dir:"ltr"
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.hub': '← Centro Cat-02',
+  },
+  fr:{eyebrow:"T317 · Cat-2 · Conformité · LEI · ISO 17442 · GLEIF",hero_title:"Outil de Validation LEI et Cycle de Vie GLEIF",hero_desc:"Validez les Identifiants d'Entités Légales selon les règles GLEIF et l'algorithme MOD 97-10 (ISO 17442).",label_lei_input:"LEI (20 caractères)",label_use_case:"Norme de reporting",label_batch_mode:"Liste LEI",nav_all_tools:"Tous les outils (200+)",last_reviewed:"Dernière révision",footer_badge:"🔒 Zéro PII \u00a0 Aucun appel serveur \u00a0 Côté client",lang_dir:"ltr"
+    'nav.alltools': 'Tous les Outils',
+    'nav.hub': '← Centre Cat-02',
+  },
+  ar:{eyebrow:"T317 · Cat-2 · الامتثال · LEI · ISO 17442 · GLEIF",hero_title:"أداة التحقق من دورة حياة LEI وGLEIF",hero_desc:"التحقق من صحة معرفات الكيانات القانونية وفقاً لقواعد GLEIF وخوارزمية MOD 97-10.",label_lei_input:"LEI (20 حرفاً)",label_use_case:"معيار الإبلاغ",label_batch_mode:"قائمة LEI",nav_all_tools:"جميع الأدوات (200+)",last_reviewed:"آخر مراجعة",footer_badge:"🔒 صفر PII \u00a0 لا اتصالات خادم \u00a0 جانب العميل",lang_dir:"rtl"
+    'nav.alltools': 'جميع الأدوات',
+    'nav.hub': '← مركز Cat-02',
+  },
+  pt:{eyebrow:"T317 · Cat-2 · Conformidade · LEI · ISO 17442 · GLEIF",hero_title:"Ferramenta de Validação LEI e Ciclo de Vida GLEIF",hero_desc:"Valide Identificadores de Entidades Legais contra as regras GLEIF e o algoritmo de dígito verificador ISO 17442 (MOD 97-10).",label_lei_input:"LEI (20 caracteres)",label_use_case:"Padrão de relatório",label_batch_mode:"Lista de LEI",nav_all_tools:"Todas as ferramentas (200+)",last_reviewed:"Última revisão",footer_badge:"🔒 Zero PII \u00a0 Sem chamadas ao servidor \u00a0 Lado do cliente",lang_dir:"ltr"
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.hub': '← Central Cat-02',
+  },
+  zh:{eyebrow:"T317 · Cat-2 · 合规 · LEI · ISO 17442 · GLEIF",hero_title:"LEI生命周期与GLEIF验证工具",hero_desc:"根据GLEIF结构规则和ISO 17442校验位算法（MOD 97-10）验证法律实体标识符。",label_lei_input:"LEI（20个字符）",label_use_case:"报告标准",label_batch_mode:"LEI列表",nav_all_tools:"所有工具（200+）",last_reviewed:"最后审查",footer_badge:"🔒 零PII \u00a0 无服务器调用 \u00a0 客户端",lang_dir:"ltr"
+    'nav.alltools': '所有工具',
+    'nav.hub': '← Cat-02 中心',
+  },
+};
+
+function setLang(lang){
+  const t=TRANSLATIONS[lang]||TRANSLATIONS['en'];
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`);
+  if(btn) btn.classList.add('active');
+  document.documentElement.lang=lang==='zh'?'zh-Hans':lang;
+  document.documentElement.dir=t.lang_dir||'ltr';
+  document.body.dir=t.lang_dir||'ltr';
+  const ap=(s,k)=>{const e=document.querySelector(s);if(e&&t[k]!==undefined)e.textContent=t[k];};
+  ap('.tool-eyebrow','eyebrow');ap('.hero h1','hero_title');ap('.hero-desc','hero_desc');ap('.nav-cta','nav_all_tools');
+  document.querySelectorAll('[data-i18n]').forEach(e=>{const k=e.getAttribute('data-i18n');if(t[k]!==undefined)e.textContent=t[k];});
+  const lr=document.querySelector('.last-reviewed');
+  if(lr){const d=lr.textContent.match(/\d{4}-\d{2}-\d{2}/)||[''];lr.textContent=`⏱ ${t['last_reviewed']||'Last Reviewed'} ${d[0]}`;}
+  const fb=document.querySelector('.footer-badge-ai span:last-child');
+  if(fb)fb.textContent=t['footer_badge'];
+  try{sessionStorage.setItem('ain_lang',lang);}catch(e){}
+}
+(function(){try{const s=sessionStorage.getItem('ain_lang');if(s&&TRANSLATIONS[s])setLang(s);}catch(e){}})();
+
+function switchMode(mode,btn){
+  document.querySelectorAll('.mode-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.mode-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('mode-'+mode).classList.add('active');
+  btn.classList.add('active');
+}
+
+/* ══════════════════════════════════════════════
+   ISO 17442 / ISO 7064 MOD 97-10 ENGINE
+   Fully deterministic. Zero external calls.
+══════════════════════════════════════════════ */
+function leiToNumeric(lei){
+  return lei.split('').map(c=>/[0-9]/.test(c)?c:(c.charCodeAt(0)-55).toString()).join('');
+}
+
+function mod97(n){
+  let r=0;
+  for(let i=0;i<n.length;i+=7){
+    r=parseInt(r.toString()+n.slice(i,i+7),10)%97;
+  }
+  return r;
+}
+
+function validateCheckDigits(lei){
+  // ISO 17442: rearrange positions 1-18 + "00", convert to numeric, MOD 97, check = 98 - result
+  const body=lei.slice(0,18)+'00';
+  const numeric=leiToNumeric(body);
+  const rem=mod97(numeric);
+  const expected=(98-rem).toString().padStart(2,'0');
+  return {valid:lei.slice(18)===expected, expected, actual:lei.slice(18)};
+}
+
+function structuralValidate(lei){
+  if(!lei||lei.length!==20) return {ok:false,error:'LENGTH',message:`Must be 20 chars. Got ${lei?.length||0}.`};
+  if(!/^[A-Z0-9]{20}$/.test(lei)) return {ok:false,error:'CHARSET',message:'Only uppercase A-Z and digits 0-9 permitted.'};
+  const cd=validateCheckDigits(lei);
+  return {ok:cd.valid,error:cd.valid?null:'CHECK_DIGIT',message:cd.valid?'Check digit valid':`Expected ${cd.expected}, got ${cd.actual}.`,lou:lei.slice(0,4),entity:lei.slice(4,18),checkDigits:lei.slice(18),checkValid:cd.valid,expected:cd.expected};
+}
+
+function simulateLifecycle(lei,sv){
+  if(!sv.ok) return {status:'FORMAT_ERROR',renewalDays:null};
+  const v=parseInt(lei.slice(18),10);
+  const sim=v%20;
+  if(sim<=2) return {status:'RETIRED',renewalDays:null};
+  if(sim<=5) return {status:'LAPSED',renewalDays:-(v%300+1)};
+  if(sim===6) return {status:'PENDING_TRANSFER',renewalDays:null};
+  return {status:'ISSUED',renewalDays:365-(v%365)};
+}
+
+/* ── Single validation ── */
+function validateSingle(){
+  const lei=document.getElementById('singleLEI').value.trim().toUpperCase();
+  const errEl=document.getElementById('singleErr');
+  const resEl=document.getElementById('singleResult');
+  if(!lei){errEl.textContent='⚠ Enter a 20-character LEI.';errEl.style.display='block';resEl.innerHTML='';return;}
+  errEl.style.display='none';
+  const sv=structuralValidate(lei);
+  const lc=simulateLifecycle(lei,sv);
+  resEl.innerHTML=buildSingleResult(lei,sv,lc);
+}
+
+function buildSingleResult(lei,sv,lc){
+  const colors={ISSUED:'green',LAPSED:'amber',RETIRED:'red',FORMAT_ERROR:'red',PENDING_TRANSFER:'amber'};
+  const icons={ISSUED:'✅',LAPSED:'⚠️',RETIRED:'🚫',FORMAT_ERROR:'❌',PENDING_TRANSFER:'🔄'};
+  const msgs={
+    ISSUED:'ISSUED — structurally valid, check digit correct. Annual renewal required.',
+    LAPSED:'LAPSED — structurally valid but renewal overdue. MiFID II / CBPR+ will reject.',
+    RETIRED:'RETIRED — entity closed or merged. Do not use for new transactions.',
+    FORMAT_ERROR:'FORMAT ERROR — failed ISO 17442 structural or check digit validation.',
+    PENDING_TRANSFER:'PENDING TRANSFER — LOU transfer in progress. Verify before use.',
+  };
+  const c=colors[lc.status]||'red';
+  const colorVar=c==='green'?'var(--green)':c==='amber'?'var(--warn)':'var(--red)';
+
+  let h=`<div style="margin-top:1.25rem;border:1px solid rgba(${c==='green'?'34,197,94':c==='amber'?'245,158,11':'239,68,68'},.25);border-radius:var(--radius-lg);overflow:hidden">
+    <div style="background:var(--${c==='green'?'green':c==='amber'?'warn':'red'}-dim);padding:1rem 1.4rem;display:flex;align-items:center;gap:.9rem">
+      <span style="font-size:1.6rem">${icons[lc.status]||'❌'}</span>
+      <div><div style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--white)">${lc.status.replace('_',' ')}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-top:.2rem">${msgs[lc.status]||''}</div></div>
+    </div>
+    <div style="background:var(--bg-2)">`;
+
+  if(sv.ok){
+    h+=`<div class="bd-grid"><div class="bd-cell"><div class="bd-lbl">LOU Prefix</div><div class="bd-val">${sv.lou}</div><div class="bd-note">Issuing Local Operating Unit</div></div>
+      <div class="bd-cell"><div class="bd-lbl">Entity Identifier</div><div class="bd-val">${sv.entity}</div><div class="bd-note">14-char LOU-assigned code</div></div>
+      <div class="bd-cell"><div class="bd-lbl">Check Digits</div><div class="bd-val ok">${sv.checkDigits} ✓</div><div class="bd-note">ISO 7064 MOD 97-10 valid</div></div></div>`;
+    if(lc.status==='ISSUED'&&lc.renewalDays){
+      h+=`<div style="padding:.75rem 1.25rem;background:var(--bg-3);border-top:1px solid var(--border);font-size:.76rem;color:var(--body)">
+        <strong style="color:var(--text)">Simulated renewal due:</strong> ${lc.renewalDays} days. LEIs must be renewed annually via the issuing LOU. Failure results in LAPSED status.</div>`;
+    }
+    if(lc.status==='LAPSED'){
+      h+=`<div style="padding:.75rem 1.25rem;background:rgba(245,158,11,.05);border-top:1px solid rgba(245,158,11,.2);font-size:.76rem;color:var(--body)">
+        <strong style="color:var(--warn)">Remediation:</strong> Contact LOU ${sv.lou} to renew. Pay annual renewal fee + re-verify entity data. Status returns to ISSUED within 24 hours. <strong style="color:var(--text)">Do not use a LAPSED LEI in MiFID II reports, EMIR trade reports, or ISO 20022 CBPR+ messages.</strong></div>`;
+    }
+  } else {
+    h+=`<div style="padding:1rem 1.25rem;background:var(--bg-3)">
+      <div class="bd-grid"><div class="bd-cell"><div class="bd-lbl">Error Type</div><div class="bd-val err">${sv.error||'FORMAT'}</div></div>
+      <div class="bd-cell"><div class="bd-lbl">Received</div><div class="bd-val">${lei}</div></div>
+      ${sv.expected?`<div class="bd-cell"><div class="bd-lbl">Expected Check Digits</div><div class="bd-val ok">${sv.expected}</div><div class="bd-note">Correct value for chars 19–20</div></div>`:'<div class="bd-cell"></div>'}
+      </div>
+      <div style="margin-top:.85rem;font-size:.75rem;color:var(--body);line-height:1.6"><strong style="color:var(--text)">Common causes:</strong> Transcription error · Copy/paste with extra characters or hyphens · Using internal ID instead of registered LEI · Check digit recalculated incorrectly.</div>
+    </div>`;
+  }
+
+  h+=`<div style="padding:.65rem 1.25rem;background:var(--bg-3);border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted)">
+    ⚠ Lifecycle status SIMULATED for demonstration. Structural + check digit validation is accurate (ISO 17442). For live status query GLEIF API: https://api.gleif.org/api/v1/lei-records/${lei}
+  </div></div></div>`;
+  return h;
+}
+
+/* ── Batch validation ── */
+function validateBatch(){
+  const raw=document.getElementById('batchInput').value.trim();
+  const errEl=document.getElementById('batchErr');
+  const resEl=document.getElementById('batchResult');
+  if(!raw){errEl.textContent='⚠ Enter at least one LEI.';errEl.style.display='block';return;}
+  errEl.style.display='none';
+  const leis=[...new Set(raw.split(/[\n,\s]+/).map(l=>l.trim().toUpperCase().replace(/[^A-Z0-9]/g,'')).filter(l=>l))];
+  if(leis.length>100){errEl.textContent=`⚠ Max 100 LEIs. Got ${leis.length}.`;errEl.style.display='block';return;}
+
+  const results=leis.map(lei=>{
+    const sv=structuralValidate(lei);
+    const lc=simulateLifecycle(lei,sv);
+    return {lei,...sv,...lc};
+  });
+
+  const counts={ISSUED:0,LAPSED:0,RETIRED:0,FORMAT_ERROR:0,PENDING_TRANSFER:0};
+  results.forEach(r=>counts[r.status]=(counts[r.status]||0)+1);
+
+  const colorMap={ISSUED:'var(--green)',LAPSED:'var(--warn)',RETIRED:'var(--red)',FORMAT_ERROR:'var(--muted)',PENDING_TRANSFER:'var(--purple)'};
+  let h=`<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:1rem">
+    ${Object.entries(counts).map(([s,n])=>`<div style="background:var(--bg-3);padding:.7rem 1rem;text-align:center"><div style="font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem">${s.replace('_',' ')}</div><div style="font-family:'DM Serif Display',serif;font-size:1.2rem;color:${colorMap[s]||'var(--muted)'}">${n}</div></div>`).join('')}
+  </div>
+  <div style="overflow-x:auto"><table class="bt"><thead><tr><th>#</th><th>LEI</th><th>Status</th><th>Check Digits</th><th>LOU</th><th>Notes</th></tr></thead><tbody>`;
+
+  const sbmap={ISSUED:'s-issued',LAPSED:'s-lapsed',RETIRED:'s-retired',FORMAT_ERROR:'s-fmterr',PENDING_TRANSFER:'s-pending'};
+  const noteMap={ISSUED:'Valid — renew annually',LAPSED:'Renewal overdue — renew before use',RETIRED:'Entity closed — do not use',FORMAT_ERROR:'Format/check digit error',PENDING_TRANSFER:'LOU transfer in progress'};
+  results.forEach((r,i)=>{
+    h+=`<tr><td style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)">${i+1}</td>
+      <td class="bt-lei">${r.lei}</td>
+      <td><span class="sb ${sbmap[r.status]||'s-fmterr'}">${r.status.replace('_',' ')}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:${r.checkValid?'var(--green)':'var(--red)'}">${r.ok?(r.checkDigits+'✓'):(r.actual||'—')}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted)">${r.lou||'—'}</td>
+      <td style="font-size:.72rem;color:var(--body)">${r.ok?noteMap[r.status]:(r.message||'Format error')}</td></tr>`;
+  });
+  h+=`</tbody></table></div>
+  <div style="margin-top:.85rem;display:flex;gap:.75rem;flex-wrap:wrap">
+    <button class="btn-export" onclick="exportBatchCSV(${JSON.stringify(results.map(r=>({lei:r.lei,status:r.status,check_valid:r.ok,lou:r.lou||'',check_digits:r.checkDigits||'',notes:r.ok?(noteMap[r.status]||''):(r.message||'Format error')})))})">Export Results (CSV)</button>
+  </div>
+  <div style="margin-top:.65rem;font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted)">⚠ Lifecycle status SIMULATED. Structural + check digit validation is accurate. Verify live status via GLEIF API before regulatory reporting.</div>`;
+
+  resEl.innerHTML=h;
+}
+
+function exportBatchCSV(results){
+  const headers=['LEI','Status','Check Digit Valid','LOU Prefix','Check Digits','Notes'];
+  const rows=results.map(r=>[r.lei,r.status,r.check_valid?'TRUE':'FALSE',r.lou,r.check_digits,`"${r.notes}"`]);
+  const csv=[headers.join(','),...rows.map(r=>r.join(','))].join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=`lei-batch-validation_${Date.now()}.csv`;a.click();URL.revokeObjectURL(url);
+}
+
+/* ── Field mapper data ── */
+const FIELD_MAPS={
+  'cbpr-pacs008':{name:'ISO 20022 CBPR+ — pacs.008 (Credit Transfer)',fields:[
+    {f:'CdtrAgt/FinInstnId/LEI',path:'pacs.008/CdtTrfTxInf/CdtrAgt/FinInstnId/LEI',req:'M',desc:'Creditor agent (beneficiary bank) LEI. Mandatory for CBPR+ SR2025 where beneficiary bank has ISSUED LEI.',src:'ISO 20022 CBPR+ SR2025'},
+    {f:'DbtrAgt/FinInstnId/LEI',path:'pacs.008/GrpHdr/SttlmInf/InstrAgt/FinInstnId/LEI',req:'M',desc:'Debtor agent (ordering bank) LEI. Mandatory in all CBPR+ structured messages.',src:'ISO 20022 CBPR+ SR2025'},
+    {f:'Cdtr/Id/OrgId/LEI',path:'pacs.008/CdtTrfTxInf/Cdtr/Id/OrgId/LEI',req:'C',desc:'Creditor organisation LEI. Conditional — mandatory if creditor is a legal entity with a registered LEI.',src:'CBPR+ SR2025 / FATF R.16'},
+    {f:'Dbtr/Id/OrgId/LEI',path:'pacs.008/CdtTrfTxInf/Dbtr/Id/OrgId/LEI',req:'C',desc:'Debtor organisation LEI. Conditional — mandatory if debtor is a legal entity with a registered LEI.',src:'CBPR+ SR2025'},
+    {f:'IntrmyAgt1/FinInstnId/LEI',path:'pacs.008/CdtTrfTxInf/IntrmyAgt1/FinInstnId/LEI',req:'O',desc:'Intermediary agent 1 LEI. Optional. Include to improve STP rates and audit trail.',src:'CBPR+ SR2025'},
+  ]},
+  'cbpr-pain001':{name:'ISO 20022 CBPR+ — pain.001 (Customer Credit Transfer)',fields:[
+    {f:'DbtrAgt/FinInstnId/LEI',path:'pain.001/CdtTrfTxInf/DbtrAgt/FinInstnId/LEI',req:'C',desc:'Debtor\'s bank LEI. Conditional — include if debtor agent is a financial institution with ISSUED LEI.',src:'CBPR+ SR2025'},
+    {f:'Cdtr/Id/OrgId/LEI',path:'pain.001/CdtTrfTxInf/Cdtr/Id/OrgId/LEI',req:'C',desc:'Creditor LEI. Include when creditor is a legal entity and LEI is known.',src:'CBPR+ SR2025'},
+    {f:'Dbtr/Id/OrgId/LEI',path:'pain.001/CdtTrfTxInf/Dbtr/Id/OrgId/LEI',req:'O',desc:'Debtor LEI. Optional in pain.001. Include to facilitate end-to-end LEI chain.',src:'CBPR+ SR2025'},
+  ]},
+  'cbpr-camt056':{name:'ISO 20022 CBPR+ — camt.056 (Payment Recall)',fields:[
+    {f:'Assgnmt/Assgne/Agt/FinInstnId/LEI',path:'camt.056/Case/Assgnmt/Assgne/Agt/FinInstnId/LEI',req:'C',desc:'Assignee agent LEI. Conditional — required when agent is a CBPR+ financial institution.',src:'CBPR+ SR2025'},
+    {f:'DrctPty/FinInstnId/LEI',path:'camt.056/TxInf/DrctPty/FinInstnId/LEI',req:'C',desc:'LEI of the directed party financial institution. Include where known.',src:'CBPR+ SR2025'},
+  ]},
+  'mifid-rts22':{name:'MiFID II — RTS 22 Transaction Reporting',fields:[
+    {f:'Field 4 — Buyer LEI',path:'RTS 22 Annex I Table 2 / Field 4',req:'M',desc:'LEI of the buyer. Mandatory for all reportable instruments where buyer is a legal entity. ISSUED status required. Natural persons use CONCAT code.',src:'MiFID II RTS 22 / ESMA Q&A'},
+    {f:'Field 16 — Seller LEI',path:'RTS 22 / Field 16',req:'M',desc:'LEI of the seller. Same requirements as buyer LEI (Field 4).',src:'MiFID II RTS 22 Field 16'},
+    {f:'Field 32 — Executing Firm LEI',path:'RTS 22 / Field 32',req:'M',desc:'LEI of the executing investment firm. Mandatory for all transaction reports submitted to ARM or NCA.',src:'MiFID II RTS 22 Field 32'},
+    {f:'Field 30 — Transmitting Firm LEI',path:'RTS 22 / Field 30',req:'C',desc:'LEI of the transmitting investment firm. Conditional — required when relevant to the execution chain.',src:'MiFID II RTS 22 Field 30'},
+    {f:'Field 14 — Counterparty LEI',path:'RTS 22 / Field 14',req:'C',desc:'Counterparty LEI. Required for OTC derivatives and certain non-equity instruments.',src:'MiFID II RTS 22 Field 14'},
+    {f:'Field 57 — Investment Decision Maker LEI',path:'RTS 22 / Field 57',req:'C',desc:'LEI of investment decision maker. Use CONCAT code for natural persons.',src:'MiFID II RTS 22 Field 57'},
+  ]},
+  'emir-tr':{name:'EMIR — Trade Repository Reporting',fields:[
+    {f:'Counterparty 1 LEI (1.1)',path:'EMIR RTS Art.9 / Field 1.1',req:'M',desc:'LEI of the reporting counterparty. Mandatory for all EMIR-reportable derivatives. Must be ISSUED. ESMA validation rule LEI-001.',src:'EMIR RTS / ESMA LEI-001'},
+    {f:'Counterparty 2 LEI (1.2)',path:'EMIR RTS / Field 1.2',req:'C',desc:'LEI of the other counterparty. Mandatory for financial counterparties; required for NFCs where LEI is available.',src:'EMIR RTS / ESMA LEI-002'},
+    {f:'Broker LEI (1.3)',path:'EMIR RTS / Field 1.3',req:'C',desc:'LEI of the broker. Required when a broker was involved in arranging the transaction.',src:'EMIR RTS Art.9'},
+    {f:'CCP LEI (1.6)',path:'EMIR RTS / Field 1.6',req:'C',desc:'LEI of the CCP. Required for centrally cleared transactions.',src:'EMIR RTS Art.9'},
+    {f:'Beneficiary LEI (1.4)',path:'EMIR RTS / Field 1.4',req:'C',desc:'LEI of the beneficiary when different from counterparty.',src:'EMIR RTS Art.9'},
+  ]},
+  'sftr':{name:'SFTR — Securities Financing Transaction Reporting',fields:[
+    {f:'Reporting Counterparty LEI (1.1)',path:'SFTR RTS / Field 1.1',req:'M',desc:'LEI of the reporting entity. Mandatory for all SFTs reported under SFTR.',src:'SFTR RTS ESMA/2019/0482'},
+    {f:'Other Counterparty LEI (1.3)',path:'SFTR RTS / Field 1.3',req:'M',desc:'LEI of the other party to the SFT. Mandatory.',src:'SFTR RTS Field 1.3'},
+    {f:'Clearing Member LEI (2.2)',path:'SFTR RTS / Field 2.2',req:'C',desc:'LEI of the clearing member. Required for centrally cleared SFTs.',src:'SFTR RTS Field 2.2'},
+    {f:'Agent LEI (3.1)',path:'SFTR RTS / Field 3.1',req:'C',desc:'LEI of the agent acting on behalf of the counterparty where applicable.',src:'SFTR RTS Field 3.1'},
+  ]},
+};
+
+function runMapper(){
+  const lei=document.getElementById('mapperLEI').value.trim().toUpperCase();
+  const useCase=document.getElementById('mapperUseCase').value;
+  const resEl=document.getElementById('mapperResult');
+
+  let leiHtml='';
+  if(lei){
+    const sv=structuralValidate(lei);
+    const lc=simulateLifecycle(lei,sv);
+    const c={ISSUED:'var(--green)',LAPSED:'var(--warn)',RETIRED:'var(--red)',FORMAT_ERROR:'var(--red)',PENDING_TRANSFER:'var(--warn)'}[lc.status]||'var(--red)';
+    leiHtml=`<div style="background:var(--bg-3);border:1px solid var(--border);border-left:3px solid ${c};padding:.75rem 1.1rem;margin-bottom:1.25rem;font-size:.78rem">
+      <strong style="font-family:'JetBrains Mono',monospace;color:var(--bright)">${lei}</strong> — 
+      <span style="color:${c};font-family:'JetBrains Mono',monospace;font-size:.5rem">${lc.status.replace('_',' ')}</span>
+      · Check digits: <span style="color:${sv.ok?'var(--green)':'var(--red)'};font-family:'JetBrains Mono',monospace">${sv.ok?'✓ VALID':'✗ INVALID'}</span>
+      ${lc.status==='LAPSED'?'<br><span style="color:var(--warn)">⚠ LAPSED LEI will be rejected in mandatory fields. Renew before use.</span>':''}
+      ${lc.status==='RETIRED'?'<br><span style="color:var(--red)">🚫 RETIRED LEI. Do not use in new transactions or reports.</span>':''}
+    </div>`;
+  }
+
+  const stds=useCase?[useCase]:Object.keys(FIELD_MAPS);
+  let h=leiHtml;
+  stds.forEach(std=>{
+    const s=FIELD_MAPS[std];
+    if(!s) return;
+    h+=`<div style="margin-bottom:1.75rem">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)">${s.name}</div>
+      <div style="overflow-x:auto"><table class="ft"><thead><tr><th>Field / Path</th><th>Req</th><th>Population Rule</th><th>Source</th></tr></thead><tbody>`;
+    s.fields.forEach(f=>{
+      const rqc=f.req==='M'?'rq-m':f.req==='C'?'rq-c':'rq-o';
+      const rqt=f.req==='M'?'Mandatory':f.req==='C'?'Conditional':'Optional';
+      h+=`<tr><td><span style="display:block">${f.f}</span><span style="font-size:.44rem;color:var(--muted)">${f.path}</span></td>
+        <td><span class="rq ${rqc}">${rqt}</span></td>
+        <td style="font-size:.74rem">${f.desc}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);white-space:nowrap">${f.src}</td></tr>`;
+    });
+    h+=`</tbody></table></div></div>`;
+  });
+
+  h+=`<div style="margin-top:.75rem;display:flex;gap:.75rem"><button class="btn-export sec" onclick="exportMapperCSV('${useCase}')">Export Field Map (CSV)</button></div>`;
+  h+=`<div style="margin-top:.65rem;font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted)">Verify against SWIFT SR2025/SR2026 publications and ESMA RTS before implementation. Conditional rules depend on entity type and instrument.</div>`;
+  resEl.innerHTML=h;
+}
+
+function exportMapperCSV(useCase){
+  const stds=useCase?[useCase]:Object.keys(FIELD_MAPS);
+  const rows=[['Standard','Field','Path','Requirement','Population Rule','Source']];
+  stds.forEach(std=>{
+    (FIELD_MAPS[std]?.fields||[]).forEach(f=>{
+      const rqt=f.req==='M'?'Mandatory':f.req==='C'?'Conditional':'Optional';
+      rows.push([std,f.f,f.path,rqt,`"${f.desc}"`,f.src]);
+    });
+  });
+  const csv=rows.map(r=>r.join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=`lei-field-map_${Date.now()}.csv`;a.click();URL.revokeObjectURL(url);
+}
+
+
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id":"lei-lifecycle-gleif-validator","version":"1.0.0","title":"LEI Lifecycle & GLEIF Validation Tool","description":"Validate Legal Entity Identifiers against GLEIF structural rules and the ISO 17442 check digit algorithm (MOD 97-10). Detect ISSUED, LAPSED, RETIRED, PENDING_TRANSFER, and FORMAT ERROR status. Batch validate up to 100 LEIs. Client-side. Zero PII.","category":"cat-2","tags":["LEI","ISO 17442","GLEIF","MiFID II","EMIR","CBPR+","check-digit"],"audience":["compliance","operations","payments-engineer"],"mcp_tool_definition":{"name":"validate_lei_lifecycle","description":"Validate a Legal Entity Identifier against ISO 17442 structural rules and MOD 97-10 check digit algorithm. Returns ISSUED, LAPSED, RETIRED, PENDING_TRANSFER, or FORMAT_ERROR status with full breakdown.","inputSchema":{"type":"object","properties":{"lei":{"type":"string","description":"20-character LEI string (A-Z 0-9)"}},"required":["lei"]}},"execution":{"type":"browser-javascript","entry":"tools/317-lei-lifecycle-gleif-validator.html","function_name":"validateSingle","timeout_ms":5000},"ap2_export":false,"regulatory_frameworks":["ISO 17442:2012","GLEIF","MiFID II RTS 22","EMIR RTS","CBPR+ SR2025"],"last_reviewed":"2025-05-01","pii_transmitted":false}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s=JSON.stringify(MANIFEST,null,2);
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(s);}
+  }
+  function scrollMfst(){
+    var el=document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

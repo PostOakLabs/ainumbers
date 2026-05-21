@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<title>Trade Finance Document & LC Analyser | AINumbers.co</title>
+<meta name="description" content="Parse and validate Letters of Credit against UCP 600. Decode SWIFT MT700 messages. Incoterms 2020 selector. Discrepancy checker. Export report as Markdown. Client-side. Zero PII.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--esg:#10B981;--esg-dim:rgba(16,185,129,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:.85rem;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+
+
+.logo{display:flex;align-items:center;gap:10px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+.nav-back:hover{border-color:var(--teal);color:var(--teal)}
+
+.page{max-width:1280px;margin:0 auto;padding:32px 24px 80px}
+
+.tool-h1{font-family:'DM Serif Display',serif;font-size:2rem;color:var(--white);line-height:1.2;margin-bottom:10px}
+.tool-sub{color:var(--body);font-size:.82rem;line-height:1.75;max-width:700px;margin-bottom:16px}
+.pill-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:28px}
+.pill{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;padding:.22rem .65rem;border-radius:20px;border:1px solid}
+.pill-teal{background:var(--teal-dim);border-color:rgba(20,184,166,.3);color:var(--teal)}
+.pill-gold{background:var(--gold-dim);border-color:rgba(212,168,71,.3);color:var(--gold)}
+.pill-green{background:var(--green-dim);border-color:rgba(34,197,94,.3);color:var(--green)}
+.pill-esg{background:var(--esg-dim);border-color:rgba(16,185,129,.3);color:var(--esg)}
+
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:24px}
+.tab{background:none;border:none;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.06em;padding:.55rem 1rem .65rem;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;cursor:pointer}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.tab:hover:not(.active){color:var(--text)}
+.tab-panel{display:none}.tab-panel.active{display:block}
+
+.layout{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}}
+
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:14px}
+.panel-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.panel-body{padding:14px 16px}
+
+label{display:block;font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;margin-top:10px}
+label:first-child{margin-top:0}
+input[type=text],input[type=date],select{width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--bright);padding:.35rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--gold)}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--bright);padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:.72rem;resize:vertical;outline:none;transition:border-color .2s;line-height:1.7}
+textarea:focus{border-color:var(--gold)}
+textarea::placeholder{color:var(--muted)}
+
+.btn-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.btn-primary{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-weight:600;font-size:.65rem;letter-spacing:.06em;padding:.45rem 1.1rem;transition:background .15s;cursor:pointer}
+.btn-primary:hover{background:#F0BC5E}
+.btn-secondary{background:none;border:1px solid var(--border-2);color:var(--body);border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.63rem;padding:.42rem .85rem;transition:all .15s;cursor:pointer}
+.btn-secondary:hover{border-color:var(--text);color:var(--text)}
+
+/* Parsed field display */
+.field-grid{display:grid;gap:8px}
+.field-item{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;display:grid;grid-template-columns:120px 1fr}
+.field-tag{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--gold)}
+.field-name{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);margin-bottom:2px}
+.field-value{font-size:.75rem;color:var(--bright);grid-column:2}
+
+/* Discrepancy list */
+.disc-list{display:flex;flex-direction:column;gap:6px}
+.disc-item{border-radius:var(--radius);padding:8px 12px;display:flex;align-items:flex-start;gap:10px}
+.disc-item.critical{background:var(--red-dim);border:1px solid rgba(239,68,68,.3)}
+.disc-item.warn{background:var(--gold-dim);border:1px solid rgba(212,168,71,.3)}
+.disc-item.ok{background:var(--green-dim);border:1px solid rgba(34,197,94,.3)}
+.disc-icon{font-size:1rem;flex-shrink:0}
+.disc-label{font-size:.74rem;font-weight:500;color:var(--bright)}
+.disc-sub{font-size:.67rem;color:var(--body);margin-top:2px}
+.disc-ucp{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);margin-top:3px}
+
+/* Incoterms */
+.inco-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.inco-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 14px;cursor:pointer;transition:all .15s}
+.inco-card:hover,.inco-card.selected{border-color:var(--gold);background:var(--gold-dim)}
+.inco-code{font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:var(--gold);font-weight:500}
+.inco-name{font-size:.72rem;color:var(--bright);margin:.3rem 0}
+.inco-desc{font-size:.65rem;color:var(--body);line-height:1.5}
+.inco-badge{display:inline-flex;align-items:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:.52rem;padding:.15rem .4rem;border-radius:3px;margin-top:6px}
+.badge-sea{background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.3);color:#6EA8FE}
+.badge-any{background:var(--teal-dim);border:1px solid rgba(20,184,166,.3);color:var(--teal)}
+.risk-row{display:flex;align-items:center;gap:6px;margin-top:6px}
+.risk-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.risk-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+
+/* SWIFT tag table */
+.swift-wrap{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:12px;font-family:'JetBrains Mono',monospace;font-size:.7rem;line-height:2}
+.swift-tag{color:var(--gold)}
+.swift-content{color:var(--bright)}
+.swift-comment{color:var(--muted);font-style:italic;font-family:'Sora',sans-serif;font-size:.68rem}
+
+
+/* ── LANG BAR ── */
+.lang-bar {
+  background: var(--deep);
+  border-bottom: 1px solid var(--edge);
+  padding: 0 2rem;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.lang-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+.lang-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+.lang-btn:hover { color: var(--body); border-color: var(--edge); }
+.lang-btn.active { color: var(--teal-lt); border-bottom: 1px solid var(--teal); }
+
+/* ── AINUMBERS LOGO ── */
+.logo { display:flex; align-items:center; gap:10px; flex-shrink:0; text-decoration:none; }
+.logo-mark-grid { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:32px; height:32px; }
+.logo-text { display:flex; flex-direction:column; gap:2px; }
+.logo-name { font-family:'JetBrains Mono',monospace; font-size:.95rem; font-weight:500; color:var(--bright); letter-spacing:-.02em; line-height:1; }
+.logo-ai { color:var(--teal); }
+.logo-co { color:var(--muted); font-size:.8rem; }
+
+@media(max-width:600px){}
+
+/* ── NAV CTA ── */
+
+
+/* ── BACKGROUND GRID ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(20,184,166,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20,184,166,.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── FOOTER ── */
+@media(max-width:600px){   }
+
+/* ── HERO ── */
+.hero {
+  padding: 3.5rem 0 3rem; border-bottom: 1px solid var(--edge);
+  position: relative; overflow: hidden;
+}
+.hero::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+.hero-eyebrow {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.57rem;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--accent-lt); margin-bottom: 1rem;
+  display: flex; align-items: center; gap: 0.75rem;
+}
+.hero-eyebrow::before { content: ''; display: block; width: 28px; height: 1px; background: var(--accent); }
+.hero h1 { font-size: clamp(1.7rem, 3vw, 2.6rem); color: var(--white); max-width: 720px; margin-bottom: 0.75rem; }
+.hero-sub { font-size: 0.88rem; color: var(--body); max-width: 640px; line-height: 1.85; margin-bottom: 1.2rem; }
+.hero-meta { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.52rem;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 0.35rem 0.75rem; border: 1px solid;
+}
+.badge-privacy { color: var(--muted); border-color: var(--edge); }
+.badge-privacy::before { content: '·'; color: var(--green-lt); }
+.badge-spec { color: var(--gold); border-color: rgba(192,144,64,0.3); }
+
+/* ── RTL SUPPORT ── */
+[dir="rtl"] .nav-inner,[dir="rtl"] .nav-links { flex-direction: row-reverse; }
+[dir="rtl"] .lang-inner { flex-direction: row-reverse; justify-content: flex-start; }
+[dir="rtl"] label,[dir="rtl"] .label,[dir="rtl"] .input-label-text,
+[dir="rtl"] .input-label-hint,[dir="rtl"] .section-head,[dir="rtl"] .panel-label,
+[dir="rtl"] .form-label,[dir="rtl"] .field-label { text-align:right;direction:rtl; }
+[dir="rtl"] .stat-cell,[dir="rtl"] .stat-label,[dir="rtl"] .stat-sub,
+[dir="rtl"] .kpi-label { text-align:right; }
+[dir="rtl"] .config-panel,[dir="rtl"] .left-panel { order:2; }
+[dir="rtl"] .output-panel,[dir="rtl"] .results-panel,[dir="rtl"] .right-panel { order:1; }
+[dir="rtl"] .tool-grid,[dir="rtl"] .split-grid { direction:rtl; }
+[dir="rtl"] .hero,[dir="rtl"] .hero-eyebrow { direction:rtl;text-align:right; }
+[dir="rtl"] .hero-eyebrow::before { margin-left:0.5rem;margin-right:0; }
+[dir="rtl"] .hero-meta { justify-content:flex-end; }
+[dir="rtl"] .collapsible-trigger { text-align:right; }
+
+
+/* ═══════════════════════════════════════════════════════════
+   AINumbers.co — Global Layout & Spacing Patch  v2.0
+   Applied to all tools for consistent UX:
+   • 8-pt grid system throughout (base 8px, multiples of 8/16/24)
+   • Nav: logo left, CTA right with flex grow spacer
+   • Lang bar: right-aligned toggles above nav
+   • Hero & content: 24px side padding, never edge-flush
+   • Footer: centered layout, mobile-first text centering
+═══════════════════════════════════════════════════════════ */
+
+/* ── Page shell: max 1440px centered ── */
+.page-shell {
+  max-width: 1440px;
+  margin: 0 auto;
+  position: relative;
+  min-height: 100vh;
+  box-shadow: 0 0 0 1px rgba(30,47,74,.6), 0 0 80px rgba(0,0,0,.5);
+  overflow-x: hidden;
+}
+body { overflow-x: hidden; }
+
+/* ── Lang bar ── */
+.lang-bar {
+  background: var(--bg-2, #0D1627);
+  border-bottom: 1px solid var(--border, #1E2F4A);
+  padding: 0 24px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  position: relative;
+  z-index: 101;
+}
+.lang-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  align-items: center;
+}
+.lang-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted, #3A5270);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+  border-radius: 3px;
+}
+.lang-btn:hover { color: var(--body, #6888A8); border-color: var(--border, #1E2F4A); }
+.lang-btn.active { color: var(--teal, #14B8A6); border-color: rgba(20,184,166,.35); }
+
+/* ── Nav: logo left | spacer | CTA right ── */
+
+
+/* Push everything after the logo to the right */
+.nav-inner > *:not(.logo):not(:first-child),
+.nav-links,
+.nav-back,
+.nav-meta,
+.nav-cta-wrap {
+  margin-left: auto;
+}
+/* Only apply once — reset margin if there are multiple right-side items */
+.nav-links + *,
+.nav-meta + .nav-links { margin-left: 0; }
+
+/* CTA button */
+
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+
+/* ── Universal container: always 24px side padding ── */
+.container,
+.page,
+.search-inner,
+.mode-inner,
+.footer-inner,
+.tool-wrap,
+.main-wrap,
+.hero > .container,
+.collapsible-outer {
+  max-width: 1200px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-left: clamp(16px, 3vw, 24px) !important;
+  padding-right: clamp(16px, 3vw, 24px) !important;
+}
+
+/* ── Hero section ── */
+.hero {
+  padding: 3rem 24px 2.5rem;
+  border-bottom: 1px solid var(--border, #1E2F4A);
+  position: relative;
+  overflow: hidden;
+}
+.hero > .container {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* ── Collapsible sections padding ── */
+.collapsible-trigger,
+.collapsible-body {
+  /* these are full-width inside a padded container already */
+}
+/* Fix the inline-style padded wrapper around collapsibles */
+[style*="padding:1.5rem 2rem"] {
+  padding-left: clamp(16px, 3vw, 24px) !important;
+  padding-right: clamp(16px, 3vw, 24px) !important;
+}
+
+/* ── Ensure .page has content padding (used in many files as main wrapper) ── */
+.page {
+  padding-top: 32px !important;
+  padding-bottom: 80px !important;
+}
+
+/* Mobile footer: stack and center everything */
+@media (max-width: 640px) {
+      }
+
+/* ── Readable prose max-width ── */
+p, li, .tool-sub, .hero-sub {
+  max-width: 72ch;
+}
+
+/* ── Tablet adjustments ── */
+@media (max-width: 1024px) {
+  .tool-wrap, .main-wrap {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+}
+/* ── Mobile ── */
+@media (max-width: 640px) {
+  nav { padding: 0 16px; }
+  .lang-bar { padding: 0 16px; }
+  .hero { padding: 2rem 16px 2rem; }
+  }
+/* ═══════════════════════════════ End AINumbers Patch v2.0 ═══ */
+
+/* ── Footer ─────────────────────────────────────────── */
+footer { border-top: 1px solid var(--border); padding: 1.75rem 1.5rem; margin-top: 3rem; }
+.footer-inner-ai { display:flex; align-items:center; gap:2rem; flex-wrap:wrap; justify-content:space-between; }
+.footer-links-ai { display:flex; gap:1.25rem; font-family:'JetBrains Mono',monospace; font-size:.52rem; color:var(--muted); }
+.footer-links-ai a { color:var(--muted); text-decoration:none; transition:color .2s; }
+.footer-links-ai a:hover { color:var(--teal-lt); }
+.footer-badge-ai { display:flex; flex-direction:column; gap:.3rem; font-family:'JetBrains Mono',monospace; font-size:.5rem; color:var(--muted); }
+.footer-brand-link { display:flex; align-items:center; gap:.5rem; text-decoration:none; color:var(--text); }
+.footer-wordmark { font-family:'JetBrains Mono',monospace; font-size:.9rem; font-weight:500; }
+.logo-icon-sm { background:var(--teal); color:#000; font-weight:700; font-size:.7rem; padding:.15rem .3rem; border-radius:3px; }
+@media(max-width:640px){ .footer-inner-ai { flex-direction:column; text-align:center; } .footer-badge-ai { align-items:center; } }
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+/* Glossary */
+.glossary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-top:4px}
+.gloss-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 14px}
+.gloss-term{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--gold);font-weight:500;margin-bottom:4px}
+.gloss-ref{font-size:.55rem;color:var(--muted);letter-spacing:.06em;font-family:'JetBrains Mono',monospace;float:right}
+.gloss-def{font-size:.68rem;color:var(--body);line-height:1.55}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:1rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.nav-bc{margin-left:0!important;justify-self:center}
+.nav-right{margin-left:0!important;justify-self:end}
+</style>
+  <link rel="canonical" href="https://ainumbers.co/tools/50-trade-finance-lc-analyser.html">
+  <meta name="twitter:site" content="@ainumbers">
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<div class="page-shell">
+
+
+<!-- LANG BAR -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/fx-payments-intelligence-hub.html">FX &amp; Payments Hub</a><span class="nav-sep">/</span><span>T-50</span></div>
+    <a href="../guides/fx-payments-intelligence-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="container">
+    <div class="hero-eyebrow"><span data-i18n="t50.hero.eyebrow">Tool 50 · Compliance &amp; Regulation</span></div>
+    <h1><span data-i18n="t50.hero.title">Trade Finance Document <em style="font-style:italic;color:var(--gold)">&amp; Letter of Credit Analyser</em></span></h1>
+    <p class="hero-sub"><span data-i18n="t50.hero.sub">Parse and validate Letters of Credit against UCP 600 rules. Decode SWIFT MT700 field tags into plain English. Select Incoterms 2020 rules with risk/cost transfer guidance. Run a discrepancy check against the 12 most common documentary credit defects.</span></p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-privacy">Zero PII · Client-Side Only</span>
+      <span class="hero-badge badge-spec">UCP 600</span>
+      <span class="hero-badge badge-spec">SWIFT MT700</span>
+      <span class="hero-badge badge-spec">Incoterms 2020</span>
+    </div>
+  </div>
+</div>
+
+<div class="tabs">
+    <button class="tab active" onclick="switchTab('lc')">LC / UCP 600 Checker</button>
+    <button class="tab" onclick="switchTab('swift')">SWIFT MT700 Decoder</button>
+    <button class="tab" onclick="switchTab('inco')">Incoterms 2020</button>
+    <button class="tab" onclick="switchTab('disc')">Discrepancy Checker</button>
+    <button class="tab" onclick="switchTab('glossary')">UCP 600 Glossary</button>
+  </div>
+
+  <!-- TAB 1: LC Checker -->
+  <div class="tab-panel active" id="tab-lc">
+    <div class="layout">
+      <div>
+        <div class="panel">
+          <div class="panel-head"><span class="panel-title">LC Fields</span></div>
+          <div class="panel-body">
+            <label>LC Reference Number</label>
+            <input type="text" id="lc-ref" placeholder="e.g. LC-2026-001234">
+            <label>LC Type</label>
+            <select id="lc-type">
+              <option>Irrevocable</option>
+              <option>Irrevocable & Confirmed</option>
+              <option>Standby LC (SBLC)</option>
+              <option>Revolving</option>
+              <option>Transferable</option>
+              <option>Back-to-Back</option>
+            </select>
+            <label>Currency &amp; Amount</label>
+            <input type="text" id="lc-amount" placeholder="e.g. USD 500,000.00">
+            <label>Expiry Date</label>
+            <input type="date" id="lc-expiry">
+            <label>Expiry Place</label>
+            <input type="text" id="lc-expiry-place" placeholder="e.g. Beneficiary's country">
+            <label>Applicant (Buyer)</label>
+            <input type="text" id="lc-applicant" placeholder="Company name">
+            <label>Beneficiary (Seller)</label>
+            <input type="text" id="lc-beneficiary" placeholder="Company name">
+            <label>Issuing Bank</label>
+            <input type="text" id="lc-bank" placeholder="Bank name and SWIFT BIC">
+            <label>Latest Shipment Date</label>
+            <input type="date" id="lc-ship-date">
+            <label>Port of Loading</label>
+            <input type="text" id="lc-pol" placeholder="e.g. Port of Shanghai">
+            <label>Port of Discharge</label>
+            <input type="text" id="lc-pod" placeholder="e.g. Port of Hamburg">
+            <label>Incoterms Rule</label>
+            <select id="lc-inco">
+              <option value="">Select…</option>
+              <option>EXW</option><option>FCA</option><option>CPT</option><option>CIP</option>
+              <option>DAP</option><option>DPU</option><option>DDP</option>
+              <option>FAS</option><option>FOB</option><option>CFR</option><option>CIF</option>
+            </select>
+            <label>Partial Shipments</label>
+            <select id="lc-partial"><option>Not Allowed</option><option>Allowed</option></select>
+            <label>Transhipment</label>
+            <select id="lc-trans"><option>Not Allowed</option><option>Allowed</option></select>
+            <label>Presentation Period (days after B/L date)</label>
+            <input type="text" id="lc-pres-period" placeholder="e.g. 21 days">
+            <div class="btn-row">
+              <button class="btn-primary" onclick="runLCCheck()">Run UCP 600 Check →</button>
+              <button class="btn-secondary" onclick="exportLCReport()">Export MD Report</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="panel">
+          <div class="panel-head"><span class="panel-title">UCP 600 Validation Results</span></div>
+          <div class="panel-body">
+            <div id="lcResults"><p style="color:var(--muted);font-size:.73rem">Fill in LC fields and click Run UCP 600 Check.</p></div>
+          </div>
+        </div>
+        
+<div class="pii-notice">
+  <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+</div>
+<div class="panel">
+          <div class="panel-head"><span class="panel-title">UCP 600 Key Articles Quick Reference</span></div>
+          <div class="panel-body">
+            <div style="display:grid;gap:6px">
+              <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid rgba(30,47,74,.3)"><span style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--gold);width:55px">Art. 6</span><span style="font-size:.7rem;color:var(--body)">Availability, Expiry Date and Place</span></div>
+              <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid rgba(30,47,74,.3)"><span style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--gold);width:55px">Art. 14</span><span style="font-size:.7rem;color:var(--body)">Standard for Examination of Documents</span></div>
+              <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid rgba(30,47,74,.3)"><span style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--gold);width:55px">Art. 16</span><span style="font-size:.7rem;color:var(--body)">Discrepant Documents, Waiver and Notice (5 banking days)</span></div>
+              <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid rgba(30,47,74,.3)"><span style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--gold);width:55px">Art. 18</span><span style="font-size:.7rem;color:var(--body)">Commercial Invoice — must match LC amount and description</span></div>
+              <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid rgba(30,47,74,.3)"><span style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--gold);width:55px">Art. 20</span><span style="font-size:.7rem;color:var(--body)">Bill of Lading requirements</span></div>
+              <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid rgba(30,47,74,.3)"><span style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--gold);width:55px">Art. 29</span><span style="font-size:.7rem;color:var(--body)">Extension of Expiry Date or Last Day for Presentation</span></div>
+              <div style="display:flex;gap:10px;padding:5px 0"><span style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--gold);width:55px">Art. 38</span><span style="font-size:.7rem;color:var(--body)">Transferable Credits — conditions for transfer</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: SWIFT MT700 Decoder -->
+  <div class="tab-panel" id="tab-swift">
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">SWIFT MT700 Input</span></div>
+      <div class="panel-body">
+        <p style="font-size:.72rem;color:var(--body);margin-bottom:12px">Paste a SWIFT MT700 message (field tags on separate lines). The decoder will extract and translate each field tag to plain English.</p>
+        <textarea id="swiftInput" rows="16" placeholder=":27A:1/1&#10;:40A:IRREVOCABLE&#10;:20:LC2026001234&#10;:31C:260630&#10;:31D:261231HAMBURG&#10;:50:APPLICANT NAME&#10;ADDRESS LINE 1&#10;:59:BENEFICIARY NAME&#10;ADDRESS&#10;:32B:USD500000,00&#10;:41D:ANY BANK&#10;BY NEGOTIATION&#10;:43P:NOT ALLOWED&#10;:43T:ALLOWED&#10;:44A:SHANGHAI&#10;:44B:HAMBURG&#10;:44C:261201&#10;:45A:GOODS DESCRIPTION&#10;:46A:DOCUMENTS REQUIRED&#10;:47A:ADDITIONAL CONDITIONS&#10;:71B:ALL BANKING CHARGES&#10;:49:WITHOUT"></textarea>
+        <div class="btn-row">
+          <button class="btn-primary" onclick="decodeSWIFT()">Decode MT700 →</button>
+          <button class="btn-secondary" onclick="document.getElementById('swiftInput').value=''">Clear</button>
+          <button class="btn-secondary" onclick="loadSwiftSample()">Load Sample</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel" id="swiftResultPanel" style="display:none">
+      <div class="panel-head"><span class="panel-title">Decoded Fields</span></div>
+      <div class="panel-body">
+        <div class="field-grid" id="swiftFields"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: Incoterms 2020 -->
+  <div class="tab-panel" id="tab-inco">
+    <p style="font-size:.78rem;color:var(--body);margin-bottom:16px">Click any term to see the full transfer of risk, cost, and document responsibilities under Incoterms® 2020 (ICC).</p>
+    <div class="inco-grid" id="incoGrid"></div>
+    <div class="panel" id="incoDetail" style="display:none;margin-top:16px">
+      <div class="panel-head"><span class="panel-title" id="incoDetailTitle">—</span></div>
+      <div class="panel-body" id="incoDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- TAB 4: Discrepancy Checker -->
+  <div class="tab-panel" id="tab-disc">
+    <p style="font-size:.78rem;color:var(--body);margin-bottom:16px">Check your presentation against the 12 most common LC discrepancies that cause banks to refuse or delay payment.</p>
+    <div class="disc-list" id="discList"></div>
+    <div class="btn-row" style="margin-top:16px">
+      <button class="btn-primary" onclick="exportDiscReport()">Export Discrepancy Report (MD)</button>
+    </div>
+  </div>
+
+  <!-- TAB 5: UCP 600 Glossary -->
+  <div class="tab-panel" id="tab-glossary">
+    <p style="font-size:.78rem;color:var(--body);margin-bottom:16px">Key trade finance and documentary credit terms, with UCP 600 article references.</p>
+    <div class="glossary-grid" id="glossaryGrid"></div>
+  </div>
+</div>
+
+<script>
+// ── SWIFT MT700 field definitions ────────────────────────────────────────────
+const MT700_FIELDS = {
+  '27A': { name:'Sequence of Total', desc:'Sequence number of this message in the series' },
+  '40A': { name:'Form of Documentary Credit', desc:'Type of LC — IRREVOCABLE, IRREVOCABLE TRANSFERABLE, etc.' },
+  '20':  { name:'Documentary Credit Number', desc:'Unique reference number assigned by the issuing bank' },
+  '23':  { name:'Reference to Pre-Advice', desc:'Reference to a pre-advice (MT 705) if previously issued' },
+  '31C': { name:'Date of Issue', desc:'Date the LC was issued by the issuing bank (YYMMDD)' },
+  '31D': { name:'Expiry Date and Place', desc:'Last date for presentation of documents and the place where documents must be presented' },
+  '51A': { name:'Applicant Bank', desc:'Bank acting on behalf of the applicant (if different from issuing bank)' },
+  '50':  { name:'Applicant', desc:'Name and address of the applicant (buyer/importer) who requested the LC' },
+  '59':  { name:'Beneficiary', desc:'Name and address of the beneficiary (seller/exporter) who will draw on the LC' },
+  '32B': { name:'Currency Code, Amount', desc:'Currency and maximum amount of the LC (e.g. USD 500,000.00)' },
+  '39A': { name:'Percentage Credit Amount Tolerance', desc:'Allowed tolerance on the credit amount (e.g. 10/10 = ±10%)' },
+  '39B': { name:'Maximum Credit Amount', desc:'Indicates if the credit amount is a maximum (NOT EXCEEDING)' },
+  '41A': { name:'Available With / By (BIC)', desc:'Bank with which the credit is available and how (by payment, acceptance, negotiation, deferred payment)' },
+  '41D': { name:'Available With / By (name)', desc:'Named bank or ANY BANK and the method of availability' },
+  '42C': { name:'Drafts At', desc:'Tenor of drafts (e.g. AT SIGHT, 60 DAYS AFTER B/L DATE)' },
+  '42A': { name:'Drawee', desc:'Bank on whom drafts are to be drawn' },
+  '43P': { name:'Partial Shipments', desc:'Whether partial shipments are ALLOWED or NOT ALLOWED (UCP 600 Art. 31)' },
+  '43T': { name:'Transhipment', desc:'Whether transhipment is ALLOWED or NOT ALLOWED (UCP 600 Art. 20)' },
+  '44A': { name:'Place of Taking in Charge / Dispatch / Loading', desc:'Port, airport, or place of origin of the shipment' },
+  '44E': { name:'Port of Loading / Airport of Departure', desc:'Specific port or airport from which goods are shipped' },
+  '44F': { name:'Port of Discharge / Airport of Destination', desc:'Destination port or airport' },
+  '44B': { name:'Place of Final Destination', desc:'Final destination for delivery of goods' },
+  '44C': { name:'Latest Date of Shipment', desc:'The last permissible date for shipment/dispatch (YYMMDD)' },
+  '44D': { name:'Shipment Period', desc:'Period during which shipment/dispatch must take place' },
+  '45A': { name:'Description of Goods and/or Services', desc:'Detailed description of goods, HS codes, quantity, and unit prices as per LC terms' },
+  '46A': { name:'Documents Required', desc:'List of documents the beneficiary must present to obtain payment' },
+  '47A': { name:'Additional Conditions', desc:'Special conditions or instructions that the beneficiary must comply with' },
+  '71B': { name:'Charges', desc:'Who bears banking charges — ALL or beneficiary or applicant' },
+  '48':  { name:'Period for Presentation', desc:'Number of days after date of shipment within which documents must be presented (default 21 days per UCP 600 Art. 14c)' },
+  '49':  { name:'Confirmation Instructions', desc:'Whether the advising bank is to add confirmation (CONFIRM, MAY ADD, WITHOUT)' },
+  '53A': { name:'Reimbursing Bank', desc:'Bank authorised to reimburse the paying or negotiating bank' },
+  '78':  { name:'Instructions to the Paying/Accepting/Negotiating Bank', desc:'Specific instructions for the nominated bank regarding payment or reimbursement' },
+  '72':  { name:'Sender to Receiver Information', desc:'Additional information from issuing bank to advising bank' },
+};
+
+// ── Incoterms 2020 ───────────────────────────────────────────────────────────
+const INCOTERMS = [
+  { code:'EXW', name:'Ex Works', modal:'any', desc:'Seller makes goods available at their premises. Maximum obligation on buyer — buyer arranges all transport, export clearance and risk from seller\'s door.', sellerRisk:'Minimal', buyerRisk:'Maximum', exportDuty:'Buyer', importDuty:'Buyer', insurance:'Buyer', typical:'Factory pickup, domestic supply' },
+  { code:'FCA', name:'Free Carrier', modal:'any', desc:'Seller delivers to a named carrier or forwarder at a named place. Risk transfers on handover to carrier. Seller handles export clearance. Works with containerised and air freight.', sellerRisk:'Low', buyerRisk:'High', exportDuty:'Seller', importDuty:'Buyer', insurance:'Buyer', typical:'Container, air, multimodal' },
+  { code:'CPT', name:'Carriage Paid To', modal:'any', desc:'Seller pays freight to named destination. Risk transfers when goods are handed to first carrier. Buyer bears risk during transit even though seller pays freight.', sellerRisk:'Low', buyerRisk:'High (during transit)', exportDuty:'Seller', importDuty:'Buyer', insurance:'Buyer', typical:'Multimodal, container' },
+  { code:'CIP', name:'Carriage & Insurance Paid', modal:'any', desc:'Like CPT but seller must also provide insurance (minimum ICC "A" — all risks). Risk still transfers at origin carrier handover.', sellerRisk:'Low', buyerRisk:'Medium', exportDuty:'Seller', importDuty:'Buyer', insurance:'Seller (min. all-risks)', typical:'Multimodal, high-value goods' },
+  { code:'DAP', name:'Delivered at Place', modal:'any', desc:'Seller delivers to named destination, unloaded. Risk transfers at destination. Import clearance and duties remain with buyer.', sellerRisk:'High', buyerRisk:'Low', exportDuty:'Seller', importDuty:'Buyer', insurance:'Seller (recommended)', typical:'Door-to-door, e-commerce B2C' },
+  { code:'DPU', name:'Delivered at Place Unloaded', modal:'any', desc:'Seller delivers and unloads goods at named destination. Only Incoterm where seller is responsible for unloading. Risk transfers after unloading.', sellerRisk:'High', buyerRisk:'Low', exportDuty:'Seller', importDuty:'Buyer', insurance:'Seller (recommended)', typical:'Ports, warehouses, terminals' },
+  { code:'DDP', name:'Delivered Duty Paid', modal:'any', desc:'Seller bears maximum responsibility — delivery to buyer\'s named place with import duties paid. Seller handles everything including import clearance.', sellerRisk:'Maximum', buyerRisk:'Minimal', exportDuty:'Seller', importDuty:'Seller', insurance:'Seller', typical:'D2C, B2B with strong sellers' },
+  { code:'FAS', name:'Free Alongside Ship', modal:'sea', desc:'Seller delivers goods alongside the vessel at the named port of shipment. Risk passes when goods are placed alongside. Seller handles export clearance.', sellerRisk:'Low', buyerRisk:'High', exportDuty:'Seller', importDuty:'Buyer', insurance:'Buyer', typical:'Bulk cargo, breakbulk' },
+  { code:'FOB', name:'Free On Board', modal:'sea', desc:'Seller delivers goods on board the vessel at named port. Risk passes when goods are on board. One of the most widely used terms. NOT suitable for containerised shipments.', sellerRisk:'Low', buyerRisk:'High', exportDuty:'Seller', importDuty:'Buyer', insurance:'Buyer', typical:'Bulk, breakbulk — not container!' },
+  { code:'CFR', name:'Cost & Freight', modal:'sea', desc:'Seller pays freight to named port of destination but risk passes when goods are on board at origin. Buyer bears risk during sea voyage.', sellerRisk:'Low', buyerRisk:'High (during voyage)', exportDuty:'Seller', importDuty:'Buyer', insurance:'Buyer', typical:'Bulk, commodity trade' },
+  { code:'CIF', name:'Cost, Insurance & Freight', modal:'sea', desc:'Like CFR but seller must also provide minimum marine insurance (ICC "C" — basic cover). Risk still transfers at loading port. Minimum insurance often insufficient for high-value cargo.', sellerRisk:'Low', buyerRisk:'Medium', exportDuty:'Seller', importDuty:'Buyer', insurance:'Seller (min. ICC C)', typical:'Bulk, commodity, LC transactions' },
+];
+
+// ── UCP 600 Glossary ─────────────────────────────────────────────────────────
+const GLOSSARY = [
+  { term:'Advising Bank', ref:'UCP 600 Art. 2', def:'Bank that advises the LC to the beneficiary, usually in the seller's country. Authenticates the credit but takes no payment obligation unless it also confirms.' },
+  { term:'Applicant', ref:'UCP 600 Art. 2', def:'The buyer/importer who instructs the issuing bank to issue a letter of credit in favour of the beneficiary.' },
+  { term:'Beneficiary', ref:'UCP 600 Art. 2', def:'The party in whose favour the credit is issued — typically the seller/exporter who will present documents to obtain payment.' },
+  { term:'Issuing Bank', ref:'UCP 600 Art. 2', def:'Bank that issues the LC at the applicant's request. Bears the primary payment obligation if complying documents are presented.' },
+  { term:'Confirming Bank', ref:'UCP 600 Art. 2', def:'Bank that adds its own payment undertaking to the issuing bank's obligation. Eliminates country and bank risk for the beneficiary.' },
+  { term:'Nominated Bank', ref:'UCP 600 Art. 2', def:'Bank authorised in the LC to honour or negotiate documents. May be any bank or a specifically named institution.' },
+  { term:'Sight LC', ref:'UCP 600 Art. 2', def:'Credit payable immediately upon presentation of complying documents. Payment is made "at sight" with no deferred element.' },
+  { term:'Usance LC', ref:'UCP 600 Art. 2', def:'Deferred payment credit payable at a future date (e.g. 60 or 90 days after B/L date). Provides financing to the buyer.' },
+  { term:'Irrevocable LC', ref:'UCP 600 Art. 3', def:'Under UCP 600 all LCs are irrevocable by default. Cannot be amended or cancelled without the agreement of all parties.' },
+  { term:'Standby LC (SBLC)', ref:'ISP98 / UCP 600', def:'Guarantee instrument: beneficiary draws only if the applicant defaults. Used as performance security rather than a payment mechanism for trade goods.' },
+  { term:'Transferable LC', ref:'UCP 600 Art. 38', def:'LC that may be transferred in whole or in part to one or more second beneficiaries. Used by intermediaries / trading houses. Transferred only once.' },
+  { term:'Clean B/L', ref:'UCP 600 Art. 27', def:'Bill of lading bearing no clause or notation stating defective condition of goods or packaging. Banks accept only clean transport documents.' },
+  { term:'Discrepancy', ref:'UCP 600 Art. 16', def:'Any deviation in presented documents from the terms and conditions of the credit. Banks may refuse non-complying documents and must notify within 5 banking days.' },
+  { term:'Complying Presentation', ref:'UCP 600 Art. 2', def:'Presentation that is in accordance with the terms and conditions of the credit, applicable UCP 600 provisions, and international standard banking practice (ISBP).' },
+  { term:'Force Majeure', ref:'UCP 600 Art. 36', def:'Banks assume no liability for consequences arising from interruption of business by Acts of God, riots, civil commotions, or other causes beyond their control.' },
+  { term:'ISBP', ref:'ICC Pub. 745', def:'International Standard Banking Practice for examination of documents under UCP 600. Practical interpretive guidance — not binding but widely followed by banks worldwide.' },
+];
+
+// ── Discrepancy checklist ─────────────────────────────────────────────────────
+const DISCREPANCIES = [
+  { id:'d1', label:'Invoice amount exceeds LC amount', ucp:'Art. 18', severity:'critical', sub:'Commercial invoice total must not exceed the LC credit amount. Tolerance per Art. 30 (±5% for quantity, ±10% for partial shipments unless restricted).', checked: false },
+  { id:'d2', label:'Description of goods differs from LC', ucp:'Art. 18c', severity:'critical', sub:'Commercial invoice goods description must match LC terms exactly. Other documents need not use identical language but must not conflict.', checked: false },
+  { id:'d3', label:'Late presentation of documents', ucp:'Art. 14c', severity:'critical', sub:'Documents must be presented within 21 calendar days after shipment date (or shorter period specified in LC) and before LC expiry.', checked: false },
+  { id:'d4', label:'Bill of Lading dated after latest shipment date', ucp:'Art. 20', severity:'critical', sub:'The on-board notation or B/L issue date must not be later than the latest shipment date specified in the LC.', checked: false },
+  { id:'d5', label:'Documents presented after LC expiry', ucp:'Art. 6', severity:'critical', sub:'All documents must be presented on or before the LC expiry date at the expiry place specified.', checked: false },
+  { id:'d6', label:'Partial shipment not allowed but B/L shows multiple sets', ucp:'Art. 31', severity:'critical', sub:'If partial shipments are prohibited, presenting multiple B/Ls showing partial quantities is a discrepancy.', checked: false },
+  { id:'d7', label:'Insurance certificate amount insufficient', ucp:'Art. 28', severity:'warn', sub:'Insurance must be for at least 110% of the CIF or CIP value. Check currency — insurance in different currency may be acceptable but needs LC to specify.', checked: false },
+  { id:'d8', label:'Transhipment not allowed but B/L shows intermediate port', ucp:'Art. 20', severity:'warn', sub:'If transhipment is prohibited, any B/L showing goods will be transhipped is discrepant unless the entire voyage is on the same vessel.', checked: false },
+  { id:'d9', label:'Signed document not signed or lacks required signatory', ucp:'Art. 14', severity:'warn', sub:'Any document required to be signed, certified, or authenticated must comply — check that signatories and titles match LC requirements.', checked: false },
+  { id:'d10', label:'LC condition not evidenced in documents', ucp:'Art. 14h', severity:'warn', sub:'If the LC specifies a condition without nominating the document to evidence compliance, banks will ignore the condition — but beneficiaries should still note it.', checked: false },
+  { id:'d11', label:'Consignee or notify party differs from LC', ucp:'Art. 20', severity:'warn', sub:'B/L consignee and notify party must match LC instructions exactly, including full legal name and address format.', checked: false },
+  { id:'d12', label:'Port of loading or discharge mismatch', ucp:'Art. 20', severity:'warn', sub:'Ports on the B/L must match those specified in the LC. Generic region names (e.g. "Any European Port") are acceptable if LC permits.', checked: false },
+];
+
+let discState = DISCREPANCIES.map(d => ({...d}));
+
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['lc','swift','inco','disc','glossary'][i]===id));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+}
+
+// ── LC Checker ────────────────────────────────────────────────────────────────
+function runLCCheck() {
+  const checks = [];
+  const get = id => document.getElementById(id).value.trim();
+
+  if (!get('lc-ref')) checks.push({ sev:'warn', label:'LC Reference Number missing', ucp:'Best practice', sub:'All LCs should carry a unique reference number for tracking and correspondence.' });
+  else checks.push({ sev:'ok', label:'LC Reference Number present', ucp:'', sub:get('lc-ref') });
+
+  const expiry = get('lc-expiry');
+  if (!expiry) checks.push({ sev:'critical', label:'Expiry date not specified', ucp:'Art. 6', sub:'UCP 600 Art. 6: A credit must state an expiry date for presentation.' });
+  else {
+    const daysToExpiry = (new Date(expiry) - new Date()) / 86400000;
+    if (daysToExpiry < 0) checks.push({ sev:'critical', label:'LC has already expired!', ucp:'Art. 6', sub:`Expiry was ${get('lc-expiry')}. Documents cannot be accepted.` });
+    else if (daysToExpiry < 14) checks.push({ sev:'warn', label:`LC expires in ${Math.round(daysToExpiry)} days`, ucp:'Art. 6', sub:'Less than 14 days remain. Expedite shipment and document preparation.' });
+    else checks.push({ sev:'ok', label:`LC valid for ${Math.round(daysToExpiry)} more days`, ucp:'Art. 6', sub:`Expiry: ${get('lc-expiry')}` });
+  }
+
+  if (!get('lc-expiry-place')) checks.push({ sev:'warn', label:'Expiry place not specified', ucp:'Art. 6', sub:'UCP 600 requires expiry place to be stated. Absence may cause ambiguity.' });
+  else checks.push({ sev:'ok', label:'Expiry place specified', ucp:'Art. 6', sub:get('lc-expiry-place') });
+
+  if (!get('lc-amount')) checks.push({ sev:'critical', label:'Credit amount not entered', ucp:'Art. 18', sub:'The credit amount is required to validate invoice compliance.' });
+  else checks.push({ sev:'ok', label:'Credit amount specified', ucp:'Art. 18', sub:get('lc-amount') });
+
+  if (!get('lc-applicant')) checks.push({ sev:'warn', label:'Applicant details missing', ucp:'Art. 18', sub:'Applicant name must appear on the commercial invoice.' });
+  if (!get('lc-beneficiary')) checks.push({ sev:'warn', label:'Beneficiary details missing', ucp:'Art. 18', sub:'Beneficiary name must appear on all required documents.' });
+
+  const ship = get('lc-ship-date'), presP = get('lc-pres-period');
+  if (ship && expiry) {
+    const shipDay = new Date(ship);
+    const expDay = new Date(expiry);
+    if (shipDay > expDay) checks.push({ sev:'critical', label:'Latest shipment date is after LC expiry', ucp:'Art. 6 / Art. 44', sub:'Shipment must occur before LC expiry. This LC structure is internally inconsistent.' });
+    else checks.push({ sev:'ok', label:'Shipment date before expiry', ucp:'Art. 44', sub:`${get('lc-ship-date')} before ${get('lc-expiry')}` });
+
+    // Presentation period check
+    const presDays = parseInt(presP) || 21;
+    const presDeadline = new Date(ship);
+    presDeadline.setDate(presDeadline.getDate() + presDays);
+    if (presDeadline > expDay) checks.push({ sev:'warn', label:'Presentation period extends beyond LC expiry', ucp:'Art. 14c', sub:`${presDays}-day presentation period from shipment would expire ${presDeadline.toDateString()}, after LC expiry ${expDay.toDateString()}.` });
+    else checks.push({ sev:'ok', label:'Presentation period within LC validity', ucp:'Art. 14c', sub:`${presDays} days from shipment = ${presDeadline.toDateString()}` });
+  }
+
+  if (!presP) checks.push({ sev:'warn', label:'Presentation period not specified', ucp:'Art. 14c', sub:'If not stated, UCP 600 Art. 14c defaults to 21 calendar days after shipment date.' });
+
+  const inco = get('lc-inco');
+  if (inco === 'FOB' || inco === 'CFR' || inco === 'CIF') {
+    if (!get('lc-pol')) checks.push({ sev:'warn', label:`${inco} requires a named port of loading`, ucp:'Incoterms 2020', sub:`${inco} is a sea-only term. Port of Loading must be specified in the LC.` });
+  }
+
+  const type = document.getElementById('lc-type').value;
+  if (type === 'Irrevocable' || type === 'Irrevocable & Confirmed') checks.push({ sev:'ok', label:'LC is irrevocable — cannot be amended without consent', ucp:'Art. 10', sub:'UCP 600 Art. 10: Irrevocable credits give beneficiary payment certainty once confirmed documents are presented.' });
+
+  document.getElementById('lcResults').innerHTML = `<div class="disc-list">${checks.map(c => `
+    <div class="disc-item ${c.sev}">
+      <span class="disc-icon">${c.sev==='ok'?'✓':c.sev==='warn'?'⚠':'✗'}</span>
+      <div><div class="disc-label">${c.label}</div><div class="disc-sub">${c.sub}</div>${c.ucp?`<div class="disc-ucp">UCP 600 ${c.ucp}</div>`:''}</div>
+    </div>`).join('')}</div>`;
+}
+
+function exportLCReport() {
+  const ref = document.getElementById('lc-ref').value || 'UNSPECIFIED';
+  let md = `# LC Validation Report — ${ref}\n\nGenerated: ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}\n\n`;
+  md += `## LC Summary\n\n- **Type:** ${document.getElementById('lc-type').value}\n- **Amount:** ${document.getElementById('lc-amount').value}\n- **Expiry:** ${document.getElementById('lc-expiry').value} at ${document.getElementById('lc-expiry-place').value}\n- **Latest Shipment:** ${document.getElementById('lc-ship-date').value}\n- **Incoterms:** ${document.getElementById('lc-inco').value}\n\n`;
+  md += `---\n*Generated by AINumbers.co Trade Finance Analyser — client-side, zero PII*\n`;
+  const a = document.createElement('a');
+  a.href = 'data:text/markdown;charset=utf-8,' + encodeURIComponent(md);
+  a.download = `lc-validation-${ref}.md`;
+  a.click();
+}
+
+// ── SWIFT Decoder ─────────────────────────────────────────────────────────────
+function loadSwiftSample() {
+  document.getElementById('swiftInput').value = `:27A:1/1
+:40A:IRREVOCABLE
+:20:LC2026001234
+:31C:260401
+:31D:261231HAMBURG
+:50:ACME IMPORTS LTD
+123 BUYER STREET
+LONDON EC1A 1BB
+:59:SINO EXPORTS CO
+456 SELLER ROAD
+SHANGHAI
+:32B:USD500000,00
+:41D:ANY BANK
+BY NEGOTIATION
+:43P:NOT ALLOWED
+:43T:ALLOWED
+:44A:SHANGHAI
+:44B:HAMBURG
+:44C:261201
+:45A:INDUSTRIAL MACHINERY
+AS PER PURCHASE ORDER 2026-789
+:46A:FULL SET CLEAN ON BOARD BILLS OF LADING
+COMMERCIAL INVOICE IN TRIPLICATE
+PACKING LIST
+INSURANCE CERTIFICATE
+:48:21 DAYS AFTER DATE OF B/L
+:71B:ALL BANKING CHARGES OUTSIDE ISSUING BANK
+:49:WITHOUT`;
+}
+
+function decodeSWIFT() {
+  const raw = document.getElementById('swiftInput').value;
+  const lines = raw.split('\n');
+  const fields = [];
+  let currentTag = null, currentContent = [];
+
+  lines.forEach(line => {
+    const tagMatch = line.match(/^:([0-9A-Z]+):(.*)/);
+    if (tagMatch) {
+      if (currentTag) fields.push({ tag: currentTag, content: currentContent.join('\n') });
+      currentTag = tagMatch[1];
+      currentContent = [tagMatch[2]];
+    } else if (currentTag) {
+      currentContent.push(line);
+    }
+  });
+  if (currentTag) fields.push({ tag: currentTag, content: currentContent.join('\n') });
+
+  if (!fields.length) { alert('No SWIFT field tags found. Ensure lines start with :TAG:'); return; }
+
+  document.getElementById('swiftFields').innerHTML = fields.map(f => {
+    const def = MT700_FIELDS[f.tag];
+    return `<div class="field-item">
+      <div><span class="field-tag">:${f.tag}:</span><br><span class="field-name">${def?.name||'Unknown Field'}</span></div>
+      <div><div class="field-value">${f.content.replace(/\n/g,'<br>')}</div>${def?`<div style="font-size:.66rem;color:var(--body);margin-top:4px">${def.desc}</div>`:''}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('swiftResultPanel').style.display = 'block';
+}
+
+// ── Incoterms ─────────────────────────────────────────────────────────────────
+function initInco() {
+  document.getElementById('incoGrid').innerHTML = INCOTERMS.map(t => `
+    <div class="inco-card" id="inco-${t.code}" onclick="showInco('${t.code}')">
+      <div class="inco-code">${t.code}</div>
+      <div class="inco-name">${t.name}</div>
+      <div class="inco-desc">${t.desc.slice(0,80)}…</div>
+      <div style="margin-top:6px">
+        <span class="inco-badge ${t.modal==='sea'?'badge-sea':'badge-any'}">${t.modal==='sea'?'⚓ Sea Only':'✈ Any Mode'}</span>
+      </div>
+    </div>`).join('');
+}
+
+function showInco(code) {
+  document.querySelectorAll('.inco-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('inco-'+code).classList.add('selected');
+  const t = INCOTERMS.find(i => i.code === code);
+  document.getElementById('incoDetailTitle').textContent = `${t.code} — ${t.name}`;
+  document.getElementById('incoDetailBody').innerHTML = `
+    <p style="font-size:.78rem;color:var(--text);margin-bottom:14px;line-height:1.75">${t.desc}</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
+      <div style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Risk Transfer Point</div>
+        <div style="font-size:.74rem;color:var(--bright)">Seller: ${t.sellerRisk}<br>Buyer: ${t.buyerRisk}</div>
+      </div>
+      <div style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Export Clearance</div>
+        <div style="font-size:.74rem;color:${t.exportDuty==='Seller'?'var(--teal)':'var(--gold)'}">${t.exportDuty}</div>
+      </div>
+      <div style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Import Clearance</div>
+        <div style="font-size:.74rem;color:${t.importDuty==='Seller'?'var(--teal)':'var(--gold)'}">${t.importDuty}</div>
+      </div>
+      <div style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Insurance Obligation</div>
+        <div style="font-size:.74rem;color:var(--text)">${t.insurance}</div>
+      </div>
+      <div style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Modal Applicability</div>
+        <div style="font-size:.74rem;color:${t.modal==='sea'?'#6EA8FE':'var(--teal)'}">${t.modal==='sea'?'Sea & Inland Waterway Only':'All Transport Modes'}</div>
+      </div>
+      <div style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Typical Use</div>
+        <div style="font-size:.74rem;color:var(--body)">${t.typical}</div>
+      </div>
+    </div>`;
+  document.getElementById('incoDetail').style.display = 'block';
+}
+
+// ── Discrepancy Checker ───────────────────────────────────────────────────────
+function renderGlossary() {
+  document.getElementById('glossaryGrid').innerHTML = GLOSSARY.map(g => `
+    <div class="gloss-card">
+      <div class="gloss-term">${g.term}<span class="gloss-ref">${g.ref}</span></div>
+      <div class="gloss-def">${g.def}</div>
+    </div>`).join('');
+}
+
+function initDiscrepancies() {
+  document.getElementById('discList').innerHTML = discState.map(d => `
+    <div class="disc-item ${d.checked?'ok':d.severity}" style="cursor:pointer" onclick="toggleDisc('${d.id}')">
+      <span class="disc-icon">${d.checked?'✓':d.severity==='critical'?'✗':'⚠'}</span>
+      <div style="flex:1">
+        <div class="disc-label">${d.label}</div>
+        <div class="disc-sub">${d.sub}</div>
+        <div class="disc-ucp">UCP 600 ${d.ucp}</div>
+      </div>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.6rem;padding:.2rem .5rem;border-radius:3px;background:${d.checked?'var(--green-dim)':d.severity==='critical'?'var(--red-dim)':'var(--gold-dim)'};color:${d.checked?'var(--green)':d.severity==='critical'?'var(--red)':'var(--gold)'};">
+        ${d.checked?'CLEAR':d.severity.toUpperCase()}
+      </span>
+    </div>`).join('');
+}
+
+function toggleDisc(id) {
+  const d = discState.find(d => d.id === id);
+  if (d) { d.checked = !d.checked; initDiscrepancies(); }
+}
+
+function exportDiscReport() {
+  const discrepant = discState.filter(d => !d.checked);
+  const clear = discState.filter(d => d.checked);
+  let md = `# LC Discrepancy Check Report\n\nGenerated: ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}\n\n`;
+  md += `**Status:** ${discrepant.length === 0 ? '✅ No discrepancies flagged' : `⚠ ${discrepant.length} potential discrepancies flagged`}\n\n`;
+  if (discrepant.length) {
+    md += `## Flagged Items\n\n`;
+    discrepant.forEach(d => { md += `### ${d.label} [${d.severity.toUpperCase()}]\n**UCP 600 Reference:** ${d.ucp}\n${d.sub}\n\n`; });
+  }
+  if (clear.length) {
+    md += `## Confirmed Clear\n\n`;
+    clear.forEach(d => { md += `- ✓ ${d.label} (${d.ucp})\n`; });
+  }
+  md += `\n---\n*Generated by AINumbers.co Trade Finance Analyser — client-side, zero PII*\n`;
+  const a = document.createElement('a');
+  a.href = 'data:text/markdown;charset=utf-8,' + encodeURIComponent(md);
+  a.download = 'lc-discrepancy-report.md';
+  a.click();
+}
+
+// Init
+initInco();
+initDiscrepancies();
+renderGlossary();
+
+const I18N = {
+  'en': {
+    'nav.home': 'Home',
+    'nav.a2a': 'A2A Payments',
+    'nav.glossary': 'Glossary',
+    'nav.tools': 'Tools',
+    'nav.contact': 'Contact',
+    'footer.alltools': 'All Tools',
+    'footer.a2a': 'A2A Payments',
+    'footer.glossary': 'Glossary',
+    'footer.home': 'Home',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Privacy Statement',
+    'about.trigger': 'About This Tool',
+    'about.trigger2': 'About This Tool ▾',
+    'priv.runs': 'This tool runs entirely in your browser.',
+    'priv.notrans': 'No data is transmitted to any server.',
+    'priv.local': 'All inputs, calculations, and generated outputs are processed locally on your device.',
+    'priv.never': 'and never leaves your device.',
+    'priv.blocked': 'are overridden at runtime to block all outbound network calls.',
+    'priv.allproc': 'All processing in your browser · No data transmitted',
+    'priv.zeropii': 'Zero PII · Client-Side Only',
+    'priv.zeropii2': 'Zero PII · 100% Client-Side',
+    'about.howworks': 'How it works:',
+    'about.audience': 'Target audience:',
+    'about.limits': 'Limitations:',
+    'about.export': 'Export:',
+    'about.whatdoes': 'What this tool does:',
+    'about.whatdoes2': 'What this tool does',
+    'about.whatsim': 'What it simulates:',
+    'about.source': 'Source:',
+    'about.builtby': 'Built by',
+    'about.dataprivacy': 'Data privacy:',
+    'about.dataprivnote': 'Data privacy note:',
+    'about.whatisthis': 'What is this?',
+    'about.results_export': 'Results can be downloaded as JSON or Markdown for use in downstream workflows, agent runtimes, or audit documentation.',
+    'btn.reset': '↺ Reset',
+    'btn.clear': '↺ Clear',
+    'btn.exportcsv': '↓ Export CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Print',
+    'btn.copy': 'Copy',
+    'btn.alltools': '← All Tools',
+    'lbl.jurisdiction': 'Jurisdiction',
+    'lbl.currency': 'Currency',
+    'lbl.amount': 'Amount',
+    'lbl.status': 'Status',
+    'lbl.type': 'Type',
+    'lbl.rail': 'Rail',
+    'lbl.paymentrail': 'Payment Rail',
+    'lbl.selectopt': '— Select —',
+    'lbl.config': 'Configuration',
+    'lbl.valresults': 'Validation Results',
+    'geo.us': 'United States',
+    'geo.uk': 'United Kingdom',
+    'geo.eu': 'European Union',
+    'geo.brazil': 'Brazil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brazil)',
+    'pay.sameday': 'Same-Day ACH',
+    'pay.nextday': 'Next-Day ACH',
+    'sev.high': 'High',
+    'sev.medium': 'Medium',
+    'tai01.hero.eyebrow': 'AI · 01 · Tax · Agentic Intelligence Suite',
+    'tai01.hero.title': 'SMB Treasury Tax Assistant',
+    'tai01.hero.sub': 'Privacy-first cross-border tax planning for SMBs on tokenized A2A rails. Estimates liability, identifies deductions, and generates audit-ready strategy reports across five jurisdictions.',
+    'tai01.lbl.jurisdiction': 'Jurisdiction',
+    'tai01.lbl.revenue': 'Annual Revenue (USD)',
+    'tai01.lbl.expenses': 'Deductible Expenses',
+    'tai01.lbl.txtype': 'Transaction Type',
+    'tai01.lbl.corridor': 'Corridor',
+    'tai01.lbl.rail': 'Payment Rail',
+    'tai01.btn.calculate': '▶ Calculate Tax Liability',
+    'tai01.btn.exportjson': '↓ Export JSON',
+    'tai01.btn.exportmd': '↓ Export Markdown',
+    'tai01.lbl.liability': 'Tax Liability',
+    'tai01.lbl.deductions': 'Deductions',
+    'tai01.lbl.netdue': 'Net Due',
+    'tai01.lbl.withtax': 'Withholding Tax',
+    'tai01.lbl.compliance': 'Compliance Checklist',
+    'tai01.lbl.strategy': 'Strategy Notes',
+    't50.hero.eyebrow': 'Tool 50 · Compliance & Regulation',
+    't50.hero.title': 'Trade Finance Document & Letter of Credit Analyser',
+    't50.hero.sub': 'Parse and validate Letters of Credit against UCP 600 rules. Decode SWIFT MT700 field tags into plain English. Select Incoterms 2020 rules with risk/cost transfer guidance. Run a discrepancy check against the 12 most common documentary credit defects.',
+    'priv.zeropii': 'Zero PII · Client-Side Only',
+    'priv.notrans': 'No data is transmitted to any server.',
+
+  },
+  'es': {
+    'nav.home': 'Inicio',
+    'nav.a2a': 'Pagos A2A',
+    'nav.glossary': 'Glosario',
+    'nav.tools': 'Herramientas',
+    'nav.contact': 'Contacto',
+    'footer.alltools': 'Todas las Herramientas',
+    'footer.a2a': 'Pagos A2A',
+    'footer.glossary': 'Glosario',
+    'footer.home': 'Inicio',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Declaración de Privacidad',
+    'about.trigger': 'Acerca de Esta Herramienta',
+    'about.trigger2': 'Acerca de Esta Herramienta ▾',
+    'priv.runs': 'Esta herramienta se ejecuta completamente en su navegador.',
+    'priv.notrans': 'No se transmiten datos a ningún servidor.',
+    'priv.local': 'Todas las entradas, cálculos y resultados generados se procesan localmente en su dispositivo.',
+    'priv.never': 'y nunca sale de su dispositivo.',
+    'priv.blocked': 'se anulan en tiempo de ejecución para bloquear todas las llamadas de red salientes.',
+    'priv.allproc': 'Todo el procesamiento en su navegador · Sin datos transmitidos',
+    'priv.zeropii': 'Sin PII · Solo en el Navegador',
+    'priv.zeropii2': 'Sin PII · 100% en el Navegador',
+    'about.howworks': 'Cómo funciona:',
+    'about.audience': 'Público objetivo:',
+    'about.limits': 'Limitaciones:',
+    'about.export': 'Exportar:',
+    'about.whatdoes': 'Qué hace esta herramienta:',
+    'about.whatdoes2': 'Qué hace esta herramienta',
+    'about.whatsim': 'Qué simula:',
+    'about.source': 'Fuente:',
+    'about.builtby': 'Creado por',
+    'about.dataprivacy': 'Privacidad de datos:',
+    'about.dataprivnote': 'Nota de privacidad de datos:',
+    'about.whatisthis': '¿Qué es esto?',
+    'about.results_export': 'Los resultados se pueden descargar como JSON o Markdown para su uso en flujos de trabajo posteriores, tiempos de ejecución de agentes o documentación de auditoría.',
+    'btn.reset': '↺ Restablecer',
+    'btn.clear': '↺ Limpiar',
+    'btn.exportcsv': '↓ Exportar CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimir',
+    'btn.copy': 'Copiar',
+    'btn.alltools': '← Todas las Herramientas',
+    'lbl.jurisdiction': 'Jurisdicción',
+    'lbl.currency': 'Moneda',
+    'lbl.amount': 'Monto',
+    'lbl.status': 'Estado',
+    'lbl.type': 'Tipo',
+    'lbl.rail': 'Carril',
+    'lbl.paymentrail': 'Carril de Pago',
+    'lbl.selectopt': '— Seleccionar —',
+    'lbl.config': 'Configuración',
+    'lbl.valresults': 'Resultados de Validación',
+    'geo.us': 'Estados Unidos',
+    'geo.uk': 'Reino Unido',
+    'geo.eu': 'Unión Europea',
+    'geo.brazil': 'Brasil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brasil)',
+    'pay.sameday': 'ACH en el Mismo Día',
+    'pay.nextday': 'ACH al Día Siguiente',
+    'sev.high': 'Alto',
+    'sev.medium': 'Medio',
+    'tai01.hero.eyebrow': 'IA · 01 · Fiscal · Suite de Inteligencia Agente',
+    'tai01.hero.title': 'Asistente Fiscal de Tesorería para PYMEs',
+    'tai01.hero.sub': 'Planificación fiscal transfronteriza centrada en la privacidad para pymes en rieles A2A tokenizados. Estima responsabilidades, identifica deducciones y genera informes de estrategia listos para auditoría.',
+    'tai01.lbl.jurisdiction': 'Jurisdicción',
+    'tai01.lbl.revenue': 'Ingresos Anuales (USD)',
+    'tai01.lbl.expenses': 'Gastos Deducibles',
+    'tai01.lbl.txtype': 'Tipo de Transacción',
+    'tai01.lbl.corridor': 'Corredor',
+    'tai01.lbl.rail': 'Carril de Pago',
+    'tai01.btn.calculate': '▶ Calcular Obligación Fiscal',
+    'tai01.btn.exportjson': '↓ Exportar JSON',
+    'tai01.btn.exportmd': '↓ Exportar Markdown',
+    'tai01.lbl.liability': 'Obligación Fiscal',
+    'tai01.lbl.deductions': 'Deducciones',
+    'tai01.lbl.netdue': 'Neto a Pagar',
+    'tai01.lbl.withtax': 'Retención Fiscal',
+    'tai01.lbl.compliance': 'Lista de Verificación de Cumplimiento',
+    'tai01.lbl.strategy': 'Notas de Estrategia',
+    't50.hero.eyebrow': 'Herramienta 50 · Cumplimiento y Regulación',
+    't50.hero.title': 'Analizador de Documentos de Comercio Exterior y Carta de Crédito',
+    't50.hero.sub': 'Analice y valide Cartas de Crédito según las reglas UCP 600. Decodifique las etiquetas de campo SWIFT MT700 al español. Seleccione reglas Incoterms 2020 con orientación de transferencia de riesgo/costo.',
+
+  },
+  'fr': {
+    'nav.home': 'Accueil',
+    'nav.a2a': 'Paiements A2A',
+    'nav.glossary': 'Glossaire',
+    'nav.tools': 'Outils',
+    'nav.contact': 'Contact',
+    'footer.alltools': 'Tous les Outils',
+    'footer.a2a': 'Paiements A2A',
+    'footer.glossary': 'Glossaire',
+    'footer.home': 'Accueil',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Déclaration de Confidentialité',
+    'about.trigger': 'À Propos de Cet Outil',
+    'about.trigger2': 'À Propos de Cet Outil ▾',
+    'priv.runs': 'Cet outil fonctionne entièrement dans votre navigateur.',
+    'priv.notrans': 'Aucune donnée n\'est transmise à un serveur.',
+    'priv.local': 'Toutes les entrées, calculs et sorties générées sont traités localement sur votre appareil.',
+    'priv.never': 'et ne quitte jamais votre appareil.',
+    'priv.blocked': 'sont remplacés au moment de l\'exécution pour bloquer tous les appels réseau sortants.',
+    'priv.allproc': 'Tout le traitement dans votre navigateur · Aucune donnée transmise',
+    'priv.zeropii': 'Zéro PII · Côté Client Uniquement',
+    'priv.zeropii2': 'Zéro PII · 100% Côté Client',
+    'about.howworks': 'Comment ça fonctionne :',
+    'about.audience': 'Public cible :',
+    'about.limits': 'Limitations :',
+    'about.export': 'Export :',
+    'about.whatdoes': 'Ce que fait cet outil :',
+    'about.whatdoes2': 'Ce que fait cet outil',
+    'about.whatsim': 'Ce qu\'il simule :',
+    'about.source': 'Source :',
+    'about.builtby': 'Créé par',
+    'about.dataprivacy': 'Confidentialité des données :',
+    'about.dataprivnote': 'Note sur la confidentialité des données :',
+    'about.whatisthis': 'Qu\'est-ce que c\'est ?',
+    'about.results_export': 'Les résultats peuvent être téléchargés en JSON ou Markdown pour une utilisation dans des flux de travail en aval, des environnements d\'exécution d\'agents ou de la documentation d\'audit.',
+    'btn.reset': '↺ Réinitialiser',
+    'btn.clear': '↺ Effacer',
+    'btn.exportcsv': '↓ Exporter CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimer',
+    'btn.copy': 'Copier',
+    'btn.alltools': '← Tous les Outils',
+    'lbl.jurisdiction': 'Juridiction',
+    'lbl.currency': 'Devise',
+    'lbl.amount': 'Montant',
+    'lbl.status': 'Statut',
+    'lbl.type': 'Type',
+    'lbl.rail': 'Rail',
+    'lbl.paymentrail': 'Rail de Paiement',
+    'lbl.selectopt': '— Sélectionner —',
+    'lbl.config': 'Configuration',
+    'lbl.valresults': 'Résultats de Validation',
+    'geo.us': 'États-Unis',
+    'geo.uk': 'Royaume-Uni',
+    'geo.eu': 'Union Européenne',
+    'geo.brazil': 'Brésil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brésil)',
+    'pay.sameday': 'ACH le Jour Même',
+    'pay.nextday': 'ACH le Lendemain',
+    'sev.high': 'Élevé',
+    'sev.medium': 'Moyen',
+    'tai01.hero.eyebrow': 'IA · 01 · Fiscal · Suite d\'Intelligence Agente',
+    'tai01.hero.title': 'Assistant Fiscal de Trésorerie PME',
+    'tai01.hero.sub': 'Planification fiscale transfrontalière axée sur la confidentialité pour les PME sur rails A2A tokenisés. Estime les obligations, identifie les déductions et génère des rapports de stratégie prêts pour audit.',
+    'tai01.lbl.jurisdiction': 'Juridiction',
+    'tai01.lbl.revenue': 'Revenus Annuels (USD)',
+    'tai01.lbl.expenses': 'Dépenses Déductibles',
+    'tai01.lbl.txtype': 'Type de Transaction',
+    'tai01.lbl.corridor': 'Corridor',
+    'tai01.lbl.rail': 'Rail de Paiement',
+    'tai01.btn.calculate': '▶ Calculer l\'Obligation Fiscale',
+    'tai01.btn.exportjson': '↓ Exporter JSON',
+    'tai01.btn.exportmd': '↓ Exporter Markdown',
+    'tai01.lbl.liability': 'Obligation Fiscale',
+    'tai01.lbl.deductions': 'Déductions',
+    'tai01.lbl.netdue': 'Net à Payer',
+    'tai01.lbl.withtax': 'Retenue à la Source',
+    'tai01.lbl.compliance': 'Liste de Contrôle de Conformité',
+    'tai01.lbl.strategy': 'Notes de Stratégie',
+    't50.hero.eyebrow': 'Outil 50 · Conformité et Réglementation',
+    't50.hero.title': 'Analyseur de Documents de Commerce et Lettre de Crédit',
+    't50.hero.sub': 'Analysez et validez les Lettres de Crédit selon les règles UCP 600. Décodez les balises de champ SWIFT MT700 en français. Sélectionnez les règles Incoterms 2020 avec des conseils de transfert de risque/coût.',
+
+  },
+  'ar': {
+    'nav.home': 'الرئيسية',
+    'nav.a2a': 'مدفوعات A2A',
+    'nav.glossary': 'المسرد',
+    'nav.tools': 'الأدوات',
+    'nav.contact': 'تواصل معنا',
+    'footer.alltools': 'جميع الأدوات',
+    'footer.a2a': 'مدفوعات A2A',
+    'footer.glossary': 'المسرد',
+    'footer.home': 'الرئيسية',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'بيان الخصوصية',
+    'about.trigger': 'حول هذه الأداة',
+    'about.trigger2': 'حول هذه الأداة ▾',
+    'priv.runs': 'تعمل هذه الأداة بالكامل في متصفحك.',
+    'priv.notrans': 'لا يتم إرسال أي بيانات إلى أي خادم.',
+    'priv.local': 'تتم معالجة جميع المدخلات والحسابات والمخرجات محليًا على جهازك.',
+    'priv.never': 'ولا يغادر جهازك أبدًا.',
+    'priv.blocked': 'تُستبدل في وقت التشغيل لحجب جميع استدعاءات الشبكة الصادرة.',
+    'priv.allproc': 'جميع المعالجة في متصفحك · لا بيانات مُرسَلة',
+    'priv.zeropii': 'بدون بيانات شخصية · من جانب العميل فقط',
+    'priv.zeropii2': 'بدون بيانات شخصية · 100% من جانب العميل',
+    'about.howworks': 'كيف تعمل:',
+    'about.audience': 'الجمهور المستهدف:',
+    'about.limits': 'القيود:',
+    'about.export': 'تصدير:',
+    'about.whatdoes': 'ما تفعله هذه الأداة:',
+    'about.whatdoes2': 'ما تفعله هذه الأداة',
+    'about.whatsim': 'ما يحاكيه:',
+    'about.source': 'المصدر:',
+    'about.builtby': 'أُنشئ بواسطة',
+    'about.dataprivacy': 'خصوصية البيانات:',
+    'about.dataprivnote': 'ملاحظة خصوصية البيانات:',
+    'about.whatisthis': 'ما هذا؟',
+    'about.results_export': 'يمكن تنزيل النتائج بتنسيق JSON أو Markdown للاستخدام في سير العمل اللاحق أو بيئات تشغيل الوكلاء أو وثائق التدقيق.',
+    'btn.reset': '↺ إعادة تعيين',
+    'btn.clear': '↺ مسح',
+    'btn.exportcsv': '↓ تصدير CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ طباعة',
+    'btn.copy': 'نسخ',
+    'btn.alltools': '← جميع الأدوات',
+    'lbl.jurisdiction': 'الاختصاص القضائي',
+    'lbl.currency': 'العملة',
+    'lbl.amount': 'المبلغ',
+    'lbl.status': 'الحالة',
+    'lbl.type': 'النوع',
+    'lbl.rail': 'المسار',
+    'lbl.paymentrail': 'مسار الدفع',
+    'lbl.selectopt': '— اختر —',
+    'lbl.config': 'الإعدادات',
+    'lbl.valresults': 'نتائج التحقق',
+    'geo.us': 'الولايات المتحدة',
+    'geo.uk': 'المملكة المتحدة',
+    'geo.eu': 'الاتحاد الأوروبي',
+    'geo.brazil': 'البرازيل',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'سيبا',
+    'pay.sepainstant': 'SEPA فوري',
+    'pay.pix': 'PIX (البرازيل)',
+    'pay.sameday': 'ACH في اليوم ذاته',
+    'pay.nextday': 'ACH في اليوم التالي',
+    'sev.high': 'عالٍ',
+    'sev.medium': 'متوسط',
+    'tai01.hero.eyebrow': 'ذكاء اصطناعي · 01 · ضريبة · مجموعة الذكاء الوكيل',
+    'tai01.hero.title': 'مساعد ضريبة الخزينة للمؤسسات الصغيرة والمتوسطة',
+    'tai01.hero.sub': 'تخطيط ضريبي عابر للحدود يُولي الخصوصية الأولوية للمؤسسات الصغيرة والمتوسطة على قضبان A2A المُرمَّزة. يقدر الالتزامات ويحدد الخصومات وينشئ تقارير استراتيجية جاهزة للتدقيق.',
+    'tai01.lbl.jurisdiction': 'الاختصاص القضائي',
+    'tai01.lbl.revenue': 'الإيرادات السنوية (USD)',
+    'tai01.lbl.expenses': 'المصروفات القابلة للخصم',
+    'tai01.lbl.txtype': 'نوع المعاملة',
+    'tai01.lbl.corridor': 'الممر',
+    'tai01.lbl.rail': 'مسار الدفع',
+    'tai01.btn.calculate': '▶ احسب الالتزام الضريبي',
+    'tai01.btn.exportjson': '↓ تصدير JSON',
+    'tai01.btn.exportmd': '↓ تصدير Markdown',
+    'tai01.lbl.liability': 'الالتزام الضريبي',
+    'tai01.lbl.deductions': 'الخصومات',
+    'tai01.lbl.netdue': 'المستحق الصافي',
+    'tai01.lbl.withtax': 'ضريبة الاستقطاع',
+    'tai01.lbl.compliance': 'قائمة تحقق الامتثال',
+    'tai01.lbl.strategy': 'ملاحظات الاستراتيجية',
+    't50.hero.eyebrow': 'الأداة 50 · الامتثال والتنظيم',
+    't50.hero.title': 'محلل مستندات التمويل التجاري وخطابات الاعتماد',
+    't50.hero.sub': 'تحليل والتحقق من صحة خطابات الاعتماد وفقاً لقواعد UCP 600. فك تشفير علامات حقل SWIFT MT700 إلى لغة بسيطة. تحديد قواعد Incoterms 2020 مع توجيه نقل المخاطر/التكاليف.',
+
+  },
+  'pt': {
+    'nav.home': 'Início',
+    'nav.a2a': 'Pagamentos A2A',
+    'nav.glossary': 'Glossário',
+    'nav.tools': 'Ferramentas',
+    'nav.contact': 'Contato',
+    'footer.alltools': 'Todas as Ferramentas',
+    'footer.a2a': 'Pagamentos A2A',
+    'footer.glossary': 'Glossário',
+    'footer.home': 'Início',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Declaração de Privacidade',
+    'about.trigger': 'Sobre Esta Ferramenta',
+    'about.trigger2': 'Sobre Esta Ferramenta ▾',
+    'priv.runs': 'Esta ferramenta funciona inteiramente no seu navegador.',
+    'priv.notrans': 'Nenhum dado é transmitido para nenhum servidor.',
+    'priv.local': 'Todas as entradas, cálculos e saídas geradas são processados localmente no seu dispositivo.',
+    'priv.never': 'e nunca sai do seu dispositivo.',
+    'priv.blocked': 'são substituídos em tempo de execução para bloquear todas as chamadas de rede de saída.',
+    'priv.allproc': 'Todo o processamento no seu navegador · Nenhum dado transmitido',
+    'priv.zeropii': 'Sem PII · Somente no Navegador',
+    'priv.zeropii2': 'Sem PII · 100% no Navegador',
+    'about.howworks': 'Como funciona:',
+    'about.audience': 'Público-alvo:',
+    'about.limits': 'Limitações:',
+    'about.export': 'Exportar:',
+    'about.whatdoes': 'O que esta ferramenta faz:',
+    'about.whatdoes2': 'O que esta ferramenta faz',
+    'about.whatsim': 'O que simula:',
+    'about.source': 'Fonte:',
+    'about.builtby': 'Criado por',
+    'about.dataprivacy': 'Privacidade de dados:',
+    'about.dataprivnote': 'Nota de privacidade de dados:',
+    'about.whatisthis': 'O que é isso?',
+    'about.results_export': 'Os resultados podem ser baixados como JSON ou Markdown para uso em fluxos de trabalho downstream, ambientes de execução de agentes ou documentação de auditoria.',
+    'btn.reset': '↺ Redefinir',
+    'btn.clear': '↺ Limpar',
+    'btn.exportcsv': '↓ Exportar CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimir',
+    'btn.copy': 'Copiar',
+    'btn.alltools': '← Todas as Ferramentas',
+    'lbl.jurisdiction': 'Jurisdição',
+    'lbl.currency': 'Moeda',
+    'lbl.amount': 'Valor',
+    'lbl.status': 'Status',
+    'lbl.type': 'Tipo',
+    'lbl.rail': 'Trilho',
+    'lbl.paymentrail': 'Trilho de Pagamento',
+    'lbl.selectopt': '— Selecionar —',
+    'lbl.config': 'Configuração',
+    'lbl.valresults': 'Resultados de Validação',
+    'geo.us': 'Estados Unidos',
+    'geo.uk': 'Reino Unido',
+    'geo.eu': 'União Europeia',
+    'geo.brazil': 'Brasil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brasil)',
+    'pay.sameday': 'ACH no Mesmo Dia',
+    'pay.nextday': 'ACH no Dia Seguinte',
+    'sev.high': 'Alto',
+    'sev.medium': 'Médio',
+    'tai01.hero.eyebrow': 'IA · 01 · Fiscal · Suite de Inteligência Agente',
+    'tai01.hero.title': 'Assistente Fiscal de Tesouraria para PMEs',
+    'tai01.hero.sub': 'Planejamento fiscal transfronteiriço com privacidade em primeiro lugar para PMEs em trilhos A2A tokenizados. Estima obrigações, identifica deduções e gera relatórios de estratégia prontos para auditoria.',
+    'tai01.lbl.jurisdiction': 'Jurisdição',
+    'tai01.lbl.revenue': 'Receita Anual (USD)',
+    'tai01.lbl.expenses': 'Despesas Dedutíveis',
+    'tai01.lbl.txtype': 'Tipo de Transação',
+    'tai01.lbl.corridor': 'Corredor',
+    'tai01.lbl.rail': 'Trilho de Pagamento',
+    'tai01.btn.calculate': '▶ Calcular Obrigação Fiscal',
+    'tai01.btn.exportjson': '↓ Exportar JSON',
+    'tai01.btn.exportmd': '↓ Exportar Markdown',
+    'tai01.lbl.liability': 'Obrigação Fiscal',
+    'tai01.lbl.deductions': 'Deduções',
+    'tai01.lbl.netdue': 'Líquido a Pagar',
+    'tai01.lbl.withtax': 'Imposto Retido na Fonte',
+    'tai01.lbl.compliance': 'Checklist de Conformidade',
+    'tai01.lbl.strategy': 'Notas de Estratégia',
+    't50.hero.eyebrow': 'Ferramenta 50 · Conformidade e Regulação',
+    't50.hero.title': 'Analisador de Documentos de Comércio Exterior e Carta de Crédito',
+    't50.hero.sub': 'Analise e valide Cartas de Crédito conforme as regras UCP 600. Decodifique as tags de campo SWIFT MT700 em português. Selecione regras Incoterms 2020 com orientação de transferência de risco/custo.',
+
+  },
+  'zh': {
+    'nav.home': '首页',
+    'nav.a2a': 'A2A 支付',
+    'nav.glossary': '术语表',
+    'nav.tools': '工具',
+    'nav.contact': '联系我们',
+    'footer.alltools': '所有工具',
+    'footer.a2a': 'A2A 支付',
+    'footer.glossary': '术语表',
+    'footer.home': '首页',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': '隐私声明',
+    'about.trigger': '关于此工具',
+    'about.trigger2': '关于此工具 ▾',
+    'priv.runs': '此工具完全在您的浏览器中运行。',
+    'priv.notrans': '没有任何数据被传输到服务器。',
+    'priv.local': '所有输入、计算和生成的输出均在您的设备本地处理。',
+    'priv.never': '且永远不会离开您的设备。',
+    'priv.blocked': '在运行时被覆盖以阻止所有出站网络调用。',
+    'priv.allproc': '所有处理在浏览器中进行 · 无数据传输',
+    'priv.zeropii': '零个人信息 · 纯本地运行',
+    'priv.zeropii2': '零个人信息 · 100% 本地运行',
+    'about.howworks': '工作原理：',
+    'about.audience': '目标用户：',
+    'about.limits': '局限性：',
+    'about.export': '导出：',
+    'about.whatdoes': '此工具的功能：',
+    'about.whatdoes2': '此工具的功能',
+    'about.whatsim': '模拟内容：',
+    'about.source': '来源：',
+    'about.builtby': '作者',
+    'about.dataprivacy': '数据隐私：',
+    'about.dataprivnote': '数据隐私说明：',
+    'about.whatisthis': '这是什么？',
+    'about.results_export': '结果可下载为 JSON 或 Markdown 格式，用于下游工作流、代理运行时或审计文档。',
+    'btn.reset': '↺ 重置',
+    'btn.clear': '↺ 清除',
+    'btn.exportcsv': '↓ 导出 CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ 打印',
+    'btn.copy': '复制',
+    'btn.alltools': '← 所有工具',
+    'lbl.jurisdiction': '司法管辖区',
+    'lbl.currency': '货币',
+    'lbl.amount': '金额',
+    'lbl.status': '状态',
+    'lbl.type': '类型',
+    'lbl.rail': '支付轨道',
+    'lbl.paymentrail': '支付轨道',
+    'lbl.selectopt': '— 请选择 —',
+    'lbl.config': '配置',
+    'lbl.valresults': '验证结果',
+    'geo.us': '美国',
+    'geo.uk': '英国',
+    'geo.eu': '欧盟',
+    'geo.brazil': '巴西',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA 即时',
+    'pay.pix': 'PIX（巴西）',
+    'pay.sameday': '同日 ACH',
+    'pay.nextday': '次日 ACH',
+    'sev.high': '高',
+    'sev.medium': '中',
+    'tai01.hero.eyebrow': 'AI · 01 · 税务 · 智能代理套件',
+    'tai01.hero.title': '中小企业财税助手',
+    'tai01.hero.sub': '面向代币化 A2A 轨道上中小企业的隐私优先跨境税务规划。跨五个司法管辖区估算税负、识别扣除项并生成审计就绪的策略报告。',
+    'tai01.lbl.jurisdiction': '司法管辖区',
+    'tai01.lbl.revenue': '年收入（USD）',
+    'tai01.lbl.expenses': '可抵扣费用',
+    'tai01.lbl.txtype': '交易类型',
+    'tai01.lbl.corridor': '通道',
+    'tai01.lbl.rail': '支付轨道',
+    'tai01.btn.calculate': '▶ 计算税负',
+    'tai01.btn.exportjson': '↓ 导出 JSON',
+    'tai01.btn.exportmd': '↓ 导出 Markdown',
+    'tai01.lbl.liability': '税负',
+    'tai01.lbl.deductions': '扣除项',
+    'tai01.lbl.netdue': '应缴净额',
+    'tai01.lbl.withtax': '预扣税',
+    'tai01.lbl.compliance': '合规检查清单',
+    'tai01.lbl.strategy': '策略说明',
+    't50.hero.eyebrow': '工具 50 · 合规与监管',
+    't50.hero.title': '贸易融资文件与信用证分析器',
+    't50.hero.sub': '根据 UCP 600 规则解析和验证信用证。将 SWIFT MT700 字段标签解码为通俗语言。选择 Incoterms 2020 规则并获取风险/成本转移指导。针对12种最常见单据信用缺陷进行差异检查。',
+
+  },
+};
+
+
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})(););
+  document.querySelectorAll('.lang-btn').forEach(function(b){
+    if(b.getAttribute('data-lang')===lang) b.classList.add('active');
+  });
+  document.documentElement.lang = lang==='zh'?'zh-Hans':lang;
+  document.documentElement.dir  = lang==='ar'?'rtl':'ltr';
+  var s = I18N[lang]||I18N['en'];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var k=el.getAttribute('data-i18n');
+    if(s[k]!==undefined) el.textContent=s[k];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el){
+    var k=el.getAttribute('data-i18n-placeholder');
+    if(s[k]!==undefined) el.placeholder=s[k];
+  });
+  window._lang=lang;
+}
+
+</script>
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "trade-finance-lc-analyser", "version": "1.0.0", "title": "Trade Finance Document & LC Analyser", "description": "Parse and validate Letters of Credit against UCP 600. Decode SWIFT MT700 messages. Incoterms 2020 selector. Discrepancy checker. UCP 600 glossary. Export report. Client-side. Zero PII.", "category": "cat-13", "tags": ["Trade Finance", "Letter of Credit", "UCP 600", "SWIFT MT700"], "audience": ["treasury", "compliance", "trade"], "input_schema": {"type": "object", "properties": {}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "trade_finance_lc_analyser", "description": "Run Trade Finance Document & LC Analyser. Parse and validate Letters of Credit against UCP 600. Decode SWIFT MT700 messages. Incoterms 2020 selector. Discrepancy checker. UCP 600 glossary. Export report. Client-side. Zero PII.", "inputSchema": {"type": "object", "properties": {}}}, "execution": {"type": "browser-javascript", "entry": "tools/50-trade-finance-lc-analyser.html", "function_name": "validateLC", "timeout_ms": 5000}, "ap2_export": false}');
+  function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s=JSON.stringify(MANIFEST,null,2);
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(s);}
+  }
+  function scrollMfst(){
+    var el=document.getElementById('mfstSec');
+    if(el)el.scrollIntoView({behavior:'smooth'});
+  }
+</script>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+</body>
+</html>

@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+  <title>T258 · Intraday Credit Facility Sizing Model — AINumbers.co</title>
+  <link rel="canonical" href="https://ainumbers.co/tools/258-intraday-credit-facility-sizer.html">
+  <meta name="description" content="Basel III LCR-framed intraday credit facility sizing model. Minimum liquidity buffer, LCR ratio impact, BCBS 248 indicator set, peak debit stress scenarios, and liquidity Policy Mandate JSON. Client-side. Zero PII.">
+  <script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Intraday Credit Facility Sizing Model — AINumbers.co","url":"https://ainumbers.co/tools/258-intraday-credit-facility-sizer.html","description":"Basel III LCR-framed intraday credit facility sizing model. Minimum liquidity buffer, LCR ratio impact, BCBS 248 indicator set, peak debit stress scenarios, and liquidity Policy Mandate JSON. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* PolicyMandate — full validator (Phase 14); AP2Schema internal name retained */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+};
+</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+      --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+      --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+      --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+      --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+      --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+      --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+      --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+      --radius:6px;--radius-lg:10px;
+      --font-display:'DM Serif Display',serif;
+      --font-body:'Sora',sans-serif;
+      --font-mono:'JetBrains Mono',monospace;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{font-family:var(--font-body);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6;
+      background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);
+      background-size:40px 40px}
+
+    .lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:6px 0}
+    .lang-inner{max-width:1200px;margin:0 auto;padding:0 24px;display:flex;gap:4px;justify-content:flex-end}
+    .lang-btn{font-family:var(--font-mono);font-size:.66rem;font-weight:500;letter-spacing:.06em;padding:3px 10px;border-radius:var(--radius);border:1px solid var(--border);background:transparent;color:var(--body);cursor:pointer;transition:all .15s}
+    .lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+    .lang-btn.active{background:var(--teal-dim);border-color:var(--teal);color:var(--teal-lt)}
+
+    nav{background:rgba(8,14,26,.96);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+    .nav-inner{max-width:1200px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+    .nav-logo{font-family:var(--font-mono);font-size:.85rem;font-weight:700;color:var(--teal-lt);text-decoration:none;letter-spacing:-.02em}
+    .nav-logo span{color:var(--white)}
+    .hero{max-width:1200px;margin:0 auto;padding:52px 24px 40px}
+    .hero-eyebrow{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+    .tool-eyebrow{font-family:var(--font-mono);font-size:.66rem;font-weight:700;letter-spacing:.1em;color:var(--body);text-transform:uppercase}
+    .eyebrow-tag{font-family:var(--font-mono);font-size:.62rem;font-weight:700;padding:3px 10px;border-radius:var(--radius);letter-spacing:.07em}
+    .eyebrow-tag.teal{background:var(--teal-dim);border:1px solid rgba(20,184,166,.3);color:var(--teal-lt)}
+    .eyebrow-tag.gold{background:var(--gold-dim);border:1px solid rgba(212,168,71,.3);color:var(--gold)}
+    .hero h1{font-family:var(--font-display);font-size:clamp(1.75rem,3.5vw,2.6rem);color:var(--white);line-height:1.18;margin-bottom:16px;letter-spacing:-.02em}
+    .hero-desc{font-size:.88rem;color:var(--text);max-width:700px;line-height:1.75;margin-bottom:24px}
+    .hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+    .badge-muted{color:var(--muted);border-color:var(--border)}
+    .badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+    .hero-meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .meta-badge{font-family:var(--font-mono);font-size:.6rem;font-weight:600;padding:4px 12px;border-radius:var(--radius);border:1px solid var(--border);color:var(--body);letter-spacing:.05em}
+    .meta-badge.teal{border-color:rgba(20,184,166,.35);color:var(--teal);background:var(--teal-dim)}
+    .meta-badge.gold{border-color:rgba(212,168,71,.35);color:var(--gold);background:var(--gold-dim)}
+    .meta-badge.green{border-color:rgba(34,197,94,.35);color:var(--green);background:var(--green-dim)}
+    .meta-badge.purple{border-color:rgba(155,114,245,.35);color:var(--purple);background:var(--purple-dim)}
+
+    .scope-callout{max-width:1200px;margin:0 auto;padding:0 24px 32px}
+    .scope-box{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:var(--radius);font-size:.77rem;color:var(--text);line-height:1.55}
+    .scope-box strong{color:var(--teal-lt);font-weight:600}
+    .scope-box a{color:var(--teal);text-decoration:none;font-family:var(--font-mono);font-size:.7rem}
+    .scope-box a:hover{text-decoration:underline}
+
+    .main-wrap{max-width:1200px;margin:0 auto;padding:0 24px 64px;display:grid;grid-template-columns:360px 1fr;gap:24px;align-items:start}
+
+    .panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+    .panel-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+    .panel-label{font-family:var(--font-mono);font-size:.66rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+    .panel-body{padding:20px}
+
+    .section-label{font-family:var(--font-mono);font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:12px;margin-top:4px}
+
+    .field-group{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+    .field-group:last-child{margin-bottom:0}
+    .field-group label{font-family:var(--font-mono);font-size:.61rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+    .field-group select,.field-group input{font-family:var(--font-body);font-size:.82rem;padding:9px 32px 9px 12px;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--bright);outline:none;appearance:none;cursor:pointer;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233A5270' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-position:right 10px center;background-size:15px;transition:border-color .15s}
+    .field-group input{background-image:none;padding-right:12px}
+    .field-group select:focus,.field-group input:focus{border-color:var(--teal)}
+    .input-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .input-with-unit{position:relative}
+    .input-with-unit .unit{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-family:var(--font-mono);font-size:.72rem;color:var(--muted);pointer-events:none}
+    .input-with-unit input{padding-left:22px}
+    .input-with-unit .unit-right{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-family:var(--font-mono);font-size:.65rem;color:var(--muted);pointer-events:none}
+    .input-with-unit .with-right{padding-right:28px;background-image:none}
+    .divider{border:none;border-top:1px solid var(--border);margin:16px 0}
+
+    .pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+    .run-btn{width:100%;margin-top:16px;padding:14px 24px;font-family:var(--font-mono);font-size:.8rem;font-weight:700;letter-spacing:.08em;background:var(--teal);color:var(--bg);border:none;border-radius:var(--radius);cursor:pointer;transition:all .15s}
+    .run-btn:hover{background:var(--teal-lt);transform:translateY(-1px)}
+    .run-btn:active{transform:translateY(0)}
+
+    /* Results */
+    .results-title{font-family:var(--font-mono);font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--teal)}
+    .results-empty{text-align:center;padding:60px 24px}
+    .empty-icon{font-size:2.2rem;opacity:.3;margin-bottom:14px}
+    .empty-text{font-family:var(--font-mono);font-size:.68rem;color:var(--muted);letter-spacing:.06em;line-height:1.6}
+
+    /* Metric cards */
+    .metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-bottom:1px solid var(--border)}
+    .metric-card{background:var(--bg-3);padding:16px 18px}
+    .metric-val{font-family:var(--font-display);font-size:1.45rem;color:var(--white);line-height:1;margin-bottom:4px}
+    .metric-lbl{font-family:var(--font-mono);font-size:.58rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+    .metric-sub{font-size:.68rem;color:var(--body);margin-top:3px}
+
+    /* Adequacy banner */
+    .adequacy-banner{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+    .adequacy-icon{font-size:1.2rem}
+    .adequacy-label{font-family:var(--font-mono);font-size:.75rem;font-weight:700;letter-spacing:.08em}
+    .adequacy-desc{font-size:.7rem;color:var(--text);margin-top:1px}
+
+    /* LCR impact */
+    .section-wrap{padding:16px 20px;border-bottom:1px solid var(--border)}
+    .section-heading{font-family:var(--font-mono);font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+    .lcr-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+    .lcr-label{font-family:var(--font-mono);font-size:.63rem;font-weight:600;color:var(--body);min-width:160px}
+    .lcr-track{flex:1;height:6px;background:var(--bg-4);border-radius:3px;overflow:hidden}
+    .lcr-fill{height:100%;border-radius:3px;background:var(--teal);transition:width .5s}
+    .lcr-val{font-family:var(--font-mono);font-size:.63rem;font-weight:700;min-width:50px;text-align:right}
+
+    /* BCBS 248 table */
+    .bcbs-table{width:100%;border-collapse:collapse;font-size:.72rem}
+    .bcbs-table th{font-family:var(--font-mono);font-size:.58rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:6px 10px;border-bottom:1px solid var(--border);text-align:left}
+    .bcbs-table td{padding:7px 10px;border-bottom:1px solid rgba(30,47,74,.5);color:var(--text);vertical-align:top}
+    .bcbs-table tr:last-child td{border-bottom:none}
+    .bcbs-table tr:hover td{background:rgba(20,184,166,.03)}
+    .ind-id{font-family:var(--font-mono);font-size:.62rem;font-weight:700;color:var(--teal)}
+    .ind-val{font-family:var(--font-mono);font-size:.68rem;font-weight:700;color:var(--bright);text-align:right}
+
+    /* Stress table */
+    .stress-table{width:100%;border-collapse:collapse;font-size:.72rem}
+    .stress-table th{font-family:var(--font-mono);font-size:.58rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:6px 10px;border-bottom:1px solid var(--border);text-align:left}
+    .stress-table td{padding:7px 10px;border-bottom:1px solid rgba(30,47,74,.5);color:var(--text)}
+    .stress-table tr:last-child td{border-bottom:none}
+    .stress-chip{font-family:var(--font-mono);font-size:.55rem;font-weight:700;padding:2px 7px;border-radius:var(--radius);border:1px solid}
+    .stress-chip.ok{border-color:rgba(34,197,94,.4);color:var(--green);background:var(--green-dim)}
+    .stress-chip.fail{border-color:rgba(239,68,68,.4);color:var(--red);background:var(--red-dim)}
+
+    /* Crosslink */
+    .crosslink{margin:14px 20px;padding:11px 14px;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);border-left:3px solid var(--teal)}
+    .crosslink-label{font-family:var(--font-mono);font-size:.58rem;font-weight:700;letter-spacing:.08em;color:var(--teal);margin-bottom:4px}
+    .crosslink-text{font-size:.72rem;color:var(--text);line-height:1.5}
+    .crosslink-text a{font-family:var(--font-mono);font-size:.63rem;color:var(--teal);text-decoration:none}
+    .crosslink-text a:hover{text-decoration:underline}
+
+    .export-row{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--border)}
+    .btn-export{flex:1;padding:10px;font-family:var(--font-mono);font-size:.6rem;font-weight:700;letter-spacing:.05em;text-align:center;border-radius:var(--radius);border:1px solid var(--border);background:transparent;color:var(--muted);cursor:not-allowed;opacity:.32;transition:all .15s}
+    .btn-export.ready{opacity:1;cursor:pointer}
+    .btn-export-ap2.ready{border-color:rgba(155,114,245,.4);color:var(--purple);background:var(--purple-dim)}
+    .btn-export-ap2.ready:hover{border-color:var(--purple)}
+    .btn-export-md.ready{border-color:rgba(20,184,166,.35);color:var(--teal);background:var(--teal-dim)}
+    .btn-export-md.ready:hover{border-color:var(--teal)}
+
+    .toast{position:fixed;bottom:24px;right:24px;padding:11px 18px;border-radius:var(--radius);font-family:var(--font-mono);font-size:.7rem;font-weight:600;letter-spacing:.04em;opacity:0;transform:translateY(8px);transition:all .22s;pointer-events:none;z-index:1000}
+    .toast.show{opacity:1;transform:translateY(0)}
+    .toast.success{background:var(--green-dim);border:1px solid var(--green);color:var(--green)}
+    .toast.info{background:var(--teal-dim);border:1px solid var(--teal);color:var(--teal-lt)}
+    .toast.error{background:var(--red-dim);border:1px solid var(--red);color:var(--red)}
+
+    [dir="rtl"] .nav-inner{flex-direction:row-reverse}
+    [dir="rtl"] .lang-inner{justify-content:flex-start}
+    [dir="rtl"] .hero-eyebrow{flex-direction:row-reverse}
+    [dir="rtl"] .panel-label{text-align:right}
+    [dir="rtl"] .export-row{flex-direction:row-reverse}
+    [dir="rtl"] [dir="rtl"] .scope-box{border-left:none;border-right:3px solid var(--teal)}
+    [dir="rtl"] .crosslink{border-left:none;border-right:3px solid var(--teal)}
+    [dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+    [dir="rtl"] .run-btn{letter-spacing:0}
+
+    @media(max-width:920px){.main-wrap{grid-template-columns:1fr}.metrics-grid{grid-template-columns:1fr 1fr}}
+    @media(max-width:580px){.hero{padding:32px 16px 24px}.main-wrap{padding:0 16px 48px}.scope-callout{padding:0 16px 24px}.input-row{grid-template-columns:1fr}.metrics-grid{grid-template-columns:1fr}}
+
+    /* ── SVG Logo classes ── */
+    .logo { display:flex; align-items:center; gap:10px; flex-shrink:0; text-decoration:none; }
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+    .logo-mark-grid { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:32px; height:32px; }
+    .logo-text{display:flex;flex-direction:column;gap:.08rem;}
+    .logo-ai { color:var(--teal); }
+    .logo-co { color:var(--muted); font-size:.8rem; }
+    
+  
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+
+.container{max-width:960px;margin:0 auto;padding:0 1.5rem}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark-grid">
+        <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="#0D1627"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="#14B8A6" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".7"/>
+      </svg>
+      </div>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/realtime-payments-ops-hub.html">Real-Time Payments Hub</a><span class="nav-sep">/</span><span>T-258</span></div>
+
+    <a href="../guides/realtime-payments-ops-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-eyebrow">
+    <span class="tool-eyebrow">T258 · Cat-21 · Real-Time Payments · Liquidity Management</span>
+    <span class="eyebrow-tag teal">CAT-21</span>
+    <span class="eyebrow-tag gold">BCBS 248</span>
+  </div>
+  <h1 class="tool-title">Intraday Credit Facility Sizing Model</h1>
+  <p class="hero-desc">Model intraday credit facility requirements under the Basel III LCR framework. Calculate the minimum intraday liquidity buffer, recommended facility size, LCR ratio impact from pre-positioned collateral, and the full BCBS 248 intraday liquidity indicator set. Outputs a peak debit stress analysis and liquidity Policy Mandate JSON.</p>
+  <div class="hero-meta">
+    <span class="meta-badge gold">Basel III · BCBS 248</span>
+    <span class="meta-badge teal">LCR Impact</span>
+    <span class="meta-badge teal">Peak Debit Sizing</span>
+    <span class="meta-badge purple">Stress Scenarios</span>
+    <span class="meta-badge green">Policy Mandate Export</span>
+    <span class="meta-badge">Client-side · Zero PII</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+</section>
+
+<div class="scope-callout">
+  <div class="scope-box">
+    <span style="font-size:1rem;flex-shrink:0">💧</span>
+    <div><strong>Scope: intraday credit facility sizing only.</strong> This tool sizes a single intraday credit line against the Basel III LCR framework and BCBS 248 indicators. For 13-week rolling cash flow forecasting, multi-period stress testing, and working capital gap analysis, see <a href="../tools/42-liquidity-stress-lab.html">Tool 42 · Liquidity Stress Lab →</a></div>
+  </div>
+</div>
+
+<div class="main-wrap">
+
+  <!-- LEFT: Inputs -->
+  <div>
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label">Configuration</span>
+      </div>
+      <div class="panel-body">
+
+        <!-- Settlement Profile -->
+        <div class="section-label">Settlement Profile</div>
+        <div class="field-group">
+          <label for="instType">Institution Type</label>
+          <select id="instType">
+            <option value="large_bank">Large Bank / GSiB-affiliated</option>
+            <option value="regional_bank">Regional Bank</option>
+            <option value="community_bank">Community Bank / Credit Union</option>
+            <option value="non_bank">Non-Bank Payment Institution</option>
+            <option value="emi">E-Money Institution (EMI)</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="settlementWindow">Primary Settlement Window</label>
+          <select id="settlementWindow">
+            <option value="fednow">FedNow 24×7×365 (US)</option>
+            <option value="fedwire">Fedwire 21h window (9PM–6:30PM ET)</option>
+            <option value="chips">CHIPS Standard Hours (US)</option>
+            <option value="chaps">CHAPS 12h window (6AM–6PM UK)</option>
+            <option value="target2">TARGET2 / T2 (7AM–6PM CET)</option>
+            <option value="sepa_inst">SEPA Instant 24×7×365 (EU)</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label data-i18n="label_settlement_window" for="avgDailyVolume">Avg Daily Gross Settlement Volume ($)</label>
+          <div class="input-with-unit"><span class="unit">$</span>
+            <input type="number" id="avgDailyVolume" value="500000000" min="1" step="1000000">
+          </div>
+        </div>
+        <div class="field-group">
+          <label data-i18n="label_peak_debit" for="peakNetDebit">Peak Net Debit Position ($) — max intraday negative</label>
+          <div class="input-with-unit"><span class="unit">$</span>
+            <input type="number" id="peakNetDebit" value="75000000" min="1" step="1000000">
+          </div>
+        </div>
+        <div class="input-row">
+          <div class="field-group">
+            <label for="timeSpecificPct">Time-Specific Obligations (% of daily)</label>
+            <div class="input-with-unit">
+              <input type="number" id="timeSpecificPct" class="with-right" value="15" min="0" max="100" step="1">
+              <span class="unit-right">%</span>
+            </div>
+          </div>
+          <div class="field-group">
+            <label for="correspondentPct">Correspondent Flow (% of daily)</label>
+            <div class="input-with-unit">
+              <input type="number" id="correspondentPct" class="with-right" value="20" min="0" max="100" step="1">
+              <span class="unit-right">%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Liquidity Position -->
+        <div class="section-label">Current Liquidity Position (Basel III)</div>
+        <div class="field-group">
+          <label for="currentLCR">Current LCR Ratio (%)</label>
+          <div class="input-with-unit">
+            <input type="number" id="currentLCR" class="with-right" value="130" min="0" max="500" step="1">
+            <span class="unit-right">%</span>
+          </div>
+        </div>
+        <div class="field-group">
+          <label for="currentHQLA">Total HQLA Stock ($)</label>
+          <div class="input-with-unit"><span class="unit">$</span>
+            <input type="number" id="currentHQLA" value="2000000000" min="0" step="10000000">
+          </div>
+        </div>
+        <div class="field-group">
+          <label for="netCashOutflows">30-Day Net Cash Outflows ($) — LCR denominator</label>
+          <div class="input-with-unit"><span class="unit">$</span>
+            <input type="number" id="netCashOutflows" value="1538000000" min="1" step="10000000">
+          </div>
+        </div>
+        <div class="field-group">
+          <label for="existingLine">Existing Intraday Credit Line ($)</label>
+          <div class="input-with-unit"><span class="unit">$</span>
+            <input type="number" id="existingLine" value="0" min="0" step="1000000">
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Facility Parameters -->
+        <div class="section-label">Facility Parameters</div>
+        <div class="field-group">
+          <label data-i18n="label_buffer_target" for="bufferTarget">Buffer Target (% above peak debit)</label>
+          <select id="bufferTarget">
+            <option value="10">10% — Minimum (high-frequency settlement)</option>
+            <option value="20">20% — Conservative standard</option>
+            <option value="25" selected>25% — Regulatory-aligned (BCBS 248 guidance)</option>
+            <option value="30">30% — Prudential / stress-buffered</option>
+            <option value="50">50% — Highly conservative</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="collateralType">Pre-Positioned Collateral Type</label>
+          <select id="collateralType" onchange="syncHaircut()">
+            <option value="reserves">Central bank reserves / deposits (Level 1)</option>
+            <option value="govt_securities">Government / agency securities (Level 1)</option>
+            <option value="sovereign_bonds">High-grade sovereign bonds (Level 2A)</option>
+            <option value="corp_bonds">Investment-grade corporate bonds (Level 2B)</option>
+            <option value="agency_mbs">Agency / GSE MBS (Level 2B)</option>
+            <option value="other">Other eligible collateral</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="collateralHaircut">Collateral Haircut (%)</label>
+          <div class="input-with-unit">
+            <input type="number" id="collateralHaircut" class="with-right" value="0" min="0" max="100" step="1">
+            <span class="unit-right">%</span>
+          </div>
+        </div>
+        <div class="field-group">
+          <label for="paymentTimingPct">Payments in First 2hrs of Window (% of daily)</label>
+          <div class="input-with-unit">
+            <input type="number" id="paymentTimingPct" class="with-right" value="30" min="0" max="100" step="1">
+            <span class="unit-right">%</span>
+          </div>
+        </div>
+
+        <div class="pii-notice">
+  <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+</div>
+        <button class="run-btn" onclick="runModel()" data-i18n="run_btn">Calculate Facility →</button>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Results -->
+  <div>
+    <div class="panel">
+      <div class="panel-header">
+        <span class="results-title" data-i18n="results_title">Facility Sizing Results</span>
+      </div>
+
+      <div class="results-empty" id="resultsEmpty">
+        <div class="empty-icon">💧</div>
+        <div class="empty-text">Enter settlement profile and<br>liquidity position, then click<br>Calculate Facility</div>
+      </div>
+
+      <div id="resultsContent" style="display:none;">
+
+        <!-- Key metrics -->
+        <div class="metrics-grid" id="metricsGrid"></div>
+
+        <!-- Adequacy banner -->
+        <div class="adequacy-banner" id="adequacyBanner"></div>
+
+        <!-- LCR Impact -->
+        <div class="section-wrap" id="lcrSection"></div>
+
+        <!-- Crosslink to Tool 42 -->
+        <div class="crosslink">
+          <div class="crosslink-label">→ Cross-link · Tool 42</div>
+          <div class="crosslink-text">For 13-week rolling cash flow forecasting and multi-period liquidity stress testing:
+            <a href="../tools/42-liquidity-stress-lab.html">Tool 42 · Liquidity Stress Lab →</a>
+          </div>
+        </div>
+
+        <!-- BCBS 248 Indicators -->
+        <div class="section-wrap" id="bcbsSection"></div>
+
+        <!-- Stress scenarios -->
+        <div class="section-wrap" id="stressSection"></div>
+
+      </div>
+
+      <div class="results-export-row export-row">
+        <button class="btn-export btn-export-ap2" id="ap2ExportBtn" disabled title="Calculate facility first">Export Policy Mandate</button>
+        <button class="btn-export btn-export-md"  id="mdBtn"  disabled title="Calculate facility first">Export Markdown</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/realtime-payments-ops-hub.html"><span data-i18n="footer.hub_realtime_payments_ops">Realtime Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   T258 · Intraday Credit Facility Sizing Model
+   AINumbers.co · Post Oak Labs · v1.0.0
+   Regulatory basis: Basel III LCR (BCBS 188), BCBS 248 Intraday
+   Liquidity Monitoring Indicators, Federal Reserve SR 10-6,
+   ECB Intraday Liquidity Management Guidelines.
+   Scope: intraday credit facility sizing — distinct from Tool 42.
+   MCP function: calculate_intraday_credit_facility
+   AP2 mandate_type: payment_policy (liquidity_mandate sub-type)
+   Client-side only. Zero PII. Deterministic calculation.
+══════════════════════════════════════════════════════════════════ */
+
+/* ── Collateral haircut lookup (Basel III Table 1 / 2) ── */
+const HAIRCUTS = {
+  reserves:        0,   // Level 1 — 0% (central bank reserves)
+  govt_securities: 0,   // Level 1 — 0% (government / agency)
+  sovereign_bonds: 15,  // Level 2A — 15% (high-grade sovereign)
+  corp_bonds:      25,  // Level 2B — 25% (IG corporate bonds)
+  agency_mbs:      25,  // Level 2B — 25% (agency MBS)
+  other:           50,  // Other eligible — conservative 50%
+};
+
+const COLLATERAL_LABELS = {
+  reserves: 'Central bank reserves (Level 1 HQLA)',
+  govt_securities: 'Government/agency securities (Level 1 HQLA)',
+  sovereign_bonds: 'High-grade sovereign bonds (Level 2A HQLA)',
+  corp_bonds: 'IG corporate bonds (Level 2B HQLA)',
+  agency_mbs: 'Agency/GSE MBS (Level 2B HQLA)',
+  other: 'Other eligible collateral',
+};
+
+const SETTLEMENT_LABELS = {
+  fednow:    'FedNow 24×7×365 (US Federal Reserve)',
+  fedwire:   'Fedwire Funds Service (21hr window)',
+  chips:     'CHIPS (US — The Clearing House)',
+  chaps:     'CHAPS (UK — Bank of England)',
+  target2:   'TARGET2 / T2 (ECB)',
+  sepa_inst: 'SEPA Instant 24×7×365 (EPC)',
+};
+
+function syncHaircut() {
+  const type = document.getElementById('collateralType').value;
+  document.getElementById('collateralHaircut').value = HAIRCUTS[type] ?? 0;
+}
+
+let lastAP2 = null;
+let lastCalc = null;
+
+/* ──────────────────────────────────────────────────────────────────
+   CORE MODEL — MCP callable: calculateIntradayCreditFacility()
+   Implements:
+   · BCBS 248 (April 2013) — 7 intraday liquidity monitoring indicators
+   · Basel III LCR (BCBS 188) — HQLA, net cash outflows, LCR ratio
+   · Federal Reserve SR 10-6 — intraday liquidity risk management
+   · ECB intraday liquidity guidelines
+────────────────────────────────────────────────────────────────── */
+function runModel() {
+  /* Read inputs */
+  const instType          = document.getElementById('instType').value;
+  const settlementWindow  = document.getElementById('settlementWindow').value;
+  const avgDailyVolume    = parseFloat(document.getElementById('avgDailyVolume').value)    || 0;
+  const peakNetDebit      = parseFloat(document.getElementById('peakNetDebit').value)      || 0;
+  const timeSpecificPct   = parseFloat(document.getElementById('timeSpecificPct').value)   / 100 || 0;
+  const correspondentPct  = parseFloat(document.getElementById('correspondentPct').value)  / 100 || 0;
+  const currentLCR        = parseFloat(document.getElementById('currentLCR').value)        || 0;
+  const currentHQLA       = parseFloat(document.getElementById('currentHQLA').value)       || 0;
+  const netCashOutflows   = parseFloat(document.getElementById('netCashOutflows').value)   || 0;
+  const existingLine      = parseFloat(document.getElementById('existingLine').value)      || 0;
+  const bufferPct         = parseFloat(document.getElementById('bufferTarget').value)      / 100 || 0.25;
+  const collateralType    = document.getElementById('collateralType').value;
+  const collateralHaircut = parseFloat(document.getElementById('collateralHaircut').value) / 100 || 0;
+  const paymentTimingPct  = parseFloat(document.getElementById('paymentTimingPct').value)  / 100 || 0;
+
+  if (peakNetDebit <= 0) { showToast('Enter a positive peak net debit position', 'error'); return; }
+  if (avgDailyVolume <= 0) { showToast('Enter a positive average daily volume', 'error'); return; }
+
+  /* ── Step 1: Minimum intraday liquidity buffer (BCBS 248 §III) ── */
+  /*
+   * Minimum buffer = peak net debit × (1 + buffer_target_pct)
+   * Accounts for: intraday timing mismatches, unexpected spikes,
+   * operational overhead.
+   */
+  const minimumBuffer = peakNetDebit * (1 + bufferPct);
+
+  /* ── Step 2: Recommended facility size ── */
+  /*
+   * Recommended = minimum buffer × 1.20 (20% operational headroom)
+   * Headroom covers: settlement system delays, queue backlog,
+   * unexpected credit extensions to correspondents.
+   */
+  const recommendedFacility = minimumBuffer * 1.20;
+
+  /* ── Step 3: Collateral pre-positioning requirement ── */
+  /*
+   * Gross collateral = facility / (1 - haircut)
+   * Net HQLA reduction from pre-positioning = gross collateral × (1-haircut) = facility
+   * i.e. pre-positioning the recommended facility removes exactly that amount from
+   * usable HQLA.
+   */
+  const grossCollateral = collateralHaircut < 1 ? recommendedFacility / (1 - collateralHaircut) : recommendedFacility * 2;
+  const hqlaReduction   = recommendedFacility; // net HQLA reduction = facility size
+
+  /* ── Step 4: LCR impact ── */
+  /*
+   * LCR = HQLA / Net Cash Outflows (30-day)
+   * Pre-positioning collateral reduces available HQLA
+   * (it is pledged, not freely available as liquidity buffer)
+   */
+  const hqlaAfterPreposition = Math.max(0, currentHQLA - hqlaReduction);
+  const lcrAfterPreposition  = netCashOutflows > 0 ? (hqlaAfterPreposition / netCashOutflows) * 100 : 0;
+  const lcrImpactPpt         = lcrAfterPreposition - currentLCR;
+  const lcrCompliantAfter    = lcrAfterPreposition >= 100;
+
+  /* ── Step 5: Gap analysis ── */
+  const currentCoverage = existingLine;
+  const facilityGap     = Math.max(0, recommendedFacility - currentCoverage);
+  const coverageRatio   = currentCoverage > 0 ? (currentCoverage / recommendedFacility) * 100 : 0;
+
+  /* ── Step 6: Adequacy assessment ── */
+  let adequacy, adequacyColor, adequacyIcon;
+  if (currentCoverage >= recommendedFacility) {
+    adequacy = 'Adequate'; adequacyColor = 'var(--green)'; adequacyIcon = '✓';
+  } else if (currentCoverage >= minimumBuffer) {
+    adequacy = 'Marginal'; adequacyColor = 'var(--warn)'; adequacyIcon = '⚠';
+  } else {
+    adequacy = 'Insufficient'; adequacyColor = 'var(--red)'; adequacyIcon = '✗';
+  }
+
+  /* ── Step 7: BCBS 248 Intraday Liquidity Indicator Set ── */
+  /*
+   * Seven monitoring indicators per BCBS 248 (April 2013) §III
+   * ILM1–ILM7 — reported to supervisors under Basel III Pillar 2.
+   */
+  const ilm2_startOfDay = existingLine + (currentHQLA * 0.05); // approx: reserve balance + 5% HQLA
+  const bcbs248 = [
+    {
+      id: 'ILM1', name: 'Daily Max Intraday Liquidity Usage',
+      desc: 'Maximum net debit position during the settlement day',
+      value: peakNetDebit,
+      note: 'Compare to start-of-day available (ILM2). Ratio should be ≤ 0.8 under normal conditions.',
+      isCurrency: true,
+    },
+    {
+      id: 'ILM2', name: 'Available Intraday Liquidity — Start of Day',
+      desc: 'Committed credit line + estimated reserve balance (approx.)',
+      value: ilm2_startOfDay,
+      note: 'Should exceed ILM1 by the buffer target margin. Formally: reserve balance + committed intraday line.',
+      isCurrency: true,
+    },
+    {
+      id: 'ILM3', name: 'Total Payments (Value)',
+      desc: 'Gross value of all payments settled during the business day',
+      value: avgDailyVolume,
+      note: 'Monitor trend — sustained growth in ILM3 may require proportional facility increases.',
+      isCurrency: true,
+    },
+    {
+      id: 'ILM4', name: 'Time-Specific Obligations',
+      desc: 'Value of payments due at specific times (CLS, CHIPS finality, derivatives)',
+      value: avgDailyVolume * timeSpecificPct,
+      note: `${(timeSpecificPct * 100).toFixed(0)}% of daily volume. Pre-fund obligations by 09:00 local time to avoid queuing penalties.`,
+      isCurrency: true,
+    },
+    {
+      id: 'ILM5', name: 'Customer Payments — Correspondent Flow',
+      desc: 'Value of payments made on behalf of correspondent banking clients',
+      value: avgDailyVolume * correspondentPct,
+      note: `${(correspondentPct * 100).toFixed(0)}% of daily volume. Correspondent intraday credit exposures require separate limits.`,
+      isCurrency: true,
+    },
+    {
+      id: 'ILM6', name: 'Intraday Credit Lines Extended',
+      desc: 'Total intraday credit made available to your own customers / correspondents',
+      value: existingLine > 0 ? existingLine : recommendedFacility * 0.10,
+      note: 'Extended lines are contingent outflows — must be covered by own facility with headroom.',
+      isCurrency: true,
+    },
+    {
+      id: 'ILM7', name: 'Payment Timing — First 2 Hours',
+      desc: 'Value of payments sent in the first 2 hours of the settlement window',
+      value: avgDailyVolume * paymentTimingPct,
+      note: `${(paymentTimingPct * 100).toFixed(0)}% of daily volume front-loaded. Higher front-loading increases peak debit exposure in the first settlement cycle.`,
+      isCurrency: true,
+    },
+  ];
+
+  /* ── Step 8: Stress scenarios ── */
+  const stressScenarios = [
+    { label: '1.5× Peak Debit', factor: 1.5, desc: 'Moderate stress — market volatility, FX settlement spike' },
+    { label: '2× Peak Debit',   factor: 2.0, desc: 'Severe stress — large batch settlement, correspondent failure' },
+    { label: '3× Peak Debit',   factor: 3.0, desc: 'Extreme stress — systemic event, RTGS gridlock' },
+  ].map(s => {
+    const stressPeak     = peakNetDebit * s.factor;
+    const stressBuffer   = stressPeak * (1 + bufferPct);
+    const stressFacility = stressBuffer * 1.20;
+    const covered        = currentCoverage >= stressFacility;
+    return { ...s, stressPeak, stressBuffer, stressFacility, covered };
+  });
+
+  /* Store for export */
+  lastCalc = {
+    instType, settlementWindow, avgDailyVolume, peakNetDebit,
+    timeSpecificPct, correspondentPct, paymentTimingPct,
+    currentLCR, currentHQLA, netCashOutflows, existingLine,
+    bufferPct, collateralType, collateralHaircut, grossCollateral,
+    minimumBuffer, recommendedFacility, facilityGap, currentCoverage, coverageRatio,
+    hqlaReduction, hqlaAfterPreposition, lcrAfterPreposition, lcrImpactPpt, lcrCompliantAfter,
+    adequacy, adequacyColor, adequacyIcon, bcbs248, stressScenarios,
+  };
+
+  /* Render */
+  document.getElementById('resultsEmpty').style.display = 'none';
+  document.getElementById('resultsContent').style.display = 'block';
+  renderMetrics(lastCalc);
+  renderAdequacy(lastCalc);
+  renderLCR(lastCalc);
+  renderBCBS248(lastCalc);
+  renderStress(lastCalc);
+
+  lastAP2 = buildAP2(lastCalc);
+  const ap2Btn = document.getElementById('ap2Btn');
+  const mdBtn  = document.getElementById('mdBtn');
+  ap2Btn.disabled = false; ap2Btn.classList.add('ready'); ap2Btn.onclick = exportAP2;
+  mdBtn.disabled  = false; mdBtn.classList.add('ready');  mdBtn.onclick  = exportMarkdown;
+
+  const gapM = (facilityGap / 1e6).toFixed(0);
+  showToast(facilityGap > 0 ? `Facility gap: $${gapM}M — ${adequacy}` : `Facility adequate — ${adequacy}`, adequacy === 'Adequate' ? 'success' : adequacy === 'Marginal' ? 'info' : 'error');
+}
+
+function calculateIntradayCreditFacility() { runModel(); return lastAP2; }
+
+/* ── Render helpers ── */
+function fmtM(n) { return n >= 1e9 ? `$${(n/1e9).toFixed(2)}B` : n >= 1e6 ? `$${(n/1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n/1e3).toFixed(0)}K` : `$${n.toFixed(0)}`; }
+function fmtPct(n) { return n.toFixed(1) + '%'; }
+
+function renderMetrics(c) {
+  const cells = [
+    { val: fmtM(c.minimumBuffer),       lbl: 'Min Liquidity Buffer',    sub: `Peak debit × ${((1+c.bufferPct)*100).toFixed(0)}%`,                 color: 'var(--teal)' },
+    { val: fmtM(c.recommendedFacility), lbl: 'Recommended Facility',    sub: 'Incl. 20% operational headroom',                                      color: 'var(--white)' },
+    { val: fmtM(c.facilityGap > 0 ? c.facilityGap : 0), lbl: c.facilityGap > 0 ? 'Facility Gap' : 'Facility Surplus',
+      sub: c.facilityGap > 0 ? 'Additional credit line required' : 'Existing line exceeds minimum', color: c.facilityGap > 0 ? 'var(--red)' : 'var(--green)' },
+    { val: fmtM(c.grossCollateral),     lbl: 'Gross Collateral Required',sub: `${(c.collateralHaircut*100).toFixed(0)}% haircut · ${COLLATERAL_LABELS[c.collateralType].split(' (')[0]}`, color: 'var(--gold)' },
+  ];
+  document.getElementById('metricsGrid').innerHTML = cells.map(cell => `
+    <div class="metric-card">
+      <div class="metric-val" style="color:${cell.color}">${cell.val}</div>
+      <div class="metric-lbl">${cell.lbl}</div>
+      <div class="metric-sub">${cell.sub}</div>
+    </div>`).join('');
+}
+
+function renderAdequacy(c) {
+  const banner = document.getElementById('adequacyBanner');
+  const desc = {
+    Adequate: `Current facility of ${fmtM(c.currentCoverage)} covers the recommended facility of ${fmtM(c.recommendedFacility)} — no immediate action required.`,
+    Marginal: `Current facility of ${fmtM(c.currentCoverage)} covers minimum buffer but falls short of recommended ${fmtM(c.recommendedFacility)} — consider increasing headroom.`,
+    Insufficient: `Current facility of ${fmtM(c.currentCoverage)} does not cover minimum buffer of ${fmtM(c.minimumBuffer)} — immediate facility expansion required.`,
+  }[c.adequacy];
+  banner.innerHTML = `
+    <span class="adequacy-icon">${c.adequacyIcon}</span>
+    <div>
+      <div class="adequacy-label" style="color:${c.adequacyColor}">${c.adequacy} — Buffer Coverage ${fmtPct(c.coverageRatio)}</div>
+      <div class="adequacy-desc">${desc}</div>
+    </div>`;
+}
+
+function renderLCR(c) {
+  const el = document.getElementById('lcrSection');
+  const lcrMax = Math.max(c.currentLCR, 200);
+  const afterColor = c.lcrAfterPreposition >= 120 ? 'var(--green)' : c.lcrAfterPreposition >= 100 ? 'var(--teal)' : 'var(--red)';
+  el.innerHTML = `<div class="section-heading">LCR Impact — Collateral Pre-Positioning</div>
+    <div class="lcr-row">
+      <span class="lcr-label">LCR (current)</span>
+      <div class="lcr-track"><div class="lcr-fill" style="width:${Math.min(100,(c.currentLCR/lcrMax)*100)}%;background:var(--teal)"></div></div>
+      <span class="lcr-val" style="color:var(--teal)">${fmtPct(c.currentLCR)}</span>
+    </div>
+    <div class="lcr-row">
+      <span class="lcr-label">HQLA reduction</span>
+      <div class="lcr-track"><div class="lcr-fill" style="width:${Math.min(100,(c.hqlaReduction/c.currentHQLA)*100)}%;background:var(--warn)"></div></div>
+      <span class="lcr-val" style="color:var(--warn)">${fmtM(c.hqlaReduction)}</span>
+    </div>
+    <div class="lcr-row">
+      <span class="lcr-label">LCR (post pre-position)</span>
+      <div class="lcr-track"><div class="lcr-fill" style="width:${Math.min(100,(c.lcrAfterPreposition/lcrMax)*100)}%;background:${afterColor}"></div></div>
+      <span class="lcr-val" style="color:${afterColor}">${fmtPct(c.lcrAfterPreposition)}</span>
+    </div>
+    <div style="font-family:var(--font-mono);font-size:.62rem;color:${c.lcrCompliantAfter?'var(--green)':'var(--red)'};margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+      ${c.lcrCompliantAfter ? '✓ LCR remains ≥ 100% after pre-positioning' : '✗ LCR falls below 100% — consider alternative collateral or smaller facility'} · Impact: ${fmtPct(c.lcrImpactPpt)} ppt
+    </div>`;
+}
+
+function renderBCBS248(c) {
+  const el = document.getElementById('bcbsSection');
+  el.innerHTML = `<div class="section-heading">BCBS 248 Intraday Liquidity Monitoring Indicators</div>
+    <table class="bcbs-table">
+      <thead><tr><th>Indicator</th><th>Description</th><th style="text-align:right">Value</th></tr></thead>
+      <tbody>
+        ${c.bcbs248.map(i => `<tr>
+          <td><span class="ind-id">${i.id}</span><br><span style="font-size:.6rem;color:var(--muted)">${i.name}</span></td>
+          <td><span style="font-size:.68rem;color:var(--text);line-height:1.4">${i.desc}<br><span style="color:var(--muted);font-size:.6rem">${i.note}</span></span></td>
+          <td class="ind-val">${fmtM(i.value)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    <div style="font-size:.62rem;color:var(--muted);margin-top:8px;font-family:var(--font-mono)">Source: BCBS 248 — Monitoring indicators for intraday liquidity management (April 2013) · Pillar 2 supervisory reporting</div>`;
+}
+
+function renderStress(c) {
+  const el = document.getElementById('stressSection');
+  el.innerHTML = `<div class="section-heading">Peak Debit Stress Scenarios</div>
+    <table class="stress-table">
+      <thead><tr><th>Scenario</th><th>Peak Debit</th><th>Req. Facility</th><th>Coverage</th></tr></thead>
+      <tbody>
+        ${c.stressScenarios.map(s => `<tr>
+          <td><div style="font-family:var(--font-mono);font-size:.65rem;font-weight:700;color:var(--text)">${s.label}</div>
+              <div style="font-size:.62rem;color:var(--muted);margin-top:1px">${s.desc}</div></td>
+          <td style="font-family:var(--font-mono);font-size:.67rem;font-weight:700;color:var(--warn)">${fmtM(s.stressPeak)}</td>
+          <td style="font-family:var(--font-mono);font-size:.67rem;font-weight:700;color:var(--bright)">${fmtM(s.stressFacility)}</td>
+          <td><span class="stress-chip ${s.covered?'ok':'fail'}">${s.covered?'COVERED':'EXPOSED'}</span></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+/* ── AP2 export ── */
+function buildAP2(c) {
+  const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, ch => {
+    const r = Math.random() * 16 | 0; return (ch === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+  const bcbs248Payload = {};
+  c.bcbs248.forEach(i => { bcbs248Payload[i.id.toLowerCase()] = parseFloat(i.value.toFixed(0)); });
+
+  return {
+    ap2_version: "1.0",
+    mandate_id: uuid,
+    issued_at: new Date().toISOString(),
+    issued_by: "ainumbers.co",
+    tool_id: "intraday-credit-facility-sizer",
+    tool_version: "1.0.0",
+    mandate_type: "payment_policy",
+    jurisdiction: ["US","EU","UK"],
+    regulatory_frameworks: [
+      "Basel III Liquidity Coverage Ratio (BCBS 188, January 2013)",
+      "BCBS 248 — Monitoring indicators for intraday liquidity management (April 2013)",
+      "Federal Reserve SR 10-6 — Intraday Liquidity Risk Management",
+      "ECB Intraday Liquidity Management Guidelines (TARGET2)",
+      "Bank of England — CHAPS Intraday Liquidity Requirements"
+    ],
+    payload: {
+      institution_type: c.instType,
+      settlement_window: c.settlementWindow,
+      settlement_window_name: SETTLEMENT_LABELS[c.settlementWindow],
+      avg_daily_gross_volume_usd: Math.round(c.avgDailyVolume),
+      peak_net_debit_position_usd: Math.round(c.peakNetDebit),
+      buffer_target_pct: c.bufferPct * 100,
+      minimum_intraday_buffer_usd: Math.round(c.minimumBuffer),
+      recommended_facility_size_usd: Math.round(c.recommendedFacility),
+      existing_facility_usd: Math.round(c.existingLine),
+      facility_gap_usd: Math.round(Math.max(0, c.facilityGap)),
+      adequacy_assessment: c.adequacy,
+      collateral_type: c.collateralType,
+      collateral_type_label: COLLATERAL_LABELS[c.collateralType],
+      collateral_haircut_pct: c.collateralHaircut * 100,
+      gross_collateral_required_usd: Math.round(c.grossCollateral),
+      hqla_reduction_usd: Math.round(c.hqlaReduction),
+      current_lcr_pct: c.currentLCR,
+      lcr_post_preposition_pct: parseFloat(c.lcrAfterPreposition.toFixed(1)),
+      lcr_impact_ppt: parseFloat(c.lcrImpactPpt.toFixed(1)),
+      lcr_compliant_post_preposition: c.lcrCompliantAfter,
+      bcbs248_indicators: bcbs248Payload,
+      stress_1_5x_facility_required_usd: Math.round(c.stressScenarios[0].stressFacility),
+      stress_2x_facility_required_usd:   Math.round(c.stressScenarios[1].stressFacility),
+      stress_3x_facility_required_usd:   Math.round(c.stressScenarios[2].stressFacility),
+      stress_1_5x_covered: c.stressScenarios[0].covered,
+      stress_2x_covered:   c.stressScenarios[1].covered,
+      stress_3x_covered:   c.stressScenarios[2].covered,
+    },
+    summary: `Intraday credit facility sizing: recommended facility ${fmtM(c.recommendedFacility)} (minimum buffer ${fmtM(c.minimumBuffer)} + 20% headroom). Current coverage: ${fmtM(c.existingLine)} — adequacy: ${c.adequacy}. LCR impact: ${fmtPct(c.lcrImpactPpt)} ppt (${c.lcrCompliantAfter ? 'remains compliant' : 'falls below 100% — action required'}).`,
+    agent_instructions: buildAgentInstructions(c),
+    last_reviewed: "2026-05-09",
+    source_tool_inputs: {
+      institution_type: c.instType,
+      settlement_window: c.settlementWindow,
+      avg_daily_volume_usd: Math.round(c.avgDailyVolume),
+      peak_net_debit_usd: Math.round(c.peakNetDebit),
+      buffer_target_pct: c.bufferPct * 100,
+      collateral_type: c.collateralType,
+      collateral_haircut_pct: c.collateralHaircut * 100,
+      current_lcr_pct: c.currentLCR,
+      current_hqla_usd: Math.round(c.currentHQLA),
+      net_cash_outflows_usd: Math.round(c.netCashOutflows),
+      existing_line_usd: Math.round(c.existingLine),
+    },
+    regulatory_citations: [
+      "BCBS 188 — Basel III: The Liquidity Coverage Ratio and liquidity risk monitoring tools (January 2013)",
+      "BCBS 248 — Monitoring indicators for intraday liquidity management (April 2013) — ILM1–ILM7",
+      "Federal Reserve SR 10-6 — Sound practices for managing intraday liquidity in global financial markets (2010)",
+      "ECB Guideline ECB/2012/27 — TARGET2 intraday credit / DEBIT Cap requirements",
+      "Bank of England CHAPS Reference Manual — Intraday liquidity pre-positioning requirements",
+      "BCBS 238 — Liquidity stress testing: a survey of theory, empirics and current industry and supervisory practices (2013)"
+    ]
+  };
+}
+
+function buildAgentInstructions(c) {
+  const insts = [];
+  if (c.facilityGap > 0) {
+    insts.push(`Negotiate an increase in intraday credit facility of ${fmtM(c.facilityGap)} with Federal Reserve / central bank — current facility insufficient to cover recommended minimum buffer`);
+  }
+  if (!c.lcrCompliantAfter) {
+    insts.push(`Switch collateral type to Level 1 HQLA (central bank reserves or government securities) to eliminate haircut and reduce gross collateral requirement — current pre-positioning plan reduces LCR below 100% minimum`);
+  }
+  if (c.lcrImpactPpt < -10) {
+    insts.push(`Review pre-positioning strategy — ${fmtPct(Math.abs(c.lcrImpactPpt))} ppt LCR impact is material; consider phased facility drawdown or central bank reserve top-up to maintain LCR buffer`);
+  }
+  if (!c.stressScenarios[0].covered) {
+    insts.push(`1.5× peak debit stress scenario not covered by current facility — establish a contingent intraday credit line of ${fmtM(c.stressScenarios[0].stressFacility)} for stressed settlement days`);
+  }
+  if (!c.stressScenarios[1].covered) {
+    insts.push(`Severe stress (2× peak debit) requires ${fmtM(c.stressScenarios[1].stressFacility)} — document in BCP that intraday liquidity gridlock triggers immediate Federal Reserve discount window access`);
+  }
+  insts.push(`Report BCBS 248 indicators (ILM1–ILM7) to supervisory authority on the agreed quarterly reporting schedule — include peak, average, and end-of-day positions`);
+  insts.push(`Review peak net debit position monthly against ILM1 trend data — trigger a facility resizing if peak debit grows more than 15% quarter-on-quarter`);
+  insts.push(`Cross-reference with 13-week rolling cash flow forecast (Tool 42) to identify multi-week intraday liquidity trends before they manifest as intraday debit spikes`);
+  return insts;
+}
+
+/* ── Exports ── */
+function exportAP2() {
+  if (!lastAP2) return;
+  try {
+    AP2Schema.validate(lastAP2);
+    const blob = new Blob([JSON.stringify(lastAP2, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = `intraday-credit-facility_${new Date().toISOString().slice(0,10)}.policy.json`;
+    a.click(); URL.revokeObjectURL(url);
+    showToast('Policy Mandate JSON downloaded', 'success');
+  } catch(e) { showToast('Export failed', 'error'); }
+}
+
+function exportMarkdown() {
+  if (!lastAP2 || !lastCalc) return;
+  const c = lastCalc; const p = lastAP2.payload; const date = new Date().toISOString().slice(0,10);
+  let md = `# Intraday Credit Facility Sizing Report\n**Generated:** ${date}  \n**Tool:** T258 · Intraday Credit Facility Sizing Model — AINumbers.co\n\n---\n\n`;
+  md += `## Facility Sizing Summary\n| Metric | Value |\n|---|---|\n`;
+  md += `| Minimum Intraday Buffer | ${fmtM(c.minimumBuffer)} |\n`;
+  md += `| **Recommended Facility** | **${fmtM(c.recommendedFacility)}** |\n`;
+  md += `| Existing Facility | ${fmtM(c.existingLine)} |\n`;
+  md += `| Facility Gap | ${fmtM(Math.max(0,c.facilityGap))} |\n`;
+  md += `| **Adequacy Assessment** | **${c.adequacy}** |\n`;
+  md += `| Gross Collateral Required | ${fmtM(c.grossCollateral)} |\n\n`;
+  md += `## LCR Impact\n| Metric | Value |\n|---|---|\n`;
+  md += `| Current LCR | ${fmtPct(c.currentLCR)} |\n`;
+  md += `| HQLA Reduction (pre-positioning) | ${fmtM(c.hqlaReduction)} |\n`;
+  md += `| LCR Post Pre-Positioning | ${fmtPct(c.lcrAfterPreposition)} |\n`;
+  md += `| LCR Impact | ${fmtPct(c.lcrImpactPpt)} ppt |\n`;
+  md += `| LCR Compliant Post Pre-Position | ${c.lcrCompliantAfter ? 'Yes ✓' : 'No ✗'} |\n\n`;
+  md += `## BCBS 248 Intraday Liquidity Indicators\n| Indicator | Name | Value |\n|---|---|---|\n`;
+  c.bcbs248.forEach(i => { md += `| ${i.id} | ${i.name} | ${fmtM(i.value)} |\n`; });
+  md += `\n## Stress Scenarios\n| Scenario | Peak Debit | Required Facility | Coverage |\n|---|---|---|---|\n`;
+  c.stressScenarios.forEach(s => { md += `| ${s.label} | ${fmtM(s.stressPeak)} | ${fmtM(s.stressFacility)} | ${s.covered ? 'COVERED ✓' : 'EXPOSED ✗'} |\n`; });
+  md += `\n## Agent Instructions\n`;
+  lastAP2.agent_instructions.forEach((a,i) => { md += `${i+1}. ${a}\n`; });
+  md += `\n## Regulatory Citations\n`;
+  lastAP2.regulatory_citations.forEach(r => { md += `- ${r}\n`; });
+  md += `\n---\n*Client-side. Zero PII. Generated by AINumbers.co — T258 Intraday Credit Facility Sizing Model v1.0.0*\n`;
+
+  try {
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = `intraday-facility-report_${date}.md`;
+    a.click(); URL.revokeObjectURL(url);
+    showToast('Markdown report downloaded', 'info');
+  } catch(e) { showToast('Export failed', 'error'); }
+}
+
+function showToast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type}`;
+  setTimeout(() => t.classList.add('show'), 10);
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   i18n — Stage 2 UI Chrome Translations
+   Financial/regulatory codes not translated: LCR, HQLA, BCBS, ILM.
+══════════════════════════════════════════════════════════════════ */
+const TRANSLATIONS = {
+  en: { eyebrow:"T258 · Cat-21 · Real-Time Payments · Liquidity Management", hero_title:"Intraday Credit Facility Sizing Model", hero_desc:"Model intraday credit facility requirements under the Basel III LCR framework. Calculate the minimum intraday liquidity buffer, recommended facility size, LCR ratio impact, and full BCBS 248 indicator set.", panel_config:"Configuration", panel_about:"About this tool", label_peak_debit:"Peak Net Debit Position ($)", label_settlement_window:"Avg Daily Gross Settlement Volume ($)", label_buffer_target:"Buffer Target (% above peak debit)", run_btn:"Calculate Facility →", results_title:"Facility Sizing Results", export_ap2:"Export Policy Mandate", export_md:"Export Markdown", pii_notice:"🔒 All inputs are processed locally in your browser. No data is transmitted. Use modelled or anonymised figures only.", last_reviewed:"Last Reviewed", nav_all_tools:"All 200+ Tools", footer_badge:"Zero PII \u00a0 📡 No server calls \u00a0 💻 Client-side", lang_dir:"ltr" 
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-21 Hub',
+  },
+  es: { eyebrow:"T258 · Cat-21 · Pagos en Tiempo Real · Gestión de Liquidez", hero_title:"Modelo de Dimensionamiento de Facilidad de Crédito Intradía", hero_desc:"Modele los requisitos de facilidad de crédito intradía bajo el marco LCR de Basilea III. Calcule el buffer mínimo, tamaño de facilidad recomendado e indicadores BCBS 248.", panel_config:"Configuración", panel_about:"Sobre esta herramienta", label_peak_debit:"Posición Neta Deudora Máxima ($)", label_settlement_window:"Volumen Bruto Diario Promedio ($)", label_buffer_target:"Objetivo de Buffer (% sobre débito máximo)", run_btn:"Calcular Facilidad →", results_title:"Resultados del Dimensionamiento", export_ap2:"Exportar Mandato de Política", export_md:"Exportar Markdown", pii_notice:"🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos.", last_reviewed:"Última Revisión", nav_all_tools:"Más de 200 Herramientas", footer_badge:"Sin IIP \u00a0 📡 Sin llamadas al servidor \u00a0 💻 Solo cliente", lang_dir:"ltr" 
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-21',
+  },
+  fr: { eyebrow:"T258 · Cat-21 · Paiements en Temps Réel · Gestion de Liquidité", hero_title:"Modèle de Dimensionnement de Facilité de Crédit Intrajournalier", hero_desc:"Modélisez les besoins en facilité de crédit intrajournalier sous le cadre LCR Bâle III. Calculez le buffer minimum, la taille recommandée et les indicateurs BCBS 248.", panel_config:"Configuration", panel_about:"À propos de cet outil", label_peak_debit:"Position Nette Débitrice Maximale ($)", label_settlement_window:"Volume Brut Journalier Moyen ($)", label_buffer_target:"Objectif de Buffer (% au-dessus du débit max)", run_btn:"Calculer la Facilité →", results_title:"Résultats du Dimensionnement", export_ap2:"Exporter Mandat de Politique", export_md:"Exporter Markdown", pii_notice:"🔒 Toutes les entrées sont traitées localement. Aucune donnée n'est transmise.", last_reviewed:"Dernière Révision", nav_all_tools:"Plus de 200 Outils", footer_badge:"Zéro DPI \u00a0 📡 Aucun appel serveur \u00a0 💻 Côté client", lang_dir:"ltr" 
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-21',
+  },
+  ar: { eyebrow:"T258 · القطاع 21 · المدفوعات الفورية · إدارة السيولة", hero_title:"نموذج تحديد حجم تسهيل الائتمان اليومي", hero_desc:"نمذجة متطلبات تسهيل الائتمان اليومي في إطار نسبة تغطية السيولة بموجب بازل III.", panel_config:"الإعدادات", panel_about:"حول هذه الأداة", label_peak_debit:"أقصى صافي موقف مدين ($)", label_settlement_window:"متوسط الحجم اليومي الإجمالي ($)", label_buffer_target:"هدف الاحتياطي (% فوق أقصى خصم)", run_btn:"احسب التسهيل ←", results_title:"نتائج تحديد الحجم", export_ap2:"تصدير تفويض السياسة", export_md:"تصدير Markdown", pii_notice:"🔒 تتم معالجة جميع المدخلات محلياً في متصفحك. لا يتم نقل أي بيانات.", last_reviewed:"آخر مراجعة", nav_all_tools:"أكثر من 200 أداة", footer_badge:"بدون بيانات شخصية \u00a0 📡 بدون اتصال بالخادم \u00a0 💻 من جانب العميل", lang_dir:"rtl" 
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-21',
+  },
+  pt: { eyebrow:"T258 · Cat-21 · Pagamentos em Tempo Real · Gestão de Liquidez", hero_title:"Modelo de Dimensionamento de Facilidade de Crédito Intradia", hero_desc:"Modele os requisitos de facilidade de crédito intradia sob o quadro LCR de Basileia III. Calcule o buffer mínimo, tamanho recomendado e indicadores BCBS 248.", panel_config:"Configuração", panel_about:"Sobre esta ferramenta", label_peak_debit:"Posição Líquida Devedora Máxima ($)", label_settlement_window:"Volume Bruto Diário Médio ($)", label_buffer_target:"Meta de Buffer (% acima do débito máximo)", run_btn:"Calcular Facilidade →", results_title:"Resultados do Dimensionamento", export_ap2:"Exportar Mandato de Política", export_md:"Exportar Markdown", pii_notice:"🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido.", last_reviewed:"Última Revisão", nav_all_tools:"Mais de 200 Ferramentas", footer_badge:"Zero PII \u00a0 📡 Sem chamadas ao servidor \u00a0 💻 Lado do cliente", lang_dir:"ltr" 
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-21',
+  },
+  zh: { eyebrow:"T258 · 第21类 · 实时支付 · 流动性管理", hero_title:"日内信贷额度规模测算模型", hero_desc:"在巴塞尔III LCR框架下测算日内信贷额度需求。计算最低日内流动性缓冲、建议额度规模、LCR比率影响和BCBS 248指标集。", panel_config:"配置", panel_about:"关于此工具", label_peak_debit:"峰值净借记头寸 ($)", label_settlement_window:"日均总结算量 ($)", label_buffer_target:"缓冲目标（高于峰值借记的百分比）", run_btn:"计算额度 →", results_title:"额度规模测算结果", export_ap2:"导出政策授权书", export_md:"导出Markdown", pii_notice:"🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。请使用模型化或匿名数据。", last_reviewed:"最后审查", nav_all_tools:"全部200+工具", footer_badge:"零个人信息 \u00a0 📡 无服务器调用 \u00a0 💻 纯客户端", lang_dir:"ltr" 
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-21 中心',
+  },
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS['en'];
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`) || document.querySelector(`.lang-btn[onclick='setLang("${lang}")']`);
+  if (btn) btn.classList.add('active');
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  document.documentElement.dir = t.lang_dir || 'ltr';
+  document.body.dir = t.lang_dir || 'ltr';
+  const apply = (sel, key) => { const el = document.querySelector(sel); if (el && t[key] !== undefined) el.textContent = t[key]; };
+  apply('.tool-eyebrow','eyebrow'); apply('.hero h1','hero_title'); apply('.hero-desc','hero_desc');
+  apply('.pii-notice','pii_notice'); apply('.run-btn','run_btn'); apply('.results-title','results_title'); apply('.nav-cta','nav_all_tools');
+  const panelLabels = document.querySelectorAll('.panel-label');
+  ['panel_config','panel_about'].forEach((k,i) => { if (panelLabels[i] && t[k]) panelLabels[i].textContent = t[k]; });
+  document.querySelectorAll('.btn-export').forEach(b => {
+    if (b.classList.contains('btn-export-md')) { if (t['export_md']) b.textContent = t['export_md']; }
+    else { if (t['export_ap2']) b.textContent = t['export_ap2']; }
+  });
+  document.querySelectorAll('[data-i18n]').forEach(el => { const k = el.getAttribute('data-i18n'); if (t[k] !== undefined) el.textContent = t[k]; });
+  const badge = document.querySelector('.footer-badge-ai span:last-child');
+  if (badge) badge.textContent = t['footer_badge'];
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function initLang() {
+  syncHaircut();
+  try { const saved = sessionStorage.getItem('ain_lang'); if (saved && TRANSLATIONS[saved]) setLang(saved); } catch(e) {}
+})();
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "intraday-credit-facility-sizer", "version": "1.0.0", "title": "Intraday Credit Facility Sizing Model", "description": "Models intraday credit facility requirements under the Basel III LCR framework and BCBS 248 intraday liquidity monitoring indicators. Calculates the minimum intraday liquidity buffer, recommended facility size with 20% operational headroom, LCR ratio impact from collateral pre-positioning, the full BCBS 248 ILM1–ILM7 indicator set, and peak debit stress scenarios at 1.5×/2×/3×. Outputs a facility adequacy assessment and liquidity Policy Mandate JSON. Scope: intraday credit facility sizing — distinct from Tool 42 (13-week rolling cash flow forecaster). Client-side. Zero PII.", "category": "cat-21", "tags": ["intraday liquidity", "credit facility", "Basel III", "LCR", "HQLA", "BCBS 248", "ILM indicators", "peak net debit", "FedNow", "CHAPS", "TARGET2", "collateral haircut", "liquidity buffer", "Policy Mandate", "export"], "audience": ["treasury", "compliance", "operations", "engineer", "risk manager"], "input_schema": {"type": "object", "properties": {"institution_type": {"type": "string", "enum": ["large_bank", "regional_bank", "community_bank", "non_bank", "emi"]}, "settlement_window": {"type": "string", "enum": ["fednow", "fedwire", "chips", "chaps", "target2", "sepa_inst"]}, "avg_daily_gross_volume_usd": {"type": "number", "minimum": 1, "description": "Average daily gross payment settlement volume in USD"}, "peak_net_debit_position_usd": {"type": "number", "minimum": 1, "description": "Maximum intraday negative balance — the ILM1 BCBS 248 indicator (daily max intraday liquidity usage)"}, "buffer_target_pct": {"type": "number", "enum": [10, 20, 25, 30, 50], "description": "Percentage buffer above peak net debit for minimum intraday liquidity buffer calculation"}, "current_lcr_pct": {"type": "number", "minimum": 0, "description": "Current Liquidity Coverage Ratio as a percentage (≥100% = compliant)"}, "current_hqla_usd": {"type": "number", "minimum": 0, "description": "Total High Quality Liquid Assets stock (LCR numerator)"}, "net_cash_outflows_30d_usd": {"type": "number", "minimum": 1, "description": "30-day net cash outflows (LCR denominator)"}, "existing_intraday_line_usd": {"type": "number", "minimum": 0, "description": "Existing committed intraday credit line amount"}, "collateral_type": {"type": "string", "enum": ["reserves", "govt_securities", "sovereign_bonds", "corp_bonds", "agency_mbs", "other"]}, "collateral_haircut_pct": {"type": "number", "minimum": 0, "maximum": 100, "description": "Basel III haircut applied to pre-positioned collateral"}, "time_specific_obligations_pct": {"type": "number", "minimum": 0, "maximum": 100, "description": "Percentage of daily volume due at specific times (ILM4 input)"}, "correspondent_flow_pct": {"type": "number", "minimum": 0, "maximum": 100, "description": "Percentage of daily volume flowing through correspondent arrangements (ILM5 input)"}, "payment_timing_first_2hr_pct": {"type": "number", "minimum": 0, "maximum": 100, "description": "Percentage of daily payments sent in first 2 hours of settlement window (ILM7 input)"}}, "required": ["peak_net_debit_position_usd", "avg_daily_gross_volume_usd", "current_lcr_pct", "current_hqla_usd", "net_cash_outflows_30d_usd"]}, "output_schema": {"type": "object", "properties": {"minimum_intraday_buffer_usd": {"type": "number"}, "recommended_facility_size_usd": {"type": "number"}, "facility_gap_usd": {"type": "number"}, "adequacy_assessment": {"type": "string", "enum": ["Adequate", "Marginal", "Insufficient"]}, "gross_collateral_required_usd": {"type": "number"}, "lcr_post_preposition_pct": {"type": "number"}, "lcr_impact_ppt": {"type": "number"}, "lcr_compliant_post_preposition": {"type": "boolean"}, "bcbs248_indicators": {"type": "object", "description": "ILM1–ILM7 values per BCBS 248", "properties": {"ilm1": {"type": "number"}, "ilm2": {"type": "number"}, "ilm3": {"type": "number"}, "ilm4": {"type": "number"}, "ilm5": {"type": "number"}, "ilm6": {"type": "number"}, "ilm7": {"type": "number"}}}, "stress_scenarios": {"type": "object", "properties": {"stress_1_5x_covered": {"type": "boolean"}, "stress_2x_covered": {"type": "boolean"}, "stress_3x_covered": {"type": "boolean"}}}, "agent_instructions": {"type": "array", "items": {"type": "string"}}, "ap2_mandate": {"type": "object"}}, "required": ["minimum_intraday_buffer_usd", "recommended_facility_size_usd", "adequacy_assessment", "bcbs248_indicators", "ap2_mandate"]}, "mcp_tool_definition": {"name": "calculate_intraday_credit_facility", "description": "Calculates the recommended intraday credit facility size under the Basel III LCR framework and BCBS 248 intraday liquidity monitoring indicators. Returns the minimum buffer, recommended facility with headroom, LCR impact of collateral pre-positioning, ILM1–ILM7 indicator values, peak debit stress scenarios, and a liquidity Policy Mandate JSON. Use when a treasury or liquidity risk agent needs to size an intraday credit line for FedNow, Fedwire, CHIPS, CHAPS, TARGET2, or SEPA Instant settlement. Distinct from Tool 42 (13-week rolling cash flow forecaster).", "inputSchema": {"type": "object", "properties": {"peak_net_debit_position_usd": {"type": "number"}, "avg_daily_gross_volume_usd": {"type": "number"}, "buffer_target_pct": {"type": "number", "enum": [10, 20, 25, 30, 50]}, "current_lcr_pct": {"type": "number"}, "current_hqla_usd": {"type": "number"}, "net_cash_outflows_30d_usd": {"type": "number"}, "existing_intraday_line_usd": {"type": "number"}, "collateral_type": {"type": "string", "enum": ["reserves", "govt_securities", "sovereign_bonds", "corp_bonds", "agency_mbs", "other"]}, "collateral_haircut_pct": {"type": "number"}, "settlement_window": {"type": "string", "enum": ["fednow", "fedwire", "chips", "chaps", "target2", "sepa_inst"]}}, "required": ["peak_net_debit_position_usd", "avg_daily_gross_volume_usd", "current_lcr_pct", "current_hqla_usd", "net_cash_outflows_30d_usd"]}}, "execution": {"type": "browser-javascript", "entry": "tools/258-intraday-credit-facility-sizer.html", "function_name": "calculateIntradayCreditFacility", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

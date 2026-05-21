@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Monte Carlo FIRE Trajectory Simulator · AINumbers.co</title>
+<meta name="description" content="Run 1,000+ market scenarios in your browser to find the true probability your retirement portfolio survives. Parametric Monte Carlo with Box-Muller sampling. Outputs a probability cone, success rate, and Sequence of Returns Risk overlay. Zero PII. Zero API. No sign-up.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/107-monte-carlo-fire-simulator">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Monte Carlo FIRE Trajectory Simulator","url":"https://ainumbers.co/tools/107-monte-carlo-fire-simulator","description":"Run 1,000+ market scenarios in your browser to find the true probability your retirement portfolio survives. Parametric Monte Carlo with Box-Muller sampling. Outputs a probability cone, success rate, and Sequence of Returns Risk overlay. Zero PII. Zero API. No sign-up.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+/* Edu disclaimer (canonical §9.3) */
+.edu-disclaimer {
+  border: 1px solid var(--warn);
+  border-left: 3px solid var(--warn);
+  background: rgba(245, 158, 11, 0.06);
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  font-size: 0.76rem;
+  color: var(--body);
+  line-height: 1.7;
+  border-radius: var(--radius);
+}
+.edu-disclaimer-label {
+  display: block;
+  color: var(--warn);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased;padding-bottom:24px}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button,input,select{font-family:'Sora',sans-serif}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:960px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.78rem}
+.back-link{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.3rem .8rem;border-radius:4px;transition:all .2s}
+.back-link:hover{color:var(--teal);border-color:var(--teal)}
+.content{max-width:960px;margin:0 auto;padding:2rem 1.5rem;position:relative;z-index:1}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.2em;text-transform:uppercase;color:var(--green);margin-bottom:.5rem}
+.tool-title{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.5rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+
+/* Inputs module */
+.module{background:var(--bg-2);border:1px solid var(--border);padding:1.5rem;margin-bottom:1.5rem}
+.module.green-accent{border-left:3px solid var(--green)}
+.module-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--green);margin-bottom:1.25rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+label{font-size:.65rem;color:var(--body);display:block;margin-bottom:.2rem}
+input[type="number"],select{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.4rem .65rem;font-size:.75rem;border-radius:4px;outline:none;transition:border-color .15s}
+input[type="number"]:focus,select:focus{border-color:var(--green)}
+.field-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.85rem;margin-bottom:.85rem}
+.field-grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:.85rem;margin-bottom:.85rem}
+@media(max-width:640px){.field-grid,.field-grid-2{grid-template-columns:1fr}}
+
+/* Allocation sliders */
+.alloc-row{display:grid;grid-template-columns:70px 1fr 52px;align-items:center;gap:.6rem;padding:.35rem 0;border-bottom:1px solid var(--border)}
+.alloc-row:last-child{border-bottom:none}
+.alloc-label{font-size:.7rem;color:var(--text)}
+input[type="range"]{accent-color:var(--green)}
+.alloc-val{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--green);text-align:right}
+.alloc-error{font-size:.68rem;color:var(--red);padding:.4rem .6rem;background:var(--red-dim);border:1px solid var(--red);margin-top:.5rem;display:none}
+
+/* Run button */
+.run-btn{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.16em;text-transform:uppercase;background:var(--green);color:var(--bg);border:none;padding:.75rem 2rem;border-radius:4px;cursor:pointer;transition:background .2s;font-size:.7rem;display:flex;align-items:center;gap:.5rem;margin:.5rem 0 1.5rem}
+.run-btn:hover{background:#4ADE80}
+.run-btn:disabled{opacity:.5;cursor:wait}
+
+/* SoRR toggle */
+.sorr-toggle{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem}
+.toggle-label{font-size:.72rem;color:var(--body)}
+input[type="checkbox"]{accent-color:var(--warn);width:16px;height:16px;cursor:pointer}
+
+/* Results */
+.results-hidden{display:none}
+.results-wrap{animation:fadeIn .4s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.success-banner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;padding:1.5rem;background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--green);margin-bottom:1.5rem}
+.success-num{font-family:'DM Serif Display',serif;font-size:3rem;line-height:1;transition:color .3s}
+.success-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.2rem}
+.success-rate-badge{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.35rem .75rem;border-radius:3px}
+.sr-pass{background:var(--green-dim);color:var(--green);border:1px solid var(--green)}
+.sr-warn{background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold)}
+.sr-fail{background:var(--red-dim);color:var(--red);border:1px solid var(--red)}
+
+/* Outcome stats */
+.outcome-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:1.5rem}
+@media(max-width:600px){.outcome-grid{grid-template-columns:repeat(2,1fr)}}
+.outcome-cell{background:var(--bg-2);padding:1rem;text-align:center}
+.outcome-label{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.outcome-val{font-family:'DM Serif Display',serif;font-size:1.3rem;line-height:1}
+
+/* Chart */
+.chart-container{position:relative;background:var(--bg-2);border:1px solid var(--border);padding:1.25rem;margin-bottom:1.5rem}
+.chart-title{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.85rem}
+canvas#fire-chart{max-width:100%;height:280px!important}
+
+/* Recommendations */
+.recs{margin-bottom:1.5rem}
+.rec-item{font-size:.74rem;color:var(--text);padding:.65rem .9rem;background:var(--green-dim);border-left:3px solid var(--green);margin-bottom:.4rem}
+
+/* Export button */
+.export-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;padding:.5rem 1.1rem;border-radius:4px;cursor:pointer;border:none;background:var(--green);color:var(--bg);transition:background .2s}
+.export-btn:hover{background:#4ADE80}
+
+/* PSS panel */
+.pss-panel{border:1px solid var(--border);border-left:3px solid var(--green);padding:1.25rem;margin-top:2rem}
+.sec-divider{border:none;border-top:1px solid var(--border);margin:2rem 0}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.container{max-width:960px;margin:0 auto;padding:0 1.5rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-privacy::before{content:'·';color:var(--green)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+<style>
+/* AIN-5D-nav-grid-override */
+.nav-inner{display:grid!important;grid-template-columns:auto 1fr auto!important;align-items:center!important;justify-content:unset!important;gap:1rem!important;max-width:1100px!important}
+.nav-bc{justify-self:center!important;margin-left:0!important;flex-direction:row!important}
+.nav-right{justify-self:end!important;margin-left:0!important}
+</style>
+</head>
+<body>
+
+<!-- LANG BAR (Phase 5 baseline insertion 2026-05-12) -->
+<style>
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:0 2rem;height:34px;display:flex;align-items:center;width:100%}
+.lang-inner{max-width:1200px;margin:0 auto;display:flex;gap:0;align-items:center;width:100%;justify-content:flex-end}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;background:transparent;border:none;color:var(--muted);padding:.4rem .9rem;cursor:pointer;text-transform:uppercase;transition:color .2s}
+.lang-btn:hover{color:var(--text)}
+.lang-btn.active{color:var(--teal)}
+</style>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<script>
+// Phase 5 baseline stub — visual-state only. Full TRANSLATIONS object lands in the next sweep.
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+  }, zh:{
+    'nav.alltools': '所有工具',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+</script>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/open-banking-integration-hub.html">Open Banking Hub</a><span class="nav-sep">/</span><span>T-107</span></div>
+    <a href="../guides/open-banking-integration-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<div class="content">
+  <div class="hero-eyebrow">Tool 107 · Cat-10 · Personal Finance</div>
+  <h1 class="tool-title">Monte Carlo FIRE Trajectory Simulator</h1>
+  <p class="hero-desc">Run 1,000 market scenarios in your browser to find the true probability your retirement portfolio survives. Box-Muller parametric Monte Carlo — not a linear calculator. Zero API. Zero PII. No sign-up.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-privacy"><span data-i18n="hero.badge.privacy">Zero PII · Client-side</span></span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+
+    <!-- Edu disclaimer (canonical §9.3) -->
+  <div class="edu-disclaimer">
+    <strong class="edu-disclaimer-label" data-i18n="disclaimer.label">Educational Use Only</strong>
+    <span data-i18n="disclaimer.body">This tool provides a self-assessment / educational framework for internal planning purposes only. It is not a regulatory audit, legal advice, or a substitute for a formal compliance review by a qualified advisor. Verify all interpretations against the official source text and applicable RTS/ITS/guidance published by the relevant authority.</span>
+  </div>
+
+
+  <!-- Inputs -->
+  <div class="module green-accent">
+    <div class="module-title">Module 1 · Inputs</div>
+    <div class="field-grid">
+      <div><label>Current Portfolio Value ($)</label><input type="number" id="portfolio" value="650000" min="0" oninput="pssAutoSave()"></div>
+      <div><label>Annual Contribution ($ — negative = drawdown)</label><input type="number" id="contribution" value="24000" oninput="pssAutoSave()"></div>
+      <div><label>Planned Retirement Spend ($/year, today's $)</label><input type="number" id="retire-spend" value="72000" min="0" oninput="pssAutoSave()"></div>
+    </div>
+    <div class="field-grid">
+      <div><label>Current Age</label><input type="number" id="curr-age" value="38" min="18" max="80" oninput="pssAutoSave()"></div>
+      <div><label>Target Retirement Age</label><input type="number" id="retire-age" value="55" min="30" max="90" oninput="pssAutoSave()"></div>
+      <div><label>Years to Model After Retirement</label><input type="number" id="horizon" value="30" min="5" max="50" oninput="pssAutoSave()"></div>
+    </div>
+    <div class="field-grid">
+      <div><label>Inflation Assumption (%)</label><input type="number" id="inflation" value="3.0" min="0" max="15" step="0.1" oninput="pssAutoSave()"></div>
+      <div><label>Social Security / Pension ($/year)</label><input type="number" id="ss-income" value="0" min="0" oninput="pssAutoSave()"></div>
+      <div><!-- spacer --></div>
+    </div>
+
+    <!-- Asset Allocation -->
+    <div style="font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem;margin-top:.25rem">Asset Allocation (must sum to 100%)</div>
+    <div class="alloc-row"><span class="alloc-label">Stocks</span><input type="range" id="sl-stocks" min="0" max="100" value="70" oninput="syncAlloc('stocks')"><span class="alloc-val" id="av-stocks">70%</span></div>
+    <div class="alloc-row"><span class="alloc-label">Bonds</span><input type="range" id="sl-bonds" min="0" max="100" value="25" oninput="syncAlloc('bonds')"><span class="alloc-val" id="av-bonds">25%</span></div>
+    <div class="alloc-row"><span class="alloc-label">Cash</span><input type="range" id="sl-cash" min="0" max="100" value="5" oninput="syncAlloc('cash')"><span class="alloc-val" id="av-cash">5%</span></div>
+    <div class="alloc-error" id="alloc-error">Allocation must sum to 100%. Currently: <span id="alloc-total">100</span>%</div>
+
+    <div class="sorr-toggle" style="margin-top:1rem">
+      <input type="checkbox" id="sorr-toggle">
+      <label class="toggle-label" for="sorr-toggle" style="cursor:pointer;margin-bottom:0">Enable Sequence of Returns Risk overlay (worst 5-year crash in first 5 retirement years)</label>
+    </div>
+  </div>
+
+  <!-- Run button -->
+  <button class="run-btn" id="run-btn" onclick="runSimulation()">
+    <span id="run-label">▶ Run 1,000 Simulations</span>
+  </button>
+
+  <!-- Results (hidden until run) -->
+  <div id="results-section" class="results-hidden">
+
+    <!-- Success banner -->
+    <div class="success-banner">
+      <div>
+        <div class="success-label">Simulations Succeeded</div>
+        <div class="success-num" id="success-num">—</div>
+        <div style="font-size:.7rem;color:var(--body);margin-top:.1rem">out of 1,000 scenarios</div>
+      </div>
+      <div style="text-align:right">
+        <div class="success-label" style="margin-bottom:.4rem">Portfolio Success Rate</div>
+        <span class="success-rate-badge" id="success-badge">—</span>
+        <div style="font-size:.68rem;color:var(--muted);margin-top:.4rem" id="swr-rec">—</div>
+      </div>
+    </div>
+
+    <!-- Outcome grid -->
+    <div class="outcome-grid">
+      <div class="outcome-cell"><div class="outcome-label">Median Final Portfolio</div><div class="outcome-val" style="color:var(--teal)" id="median-val">—</div></div>
+      <div class="outcome-cell"><div class="outcome-label">10th Percentile (Downside)</div><div class="outcome-val" style="color:var(--gold)" id="p10-val">—</div></div>
+      <div class="outcome-cell"><div class="outcome-label">90th Percentile (Upside)</div><div class="outcome-val" style="color:var(--green)" id="p90-val">—</div></div>
+      <div class="outcome-cell"><div class="outcome-label">Simulations Failed</div><div class="outcome-val" style="color:var(--red)" id="failed-val">—</div></div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-container">
+      <div class="chart-title">Probability Cone — Portfolio Value Over Retirement Horizon</div>
+      <canvas id="fire-chart"></canvas>
+    </div>
+
+    <!-- Recommendations -->
+    <div class="recs" id="recs"></div>
+
+    <!-- Export -->
+    <button class="export-btn" onclick="exportMarkdown()">⬇ Export Scenario (.md)</button>
+  </div>
+
+  <!-- PSS Panel -->
+  <div class="pss-panel">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--green);margin-bottom:.75rem">Save &amp; Share Scenario</div>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:.75rem">
+      <div>
+        <label style="font-size:.72rem;color:var(--body);display:block;margin-bottom:.3rem">Your Scenario Code</label>
+        <input id="pss-code-out" readonly style="font-family:'JetBrains Mono',monospace;font-size:.78rem;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.4rem .75rem;width:220px;">
+      </div>
+      <button onclick="document.getElementById('pss-code-out').value=PSS.generateCode();document.getElementById('pss-code-out').select();document.execCommand('copy');"
+        style="font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;background:var(--green);color:var(--bg);border:none;padding:.5rem 1rem;cursor:pointer;">
+        Generate &amp; Copy →
+      </button>
+    </div>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end">
+      <div>
+        <label style="font-size:.72rem;color:var(--body);display:block;margin-bottom:.3rem">Load a Scenario Code</label>
+        <input id="pss-code-in" placeholder="AIN-XXXX-XXXX-XXXX" style="font-family:'JetBrains Mono',monospace;font-size:.78rem;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.4rem .75rem;width:220px;">
+      </div>
+      <button onclick="const s=PSS.loadFromCode(document.getElementById('pss-code-in').value);if(s)applyPSSState(s);else alert('Invalid code — check and try again.');"
+        style="font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;background:var(--bg-3);color:var(--teal);border:1px solid var(--border);padding:.5rem 1rem;cursor:pointer;">
+        Load →
+      </button>
+    </div>
+    <p style="font-size:.68rem;color:var(--muted);margin-top:.75rem;line-height:1.6">This code contains only numbers — no personal data. Text it to yourself, share with a financial advisor, or reload it on any device.</p>
+  </div>
+</div>
+
+<script>
+// ── PSS ───────────────────────────────────────────────────────────────────────
+const PSS = {
+  SCHEMA_VERSION:'1.0', SESSION_KEY:'ain_pss',
+  save(data) { const e=this.load(); const m={...e,...data}; sessionStorage.setItem(this.SESSION_KEY,JSON.stringify({v:this.SCHEMA_VERSION,state:m})); },
+  load() { try{const r=sessionStorage.getItem(this.SESSION_KEY);if(!r)return{};const e=JSON.parse(r);return e.state||{};}catch{return{};} },
+  generateCode() {
+    const env={v:this.SCHEMA_VERSION,state:this.load()};
+    const b64=btoa(encodeURIComponent(JSON.stringify(env)));
+    const clean=b64.replace(/[^A-Z0-9]/gi,'').toUpperCase().substring(0,12);
+    return `AIN-${clean.substring(0,4)}-${clean.substring(4,8)}-${clean.substring(8,12)}`;
+  },
+  loadFromCode(code) {
+    try{const b64=code.replace(/AIN-|-/g,'');const env=JSON.parse(decodeURIComponent(atob(b64)));this.save(env.state||{});return env.state;}catch{return null;}
+  }
+};
+
+function applyPSSState(s) {
+  if (!s) return;
+  const fields = { portfolio:'portfolio', retirement_age:'retire-age', annual_contribution:'contribution', stocks_pct:'sl-stocks', bonds_pct:'sl-bonds', spend:'retire-spend', horizon:'horizon', inflation:'inflation', age:'curr-age' };
+  Object.entries(fields).forEach(([k,id]) => {
+    if (s[k] !== undefined) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = s[k];
+      if (el.type === 'range') { document.getElementById(`av-${id.replace('sl-','')}`).textContent = s[k] + '%'; }
+    }
+  });
+  // Infer cash from stocks+bonds if sliders present
+  const st = parseFloat(document.getElementById('sl-stocks').value)||0;
+  const bo = parseFloat(document.getElementById('sl-bonds').value)||0;
+  const ca = Math.max(0, 100 - st - bo);
+  document.getElementById('sl-cash').value = ca;
+  document.getElementById('av-cash').textContent = ca + '%';
+}
+
+function pssAutoSave() {
+  PSS.save({
+    age: parseFloat(document.getElementById('curr-age').value),
+    retirement_age: parseFloat(document.getElementById('retire-age').value),
+    portfolio: parseFloat(document.getElementById('portfolio').value),
+    annual_contribution: parseFloat(document.getElementById('contribution').value),
+    stocks_pct: parseFloat(document.getElementById('sl-stocks').value),
+    bonds_pct: parseFloat(document.getElementById('sl-bonds').value),
+    spend: parseFloat(document.getElementById('retire-spend').value),
+    horizon: parseFloat(document.getElementById('horizon').value),
+    inflation: parseFloat(document.getElementById('inflation').value)
+  });
+}
+
+// ── Allocation sync ───────────────────────────────────────────────────────────
+function syncAlloc(changed) {
+  const s = parseInt(document.getElementById('sl-stocks').value)||0;
+  const b = parseInt(document.getElementById('sl-bonds').value)||0;
+  const c = parseInt(document.getElementById('sl-cash').value)||0;
+  const total = s + b + c;
+  document.getElementById('av-stocks').textContent = s + '%';
+  document.getElementById('av-bonds').textContent = b + '%';
+  document.getElementById('av-cash').textContent = c + '%';
+  document.getElementById('alloc-total').textContent = total;
+  const errEl = document.getElementById('alloc-error');
+  errEl.style.display = total !== 100 ? 'block' : 'none';
+  pssAutoSave();
+}
+
+// ── Monte Carlo constants ─────────────────────────────────────────────────────
+const ASSET_CLASS_PARAMS = {
+  stocks: { mean: 0.0952, stdDev: 0.1712 }, // US equities long-run
+  bonds:  { mean: 0.0456, stdDev: 0.0640 }, // US aggregate bonds
+  cash:   { mean: 0.0220, stdDev: 0.0100 }  // money market proxy
+};
+const SIMULATION_COUNT = 1000;
+
+// Worst 5-year sequence proxy (2000-2008 crash)
+const SORR_SEQUENCE = [-0.091, -0.118, -0.221, 0.287, 0.106, -0.369, 0.265, 0.151, 0.021];
+
+function gaussianRandom(mean, stdDev) {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return mean + stdDev * Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
+function runOneSimulation(inputs, useSoRR) {
+  const { portfolio, contribution, retireSpend, yearsToRetire, horizon, inflation, ssIncome, stocksPct, bondsPct, cashPct } = inputs;
+  let val = portfolio;
+  const track = [];
+
+  // Accumulation phase
+  for (let y = 0; y < yearsToRetire; y++) {
+    const r = (stocksPct/100) * gaussianRandom(ASSET_CLASS_PARAMS.stocks.mean, ASSET_CLASS_PARAMS.stocks.stdDev)
+            + (bondsPct/100) * gaussianRandom(ASSET_CLASS_PARAMS.bonds.mean, ASSET_CLASS_PARAMS.bonds.stdDev)
+            + (cashPct/100)  * gaussianRandom(ASSET_CLASS_PARAMS.cash.mean,  ASSET_CLASS_PARAMS.cash.stdDev);
+    val = val * (1 + r) + contribution;
+    val = Math.max(0, val);
+  }
+  track.push(val);
+
+  // Drawdown phase
+  for (let y = 0; y < horizon; y++) {
+    let r;
+    if (useSoRR && y < SORR_SEQUENCE.length) {
+      r = SORR_SEQUENCE[y];
+    } else {
+      r = (stocksPct/100) * gaussianRandom(ASSET_CLASS_PARAMS.stocks.mean, ASSET_CLASS_PARAMS.stocks.stdDev)
+        + (bondsPct/100) * gaussianRandom(ASSET_CLASS_PARAMS.bonds.mean, ASSET_CLASS_PARAMS.bonds.stdDev)
+        + (cashPct/100)  * gaussianRandom(ASSET_CLASS_PARAMS.cash.mean,  ASSET_CLASS_PARAMS.cash.stdDev);
+    }
+    const inflAdj = retireSpend * Math.pow(1 + inflation/100, y);
+    val = val * (1 + r) - Math.max(0, inflAdj - ssIncome);
+    val = Math.max(0, val);
+    track.push(val);
+  }
+  return { survived: val > 0, finalVal: val, track };
+}
+
+let _chartInstance = null;
+let _lastResults = null;
+
+async function runSimulation() {
+  const allocTotal = parseInt(document.getElementById('sl-stocks').value||0) + parseInt(document.getElementById('sl-bonds').value||0) + parseInt(document.getElementById('sl-cash').value||0);
+  if (allocTotal !== 100) { alert('Asset allocation must sum to 100%.'); return; }
+
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  document.getElementById('run-label').textContent = 'Running…';
+
+  await new Promise(r => setTimeout(r, 20)); // allow repaint
+
+  const inputs = {
+    portfolio: parseFloat(document.getElementById('portfolio').value)||0,
+    contribution: parseFloat(document.getElementById('contribution').value)||0,
+    retireSpend: parseFloat(document.getElementById('retire-spend').value)||0,
+    yearsToRetire: Math.max(0, (parseFloat(document.getElementById('retire-age').value)||55) - (parseFloat(document.getElementById('curr-age').value)||38)),
+    horizon: parseFloat(document.getElementById('horizon').value)||30,
+    inflation: parseFloat(document.getElementById('inflation').value)||3,
+    ssIncome: parseFloat(document.getElementById('ss-income').value)||0,
+    stocksPct: parseFloat(document.getElementById('sl-stocks').value)||70,
+    bondsPct: parseFloat(document.getElementById('sl-bonds').value)||25,
+    cashPct: parseFloat(document.getElementById('sl-cash').value)||5
+  };
+  const useSoRR = document.getElementById('sorr-toggle').checked;
+  const results = [];
+  for (let i = 0; i < SIMULATION_COUNT; i++) results.push(runOneSimulation(inputs, useSoRR));
+
+  const survived = results.filter(r => r.survived).length;
+  const finals = results.map(r => r.finalVal).sort((a,b) => a-b);
+  const median = finals[Math.floor(finals.length/2)];
+  const p10 = finals[Math.floor(finals.length*0.10)];
+  const p25 = finals[Math.floor(finals.length*0.25)];
+  const p75 = finals[Math.floor(finals.length*0.75)];
+  const p90 = finals[Math.floor(finals.length*0.90)];
+  const successRate = (survived/SIMULATION_COUNT*100).toFixed(1);
+  _lastResults = { inputs, results, survived, median, p10, p25, p75, p90, successRate };
+
+  // Update UI
+  const successEl = document.getElementById('success-num');
+  successEl.textContent = survived.toLocaleString();
+  successEl.style.color = survived >= 800 ? 'var(--green)' : survived >= 600 ? 'var(--gold)' : 'var(--red)';
+  const badge = document.getElementById('success-badge');
+  badge.textContent = successRate + '% Success Rate';
+  badge.className = 'success-rate-badge ' + (parseFloat(successRate) >= 80 ? 'sr-pass' : parseFloat(successRate) >= 60 ? 'sr-warn' : 'sr-fail');
+
+  const fmtD = n => n>=1e6?'$'+(n/1e6).toFixed(2)+'M':n>=1e3?'$'+(n/1e3).toFixed(0)+'K':'$'+n.toFixed(0);
+  document.getElementById('median-val').textContent = fmtD(median);
+  document.getElementById('p10-val').textContent = fmtD(p10);
+  document.getElementById('p90-val').textContent = fmtD(p90);
+  document.getElementById('failed-val').textContent = (SIMULATION_COUNT-survived).toLocaleString();
+
+  const swr = ((inputs.retireSpend - inputs.ssIncome) / (median||1) * 100).toFixed(2);
+  document.getElementById('swr-rec').textContent = `Implied SWR on median: ${swr}%${parseFloat(swr)>4.5?' — consider reducing spend or delaying retirement':''}`;
+
+  // Recommendations
+  const recs = [];
+  if (parseFloat(successRate) < 70) recs.push('Success rate is below 70%. Consider delaying retirement by 2–3 years or reducing planned spend by 10–15%.');
+  if (p10 <= 0) recs.push('The P10 (downside) scenario portfolio reaches $0 before horizon ends. Your plan needs a buffer against sequence of returns risk.');
+  if (inputs.stocksPct > 85 && inputs.horizon > 25) recs.push('Equity allocation above 85% with a 25+ year horizon increases volatility risk. Consider a glide-path reduction as retirement approaches.');
+  if (inputs.ssIncome === 0) recs.push('No Social Security or pension income entered. Adding even a partial benefit can meaningfully improve success rates.');
+  if (!recs.length) recs.push('Your portfolio trajectory looks healthy across the simulated scenarios. Run the Sequence of Returns overlay to stress-test your early retirement years.');
+  document.getElementById('recs').innerHTML = recs.map(r => `<div class="rec-item">→ ${r}</div>`).join('');
+
+  document.getElementById('results-section').classList.remove('results-hidden');
+
+  // Lazy-load Chart.js and draw
+  await drawChart(results, inputs.horizon, inputs.yearsToRetire);
+
+  btn.disabled = false;
+  document.getElementById('run-label').textContent = '▶ Run 1,000 Simulations';
+  pssAutoSave();
+}
+
+async function drawChart(results, horizon, yearsToRetire) {
+  if (!window.Chart) {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js';
+    await new Promise((res, rej) => { script.onload=res; script.onerror=rej; document.head.appendChild(script); });
+  }
+  if (_chartInstance) { _chartInstance.destroy(); _chartInstance = null; }
+
+  const totalYears = horizon;
+  const labels = Array.from({length: totalYears+1}, (_,i) => `Yr ${i}`);
+
+  // Build percentile bands across all simulations at each year
+  const getPercentile = (sims, pct) => {
+    return Array.from({length: totalYears+1}, (_,y) => {
+      const vals = sims.map(s => s.track[y]||0).sort((a,b)=>a-b);
+      return vals[Math.floor(vals.length*pct)]||0;
+    });
+  };
+
+  const ctx = document.getElementById('fire-chart').getContext('2d');
+  _chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label:'P90', data: getPercentile(results,.90), fill:false, borderColor:'rgba(20,184,166,.3)', borderWidth:1, pointRadius:0, tension:.3 },
+        { label:'P75', data: getPercentile(results,.75), fill:'-1', backgroundColor:'rgba(20,184,166,.08)', borderColor:'rgba(20,184,166,.2)', borderWidth:1, pointRadius:0, tension:.3 },
+        { label:'P50 (Median)', data: getPercentile(results,.50), fill:false, borderColor:'var(--teal)', borderWidth:2, pointRadius:0, tension:.3 },
+        { label:'P25', data: getPercentile(results,.25), fill:'+1', backgroundColor:'rgba(20,184,166,.08)', borderColor:'rgba(20,184,166,.2)', borderWidth:1, pointRadius:0, tension:.3 },
+        { label:'P10', data: getPercentile(results,.10), fill:false, borderColor:'rgba(212,168,71,.6)', borderWidth:1.5, borderDash:[4,3], pointRadius:0, tension:.3 }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{ labels:{ color:'#6888A8', font:{ family:'JetBrains Mono', size:10 } } } },
+      scales: {
+        x: { ticks:{ color:'#3A5270', font:{family:'JetBrains Mono',size:9} }, grid:{ color:'rgba(30,47,74,.5)' } },
+        y: { ticks:{ color:'#3A5270', font:{family:'JetBrains Mono',size:9}, callback: v => v>=1e6?'$'+(v/1e6).toFixed(1)+'M':v>=1e3?'$'+(v/1e3).toFixed(0)+'K':'$'+v }, grid:{ color:'rgba(30,47,74,.5)' } }
+      }
+    }
+  });
+}
+
+function exportMarkdown() {
+  const r = _lastResults;
+  if (!r) return;
+  const fmtD = n => n>=1e6?'$'+(n/1e6).toFixed(2)+'M':n>=1e3?'$'+(n/1e3).toFixed(0)+'K':'$'+n.toFixed(0);
+  const now = new Date().toISOString();
+  let md = `# Monte Carlo FIRE Trajectory — Scenario Export\n**Generated:** ${now}\n\n> *Educational use only — not financial advice.*\n\n`;
+  md += `## Inputs\n- Portfolio: ${fmtD(r.inputs.portfolio)}\n- Annual Contribution: ${fmtD(r.inputs.contribution)}\n- Years to Retirement: ${r.inputs.yearsToRetire}\n- Planned Spend: ${fmtD(r.inputs.retireSpend)}/yr\n- Inflation: ${r.inputs.inflation}%\n- Allocation: ${r.inputs.stocksPct}% stocks / ${r.inputs.bondsPct}% bonds / ${r.inputs.cashPct}% cash\n\n`;
+  md += `## Results (1,000 simulations)\n- **Success Rate: ${r.successRate}%** (${r.survived}/1,000 simulations)\n- Median Final Portfolio: ${fmtD(r.median)}\n- 10th Percentile (Downside): ${fmtD(r.p10)}\n- 90th Percentile (Upside): ${fmtD(r.p90)}\n\n`;
+  md += `---\n*Generated by AINumbers.co Tool 107 — Monte Carlo FIRE Trajectory Simulator. Zero API. Zero PII.*\n`;
+  const blob=new Blob([md],{type:'text/markdown'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='fire-scenario.md';a.click();URL.revokeObjectURL(a.href);
+}
+
+// Init: apply any saved PSS state
+applyPSSState(PSS.load());
+</script>
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "monte-carlo-fire-simulator", "version": "1.0.0", "title": "Monte Carlo FIRE Trajectory Simulator", "description": "Run 1,000+ market scenarios in your browser to find the true probability your retirement portfolio survives. Parametric Monte Carlo with Box-Muller sampling. Outputs a probability cone, success rate, and Sequence of Returns Risk overlay. Zero PII. Zero API. No sign-up.", "category": "open-banking-integration", "tags": ["Monte", "Carlo", "FIRE", "Trajectory", "Simulator"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"portfolio": {"type": "string"}, "contribution": {"type": "string"}, "retire-spend": {"type": "string"}, "curr-age": {"type": "string"}, "retire-age": {"type": "string"}, "horizon": {"type": "string"}, "inflation": {"type": "string"}, "ss-income": {"type": "string"}, "sl-stocks": {"type": "string"}, "sl-bonds": {"type": "string"}, "sl-cash": {"type": "string"}, "sorr-toggle": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "monte_carlo_fire_simulator", "description": "Run Monte Carlo FIRE Trajectory Simulator. Run 1,000+ market scenarios in your browser to find the true probability your retirement portfolio survives. Parametric Monte Carlo with Box-Muller sampling. Outputs a probability cone, success rate, ", "inputSchema": {"type": "object", "properties": {"portfolio": {"type": "string"}, "contribution": {"type": "string"}, "retire-spend": {"type": "string"}, "curr-age": {"type": "string"}, "retire-age": {"type": "string"}, "horizon": {"type": "string"}, "inflation": {"type": "string"}, "ss-income": {"type": "string"}, "sl-stocks": {"type": "string"}, "sl-bonds": {"type": "string"}, "sl-cash": {"type": "string"}, "sorr-toggle": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/107-monte-carlo-fire-simulator.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

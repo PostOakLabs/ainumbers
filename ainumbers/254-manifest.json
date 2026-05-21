@@ -1,0 +1,95 @@
+{
+  "tool_id": "iso20022-cross-rail-compatibility-checker",
+  "version": "1.0.0",
+  "title": "ISO 20022 Cross-Rail Message Compatibility Checker",
+  "description": "Checks ISO 20022 message compatibility across real-time payment rail implementations — FedNow, RTP/TCH, SEPA Instant, Faster Payments, PIX, and PayNow. Produces a field-by-field compatibility matrix, scheme overlay requirements, mandatory element differences, severity-ranked diff report, and AP2 JSON message routing policy. Client-side. Zero PII.",
+  "category": "cat-21",
+  "tags": [
+    "ISO 20022",
+    "FedNow",
+    "RTP",
+    "SEPA Instant",
+    "Faster Payments",
+    "PIX",
+    "PayNow",
+    "cross-rail",
+    "message compatibility",
+    "pacs.008",
+    "field mapping",
+    "AP2",
+    "export",
+    "real-time payments"
+  ],
+  "audience": ["engineer", "payments architect", "compliance", "operations"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "message_type": {
+        "type": "string",
+        "enum": ["pacs.008", "pacs.002", "pacs.004", "camt.056"],
+        "description": "ISO 20022 message type to check compatibility for"
+      },
+      "source_rail": {
+        "type": "string",
+        "enum": ["fednow", "rtp", "sepa_inst", "fps", "pix", "paynow"],
+        "description": "Originating real-time payment rail"
+      },
+      "target_rails": {
+        "type": "array",
+        "items": { "type": "string", "enum": ["fednow", "rtp", "sepa_inst", "fps", "pix", "paynow"] },
+        "minItems": 1,
+        "maxItems": 4,
+        "description": "One to four destination rails to check compatibility against"
+      }
+    },
+    "required": ["message_type", "source_rail", "target_rails"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "fields_checked":           { "type": "integer" },
+      "fields_fully_compatible":  { "type": "integer" },
+      "fields_overlay_required":  { "type": "integer" },
+      "fields_partial":           { "type": "integer" },
+      "fields_absent":            { "type": "integer" },
+      "compatibility_pct":        { "type": "number", "minimum": 0, "maximum": 100 },
+      "high_severity_differences": { "type": "integer" },
+      "high_diff_fields":         { "type": "array", "items": { "type": "string" } },
+      "routing_recommendation":   { "type": "string" },
+      "agent_instructions":       { "type": "array", "items": { "type": "string" } },
+      "ap2_mandate":              { "type": "object" }
+    },
+    "required": ["fields_checked", "compatibility_pct", "routing_recommendation", "agent_instructions", "ap2_mandate"]
+  },
+  "mcp_tool_definition": {
+    "name": "check_iso20022_cross_rail_compatibility",
+    "description": "Checks ISO 20022 message field compatibility between real-time payment rail implementations (FedNow, RTP/TCH, SEPA Instant, Faster Payments, PIX, PayNow). Returns a field-level compatibility matrix, severity-ranked differences, and an AP2 JSON routing policy. Use when a payments engineer or agent needs to assess whether a pacs.008, pacs.002, pacs.004, or camt.056 message can be routed across rails without transformation, or to identify which fields require mapping or suppression.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "message_type": {
+          "type": "string",
+          "enum": ["pacs.008", "pacs.002", "pacs.004", "camt.056"]
+        },
+        "source_rail": {
+          "type": "string",
+          "enum": ["fednow", "rtp", "sepa_inst", "fps", "pix", "paynow"]
+        },
+        "target_rails": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["fednow", "rtp", "sepa_inst", "fps", "pix", "paynow"] },
+          "minItems": 1,
+          "maxItems": 4
+        }
+      },
+      "required": ["message_type", "source_rail", "target_rails"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/254-iso20022-cross-rail-compatibility.html",
+    "function_name": "checkISO20022CrossRailCompatibility",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true
+}

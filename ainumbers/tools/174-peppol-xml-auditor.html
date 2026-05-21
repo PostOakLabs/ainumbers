@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Peppol BIS 3.0 / KSeF XML Auditor · AINumbers.co</title>
+<meta name="description" content="In-browser XML validator for Peppol BIS Billing 3.0 (EN 16931) and KSeF FA(3). Checks structural and calculation business rules with country overlays for France, Poland, Belgium, Germany and Australia. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/174-peppol-xml-auditor.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Peppol BIS 3.0 / KSeF XML Auditor","url":"https://ainumbers.co/tools/174-peppol-xml-auditor.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "peppol-xml-auditor",
+  "version": "1.0.0",
+  "title": "Peppol BIS 3.0 / KSeF XML Auditor",
+  "description": "Client-side validator for Peppol BIS Billing 3.0 (EN 16931) e-invoice XML with country overlays.",
+  "category": "cat-13",
+  "tags": ["Peppol","BIS Billing 3.0","EN 16931","KSeF","e-invoicing","XRechnung"],
+  "audience": ["compliance","finance","engineer"],
+  "input_schema": {"type":"object","properties":{"xml":{"type":"string"},"overlay":{"type":"string"}},"required":["xml"]},
+  "output_schema": {"type":"object","properties":{"checks":{"type":"array"},"fatal":{"type":"integer"},"warning":{"type":"integer"},"verdict":{"type":"string"}}},
+  "mcp_tool_definition": {"name":"audit_peppol_xml","description":"Validates a UBL Invoice XML document against Peppol BIS Billing 3.0 / EN 16931 business rules and optional country overlays.","inputSchema":{"type":"object","properties":{"xml":{"type":"string","description":"UBL Invoice XML"},"overlay":{"type":"string","description":"Country overlay: none|fr|pl|be|de|au"}},"required":["xml"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/174-peppol-xml-auditor.html","function_name":"runTool","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid;border-radius:3px}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted2{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.edu-disclaimer{border:1px solid var(--warn);border-left:3px solid var(--warn);background:var(--warn-dim);padding:1rem 1.25rem;margin-bottom:1.5rem;font-size:.74rem;color:var(--body);line-height:1.7;border-radius:var(--radius)}
+.edu-disclaimer-label{display:block;color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem}
+.field-row{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:.85rem}
+.field{display:flex;flex-direction:column;gap:.3rem}
+.field label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+select,textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .6rem;border-radius:4px;outline:none;transition:border-color .2s}
+select:focus,textarea:focus{border-color:var(--teal)}
+.xml-input{width:100%;min-height:200px;resize:vertical;line-height:1.5;white-space:pre;font-size:.68rem}
+.btn-row{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:.25rem}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.6rem 1.6rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.ghost-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:.6rem 1.1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;transition:all .2s}
+.ghost-btn:hover{border-color:var(--teal);color:var(--teal)}
+.summary-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem}
+@media(max-width:640px){.summary-cards{grid-template-columns:repeat(2,1fr)}.field-row{flex-direction:column}}
+.sc{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center}
+.sc-num{font-family:'DM Serif Display',serif;font-size:1.6rem;line-height:1}
+.sc-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:.35rem}
+.verdict{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;padding:.6rem 1rem;border-radius:var(--radius);margin-bottom:1.25rem;border:1px solid}
+.verdict.pass{color:var(--green);border-color:rgba(34,197,94,.4);background:var(--green-dim)}
+.verdict.fail{color:var(--red);border-color:rgba(239,68,68,.4);background:var(--red-dim)}
+.rule-table{width:100%;border-collapse:collapse;font-size:.7rem}
+.rule-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .6rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap;background:var(--bg-3)}
+.rule-table td{padding:.5rem .6rem;border-bottom:1px solid var(--border);vertical-align:top}
+.rule-table tr:last-child td{border-bottom:none}
+.rule-id{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--purple-lt);white-space:nowrap}
+.st{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.06em;text-transform:uppercase;padding:.15rem .5rem;border-radius:3px;white-space:nowrap}
+.st-pass{color:var(--green);background:var(--green-dim)}
+.st-fail{color:var(--red);background:var(--red-dim)}
+.st-warn{color:var(--warn);background:var(--warn-dim)}
+.st-na{color:var(--muted);background:var(--bg-3)}
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.25rem}
+.empty{color:var(--muted);font-size:.78rem;text-align:center;padding:2rem 0}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<!-- LANG BAR (Phase 5 baseline insertion 2026-05-12) -->
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/einvoicing-vat-vida-hub.html">E-Invoicing Hub</a><span class="nav-sep">/</span><span>T-174</span></div>
+  <a href="../guides/einvoicing-vat-vida-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="content">
+
+  <div class="hero"><div class="container">
+    <div class="hero-eyebrow">T174 · Cat-13 · E-Invoicing &amp; VAT Compliance</div>
+    <h1 class="tool-title">Peppol BIS 3.0 / KSeF <em>XML Auditor</em></h1>
+    <p class="hero-desc">Paste a UBL Invoice XML document and validate it against Peppol BIS Billing 3.0 (EN 16931) structural and calculation business rules, plus optional country overlays for France, Poland, Belgium, Germany and Australia. Reports per-rule pass/fail with detail, and exports a Markdown report and a Policy Mandate JSON.</p>
+    <div class="disclaimer">⚠ This auditor checks a curated subset of the EN 16931 / Peppol BIS 3.0 business-rule set — the core structural and calculation rules — not the full Schematron. A clean result here is an indicator, not a substitute for certified validation by your access point or PDP.</div>
+    <div class="hero-meta hero-badges">
+      <span class="badge badge-teal">Peppol BIS 3.0</span>
+      <span class="badge badge-gold">EN 16931</span>
+      <span class="badge badge-green">Zero PII</span>
+      <span class="badge badge-muted2">Client-Side</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-19</span></span>
+  </div></div>
+
+  <div class="tool-body"><div class="container">
+
+    <div class="pii-notice">
+      <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+    </div>
+
+    <div class="edu-disclaimer">
+      <strong class="edu-disclaimer-label" data-i18n="disclaimer.label">Educational Use Only</strong>
+      <span data-i18n="disclaimer.body">This tool provides a self-assessment / educational framework for internal planning purposes only. It is not a regulatory audit, legal advice, or a substitute for a formal compliance review by a qualified advisor. Verify all interpretations against the official EN 16931 standard and Peppol BIS Billing 3.0 specification.</span>
+    </div>
+
+    <div class="panel">
+      <div class="panel-label" data-i18n="input.label">Invoice XML Input</div>
+      <div class="field-row">
+        <div class="field">
+          <label data-i18n="input.overlay">Country Overlay</label>
+          <select id="overlay">
+            <option value="none">EN 16931 / Peppol BIS 3.0 — base</option>
+            <option value="fr">France · PPF / PDP</option>
+            <option value="pl">Poland · KSeF FA(3)</option>
+            <option value="be">Belgium · Peppol mandate</option>
+            <option value="de">Germany · XRechnung</option>
+            <option value="au">Australia · PINT A-NZ</option>
+          </select>
+        </div>
+      </div>
+      <textarea id="xml" class="xml-input" spellcheck="false" data-i18n-placeholder="input.placeholder" placeholder="Paste UBL Invoice XML here…"></textarea>
+      <div class="btn-row">
+        <button class="run-btn" onclick="runTool()" data-i18n="btn.validate">▶ Validate XML</button>
+        <button class="ghost-btn" onclick="loadSample()" data-i18n="btn.sample">Load sample invoice</button>
+        <button class="ghost-btn" onclick="clearInput()" data-i18n="btn.clear">Clear</button>
+      </div>
+    </div>
+
+    <div id="results"><div class="empty" data-i18n="empty">No validation yet — paste an invoice XML or load the sample, then click Validate.</div></div>
+
+  </div></div>
+
+</div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/einvoicing-vat-vida-hub.html"><span data-i18n="footer.hub">E-Invoicing Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ── Peppol BIS 3.0 / EN 16931 XML auditor — client-side, deterministic ── */
+var lastResult = null;
+
+function byLocal(node, name){
+  var out=[], all=node.getElementsByTagName('*');
+  for(var i=0;i<all.length;i++){ if(all[i].localName===name) out.push(all[i]); }
+  return out;
+}
+function firstLocal(node, name){ var a=byLocal(node,name); return a.length?a[0]:null; }
+function txt(el){ return el? (el.textContent||'').trim() : ''; }
+function num(s){ var n=parseFloat(s); return isNaN(n)?null:n; }
+/* direct child by local name */
+function childLocal(node, name){
+  if(!node) return null;
+  for(var i=0;i<node.childNodes.length;i++){
+    var c=node.childNodes[i];
+    if(c.nodeType===1 && c.localName===name) return c;
+  }
+  return null;
+}
+
+/* Each rule: id, name, sev ('fatal'|'warn'), overlay (null = base), run(ctx)->{ok, detail} */
+var RULES = [
+  {id:'BR-01',sev:'fatal',name:'Specification identifier',run:function(c){
+    var v=firstLocal(c.inv,'CustomizationID'); return {ok:!!txt(v),detail:txt(v)||'CustomizationID (BT-24) missing'};}},
+  {id:'BR-02',sev:'fatal',name:'Invoice number',run:function(c){
+    var v=childLocal(c.inv,'ID'); return {ok:!!txt(v),detail:txt(v)||'Invoice number (BT-1) missing'};}},
+  {id:'BR-03',sev:'fatal',name:'Invoice issue date',run:function(c){
+    var v=firstLocal(c.inv,'IssueDate'); var t=txt(v);
+    var okfmt=/^\d{4}-\d{2}-\d{2}$/.test(t);
+    return {ok:!!t&&okfmt,detail:t? (okfmt?t:'IssueDate not ISO yyyy-mm-dd: '+t) :'IssueDate (BT-2) missing'};}},
+  {id:'BR-04',sev:'fatal',name:'Invoice type code',run:function(c){
+    var v=firstLocal(c.inv,'InvoiceTypeCode'); return {ok:!!txt(v),detail:txt(v)||'InvoiceTypeCode (BT-3) missing'};}},
+  {id:'BR-05',sev:'fatal',name:'Invoice currency code',run:function(c){
+    var v=firstLocal(c.inv,'DocumentCurrencyCode'); var t=txt(v);
+    return {ok:/^[A-Z]{3}$/.test(t),detail:t? (/^[A-Z]{3}$/.test(t)?t:'Not a 3-letter ISO 4217 code: '+t):'DocumentCurrencyCode (BT-5) missing'};}},
+  {id:'BR-06',sev:'fatal',name:'Seller name',run:function(c){
+    var nm=c.seller? firstLocal(c.seller,'RegistrationName')||firstLocal(c.seller,'Name'):null;
+    return {ok:!!txt(nm),detail:txt(nm)||'Seller name (BT-27) missing'};}},
+  {id:'BR-07',sev:'fatal',name:'Buyer name',run:function(c){
+    var nm=c.buyer? firstLocal(c.buyer,'RegistrationName')||firstLocal(c.buyer,'Name'):null;
+    return {ok:!!txt(nm),detail:txt(nm)||'Buyer name (BT-44) missing'};}},
+  {id:'BR-08',sev:'fatal',name:'Seller postal address',run:function(c){
+    return {ok:!!c.sellerAddr,detail:c.sellerAddr?'PostalAddress present':'Seller PostalAddress (BG-5) missing'};}},
+  {id:'BR-09',sev:'fatal',name:'Seller country code',run:function(c){
+    var cc=c.sellerAddr? txt(firstLocal(c.sellerAddr,'IdentificationCode')):'';
+    return {ok:/^[A-Z]{2}$/.test(cc),detail:cc?('Country '+cc):'Seller country code (BT-40) missing'};}},
+  {id:'BR-10',sev:'fatal',name:'Buyer postal address',run:function(c){
+    return {ok:!!c.buyerAddr,detail:c.buyerAddr?'PostalAddress present':'Buyer PostalAddress (BG-8) missing'};}},
+  {id:'BR-11',sev:'fatal',name:'Buyer country code',run:function(c){
+    var cc=c.buyerAddr? txt(firstLocal(c.buyerAddr,'IdentificationCode')):'';
+    return {ok:/^[A-Z]{2}$/.test(cc),detail:cc?('Country '+cc):'Buyer country code (BT-55) missing'};}},
+  {id:'BR-12',sev:'fatal',name:'Sum of line net amount',run:function(c){
+    var v=c.lmt?firstLocal(c.lmt,'LineExtensionAmount'):null;
+    return {ok:num(txt(v))!==null,detail:txt(v)||'LineExtensionAmount (BT-106) missing'};}},
+  {id:'BR-13',sev:'fatal',name:'Total amount without VAT',run:function(c){
+    var v=c.lmt?firstLocal(c.lmt,'TaxExclusiveAmount'):null;
+    return {ok:num(txt(v))!==null,detail:txt(v)||'TaxExclusiveAmount (BT-109) missing'};}},
+  {id:'BR-14',sev:'fatal',name:'Total amount with VAT',run:function(c){
+    var v=c.lmt?firstLocal(c.lmt,'TaxInclusiveAmount'):null;
+    return {ok:num(txt(v))!==null,detail:txt(v)||'TaxInclusiveAmount (BT-112) missing'};}},
+  {id:'BR-15',sev:'fatal',name:'Amount due for payment',run:function(c){
+    var v=c.lmt?firstLocal(c.lmt,'PayableAmount'):null;
+    return {ok:num(txt(v))!==null,detail:txt(v)||'PayableAmount (BT-115) missing'};}},
+  {id:'BR-16',sev:'fatal',name:'At least one invoice line',run:function(c){
+    return {ok:c.lines.length>0,detail:c.lines.length+' invoice line(s)'};}},
+  {id:'BR-CO-10',sev:'fatal',name:'Σ line net = LineExtensionAmount',run:function(c){
+    if(!c.lmt) return {ok:false,detail:'LegalMonetaryTotal missing'};
+    var declared=num(txt(firstLocal(c.lmt,'LineExtensionAmount')));
+    var sum=0;
+    for(var i=0;i<c.lines.length;i++){ var le=firstLocal(c.lines[i],'LineExtensionAmount'); sum+=num(txt(le))||0; }
+    sum=Math.round(sum*100)/100;
+    var ok=declared!==null && Math.abs(declared-sum)<0.01;
+    return {ok:ok,detail:'declared '+declared+' vs Σ lines '+sum};}},
+  {id:'BR-CO-15',sev:'fatal',name:'Total with VAT = without VAT + VAT',run:function(c){
+    if(!c.lmt) return {ok:false,detail:'LegalMonetaryTotal missing'};
+    var excl=num(txt(firstLocal(c.lmt,'TaxExclusiveAmount')));
+    var incl=num(txt(firstLocal(c.lmt,'TaxInclusiveAmount')));
+    var taxAmt=null, tt=c.inv.getElementsByTagName('*');
+    for(var i=0;i<tt.length;i++){ if(tt[i].localName==='TaxTotal'){ var ta=firstLocal(tt[i],'TaxAmount'); if(ta){taxAmt=num(txt(ta)); break;} } }
+    if(excl===null||incl===null||taxAmt===null) return {ok:false,detail:'missing excl/incl/TaxAmount'};
+    var ok=Math.abs(incl-(excl+taxAmt))<0.01;
+    return {ok:ok,detail:incl+' vs '+excl+' + '+taxAmt+' = '+Math.round((excl+taxAmt)*100)/100};}},
+  {id:'BR-CO-16',sev:'fatal',name:'Amount due = total with VAT − prepaid + rounding',run:function(c){
+    if(!c.lmt) return {ok:false,detail:'LegalMonetaryTotal missing'};
+    var incl=num(txt(firstLocal(c.lmt,'TaxInclusiveAmount')));
+    var pay=num(txt(firstLocal(c.lmt,'PayableAmount')));
+    var pre=num(txt(firstLocal(c.lmt,'PrepaidAmount')))||0;
+    var rnd=num(txt(firstLocal(c.lmt,'PayableRoundingAmount')))||0;
+    if(incl===null||pay===null) return {ok:false,detail:'missing incl/payable'};
+    var ok=Math.abs(pay-(incl-pre+rnd))<0.01;
+    return {ok:ok,detail:pay+' vs '+incl+' − '+pre+' + '+rnd};}},
+  {id:'BR-CL-01',sev:'warn',name:'Invoice type code from UNTDID 1001',run:function(c){
+    var t=txt(firstLocal(c.inv,'InvoiceTypeCode'));
+    var allowed=['380','381','383','384','386','393','395','326','384','389','751'];
+    return {ok:allowed.indexOf(t)>=0,detail:t?('code '+t+(allowed.indexOf(t)>=0?'':' not in common UNTDID 1001 subset')):'no code'};}},
+  {id:'PEPPOL-R001',sev:'fatal',name:'Business process (ProfileID)',run:function(c){
+    var v=firstLocal(c.inv,'ProfileID'); return {ok:!!txt(v),detail:txt(v)||'ProfileID (BT-23) missing — required by Peppol BIS'};}},
+  {id:'PEPPOL-R004',sev:'warn',name:'Peppol specification identifier value',run:function(c){
+    var v=txt(firstLocal(c.inv,'CustomizationID'));
+    var ok=v.indexOf('peppol.eu')>=0||v.indexOf('en16931')>=0;
+    return {ok:ok,detail:v?(ok?'recognised':'CustomizationID is not a Peppol/EN16931 value'):'no CustomizationID'};}},
+  {id:'PEPPOL-R007',sev:'fatal',name:'Buyer electronic address',run:function(c){
+    var ep=c.buyer? firstLocal(c.buyer,'EndpointID'):null;
+    var scheme=ep?ep.getAttribute('schemeID'):'';
+    return {ok:!!txt(ep)&&!!scheme,detail:txt(ep)?('endpoint '+txt(ep)+' / scheme '+(scheme||'MISSING')):'Buyer EndpointID (BT-49) missing'};}},
+  {id:'PEPPOL-R008',sev:'fatal',name:'Seller electronic address',run:function(c){
+    var ep=c.seller? firstLocal(c.seller,'EndpointID'):null;
+    var scheme=ep?ep.getAttribute('schemeID'):'';
+    return {ok:!!txt(ep)&&!!scheme,detail:txt(ep)?('endpoint '+txt(ep)+' / scheme '+(scheme||'MISSING')):'Seller EndpointID (BT-34) missing'};}},
+  /* ── Country overlays ── */
+  {id:'FR-R01',sev:'fatal',overlay:'fr',name:'France — Seller legal registration (SIREN/SIRET)',run:function(c){
+    var ids=c.seller?byLocal(c.seller,'CompanyID'):[]; var found='';
+    for(var i=0;i<ids.length;i++){ var t=txt(ids[i]).replace(/\s/g,''); if(/^\d{9}$|^\d{14}$/.test(t)){found=t;break;} }
+    return {ok:!!found,detail:found?('SIREN/SIRET '+found):'No 9-digit SIREN / 14-digit SIRET on Seller — required for PPF/PDP routing'};}},
+  {id:'FR-R02',sev:'fatal',overlay:'fr',name:'France — Buyer legal registration (SIREN/SIRET)',run:function(c){
+    var ids=c.buyer?byLocal(c.buyer,'CompanyID'):[]; var found='';
+    for(var i=0;i<ids.length;i++){ var t=txt(ids[i]).replace(/\s/g,''); if(/^\d{9}$|^\d{14}$/.test(t)){found=t;break;} }
+    return {ok:!!found,detail:found?('SIREN/SIRET '+found):'No SIREN/SIRET on Buyer — France B2B mandate requires it'};}},
+  {id:'PL-R01',sev:'fatal',overlay:'pl',name:'Poland — KSeF NIP tax identifier present',run:function(c){
+    var ids=c.seller?byLocal(c.seller,'CompanyID').concat(byLocal(c.seller,'ID')):[]; var found='';
+    for(var i=0;i<ids.length;i++){ var t=txt(ids[i]).replace(/[^0-9]/g,''); if(/^\d{10}$/.test(t)){found=t;break;} }
+    return {ok:!!found,detail:found?('NIP '+found):'No 10-digit Polish NIP on Seller — required for KSeF FA(3)'};}},
+  {id:'PL-R02',sev:'warn',overlay:'pl',name:'Poland — currency PLN for domestic KSeF',run:function(c){
+    var cur=txt(firstLocal(c.inv,'DocumentCurrencyCode'));
+    return {ok:cur==='PLN',detail:cur==='PLN'?'PLN':'Currency '+cur+' — KSeF domestic invoices are normally PLN (verify FX handling)'};}},
+  {id:'BE-R01',sev:'warn',overlay:'be',name:'Belgium — Buyer endpoint scheme 0208 (CBE)',run:function(c){
+    var ep=c.buyer?firstLocal(c.buyer,'EndpointID'):null; var s=ep?ep.getAttribute('schemeID'):'';
+    return {ok:s==='0208',detail:s?('scheme '+s+(s==='0208'?'':' — Belgian entities use 0208 (CBE number)')):'no Buyer endpoint scheme'};}},
+  {id:'DE-R01',sev:'fatal',overlay:'de',name:'Germany — Buyer reference (Leitweg-ID)',run:function(c){
+    var v=firstLocal(c.inv,'BuyerReference');
+    return {ok:!!txt(v),detail:txt(v)?('BuyerReference '+txt(v)):'BuyerReference (BT-10) missing — XRechnung requires the Leitweg-ID'};}},
+  {id:'DE-R02',sev:'warn',overlay:'de',name:'Germany — Seller contact e-mail',run:function(c){
+    var em=c.seller?firstLocal(c.seller,'ElectronicMail'):null;
+    return {ok:!!txt(em),detail:txt(em)||'No Seller contact e-mail — XRechnung CIUS expects BG-6 contact details'};}},
+  {id:'AU-R01',sev:'fatal',overlay:'au',name:'Australia — ABN endpoint scheme 0151',run:function(c){
+    var ep=c.seller?firstLocal(c.seller,'EndpointID'):null; var s=ep?ep.getAttribute('schemeID'):'';
+    return {ok:s==='0151',detail:s?('scheme '+s+(s==='0151'?'':' — PINT A-NZ uses 0151 (ABN)')):'no Seller endpoint scheme'};}}
+];
+
+function buildContext(doc){
+  var inv=doc.documentElement;
+  var supplier=firstLocal(inv,'AccountingSupplierParty');
+  var customer=firstLocal(inv,'AccountingCustomerParty');
+  var seller=supplier?firstLocal(supplier,'Party'):null;
+  var buyer=customer?firstLocal(customer,'Party'):null;
+  return {
+    inv:inv,
+    seller:seller, buyer:buyer,
+    sellerAddr:seller?firstLocal(seller,'PostalAddress'):null,
+    buyerAddr:buyer?firstLocal(buyer,'PostalAddress'):null,
+    lmt:firstLocal(inv,'LegalMonetaryTotal'),
+    lines:byLocal(inv,'InvoiceLine')
+  };
+}
+
+function runTool(){
+  var raw=document.getElementById('xml').value.trim();
+  var overlay=document.getElementById('overlay').value;
+  var res=document.getElementById('results');
+  if(!raw){ res.innerHTML='<div class="empty">Paste an invoice XML first.</div>'; return; }
+  var doc;
+  try{ doc=new DOMParser().parseFromString(raw,'application/xml'); }
+  catch(e){ res.innerHTML='<div class="verdict fail">XML could not be parsed.</div>'; return; }
+  var perr=doc.getElementsByTagName('parsererror');
+  if(perr && perr.length){
+    res.innerHTML='<div class="verdict fail">Malformed XML — not well-formed. Fix syntax before validation.</div>';
+    lastResult=null; return;
+  }
+  var root=doc.documentElement;
+  if(!root || root.localName!=='Invoice'){
+    res.innerHTML='<div class="verdict fail">Root element is &lt;'+(root?root.localName:'?')+'&gt; — expected a UBL &lt;Invoice&gt; document.</div>';
+    lastResult=null; return;
+  }
+  var ctx=buildContext(doc);
+  var checks=[];
+  for(var i=0;i<RULES.length;i++){
+    var r=RULES[i];
+    if(r.overlay && r.overlay!==overlay) continue;
+    if(!r.overlay && false) continue;
+    var out;
+    try{ out=r.run(ctx); }catch(e){ out={ok:false,detail:'rule error: '+e.message}; }
+    checks.push({id:r.id,name:r.name,sev:r.sev,overlay:r.overlay||'base',status:out.ok?'pass':r.sev,detail:out.detail});
+  }
+  var fatal=checks.filter(function(x){return x.status==='fatal';}).length;
+  var warn=checks.filter(function(x){return x.status==='warn';}).length;
+  var pass=checks.filter(function(x){return x.status==='pass';}).length;
+  var verdict=fatal===0?'PASS':'FAIL';
+  lastResult={overlay:overlay,checks:checks,fatal:fatal,warning:warn,passed:pass,verdict:verdict,runAt:new Date().toISOString()};
+  render();
+}
+
+function render(){
+  var r=lastResult, res=document.getElementById('results');
+  var rows=r.checks.map(function(c){
+    var cls=c.status==='pass'?'st-pass':c.status==='fatal'?'st-fail':'st-warn';
+    var lbl=c.status==='pass'?'Pass':c.status==='fatal'?'Fail':'Warn';
+    return '<tr><td class="rule-id">'+c.id+'</td><td>'+c.name+(c.overlay!=='base'?' <span class="st st-na">'+c.overlay.toUpperCase()+'</span>':'')+'</td>'+
+           '<td><span class="st '+cls+'">'+lbl+'</span></td><td style="color:var(--body)">'+c.detail+'</td></tr>';
+  }).join('');
+  res.innerHTML=
+    '<div class="verdict '+(r.verdict==='PASS'?'pass':'fail')+'">Verdict: '+r.verdict+
+      ' — '+r.fatal+' fatal · '+r.warning+' warning · '+r.passed+' passed</div>'+
+    '<div class="summary-cards">'+
+      '<div class="sc"><div class="sc-num" style="color:var(--green)">'+r.passed+'</div><div class="sc-label">Passed</div></div>'+
+      '<div class="sc"><div class="sc-num" style="color:var(--red)">'+r.fatal+'</div><div class="sc-label">Fatal</div></div>'+
+      '<div class="sc"><div class="sc-num" style="color:var(--warn)">'+r.warning+'</div><div class="sc-label">Warning</div></div>'+
+      '<div class="sc"><div class="sc-num" style="color:var(--teal)">'+r.checks.length+'</div><div class="sc-label">Rules Run</div></div>'+
+    '</div>'+
+    '<div class="panel" style="padding:0;overflow-x:auto"><table class="rule-table">'+
+      '<thead><tr><th>Rule</th><th>Description</th><th>Status</th><th>Detail</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    '<div class="results-export-row">'+
+      '<button class="ghost-btn" onclick="exportMD()">↓ Markdown report</button>'+
+      '<button class="ghost-btn" onclick="exportMandate()">↓ Policy Mandate JSON</button>'+
+    '</div>';
+}
+
+function exportMD(){
+  if(!lastResult) return;
+  var r=lastResult;
+  var md='# Peppol BIS 3.0 / EN 16931 XML Audit\n\n'+
+    '- Generated: '+r.runAt+'\n- Overlay: '+r.overlay+'\n- Verdict: '+r.verdict+
+    '\n- Fatal: '+r.fatal+' · Warning: '+r.warning+' · Passed: '+r.passed+'\n\n'+
+    '| Rule | Description | Status | Detail |\n|---|---|---|---|\n'+
+    r.checks.map(function(c){return '| '+c.id+' | '+c.name+' | '+c.status+' | '+c.detail.replace(/\|/g,'\\|')+' |';}).join('\n')+
+    '\n\n*Generated by AINumbers.co Tool 174. Curated rule subset — not a substitute for certified validation.*';
+  download(md,'peppol-audit-'+r.runAt.slice(0,10)+'.md','text/markdown');
+}
+
+function exportMandate(){
+  if(!lastResult) return;
+  var r=lastResult;
+  var m={
+    mandate_type:'einvoice_validation_policy',
+    tool_id:'peppol-xml-auditor', tool_version:'1.0.0',
+    ap2_version:'1.0', issued_at:new Date().toISOString(), issued_by:'ainumbers.co',
+    jurisdiction:[r.overlay==='none'?'EU':r.overlay.toUpperCase()],
+    regulatory_frameworks:['EN 16931','Peppol BIS Billing 3.0'],
+    payload:{overlay:r.overlay,verdict:r.verdict,fatal:r.fatal,warning:r.warning,passed:r.passed,
+      checks:r.checks.map(function(c){return {rule:c.id,status:c.status};})},
+    summary:'Peppol BIS 3.0 / EN 16931 audit: verdict '+r.verdict+' with '+r.fatal+' fatal and '+r.warning+' warning findings under the '+r.overlay+' overlay.',
+    agent_instructions:[
+      'Treat a FAIL verdict as a hard block on transmission to the Peppol network or the national platform.',
+      'Resolve every fatal finding before resubmitting; re-run the audit after each change.',
+      'Warnings are advisory — review against the applicable country CIUS before go-live.'
+    ]
+  };
+  download(JSON.stringify(m,null,2),'peppol-audit-mandate-'+r.runAt.slice(0,10)+'.policy.json','application/json');
+}
+
+function download(content,name,type){
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([content],{type:type}));
+  a.download=name; a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+}
+
+function clearInput(){
+  document.getElementById('xml').value='';
+  document.getElementById('results').innerHTML='<div class="empty">No validation yet — paste an invoice XML or load the sample, then click Validate.</div>';
+  lastResult=null;
+}
+
+function loadSample(){
+  document.getElementById('xml').value=SAMPLE;
+}
+
+var SAMPLE=[
+'<?xml version="1.0" encoding="UTF-8"?>',
+'<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"',
+'         xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"',
+'         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">',
+'  <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0</cbc:CustomizationID>',
+'  <cbc:ProfileID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</cbc:ProfileID>',
+'  <cbc:ID>INV-2026-0042</cbc:ID>',
+'  <cbc:IssueDate>2026-05-14</cbc:IssueDate>',
+'  <cbc:DueDate>2026-06-13</cbc:DueDate>',
+'  <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>',
+'  <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>',
+'  <cbc:BuyerReference>04011000-12345-67</cbc:BuyerReference>',
+'  <cac:AccountingSupplierParty><cac:Party>',
+'    <cbc:EndpointID schemeID="0192">991825827</cbc:EndpointID>',
+'    <cac:PartyLegalEntity><cbc:RegistrationName>Nordic Widgets AS</cbc:RegistrationName>',
+'      <cbc:CompanyID>991825827</cbc:CompanyID></cac:PartyLegalEntity>',
+'    <cac:PostalAddress><cbc:CityName>Oslo</cbc:CityName>',
+'      <cac:Country><cbc:IdentificationCode>NO</cbc:IdentificationCode></cac:Country></cac:PostalAddress>',
+'  </cac:Party></cac:AccountingSupplierParty>',
+'  <cac:AccountingCustomerParty><cac:Party>',
+'    <cbc:EndpointID schemeID="0208">0123456789</cbc:EndpointID>',
+'    <cac:PartyLegalEntity><cbc:RegistrationName>Brussels Trading SA</cbc:RegistrationName>',
+'      <cbc:CompanyID>0123456789</cbc:CompanyID></cac:PartyLegalEntity>',
+'    <cac:PostalAddress><cbc:CityName>Brussels</cbc:CityName>',
+'      <cac:Country><cbc:IdentificationCode>BE</cbc:IdentificationCode></cac:Country></cac:PostalAddress>',
+'  </cac:Party></cac:AccountingCustomerParty>',
+'  <cac:TaxTotal><cbc:TaxAmount currencyID="EUR">200.00</cbc:TaxAmount></cac:TaxTotal>',
+'  <cac:LegalMonetaryTotal>',
+'    <cbc:LineExtensionAmount currencyID="EUR">1000.00</cbc:LineExtensionAmount>',
+'    <cbc:TaxExclusiveAmount currencyID="EUR">1000.00</cbc:TaxExclusiveAmount>',
+'    <cbc:TaxInclusiveAmount currencyID="EUR">1200.00</cbc:TaxInclusiveAmount>',
+'    <cbc:PayableAmount currencyID="EUR">1200.00</cbc:PayableAmount>',
+'  </cac:LegalMonetaryTotal>',
+'  <cac:InvoiceLine><cbc:ID>1</cbc:ID>',
+'    <cbc:LineExtensionAmount currencyID="EUR">600.00</cbc:LineExtensionAmount></cac:InvoiceLine>',
+'  <cac:InvoiceLine><cbc:ID>2</cbc:ID>',
+'    <cbc:LineExtensionAmount currencyID="EUR">400.00</cbc:LineExtensionAmount></cac:InvoiceLine>',
+'</Invoice>'
+].join('\n');
+
+/* ── i18n ── */
+var TRANSLATIONS={
+  en:{},
+  es:{'pii.banner':'🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No introduzca datos personales reales — use entradas sintéticas o anonimizadas.',
+      'btn.validate':'▶ Validar XML','btn.sample':'Cargar factura de ejemplo','btn.clear':'Limpiar',
+      'input.label':'Entrada de XML de factura','input.overlay':'Superposición de país',
+      'empty':'Aún no hay validación — pegue un XML de factura o cargue el ejemplo y haga clic en Validar.',
+      'footer.alltools':'Todas las herramientas','footer.hub':'Centro de facturación electrónica','footer.sitemap':'Mapa del sitio','footer.contact':'Contacto'},
+  fr:{'pii.banner':'🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n\'est transmise. N\'entrez pas de données personnelles réelles — utilisez des entrées synthétiques ou anonymisées.',
+      'btn.validate':'▶ Valider le XML','btn.sample':'Charger une facture exemple','btn.clear':'Effacer',
+      'input.label':'Saisie du XML de facture','input.overlay':'Surcouche pays',
+      'empty':'Pas encore de validation — collez un XML de facture ou chargez l\'exemple, puis cliquez sur Valider.',
+      'footer.alltools':'Tous les outils','footer.hub':'Centre de facturation électronique','footer.sitemap':'Plan du site','footer.contact':'Contact'},
+  ar:{'pii.banner':'🔒 تتم معالجة جميع المدخلات محليًا في متصفحك. لا يتم نقل أي بيانات. لا تُدخل بيانات شخصية حقيقية — استخدم مدخلات اصطناعية أو مجهولة.',
+      'btn.validate':'▶ التحقق من XML','btn.sample':'تحميل فاتورة نموذجية','btn.clear':'مسح',
+      'input.label':'إدخال XML للفاتورة','input.overlay':'طبقة الدولة',
+      'empty':'لا يوجد تحقق بعد — الصق XML الفاتورة أو حمّل النموذج ثم انقر تحقق.',
+      'footer.alltools':'جميع الأدوات','footer.hub':'مركز الفوترة الإلكترونية','footer.sitemap':'خريطة الموقع','footer.contact':'اتصل'},
+  pt:{'pii.banner':'🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido. Não insira dados pessoais reais — use entradas sintéticas ou anonimizadas.',
+      'btn.validate':'▶ Validar XML','btn.sample':'Carregar fatura de exemplo','btn.clear':'Limpar',
+      'input.label':'Entrada de XML da fatura','input.overlay':'Sobreposição de país',
+      'empty':'Ainda sem validação — cole um XML de fatura ou carregue o exemplo e clique em Validar.',
+      'footer.alltools':'Todas as ferramentas','footer.hub':'Central de faturação eletrónica','footer.sitemap':'Mapa do site','footer.contact':'Contacto'},
+  zh:{'pii.banner':'🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。请勿输入真实个人数据——仅使用合成或匿名输入。',
+      'btn.validate':'▶ 验证 XML','btn.sample':'加载示例发票','btn.clear':'清除',
+      'input.label':'发票 XML 输入','input.overlay':'国家叠加规则',
+      'empty':'尚无验证结果——粘贴发票 XML 或加载示例，然后点击验证。',
+      'footer.alltools':'所有工具','footer.hub':'电子发票中心','footer.sitemap':'网站地图','footer.contact':'联系'}
+};
+function setLang(lang){
+  document.querySelectorAll('.lang-btn').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-lang')===lang);
+  });
+  document.documentElement.lang = lang==='zh'?'zh-Hans':lang;
+  document.documentElement.dir = lang==='ar'?'rtl':'ltr';
+  var s=TRANSLATIONS[lang]||TRANSLATIONS.en;
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var k=el.getAttribute('data-i18n'); if(s[k]!==undefined) el.textContent=s[k];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el){
+    var k=el.getAttribute('data-i18n-placeholder'); if(s[k]!==undefined) el.placeholder=s[k];
+  });
+  try{ sessionStorage.setItem('ain_lang',lang); }catch(e){}
+}
+(function(){ try{ var s=sessionStorage.getItem('ain_lang'); if(s&&TRANSLATIONS[s]) setLang(s); }catch(e){} })();
+</script>
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "peppol-xml-auditor", "version": "1.0.0", "title": "Peppol BIS 3.0 / KSeF XML Auditor", "description": "Client-side validator for Peppol BIS Billing 3.0 (EN 16931) e-invoice XML with country overlays for France, Poland, Belgium, Germany and Australia.", "category": "cat-13", "tags": ["Peppol", "BIS Billing 3.0", "EN 16931", "KSeF", "e-invoicing", "XRechnung"], "audience": ["compliance", "finance", "engineer"], "input_schema": {"type": "object", "properties": {"xml": {"type": "string"}, "overlay": {"type": "string"}}, "required": ["xml"]}, "output_schema": {"type": "object", "properties": {"verdict": {"type": "string"}, "fatal": {"type": "integer"}, "warning": {"type": "integer"}, "passed": {"type": "integer"}, "checks": {"type": "array"}}}, "mcp_tool_definition": {"name": "audit_peppol_xml", "description": "Validates a UBL Invoice XML document against Peppol BIS Billing 3.0 / EN 16931 business rules and optional country overlays.", "inputSchema": {"type": "object", "properties": {"xml": {"type": "string", "description": "UBL Invoice XML"}, "overlay": {"type": "string", "description": "Country overlay: none|fr|pl|be|de|au"}}, "required": ["xml"]}}, "execution": {"type": "browser-javascript", "entry": "tools/174-peppol-xml-auditor.html", "function_name": "runTool", "timeout_ms": 3000}, "ap2_export": true}');
+  function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

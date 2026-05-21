@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>T190 · BNPL Affordability Assessment Modeller — AINumbers.co</title>
+<meta name="description" content="Model BNPL affordability assessment methodology options against FCA CONC 5, EU CCD2 Art. 18, and CFPB ability-to-repay requirements. Compliance assessment only — not actual credit decisions.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="AINumbers.co — Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/190-bnpl-affordability-assessment-modeller.html">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"BNPL Affordability Assessment Modeller — AINumbers.co","url":"https://ainumbers.co/tools/190-bnpl-affordability-assessment-modeller.html","description":"Model BNPL affordability assessment methodology options against FCA CONC 5, EU CCD2 Art. 18, and CFPB ability-to-repay requirements. Compliance assessment only — not actual credit decisions.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600;700&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!--
+  manifest.json (embedded reference)
+  {
+    "tool_id": "bnpl-affordability-assessment-modeller",
+    "version": "1.0.0",
+    "title": "BNPL Affordability Assessment Modeller",
+    "description": "Model affordability assessment methodology options against FCA CONC 5, EU CCD2 Art. 18, and CFPB ability-to-repay requirements. Scope: compliance methodology assessment only — not actual credit decisions.",
+    "category": "cat-16",
+    "tags": ["BNPL","Affordability","Ability-to-Repay","FCA CONC 5","CCD2 Art. 18","CFPB","Creditworthiness","Compliance"],
+    "audience": ["compliance","risk","product","legal"],
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "product_value_tier": { "type": "string", "enum": ["under50","50to250","250to1000","over1000"] },
+        "repayment_count": { "type": "string", "enum": ["2to4","5to12","13plus"] },
+        "apr_tier": { "type": "string", "enum": ["zero","low","high"] },
+        "jurisdictions": { "type": "array" },
+        "income_signal": { "type": "string", "enum": ["none","stated","soft_behavioural","open_banking","hard_verification"] },
+        "credit_bureau": { "type": "string", "enum": ["none","soft_search","hard_search","multi_bureau"] },
+        "checks_commitments": { "type": "boolean" },
+        "calcs_disposable": { "type": "boolean" },
+        "stress_tests": { "type": "boolean" },
+        "screens_vulnerability": { "type": "boolean" },
+        "documented": { "type": "boolean" },
+        "periodic_review": { "type": "boolean" },
+        "refusal_mechanism": { "type": "boolean" },
+        "consumer_warning": { "type": "boolean" }
+      }
+    },
+    "mcp_tool_definition": {
+      "name": "model_bnpl_affordability_methodology_compliance",
+      "description": "Assess whether a BNPL affordability assessment methodology meets FCA CONC 5, EU CCD2 Art. 18, and CFPB ability-to-repay requirements. Returns per-framework compliance scores, proportionality analysis against product risk tier, and a gap table. Scope: compliance methodology assessment only — not actual credit decisions.",
+      "inputSchema": { "type": "object" }
+    },
+    "execution": {
+      "type": "browser-javascript",
+      "entry": "tools/190-bnpl-affordability-assessment-modeller.html",
+      "function_name": "runModel",
+      "timeout_ms": 2000
+    },
+    "ap2_export": false
+  }
+-->
+
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12); --gold-hover:#E8B952; --gold-lt:#E8C96A;
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12); --red-lt:#F87171;
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px; --radius-lg:10px; --radius-xl:14px;
+  --shadow:0 4px 24px rgba(0,0,0,.45);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6;overflow-x:hidden;}
+
+/* Gold grid texture */
+body::before{content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(212,168,71,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(212,168,71,.018) 1px,transparent 1px);
+  background-size:56px 56px;pointer-events:none;z-index:0;}
+
+.ambient{position:fixed;pointer-events:none;z-index:0;}
+.ambient-1{top:-180px;left:-160px;width:640px;height:640px;background:radial-gradient(ellipse at center,rgba(212,168,71,.06) 0%,transparent 70%);}
+.ambient-2{bottom:-160px;right:-100px;width:540px;height:540px;background:radial-gradient(ellipse at center,rgba(20,184,166,.04) 0%,transparent 70%);}
+
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem;position:relative;z-index:1;}
+
+/* Lang bar */
+.lang-bar{background:rgba(13,22,39,.95);border-bottom:1px solid var(--border);padding:.4rem 0;position:relative;z-index:10;}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;gap:.4rem;justify-content:flex-end;}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid transparent;color:var(--muted);padding:.2rem .55rem;border-radius:var(--radius);cursor:pointer;transition:all .15s;}
+.lang-btn:hover{color:var(--text);border-color:var(--border);}
+.lang-btn.active{color:var(--gold);border-color:rgba(212,168,71,.4);background:var(--gold-dim);}
+
+/* Nav */
+nav{border-bottom:1px solid var(--border);background:rgba(8,14,26,.9);backdrop-filter:blur(16px);position:sticky;top:0;z-index:100;padding:.9rem 0;}
+.nav-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:.75rem;text-decoration:none;}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal);} .logo-co{color:var(--body);font-size:.8rem;}
+
+
+.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;color:var(--body);text-decoration:none;transition:color .15s;}
+.nav-links a:hover{color:var(--gold);}
+/* Tool header — gold accent */
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;}
+.hero::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+.hero-eyebrow{display:flex;align-items:center;gap:.65rem;margin-bottom:.85rem;flex-wrap:wrap;}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.09em;text-transform:uppercase;padding:.22rem .65rem;border-radius:var(--radius);border:1px solid;}
+.badge-cat{color:var(--gold);border-color:rgba(212,168,71,.4);background:var(--gold-dim);}
+.badge-scope{color:var(--red-lt);border-color:rgba(239,68,68,.4);background:var(--red-dim);}
+.badge-neutral{color:var(--body);border-color:var(--border);background:var(--bg-3);}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(1.7rem,3.5vw,2.5rem);color:var(--white);line-height:1.15;margin-bottom:.6rem;}
+.hero h1 em{color:var(--gold);font-style:italic;}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:720px;line-height:1.72;margin-bottom:.85rem;}
+.meta-row{display:flex;flex-wrap:wrap;gap:.5rem;}
+.meta-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.18rem .55rem;border-radius:var(--radius);border:1px solid;}
+.tag-red{color:var(--red-lt);border-color:rgba(239,68,68,.3);background:var(--red-dim);}
+.tag-teal{color:var(--teal-lt);border-color:rgba(20,184,166,.3);background:var(--teal-dim);}
+.tag-gold{color:var(--gold);border-color:rgba(212,168,71,.3);background:var(--gold-dim);}
+.tag-green{color:var(--green);border-color:rgba(34,197,94,.3);background:var(--green-dim);}
+.tag-purple{color:var(--purple);border-color:rgba(155,114,245,.3);background:var(--purple-dim);}
+
+/* ⚠️ Scope disclaimer — prominent, non-removable */
+.scope-disclaimer{background:var(--red-dim);border:1px solid rgba(239,68,68,.4);border-left:4px solid var(--red-lt);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin:1.5rem 0;display:flex;gap:.85rem;align-items:flex-start;}
+.scope-disclaimer-icon{font-size:1.1rem;flex-shrink:0;}
+.scope-disclaimer-text{font-size:.78rem;line-height:1.65;color:var(--text);}
+.scope-disclaimer-text strong{color:var(--red-lt);}
+
+/* Step layout */
+.step-section{margin:2rem 0;}
+.step-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:.55rem;display:flex;align-items:center;gap:.5rem;}
+.step-label::before{content:attr(data-step);background:var(--gold-dim);border:1px solid rgba(212,168,71,.4);color:var(--gold);font-size:.55rem;padding:.15rem .45rem;border-radius:3px;}
+.step-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white);margin-bottom:.35rem;}
+.step-desc{font-size:.78rem;color:var(--body);margin-bottom:1.1rem;line-height:1.65;}
+
+/* Grid layouts */
+.three-col{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+@media(max-width:700px){.three-col,.two-col{grid-template-columns:1fr;}}
+
+/* Form card */
+.form-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.25rem;}
+.fc-label{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;display:block;}
+.fc-select{width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.76rem;padding:.55rem .75rem;cursor:pointer;transition:border-color .15s;}
+.fc-select:focus{outline:none;border-color:rgba(212,168,71,.5);}
+.fc-select option{background:var(--bg-3);}
+.fc-hint{font-size:.67rem;color:var(--body);margin-top:.35rem;line-height:1.5;}
+
+/* Risk tier badge */
+.risk-badge{display:inline-flex;align-items:center;gap:.45rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;padding:.3rem .75rem;border-radius:var(--radius);border:1px solid;margin-top:.75rem;}
+.risk-low{color:var(--green);border-color:rgba(34,197,94,.35);background:var(--green-dim);}
+.risk-med{color:var(--gold);border-color:rgba(212,168,71,.35);background:var(--gold-dim);}
+.risk-high{color:var(--red-lt);border-color:rgba(239,68,68,.35);background:var(--red-dim);}
+
+/* Methodology checklist */
+.method-grid{display:grid;grid-template-columns:1fr 1fr;gap:.85rem;}
+@media(max-width:700px){.method-grid{grid-template-columns:1fr;}}
+.method-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.15rem;transition:border-color .15s;}
+.method-card.has-select{display:flex;flex-direction:column;gap:.6rem;}
+
+/* Toggle yes/no for boolean checks */
+.bool-toggle{display:flex;gap:.4rem;margin-top:.45rem;}
+.bool-btn{flex:1;font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;padding:.42rem .5rem;border-radius:var(--radius);border:1px solid var(--border);background:transparent;color:var(--body);cursor:pointer;transition:all .15s;text-align:center;}
+.bool-btn:hover{border-color:var(--border-2);color:var(--text);}
+.bool-btn.yes-active{border-color:rgba(34,197,94,.5);background:var(--green-dim);color:var(--green);}
+.bool-btn.no-active{border-color:rgba(239,68,68,.4);background:var(--red-dim);color:var(--red-lt);}
+.method-title{font-size:.76rem;color:var(--bright);line-height:1.35;margin-bottom:.15rem;}
+.method-req{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.07em;text-transform:uppercase;padding:.13rem .42rem;border-radius:3px;border:1px solid;display:inline-block;}
+.req-must{color:var(--red-lt);border-color:rgba(239,68,68,.3);background:var(--red-dim);}
+.req-should{color:var(--gold);border-color:rgba(212,168,71,.3);background:var(--gold-dim);}
+
+/* Jurisdiction checkboxes (compact inline) */
+.juris-bar{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.1rem;}
+.jbar-item{display:flex;align-items:center;gap:.45rem;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.42rem .75rem;cursor:pointer;transition:all .15s;user-select:none;}
+.jbar-item:hover{border-color:rgba(212,168,71,.3);}
+.jbar-item.sel{border-color:rgba(212,168,71,.5);background:var(--gold-dim);}
+.jbar-item input[type=checkbox]{accent-color:var(--gold);}
+.jbar-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.07em;text-transform:uppercase;color:var(--text);}
+
+/* Run button */
+.btn-run{font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600;background:var(--gold);color:#000;border:none;padding:.78rem 2rem;border-radius:var(--radius);cursor:pointer;transition:background .15s;}
+.btn-run:hover{background:var(--gold-hover);}
+.run-hint{font-size:.73rem;color:var(--muted);}
+.run-row{display:flex;align-items:center;gap:1rem;margin-top:1.5rem;flex-wrap:wrap;}
+.error-msg{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--red-lt);background:var(--red-dim);border:1px solid rgba(239,68,68,.3);padding:.5rem .75rem;border-radius:var(--radius);display:none;margin-top:.5rem;}
+.error-msg.vis{display:block;}
+
+/* Results */
+.results-panel{display:none;margin-top:.5rem;}
+.results-panel.visible{display:block;}
+.sec-divider{border:none;border-top:1px solid var(--border);margin:2rem 0;}
+
+/* Proportionality banner */
+.prop-banner{border-radius:var(--radius-xl);padding:1.1rem 1.4rem;margin-bottom:1.25rem;display:flex;align-items:flex-start;gap:1rem;flex-wrap:wrap;}
+.prop-banner.prop-ok{background:var(--green-dim);border:1px solid rgba(34,197,94,.3);}
+.prop-banner.prop-warn{background:var(--gold-dim);border:1px solid rgba(212,168,71,.35);}
+.prop-banner.prop-fail{background:var(--red-dim);border:1px solid rgba(239,68,68,.3);}
+.prop-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem;}
+.prop-title{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--white);margin-bottom:.3rem;}
+.prop-text{font-size:.76rem;color:var(--body);line-height:1.6;}
+
+/* Framework score cards */
+.fw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem;margin-bottom:1.25rem;}
+.fw-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-xl);overflow:hidden;}
+.fw-top{height:3px;}
+.fw-top-ok{background:var(--green);}
+.fw-top-warn{background:var(--gold);}
+.fw-top-fail{background:var(--red);}
+.fw-body{padding:1.1rem 1.25rem;}
+.fw-eyebrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem;flex-wrap:wrap;gap:.4rem;}
+.fw-name{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);}
+.fw-score-pill{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.07em;text-transform:uppercase;padding:.2rem .55rem;border-radius:3px;border:1px solid;}
+.fps-ok{color:var(--green);border-color:rgba(34,197,94,.3);background:var(--green-dim);}
+.fps-warn{color:var(--gold);border-color:rgba(212,168,71,.3);background:var(--gold-dim);}
+.fps-fail{color:var(--red-lt);border-color:rgba(239,68,68,.3);background:var(--red-dim);}
+.fw-title{font-family:'DM Serif Display',serif;font-size:.95rem;color:var(--white);margin-bottom:.45rem;}
+.fw-score-row{display:flex;align-items:center;gap:.75rem;margin-bottom:.55rem;}
+.fw-score-num{font-family:'DM Serif Display',serif;font-size:2rem;line-height:1;}
+.fw-bar-wrap{flex:1;}
+.fw-bar-track{background:var(--bg-4);border-radius:3px;height:5px;overflow:hidden;margin-bottom:.25rem;}
+.fw-bar-fill{height:100%;border-radius:3px;transition:width .6s ease;}
+.fw-bar-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);}
+.fw-reqs{list-style:none;display:flex;flex-direction:column;gap:.3rem;margin-top:.5rem;}
+.fw-req-item{display:flex;align-items:flex-start;gap:.5rem;font-size:.7rem;color:var(--body);line-height:1.45;}
+.fw-req-icon{flex-shrink:0;font-size:.75rem;margin-top:.05rem;}
+
+/* Gap table */
+.gap-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-xl);overflow:hidden;margin-bottom:1.25rem;}
+.gap-head{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+.gap-table{width:100%;border-collapse:collapse;}
+.gap-table th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding:.5rem .9rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-3);}
+.gap-table td{padding:.55rem .9rem;border-bottom:1px solid var(--border);font-size:.73rem;color:var(--text);vertical-align:top;}
+.gap-table tr:last-child td{border-bottom:none;}
+.gap-table tr.row-miss td{background:rgba(239,68,68,.03);}
+.gap-table tr.row-part td{background:rgba(212,168,71,.03);}
+.g-st{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.06em;text-transform:uppercase;padding:.18rem .48rem;border-radius:3px;border:1px solid;white-space:nowrap;}
+.gst-met{color:var(--green);border-color:rgba(34,197,94,.3);background:var(--green-dim);}
+.gst-miss{color:var(--red-lt);border-color:rgba(239,68,68,.3);background:var(--red-dim);}
+.gst-part{color:var(--gold);border-color:rgba(212,168,71,.3);background:var(--gold-dim);}
+.g-action{font-size:.7rem;color:var(--body);line-height:1.5;}
+
+/* Export */
+.export-row{display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1.5rem;}
+.btn-md{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;font-weight:600;background:var(--gold-dim);border:1px solid rgba(212,168,71,.4);color:var(--gold);padding:.65rem 1.4rem;border-radius:var(--radius);cursor:pointer;transition:all .15s;}
+.btn-md:hover{background:rgba(212,168,71,.22);border-color:var(--gold);}
+
+/* Citations */
+.citations{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.4rem;margin-top:1.5rem;}
+.cit-title{font-family:'JetBrains Mono',monospace;font-size:.53rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.7rem;}
+.cit-list{list-style:none;display:flex;flex-direction:column;gap:.35rem;}
+.cit-list li{font-size:.72rem;color:var(--body);line-height:1.55;padding-left:1.4rem;position:relative;}
+.cit-list li::before{content:attr(data-n);position:absolute;left:0;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--gold);font-weight:600;}
+
+@media(max-width:640px){
+  .nav-links a:not(:last-child){display:none;}
+  }
+[dir="rtl"] body{text-align:right;}
+[dir="rtl"] .nav-inner,[dir="rtl"] [dir="rtl"] .cit-list li{padding-left:0;padding-right:1.4rem;}
+[dir="rtl"] .cit-list li::before{left:auto;right:0;}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-privacy::before{content:'\B7';color:var(--green)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<div class="ambient ambient-1"></div>
+<div class="ambient ambient-2"></div>
+
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+    <div class="logo-text">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/bnpl-consumer-credit-hub.html">BNPL Hub</a><span class="nav-sep">/</span><span>T-190</span></div>
+
+    <a href="../guides/bnpl-consumer-credit-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">
+    <span class="badge badge-cat">Cat-16 · BNPL</span>
+    <span class="badge badge-scope">⚠ Compliance Assessment Only — Not Credit Decisions</span>
+    <span class="badge badge-neutral">Client-Side · Zero PII</span>
+  </div>
+  <h1 class="tool-title" data-i18n="h1">BNPL Affordability <em>Assessment</em> Modeller</h1>
+  <p class="hero-desc" data-i18n="desc">Model your BNPL affordability assessment methodology against FCA CONC 5, EU CCD2 Art. 18, and CFPB ability-to-repay requirements. Receive a per-framework compliance score, proportionality analysis against your product risk tier, and a prioritised gap table.</p>
+  <div class="hero-meta meta-row">
+    <span class="meta-tag tag-gold">FCA CONC 5</span>
+    <span class="meta-tag tag-teal">EU CCD2 Art. 18</span>
+    <span class="meta-tag tag-gold">CFPB ATR</span>
+    <span class="meta-tag tag-purple">Proportionality</span>
+    <span class="meta-tag tag-green">Markdown Export</span>
+      </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+  
+</div></div>
+
+<div class="container" style="padding-top:1.5rem;padding-bottom:3rem;">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+
+  <!-- ⚠️ Scope disclaimer — required per spec -->
+  <div class="scope-disclaimer">
+    <div class="scope-disclaimer-icon">⚠️</div>
+    <div class="scope-disclaimer-text">
+      <strong>Scope: Compliance Methodology Assessment Only.</strong> This tool evaluates whether a BNPL provider's affordability assessment <em>methodology</em> meets regulatory minimum requirements. It does <em>not</em> make, model, or advise on individual consumer credit decisions, creditworthiness determinations, or lending decisions. Outputs are for internal compliance gap analysis only. All inputs are processed entirely in-browser — no data is transmitted or stored.
+    </div>
+  </div>
+
+  <!-- STEP 1: Product risk profile -->
+  <div class="step-section">
+    <div class="step-label" data-step="01" data-i18n="step1_label">Product Risk Profile</div>
+    <div class="step-title" data-i18n="step1_title">Define your BNPL product characteristics</div>
+    <p class="step-desc" data-i18n="step1_desc">Proportionality rules mean that the required depth of affordability assessment scales with product risk. Describe your product so the tool can calibrate the minimum required methodology depth.</p>
+
+    <div class="three-col">
+      <div class="form-card">
+        <label class="fc-label" data-i18n="lbl_value">Typical transaction value</label>
+        <select class="fc-select" id="prodValue" onchange="updateRiskTier()">
+          <option value="" disabled selected>Select range…</option>
+          <option value="under50">Under £/€/$50</option>
+          <option value="50to250">£/€/$50 – £/€/$250</option>
+          <option value="250to1000">£/€/$250 – £/€/$1,000</option>
+          <option value="over1000">Over £/€/$1,000</option>
+        </select>
+        <div class="fc-hint" data-i18n="hint_value">Higher value → greater consumer harm potential → stricter assessment required.</div>
+      </div>
+      <div class="form-card">
+        <label class="fc-label" data-i18n="lbl_repayments">Number of repayments</label>
+        <select class="fc-select" id="prodRepayments" onchange="updateRiskTier()">
+          <option value="" disabled selected>Select…</option>
+          <option value="2to4">2 – 4 instalments</option>
+          <option value="5to12">5 – 12 instalments</option>
+          <option value="13plus">13+ instalments</option>
+        </select>
+        <div class="fc-hint" data-i18n="hint_repayments">Longer repayment terms increase consumer risk exposure.</div>
+      </div>
+      <div class="form-card">
+        <label class="fc-label" data-i18n="lbl_apr">Product APR</label>
+        <select class="fc-select" id="prodApr" onchange="updateRiskTier()">
+          <option value="" disabled selected>Select…</option>
+          <option value="zero">0% (interest-free BNPL)</option>
+          <option value="low">1% – 24% (low-rate credit)</option>
+          <option value="high">25% + (high-rate / HCSTC)</option>
+        </select>
+        <div class="fc-hint" data-i18n="hint_apr">Non-zero APR brings HCSTC or standard regulated credit rules into play.</div>
+      </div>
+    </div>
+
+    <div id="riskTierDisplay" style="margin-top:.75rem;"></div>
+  </div>
+
+  <!-- STEP 2: Methodology inventory -->
+  <div class="step-section">
+    <div class="step-label" data-step="02" data-i18n="step2_label">Methodology Inventory</div>
+    <div class="step-title" data-i18n="step2_title">Which components does your affordability assessment include?</div>
+    <p class="step-desc" data-i18n="step2_desc">Answer for your <em>standard</em> BNPL product population. Use the MUST/SHOULD labels as a guide — MUST items are minimum regulatory requirements for at least one framework.</p>
+
+    <!-- Jurisdiction selection -->
+    <div class="juris-bar" id="jurisBar">
+      <div class="jbar-item sel" id="jb-fca" onclick="toggleJuris('fca',this)">
+        <input type="checkbox" id="jchk-fca" checked onchange="void(0)">
+        <span class="jbar-label">🇬🇧 FCA CONC 5</span>
+      </div>
+      <div class="jbar-item sel" id="jb-ccd2" onclick="toggleJuris('ccd2',this)">
+        <input type="checkbox" id="jchk-ccd2" checked onchange="void(0)">
+        <span class="jbar-label">🇪🇺 EU CCD2 Art. 18</span>
+      </div>
+      <div class="jbar-item sel" id="jb-cfpb" onclick="toggleJuris('cfpb',this)">
+        <input type="checkbox" id="jchk-cfpb" checked onchange="void(0)">
+        <span class="jbar-label">🇺🇸 CFPB ATR</span>
+      </div>
+    </div>
+    <div id="jurisErr" class="error-msg" data-i18n="err_juris">Select at least one framework.</div>
+
+    <div class="method-grid">
+
+      <!-- Income signals -->
+      <div class="form-card has-select">
+        <div>
+          <div class="method-title">Income signal / verification method</div>
+          <span class="method-req req-must">MUST — FCA, CCD2, CFPB</span>
+        </div>
+        <select class="fc-select" id="m_income">
+          <option value="none">None — no income signals used</option>
+          <option value="stated">Stated income only (consumer-declared, unverified)</option>
+          <option value="soft_behavioural">Soft behavioural signals (device, spend patterns)</option>
+          <option value="open_banking">Open banking / account transaction data</option>
+          <option value="hard_verification">Hard income verification (payslip, bank statement)</option>
+        </select>
+        <div class="fc-hint">FCA CONC 5.2A(2): must consider income and expenditure. Higher product risk requires stronger verification. [1]</div>
+      </div>
+
+      <!-- Credit bureau -->
+      <div class="form-card has-select">
+        <div>
+          <div class="method-title">Credit bureau / register data</div>
+          <span class="method-req req-must">MUST — CCD2 Art. 18(3) · CONC 5</span>
+        </div>
+        <select class="fc-select" id="m_bureau">
+          <option value="none">None — no credit bureau check</option>
+          <option value="soft_search">Soft search (no footprint, score/flag only)</option>
+          <option value="hard_search">Hard search (full credit report)</option>
+          <option value="multi_bureau">Multi-bureau / real-time credit data feed</option>
+        </select>
+        <div class="fc-hint">CCD2 Art. 18(3): must consult credit register where available. [2]</div>
+      </div>
+
+      <!-- Outstanding commitments -->
+      <div class="form-card">
+        <div class="method-title">Check existing financial commitments</div>
+        <span class="method-req req-must">MUST — FCA CONC 5.2A · CCD2</span>
+        <div class="bool-toggle">
+          <button class="bool-btn" id="btn-commitments-y" onclick="setBool('commitments',true)">Yes</button>
+          <button class="bool-btn no-active" id="btn-commitments-n" onclick="setBool('commitments',false)">No</button>
+        </div>
+        <div class="fc-hint">Assessment must consider existing credit commitments and total debt burden. [1]</div>
+      </div>
+
+      <!-- Disposable income calc -->
+      <div class="form-card">
+        <div class="method-title">Calculate net disposable income</div>
+        <span class="method-req req-must">MUST — FCA CONC 5.2A(2)(b)</span>
+        <div class="bool-toggle">
+          <button class="bool-btn" id="btn-disposable-y" onclick="setBool('disposable',true)">Yes</button>
+          <button class="bool-btn no-active" id="btn-disposable-n" onclick="setBool('disposable',false)">No</button>
+        </div>
+        <div class="fc-hint">Sustainable repayment must be assessed relative to income minus necessary expenditure. [1]</div>
+      </div>
+
+      <!-- Stress testing -->
+      <div class="form-card">
+        <div class="method-title">Apply repayment stress test</div>
+        <span class="method-req req-should">SHOULD — FCA Consumer Duty · CCD2</span>
+        <div class="bool-toggle">
+          <button class="bool-btn" id="btn-stress-y" onclick="setBool('stress',true)">Yes</button>
+          <button class="bool-btn no-active" id="btn-stress-n" onclick="setBool('stress',false)">No</button>
+        </div>
+        <div class="fc-hint">FCA Consumer Duty (PS22/9): consider foreseeable circumstances, including income volatility. [3]</div>
+      </div>
+
+      <!-- Financial vulnerability screening -->
+      <div class="form-card">
+        <div class="method-title">Financial vulnerability screening</div>
+        <span class="method-req req-should">SHOULD — FCA Consumer Duty · CFPB UDAAP</span>
+        <div class="bool-toggle">
+          <button class="bool-btn" id="btn-vulnerability-y" onclick="setBool('vulnerability',true)">Yes</button>
+          <button class="bool-btn no-active" id="btn-vulnerability-n" onclick="setBool('vulnerability',false)">No</button>
+        </div>
+        <div class="fc-hint">FCA Consumer Duty requires identification of potentially vulnerable customers and adapted outcomes. [3]</div>
+      </div>
+
+      <!-- Documentation -->
+      <div class="form-card">
+        <div class="method-title">Written methodology documentation</div>
+        <span class="method-req req-must">MUST — CCD2 Art. 18 · CONC 2.10</span>
+        <div class="bool-toggle">
+          <button class="bool-btn" id="btn-documented-y" onclick="setBool('documented',true)">Yes</button>
+          <button class="bool-btn no-active" id="btn-documented-n" onclick="setBool('documented',false)">No</button>
+        </div>
+        <div class="fc-hint">FCA CONC 2.10: maintain records of creditworthiness methodology. CCD2 Art. 18 requires documented basis. [2]</div>
+      </div>
+
+      <!-- Periodic review -->
+      <div class="form-card">
+        <div class="method-title">Periodic methodology review cycle</div>
+        <span class="method-req req-should">SHOULD — FCA CONC 2.10 · Consumer Duty</span>
+        <div class="bool-toggle">
+          <button class="bool-btn" id="btn-review-y" onclick="setBool('review',true)">Yes</button>
+          <button class="bool-btn no-active" id="btn-review-n" onclick="setBool('review',false)">No</button>
+        </div>
+        <div class="fc-hint">FCA Consumer Duty requires regular product/process review to confirm outcomes remain fair. [3]</div>
+      </div>
+
+      <!-- Refusal mechanism -->
+      <div class="form-card">
+        <div class="method-title">Refusal / credit limit reduction for unaffordable cases</div>
+        <span class="method-req req-must">MUST — CCD2 Art. 18(4) · FCA CONC 5</span>
+        <div class="bool-toggle">
+          <button class="bool-btn" id="btn-refusal-y" onclick="setBool('refusal',true)">Yes</button>
+          <button class="bool-btn no-active" id="btn-refusal-n" onclick="setBool('refusal',false)">No</button>
+        </div>
+        <div class="fc-hint">CCD2 Art. 18(4): lender must decline or restrict credit when assessment indicates consumer cannot afford repayments. [2]</div>
+      </div>
+
+      <!-- Consumer-facing warning -->
+      <div class="form-card">
+        <div class="method-title">Consumer-facing affordability warning at checkout</div>
+        <span class="method-req req-should">SHOULD — FCA Consumer Duty · CCD2</span>
+        <div class="bool-toggle">
+          <button class="bool-btn" id="btn-warning-y" onclick="setBool('warning',true)">Yes</button>
+          <button class="bool-btn no-active" id="btn-warning-n" onclick="setBool('warning',false)">No</button>
+        </div>
+        <div class="fc-hint">Prompts such as "Only proceed if you can comfortably afford repayments" reduce consumer harm and support Consumer Duty outcomes. [3]</div>
+      </div>
+
+    </div><!-- /method-grid -->
+
+    <div class="run-row">
+      <button class="btn-run" onclick="runModel()" data-i18n="run_btn">Run Assessment →</button>
+      <span class="run-hint" data-i18n="run_hint">Unset boolean fields default to No.</span>
+    </div>
+  </div>
+
+  <!-- STEP 3: Results -->
+  <div class="results-panel" id="resultsPanel">
+    <hr class="sec-divider" style="margin-top:0;">
+    <div class="step-label" data-step="03" data-i18n="step3_label">Compliance Assessment</div>
+    <div class="step-title" data-i18n="step3_title">Affordability Methodology Assessment Results</div>
+
+    <!-- Proportionality analysis -->
+    <div id="propBanner" style="margin-top:1rem;"></div>
+
+    <!-- Per-framework scores -->
+    <div class="fw-grid" id="fwGrid"></div>
+
+    <!-- Gap table -->
+    <div class="gap-wrap">
+      <div class="gap-head" data-i18n="gap_head">Requirement Gap Table — Missing &amp; Partial Items</div>
+      <div style="overflow-x:auto;">
+        <table class="gap-table">
+          <thead>
+            <tr>
+              <th>Framework</th>
+              <th>Requirement</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Remediation Action</th>
+            </tr>
+          </thead>
+          <tbody id="gapBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="export-row">
+      <button class="btn-md" onclick="exportMarkdown()" data-i18n="btn_md">⬇ Export Markdown Assessment Report</button>
+    </div>
+  </div>
+
+  <!-- Citations -->
+  <hr style="border:none;border-top:1px solid var(--border);margin:2rem 0;">
+  <div class="citations">
+    <div class="cit-title">Source Notes &amp; Regulatory Citations</div>
+    <ul class="cit-list">
+      <li data-n="1">FCA CONC 5.2A — creditworthiness assessment for regulated consumer credit. CONC 5.2A(2): must assess ability to make repayments without undue difficulty, considering income and expenditure. CONC 5.2A(6): assessment must be proportionate to product risk. Applies to BNPL under new DPC regime from 15 July 2026 (FSMA 2023 Sch. 9). FCA CONC 2.10: records of creditworthiness assessment methodology must be maintained.</li>
+      <li data-n="2">Directive 2023/2225/EU (CCD2), Art. 18 — creditworthiness assessment. Art. 18(1): creditor must conduct thorough assessment of creditworthiness before concluding agreement. Art. 18(3): creditor must consult credit register database where available. Art. 18(4): creditor must decline credit where assessment indicates consumer cannot afford repayments without significant financial difficulty. Transposition deadline: 20 November 2025.</li>
+      <li data-n="3">FCA Consumer Duty (PS22/9) — effective July 2023, applying to BNPL distribution chains from July 2026. Outcome 4 (Financial resilience): firms must consider foreseeable circumstances including income volatility. PS22/9 Chapter 4: vulnerability identification is an expectation under the Consumer Duty, not optional. Regular product and process review required to confirm outcomes remain fair and sustainable.</li>
+      <li data-n="4">CFPB BNPL Report (September 2022) — identified inadequate ability-to-repay assessment as a primary consumer harm risk in BNPL. CFPB Supervisory Highlights Spring 2023: cited insufficient creditworthiness verification in BNPL origination as UDAAP concern. 15 U.S.C. § 1638 (TILA): closed-end credit must include clear disclosure of credit terms before consummation. CFPB May 2024 interpretive rule: BNPL classified as credit cards with related consumer protections.</li>
+      <li data-n="5">Proportionality analysis: product risk tier is derived from three inputs: transaction value, repayment count, APR. Low risk (under £50, ≤4 instalments, 0% APR) → lightweight assessment (soft signals + soft search sufficient). Medium risk → standard assessment (open banking or soft verification + soft search minimum). High risk (>£250, or any positive APR) → comprehensive assessment (open banking or hard verification + credit bureau required). Based on FCA CONC 5.2A(6) proportionality principle and FCA CP23/5 BNPL consultation data.</li>
+      <li data-n="6">Scoring methodology: each requirement scored 1.0 (met), 0.5 (partially met), 0.0 (not met). MUST items carry weight 1.5; SHOULD items carry weight 0.75. Composite score = weighted sum / weighted maximum × 100. Tier: ≥80 Compliant, 60–79 Adequate, 40–59 Needs Improvement, &lt;40 Non-Compliant. Client-side only. Zero PII.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/bnpl-consumer-credit-hub.html"><span data-i18n="footer.hub_bnpl_consumer_credit">BNPL Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* =========================================================
+   T190 · BNPL Affordability Assessment Modeller
+   AINumbers.co · Post Oak Labs · CC BY 4.0
+   Scope: compliance methodology assessment only.
+   Client-side only. Zero PII. No external requests.
+   ========================================================= */
+
+/* ----------------------------------------------------------
+   i18n
+   ---------------------------------------------------------- */
+var LANG = {
+  en:{
+    nav_all:'All Tools',nav_hub:'BNPL Hub',nav_t187:'T187 DPC Checker',
+    h1:'BNPL Affordability Assessment Modeller',
+    desc:'Model your BNPL affordability assessment methodology against FCA CONC 5, EU CCD2 Art. 18, and CFPB ability-to-repay requirements.',
+    step1_label:'Step 1 — Product Risk Profile',step1_title:'Define your BNPL product characteristics',
+    step1_desc:'Proportionality rules mean that required assessment depth scales with product risk.',
+    lbl_value:'Typical transaction value',hint_value:'Higher value → greater consumer harm potential.',
+    lbl_repayments:'Number of repayments',hint_repayments:'Longer terms increase consumer risk exposure.',
+    lbl_apr:'Product APR',hint_apr:'Non-zero APR brings HCSTC or regulated credit rules into play.',
+    step2_label:'Step 2 — Methodology Inventory',step2_title:'Which components does your assessment include?',
+    step2_desc:'Answer for your standard BNPL product population.',
+    err_juris:'Select at least one framework.',
+    run_btn:'Run Assessment →',run_hint:'Unset boolean fields default to No.',
+    step3_label:'Step 3 — Results',step3_title:'Affordability Methodology Assessment Results',
+    gap_head:'Requirement Gap Table — Missing & Partial Items',
+    btn_md:'⬇ Export Markdown Assessment Report',footer_all:'All Tools'
+  },
+  es:{
+    nav_all:'Todas las Herramientas',nav_hub:'Hub BNPL',nav_t187:'T187 Verificador DPC',
+    h1:'Modelizador de Evaluación de Asequibilidad BNPL',
+    desc:'Evalúe su metodología de solvencia BNPL frente a FCA CONC 5, CCD2 Art. 18 y CFPB.',
+    step1_label:'Paso 1 — Perfil de Riesgo del Producto',step1_title:'Defina las características de su producto BNPL',
+    step1_desc:'Las reglas de proporcionalidad determinan la profundidad mínima requerida.',
+    lbl_value:'Valor típico de transacción',hint_value:'Mayor valor → mayor daño potencial al consumidor.',
+    lbl_repayments:'Número de cuotas',hint_repayments:'Más cuotas → mayor exposición al riesgo.',
+    lbl_apr:'APR del producto',hint_apr:'APR no nulo activa normas de crédito de alto coste.',
+    step2_label:'Paso 2 — Inventario de Metodología',step2_title:'¿Qué componentes incluye su evaluación?',
+    step2_desc:'Responda para su población estándar de productos BNPL.',
+    err_juris:'Seleccione al menos un marco.',
+    run_btn:'Ejecutar Evaluación →',run_hint:'Los campos sin configurar predeterminan a No.',
+    step3_label:'Paso 3 — Resultados',step3_title:'Resultados de la Evaluación de Metodología',
+    gap_head:'Tabla de Brechas — Elementos Faltantes',
+    btn_md:'⬇ Exportar Informe Markdown',footer_all:'Todas las Herramientas'
+  },
+  fr:{
+    nav_all:'Tous les Outils',nav_hub:'Hub BNPL',nav_t187:'T187 Vérificateur DPC',
+    h1:'Modélisateur d\'Évaluation de la Solvabilité BNPL',
+    desc:'Évaluez votre méthodologie d\'évaluation de la solvabilité BNPL par rapport à FCA CONC 5, CCD2 Art. 18 et CFPB.',
+    step1_label:'Étape 1 — Profil de Risque Produit',step1_title:'Définissez les caractéristiques de votre produit BNPL',
+    step1_desc:'Les règles de proportionnalité déterminent la profondeur minimale requise.',
+    lbl_value:'Valeur typique de transaction',hint_value:'Valeur plus élevée → risque plus grand.',
+    lbl_repayments:'Nombre de versements',hint_repayments:'Plus de versements → plus grande exposition.',
+    lbl_apr:'TAP du produit',hint_apr:'Un TAP non nul déclenche les règles de crédit réglementé.',
+    step2_label:'Étape 2 — Inventaire de Méthodologie',step2_title:'Quels composants votre évaluation inclut-elle ?',
+    step2_desc:'Répondez pour votre population standard de produits BNPL.',
+    err_juris:'Sélectionnez au moins un cadre.',
+    run_btn:'Lancer l\'Évaluation →',run_hint:'Les champs non définis prennent la valeur Non.',
+    step3_label:'Étape 3 — Résultats',step3_title:'Résultats de l\'Évaluation de Méthodologie',
+    gap_head:'Tableau des Écarts — Éléments Manquants',
+    btn_md:'⬇ Exporter Rapport Markdown',footer_all:'Tous les Outils'
+  },
+  ar:{
+    nav_all:'جميع الأدوات',nav_hub:'مركز BNPL',nav_t187:'T187 فاحص DPC',
+    h1:'محاكي تقييم القدرة على السداد لـ BNPL',
+    desc:'قيّم منهجية تقييم الجدارة الائتمانية لـ BNPL مقابل FCA CONC 5 وCCD2 وCFPB.',
+    step1_label:'الخطوة 1 — ملف مخاطر المنتج',step1_title:'حدد خصائص منتج BNPL الخاص بك',
+    step1_desc:'تحدد قواعد التناسب الحد الأدنى المطلوب من عمق التقييم.',
+    lbl_value:'القيمة النموذجية للمعاملة',hint_value:'قيمة أعلى ← ضرر محتمل أكبر للمستهلك.',
+    lbl_repayments:'عدد الأقساط',hint_repayments:'فترات أطول ← تعرض أكبر للمخاطر.',
+    lbl_apr:'معدل الفائدة السنوي للمنتج',hint_apr:'معدل غير صفري يُفعّل قواعد الائتمان الخاضع للتنظيم.',
+    step2_label:'الخطوة 2 — جرد المنهجية',step2_title:'ما المكونات التي يشملها تقييمك؟',
+    step2_desc:'أجب بشأن مجموعة منتجات BNPL القياسية لديك.',
+    err_juris:'اختر إطاراً واحداً على الأقل.',
+    run_btn:'تشغيل التقييم ←',run_hint:'الحقول غير المحددة تُعيّن تلقائياً بـ "لا".',
+    step3_label:'الخطوة 3 — النتائج',step3_title:'نتائج تقييم المنهجية',
+    gap_head:'جدول الفجوات — العناصر المفقودة',
+    btn_md:'⬇ تصدير تقرير Markdown',footer_all:'جميع الأدوات'
+  },
+  pt:{
+    nav_all:'Todas as Ferramentas',nav_hub:'Hub BNPL',nav_t187:'T187 Verificador DPC',
+    h1:'Modelador de Avaliação de Acessibilidade BNPL',
+    desc:'Avalie a sua metodologia de avaliação de solvabilidade BNPL face ao FCA CONC 5, CCD2 Art. 18 e CFPB.',
+    step1_label:'Passo 1 — Perfil de Risco do Produto',step1_title:'Defina as características do seu produto BNPL',
+    step1_desc:'As regras de proporcionalidade determinam a profundidade mínima de avaliação.',
+    lbl_value:'Valor típico de transacção',hint_value:'Valor mais elevado → maior dano potencial.',
+    lbl_repayments:'Número de prestações',hint_repayments:'Mais prestações → maior exposição ao risco.',
+    lbl_apr:'TPA do produto',hint_apr:'TPA não nulo activa regras de crédito regulado.',
+    step2_label:'Passo 2 — Inventário de Metodologia',step2_title:'Que componentes inclui a sua avaliação?',
+    step2_desc:'Responda para a sua população padrão de produtos BNPL.',
+    err_juris:'Seleccione pelo menos um enquadramento.',
+    run_btn:'Executar Avaliação →',run_hint:'Campos não definidos assumem Não.',
+    step3_label:'Passo 3 — Resultados',step3_title:'Resultados da Avaliação de Metodologia',
+    gap_head:'Tabela de Lacunas — Itens em Falta',
+    btn_md:'⬇ Exportar Relatório Markdown',footer_all:'Todas as Ferramentas'
+  },
+  zh:{
+    nav_all:'所有工具',nav_hub:'BNPL中心',nav_t187:'T187 DPC检查器',
+    h1:'BNPL还款能力评估建模器',
+    desc:'根据FCA CONC 5、EU CCD2第18条和CFPB还款能力要求，对BNPL还款能力评估方法进行建模。',
+    step1_label:'第1步 — 产品风险档案',step1_title:'定义您的BNPL产品特征',
+    step1_desc:'比例性规则意味着所需评估深度随产品风险而扩展。',
+    lbl_value:'典型交易金额',hint_value:'金额越高 → 消费者潜在危害越大。',
+    lbl_repayments:'还款次数',hint_repayments:'还款期限越长 → 消费者风险敞口越大。',
+    lbl_apr:'产品年利率',hint_apr:'非零年利率会触发高成本或受监管的信贷规则。',
+    step2_label:'第2步 — 方法清单',step2_title:'您的评估包含哪些组成部分？',
+    step2_desc:'针对您的标准BNPL产品群体作答。',
+    err_juris:'请至少选择一个框架。',
+    run_btn:'运行评估 →',run_hint:'未设置的布尔字段默认为否。',
+    step3_label:'第3步 — 结果',step3_title:'还款能力方法论评估结果',
+    gap_head:'要求差距表 — 缺失和部分满足项',
+    btn_md:'⬇ 导出Markdown评估报告',footer_all:'所有工具'
+  }
+};
+
+/* ----------------------------------------------------------
+   State
+   ---------------------------------------------------------- */
+var state = {
+  jurisdictions: ['fca','ccd2','cfpb'],
+  bools: {
+    commitments: false, disposable: false, stress: false,
+    vulnerability: false, documented: false, review: false,
+    refusal: false, warning: false
+  },
+  lastResults: null
+};
+
+/* ----------------------------------------------------------
+   i18n
+   ---------------------------------------------------------- */
+var currentLang = 'en';
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+    'nav.hub': '← Cat-16 Hub',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.hub': '← Centro Cat-16',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+    'nav.hub': '← Centre Cat-16',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+    'nav.hub': '← مركز Cat-16',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.hub': '← Central Cat-16',
+  }, zh:{
+    'nav.alltools': '所有工具',
+    'nav.hub': '← Cat-16 中心',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+
+/* ----------------------------------------------------------
+   UI helpers
+   ---------------------------------------------------------- */
+function toggleJuris(id, el) {
+  var chk = document.getElementById('jchk-' + id);
+  setTimeout(function() {
+    if (chk.checked) {
+      el.classList.add('sel');
+      if (state.jurisdictions.indexOf(id) === -1) state.jurisdictions.push(id);
+    } else {
+      el.classList.remove('sel');
+      state.jurisdictions = state.jurisdictions.filter(function(j){ return j !== id; });
+    }
+    document.getElementById('jurisErr').classList.remove('vis');
+  }, 0);
+}
+
+function setBool(key, val) {
+  state.bools[key] = val;
+  document.getElementById('btn-' + key + '-y').className = 'bool-btn' + (val ? ' yes-active' : '');
+  document.getElementById('btn-' + key + '-n').className = 'bool-btn' + (!val ? ' no-active' : '');
+}
+
+/* ----------------------------------------------------------
+   Product risk tier calculation
+   ---------------------------------------------------------- */
+function calcRiskTier(value, repayments, apr) {
+  if (!value || !repayments || !apr) return null;
+  /* Score each dimension: 0=low, 1=med, 2=high */
+  var vScore = value === 'under50' ? 0 : value === '50to250' ? 1 : value === '250to1000' ? 2 : 3;
+  var rScore = repayments === '2to4' ? 0 : repayments === '5to12' ? 1 : 2;
+  var aScore = apr === 'zero' ? 0 : apr === 'low' ? 1 : 2;
+  var total  = vScore + rScore + aScore;
+  if (total <= 1) return 'low';
+  if (total <= 4) return 'medium';
+  return 'high';
+}
+
+function updateRiskTier() {
+  var v = document.getElementById('prodValue').value;
+  var r = document.getElementById('prodRepayments').value;
+  var a = document.getElementById('prodApr').value;
+  var tier = calcRiskTier(v, r, a);
+  var display = document.getElementById('riskTierDisplay');
+  if (!tier) { display.innerHTML = ''; return; }
+  var labels = { low:'Low Risk', medium:'Medium Risk', high:'High Risk' };
+  var classes = { low:'risk-low', medium:'risk-med', high:'risk-high' };
+  var descriptions = {
+    low:'Proportionate lightweight assessment: soft behavioural signals + soft credit search are sufficient. [5]',
+    medium:'Standard assessment required: open banking or income verification + soft credit search minimum. [5]',
+    high:'Comprehensive assessment required: open banking or hard income verification + credit bureau search. Proportionality does not relieve assessment obligation at this risk level. [5]'
+  };
+  display.innerHTML = '<span class="risk-badge ' + classes[tier] + '">Product Risk Tier: ' + labels[tier] + '</span>' +
+    '<div style="font-size:.7rem;color:var(--body);margin-top:.5rem;line-height:1.55;">' + descriptions[tier] + '</div>';
+}
+
+/* ----------------------------------------------------------
+   Framework requirement definitions
+   Each req: { id, label, weight, type, key, scoreLogic }
+   scoreLogic: function(inputs) → 0|0.5|1
+   ---------------------------------------------------------- */
+var FRAMEWORKS = {
+  fca: {
+    name: 'FCA CONC 5',
+    flag: '🇬🇧',
+    fullName: 'FCA CONC 5 / Consumer Duty',
+    cite: 'FCA CONC 5.2A · CONC 2.10 · Consumer Duty PS22/9',
+    reqs: [
+      { id:'fca_income', label:'Income signals used (proportionate to risk)', type:'MUST', weight:1.5,
+        score: function(i) {
+          if (i.income === 'none') return 0;
+          if (i.income === 'stated' && i.riskTier === 'high') return 0.5;
+          return 1;
+        },
+        action:'Implement income verification proportionate to product risk. High-risk products require open banking or hard verification per CONC 5.2A(2).'
+      },
+      { id:'fca_bureau', label:'Credit bureau / credit reference data', type:'MUST', weight:1.5,
+        score: function(i) {
+          if (i.bureau === 'none') return 0;
+          if (i.bureau === 'soft_search') return (i.riskTier === 'high' ? 0.5 : 1);
+          return 1;
+        },
+        action:'Obtain at least soft credit search for all applicants. High-risk products should use hard search or real-time bureau feed per CONC 5.2A.'
+      },
+      { id:'fca_commitments', label:'Check existing financial commitments', type:'MUST', weight:1.5,
+        score: function(i) { return i.commitments ? 1 : 0; },
+        action:'Implement existing commitments check. CONC 5.2A requires assessment of total debt burden relative to income.'
+      },
+      { id:'fca_disposable', label:'Calculate net disposable income', type:'MUST', weight:1.5,
+        score: function(i) { return i.disposable ? 1 : 0; },
+        action:'Implement disposable income calculation (income minus necessary expenditure) per CONC 5.2A(2)(b).'
+      },
+      { id:'fca_documented', label:'Written methodology documentation (CONC 2.10)', type:'MUST', weight:1.0,
+        score: function(i) { return i.documented ? 1 : 0; },
+        action:'Document creditworthiness methodology in writing. Maintain records per FCA CONC 2.10 for FCA supervisory review.'
+      },
+      { id:'fca_refusal', label:'Refusal mechanism for unaffordable cases', type:'MUST', weight:1.0,
+        score: function(i) { return i.refusal ? 1 : 0; },
+        action:'Implement automated refusal or credit limit restriction for cases failing affordability assessment. CONC 5.2A prohibits lending where consumer cannot sustainably repay.'
+      },
+      { id:'fca_stress', label:'Repayment stress testing', type:'SHOULD', weight:0.75,
+        score: function(i) { return i.stress ? 1 : 0; },
+        action:'Add stress testing for foreseeable income volatility per FCA Consumer Duty (PS22/9) requirements.'
+      },
+      { id:'fca_vulnerability', label:'Financial vulnerability screening', type:'SHOULD', weight:0.75,
+        score: function(i) { return i.vulnerability ? 1 : 0; },
+        action:'Implement vulnerability identification and adapted outcomes per FCA Consumer Duty (PS22/9) Chapter 4.'
+      },
+      { id:'fca_review', label:'Periodic methodology review cycle', type:'SHOULD', weight:0.75,
+        score: function(i) { return i.review ? 1 : 0; },
+        action:'Establish regular review cadence (minimum annual) to confirm methodology outcomes remain fair per Consumer Duty.'
+      }
+    ]
+  },
+  ccd2: {
+    name: 'EU CCD2 Art. 18',
+    flag: '🇪🇺',
+    fullName: 'EU Consumer Credit Directive 2 — Art. 18',
+    cite: 'CCD2 Art. 18 · Directive 2023/2225/EU',
+    reqs: [
+      { id:'ccd2_bureau', label:'Credit register consultation (Art. 18(3))', type:'MUST', weight:2.0,
+        score: function(i) { return i.bureau === 'none' ? 0 : 1; },
+        action:'CCD2 Art. 18(3) explicitly requires creditors to consult credit register data where available. This is a non-negotiable minimum — any product scope triggers this obligation.'
+      },
+      { id:'ccd2_income', label:'Income and expenditure consideration (Art. 18(1))', type:'MUST', weight:1.5,
+        score: function(i) { if (i.income === 'none') return 0; return 1; },
+        action:'CCD2 Art. 18(1): assess income and expenditure before concluding credit agreement. Stated income alone is insufficient for higher-value products.'
+      },
+      { id:'ccd2_commitments', label:'Existing credit commitments assessed', type:'MUST', weight:1.0,
+        score: function(i) { return i.commitments ? 1 : 0; },
+        action:'CCD2 Art. 18(1): assessment must consider existing credit commitments to evaluate total debt serviceability.'
+      },
+      { id:'ccd2_documented', label:'Documented assessment basis (Art. 18)', type:'MUST', weight:1.5,
+        score: function(i) { return i.documented ? 1 : 0; },
+        action:'CCD2 Art. 18 requires lenders to retain records of creditworthiness assessments for supervisory inspection by national competent authorities.'
+      },
+      { id:'ccd2_refusal', label:'Decline credit when assessment negative (Art. 18(4))', type:'MUST', weight:1.5,
+        score: function(i) { return i.refusal ? 1 : 0; },
+        action:'CCD2 Art. 18(4): where assessment indicates consumer cannot make repayments without significant financial difficulty, lender must decline or restrict credit. This is a hard obligation.'
+      },
+      { id:'ccd2_vulnerability', label:'Vulnerability / financial distress indicators', type:'SHOULD', weight:0.75,
+        score: function(i) { return i.vulnerability ? 1 : 0; },
+        action:'CCD2 recitals and member state guidance recommend identification of financially vulnerable consumers and adapted assessment.'
+      },
+      { id:'ccd2_review', label:'Periodic review of assessment methodology', type:'SHOULD', weight:0.75,
+        score: function(i) { return i.review ? 1 : 0; },
+        action:'Best practice per CCD2 implementation guidance: review creditworthiness methodology at least annually to reflect portfolio performance data.'
+      }
+    ]
+  },
+  cfpb: {
+    name: 'CFPB ATR',
+    flag: '🇺🇸',
+    fullName: 'CFPB Ability-to-Repay / UDAAP',
+    cite: 'CFPB BNPL Report 2022 · CFPB SH 2023 · UDAAP',
+    reqs: [
+      { id:'cfpb_reasonable', label:'Reasonable basis consumer can repay (UDAAP)', type:'MUST', weight:2.0,
+        score: function(i) {
+          /* Requires at minimum some income signal AND some credit data */
+          if (i.income === 'none' && i.bureau === 'none') return 0;
+          if (i.income === 'none' || i.bureau === 'none') return 0.5;
+          return 1;
+        },
+        action:'CFPB UDAAP standard: lender must have reasonable basis to believe consumer can repay before extending BNPL credit. Requires at minimum income signals AND credit data — using neither creates UDAAP exposure.'
+      },
+      { id:'cfpb_income', label:'Income consideration', type:'MUST', weight:1.5,
+        score: function(i) { return i.income === 'none' ? 0 : 1; },
+        action:'CFPB BNPL Report (Sep 2022) cites absence of income verification as a primary consumer harm risk in BNPL. Implement at minimum soft behavioural income signals.'
+      },
+      { id:'cfpb_bureau', label:'Credit / repayment history data', type:'MUST', weight:1.5,
+        score: function(i) { return i.bureau === 'none' ? 0 : 1; },
+        action:'CFPB Supervisory Highlights Spring 2023: absence of credit history review in BNPL origination cited as UDAAP concern. Obtain at minimum soft credit search.'
+      },
+      { id:'cfpb_documented', label:'Methodology documentation (UDAAP defence)', type:'SHOULD', weight:0.75,
+        score: function(i) { return i.documented ? 1 : 0; },
+        action:'Documented methodology provides UDAAP defence. CFPB examiners expect written underwriting standards to exist and be followed consistently.'
+      },
+      { id:'cfpb_vulnerability', label:'Financial distress / vulnerability indicators', type:'SHOULD', weight:0.75,
+        score: function(i) { return i.vulnerability ? 1 : 0; },
+        action:'CFPB UDAAP: unfair or abusive acts include extending credit to consumers in financial distress without consideration of their vulnerability. Implement distress screening.'
+      },
+      { id:'cfpb_refusal', label:'Decline mechanism for unaffordable applicants', type:'SHOULD', weight:0.75,
+        score: function(i) { return i.refusal ? 1 : 0; },
+        action:'CFPB expects BNPL providers to have automated decline or credit limit mechanisms based on affordability outcomes to prevent unfair lending.'
+      }
+    ]
+  }
+};
+
+/* ----------------------------------------------------------
+   runModel — main function
+   ---------------------------------------------------------- */
+function runModel() {
+  /* Validate jurisdictions */
+  if (state.jurisdictions.length === 0) {
+    document.getElementById('jurisErr').classList.add('vis');
+    return;
+  }
+
+  var v = document.getElementById('prodValue').value || 'under50';
+  var r = document.getElementById('prodRepayments').value || '2to4';
+  var a = document.getElementById('prodApr').value || 'zero';
+  var riskTier = calcRiskTier(v, r, a) || 'low';
+
+  /* Build inputs object */
+  var inputs = {
+    income: document.getElementById('m_income').value,
+    bureau: document.getElementById('m_bureau').value,
+    commitments: state.bools.commitments,
+    disposable:  state.bools.disposable,
+    stress:      state.bools.stress,
+    vulnerability: state.bools.vulnerability,
+    documented:  state.bools.documented,
+    review:      state.bools.review,
+    refusal:     state.bools.refusal,
+    warning:     state.bools.warning,
+    riskTier:    riskTier
+  };
+
+  /* Score each selected framework */
+  var fwResults = [];
+  var allGapRows = [];
+
+  state.jurisdictions.forEach(function(jid) {
+    var fw = FRAMEWORKS[jid];
+    if (!fw) return;
+
+    var totalWeighted = 0, maxWeighted = 0;
+    var reqs = [];
+
+    fw.reqs.forEach(function(req) {
+      var s = req.score(inputs);
+      totalWeighted += s * req.weight;
+      maxWeighted   += req.weight;
+
+      var status = s === 1 ? 'met' : s === 0.5 ? 'partial' : 'miss';
+      reqs.push({ label: req.label, type: req.type, status: status, action: req.action, id: req.id });
+
+      if (status !== 'met') {
+        allGapRows.push({ fw: fw.name, flag: fw.flag, label: req.label, type: req.type, status: status, action: req.action });
+      }
+    });
+
+    var score = Math.round((totalWeighted / maxWeighted) * 100);
+    var tier = score >= 80 ? 'ok' : score >= 60 ? 'warn' : 'fail';
+    var tierLabel = { ok:'Compliant', warn:'Adequate', fail: score >= 40 ? 'Needs Improvement' : 'Non-Compliant' };
+    fwResults.push({ fw: fw, score: score, tier: tier, tierLabel: tierLabel[tier], reqs: reqs });
+  });
+
+  /* Proportionality check: compare income signal depth to risk tier requirement */
+  var incomeScore = {none:0, stated:1, soft_behavioural:2, open_banking:3, hard_verification:4};
+  var bureauScore = {none:0, soft_search:1, hard_search:2, multi_bureau:3};
+  var minIncomeForTier = { low:1, medium:2, high:3 };
+  var minBureauForTier = { low:1, medium:1, high:2 };
+
+  var incomeOk = incomeScore[inputs.income] >= minIncomeForTier[riskTier];
+  var bureauOk = bureauScore[inputs.bureau] >= minBureauForTier[riskTier];
+  var propStatus = (incomeOk && bureauOk) ? 'ok' : (!incomeOk && !bureauOk) ? 'fail' : 'warn';
+
+  state.lastResults = { fwResults: fwResults, allGapRows: allGapRows, propStatus: propStatus, incomeOk: incomeOk, bureauOk: bureauOk, inputs: inputs, riskTier: riskTier };
+  renderResults();
+  document.getElementById('resultsPanel').classList.add('visible');
+  setTimeout(function(){ document.getElementById('resultsPanel').scrollIntoView({behavior:'smooth',block:'start'}); }, 100);
+}
+
+/* ----------------------------------------------------------
+   Render results
+   ---------------------------------------------------------- */
+function renderResults() {
+  var d = state.lastResults;
+  var tierLabels = { low:'Low Risk', medium:'Medium Risk', high:'High Risk' };
+
+  /* Proportionality banner */
+  var propClass = { ok:'prop-ok', warn:'prop-warn', fail:'prop-fail' };
+  var propTitle = {
+    ok:'Methodology Depth — Proportionate to Product Risk',
+    warn:'Methodology Depth — Partially Proportionate',
+    fail:'Methodology Depth — Insufficient for Product Risk Tier'
+  };
+  var propText = {
+    ok:'Your assessment methodology depth is appropriate for a ' + tierLabels[d.riskTier] + ' BNPL product. [5]',
+    warn:'Your methodology has gaps relative to the ' + tierLabels[d.riskTier] + ' risk tier. ' + (!d.incomeOk ? 'Income verification is weaker than required. ' : '') + (!d.bureauOk ? 'Credit bureau depth should be increased. ' : '') + 'Regulators apply proportionality, but not as a total exemption from assessment. [5]',
+    fail:'Your methodology is insufficient for a ' + tierLabels[d.riskTier] + ' BNPL product. Income signals and/or credit bureau depth must be strengthened before regulatory compliance can be claimed. [5]'
+  };
+
+  var propColor = { ok:'var(--green)', warn:'var(--gold)', fail:'var(--red-lt)' };
+  document.getElementById('propBanner').innerHTML =
+    '<div class="prop-banner ' + propClass[d.propStatus] + '">' +
+    '<div style="flex:1">' +
+    '<div class="prop-label" style="color:' + propColor[d.propStatus] + '">Proportionality Analysis · ' + tierLabels[d.riskTier] + ' Product</div>' +
+    '<div class="prop-title">' + propTitle[d.propStatus] + '</div>' +
+    '<div class="prop-text">' + propText[d.propStatus] + '</div>' +
+    '</div></div>';
+
+  /* Framework score cards */
+  var fwHtml = '';
+  d.fwResults.forEach(function(fr) {
+    var scoreColor = fr.score>=80?'var(--green)':fr.score>=60?'var(--gold)':'var(--red-lt)';
+    var barColor   = scoreColor;
+    fwHtml += '<div class="fw-card">';
+    fwHtml += '<div class="fw-top fw-top-' + fr.tier + '"></div>';
+    fwHtml += '<div class="fw-body">';
+    fwHtml += '<div class="fw-eyebrow">';
+    fwHtml += '<span class="fw-name">' + fr.fw.flag + ' ' + fr.fw.fullName + '</span>';
+    fwHtml += '<span class="fw-score-pill fps-' + fr.tier + '">' + fr.tierLabel + '</span>';
+    fwHtml += '</div>';
+    fwHtml += '<div class="fw-score-row">';
+    fwHtml += '<div class="fw-score-num" style="color:' + scoreColor + '">' + fr.score + '</div>';
+    fwHtml += '<div class="fw-bar-wrap">';
+    fwHtml += '<div class="fw-bar-track"><div class="fw-bar-fill" style="width:' + fr.score + '%;background:' + barColor + '"></div></div>';
+    fwHtml += '<div class="fw-bar-label">' + fr.fw.cite + '</div>';
+    fwHtml += '</div></div>';
+    fwHtml += '<ul class="fw-reqs">';
+    fr.reqs.forEach(function(req) {
+      var icon = req.status === 'met' ? '✅' : req.status === 'partial' ? '⚠️' : '❌';
+      fwHtml += '<li class="fw-req-item"><span class="fw-req-icon">' + icon + '</span><span>' + req.label + ' <span style="font-family:\'JetBrains Mono\',monospace;font-size:.48rem;color:var(--muted);">[' + req.type + ']</span></span></li>';
+    });
+    fwHtml += '</ul></div></div>';
+  });
+  document.getElementById('fwGrid').innerHTML = fwHtml;
+
+  /* Gap table — sort: miss first, then partial */
+  var sortOrder = { miss:0, partial:1 };
+  d.allGapRows.sort(function(a,b){ return (sortOrder[a.status]||2) - (sortOrder[b.status]||2); });
+
+  var stClass = { met:'gst-met', miss:'gst-miss', partial:'gst-part' };
+  var stLabel = { met:'Met', miss:'Missing', partial:'Partial' };
+  var rowClass = { miss:'row-miss', partial:'row-part', met:'' };
+
+  var gapHtml = '';
+  if (d.allGapRows.length === 0) {
+    gapHtml = '<tr><td colspan="5" style="text-align:center;color:var(--green);font-family:\'JetBrains Mono\',monospace;font-size:.6rem;padding:1.5rem;">✅ All requirements met across selected frameworks.</td></tr>';
+  } else {
+    d.allGapRows.forEach(function(row) {
+      gapHtml += '<tr class="' + rowClass[row.status] + '">';
+      gapHtml += '<td><span style="color:var(--bright);font-size:.72rem;">' + row.flag + ' ' + row.fw + '</span></td>';
+      gapHtml += '<td style="color:var(--bright);font-size:.72rem;">' + row.label + '</td>';
+      gapHtml += '<td><span class="meta-tag ' + (row.type==='MUST'?'tag-red':'tag-gold') + '">' + row.type + '</span></td>';
+      gapHtml += '<td><span class="g-st ' + stClass[row.status] + '">' + stLabel[row.status] + '</span></td>';
+      gapHtml += '<td class="g-action">' + row.action + '</td>';
+      gapHtml += '</tr>';
+    });
+  }
+  document.getElementById('gapBody').innerHTML = gapHtml;
+}
+
+/* ----------------------------------------------------------
+   Markdown export
+   ---------------------------------------------------------- */
+function exportMarkdown() {
+  if (!state.lastResults) return;
+  var d = state.lastResults;
+  var now = new Date().toISOString().slice(0,10);
+  var tierLabels = { low:'Low Risk', medium:'Medium Risk', high:'High Risk' };
+  var incomeLabels = { none:'None', stated:'Stated income only', soft_behavioural:'Soft behavioural signals', open_banking:'Open banking / account data', hard_verification:'Hard income verification' };
+  var bureauLabels = { none:'None', soft_search:'Soft search', hard_search:'Hard search', multi_bureau:'Multi-bureau feed' };
+
+  var md = '# BNPL Affordability Assessment Methodology Compliance Report\n\n';
+  md += '> ⚠️ **Scope: Compliance Methodology Assessment Only.** This report evaluates methodology compliance. It does not constitute, model, or advise on individual credit decisions.\n\n';
+  md += '> Generated by AINumbers.co T190 · ' + now + ' · CC BY 4.0 · Client-side · Zero PII\n\n';
+  md += '---\n\n## Product Risk Profile\n\n';
+  md += '| Parameter | Value |\n|---|---|\n';
+  md += '| Transaction value tier | ' + (document.getElementById('prodValue').value || '—') + ' |\n';
+  md += '| Repayment count | ' + (document.getElementById('prodRepayments').value || '—') + ' |\n';
+  md += '| Product APR | ' + (document.getElementById('prodApr').value || '—') + ' |\n';
+  md += '| **Derived risk tier** | **' + tierLabels[d.riskTier] + '** |\n\n';
+  md += '---\n\n## Methodology Inventory\n\n';
+  md += '| Component | Current Approach |\n|---|---|\n';
+  md += '| Income signal | ' + (incomeLabels[d.inputs.income]||d.inputs.income) + ' |\n';
+  md += '| Credit bureau | ' + (bureauLabels[d.inputs.bureau]||d.inputs.bureau) + ' |\n';
+  md += '| Existing commitments check | ' + (d.inputs.commitments ? 'Yes' : 'No') + ' |\n';
+  md += '| Disposable income calculation | ' + (d.inputs.disposable ? 'Yes' : 'No') + ' |\n';
+  md += '| Stress testing | ' + (d.inputs.stress ? 'Yes' : 'No') + ' |\n';
+  md += '| Vulnerability screening | ' + (d.inputs.vulnerability ? 'Yes' : 'No') + ' |\n';
+  md += '| Written documentation | ' + (d.inputs.documented ? 'Yes' : 'No') + ' |\n';
+  md += '| Periodic review cycle | ' + (d.inputs.review ? 'Yes' : 'No') + ' |\n';
+  md += '| Refusal mechanism | ' + (d.inputs.refusal ? 'Yes' : 'No') + ' |\n\n';
+  md += '---\n\n## Proportionality Assessment\n\n';
+  var propOutcome = d.propStatus === 'ok' ? '✅ Proportionate' : d.propStatus === 'warn' ? '⚠️ Partially Proportionate' : '❌ Insufficient';
+  md += '**Outcome:** ' + propOutcome + ' for ' + tierLabels[d.riskTier] + ' product\n\n';
+
+  d.fwResults.forEach(function(fr) {
+    md += '---\n\n## ' + fr.fw.flag + ' ' + fr.fw.fullName + ' — Score: ' + fr.score + '/100 (' + fr.tierLabel + ')\n\n';
+    md += '**Citation:** ' + fr.fw.cite + '\n\n';
+    md += '| Requirement | Type | Status |\n|---|---|---|\n';
+    fr.reqs.forEach(function(req) {
+      var sym = req.status === 'met' ? '✅' : req.status === 'partial' ? '⚠️' : '❌';
+      md += '| ' + req.label + ' | ' + req.type + ' | ' + sym + ' ' + req.status.charAt(0).toUpperCase() + req.status.slice(1) + ' |\n';
+    });
+    md += '\n';
+  });
+
+  if (d.allGapRows.length > 0) {
+    md += '---\n\n## Remediation Actions\n\n';
+    d.allGapRows.forEach(function(row, i) {
+      md += (i+1) + '. **[' + row.fw + ' · ' + row.type + ' · ' + row.status + ']** ' + row.label + '\n   ' + row.action + '\n\n';
+    });
+  }
+
+  md += '---\n\n## Regulatory References\n\n';
+  md += '1. FCA CONC 5.2A — creditworthiness assessment; CONC 2.10 — records; FCA FSMA 2023 Sch. 9 — DPC regime from 15 July 2026\n';
+  md += '2. Directive 2023/2225/EU (CCD2) Art. 18 — creditworthiness assessment; Art. 18(3) — credit register; Art. 18(4) — refusal obligation\n';
+  md += '3. FCA Consumer Duty PS22/9 — vulnerability, stress testing, periodic review\n';
+  md += '4. CFPB BNPL Report Sep 2022; CFPB Supervisory Highlights Spring 2023; UDAAP standard\n\n';
+  md += '*Compliance methodology assessment only. Not individual credit decisions. Consult qualified legal counsel.*\n';
+
+  var blob = new Blob([md], {type:'text/markdown;charset=utf-8'});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href = url; a.download = 'bnpl-affordability-methodology-' + now + '.md'; a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+</script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "bnpl-affordability-assessment-modeller", "version": "1.0.0", "title": "BNPL Affordability Assessment Modeller — AINumbers.co", "description": "Model BNPL affordability assessment methodology options against FCA CONC 5, EU CCD2 Art. 18, and CFPB ability-to-repay requirements. Compliance assessment only — not actual credit decisions.", "category": "bnpl-consumer-credit", "tags": ["Cat-16 · BNPL", "Client-Side · Zero PII"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"prodValue": {"type": "string"}, "prodRepayments": {"type": "string"}, "prodApr": {"type": "string"}, "jchk-fca": {"type": "string"}, "jchk-ccd2": {"type": "string"}, "jchk-cfpb": {"type": "string"}, "m_income": {"type": "string"}, "m_bureau": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "bnpl_affordability_assessment_modeller", "description": "Run BNPL Affordability Assessment Modeller — AINumbers.co. Model BNPL affordability assessment methodology options against FCA CONC 5, EU CCD2 Art. 18, and CFPB ability-to-repay requirements. Compliance assessment only — not actual credit decisions.", "inputSchema": {"type": "object", "properties": {"prodValue": {"type": "string"}, "prodRepayments": {"type": "string"}, "prodApr": {"type": "string"}, "jchk-fca": {"type": "string"}, "jchk-ccd2": {"type": "string"}, "jchk-cfpb": {"type": "string"}, "m_income": {"type": "string"}, "m_bureau": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/190-bnpl-affordability-assessment-modeller.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>T187 · FCA BNPL / DPC Readiness Checker — AINumbers.co</title>
+<meta name="description" content="Multi-jurisdiction BNPL compliance gap-analysis tool. Assess readiness against FCA DPC, EU CCD2, US CFPB Reg Z, and NY DFS obligations. Pass/Partial/Fail scoring with article citations and Policy Mandate JSON export.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="AINumbers.co — Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/187-bnpl-fca-readiness-checker.html">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FCA BNPL / DPC Readiness Checker — AINumbers.co","url":"https://ainumbers.co/tools/187-bnpl-fca-readiness-checker.html","description":"Multi-jurisdiction BNPL compliance gap-analysis tool. Assess readiness against FCA DPC, EU CCD2, US CFPB Reg Z, and NY DFS obligations. Pass/Partial/Fail scoring with article citations and Policy Mandate JSON export.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600;700&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!--
+  manifest.json (embedded reference — also ship as tools/187-bnpl-fca-readiness-checker/manifest.json)
+  {
+    "tool_id": "bnpl-fca-dpc-readiness-checker",
+    "version": "1.0.0",
+    "title": "FCA BNPL / Deferred Payment Credit Readiness Checker",
+    "description": "Deterministic multi-jurisdiction BNPL compliance gap-analysis. Outputs Pass/Partial/Fail per obligation with article citations, composite readiness score, and Policy Mandate compliance mandate. Covers FCA DPC, EU CCD2, CFPB Reg Z, NY DFS.",
+    "category": "cat-16",
+    "tags": ["BNPL","FCA DPC","EU CCD2","CFPB Reg Z","NY DFS","Consumer Credit","Compliance"],
+    "audience": ["compliance","legal","product","fintech"],
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "jurisdictions": { "type": "array", "items": { "type": "string", "enum": ["fca_dpc","eu_ccd2","cfpb_reg_z","ny_dfs"] } },
+        "assessments": {
+          "type": "object",
+          "description": "Keyed by obligation_id, value is Pass | Partial | Fail | NA"
+        }
+      },
+      "required": ["jurisdictions","assessments"]
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "composite_score": { "type": "number" },
+        "readiness_tier": { "type": "string" },
+        "jurisdiction_scores": { "type": "object" },
+        "gap_table": { "type": "array", "items": { "type": "object" } },
+        "ap2_mandate": { "type": "object" }
+      }
+    },
+    "mcp_tool_definition": {
+      "name": "assess_bnpl_compliance_readiness",
+      "description": "Assess BNPL / DPC compliance readiness across FCA DPC, EU CCD2, CFPB Reg Z, and NY DFS. Returns composite score, jurisdiction-level scores, gap table with regulatory citations, and an Policy Mandate compliance mandate. Use when a lender or payment provider needs to evaluate multi-jurisdiction BNPL regulatory posture.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "jurisdictions": { "type": "array", "items": { "type": "string" } },
+          "assessments": { "type": "object" }
+        },
+        "required": ["jurisdictions","assessments"]
+      }
+    },
+    "execution": {
+      "type": "browser-javascript",
+      "entry": "tools/187-bnpl-fca-readiness-checker.html",
+      "function_name": "runAssessment",
+      "timeout_ms": 3000
+    },
+    "ap2_export": true
+  }
+-->
+
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+/* Edu disclaimer (canonical §9.3) */
+.edu-disclaimer {
+  border: 1px solid var(--warn);
+  border-left: 3px solid var(--warn);
+  background: rgba(245, 158, 11, 0.06);
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  font-size: 0.76rem;
+  color: var(--body);
+  line-height: 1.7;
+  border-radius: var(--radius);
+}
+.edu-disclaimer-label {
+  display: block;
+  color: var(--warn);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+/* ── Design tokens (canonical — copy verbatim) ── */
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12); --gold-hover:#E8B952;
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12); --red-lt:#F87171;
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px; --radius-lg:10px; --radius-xl:14px;
+  --shadow:0 4px 24px rgba(0,0,0,.45);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6;overflow-x:hidden;}
+
+/* Grid background texture */
+body::before{content:'';position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(239,68,68,.016) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(239,68,68,.016) 1px,transparent 1px);
+  background-size:56px 56px;pointer-events:none;z-index:0;}
+
+/* Ambient glows */
+.ambient{position:fixed;pointer-events:none;z-index:0;}
+.ambient-1{top:-200px;left:-200px;width:700px;height:700px;
+  background:radial-gradient(ellipse at center,rgba(239,68,68,.05) 0%,transparent 70%);}
+.ambient-2{bottom:-200px;right:-150px;width:600px;height:600px;
+  background:radial-gradient(ellipse at center,rgba(20,184,166,.04) 0%,transparent 70%);}
+
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem;position:relative;z-index:1;}
+
+/* ── Language bar ── */
+.lang-bar{background:rgba(13,22,39,.95);border-bottom:1px solid var(--border);padding:.4rem 0;position:relative;z-index:10;}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;gap:.4rem;justify-content:flex-end;}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid transparent;color:var(--muted);padding:.2rem .55rem;border-radius:var(--radius);cursor:pointer;transition:all .15s;}
+.lang-btn:hover{color:var(--text);border-color:var(--border);}
+.lang-btn.active{color:var(--red-lt);border-color:rgba(239,68,68,.4);background:var(--red-dim);}
+
+/* ── Nav ── */
+nav{border-bottom:1px solid var(--border);background:rgba(8,14,26,.9);backdrop-filter:blur(16px);position:sticky;top:0;z-index:100;padding:.9rem 0;}
+.nav-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:.75rem;text-decoration:none;}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal);}.logo-co{color:var(--body);font-size:.8rem;}
+
+
+.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;color:var(--body);text-decoration:none;transition:color .15s;}
+.nav-links a:hover{color:var(--red-lt);}
+/* ── Tool header ── */
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;}
+.hero::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--red),transparent);}
+.hero-eyebrow{display:flex;align-items:center;gap:.65rem;margin-bottom:.85rem;flex-wrap:wrap;}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.09em;text-transform:uppercase;padding:.22rem .65rem;border-radius:var(--radius);border:1px solid;}
+.badge-cat{color:var(--red-lt);border-color:rgba(239,68,68,.4);background:var(--red-dim);}
+.badge-anchor{color:var(--gold);border-color:rgba(212,168,71,.4);background:var(--gold-dim);}
+.badge-ap2{color:var(--green);border-color:rgba(34,197,94,.3);background:var(--green-dim);}
+.badge-neutral{color:var(--body);border-color:var(--border);background:var(--bg-3);}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(1.7rem,3.5vw,2.5rem);color:var(--white);line-height:1.15;margin-bottom:.65rem;}
+.hero h1 em{color:var(--red-lt);font-style:italic;}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:680px;line-height:1.72;margin-bottom:1rem;}
+.meta-row{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:.75rem;}
+.meta-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.18rem .55rem;border-radius:var(--radius);border:1px solid;}
+.tag-red{color:var(--red-lt);border-color:rgba(239,68,68,.3);background:var(--red-dim);}
+.tag-teal{color:var(--teal-lt);border-color:rgba(20,184,166,.3);background:var(--teal-dim);}
+.tag-gold{color:var(--gold);border-color:rgba(212,168,71,.3);background:var(--gold-dim);}
+.tag-green{color:var(--green);border-color:rgba(34,197,94,.3);background:var(--green-dim);}
+.tag-purple{color:var(--purple);border-color:rgba(155,114,245,.3);background:var(--purple-dim);}
+
+/* Last Reviewed datestamp */
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+
+.last-reviewed strong{color:var(--gold);}
+
+/* ── Urgency banner ── */
+.urgency-banner{background:var(--red-dim);border:1px solid rgba(239,68,68,.35);border-radius:var(--radius-lg);padding:.85rem 1.2rem;margin:1.5rem 0;display:flex;align-items:flex-start;gap:.85rem;}
+.urgency-icon{font-size:1.2rem;flex-shrink:0;margin-top:.05rem;}
+.urgency-text{font-size:.78rem;color:var(--text);line-height:1.6;}
+.urgency-text strong{color:var(--red-lt);}
+
+/* ── Step panels ── */
+.step-section{margin:2rem 0;}
+.step-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--red-lt);margin-bottom:.55rem;display:flex;align-items:center;gap:.5rem;}
+.step-label::before{content:attr(data-step);background:var(--red-dim);border:1px solid rgba(239,68,68,.4);color:var(--red-lt);font-size:.55rem;padding:.15rem .45rem;border-radius:3px;}
+.step-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white);margin-bottom:.35rem;}
+.step-desc{font-size:.78rem;color:var(--body);margin-bottom:1.1rem;line-height:1.65;}
+
+/* ── Jurisdiction selector ── */
+.juris-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:.75rem;}
+.juris-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.15rem;cursor:pointer;transition:all .2s;user-select:none;position:relative;}
+.juris-card:hover{border-color:rgba(239,68,68,.3);}
+.juris-card.selected{border-color:rgba(239,68,68,.55);background:var(--red-dim);}
+.juris-card.selected::before{content:'✓';position:absolute;top:.6rem;right:.75rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--red-lt);}
+.juris-title{font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:600;color:var(--bright);margin-bottom:.3rem;}
+.juris-subtitle{font-size:.7rem;color:var(--body);line-height:1.5;}
+.juris-tags{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.5rem;}
+.juris-tag{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.07em;text-transform:uppercase;padding:.14rem .42rem;border-radius:3px;border:1px solid;color:var(--muted);border-color:var(--border);}
+
+/* ── Obligation tables ── */
+.ob-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-xl);overflow:hidden;margin-bottom:1rem;}
+.ob-header{padding:.8rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;}
+.ob-jurisdiction{font-family:'DM Serif Display',serif;font-size:.95rem;color:var(--white);}
+.ob-jurisdiction-tag{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.09em;text-transform:uppercase;padding:.2rem .55rem;border-radius:var(--radius);border:1px solid;}
+.ob-count{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);}
+.ob-table{width:100%;border-collapse:collapse;}
+.ob-table thead tr{background:var(--bg-3);}
+.ob-table th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding:.5rem .9rem;text-align:left;border-bottom:1px solid var(--border);}
+.ob-table th:last-child{text-align:center;}
+.ob-table td{padding:.55rem .9rem;border-bottom:1px solid var(--border);font-size:.75rem;color:var(--text);vertical-align:middle;}
+.ob-table tr:last-child td{border-bottom:none;}
+.ob-table tr:hover td{background:rgba(255,255,255,.012);}
+.ob-id{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);white-space:nowrap;}
+.ob-name{color:var(--bright);font-size:.76rem;line-height:1.45;}
+.ob-cite{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);margin-top:.2rem;}
+.ob-weight{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--body);}
+
+/* ── Pass/Partial/Fail/NA radio group ── */
+.radio-group{display:flex;gap:.35rem;justify-content:center;}
+.radio-group label{display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.radio-group input[type=radio]{display:none;}
+.r-pill{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.07em;text-transform:uppercase;padding:.22rem .52rem;border-radius:3px;border:1px solid;transition:all .15s;white-space:nowrap;color:var(--muted);border-color:var(--border);background:transparent;}
+input[type=radio]:checked + .r-pill-pass{color:var(--green);border-color:rgba(34,197,94,.5);background:var(--green-dim);}
+input[type=radio]:checked + .r-pill-partial{color:var(--gold);border-color:rgba(212,168,71,.5);background:var(--gold-dim);}
+input[type=radio]:checked + .r-pill-fail{color:var(--red-lt);border-color:rgba(239,68,68,.5);background:var(--red-dim);}
+input[type=radio]:checked + .r-pill-na{color:var(--body);border-color:var(--border-2);background:var(--bg-4);}
+.r-pill:hover{border-color:var(--border-2);color:var(--text);}
+
+/* ── Run button ── */
+.run-row{display:flex;align-items:center;gap:1rem;margin:1.5rem 0;flex-wrap:wrap;}
+.btn-run{font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600;background:var(--red);color:#fff;border:none;padding:.75rem 1.8rem;border-radius:var(--radius);cursor:pointer;transition:background .15s;}
+.btn-run:hover{background:var(--red-lt);color:#111;}
+.btn-run:disabled{opacity:.45;cursor:not-allowed;}
+.run-hint{font-size:.72rem;color:var(--muted);}
+
+/* ── Results panel ── */
+.results-panel{display:none;margin-top:1rem;}
+.results-panel.visible{display:block;}
+
+/* Composite score card */
+.score-banner{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-xl);padding:1.5rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:2rem;flex-wrap:wrap;position:relative;overflow:hidden;}
+.score-banner::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;}
+.score-banner.tier-compliant::before{background:var(--green);}
+.score-banner.tier-near::before{background:var(--teal);}
+.score-banner.tier-partial::before{background:var(--gold);}
+.score-banner.tier-non::before{background:var(--red);}
+.score-num{font-family:'DM Serif Display',serif;font-size:3.5rem;line-height:1;min-width:5rem;text-align:center;}
+.score-num.tier-compliant{color:var(--green);}
+.score-num.tier-near{color:var(--teal-lt);}
+.score-num.tier-partial{color:var(--gold);}
+.score-num.tier-non{color:var(--red-lt);}
+.score-label{flex:1;}
+.score-tier{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem;}
+.score-title{font-family:'DM Serif Display',serif;font-size:1.25rem;color:var(--white);margin-bottom:.35rem;}
+.score-subtitle{font-size:.76rem;color:var(--body);line-height:1.55;}
+
+/* Per-jurisdiction score grid */
+.juris-scores{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem;margin-bottom:1.25rem;}
+.js-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.9rem 1.1rem;}
+.js-name{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem;}
+.js-score{font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:700;line-height:1;margin-bottom:.35rem;}
+.js-bar-track{background:var(--bg-4);border-radius:3px;height:4px;overflow:hidden;margin-bottom:.35rem;}
+.js-bar-fill{height:100%;border-radius:3px;transition:width .6s ease;}
+.js-counts{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--body);display:flex;gap:.75rem;}
+.jsc-pass{color:var(--green);}
+.jsc-partial{color:var(--gold);}
+.jsc-fail{color:var(--red-lt);}
+
+/* Gap table */
+.gap-table-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-xl);overflow:hidden;margin-bottom:1.25rem;}
+.gap-table-head{padding:.8rem 1.25rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+.gap-table{width:100%;border-collapse:collapse;}
+.gap-table th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding:.5rem .9rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-3);}
+.gap-table td{padding:.55rem .9rem;border-bottom:1px solid var(--border);font-size:.73rem;color:var(--text);vertical-align:top;}
+.gap-table tr:last-child td{border-bottom:none;}
+.gap-table tr.row-fail td{background:rgba(239,68,68,.03);}
+.gap-table tr.row-partial td{background:rgba(212,168,71,.03);}
+.gap-status{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.07em;text-transform:uppercase;padding:.18rem .5rem;border-radius:3px;border:1px solid;white-space:nowrap;}
+.gs-pass{color:var(--green);border-color:rgba(34,197,94,.3);background:var(--green-dim);}
+.gs-partial{color:var(--gold);border-color:rgba(212,168,71,.3);background:var(--gold-dim);}
+.gs-fail{color:var(--red-lt);border-color:rgba(239,68,68,.3);background:var(--red-dim);}
+.gs-na{color:var(--muted);border-color:var(--border);background:var(--bg-3);}
+.gap-juris{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);}
+.gap-cite{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--teal-lt);}
+.gap-action{font-size:.72rem;color:var(--body);line-height:1.5;}
+
+/* AP2 export */
+.export-row{display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1.5rem;}
+.btn-ap2{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;font-weight:600;background:var(--green-dim);border:1px solid rgba(34,197,94,.4);color:var(--green);padding:.65rem 1.4rem;border-radius:var(--radius);cursor:pointer;transition:all .15s;}
+.btn-ap2:hover{background:rgba(34,197,94,.2);border-color:var(--green);}
+.btn-csv{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--body);padding:.65rem 1.4rem;border-radius:var(--radius);cursor:pointer;transition:all .15s;}
+.btn-csv:hover{border-color:var(--gold);color:var(--gold);}
+
+/* Citations */
+.citations{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.4rem;margin-top:1.5rem;}
+.cit-title{font-family:'JetBrains Mono',monospace;font-size:.53rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.7rem;}
+.cit-list{list-style:none;display:flex;flex-direction:column;gap:.35rem;}
+.cit-list li{font-size:.72rem;color:var(--body);line-height:1.55;padding-left:1.4rem;position:relative;}
+.cit-list li::before{content:attr(data-n);position:absolute;left:0;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--red-lt);font-weight:600;}
+
+/* Error state */
+.error-msg{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--red-lt);background:var(--red-dim);border:1px solid rgba(239,68,68,.3);padding:.6rem .9rem;border-radius:var(--radius);display:none;margin-top:.5rem;}
+.error-msg.visible{display:block;}
+
+/* Section divider */
+.sec-divider{border:none;border-top:1px solid var(--border);margin:2rem 0;}
+
+/* Responsive */
+@media(max-width:700px){
+  .juris-grid{grid-template-columns:1fr 1fr;}
+  .juris-scores{grid-template-columns:1fr 1fr;}
+  .radio-group{flex-wrap:wrap;}
+  .ob-table th:nth-child(1),.ob-table td:nth-child(1){display:none;}
+  }
+@media(max-width:480px){
+  .juris-grid{grid-template-columns:1fr;}
+  .juris-scores{grid-template-columns:1fr;}
+  .score-banner{flex-direction:column;align-items:flex-start;}
+}
+[dir="rtl"] body{text-align:right;}
+[dir="rtl"] .nav-inner{flex-direction:row-reverse;}
+[dir="rtl"] [dir="rtl"] .cit-list li{padding-left:0;padding-right:1.4rem;}
+[dir="rtl"] .cit-list li::before{left:auto;right:0;}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-body pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;overflow-x:auto;margin:0}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<div class="ambient ambient-1"></div>
+<div class="ambient ambient-2"></div>
+
+<!-- Language bar -->
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<!-- Nav -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+    <div class="logo-text">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/bnpl-consumer-credit-hub.html">BNPL Hub</a><span class="nav-sep">/</span><span>T-187</span></div>
+
+    <a href="../guides/bnpl-consumer-credit-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<!-- Tool header -->
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">
+    <span class="badge badge-cat">Cat-16 · BNPL</span>
+    <span class="badge badge-anchor">Anchor Tool</span>
+    <span class="badge badge-ap2">Policy Mandate Export</span>
+    <span class="badge badge-neutral">Client-Side · Zero PII</span>
+  </div>
+  <h1 class="tool-title" data-i18n="h1">FCA BNPL / <em>DPC Readiness</em> Checker</h1>
+  <p class="hero-desc" data-i18n="desc">Deterministic multi-jurisdiction BNPL compliance gap-analysis. Select one or more regulatory regimes, assess each obligation as Pass / Partial / Fail, and receive a composite readiness score, per-jurisdiction breakdown, prioritised gap table with article citations, and a compliance Policy Mandate JSON for agent runtimes.</p>
+  <div class="hero-meta meta-row">
+    <span class="meta-tag tag-red">FCA DPC</span>
+    <span class="meta-tag tag-teal">EU CCD2</span>
+    <span class="meta-tag tag-gold">CFPB Reg Z</span>
+    <span class="meta-tag tag-purple">NY DFS</span>
+    <span class="meta-tag tag-green">Policy Mandate JSON</span>
+    <span class="meta-tag tag-green">CSV Export</span>
+  </div>
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+  <!-- Edu disclaimer (canonical §9.3) -->
+  <div class="edu-disclaimer">
+    <strong class="edu-disclaimer-label" data-i18n="disclaimer.label">Educational Use Only</strong>
+    <span data-i18n="disclaimer.body">This tool provides a self-assessment / educational framework for internal planning purposes only. It is not a regulatory audit, legal advice, or a substitute for a formal compliance review by a qualified advisor. Verify all interpretations against the official source text and applicable RTS/ITS/guidance published by the relevant authority.</span>
+  </div>
+
+
+  <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-08</span></span>
+  </div>
+</div>
+
+<!-- Main content -->
+<div class="container" style="padding-top:1.75rem;padding-bottom:3rem;">
+
+  <!-- Urgency banner -->
+  <div class="urgency-banner">
+    <div class="urgency-icon">⚠️</div>
+    <div class="urgency-text">
+      <strong>FCA DPC Regime — Live 15 July 2026.</strong> BNPL products previously exempt under Article 60F(2) Consumer Credit Act 1974 become regulated consumer credit under the Financial Services and Markets Act 2023 (Sch. 9). Lenders and merchants must hold FCA authorisation or appointed representative status before this date.<sup>[1]</sup>
+    </div>
+  </div>
+
+  <!-- STEP 1: Select jurisdictions -->
+  <div class="step-section">
+    <div class="step-label" data-step="01" data-i18n="step1_label">Select Regulatory Regimes</div>
+    <div class="step-title" data-i18n="step1_title">Which jurisdictions apply to your BNPL product?</div>
+    <p class="step-desc" data-i18n="step1_desc">Select all that apply. The tool will load the relevant obligation checklist for each selected regime.</p>
+
+    <div class="juris-grid">
+      <!-- FCA DPC -->
+      <div class="juris-card" id="jcard-fca_dpc" onclick="toggleJuris('fca_dpc')">
+        <div class="juris-title">🇬🇧 FCA · Deferred Payment Credit</div>
+        <div class="juris-subtitle">UK Consumer Credit Act 1974 (as amended by FSMA 2023). FCA authorisation, CONC rules, affordability, right of withdrawal, financial promotions.</div>
+        <div class="juris-tags">
+          <span class="juris-tag">FSMA 2023</span>
+          <span class="juris-tag">CONC</span>
+          <span class="juris-tag">CCA 1974</span>
+          <span class="juris-tag">7 obligations</span>
+        </div>
+      </div>
+      <!-- EU CCD2 -->
+      <div class="juris-card" id="jcard-eu_ccd2" onclick="toggleJuris('eu_ccd2')">
+        <div class="juris-title">🇪🇺 EU · Consumer Credit Directive 2</div>
+        <div class="juris-subtitle">Directive 2023/2225. Repeals CCD1 (2008/48/EC). Explicitly includes BNPL in scope. SECCI disclosure, APR, creditworthiness assessment, right of withdrawal.</div>
+        <div class="juris-tags">
+          <span class="juris-tag">CCD2 2023/2225</span>
+          <span class="juris-tag">SECCI</span>
+          <span class="juris-tag">EU-27</span>
+          <span class="juris-tag">7 obligations</span>
+        </div>
+      </div>
+      <!-- CFPB Reg Z -->
+      <div class="juris-card" id="jcard-cfpb_reg_z" onclick="toggleJuris('cfpb_reg_z')">
+        <div class="juris-title">🇺🇸 US · CFPB Regulation Z</div>
+        <div class="juris-subtitle">Truth in Lending Act (TILA) implementation. 12 CFR 1026. CFPB BNPL interpretive rule (2024) classifies most BNPL as closed-end credit subject to Reg Z.</div>
+        <div class="juris-tags">
+          <span class="juris-tag">12 CFR 1026</span>
+          <span class="juris-tag">TILA</span>
+          <span class="juris-tag">CFPB 2024</span>
+          <span class="juris-tag">5 obligations</span>
+        </div>
+      </div>
+      <!-- NY DFS -->
+      <div class="juris-card" id="jcard-ny_dfs" onclick="toggleJuris('ny_dfs')">
+        <div class="juris-title">🗽 NY DFS · BNPL Supervisory Guidance</div>
+        <div class="juris-subtitle">NY DFS Guidance (June 2023). Consumer disclosure, credit reporting, data privacy and sharing restrictions, customer complaint mechanism requirements.</div>
+        <div class="juris-tags">
+          <span class="juris-tag">NY DFS Jun 2023</span>
+          <span class="juris-tag">23 NYCRR</span>
+          <span class="juris-tag">4 obligations</span>
+        </div>
+      </div>
+    </div>
+    <div id="jurisError" class="error-msg">Please select at least one regulatory regime to continue.</div>
+  </div>
+
+  <!-- STEP 2: Obligation assessments (rendered dynamically) -->
+  <div class="step-section" id="step2-section" style="display:none;">
+    <div class="step-label" data-step="02" data-i18n="step2_label">Assess Each Obligation</div>
+    <div class="step-title" data-i18n="step2_title">Rate your current compliance status per obligation</div>
+    <p class="step-desc" data-i18n="step2_desc">For each obligation, select the status that best reflects your product's current posture. Use <strong>N/A</strong> only if the obligation is genuinely inapplicable (e.g. a jurisdiction-specific exemption applies).</p>
+
+    <div id="ob-tables"></div>
+
+    <div class="run-row">
+      <button class="btn-run" onclick="runAssessment()" id="runBtn" data-i18n="run_btn">Run Assessment →</button>
+      <span class="run-hint" data-i18n="run_hint">All unrated obligations default to Fail for conservative scoring.</span>
+    </div>
+    <div id="runError" class="error-msg">Assessment incomplete — please review obligations above.</div>
+  </div>
+
+  <!-- STEP 3: Results -->
+  <div class="results-panel" id="resultsPanel">
+    <hr class="sec-divider" style="margin-bottom:1.5rem;">
+    <div class="step-label" data-step="03" data-i18n="step3_label">Assessment Results</div>
+    <div class="step-title" data-i18n="step3_title">BNPL Compliance Readiness Report</div>
+
+    <!-- Composite score -->
+    <div class="score-banner" id="scoreBanner" style="margin-top:1rem;">
+      <div class="score-num" id="scoreNum">—</div>
+      <div class="score-label">
+        <div class="score-tier" id="scoreTierBadge"></div>
+        <div class="score-title" id="scoreTierTitle"></div>
+        <div class="score-subtitle" id="scoreSubtitle"></div>
+      </div>
+    </div>
+
+    <!-- Per-jurisdiction scores -->
+    <div class="juris-scores" id="jurisScores"></div>
+
+    <!-- Gap table -->
+    <div class="gap-table-wrap">
+      <div class="gap-table-head" data-i18n="gap_head">Obligation Gap Table — Fails &amp; Partials Prioritised</div>
+      <div style="overflow-x:auto;">
+        <table class="gap-table">
+          <thead>
+            <tr>
+              <th>Regime</th>
+              <th>Obligation</th>
+              <th>Article / Rule</th>
+              <th>Status</th>
+              <th>Recommended Action</th>
+            </tr>
+          </thead>
+          <tbody id="gapTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Export buttons -->
+    <div class="results-export-row export-row">
+      <button id="ap2ExportBtn" class="btn-ap2" onclick="exportAP2()" data-i18n="btn_ap2">⬇ Export Policy Mandate</button>
+      <button class="btn-csv" onclick="exportCSV()" data-i18n="btn_csv">⬇ Export Gap Table CSV</button>
+    </div>
+  </div>
+
+  <!-- Citations -->
+  <hr class="sec-divider">
+  <div class="citations">
+    <div class="cit-title">Source Notes &amp; Regulatory Citations</div>
+    <ul class="cit-list">
+      <li data-n="1">Financial Services and Markets Act 2023, Schedule 9 — removes BNPL exemption from CCA 1974 s.60F(2); FCA policy statement expected mid-2025. Effective date: 15 July 2026.</li>
+      <li data-n="2">FCA CONC 4.2 — Pre-contract disclosure requirements; CONC 5.2A — Creditworthiness assessment; CONC 6 — Post-contract obligations. FCA Consumer Credit sourcebook, version in force from July 2026.</li>
+      <li data-n="3">Consumer Credit Act 1974, s.66A — right of withdrawal for regulated credit agreements; 14-calendar-day cooling-off period from agreement date.</li>
+      <li data-n="4">Directive 2023/2225/EU (CCD2) — repeals Directive 2008/48/EC. Published OJ L 2023/2225. Transposition deadline: 20 November 2025. Member states may apply CCD2 to agreements below EUR 200.</li>
+      <li data-n="5">CCD2 Art. 18 — creditworthiness assessment; Art. 26 — right of withdrawal (14 days); Art. 29 — right of early repayment; Art. 31 — APR calculation using actuarial method; Annex II — SECCI format.</li>
+      <li data-n="6">12 CFR Part 1026 (Regulation Z) — Truth in Lending Act implementation. CFPB interpretive rule on BNPL (May 2024): 4-installment BNPL treated as closed-end credit per § 1026.2(a)(17)(iv).</li>
+      <li data-n="7">CFPB Advisory Opinion on BNPL (March 2023); CFPB Supervisory Highlights Spring 2023 — BNPL practices; 12 CFR 1026.13 — billing error resolution; 12 CFR 1026.7 — periodic statements.</li>
+      <li data-n="8">NY DFS BNPL Supervisory Guidance, June 2023 — sets expectations for disclosure, credit reporting (§3), data privacy (§4), and consumer complaints (§5) for BNPL providers operating in New York State.</li>
+      <li data-n="9">Methodology: obligations scored Pass=1.0, Partial=0.5, Fail=0.0. N/A obligations excluded from denominator. Composite score = weighted average across all selected jurisdictions. Tier: ≥80 Compliant, 60–79 Near-Compliant, 40–59 Partial, &lt;40 Non-Compliant.</li>
+    </ul>
+  </div>
+
+</div><!-- /container -->
+
+<!-- Footer -->
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/bnpl-consumer-credit-hub.html"><span data-i18n="footer.hub_bnpl_consumer_credit">BNPL Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* PolicyMandate — full validator (Phase 14); AP2Schema internal name retained */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+};
+
+/* =========================================================
+   T187 · FCA BNPL / DPC Readiness Checker
+   AINumbers.co · Post Oak Labs · CC BY 4.0
+   Client-side only. Zero PII. No external requests.
+   ========================================================= */
+
+/* ----------------------------------------------------------
+   i18n strings
+   ---------------------------------------------------------- */
+var LANG = {
+  en:{
+    nav_all:'All Tools', nav_hub:'BNPL Hub',
+    h1:'FCA BNPL / DPC Readiness Checker',
+    desc:'Deterministic multi-jurisdiction BNPL compliance gap-analysis. Select regimes, assess obligations, and receive a composite readiness score with Policy Mandate JSON export.',
+    step1_label:'Step 1 — Select Regimes',step1_title:'Which jurisdictions apply to your BNPL product?',
+    step1_desc:'Select all that apply. The tool loads the relevant obligation checklist per regime.',
+    step2_label:'Step 2 — Assess Obligations',step2_title:'Rate your compliance status per obligation',
+    step2_desc:'For each obligation, select Pass / Partial / Fail. Use N/A only if genuinely inapplicable.',
+    run_btn:'Run Assessment →',run_hint:'Unrated obligations default to Fail for conservative scoring.',
+    step3_label:'Step 3 — Results',step3_title:'BNPL Compliance Readiness Report',
+    gap_head:'Obligation Gap Table — Fails & Partials Prioritised',
+    btn_ap2:'⬇ Export Policy Mandate',btn_csv:'⬇ Export Gap Table CSV',
+    footer_all:'All Tools'
+  },
+  es:{
+    nav_all:'Todas las Herramientas', nav_hub:'Hub BNPL',
+    h1:'Verificador de Cumplimiento FCA BNPL / DPC',
+    desc:'Análisis de brechas de cumplimiento BNPL en múltiples jurisdicciones. Seleccione regímenes, evalúe obligaciones y obtenga una puntuación compuesta con exportación de Mandato de Política.',
+    step1_label:'Paso 1 — Seleccionar Regímenes',step1_title:'¿Qué jurisdicciones aplican a su producto BNPL?',
+    step1_desc:'Seleccione todas las que correspondan.',
+    step2_label:'Paso 2 — Evaluar Obligaciones',step2_title:'Evalúe su estado de cumplimiento por obligación',
+    step2_desc:'Para cada obligación, seleccione Cumple / Parcial / Incumple.',
+    run_btn:'Ejecutar Evaluación →',run_hint:'Las obligaciones sin calificar se contabilizan como Incumplimiento.',
+    step3_label:'Paso 3 — Resultados',step3_title:'Informe de Preparación para Cumplimiento BNPL',
+    gap_head:'Tabla de Brechas — Incumplimientos y Parciales Priorizados',
+    btn_ap2:'⬇ Exportar Mandato de Política',btn_csv:'⬇ Exportar CSV de Brechas',
+    footer_all:'Todas las Herramientas'
+  },
+  fr:{
+    nav_all:'Tous les Outils', nav_hub:'Hub BNPL',
+    h1:'Vérificateur de Conformité FCA BNPL / DPC',
+    desc:'Analyse des écarts de conformité BNPL multi-juridictions. Sélectionnez les régimes, évaluez les obligations et obtenez un score de préparation composite avec export de Mandat de Politique.',
+    step1_label:'Étape 1 — Sélectionner les Régimes',step1_title:'Quelles juridictions s\'appliquent à votre produit BNPL ?',
+    step1_desc:'Sélectionnez toutes les cases applicables.',
+    step2_label:'Étape 2 — Évaluer les Obligations',step2_title:'Évaluez votre statut de conformité par obligation',
+    step2_desc:'Pour chaque obligation, sélectionnez Conforme / Partiel / Non conforme.',
+    run_btn:'Lancer l\'Évaluation →',run_hint:'Les obligations non notées sont traitées comme Non conformes.',
+    step3_label:'Étape 3 — Résultats',step3_title:'Rapport de Préparation à la Conformité BNPL',
+    gap_head:'Tableau des Écarts — Non-conformités et Partiels Priorisés',
+    btn_ap2:'⬇ Exporter Mandat de Politique',btn_csv:'⬇ Exporter CSV des Écarts',
+    footer_all:'Tous les Outils'
+  },
+  ar:{
+    nav_all:'جميع الأدوات', nav_hub:'مركز BNPL',
+    h1:'فاحص جاهزية FCA BNPL / DPC',
+    desc:'تحليل الفجوات في الامتثال متعدد الولايات القضائية لـ BNPL مع تصدير تفويض السياسة.',
+    step1_label:'الخطوة 1 — اختر الأنظمة',step1_title:'ما الولايات القضائية المطبقة على منتج BNPL الخاص بك؟',
+    step1_desc:'حدد جميع الخيارات المنطبقة.',
+    step2_label:'الخطوة 2 — تقييم الالتزامات',step2_title:'قيّم حالة الامتثال لكل التزام',
+    step2_desc:'لكل التزام، اختر: ناجح / جزئي / فاشل.',
+    run_btn:'تشغيل التقييم ←',run_hint:'الالتزامات غير المقيّمة تُعدّ فاشلة.',
+    step3_label:'الخطوة 3 — النتائج',step3_title:'تقرير جاهزية الامتثال لـ BNPL',
+    gap_head:'جدول الفجوات — الإخفاقات والنتائج الجزئية أولاً',
+    btn_ap2:'⬇ تصدير تفويض السياسة',btn_csv:'⬇ تصدير جدول الفجوات CSV',
+    footer_all:'جميع الأدوات'
+  },
+  pt:{
+    nav_all:'Todas as Ferramentas', nav_hub:'Hub BNPL',
+    h1:'Verificador de Conformidade FCA BNPL / DPC',
+    desc:'Análise de lacunas de conformidade BNPL multi-jurisdição. Seleccione regimes, avalie obrigações e obtenha uma pontuação composta com exportação de Mandato de Política.',
+    step1_label:'Passo 1 — Seleccionar Regimes',step1_title:'Que jurisdições se aplicam ao seu produto BNPL?',
+    step1_desc:'Seleccione todas as aplicáveis.',
+    step2_label:'Passo 2 — Avaliar Obrigações',step2_title:'Avalie o seu estado de conformidade por obrigação',
+    step2_desc:'Para cada obrigação, seleccione Conforme / Parcial / Não conforme.',
+    run_btn:'Executar Avaliação →',run_hint:'Obrigações não avaliadas são tratadas como Não conformes.',
+    step3_label:'Passo 3 — Resultados',step3_title:'Relatório de Prontidão de Conformidade BNPL',
+    gap_head:'Tabela de Lacunas — Falhas e Parciais Priorizados',
+    btn_ap2:'⬇ Exportar Mandato de Política',btn_csv:'⬇ Exportar CSV de Lacunas',
+    footer_all:'Todas as Ferramentas'
+  },
+  zh:{
+    nav_all:'所有工具', nav_hub:'BNPL中心',
+    h1:'FCA BNPL / DPC合规就绪检查器',
+    desc:'多司法管辖区BNPL合规差距分析。选择监管制度，评估义务，并获取带政策授权书导出的综合准备度评分。',
+    step1_label:'第1步 — 选择监管制度',step1_title:'哪些司法管辖区适用于您的BNPL产品？',
+    step1_desc:'选择所有适用项。',
+    step2_label:'第2步 — 评估义务',step2_title:'对每项义务进行合规状态评级',
+    step2_desc:'对每项义务选择：通过 / 部分 / 不通过。',
+    run_btn:'运行评估 →',run_hint:'未评级的义务默认为不通过（保守评分）。',
+    step3_label:'第3步 — 结果',step3_title:'BNPL合规就绪报告',
+    gap_head:'义务差距表 — 不通过项和部分通过项优先显示',
+    btn_ap2:'⬇ 导出政策授权书',btn_csv:'⬇ 导出差距表CSV',
+    footer_all:'所有工具'
+  }
+};
+
+/* ----------------------------------------------------------
+   Obligation data — keyed by jurisdiction ID
+   Each obligation: { id, name, article, action, weight }
+   weight: 1=standard, 1.5=critical (authorisation, affordability)
+   ---------------------------------------------------------- */
+var OBLIGATIONS = {
+  fca_dpc: {
+    label: 'FCA · DPC',
+    accentClass: 'tag-red',
+    obligations: [
+      {
+        id:'fca_01', name:'Consumer credit authorisation or AR status obtained',
+        article:'FSMA 2000 s.19 · FSMA 2023 Sch.9 [1]',
+        action:'Apply for FCA authorisation under Consumer Credit permission or establish Appointed Representative arrangement before 15 July 2026. Lead time: 6–9 months.',
+        weight:1.5
+      },
+      {
+        id:'fca_02', name:'Pre-contractual disclosure — CONC 4.2 / SECCI equivalent',
+        article:'FCA CONC 4.2 · CCA 1974 s.60–61 [2]',
+        action:'Issue Pre-Contract Credit Information (PCCI) form in Standard European Consumer Credit Information format or CONC 4.2-compliant equivalent before agreement signing.',
+        weight:1.0
+      },
+      {
+        id:'fca_03', name:'Affordability / creditworthiness assessment process in place',
+        article:'FCA CONC 5.2A · FCA CONC 5A [2]',
+        action:'Implement proportionate creditworthiness assessment. Document methodology. Maintain records per CONC 2.10. Ensure assessment is performed before credit is extended.',
+        weight:1.5
+      },
+      {
+        id:'fca_04', name:'Right of withdrawal — 14-day cooling-off period',
+        article:'CCA 1974 s.66A · CONC 11.1 [3]',
+        action:'Provide consumer with written right of withdrawal notice at point of agreement. Process withdrawal requests within 1 business day. Repayment deadline: 30 days from withdrawal.',
+        weight:1.0
+      },
+      {
+        id:'fca_05', name:'Financial promotions compliance — CONC 3.3',
+        article:'FCA CONC 3.3 · FCA COBS 4 · s.21 FSMA [2]',
+        action:'Ensure all marketing material is fair, clear and not misleading. APR representative must be displayed. Promotions must be approved by FCA-authorised person.',
+        weight:1.0
+      },
+      {
+        id:'fca_06', name:'Complaint handling procedure & FOS access',
+        article:'FCA DISP 1.3 · DISP 2.8 [2]',
+        action:'Implement DISP-compliant complaint handling procedure. Register with Financial Ombudsman Service. Inform consumers of FOS access in complaint letters.',
+        weight:1.0
+      },
+      {
+        id:'fca_07', name:'Ongoing monitoring & arrears / default procedures (CONC 6 / 7)',
+        article:'FCA CONC 6.7 · CONC 7 [2]',
+        action:'Establish arrears management and collections procedures aligned with CONC 7. Set up systems to identify customers in financial difficulty. Provide breathing space information.',
+        weight:1.0
+      }
+    ]
+  },
+  eu_ccd2: {
+    label: 'EU · CCD2',
+    accentClass: 'tag-teal',
+    obligations: [
+      {
+        id:'ccd2_01', name:'SECCI pre-contractual disclosure provided',
+        article:'CCD2 Art. 10 · Annex II [5]',
+        action:'Provide Standard European Consumer Credit Information (SECCI) form to consumer before credit agreement. Customise per Annex II template. Allow adequate time for review.',
+        weight:1.0
+      },
+      {
+        id:'ccd2_02', name:'APR calculated using actuarial method (Art. 31)',
+        article:'CCD2 Art. 31 · Annex I [5]',
+        action:'Calculate Annual Percentage Rate using the actuarial method per CCD2 Annex I. Include all mandatory cost components. Display representative APR in promotions.',
+        weight:1.0
+      },
+      {
+        id:'ccd2_03', name:'Creditworthiness assessment performed (Art. 18)',
+        article:'CCD2 Art. 18 [5]',
+        action:'Conduct creditworthiness assessment before concluding the credit agreement. Use credit register data where available. Maintain records of assessment basis and outcome.',
+        weight:1.5
+      },
+      {
+        id:'ccd2_04', name:'Right of withdrawal — 14 days (Art. 26)',
+        article:'CCD2 Art. 26 [5]',
+        action:'Implement 14-calendar-day right of withdrawal from credit agreement date. Provide clear withdrawal notice template. Process without penalty and refund within 14 days of withdrawal.',
+        weight:1.0
+      },
+      {
+        id:'ccd2_05', name:'Right of early repayment (Art. 29)',
+        article:'CCD2 Art. 29 [5]',
+        action:'Allow consumer to repay early at any time. Calculate and disclose maximum compensation (1% or 0.5% of early repaid amount depending on remaining term). No disproportionate penalty clauses.',
+        weight:1.0
+      },
+      {
+        id:'ccd2_06', name:'Digital channel disclosure compliance (Art. 21 & Annex II)',
+        article:'CCD2 Art. 21 · Annex II [4]',
+        action:'Ensure digital checkout flow presents SECCI and credit terms prominently. Obtain active affirmation of terms before agreement (no pre-ticked boxes). Retain timestamped acceptance record.',
+        weight:1.0
+      },
+      {
+        id:'ccd2_07', name:'CCD2 scope / exemption threshold assessment (< EUR 200)',
+        article:'CCD2 Art. 2(2)(f) [4]',
+        action:'Assess whether any product tiers fall below EUR 200 credit threshold. Note: member states may choose to apply CCD2 below EUR 200. Verify applicable national transposition law.',
+        weight:0.5
+      }
+    ]
+  },
+  cfpb_reg_z: {
+    label: 'US · Reg Z',
+    accentClass: 'tag-gold',
+    obligations: [
+      {
+        id:'regz_01', name:'Closed-end credit disclosures provided (§ 1026.18)',
+        article:'12 CFR 1026.18 · CFPB 2024 Interpretive Rule [6]',
+        action:'For BNPL qualifying as closed-end credit, provide mandatory disclosures: amount financed, finance charge, APR, payment schedule, total of payments. Display before consummation.',
+        weight:1.5
+      },
+      {
+        id:'regz_02', name:'APR / Finance charge disclosed (§ 1026.6)',
+        article:'12 CFR 1026.6 · 1026.18 [6]',
+        action:'Calculate and disclose APR per Appendix J. Express finance charge in both dollar amount and APR. Zero-interest BNPL: confirm zero APR disclosure requirement still applies.',
+        weight:1.0
+      },
+      {
+        id:'regz_03', name:'Periodic statement requirements (§ 1026.7)',
+        article:'12 CFR 1026.7 [7]',
+        action:'Issue periodic statements for open-end credit accounts with outstanding balance. Include: previous balance, credits, charges, finance charge, APR, closing balance, payment due date and minimum payment.',
+        weight:1.0
+      },
+      {
+        id:'regz_04', name:'Billing error resolution procedures (§ 1026.13)',
+        article:'12 CFR 1026.13 [7]',
+        action:'Establish written billing error resolution procedures. Acknowledge consumer complaints within 30 days. Resolve within 2 billing cycles (max 90 days). Provide credit during investigation.',
+        weight:1.0
+      },
+      {
+        id:'regz_05', name:'Right of rescission notification (§ 1026.23)',
+        article:'12 CFR 1026.23 [6]',
+        action:'Where credit is secured by consumer\'s principal dwelling, provide Notice of Right of Rescission. Maintain evidence of delivery. 3-business-day rescission period.',
+        weight:0.5
+      }
+    ]
+  },
+  ny_dfs: {
+    label: 'NY DFS',
+    accentClass: 'tag-purple',
+    obligations: [
+      {
+        id:'nydfs_01', name:'Consumer disclosure requirements (NY DFS Guidance §2)',
+        article:'NY DFS BNPL Guidance Jun 2023 §2 [8]',
+        action:'Disclose all fees, penalties, and total cost of credit clearly at checkout. Provide clear explanation of what happens if a payment is missed. Disclosures must be in plain language.',
+        weight:1.0
+      },
+      {
+        id:'nydfs_02', name:'Credit reporting obligations (NY DFS Guidance §3)',
+        article:'NY DFS BNPL Guidance Jun 2023 §3 [8]',
+        action:'Adopt consistent credit reporting practices. If reporting to CRAs, apply FCRA-compliant procedures. Disclose to consumers whether and how BNPL activity is reported.',
+        weight:1.0
+      },
+      {
+        id:'nydfs_03', name:'Data privacy and sharing restrictions (NY DFS Guidance §4)',
+        article:'NY DFS BNPL Guidance Jun 2023 §4 · NY SHIELD Act [8]',
+        action:'Limit data collection to what is necessary. Obtain affirmative consent before sharing personal data with third parties. Implement data security programme per NY SHIELD Act.',
+        weight:1.0
+      },
+      {
+        id:'nydfs_04', name:'Customer complaint mechanism (NY DFS Guidance §5)',
+        article:'NY DFS BNPL Guidance Jun 2023 §5 [8]',
+        action:'Establish accessible consumer complaint mechanism. Respond to complaints in writing within a reasonable timeframe. Maintain complaint log and trend analysis. Make NY DFS escalation path available.',
+        weight:1.0
+      }
+    ]
+  }
+};
+
+/* ----------------------------------------------------------
+   State
+   ---------------------------------------------------------- */
+var state = {
+  selectedJuris: [],    // array of jurisdiction IDs
+  assessments: {},      // { obligation_id: 'Pass'|'Partial'|'Fail'|'NA' }
+  results: null         // computed results
+};
+
+/* ----------------------------------------------------------
+   Language switching
+   ---------------------------------------------------------- */
+var currentLang = 'en';
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-16 Hub',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-16',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-16',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-16',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-16',
+  }, zh:{
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-16 中心',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+
+/* ----------------------------------------------------------
+   Jurisdiction toggle
+   ---------------------------------------------------------- */
+function toggleJuris(id) {
+  var card = document.getElementById('jcard-' + id);
+  var idx = state.selectedJuris.indexOf(id);
+  if (idx === -1) {
+    state.selectedJuris.push(id);
+    card.classList.add('selected');
+  } else {
+    state.selectedJuris.splice(idx, 1);
+    card.classList.remove('selected');
+  }
+  document.getElementById('jurisError').classList.remove('visible');
+  renderObligationTables();
+}
+
+/* ----------------------------------------------------------
+   Render obligation tables for selected jurisdictions
+   ---------------------------------------------------------- */
+function renderObligationTables() {
+  var container = document.getElementById('ob-tables');
+  var step2 = document.getElementById('step2-section');
+
+  if (state.selectedJuris.length === 0) {
+    step2.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+
+  step2.style.display = 'block';
+  var html = '';
+
+  state.selectedJuris.forEach(function(jid) {
+    var jdata = OBLIGATIONS[jid];
+    if (!jdata) return;
+    html += '<div class="ob-section">';
+    html += '<div class="ob-header">';
+    html += '<span class="ob-jurisdiction">' + jdata.label + '</span>';
+    html += '<span class="meta-tag ' + jdata.accentClass + '">' + jdata.label + '</span>';
+    html += '<span class="ob-count">' + jdata.obligations.length + ' obligations</span>';
+    html += '</div>';
+    html += '<div style="overflow-x:auto;">';
+    html += '<table class="ob-table"><thead><tr>';
+    html += '<th>ID</th><th>Obligation</th><th>Weight</th><th style="text-align:center;min-width:220px;">Status</th>';
+    html += '</tr></thead><tbody>';
+
+    jdata.obligations.forEach(function(ob) {
+      var w = ob.weight >= 1.5 ? 'Critical' : ob.weight <= 0.5 ? 'Conditional' : 'Standard';
+      var wColor = ob.weight >= 1.5 ? 'color:var(--red-lt)' : ob.weight <= 0.5 ? 'color:var(--muted)' : '';
+      html += '<tr>';
+      html += '<td><span class="ob-id">' + ob.id + '</span></td>';
+      html += '<td>';
+      html += '<div class="ob-name">' + ob.name + '</div>';
+      html += '<div class="ob-cite">' + ob.article + '</div>';
+      html += '</td>';
+      html += '<td><span class="ob-weight" style="' + wColor + '">' + w + '</span></td>';
+      html += '<td>' + renderRadio(ob.id) + '</td>';
+      html += '</tr>';
+    });
+
+    html += '</tbody></table></div></div>';
+  });
+
+  container.innerHTML = html;
+
+  // Restore any previously set assessments
+  Object.keys(state.assessments).forEach(function(obId) {
+    var val = state.assessments[obId];
+    var radio = document.querySelector('input[name="' + obId + '"][value="' + val + '"]');
+    if (radio) radio.checked = true;
+  });
+}
+
+/* Generate radio button group HTML for one obligation */
+function renderRadio(obId) {
+  var opts = [
+    { val:'Pass',    cls:'r-pill-pass',    label:'Pass' },
+    { val:'Partial', cls:'r-pill-partial', label:'Partial' },
+    { val:'Fail',    cls:'r-pill-fail',    label:'Fail' },
+    { val:'NA',      cls:'r-pill-na',      label:'N/A' }
+  ];
+  var html = '<div class="radio-group">';
+  opts.forEach(function(o) {
+    html += '<label>';
+    html += '<input type="radio" name="' + obId + '" value="' + o.val + '" onchange="onRadioChange(\'' + obId + '\',\'' + o.val + '\')">';
+    html += '<span class="r-pill ' + o.cls + '">' + o.label + '</span>';
+    html += '</label>';
+  });
+  html += '</div>';
+  return html;
+}
+
+/* Track radio changes in state */
+function onRadioChange(obId, val) {
+  state.assessments[obId] = val;
+}
+
+/* ----------------------------------------------------------
+   runAssessment — main scoring function
+   ---------------------------------------------------------- */
+function runAssessment() {
+  // Validate: must have jurisdictions
+  if (state.selectedJuris.length === 0) {
+    document.getElementById('jurisError').classList.add('visible');
+    return;
+  }
+
+  // Default any unset obligations to 'Fail' (conservative)
+  state.selectedJuris.forEach(function(jid) {
+    var jdata = OBLIGATIONS[jid];
+    jdata.obligations.forEach(function(ob) {
+      if (!state.assessments[ob.id]) {
+        state.assessments[ob.id] = 'Fail';
+        // Visually check the Fail radio
+        var radio = document.querySelector('input[name="' + ob.id + '"][value="Fail"]');
+        if (radio) radio.checked = true;
+      }
+    });
+  });
+
+  // Score per jurisdiction
+  /* Scoring:
+     Pass    = 1.0 × weight
+     Partial = 0.5 × weight
+     Fail    = 0.0 × weight
+     NA      = excluded from denominator
+  */
+  var jurisResults = {};
+  var totalWeightedScore = 0;
+  var totalWeightedMax   = 0;
+
+  state.selectedJuris.forEach(function(jid) {
+    var jdata = OBLIGATIONS[jid];
+    var scored = 0, maxPossible = 0, passCount = 0, partialCount = 0, failCount = 0, naCount = 0;
+
+    jdata.obligations.forEach(function(ob) {
+      var val = state.assessments[ob.id] || 'Fail';
+      if (val === 'NA') { naCount++; return; }
+      maxPossible += ob.weight;
+      if (val === 'Pass')    { scored += 1.0 * ob.weight; passCount++; }
+      if (val === 'Partial') { scored += 0.5 * ob.weight; partialCount++; }
+      if (val === 'Fail')    { failCount++; }
+    });
+
+    var pct = maxPossible > 0 ? Math.round((scored / maxPossible) * 100) : 100;
+    jurisResults[jid] = {
+      label: jdata.label,
+      accentClass: jdata.accentClass,
+      score: pct,
+      pass: passCount, partial: partialCount, fail: failCount, na: naCount,
+      scored: scored, maxPossible: maxPossible
+    };
+    totalWeightedScore += scored;
+    totalWeightedMax   += maxPossible;
+  });
+
+  // Composite score
+  var composite = totalWeightedMax > 0 ? Math.round((totalWeightedScore / totalWeightedMax) * 100) : 100;
+
+  // Tier classification
+  var tier;
+  if (composite >= 80)      tier = { id:'compliant', label:'Compliant',      title:'Fully Compliant',     color:'var(--green)' };
+  else if (composite >= 60) tier = { id:'near',      label:'Near-Compliant', title:'Near-Compliant',      color:'var(--teal-lt)' };
+  else if (composite >= 40) tier = { id:'partial',   label:'Partial',        title:'Material Gaps Present',color:'var(--gold)' };
+  else                      tier = { id:'non',        label:'Non-Compliant', title:'Non-Compliant',        color:'var(--red-lt)' };
+
+  // Build gap table rows (Fails first, then Partials, then Pass)
+  var gapRows = [];
+  state.selectedJuris.forEach(function(jid) {
+    var jdata = OBLIGATIONS[jid];
+    jdata.obligations.forEach(function(ob) {
+      var val = state.assessments[ob.id] || 'Fail';
+      gapRows.push({ jid: jid, label: jdata.label, accentClass: jdata.accentClass, ob: ob, val: val });
+    });
+  });
+  // Sort: Fail first, Partial, Pass, NA
+  var order = { Fail:0, Partial:1, Pass:2, NA:3 };
+  gapRows.sort(function(a,b){ return order[a.val] - order[b.val]; });
+
+  state.results = { composite: composite, tier: tier, jurisResults: jurisResults, gapRows: gapRows };
+
+  renderResults();
+  document.getElementById('resultsPanel').classList.add('visible');
+  setTimeout(function(){ document.getElementById('resultsPanel').scrollIntoView({behavior:'smooth',block:'start'}); }, 100);
+}
+
+/* ----------------------------------------------------------
+   Render results UI
+   ---------------------------------------------------------- */
+function renderResults() {
+  var r = state.results;
+
+  // Composite score banner
+  var banner = document.getElementById('scoreBanner');
+  banner.className = 'score-banner tier-' + r.tier.id;
+  document.getElementById('scoreNum').textContent = r.composite;
+  document.getElementById('scoreNum').className = 'score-num tier-' + r.tier.id;
+  document.getElementById('scoreTierBadge').textContent = 'Readiness Tier: ' + r.tier.label;
+  document.getElementById('scoreTierBadge').style.color = r.tier.color;
+  document.getElementById('scoreTierTitle').textContent = r.tier.title;
+
+  var nonCompliant = [], partial = [];
+  Object.values(r.jurisResults).forEach(function(jr){
+    jr.fail > 0 && nonCompliant.push(jr.label);
+    jr.partial > 0 && partial.push(jr.label);
+  });
+  var sub = r.composite + '/100 weighted compliance score. ';
+  if (nonCompliant.length) sub += 'Failing obligations in: ' + nonCompliant.join(', ') + '. ';
+  if (partial.length) sub += 'Partial gaps in: ' + partial.join(', ') + '.';
+  document.getElementById('scoreSubtitle').textContent = sub;
+
+  // Per-jurisdiction score cards
+  var jsHtml = '';
+  state.selectedJuris.forEach(function(jid) {
+    var jr = r.jurisResults[jid];
+    if (!jr) return;
+    var scoreColor = jr.score>=80?'var(--green)':jr.score>=60?'var(--teal-lt)':jr.score>=40?'var(--gold)':'var(--red-lt)';
+    var barColor   = scoreColor;
+    jsHtml += '<div class="js-card">';
+    jsHtml += '<div class="js-name"><span class="meta-tag ' + jr.accentClass + '">' + jr.label + '</span></div>';
+    jsHtml += '<div class="js-score" style="color:' + scoreColor + '">' + jr.score + '<span style="font-size:.8rem;opacity:.6">/100</span></div>';
+    jsHtml += '<div class="js-bar-track"><div class="js-bar-fill" style="width:' + jr.score + '%;background:' + barColor + '"></div></div>';
+    jsHtml += '<div class="js-counts">';
+    jsHtml += '<span class="jsc-pass">✓ ' + jr.pass + ' Pass</span>';
+    jsHtml += '<span class="jsc-partial">~ ' + jr.partial + ' Partial</span>';
+    jsHtml += '<span class="jsc-fail">✗ ' + jr.fail + ' Fail</span>';
+    jsHtml += '</div></div>';
+  });
+  document.getElementById('jurisScores').innerHTML = jsHtml;
+
+  // Gap table
+  var tbodyHtml = '';
+  r.gapRows.forEach(function(row) {
+    if (row.val === 'NA') return; // skip N/A rows from gap table
+    var rowClass = row.val === 'Fail' ? 'row-fail' : row.val === 'Partial' ? 'row-partial' : '';
+    var statusHtml = '<span class="gap-status gs-' + row.val.toLowerCase() + '">' + row.val + '</span>';
+    tbodyHtml += '<tr class="' + rowClass + '">';
+    tbodyHtml += '<td><span class="gap-juris">' + row.label + '</span></td>';
+    tbodyHtml += '<td style="color:var(--bright);font-size:.73rem;">' + row.ob.name + '</td>';
+    tbodyHtml += '<td><span class="gap-cite">' + row.ob.article + '</span></td>';
+    tbodyHtml += '<td>' + statusHtml + '</td>';
+    tbodyHtml += '<td class="gap-action">' + (row.val !== 'Pass' ? row.ob.action : '—') + '</td>';
+    tbodyHtml += '</tr>';
+  });
+  document.getElementById('gapTableBody').innerHTML = tbodyHtml || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:1.5rem;font-family:\'JetBrains Mono\',monospace;font-size:.6rem;">No obligations assessed.</td></tr>';
+}
+
+/* ----------------------------------------------------------
+   AP2 JSON export
+   ---------------------------------------------------------- */
+function exportAP2() {
+  if (!state.results) return;
+  var r = state.results;
+
+  /* Build payload — flat key-value per AP2 schema */
+  var payload = { composite_score: r.composite, readiness_tier: r.tier.label };
+  state.selectedJuris.forEach(function(jid) {
+    var jr = r.jurisResults[jid];
+    var safeKey = jid + '_score';
+    payload[safeKey] = jr.score;
+    payload[jid + '_pass_count'] = jr.pass;
+    payload[jid + '_partial_count'] = jr.partial;
+    payload[jid + '_fail_count'] = jr.fail;
+  });
+
+  var failObligations = r.gapRows.filter(function(row){ return row.val === 'Fail'; }).map(function(row){ return row.ob.id; });
+  var partialObligations = r.gapRows.filter(function(row){ return row.val === 'Partial'; }).map(function(row){ return row.ob.id; });
+  payload.failing_obligation_ids = failObligations;
+  payload.partial_obligation_ids = partialObligations;
+  payload.critical_gaps_count = failObligations.length;
+  payload.partial_gaps_count  = partialObligations.length;
+
+  /* Build agent instructions from failing and partial items */
+  var instructions = [];
+  r.gapRows.forEach(function(row) {
+    if (row.val === 'Fail' || row.val === 'Partial') {
+      instructions.push('[' + row.label + ' · ' + row.val.toUpperCase() + '] ' + row.ob.action);
+    }
+  });
+  if (instructions.length === 0) instructions.push('All assessed obligations are compliant. Schedule next periodic review in 6 months.');
+
+  /* Jurisdictions and frameworks */
+  var jurisdictions = [];
+  var frameworks = [];
+  var jurisMap = { fca_dpc:['UK'],eu_ccd2:['EU'],cfpb_reg_z:['US'],ny_dfs:['US'] };
+  var frameworkMap = { fca_dpc:['FCA DPC','FSMA 2023','FCA CONC'],eu_ccd2:['EU CCD2 2023/2225'],cfpb_reg_z:['CFPB Reg Z','TILA','12 CFR 1026'],ny_dfs:['NY DFS BNPL Guidance 2023'] };
+  state.selectedJuris.forEach(function(jid) {
+    (jurisMap[jid]||[]).forEach(function(j){ if(jurisdictions.indexOf(j)===-1) jurisdictions.push(j); });
+    (frameworkMap[jid]||[]).forEach(function(f){ if(frameworks.indexOf(f)===-1) frameworks.push(f); });
+  });
+
+  /* Regulatory citations */
+  var citations = [
+    'FCA FSMA 2023 Sch.9 — BNPL DPC regime effective 15 July 2026',
+    'FCA CONC 4.2, 5.2A, 6.7, 7 — Consumer credit sourcebook',
+    'Consumer Credit Act 1974 s.66A — right of withdrawal',
+    'Directive 2023/2225/EU (CCD2) — Art. 10, 18, 26, 29, 31',
+    '12 CFR Part 1026 (Reg Z) — CFPB BNPL interpretive rule May 2024',
+    'NY DFS BNPL Supervisory Guidance June 2023'
+  ].filter(function(c){
+    // Include only citations for selected jurisdictions
+    if (state.selectedJuris.indexOf('fca_dpc')>=0 && c.indexOf('FCA')>=0) return true;
+    if (state.selectedJuris.indexOf('eu_ccd2')>=0 && c.indexOf('CCD2')>=0) return true;
+    if (state.selectedJuris.indexOf('cfpb_reg_z')>=0 && c.indexOf('CFR')>=0) return true;
+    if (state.selectedJuris.indexOf('ny_dfs')>=0 && c.indexOf('NY DFS')>=0) return true;
+    return false;
+  });
+
+  /* Build source_tool_inputs snapshot */
+  var toolInputs = { selected_jurisdictions: state.selectedJuris };
+  Object.keys(state.assessments).forEach(function(k){ toolInputs[k] = state.assessments[k]; });
+
+  /* Generate mandate_id (deterministic pseudo-UUID from timestamp) */
+  var now = new Date();
+  var mandateId = 'bnpl-' + now.getTime().toString(16) + '-' + Math.floor(Math.random()*0xFFFF).toString(16).padStart(4,'0');
+
+  var mandate = {
+    ap2_version: '1.0',
+    mandate_id: mandateId,
+    issued_at: now.toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: 'bnpl-fca-dpc-readiness-checker',
+    tool_version: '1.0.0',
+    mandate_type: 'compliance_control',
+    jurisdiction: jurisdictions,
+    regulatory_frameworks: frameworks,
+    payload: payload,
+    summary: 'BNPL product assessed against ' + state.selectedJuris.length + ' jurisdiction(s) with composite readiness score of ' + r.composite + '/100 (' + r.tier.label + '). ' + failObligations.length + ' failing obligation(s) and ' + partialObligations.length + ' partial obligation(s) identified. Immediate remediation required for Fail-rated items before applicable regime effective dates.',
+    agent_instructions: instructions,
+    last_reviewed: '2026-05-08',
+    source_tool_inputs: toolInputs,
+    regulatory_citations: citations
+  };
+
+  AP2Schema.validate(mandate);
+  downloadJSON(mandate, 'bnpl-dpc-readiness-ap2-' + now.toISOString().slice(0,10) + '.policy.json');
+}
+
+/* ----------------------------------------------------------
+   CSV export
+   ---------------------------------------------------------- */
+function exportCSV() {
+  if (!state.results) return;
+  var r = state.results;
+  var rows = [
+    ['Regime','Obligation ID','Obligation Name','Article / Rule','Status','Weight','Recommended Action']
+  ];
+  r.gapRows.forEach(function(row) {
+    rows.push([
+      row.label,
+      row.ob.id,
+      '"' + row.ob.name.replace(/"/g,'""') + '"',
+      '"' + row.ob.article.replace(/"/g,'""') + '"',
+      row.val,
+      row.ob.weight,
+      '"' + (row.val !== 'Pass' ? row.ob.action.replace(/"/g,'""') : '') + '"'
+    ]);
+  });
+  var csv = rows.map(function(r){ return r.join(','); }).join('\n');
+  downloadText(csv, 'bnpl-dpc-gap-table-' + new Date().toISOString().slice(0,10) + '.csv', 'text/csv');
+}
+
+/* ----------------------------------------------------------
+   Download helpers
+   ---------------------------------------------------------- */
+function downloadJSON(obj, filename) {
+  var blob = new Blob([JSON.stringify(obj, null, 2)], {type:'application/json'});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+function downloadText(text, filename, mime) {
+  var blob = new Blob(['\uFEFF'+text], {type:(mime||'text/plain')+';charset=utf-8'});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "bnpl-fca-dpc-readiness-checker", "version": "1.0.0", "title": "FCA BNPL / Deferred Payment Credit Readiness Checker", "description": "Deterministic multi-jurisdiction BNPL compliance gap-analysis tool. Outputs Pass/Partial/Fail per obligation with article citations, composite readiness score, and compliance Policy Mandate JSON. Covers FCA DPC (FSMA 2023), EU CCD2 (Directive 2023/2225), US CFPB Reg Z (12 CFR 1026), and NY DFS BNPL Supervisory Guidance (June 2023).", "category": "cat-16", "tags": ["BNPL", "FCA DPC", "EU CCD2", "CFPB Reg Z", "NY DFS", "Consumer Credit", "Compliance", "Gap Analysis"], "audience": ["compliance", "legal", "product", "fintech", "regulatory"], "input_schema": {"type": "object", "required": ["jurisdictions", "assessments"], "properties": {"jurisdictions": {"type": "array", "description": "One or more regulatory regimes to assess. At least one required.", "minItems": 1, "items": {"type": "string", "enum": ["fca_dpc", "eu_ccd2", "cfpb_reg_z", "ny_dfs"]}}, "assessments": {"type": "object", "description": "Obligation assessments keyed by obligation_id. Value must be Pass, Partial, Fail, or NA. Unset obligations default to Fail (conservative scoring).", "additionalProperties": {"type": "string", "enum": ["Pass", "Partial", "Fail", "NA"]}}}}, "output_schema": {"type": "object", "properties": {"composite_score": {"type": "number", "description": "Weighted compliance score 0–100 across all selected jurisdictions."}, "readiness_tier": {"type": "string", "enum": ["Compliant", "Near-Compliant", "Partial", "Non-Compliant"], "description": ">=80 Compliant, 60-79 Near-Compliant, 40-59 Partial, <40 Non-Compliant."}, "jurisdiction_scores": {"type": "object", "description": "Per-jurisdiction score, pass/partial/fail counts.", "additionalProperties": {"type": "object", "properties": {"score": {"type": "number"}, "pass": {"type": "integer"}, "partial": {"type": "integer"}, "fail": {"type": "integer"}, "na": {"type": "integer"}}}}, "gap_table": {"type": "array", "description": "All obligations sorted by severity (Fail first). Includes jurisdiction, obligation name, citation, status, and recommended action.", "items": {"type": "object", "properties": {"jurisdiction": {"type": "string"}, "obligation_id": {"type": "string"}, "obligation_name": {"type": "string"}, "article": {"type": "string"}, "status": {"type": "string", "enum": ["Pass", "Partial", "Fail", "NA"]}, "recommended_action": {"type": "string"}}}}, "ap2_mandate": {"type": "object", "description": "AP2-compatible JSON compliance mandate. See master rules Section 8 for full schema."}}}, "mcp_tool_definition": {"name": "assess_bnpl_compliance_readiness", "description": "Assess BNPL / Deferred Payment Credit compliance readiness across one or more of: FCA DPC (UK, FSMA 2023), EU CCD2 (Directive 2023/2225), US CFPB Reg Z (12 CFR 1026), NY DFS BNPL Guidance (June 2023). Returns composite score 0–100, jurisdiction breakdown, obligation gap table with article citations, and a compliance Policy Mandate JSON. Use when a lender, merchant, or payment provider needs to evaluate multi-jurisdiction BNPL regulatory posture or generate a machine-readable compliance mandate.", "inputSchema": {"type": "object", "required": ["jurisdictions", "assessments"], "properties": {"jurisdictions": {"type": "array", "items": {"type": "string", "enum": ["fca_dpc", "eu_ccd2", "cfpb_reg_z", "ny_dfs"]}}, "assessments": {"type": "object", "additionalProperties": {"type": "string", "enum": ["Pass", "Partial", "Fail", "NA"]}}}}}, "execution": {"type": "browser-javascript", "entry": "tools/187-bnpl-fca-readiness-checker.html", "function_name": "runAssessment", "timeout_ms": 3000}, "ap2_export": true, "regulatory_regimes": {"fca_dpc": {"label": "FCA Deferred Payment Credit", "effective_date": "2026-07-15", "obligation_count": 7, "primary_citations": ["FSMA 2023 Sch.9", "FCA CONC", "CCA 1974"]}, "eu_ccd2": {"label": "EU Consumer Credit Directive 2", "transposition_deadline": "2025-11-20", "obligation_count": 7, "primary_citations": ["Directive 2023/2225/EU", "CCD2 Art.10, 18, 26, 29, 31"]}, "cfpb_reg_z": {"label": "US CFPB Regulation Z", "interpretive_rule_date": "2024-05-01", "obligation_count": 5, "primary_citations": ["12 CFR Part 1026", "TILA", "CFPB BNPL Interpretive Rule 2024"]}, "ny_dfs": {"label": "NY DFS BNPL Supervisory Guidance", "guidance_date": "2023-06-01", "obligation_count": 4, "primary_citations": ["NY DFS BNPL Guidance Jun 2023", "23 NYCRR"]}}, "scoring_methodology": "Pass=1.0×weight, Partial=0.5×weight, Fail=0.0×weight, NA=excluded from denominator. Composite = totalWeightedScore / totalWeightedMax × 100. Critical obligations (authorisation, affordability) carry weight 1.5. Conditional obligations (narrow-scope) carry weight 0.5. Standard obligations carry weight 1.0.", "last_reviewed": "2026-05-08", "notes": "Client-side. Zero PII. All obligation data, scoring logic, and reference tables are embedded in the HTML file. No external API calls."}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

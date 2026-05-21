@@ -1,0 +1,2261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI·07 Agent Signal Integrity Auditor | AINumbers.co</title>
+<meta name="description" content="Stress-test your trading signal logic before you backtest it. Catch look-ahead bias, overfitting, and fee blindness in seconds — entirely in your browser.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="AINumbers.co">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ══════════════════════════════════════
+   POL DESIGN SYSTEM — CSS CUSTOM PROPERTIES
+══════════════════════════════════════ */
+:root {
+  --bg:        #080E1A;
+  --bg-2:      #0D1627;
+  --bg-3:      #111E35;
+  --bg-4:      #162340;
+  --border:    #1E2F4A;
+  --border-2:  #263855;
+  --muted:     #3A5270;
+  --body:      #6888A8;
+  --text:      #A8C4DE;
+  --bright:    #D4E8F8;
+  --white:     #EEF6FD;
+  --teal:      #14B8A6;
+  --teal-dim:  rgba(20,184,166,.12);
+  --teal-glow: rgba(20,184,166,.06);
+  --teal-lt:   #2DD4BF;
+  --gold:      #D4A847;
+  --gold-dim:  rgba(212,168,71,.12);
+  --purple:    #9B72F5;
+  --purple-dim:rgba(155,114,245,.12);
+  --green:     #22C55E;
+  --green-dim: rgba(34,197,94,.12);
+  --red:       #EF4444;
+  --warn:      #F59E0B;
+  --radius:    6px;
+  --radius-lg: 10px;
+  --shadow:    0 4px 24px rgba(0,0,0,.4);
+  /* Legacy aliases */
+  --ink:       #080E1A;
+  --deep:      #0D1627;
+  --navy:      #111E35;
+  --panel:     #162340;
+  --edge:      #1E2F4A;
+  --rim:       #263855;
+  --accent:    #14B8A6;
+  --accent-lt: #2DD4BF;
+  --gold-lt:   #E8C06A;
+  --green-lt:  #22C55E;
+  --green-bg:  rgba(34,197,94,.08);
+  --red-lt:    #F87171;
+  --red-bg:    rgba(239,68,68,.08);
+  --warn-bg:   rgba(245,158,11,.08);
+  --warn-lt:   #FCD34D;
+  --teal-lt:   #2DD4BF;
+  --purple-lt: #B39DFC;
+}
+
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Sora', sans-serif;
+  font-weight: 300;
+  line-height: 1.7;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+h1,h2,h3,h4 { font-family: 'DM Serif Display', serif; font-weight: 400; line-height: 1.15; }
+a { color: inherit; text-decoration: none; }
+.container { max-width: 980px; margin: 0 auto; padding: 0 2rem; }
+
+/* ── NAV ── */
+nav {
+  padding: 0 2rem; height: 52px; border-bottom: 1px solid var(--edge);
+  background: rgba(5,12,21,.97); position: sticky; top: 0; z-index: 100;
+  backdrop-filter: blur(8px);
+}
+.nav-inner { max-width: 980px; margin: 0 auto; height: 100%; display: flex; align-items: center; justify-content: space-between; }
+.nav-logo { font-family: 'DM Serif Display', serif; font-size: 1.05rem; color: var(--bright); letter-spacing: .02em; }
+.nav-logo span { color: var(--gold); }
+.nav-links { display: flex; gap: 1.5rem; align-items: center; }
+.nav-links a { font-family: 'JetBrains Mono', monospace; font-size: .58rem; letter-spacing: .13em; text-transform: uppercase; color: var(--muted); transition: color .2s; }
+.nav-links a:hover { color: var(--accent-lt); }
+.nav-links a.nav-active { color: var(--accent-lt); }
+.nav-cta { font-family: 'JetBrains Mono', monospace; font-size: .58rem; letter-spacing: .12em; text-transform: uppercase; color: var(--white); background: var(--accent); border: 1px solid var(--accent); padding: .3rem .8rem; transition: all .2s; white-space: nowrap; }
+.nav-cta:hover { background: var(--accent-lt); border-color: var(--accent-lt); }
+
+/* ── HERO ── */
+.hero {
+  padding: 4rem 0 3.5rem; border-bottom: 1px solid var(--edge);
+  position: relative; overflow: hidden;
+  animation: fadeUp .4s ease-out both;
+}
+.hero::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+.hero-eyebrow {
+  font-family: 'JetBrains Mono', monospace; font-size: .57rem; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--gold-lt); margin-bottom: 1rem; display: flex; align-items: center; gap: .75rem;
+}
+.hero-eyebrow::before { content: ''; display: block; width: 28px; height: 1px; background: var(--gold); }
+.hero h1 { font-size: clamp(1.8rem,3.5vw,2.8rem); color: var(--white); max-width: 640px; margin-bottom: .9rem; }
+.hero-sub { font-size: .9rem; color: var(--body); max-width: 580px; line-height: 1.85; margin-bottom: 1.5rem; }
+.hero-stats { display: flex; gap: 2rem; flex-wrap: wrap; }
+.hero-stat { display: flex; flex-direction: column; gap: .2rem; }
+.hero-stat-num { font-family: 'DM Serif Display', serif; font-size: 1.8rem; color: var(--white); line-height: 1; }
+.hero-stat-lbl { font-family: 'JetBrains Mono', monospace; font-size: .48rem; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.hero-divider { width: 1px; background: var(--edge); align-self: stretch; }
+
+/* ── PRIVACY BAR ── */
+.privacy-bar { background: rgba(42,127,192,.04); border-bottom: 1px solid var(--edge); padding: .6rem 0; }
+.privacy-bar-inner { max-width: 980px; margin: 0 auto; padding: 0 2rem; display: flex; align-items: center; gap: .75rem; }
+.privacy-bar-icon { color: var(--green-lt); font-size: .75rem; flex-shrink: 0; }
+.privacy-bar-text { font-family: 'JetBrains Mono', monospace; font-size: .5rem; letter-spacing: .05em; color: var(--muted); line-height: 1.55; }
+.privacy-bar-text strong { color: var(--body); }
+
+/* ── TOOL SECTION ── */
+.tool-section { padding: 3rem 0 5rem; }
+
+/* ── INPUT PANEL ── */
+.input-panel {
+  background: var(--panel); border: 1px solid var(--edge);
+  margin-bottom: 2rem;
+  animation: fadeUp .4s ease-out both;
+  animation-delay: .1s;
+}
+.input-tabs { display: flex; border-bottom: 1px solid var(--edge); }
+.tab-btn {
+  font-family: 'JetBrains Mono', monospace; font-size: .56rem; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--muted); background: transparent; border: none; border-right: 1px solid var(--edge);
+  padding: .75rem 1.25rem; cursor: pointer; transition: color .2s, background .2s;
+}
+.tab-btn:last-child { border-right: none; }
+.tab-btn.active { color: var(--accent-lt); background: rgba(42,127,192,.06); border-bottom: 2px solid var(--accent); }
+.tab-btn:hover:not(.active) { color: var(--body); background: rgba(255,255,255,.02); }
+
+.tab-content { display: none; padding: 1.5rem; }
+.tab-content.active { display: block; }
+
+textarea {
+  width: 100%; background: var(--deep); border: 1px solid var(--edge); color: var(--text);
+  font-family: 'JetBrains Mono', monospace; font-size: .75rem; line-height: 1.7;
+  padding: 1rem; resize: vertical; outline: none; transition: border-color .2s;
+  min-height: 140px;
+}
+textarea:focus { border-color: var(--accent); }
+textarea::placeholder { color: var(--muted); }
+
+/* Quick fill */
+.quick-fill-toggle {
+  font-family: 'JetBrains Mono', monospace; font-size: .52rem; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); background: transparent; border: none; cursor: pointer; padding: .75rem 0 0;
+  display: flex; align-items: center; gap: .5rem; transition: color .2s;
+}
+.quick-fill-toggle:hover { color: var(--body); }
+.quick-fill-toggle .caret { transition: transform .2s; }
+.quick-fill-toggle.open .caret { transform: rotate(90deg); }
+
+.quick-fill-fields { display: none; padding-top: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.quick-fill-fields.hidden { display: none; }
+
+.field-group { display: flex; flex-direction: column; gap: .4rem; }
+.field-label { font-family: 'JetBrains Mono', monospace; font-size: .48rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+input[type="text"], select {
+  background: var(--deep); border: 1px solid var(--edge); color: var(--text);
+  font-family: 'Sora', sans-serif; font-size: .8rem; padding: .5rem .75rem;
+  outline: none; transition: border-color .2s; width: 100%;
+}
+input[type="text"]:focus, select:focus { border-color: var(--accent); }
+input[type="text"]::placeholder { color: var(--muted); }
+select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a6a8a'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .75rem center; padding-right: 2rem; }
+
+/* Example chips */
+.example-chips { display: flex; align-items: center; gap: .5rem; margin-top: 1rem; flex-wrap: wrap; }
+.chip-label { font-family: 'JetBrains Mono', monospace; font-size: .46rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.chip {
+  font-family: 'JetBrains Mono', monospace; font-size: .46rem; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--accent-lt); background: rgba(42,127,192,.08); border: 1px solid rgba(42,127,192,.25);
+  padding: .2rem .6rem; cursor: pointer; transition: all .2s;
+}
+.chip:hover { background: rgba(42,127,192,.15); border-color: var(--accent-lt); }
+
+/* Run audit button */
+.run-btn-row { padding: 0 1.5rem 1.5rem; }
+.run-btn {
+  width: 100%; font-family: 'JetBrains Mono', monospace; font-size: .7rem; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--white); background: var(--accent); border: 1px solid var(--accent);
+  padding: .9rem 2rem; cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center; gap: .75rem;
+}
+.run-btn:hover:not(:disabled) { background: var(--accent-lt); border-color: var(--accent-lt); }
+.run-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+/* PII warning */
+.pii-warning {
+  background: rgba(46,13,13,.6); border: 1px solid rgba(192,64,64,.4); border-left: 3px solid var(--red-lt);
+  padding: .75rem 1.25rem; margin: 0 1.5rem 1rem; display: flex; align-items: flex-start; gap: .75rem;
+}
+.pii-warning.hidden { display: none; }
+.pii-warning-icon { color: var(--red-lt); flex-shrink: 0; font-size: .9rem; }
+.pii-warning-text { font-size: .78rem; color: var(--text); line-height: 1.6; }
+
+/* JSON validate button */
+.validate-btn {
+  font-family: 'JetBrains Mono', monospace; font-size: .56rem; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--accent-lt); background: transparent; border: 1px solid rgba(42,127,192,.3);
+  padding: .45rem 1rem; cursor: pointer; transition: all .2s; margin-top: .75rem;
+}
+.validate-btn:hover { background: rgba(42,127,192,.08); border-color: var(--accent-lt); }
+.json-status { font-family: 'JetBrains Mono', monospace; font-size: .52rem; letter-spacing: .08em; margin-top: .5rem; }
+.json-status.valid { color: var(--green-lt); }
+.json-status.invalid { color: var(--red-lt); }
+
+/* ── LOADING STATE ── */
+.loading-state {
+  background: var(--panel); border: 1px solid var(--edge);
+  padding: 2rem; margin-bottom: 2rem; text-align: center; display: none;
+}
+.loading-state.active { display: block; }
+.loading-spinner {
+  display: inline-block; width: 18px; height: 18px;
+  border: 2px solid var(--edge); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: .5rem;
+}
+.loading-title { font-family: 'JetBrains Mono', monospace; font-size: .65rem; letter-spacing: .12em; text-transform: uppercase; color: var(--body); margin-bottom: 1rem; }
+.loading-steps { list-style: none; text-align: left; max-width: 380px; margin: 0 auto; }
+.loading-steps li {
+  font-family: 'JetBrains Mono', monospace; font-size: .6rem; letter-spacing: .06em; color: var(--muted);
+  padding: .35rem 0; border-bottom: 1px solid var(--edge); display: flex; align-items: center; gap: .6rem;
+}
+.loading-steps li .step-icon { flex-shrink: 0; color: var(--edge); }
+.loading-steps li.done .step-icon { color: var(--green-lt); }
+.loading-steps li.active .step-icon { color: var(--accent-lt); }
+.loading-steps li.done { color: var(--body); }
+.loading-steps li.active { color: var(--text); }
+
+/* ── PARSED STRATEGY DISCLOSURE ── */
+.parsed-disclosure {
+  background: var(--deep); border: 1px solid var(--edge); margin-bottom: 2rem; display: none;
+}
+.parsed-disclosure.visible { display: block; }
+.parsed-disclosure summary {
+  font-family: 'JetBrains Mono', monospace; font-size: .56rem; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); padding: .75rem 1rem; cursor: pointer; list-style: none; display: flex; align-items: center; gap: .5rem;
+  transition: color .2s;
+}
+.parsed-disclosure summary::before { content: '▸'; transition: transform .2s; }
+.parsed-disclosure[open] summary::before { transform: rotate(90deg); }
+.parsed-disclosure summary:hover { color: var(--body); }
+.parsed-disclosure pre {
+  font-family: 'JetBrains Mono', monospace; font-size: .65rem; color: var(--text);
+  padding: 1rem; overflow-x: auto; border-top: 1px solid var(--edge); line-height: 1.6;
+}
+
+/* ── AUDIT RESULTS ── */
+.audit-results { display: none; }
+.audit-results.visible { display: block; }
+
+/* Summary bar */
+.summary-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.5rem; border: 1px solid var(--edge); border-left-width: 4px;
+  background: var(--panel); margin-bottom: 1.5rem; flex-wrap: wrap; gap: .75rem;
+}
+.summary-bar.pass { border-left-color: var(--green-lt); }
+.summary-bar.warning { border-left-color: var(--warn-lt); }
+.summary-bar.critical { border-left-color: var(--red-lt); }
+.summary-bar-verdict { font-family: 'DM Serif Display', serif; font-size: 1.1rem; color: var(--white); display: flex; align-items: center; gap: .6rem; }
+.summary-bar-icon { font-size: 1.1rem; }
+.summary-counts { display: flex; gap: .5rem; flex-wrap: wrap; }
+.count-chip {
+  font-family: 'JetBrains Mono', monospace; font-size: .46rem; letter-spacing: .1em; text-transform: uppercase;
+  padding: .2rem .6rem; border: 1px solid;
+}
+.count-chip.pass { color: var(--green-lt); border-color: rgba(42,168,106,.3); }
+.count-chip.warning { color: var(--warn-lt); border-color: rgba(216,152,48,.3); }
+.count-chip.critical { color: var(--red-lt); border-color: rgba(192,64,64,.3); }
+.count-chip.info { color: var(--teal-lt); border-color: rgba(42,172,172,.3); }
+
+/* Audit module cards */
+.module-cards { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem; }
+.audit-card {
+  border: 1px solid var(--edge); border-left-width: 3px;
+  padding: 1.25rem 1.5rem; position: relative;
+  animation: fadeUp .35s ease-out both;
+}
+.audit-card.pass { border-left-color: var(--green-lt); background: rgba(13,46,30,.15); }
+.audit-card.warning { border-left-color: var(--warn-lt); background: rgba(46,30,13,.15); }
+.audit-card.critical { border-left-color: var(--red-lt); background: rgba(46,13,13,.2); }
+.audit-card.info { border-left-color: var(--accent-lt); }
+.audit-card.pending { border-left-color: var(--muted); animation: pulse-border 2s ease-in-out infinite; }
+
+@keyframes pulse-border { 0%,100% { border-left-color: var(--muted); } 50% { border-left-color: var(--body); } }
+
+.card-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
+.card-title { display: flex; align-items: center; gap: .6rem; font-family: 'Sora', sans-serif; font-size: .95rem; font-weight: 500; color: var(--bright); }
+.card-icon { font-size: 1.1rem; }
+.status-badge {
+  font-family: 'JetBrains Mono', monospace; font-size: .42rem; letter-spacing: .1em; text-transform: uppercase;
+  padding: .2rem .55rem; border: 1px solid; border-radius: 999px; flex-shrink: 0;
+}
+.status-badge.pass { color: var(--green-lt); border-color: rgba(42,168,106,.4); background: rgba(42,168,106,.08); }
+.status-badge.warning { color: var(--warn-lt); border-color: rgba(216,152,48,.4); background: rgba(216,152,48,.08); }
+.status-badge.critical { color: var(--red-lt); border-color: rgba(192,64,64,.4); background: rgba(192,64,64,.08); }
+.status-badge.info { color: var(--teal-lt); border-color: rgba(42,172,172,.4); background: rgba(42,172,172,.06); }
+.status-badge.pending { color: var(--muted); border-color: var(--edge); }
+
+.card-divider { border: none; border-top: 1px solid var(--edge); margin: .75rem 0; }
+.card-finding { font-size: .82rem; color: var(--text); line-height: 1.7; margin-bottom: .75rem; }
+.card-flags { list-style: none; margin-bottom: .75rem; display: flex; flex-direction: column; gap: .4rem; }
+.flag-item { display: flex; gap: .6rem; font-size: .78rem; line-height: 1.5; }
+.flag-bullet { font-family: 'JetBrains Mono', monospace; font-size: .46rem; letter-spacing: .08em; text-transform: uppercase; padding: .1rem .45rem; border: 1px solid; flex-shrink: 0; align-self: flex-start; margin-top: .15rem; }
+.flag-bullet.critical { color: var(--red-lt); border-color: rgba(192,64,64,.4); }
+.flag-bullet.warning { color: var(--warn-lt); border-color: rgba(216,152,48,.4); }
+.flag-bullet.info { color: var(--teal-lt); border-color: rgba(42,172,172,.4); }
+.flag-content { flex: 1; color: var(--body); }
+.flag-item-name { color: var(--text); font-weight: 400; }
+.card-recommendation { font-size: .78rem; color: var(--muted); line-height: 1.65; font-style: italic; border-top: 1px solid var(--edge); padding-top: .75rem; }
+.card-recommendation strong { color: var(--body); font-style: normal; }
+
+/* Survivorship questionnaire */
+.questionnaire { margin-top: .75rem; display: flex; flex-direction: column; gap: 1rem; }
+.q-item { }
+.q-question { font-size: .82rem; color: var(--text); margin-bottom: .5rem; }
+.q-options { display: flex; flex-wrap: wrap; gap: .4rem; }
+.q-option {
+  font-family: 'JetBrains Mono', monospace; font-size: .5rem; letter-spacing: .08em;
+  color: var(--muted); background: var(--deep); border: 1px solid var(--edge);
+  padding: .35rem .75rem; cursor: pointer; transition: all .2s;
+}
+.q-option:hover { color: var(--text); border-color: var(--rim); }
+.q-option.selected { color: var(--accent-lt); border-color: var(--accent); background: rgba(42,127,192,.1); }
+
+/* ── BANZHUAN HANDOFF PANEL ── */
+.banzhuan-panel {
+  border: 1px solid rgba(192,144,64,.4); border-left: 4px solid var(--gold);
+  background: linear-gradient(135deg, rgba(20,37,64,.7) 0%, rgba(10,22,40,.9) 100%);
+  padding: 1.5rem; margin-top: 2rem; position: relative;
+}
+.banzhuan-panel::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, var(--gold), transparent);
+}
+.banzhuan-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.banzhuan-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: .48rem; letter-spacing: .18em; text-transform: uppercase; color: var(--gold-lt); display: block; margin-bottom: .4rem; }
+.banzhuan-title { font-family: 'DM Serif Display', serif; font-size: 1.2rem; color: var(--white); }
+.banzhuan-desc { font-size: .82rem; color: var(--body); line-height: 1.7; margin-bottom: 1.25rem; max-width: 580px; }
+.banzhuan-actions { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+.btn-primary {
+  font-family: 'JetBrains Mono', monospace; font-size: .56rem; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--white); background: var(--accent); border: 1px solid var(--accent);
+  padding: .55rem 1.1rem; cursor: pointer; transition: all .2s;
+}
+.btn-primary:hover { background: var(--accent-lt); border-color: var(--accent-lt); }
+.btn-secondary {
+  font-family: 'JetBrains Mono', monospace; font-size: .56rem; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--accent-lt); background: transparent; border: 1px solid rgba(42,127,192,.35);
+  padding: .55rem 1.1rem; cursor: pointer; transition: all .2s;
+}
+.btn-secondary:hover { background: rgba(42,127,192,.08); border-color: var(--accent-lt); }
+.btn-gold {
+  font-family: 'JetBrains Mono', monospace; font-size: .56rem; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--gold-lt); background: transparent; border: 1px solid rgba(192,144,64,.4);
+  padding: .55rem 1.1rem; cursor: pointer; transition: all .2s; display: inline-flex; align-items: center; gap: .4rem;
+  text-decoration: none;
+}
+.btn-gold:hover { background: rgba(192,144,64,.08); border-color: var(--gold-lt); }
+
+/* ── EXPORT ROW ── */
+.export-row { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--edge); }
+
+/* ── DISCLAIMER ── */
+.audit-disclaimer {
+  background: rgba(42,127,192,.03); border: 1px solid var(--edge); border-left: 3px solid var(--muted);
+  padding: 1rem 1.25rem; margin-top: 2rem; font-size: .76rem; color: var(--muted); line-height: 1.7;
+}
+.audit-disclaimer strong { color: var(--body); }
+
+/* ── RECENT AUDITS ── */
+.recent-audits { margin-top: 3rem; display: none; }
+.recent-audits.visible { display: block; }
+.recent-header { font-family: 'JetBrains Mono', monospace; font-size: .52rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; display: flex; align-items: center; gap: .75rem; }
+.recent-header::before { content: ''; display: block; flex: 1; height: 1px; background: var(--edge); }
+.recent-list { display: flex; flex-direction: column; gap: .5rem; }
+.recent-item {
+  background: var(--deep); border: 1px solid var(--edge); padding: .75rem 1rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  cursor: pointer; transition: background .2s; font-size: .78rem; color: var(--body);
+}
+.recent-item:hover { background: var(--navy); color: var(--text); }
+.recent-item-meta { font-family: 'JetBrains Mono', monospace; font-size: .46rem; letter-spacing: .08em; color: var(--muted); }
+.recent-clear {
+  font-family: 'JetBrains Mono', monospace; font-size: .46rem; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); background: transparent; border: none; cursor: pointer; transition: color .2s;
+}
+.recent-clear:hover { color: var(--red-lt); }
+
+/* ── ERROR STATES ── */
+.inline-error {
+  background: rgba(46,13,13,.5); border: 1px solid rgba(192,64,64,.35); border-left: 3px solid var(--red-lt);
+  padding: .75rem 1rem; font-size: .8rem; color: var(--text); line-height: 1.6; display: none;
+  margin-bottom: 1rem;
+}
+.inline-error.visible { display: block; }
+.inline-error .retry-btn {
+  font-family: 'JetBrains Mono', monospace; font-size: .5rem; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--accent-lt); background: transparent; border: 1px solid rgba(42,127,192,.3);
+  padding: .25rem .65rem; cursor: pointer; margin-left: .75rem; transition: all .2s;
+}
+.inline-error .retry-btn:hover { background: rgba(42,127,192,.1); }
+
+/* ── FOOTER ── */
+footer { padding: 2rem 0; border-top: 1px solid var(--edge); }
+.footer-inner { max-width: 980px; margin: 0 auto; padding: 0 2rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; }
+.footer-brand { font-family: 'DM Serif Display', serif; font-size: .95rem; color: var(--bright); margin-bottom: .4rem; }
+.footer-brand span { color: var(--gold); }
+.footer-copy { font-family: 'JetBrains Mono', monospace; font-size: .52rem; letter-spacing: .08em; color: var(--muted); line-height: 1.7; }
+.footer-copy a { color: var(--accent-lt); }
+.footer-links { display: flex; gap: 1.25rem; flex-wrap: wrap; align-items: center; }
+.footer-links a { font-family: 'JetBrains Mono', monospace; font-size: .52rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); transition: color .2s; }
+.footer-links a:hover { color: var(--accent-lt); }
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.audit-card:nth-child(1) { animation-delay: .05s; }
+.audit-card:nth-child(2) { animation-delay: .10s; }
+.audit-card:nth-child(3) { animation-delay: .15s; }
+.audit-card:nth-child(4) { animation-delay: .20s; }
+.audit-card:nth-child(5) { animation-delay: .25s; }
+.audit-card:nth-child(6) { animation-delay: .30s; }
+
+/* ── COPY TOAST ── */
+.copy-toast {
+  position: fixed; bottom: 2rem; right: 2rem; background: var(--green); border: 1px solid var(--green-lt);
+  color: var(--white); font-family: 'JetBrains Mono', monospace; font-size: .6rem; letter-spacing: .1em;
+  text-transform: uppercase; padding: .6rem 1.1rem; z-index: 500;
+  animation: fadeUp .25s ease-out; display: none;
+}
+.copy-toast.visible { display: block; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 720px) {
+  .nav-links { display: none; }
+  .hero-stats { gap: 1.25rem; }
+  .hero-divider { display: none; }
+  .quick-fill-fields { grid-template-columns: 1fr; }
+  .summary-bar { flex-direction: column; align-items: flex-start; }
+}
+@media (max-width: 480px) {
+  .tab-btn { font-size: .5rem; padding: .65rem .9rem; }
+  .banzhuan-actions { flex-direction: column; }
+  .export-row { flex-direction: column; }
+}
+
+/* ── BACK LINK ── */
+.back-link { font-family: 'JetBrains Mono', monospace; font-size: .5rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: inline-flex; align-items: center; gap: .4rem; margin-bottom: 2rem; transition: color .2s; }
+.back-link:hover { color: var(--accent-lt); }
+
+/* ── SECTION HEADING ── */
+.section-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: .5rem; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin-bottom: .35rem; }
+
+/* Quick status label in loading */
+.step-label { font-family: 'JetBrains Mono', monospace; font-size: .55rem; }
+
+/* ── AINUMBERS LOGO ── */
+.logo { display:flex; align-items:center; gap:10px; flex-shrink:0; text-decoration:none; }
+.logo-mark-grid { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:32px; height:32px; }
+.logo-text { display:flex; flex-direction:column; gap:2px; }
+.logo-name { font-family:'JetBrains Mono',monospace; font-size:.95rem; font-weight:500; color:var(--bright); letter-spacing:-.02em; line-height:1; }
+.logo-ai { color:var(--teal); }
+.logo-co { color:var(--muted); font-size:.8rem; }
+
+@media(max-width:600px){}
+
+/* ── NAV CTA ── */
+.nav-cta {
+  font-family:'JetBrains Mono',monospace !important; font-size:.58rem !important;
+  letter-spacing:.12em !important; text-transform:uppercase !important;
+  color:var(--bg) !important; background:var(--teal) !important;
+  border:1px solid var(--teal) !important; padding:.3rem .85rem !important;
+  border-radius:6px !important; transition:all .2s !important;
+}
+.nav-cta:hover { background:var(--teal-lt) !important; border-color:var(--teal-lt) !important; }
+
+/* ── BACKGROUND GRID ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(20,184,166,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20,184,166,.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── FOOTER ── */
+footer { border-top:1px solid var(--border); padding:2rem 0; margin-top:2rem; position:relative; z-index:1; }
+.footer-inner-ai { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:1rem; }
+.footer-brand-link { display:flex; align-items:center; gap:.5rem; text-decoration:none; color:var(--text); }
+.logo-icon-sm { width:28px; height:28px; background:linear-gradient(135deg,var(--teal),#0D9488); border-radius:5px; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:11px; color:var(--bg); font-family:'JetBrains Mono',monospace; }
+.footer-wordmark { font-family:'JetBrains Mono',monospace; font-size:.9rem; font-weight:500; color:var(--bright); }
+.footer-links-ai { display:flex; gap:1.5rem; }
+.footer-links-ai a { color:var(--body); font-size:.82rem; transition:color .15s; }
+.footer-links-ai a:hover { color:var(--teal-lt); }
+.footer-badge-ai { display:flex; align-items:center; gap:1rem; font-size:.72rem; color:var(--muted); }
+@media(max-width:600px){ .footer-inner-ai{flex-direction:column;text-align:center;} .footer-badge-ai{flex-direction:column;gap:.4rem;} }
+
+/* ── Z-INDEX ── */
+/* ── Footer ─────────────────────────────────────────── */
+footer { border-top: 1px solid var(--border); padding: 1.75rem 1.5rem; margin-top: 3rem; }
+.footer-inner-ai { display:flex; align-items:center; gap:2rem; flex-wrap:wrap; justify-content:space-between; }
+.footer-links-ai { display:flex; gap:1.25rem; font-family:'JetBrains Mono',monospace; font-size:.52rem; color:var(--muted); }
+.footer-links-ai a { color:var(--muted); text-decoration:none; transition:color .2s; }
+.footer-links-ai a:hover { color:var(--teal-lt); }
+.footer-badge-ai { display:flex; flex-direction:column; gap:.3rem; font-family:'JetBrains Mono',monospace; font-size:.5rem; color:var(--muted); }
+.footer-brand-link { display:flex; align-items:center; gap:.5rem; text-decoration:none; color:var(--text); }
+.footer-wordmark { font-family:'JetBrains Mono',monospace; font-size:.9rem; font-weight:500; }
+.logo-icon-sm { background:var(--teal); color:#000; font-weight:700; font-size:.7rem; padding:.15rem .3rem; border-radius:3px; }
+@media(max-width:640px){ .footer-inner-ai { flex-direction:column; text-align:center; } .footer-badge-ai { align-items:center; } }
+
+/* ── Lang bar ── */
+.lang-bar{background:var(--bg-2,#1a2332);border-bottom:1px solid var(--border,#2a3a50);padding:0 2rem;height:34px;display:flex;align-items:center;width:100%}
+.lang-inner{max-width:1200px;margin:0 auto;width:100%;display:flex;gap:.5rem;justify-content:flex-end}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted,#8899aa);background:transparent;border:1px solid transparent;padding:.2rem .5rem;cursor:pointer;transition:color .15s,border-color .15s;line-height:1}
+.lang-btn:hover{color:var(--body,#ccd9e8);border-color:var(--border,#2a3a50)}
+.lang-btn.active{color:var(--teal-lt,#5ecfcf);border-bottom:1px solid var(--teal,#2ab8b8)}
+
+/* RTL support — AIN canonical */
+[dir="rtl"] .lang-bar .lang-inner { flex-direction: row-reverse; ;justify-content:flex-end}
+[dir="rtl"] .nav-inner            { flex-direction: row-reverse; }
+[dir="rtl"] .nav-bc               { flex-direction: row-reverse; }
+[dir="rtl"] .nav-bc-sep           { transform: scaleX(-1); }
+[dir="rtl"] .nav-right            { flex-direction: row-reverse; }
+[dir="rtl"] .hero, [dir="rtl"] .content, [dir="rtl"] .layout { text-align: right; }
+[dir="rtl"] .footer-inner-ai      { flex-direction: row-reverse; }
+[dir="rtl"] .footer-links-ai      { flex-direction: row-reverse; }
+
+/* nav-bc + nav-right — AIN canonical */
+.nav-bc{display:flex;align-items:center;gap:.4rem;font-size:.7rem;color:var(--muted);justify-content:center}
+.nav-bc a{color:var(--muted);transition:color .2s}.nav-bc a:hover{color:var(--text)}
+.nav-bc-sep{color:var(--border-2);font-size:.65rem}
+.nav-bc-current{font-weight:500}
+.nav-right{display:flex;align-items:center;gap:.4rem;margin-left:auto}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;
+  padding:.25rem .7rem;border:1px solid var(--border);border-radius:var(--radius);
+  background:transparent;color:var(--muted);cursor:pointer;transition:all .2s;white-space:nowrap}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+
+
+/* MCP manifest panel */
+.mcp-section{border-top:1px solid var(--border);padding:2rem 0}
+.mcp-toggle{display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;padding:.75rem 1rem;background:var(--bg-2);border:1px solid var(--border);
+  border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.7rem;
+  color:var(--muted);letter-spacing:.06em}
+.mcp-toggle:hover{border-color:var(--teal);color:var(--teal)}
+.pii-notice{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);
+  border-left:3px solid var(--teal);padding:.75rem 1rem;margin:1rem 0 1.5rem;
+  font-size:.72rem;color:var(--body);line-height:1.6;border-radius:var(--radius)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-body pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;overflow-x:auto;margin:0}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+
+<!-- AIN-reconcile-2026-05-17 -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     NAV
+══════════════════════════════════════ -->
+<!-- NAV -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/rbe-deterministic-suite-hub.html">RBE Suite Hub</a></div>
+    <a href="../guides/rbe-deterministic-suite-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<!-- ══════════════════════════════════════
+     HERO
+══════════════════════════════════════ -->
+<div class="hero">
+  <div class="container">
+    <p class="hero-eyebrow">RBE · 07 | AINumbers.co × BanZhuan.ai</p>
+    <h1 class="tool-title"><span data-i18n="tai07.h1">Agent Signal Integrity Auditor</span></h1>
+    <p class="hero-sub"><span data-i18n="tai07.hero_sub">
+      Stress-test your trading strategy logic before it touches BanZhuan's backtest engine.
+      Catch look-ahead bias, overfitting, signal redundancy, and fee blindness — entirely in your browser.
+    </span></p>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <span class="hero-stat-num">6</span>
+        <span class="hero-stat-lbl">Audit modules</span>
+      </div>
+      <div class="hero-divider"></div>
+      <div class="hero-stat">
+        <span class="hero-stat-num">0</span>
+        <span class="hero-stat-lbl">API calls made</span>
+      </div>
+      <div class="hero-divider"></div>
+      <div class="hero-stat">
+        <span class="hero-stat-num">AP2</span>
+        <span class="hero-stat-lbl">Compatible export</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     PRIVACY BAR
+══════════════════════════════════════ -->
+<div class="privacy-bar">
+  <div class="privacy-bar-inner">
+    <div class="privacy-bar-icon">■</div>
+    <div class="privacy-bar-text">
+      <strong>Fully offline.</strong> All parsing and audit logic runs entirely in your browser using deterministic JavaScript. No data is transmitted anywhere — no API calls, no server, no telemetry.
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MAIN TOOL
+══════════════════════════════════════ -->
+<div class="tool-section">
+  <div class="container">
+
+    <a href="/tools.html" class="back-link">← All Tools</a>
+
+    <!-- INPUT PANEL -->
+    <div class="input-panel">
+      <div class="input-tabs">
+        <button class="tab-btn active" data-tab="plaintext">Plain English</button>
+        <button class="tab-btn" data-tab="json">Paste JSON</button>
+      </div>
+
+      <!-- Tab A: Plain English -->
+      <div id="tab-plaintext" class="tab-content active">
+        <textarea id="strategy-input" rows="7" placeholder="Describe your strategy in plain English.
+Example: If BTC sentiment score exceeds 0.72 and the 4-hour RSI is below 65, enter long with 10% of portfolio. Exit if sentiment drops below 0.4 or price falls 3% from entry. Universe: BTC and ETH perpetuals on Hyperliquid. Lookback for backtesting: 2023–2024."></textarea>
+
+        <button class="quick-fill-toggle" id="qf-toggle">
+          <span class="caret">▸</span>
+          Add context (optional)
+        </button>
+
+        <div class="quick-fill-fields hidden" id="quick-fill">
+          <div class="field-group">
+            <label class="field-label" for="f-assets">Asset universe</label>
+            <input type="text" id="f-assets" placeholder="e.g. BTC-PERP, ETH-PERP on Hyperliquid">
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="f-window">Backtest window</label>
+            <input type="text" id="f-window" placeholder="e.g. Jan 2023 – Dec 2024">
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="f-freq">Trading frequency</label>
+            <select id="f-freq">
+              <option value="">— Select —</option>
+              <option value="high">High (&gt;10 trades/day)</option>
+              <option value="medium">Medium (1–10/day)</option>
+              <option value="low">Low (&lt;1/day)</option>
+              <option value="event_driven">Event-driven</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="f-capital">Capital at risk</label>
+            <select id="f-capital">
+              <option value="">— Select —</option>
+              <option value="small">&lt;$10K</option>
+              <option value="medium">$10K–$100K</option>
+              <option value="large">$100K–$1M</option>
+              <option value="xlarge">&gt;$1M</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="example-chips">
+          <span class="chip-label">Try an example:</span>
+          <button class="chip" data-example="lookahead">Look-ahead bias</button>
+          <button class="chip" data-example="overfitting">Overfitting risk</button>
+          <button class="chip" data-example="clean">Clean strategy</button>
+        </div>
+      </div>
+
+      <!-- Tab B: JSON -->
+      <div id="tab-json" class="tab-content">
+        <p style="font-size:.78rem;color:var(--body);margin-bottom:.75rem;line-height:1.65;">
+          Paste a pre-structured strategy JSON to skip the LLM parsing step. Must follow the schema below.
+        </p>
+        <textarea id="json-input" rows="10" placeholder='{
+  "signals": [
+    { "name": "sentiment_score", "type": "external_feed", "threshold": 0.72, "direction": "above", "lookback_required": false, "references_future": false },
+    { "name": "rsi_4h", "type": "price_derived", "threshold": 65, "direction": "below", "lookback_required": true, "references_future": false }
+  ],
+  "entry_conditions": ["sentiment_score > 0.72 AND rsi_4h < 65"],
+  "exit_conditions": ["sentiment_score < 0.4 OR drawdown > 3%"],
+  "position_size_pct": 10,
+  "stop_loss_pct": 3,
+  "take_profit_pct": null,
+  "universe": ["BTC-PERP", "ETH-PERP"],
+  "backtest_window_months": 24,
+  "trading_frequency": "medium",
+  "free_parameters": 4,
+  "ambiguities": []
+}'></textarea>
+        <button class="validate-btn" id="validate-json-btn">Validate JSON</button>
+        <p class="json-status" id="json-status"></p>
+      </div>
+
+      <div id="pii-warning" class="pii-warning hidden">
+        <span class="pii-warning-icon">⚠</span>
+        <div class="pii-warning-text" id="pii-warning-text">Sensitive data detected. Please remove it before submitting.</div>
+      </div>
+    </div><!-- /.input-panel -->
+
+    <!-- Error -->
+    <div class="inline-error" id="inline-error">
+      <span id="error-text"></span>
+      <button class="retry-btn" id="retry-btn">Retry</button>
+    </div>
+
+    <!-- Run Audit Button -->
+    <div class="run-btn-row" style="padding:0 0 1.5rem;">
+      <button class="run-btn" id="run-audit-btn" disabled>
+        Run Audit →
+      </button>
+    </div>
+
+    <!-- LOADING STATE -->
+    <div class="loading-state" id="loading-state">
+      <p class="loading-title">
+        <span class="loading-spinner"></span>
+        <span id="loading-label">Parsing strategy logic...</span>
+      </p>
+      <ul class="loading-steps" id="loading-steps">
+        <li id="step-parse">
+          <span class="step-icon">◌</span>
+          <span class="step-label">Parsing strategy via LLM</span>
+        </li>
+        <li id="step-lookahead">
+          <span class="step-icon">◌</span>
+          <span class="step-label">Look-ahead bias check</span>
+        </li>
+        <li id="step-overfit">
+          <span class="step-icon">◌</span>
+          <span class="step-label">Overfitting risk assessment</span>
+        </li>
+        <li id="step-corr">
+          <span class="step-icon">◌</span>
+          <span class="step-label">Signal correlation analysis</span>
+        </li>
+        <li id="step-surv">
+          <span class="step-icon">◌</span>
+          <span class="step-label">Survivorship bias screen</span>
+        </li>
+        <li id="step-fees">
+          <span class="step-icon">◌</span>
+          <span class="step-label">Fee &amp; slippage reality check</span>
+        </li>
+        <li id="step-consist">
+          <span class="step-icon">◌</span>
+          <span class="step-label">Internal consistency validation</span>
+        </li>
+      </ul>
+    </div>
+
+    <!-- PARSED STRATEGY DISCLOSURE -->
+    <details class="parsed-disclosure" id="parsed-disclosure">
+      <summary>Parsed strategy (click to review)</summary>
+      <pre id="parsed-json-pre"></pre>
+    </details>
+
+    <!-- AUDIT RESULTS -->
+    <div class="audit-results" id="audit-results">
+
+      <!-- Summary bar -->
+      <div class="summary-bar" id="summary-bar">
+        <div class="summary-bar-verdict" id="summary-verdict"></div>
+        <div class="summary-counts" id="summary-counts"></div>
+      </div>
+
+      <!-- Module cards -->
+      <div class="module-cards" id="module-cards"></div>
+
+      <!-- BanZhuan handoff panel -->
+      <div class="banzhuan-panel" id="banzhuan-panel">
+        <div class="banzhuan-header">
+          <div>
+            <span class="banzhuan-eyebrow">AINumbers.co · Handoff</span>
+            <div class="banzhuan-title">✓ Audit complete — ready to backtest</div>
+          </div>
+        </div>
+        <p class="banzhuan-desc">
+          Your strategy has been packaged as a BanZhuan-compatible config. Paste it into BanZhuan's visual builder or AI assistant to begin backtesting with realistic fill models.
+        </p>
+        <div class="banzhuan-actions">
+          <button class="btn-primary" id="copy-banzhuan-btn">Copy BanZhuan Config JSON</button>
+          <button class="btn-secondary" id="download-banzhuan-btn">Download .json</button>
+          <a class="btn-gold" href="https://banzhuan.ai?ref=postoaklabs&utm_source=ai07-signal-auditor&utm_medium=tool" target="_blank" rel="noopener">Open BanZhuan.ai ↗</a>
+        </div>
+      </div>
+
+      <!-- Export row -->
+      <div class="export-row">
+        <button class="btn-secondary" id="download-md-btn">↓ Download Audit Report (.md)</button>
+        <button class="btn-secondary" id="download-ap2-btn">↓ Download AP2 JSON</button>
+        <button class="btn-secondary" id="share-btn">⧉ Share permalink</button>
+        <button class="btn-secondary" id="new-audit-btn" style="margin-left:auto;">← New Audit</button>
+      </div>
+
+      <!-- Disclaimer -->
+      <div class="audit-disclaimer">
+        <strong>⚠ Scope of this audit:</strong> This audit evaluates your strategy <em>as described in plain English</em>. It cannot inspect live signal computation code, data feed implementations, or execution logic. Always validate assumptions with BanZhuan's backtester using realistic fill models before committing capital.
+      </div>
+
+    </div><!-- /#audit-results -->
+
+    <!-- RECENT AUDITS -->
+    <div class="recent-audits" id="recent-audits">
+      <div class="recent-header">Recent audits <button class="recent-clear" id="clear-recent">Clear</button></div>
+      <div class="recent-list" id="recent-list"></div>
+    </div>
+
+  </div><!-- /.container -->
+</div><!-- /.tool-section -->
+
+<!-- FOOTER -->
+<!-- ══ FOOTER ══ -->
+
+<!-- MANIFEST SECTION -->
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<!-- COPY TOAST -->
+<div class="copy-toast" id="copy-toast">Copied to clipboard</div>
+
+<!-- ══════════════════════════════════════
+     STATIC DATA (inlined)
+══════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ────────────────────────────────────
+   STATIC DATA
+──────────────────────────────────── */
+const BIAS_PATTERNS = {
+  lookahead_keywords: [
+    { keyword: "next candle", severity: "critical", explanation: "Referencing the next candle means using data unavailable at decision time." },
+    { keyword: "tomorrow's close", severity: "critical", explanation: "Future close prices are unavailable at entry time." },
+    { keyword: "tomorrow's price", severity: "critical", explanation: "Future prices are unavailable at entry time." },
+    { keyword: "next bar", severity: "critical", explanation: "Referencing the next bar introduces look-ahead bias." },
+    { keyword: "future price", severity: "critical", explanation: "Explicit reference to future price data." },
+    { keyword: "hindsight", severity: "critical", explanation: "Explicit reference to hindsight knowledge." },
+    { keyword: "when it reaches", severity: "warning", explanation: "May imply a future price target used as an entry trigger rather than a stop." },
+    { keyword: "after the close", severity: "warning", explanation: "If trades are executed at the current bar's close, conditioning on 'after the close' introduces bias." },
+    { keyword: "end of day price", severity: "warning", explanation: "Using EOD price for intraday entries may introduce look-ahead if the position opens before EOD." },
+    { keyword: "will go up", severity: "warning", explanation: "Forward-looking language — ensure this is a prediction model output, not literal future data." },
+    { keyword: "will rise", severity: "warning", explanation: "Forward-looking language — verify this is a model prediction, not actual future data." },
+    { keyword: "optimal parameters", severity: "warning", explanation: "Parameters optimized on the full dataset introduce look-ahead — use walk-forward optimization instead." }
+  ]
+};
+
+const SIGNAL_CORRELATIONS = {
+  named_pairs: {
+    "macd|rsi": { correlation: 0.72, explanation: "RSI and MACD are both price-derived momentum indicators and are typically highly correlated in trending markets." },
+    "ema_crossover|macd": { correlation: 0.78, explanation: "MACD is mathematically constructed from EMAs. An EMA crossover strategy and a MACD strategy are nearly identical in signal timing." },
+    "rsi|stochastic": { correlation: 0.81, explanation: "RSI and Stochastic Oscillator both measure overbought/oversold conditions and frequently co-trigger." },
+    "stochastic|macd": { correlation: 0.68, explanation: "Stochastic and MACD are both momentum oscillators with significant co-movement." },
+    "volume|obv": { correlation: 0.88, explanation: "On-Balance Volume (OBV) is a direct transform of volume. These are not independent signals." },
+    "sentiment_score|social_volume": { correlation: 0.65, explanation: "Sentiment scores derived from social media are often computed from the same underlying social volume data." },
+    "bollinger|rsi": { correlation: 0.58, explanation: "Bollinger Bands and RSI both respond to price volatility and mean-reversion conditions." },
+    "ema|sma": { correlation: 0.92, explanation: "EMA and SMA are both moving averages of price and are highly correlated — using both adds little independent information." },
+    "cci|rsi": { correlation: 0.74, explanation: "CCI and RSI both measure momentum relative to price history and frequently trigger together." }
+  },
+  type_pairs: {
+    "price_derived|price_derived": { correlation: 0.60, explanation: "Two price-derived signals tend to be correlated because they share the same underlying price series as input." },
+    "on_chain|external_feed": { correlation: 0.30, explanation: "On-chain data and external sentiment feeds are typically more independent — good signal diversity." },
+    "macro|price_derived": { correlation: 0.35, explanation: "Macro signals and price-derived signals are largely orthogonal — healthy combination." },
+    "on_chain|price_derived": { correlation: 0.42, explanation: "On-chain signals have moderate correlation with price-derived signals but sufficient independence." }
+  }
+};
+
+const FEE_DATA = {
+  hyperliquid: { venue_name: "Hyperliquid", maker_fee_pct: 0.01, taker_fee_pct: 0.035, funding_interval_hours: 8, typical_spread_bps: 2 },
+  afp: { venue_name: "Autonity Futures Protocol (AFP)", maker_fee_pct: 0.02, taker_fee_pct: 0.05, funding_interval_hours: 0, typical_spread_bps: 5 },
+  generic: { venue_name: "DeFi Perpetuals (generic)", maker_fee_pct: 0.02, taker_fee_pct: 0.05, funding_interval_hours: 8, typical_spread_bps: 5 }
+};
+
+/* ────────────────────────────────────
+   EXAMPLE STRATEGIES
+──────────────────────────────────── */
+const EXAMPLES = {
+  lookahead: `Strategy: Enter long when tomorrow's BTC close is higher than today's. Exit when price goes down. Use 100% of portfolio. No stop-loss. Backtest window: 3 months.`,
+  overfitting: `Strategy: Enter long BTC-PERP on Hyperliquid when RSI(14) drops below 35 AND MACD histogram turns positive AND Stochastic Oscillator is below 20. Exit when RSI rises above 65. Stop-loss 5%. Position size 20%. Backtest window: 18 months.`,
+  clean: `Strategy: Enter long ETH-PERP on Hyperliquid when on-chain net inflow to exchanges drops below -10,000 ETH over 24h (accumulation signal) AND 4h price is above 20-period EMA. Exit when on-chain inflow reverses positive above +5,000 ETH or 7-day trailing stop at 4% triggers. Position size 8% of portfolio. Backtest window: Jan 2022 – Dec 2024 including delisted assets.`
+};
+
+/* ────────────────────────────────────
+   SANITIZE
+──────────────────────────────────── */
+const SENSITIVE_PATTERNS = [
+  { name: 'EVM wallet address', pattern: /\b0x[a-fA-F0-9]{40}\b/g },
+  { name: 'Private key', pattern: /\b[a-fA-F0-9]{64}\b/g },
+  { name: 'Email address', pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z]{2,}\b/gi },
+  { name: 'Phone number', pattern: /\b(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g }
+];
+
+function sanitize(text) {
+  let sanitized = text;
+  const redactedTypes = [];
+  for (const rule of SENSITIVE_PATTERNS) {
+    const re = new RegExp(rule.pattern.source, rule.pattern.flags);
+    if (re.test(sanitized)) {
+      redactedTypes.push(rule.name);
+      sanitized = sanitized.replace(new RegExp(rule.pattern.source, rule.pattern.flags), '[REDACTED]');
+    }
+  }
+  return { sanitized, redactedTypes };
+}
+
+/* ────────────────────────────────────
+   AUDIT MODULES
+──────────────────────────────────── */
+
+// Module 1: Look-ahead bias
+function auditLookahead(strategy) {
+  const flags = [];
+
+  const futureFlaggedSignals = (strategy.signals || []).filter(s => s.references_future);
+  if (futureFlaggedSignals.length > 0) {
+    flags.push({ severity: 'critical', item: futureFlaggedSignals.map(s => s.name).join(', '), detail: 'Signal explicitly references future price or data.' });
+  }
+
+  for (const signal of (strategy.signals || [])) {
+    if (signal.type === 'price_derived' && signal.lookback_required && strategy.backtest_window_months && strategy.backtest_window_months < 6) {
+      flags.push({ severity: 'warning', item: signal.name, detail: `Short backtest window (${strategy.backtest_window_months} months) with a lookback-dependent signal increases look-ahead risk during parameter optimization.` });
+    }
+  }
+
+  const allConditionText = [...(strategy.entry_conditions || []), ...(strategy.exit_conditions || [])].join(' ').toLowerCase();
+  for (const pattern of BIAS_PATTERNS.lookahead_keywords) {
+    if (allConditionText.includes(pattern.keyword)) {
+      if (!flags.some(f => f.item.includes(pattern.keyword))) {
+        flags.push({ severity: pattern.severity, item: `Condition text: "${pattern.keyword}"`, detail: pattern.explanation });
+      }
+    }
+  }
+
+  const hasCritical = flags.some(f => f.severity === 'critical');
+  const hasWarning = flags.some(f => f.severity === 'warning');
+
+  return {
+    module: 'Look-Ahead Bias', icon: '⏱',
+    status: hasCritical ? 'critical' : hasWarning ? 'warning' : 'pass',
+    finding: hasCritical
+      ? 'One or more signals appear to reference future data. This will produce unrealistically high backtest returns that will not replicate in live trading.'
+      : hasWarning
+      ? 'Potential look-ahead bias detected. Review the flagged conditions before trusting backtest results.'
+      : 'No look-ahead bias detected in the described signal logic. Conditions appear to use only historically available data.',
+    flags,
+    recommendation: hasCritical
+      ? 'Remove or rephrase any conditions that reference future prices, next-candle data, or optimized-in-sample parameters. Ensure all signals can be computed using only data available at decision time.'
+      : 'Confirm that all signals are computed on the close of the bar before the trade bar — not the trade bar itself.'
+  };
+}
+
+// Module 2: Overfitting risk
+function auditOverfitting(strategy) {
+  const flags = [];
+  const freeParams = strategy.free_parameters ?? 0;
+  const windowMonths = strategy.backtest_window_months ?? null;
+  const SAFETY_RATIO = 30;
+
+  const tradesPerMonth = { high: 200, medium: 44, low: 8, event_driven: 4, unknown: 20 };
+  const freq = strategy.trading_frequency ?? 'unknown';
+  const estimatedTrades = windowMonths ? Math.round(tradesPerMonth[freq] * windowMonths) : null;
+
+  let score = 'low';
+  if (freeParams === 0) {
+    score = 'low';
+  } else if (estimatedTrades === null) {
+    score = 'medium';
+    flags.push({ severity: 'warning', item: 'Backtest window unknown', detail: 'Cannot calculate parameter-to-trade ratio without a backtest window. Specify a date range.' });
+  } else {
+    const ratio = estimatedTrades / freeParams;
+    if (ratio >= SAFETY_RATIO * 2) score = 'low';
+    else if (ratio >= SAFETY_RATIO) score = 'medium';
+    else if (ratio >= 10) score = 'high';
+    else score = 'critical';
+    flags.push({ severity: score === 'low' ? 'info' : score, item: `${freeParams} free parameters, ~${estimatedTrades} estimated trades`, detail: `Parameter-to-trade ratio: 1:${Math.round(ratio)}. Recommended minimum: 1:${SAFETY_RATIO}.` });
+  }
+
+  if (windowMonths && windowMonths < 12) {
+    flags.push({ severity: 'warning', item: `Backtest window: ${windowMonths} months`, detail: 'Less than 12 months of data is rarely sufficient to establish statistical significance, especially across different market regimes.' });
+  }
+
+  const conditionText = [...(strategy.entry_conditions || []), ...(strategy.exit_conditions || [])].join(' ').toLowerCase();
+  const hasOOS = ['out of sample', 'oos', 'walk forward', 'holdout', 'test period'].some(k => conditionText.includes(k));
+  if (!hasOOS) {
+    flags.push({ severity: 'info', item: 'No out-of-sample period mentioned', detail: 'Consider reserving the most recent 20–30% of your data as an out-of-sample test set that is never used during parameter selection.' });
+  }
+
+  const statusMap = { low: 'pass', medium: 'warning', high: 'warning', critical: 'critical' };
+  return {
+    module: 'Overfitting Risk', icon: '📉',
+    status: statusMap[score],
+    finding: score === 'low'
+      ? `Low overfitting risk. Your strategy has ${freeParams} free parameter(s) and an estimated ${estimatedTrades ?? 'unknown'} trades — a healthy ratio for statistical robustness.`
+      : score === 'critical'
+      ? `Critical overfitting risk. With ${freeParams} free parameters and only ~${estimatedTrades} estimated trades, your backtest results are likely curve-fit to historical noise.`
+      : `Moderate overfitting risk. ${freeParams} free parameters across a ${windowMonths ?? 'unknown'}-month window warrants caution when interpreting backtest results.`,
+    flags,
+    recommendation: score === 'low'
+      ? 'Good parameter discipline. Consider adding a walk-forward or out-of-sample validation period to further validate robustness.'
+      : 'Reduce free parameters by fixing thresholds based on domain knowledge rather than optimization, or extend your backtest window. Always reserve an out-of-sample period.'
+  };
+}
+
+// Module 3: Signal correlation
+function auditCorrelation(strategy) {
+  const flags = [];
+  const signals = strategy.signals || [];
+
+  if (signals.length < 2) {
+    return { module: 'Signal Correlation', icon: '🔗', status: 'info', finding: 'Only one signal detected. Signal correlation analysis requires two or more signals.', flags: [], recommendation: 'Multi-signal strategies require correlation analysis. Add more signals and re-run the audit.' };
+  }
+
+  for (let i = 0; i < signals.length; i++) {
+    for (let j = i + 1; j < signals.length; j++) {
+      const a = signals[i], b = signals[j];
+      const pairKey = [a.name.toLowerCase().replace(/[_\s]/g, ''), b.name.toLowerCase().replace(/[_\s]/g, '')].sort().join('|');
+      const typeKey = [a.type, b.type].sort().join('|');
+
+      // Check named pairs (fuzzy)
+      let match = null;
+      for (const [key, val] of Object.entries(SIGNAL_CORRELATIONS.named_pairs)) {
+        const parts = key.split('|');
+        const aName = a.name.toLowerCase().replace(/[_\s]/g, '');
+        const bName = b.name.toLowerCase().replace(/[_\s]/g, '');
+        if ((aName.includes(parts[0]) || parts[0].includes(aName)) && (bName.includes(parts[1]) || parts[1].includes(bName))) { match = val; break; }
+        if ((aName.includes(parts[1]) || parts[1].includes(aName)) && (bName.includes(parts[0]) || parts[0].includes(bName))) { match = val; break; }
+      }
+
+      if (!match) match = SIGNAL_CORRELATIONS.type_pairs[typeKey];
+
+      if (match) {
+        flags.push({ severity: match.correlation > 0.7 ? 'warning' : 'info', item: `${a.name} + ${b.name}`, detail: `${match.explanation} Typical correlation: ${(match.correlation * 100).toFixed(0)}%.` });
+      }
+    }
+  }
+
+  const types = signals.map(s => s.type);
+  const dominantType = types.find(t => types.filter(x => x === t).length >= 3);
+  if (dominantType) {
+    flags.push({ severity: 'warning', item: `Three or more signals of type: ${dominantType}`, detail: `Using multiple signals derived from the same data source (e.g. three price-derived momentum indicators) adds confirmation theater without genuine independence.` });
+  }
+
+  const hasWarning = flags.some(f => f.severity === 'warning');
+  return {
+    module: 'Signal Correlation', icon: '🔗',
+    status: hasWarning ? 'warning' : 'pass',
+    finding: hasWarning
+      ? 'Potential signal redundancy detected. Some of your signals may be measuring the same underlying phenomenon, overstating the strength of your combined condition.'
+      : `${signals.length} signals checked. No significant known correlations detected between the signal types described.`,
+    flags,
+    recommendation: hasWarning
+      ? 'Consider replacing one of the correlated signals with a signal from a different category (e.g. if you have two momentum signals, add a volatility or sentiment signal instead). True multi-factor confirmation requires orthogonal signals.'
+      : 'Good signal diversity. Verify empirically with a correlation matrix on historical signal values during the development phase.'
+  };
+}
+
+// Module 4: Survivorship bias (initial assessment — may need questionnaire)
+function auditSurvivorship(strategy) {
+  const universeSize = (strategy.universe || []).length;
+
+  // Check if delisted/survivorship mentioned in any text
+  const allText = [
+    ...(strategy.entry_conditions || []),
+    ...(strategy.exit_conditions || []),
+    strategy.universe ? strategy.universe.join(' ') : ''
+  ].join(' ').toLowerCase();
+
+  const survivorshipMentioned = ['delisted', 'delisting', 'survivorship', 'failed assets', 'historical dataset', 'kaiko', 'coinmetrics'].some(k => allText.includes(k));
+
+  if (survivorshipMentioned) {
+    return {
+      module: 'Survivorship Bias', icon: '🏚',
+      status: 'pass',
+      finding: 'Your strategy description mentions survivorship-aware data practices. Good discipline — this is one of the most commonly overlooked sources of backtest inflation.',
+      flags: [],
+      recommendation: 'Continue using data sources that include the full historical asset population. Verify with your data provider that delisted assets are included.',
+      requiresQuestionnaire: false
+    };
+  }
+
+  if (universeSize > 0 && universeSize <= 2) {
+    return {
+      module: 'Survivorship Bias', icon: '🏚',
+      status: 'info',
+      finding: 'Your strategy trades a fixed small universe. Survivorship bias is less of a concern when assets are pre-specified rather than selected from a screened pool.',
+      flags: [],
+      recommendation: 'Ensure your historical data for these specific assets includes periods of high volatility, not just recent history.',
+      requiresQuestionnaire: false
+    };
+  }
+
+  return {
+    module: 'Survivorship Bias', icon: '🏚',
+    status: 'pending_questionnaire',
+    finding: null, flags: [], recommendation: null,
+    requiresQuestionnaire: true,
+    questionnaire: [
+      {
+        id: 'q_data_source',
+        question: 'Where does your backtest data come from?',
+        options: [
+          { value: 'current_list', label: 'Current exchange listings / current coin list', risk: 'high' },
+          { value: 'curated_historical', label: 'A historical dataset that includes delisted assets', risk: 'low' },
+          { value: 'fixed_universe', label: 'A fixed list I defined before the backtest', risk: 'medium' },
+          { value: 'unknown', label: 'Not sure', risk: 'high' }
+        ]
+      },
+      {
+        id: 'q_delisted',
+        question: 'Does your dataset include assets that were delisted or failed during your backtest window?',
+        options: [
+          { value: 'yes', label: 'Yes — dataset includes failed assets', risk: 'low' },
+          { value: 'no', label: 'No — only currently trading assets', risk: 'high' },
+          { value: 'unknown', label: 'Unknown', risk: 'high' }
+        ]
+      }
+    ]
+  };
+}
+
+function resolveSurvivorship(answers) {
+  const highRiskAnswers = answers.filter(a => a.risk === 'high').length;
+  const status = highRiskAnswers >= 1 ? 'warning' : 'pass';
+  return {
+    module: 'Survivorship Bias', icon: '🏚',
+    status,
+    finding: status === 'warning'
+      ? 'Your data source likely excludes assets that failed or were delisted during your backtest window. This causes survivorship bias: your backtest only sees assets that "survived," which inflates expected returns by 20–50% in many crypto studies.'
+      : 'Your setup appears to account for survivorship bias. Good discipline — this is one of the most commonly overlooked sources of backtest inflation.',
+    flags: highRiskAnswers >= 1 ? [{ severity: 'warning', item: 'Data source likely survivorship-biased', detail: 'Strategies backtested on current asset lists exclude all assets that underperformed or failed during the period.' }] : [],
+    recommendation: status === 'warning'
+      ? 'Source historical data that includes delisted assets, or constrain your universe to a small fixed list of large-cap, highly liquid assets where delisting risk is low. CoinMetrics and Kaiko provide survivorship-bias-free historical datasets.'
+      : 'Continue using data sources that include the full historical asset population.'
+  };
+}
+
+// Module 5: Fees
+function auditFees(strategy) {
+  const flags = [];
+  const universe = ((strategy.universe || []).join(' ')).toLowerCase();
+  const isHyperliquid = universe.includes('hyperliquid') || universe.includes('perp') || universe.includes('hype');
+  const isAFP = universe.includes('afp') || universe.includes('autonity');
+  const venue = isHyperliquid ? 'hyperliquid' : isAFP ? 'afp' : 'generic';
+  const fees = FEE_DATA[venue];
+  const freq = strategy.trading_frequency ?? 'unknown';
+  const tradesPerMonth = { high: 200, medium: 44, low: 8, event_driven: 4, unknown: 20 };
+  const monthlyTrades = tradesPerMonth[freq];
+  const roundTripCost = fees.taker_fee_pct * 2;
+  const monthlyFeeDrag = (roundTripCost * monthlyTrades).toFixed(2);
+  const annualFeeDrag = (roundTripCost * monthlyTrades * 12).toFixed(2);
+
+  flags.push({ severity: 'info', item: `Estimated annual fee drag: ~${annualFeeDrag}% of capital`, detail: `Based on ${fees.taker_fee_pct}% taker fee × 2 legs × ~${monthlyTrades * 12} trades/year on ${fees.venue_name}. Does not include slippage or funding rate costs.` });
+
+  if (isHyperliquid || venue === 'generic') {
+    flags.push({ severity: 'warning', item: 'Perpetual funding rate not accounted for', detail: `Hyperliquid perpetuals carry a funding rate paid every 8 hours. In trending markets this can reach 0.1% per 8h (≈109% annualized) for the losing side. Long-only or short-only strategies are significantly exposed. Ensure your backtest includes historical funding rates.` });
+  }
+
+  if (freq === 'high') {
+    flags.push({ severity: 'warning', item: 'High-frequency strategy: slippage material', detail: `At >10 trades/day, market impact and slippage become significant. Backtests using mid-price or last-price fills will overstate performance. Use realistic fill models (fills at ask for buys, bid for sells).` });
+  }
+
+  if (strategy.position_size_pct && strategy.position_size_pct > 50) {
+    flags.push({ severity: 'warning', item: `Large position size: ${strategy.position_size_pct}% of portfolio`, detail: 'Large position sizes amplify fee and slippage impact, and increase liquidation risk on leveraged perpetuals.' });
+  }
+
+  return {
+    module: 'Fee & Slippage Reality', icon: '💸',
+    status: flags.some(f => f.severity === 'warning') ? 'warning' : 'pass',
+    finding: `Estimated annual fee drag of ~${annualFeeDrag}% for ${freq}-frequency trading on ${fees.venue_name}.${isHyperliquid ? ' Perpetual funding rate costs are additional and not included.' : ''}`,
+    flags,
+    recommendation: `Ensure your backtest incorporates realistic transaction costs: ${fees.taker_fee_pct}% taker fee per leg${isHyperliquid ? ', historical funding rates (available from Hyperliquid API),' : ','} and conservative slippage assumptions. A strategy needs to clear these costs with meaningful margin to be viable.`
+  };
+}
+
+// Module 6: Internal consistency
+function auditConsistency(strategy) {
+  const flags = [];
+
+  if (strategy.stop_loss_pct && strategy.position_size_pct) {
+    const maxLossOnTrade = (strategy.position_size_pct / 100) * strategy.stop_loss_pct;
+    if (maxLossOnTrade > 3) {
+      flags.push({ severity: 'warning', item: `Max single-trade loss: ~${maxLossOnTrade.toFixed(1)}% of total portfolio`, detail: `${strategy.position_size_pct}% position × ${strategy.stop_loss_pct}% stop-loss = ${maxLossOnTrade.toFixed(1)}% portfolio loss per trade. Most systematic strategies target <1–2% per trade.` });
+    }
+  }
+
+  if (!strategy.exit_conditions || strategy.exit_conditions.length === 0) {
+    flags.push({ severity: 'critical', item: 'No exit conditions defined', detail: 'A strategy without exit conditions has undefined position duration and unlimited downside. BanZhuan requires at least one exit condition.' });
+  }
+
+  if (!strategy.stop_loss_pct) {
+    flags.push({ severity: 'warning', item: 'No stop-loss defined', detail: "Autonomous trading agents without a hard stop-loss are exposed to unlimited downside on adverse moves. BanZhuan's RiskGuard module requires a stop-loss parameter." });
+  }
+
+  if (strategy.position_size_pct && strategy.position_size_pct >= 100) {
+    flags.push({ severity: 'critical', item: `Position size: ${strategy.position_size_pct}% of portfolio`, detail: 'A 100% position size means total account exposure on a single trade. This is not viable for systematic trading.' });
+  }
+
+  if (strategy.ambiguities && strategy.ambiguities.length > 0) {
+    for (const ambiguity of strategy.ambiguities) {
+      flags.push({ severity: 'info', item: 'Ambiguity in strategy description', detail: ambiguity });
+    }
+  }
+
+  const hasCritical = flags.some(f => f.severity === 'critical');
+  const hasWarning = flags.some(f => f.severity === 'warning');
+
+  return {
+    module: 'Internal Consistency', icon: '⚙️',
+    status: hasCritical ? 'critical' : hasWarning ? 'warning' : 'pass',
+    finding: hasCritical
+      ? 'Critical logic gaps detected. The strategy as described cannot be safely deployed — missing exit conditions or contradictory logic must be resolved first.'
+      : hasWarning
+      ? 'Strategy logic is mostly coherent but has gaps that should be addressed before backtesting.'
+      : 'Strategy logic is internally consistent. Entry conditions, exit conditions, and risk parameters are all defined and non-contradictory.',
+    flags,
+    recommendation: hasCritical
+      ? "Define at least one exit condition and one stop-loss before proceeding. BanZhuan's agent runtime requires both."
+      : hasWarning
+      ? 'Review flagged items and tighten risk parameters. Aim for max single-trade loss of 1–2% of total portfolio.'
+      : 'Solid structural foundation. Proceed to BanZhuan backtesting.'
+  };
+}
+
+/* ────────────────────────────────────
+   EXPORT
+──────────────────────────────────── */
+function deriveOverallStatus(auditResults) {
+  const resolved = auditResults.filter(r => r.status !== 'pending_questionnaire');
+  if (resolved.some(r => r.status === 'critical')) return 'critical';
+  if (resolved.some(r => r.status === 'warning')) return 'warning';
+  return 'pass';
+}
+
+function generateBanZhuanConfig(strategy, auditResults) {
+  return {
+    banzhuan_config_version: '1.0',
+    generated_by: 'AINumbers.co Signal Integrity Auditor (AI·07)',
+    generated_at: new Date().toISOString(),
+    audit_summary: {
+      overall_status: deriveOverallStatus(auditResults),
+      modules_passed: auditResults.filter(r => r.status === 'pass').length,
+      warnings: auditResults.filter(r => r.status === 'warning').length,
+      critical: auditResults.filter(r => r.status === 'critical').length
+    },
+    strategy: {
+      signals: strategy.signals,
+      entry_conditions: strategy.entry_conditions,
+      exit_conditions: strategy.exit_conditions,
+      risk: {
+        position_size_pct: strategy.position_size_pct ?? 10,
+        stop_loss_pct: strategy.stop_loss_pct ?? 3,
+        take_profit_pct: strategy.take_profit_pct ?? null,
+        max_drawdown_halt_pct: 15
+      },
+      universe: strategy.universe ?? [],
+      trading_frequency: strategy.trading_frequency ?? 'medium'
+    },
+    audit_flags: auditResults.flatMap(r => r.flags ?? []).filter(f => f.severity !== 'info'),
+    recommended_actions: auditResults.flatMap(r => r.status !== 'pass' ? [r.recommendation] : []).filter(Boolean)
+  };
+}
+
+function generateAP2JSON(strategy, auditResults, rawInput) {
+  return {
+    ap2_version: '1.0',
+    tool: 'AI·07 Agent Signal Integrity Auditor',
+    ecosystem: 'AINumbers.co',
+    generated_at: new Date().toISOString(),
+    input_summary: {
+      strategy_text_length: rawInput.length,
+      signals_detected: (strategy.signals || []).length,
+      free_parameters: strategy.free_parameters,
+      backtest_window_months: strategy.backtest_window_months,
+      trading_frequency: strategy.trading_frequency
+    },
+    audit_results: auditResults.map(r => ({ module: r.module, status: r.status, finding: r.finding, flag_count: (r.flags ?? []).length, recommendation: r.recommendation })),
+    banzhuan_config: generateBanZhuanConfig(strategy, auditResults)
+  };
+}
+
+function generateMarkdownReport(strategy, auditResults) {
+  const date = new Date().toLocaleDateString('en-US', { dateStyle: 'long' });
+  const overall = deriveOverallStatus(auditResults);
+  let md = `# Signal Integrity Audit Report\n*Generated by AINumbers.co AI·07 | ${date}*\n\n---\n\n## Overall Status: ${overall.toUpperCase()}\n\n`;
+  for (const result of auditResults) {
+    md += `### ${result.icon} ${result.module} — ${result.status.toUpperCase()}\n\n${result.finding}\n\n`;
+    if (result.flags?.length > 0) {
+      md += `**Flags:**\n`;
+      for (const flag of result.flags) {
+        md += `- [${flag.severity.toUpperCase()}] **${flag.item}**: ${flag.detail}\n`;
+      }
+      md += `\n`;
+    }
+    md += `**Recommendation:** ${result.recommendation}\n\n---\n\n`;
+  }
+  md += `## Next Step\n\nImport the accompanying BanZhuan config JSON into [BanZhuan.ai](https://banzhuan.ai?ref=postoaklabs) to begin backtesting.\n\n`;
+  md += `> ⚠ This audit evaluates your strategy as described in plain English. It cannot inspect live signal computation code, data feed implementations, or execution logic. Always validate assumptions with BanZhuan's backtester using realistic fill models before committing capital.\n\n`;
+  md += `*AINumbers.co · ainumbers.co · AI·07 Signal Integrity Auditor*\n`;
+  return md;
+}
+
+function downloadFile(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ────────────────────────────────────
+   CLIENT-SIDE STRATEGY PARSER
+   No API calls — pure regex + keyword extraction
+──────────────────────────────────── */
+
+const SIGNAL_KEYWORDS = {
+  price_derived: ['rsi','macd','ema','sma','bollinger','stochastic','cci','atr','vwap','obv','volume','momentum','moving average','crossover','adx','williams','mfi','pivot','support','resistance','price action','candlestick','ohlc','open','high','low','close','price'],
+  external_feed: ['sentiment','fear and greed','news','social','twitter','reddit','google trends','funding rate','options','open interest','liquidation','whale','flow','feed','score','signal','index'],
+  on_chain: ['on-chain','onchain','exchange inflow','exchange outflow','netflow','net flow','active address','transaction','hash rate','miner','wallet','nvt','realized','sopr','glassnode','coinmetrics','staking','tvl','defi','protocol'],
+  macro: ['inflation','cpi','interest rate','fed','federal reserve','treasury','gdp','dollar','dxy','macro','economic','employment','jobs','yield','bond','equity','sp500','nasdaq','gold','oil','commodity']
+};
+
+const DIRECTION_KEYWORDS = {
+  above: ['above','over','exceeds','greater than','higher than','breaks above','crosses above','>'],
+  below: ['below','under','less than','lower than','breaks below','crosses below','drops below','falls below','<'],
+  crossover: ['crossover','cross','crosses','intersection']
+};
+
+const LOOKAHEAD_FUTURE_KEYWORDS = [
+  "next candle","tomorrow's","next bar","next day","future price","will go up","will rise","will fall","will drop","after the close","end of day price","eod price","when it reaches","optimal parameters","best parameters","fitted"
+];
+
+function extractNumbers(text) {
+  const matches = [];
+  // Match patterns like: 0.72, 65, 3%, 10%, $500, 14-period, RSI(14)
+  const re = /(\d+\.?\d*)\s*(%|period|day|hour|bar|candle)?/gi;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const n = parseFloat(m[1]);
+    if (!isNaN(n)) matches.push(n);
+  }
+  return matches;
+}
+
+function detectSignalType(name, context) {
+  const combined = (name + ' ' + context).toLowerCase();
+  for (const [type, keywords] of Object.entries(SIGNAL_KEYWORDS)) {
+    if (keywords.some(k => combined.includes(k))) return type;
+  }
+  return 'custom';
+}
+
+function detectDirection(text) {
+  const lower = text.toLowerCase();
+  for (const [dir, keywords] of Object.entries(DIRECTION_KEYWORDS)) {
+    if (keywords.some(k => lower.includes(k))) return dir;
+  }
+  return null;
+}
+
+function detectThreshold(text) {
+  const nums = extractNumbers(text);
+  // Prefer the first meaningful number (skip very large ones unlikely to be thresholds)
+  return nums.find(n => n > 0 && n < 10000) ?? null;
+}
+
+function extractSignals(text) {
+  const signals = [];
+  const lower = text.toLowerCase();
+
+  // Named signal patterns: "RSI(14) below 65", "sentiment score above 0.72"
+  const namedPatterns = [
+    /\b(rsi(?:\(\d+\))?)\b/gi,
+    /\b(macd(?:\s+histogram)?)\b/gi,
+    /\b(\d+[\-\s]?(?:period|day|hour|h)?\s*(?:ema|sma|moving average))\b/gi,
+    /\b(ema(?:\(\d+\))?)\b/gi,
+    /\b(sma(?:\(\d+\))?)\b/gi,
+    /\b(bollinger\s*bands?)\b/gi,
+    /\b(stochastic(?:\s+oscillator)?)\b/gi,
+    /\b(cci)\b/gi,
+    /\b(atr)\b/gi,
+    /\b(vwap)\b/gi,
+    /\b(obv)\b/gi,
+    /\b(adx)\b/gi,
+    /\b(sentiment\s*score?)\b/gi,
+    /\b(fear\s*(?:and|&)\s*greed\s*(?:index)?)\b/gi,
+    /\b(funding\s*rate)\b/gi,
+    /\b(open\s*interest)\b/gi,
+    /\b(on[\-\s]?chain\s*(?:net\s*)?(?:in|out)?flow)\b/gi,
+    /\b(exchange\s*(?:net\s*)?(?:in|out)?flow)\b/gi,
+    /\b(social\s*(?:volume|sentiment))\b/gi,
+    /\b(liquidation\s*(?:volume|data)?)\b/gi,
+    /\b(volume)\b/gi,
+    /\b(momentum)\b/gi,
+    /\b(ema\s*crossover)\b/gi,
+  ];
+
+  const seen = new Set();
+  for (const pattern of namedPatterns) {
+    let m;
+    pattern.lastIndex = 0;
+    while ((m = pattern.exec(lower)) !== null) {
+      const rawName = m[1].trim().replace(/\s+/g, '_');
+      const key = rawName.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      // Get context window around this match
+      const start = Math.max(0, m.index - 60);
+      const end = Math.min(text.length, m.index + m[0].length + 80);
+      const context = text.slice(start, end);
+
+      const type = detectSignalType(rawName, context);
+      const direction = detectDirection(context);
+      const threshold = detectThreshold(context);
+      const lookbackRequired = /lookback|period|window|history|past|previous/i.test(context) || type === 'price_derived';
+      const referencesFuture = LOOKAHEAD_FUTURE_KEYWORDS.some(k => context.toLowerCase().includes(k));
+
+      signals.push({ name: rawName, type, description: context.trim().replace(/\s+/g,' ').slice(0,80), lookback_required: lookbackRequired, threshold, direction, references_future: referencesFuture });
+    }
+  }
+
+  return signals.slice(0, 10); // cap at 10
+}
+
+function extractConditions(text, keywords) {
+  const sentences = text.split(/[.!?;]/).map(s => s.trim()).filter(Boolean);
+  return sentences.filter(s => {
+    const lower = s.toLowerCase();
+    return keywords.some(k => lower.includes(k));
+  }).slice(0, 4);
+}
+
+function extractNumber(text, patterns) {
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) return parseFloat(m[1]);
+  }
+  return null;
+}
+
+function extractUniverse(text, overrideAsset) {
+  const assets = [];
+  if (overrideAsset) {
+    // Split on common separators
+    overrideAsset.split(/[,;\s]+/).forEach(a => { if (a.trim()) assets.push(a.trim().toUpperCase()); });
+    return assets;
+  }
+  // Detect from text
+  const patterns = [/\b(BTC[\-_]?PERP)\b/gi, /\b(ETH[\-_]?PERP)\b/gi, /\b(BTC)\b/g, /\b(ETH)\b/g, /\b(SOL)\b/g, /\b(ARB)\b/g, /\b(DOGE)\b/g];
+  for (const p of patterns) {
+    let m; p.lastIndex = 0;
+    while ((m = p.exec(text)) !== null) {
+      const a = m[1].toUpperCase();
+      if (!assets.includes(a)) assets.push(a);
+    }
+  }
+  const lower = text.toLowerCase();
+  if (lower.includes('hyperliquid') && !assets.some(a => a.includes('PERP'))) {
+    assets.forEach((a,i) => { assets[i] = a.replace(/PERP$/,'') + '-PERP'; });
+  }
+  return [...new Set(assets)];
+}
+
+function extractBacktestWindow(text, overrideWindow) {
+  const src = overrideWindow || text;
+  // Try "X months" or "X years"
+  let m = src.match(/(\d+)\s*month/i);
+  if (m) return parseInt(m[1]);
+  m = src.match(/(\d+)\s*year/i);
+  if (m) return parseInt(m[1]) * 12;
+  // Try year ranges like "2023–2024" or "2022 to 2024"
+  m = src.match(/(\d{4})\s*[–\-–to]+\s*(\d{4})/);
+  if (m) return (parseInt(m[2]) - parseInt(m[1])) * 12;
+  // Single year
+  m = src.match(/\b(202[0-9]|201[0-9])\b/);
+  if (m) return null; // single year anchor, can't determine range
+  return null;
+}
+
+function extractTradingFrequency(text, overrideFreq) {
+  if (overrideFreq) {
+    if (overrideFreq === 'high') return 'high';
+    if (overrideFreq === 'medium') return 'medium';
+    if (overrideFreq === 'low') return 'low';
+    if (overrideFreq === 'event_driven') return 'event_driven';
+  }
+  const lower = text.toLowerCase();
+  if (/scalp|high\s*frequency|hft|per\s*minute|tick/.test(lower)) return 'high';
+  if (/intraday|hourly|4.?hour|4h|daily|day\s*trade/.test(lower)) return 'medium';
+  if (/weekly|monthly|swing|long.?term|position/.test(lower)) return 'low';
+  if (/event|triggered?|signal.?based|on\s+condition/.test(lower)) return 'event_driven';
+  return 'unknown';
+}
+
+function countFreeParameters(signals, text) {
+  // Count numeric thresholds that appear to be tunable
+  const nums = extractNumbers(text);
+  // Filter: must be in a meaningful range (not years, not counts above 1000)
+  const tunable = nums.filter(n => n > 0 && n < 1000 && n !== 2023 && n !== 2024 && n !== 2022);
+  // Deduplicate approximately
+  const deduped = [...new Set(tunable.map(n => Math.round(n * 100) / 100))];
+  return Math.max(deduped.length, signals.length); // at least one per signal
+}
+
+function detectAmbiguities(text, signals, exitConditions) {
+  const ambiguities = [];
+  const lower = text.toLowerCase();
+
+  if (signals.length === 0) ambiguities.push('No recognizable signals detected. Are you using standard technical indicator names (RSI, MACD, EMA, etc.) or custom signal names?');
+  if (exitConditions.length === 0) ambiguities.push('No exit conditions detected. When does the strategy close a position?');
+  if (!lower.includes('stop') && !lower.includes('exit') && !lower.includes('close')) ambiguities.push('No risk management conditions (stop-loss or take-profit) found in the description.');
+  if (!/long|short|buy|sell|enter|position/i.test(text)) ambiguities.push('Trade direction (long/short) not clearly stated.');
+
+  return ambiguities;
+}
+
+function parseStrategyFromText({ strategyText, asset, window: windowOverride, frequency }) {
+  const text = strategyText;
+
+  const signals = extractSignals(text);
+
+  const entryKeywords = ['entry','enter','buy','long','short','open position','trigger','signal when','if.*then','when.*enter'];
+  const exitKeywords  = ['exit','close','sell','stop','take profit','tp','sl','stop-loss','stop loss','drawdown','loss','profit','leave','close position'];
+
+  const entryConds = extractConditions(text, ['if','when','enter','long','buy','signal']);
+  const exitConds  = extractConditions(text, ['exit','close','sell','stop','take profit','loss','profit','drawdown']);
+
+  const stopLoss = extractNumber(text, [
+    /stop[\-\s]?loss\s*(?:of|at|=|:)?\s*(\d+\.?\d*)\s*%/i,
+    /sl\s*(?:of|at|=|:)?\s*(\d+\.?\d*)\s*%/i,
+    /(\d+\.?\d*)\s*%\s*(?:stop|sl)/i
+  ]);
+  const takeProfit = extractNumber(text, [
+    /take[\-\s]?profit\s*(?:of|at|=|:)?\s*(\d+\.?\d*)\s*%/i,
+    /tp\s*(?:of|at|=|:)?\s*(\d+\.?\d*)\s*%/i,
+    /target\s*(?:of|at)?\s*(\d+\.?\d*)\s*%/i
+  ]);
+  const posSize = extractNumber(text, [
+    /(\d+\.?\d*)\s*%\s*of\s*(?:portfolio|capital|account)/i,
+    /position\s*size\s*(?:of|=|:)?\s*(\d+\.?\d*)\s*%/i,
+    /allocate?\s*(\d+\.?\d*)\s*%/i,
+    /(\d+\.?\d*)\s*%\s*(?:position|size)/i
+  ]);
+
+  const universe = extractUniverse(text, asset);
+  const windowMonths = extractBacktestWindow(text, windowOverride);
+  const tradingFreq = extractTradingFrequency(text, frequency);
+  const freeParams = countFreeParameters(signals, text);
+
+  // Check for look-ahead in any signal
+  const referencingFuture = LOOKAHEAD_FUTURE_KEYWORDS.some(k => text.toLowerCase().includes(k));
+  if (referencingFuture) {
+    signals.forEach(s => { s.references_future = LOOKAHEAD_FUTURE_KEYWORDS.some(k => s.description.toLowerCase().includes(k)); });
+  }
+
+  // Check universe filter
+  const universeFilter = /top\s*\d+|highest|ranked|filtered|screened|selected|criteria/i.test(text);
+
+  const ambiguities = detectAmbiguities(text, signals, exitConds);
+
+  return {
+    signals,
+    entry_conditions: entryConds.length > 0 ? entryConds : ['(parsed from plain text — review above)'],
+    exit_conditions: exitConds,
+    position_size_pct: posSize,
+    stop_loss_pct: stopLoss,
+    take_profit_pct: takeProfit,
+    universe,
+    universe_filter_applied: universeFilter,
+    backtest_window_months: windowMonths,
+    trading_frequency: tradingFreq,
+    free_parameters: freeParams,
+    ambiguities
+  };
+}
+
+/* ────────────────────────────────────
+   STATE
+──────────────────────────────────── */
+let currentStrategy = null;
+let currentAuditResults = null;
+let currentRawInput = '';
+let survAnswers = {};
+
+/* ────────────────────────────────────
+   UI HELPERS
+──────────────────────────────────── */
+function stepDone(id) {
+  const el = document.getElementById(id);
+  if (el) { el.classList.add('done'); el.querySelector('.step-icon').textContent = '✓'; }
+}
+function stepActive(id) {
+  const el = document.getElementById(id);
+  if (el) { el.classList.add('active'); el.querySelector('.step-icon').textContent = '◌'; }
+}
+
+function showError(msg, showRetry = true) {
+  const el = document.getElementById('inline-error');
+  document.getElementById('error-text').textContent = msg;
+  document.getElementById('retry-btn').style.display = showRetry ? 'inline-block' : 'none';
+  el.classList.add('visible');
+}
+
+function hideError() {
+  document.getElementById('inline-error').classList.remove('visible');
+}
+
+function showToast(msg = 'Copied to clipboard') {
+  const t = document.getElementById('copy-toast');
+  t.textContent = msg;
+  t.classList.add('visible');
+  setTimeout(() => t.classList.remove('visible'), 2000);
+}
+
+function copyText(text) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => showToast());
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta); showToast();
+  }
+}
+
+/* ────────────────────────────────────
+   RENDER AUDIT RESULTS
+──────────────────────────────────── */
+function renderSummaryBar(results) {
+  const overall = deriveOverallStatus(results);
+  const bar = document.getElementById('summary-bar');
+  bar.className = `summary-bar ${overall}`;
+
+  const icons = { pass: '✓', warning: '⚠', critical: '✕' };
+  const labels = { pass: 'LOW RISK', warning: 'MODERATE RISK', critical: 'HIGH RISK' };
+  document.getElementById('summary-verdict').innerHTML = `<span class="summary-bar-icon">${icons[overall]}</span> OVERALL SIGNAL INTEGRITY: <strong style="color:var(--white);margin-left:.3rem">${labels[overall]}</strong>`;
+
+  const passed = results.filter(r => r.status === 'pass').length;
+  const warnings = results.filter(r => r.status === 'warning').length;
+  const criticals = results.filter(r => r.status === 'critical').length;
+  const infos = results.filter(r => r.status === 'info').length;
+
+  let chips = '';
+  if (passed) chips += `<span class="count-chip pass">${passed} passed</span>`;
+  if (warnings) chips += `<span class="count-chip warning">${warnings} warning${warnings>1?'s':''}</span>`;
+  if (criticals) chips += `<span class="count-chip critical">${criticals} critical</span>`;
+  if (infos) chips += `<span class="count-chip info">${infos} info</span>`;
+  document.getElementById('summary-counts').innerHTML = chips;
+}
+
+function renderModuleCards(results) {
+  const container = document.getElementById('module-cards');
+  container.innerHTML = '';
+
+  results.forEach((result, idx) => {
+    const card = document.createElement('div');
+    card.className = `audit-card ${result.status === 'pending_questionnaire' ? 'pending' : result.status}`;
+    card.id = `card-${idx}`;
+    card.style.animationDelay = `${idx * 0.05}s`;
+
+    const badgeStatus = result.status === 'pending_questionnaire' ? 'pending' : result.status;
+    const badgeLabel = result.status === 'pending_questionnaire' ? 'Pending' : result.status.toUpperCase();
+
+    let flagsHTML = '';
+    if (result.flags && result.flags.length > 0) {
+      flagsHTML = `<ul class="card-flags">` + result.flags.map(f => `
+        <li class="flag-item">
+          <span class="flag-bullet ${f.severity}">${f.severity.toUpperCase()}</span>
+          <span class="flag-content"><span class="flag-item-name">${escapeHTML(f.item)}</span> — ${escapeHTML(f.detail)}</span>
+        </li>`).join('') + `</ul>`;
+    }
+
+    let qHTML = '';
+    if (result.requiresQuestionnaire && result.questionnaire) {
+      qHTML = renderQuestionnaire(result.questionnaire, idx);
+    }
+
+    const findingHTML = result.finding ? `<p class="card-finding">${escapeHTML(result.finding)}</p>` : '';
+    const recHTML = result.recommendation ? `<p class="card-recommendation"><strong>Recommendation:</strong> ${escapeHTML(result.recommendation)}</p>` : '';
+
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="card-title"><span class="card-icon">${result.icon}</span>${escapeHTML(result.module)}</div>
+        <span class="status-badge ${badgeStatus}">${badgeLabel}</span>
+      </div>
+      <hr class="card-divider">
+      ${findingHTML}
+      ${flagsHTML}
+      ${qHTML}
+      ${recHTML}
+    `;
+
+    container.appendChild(card);
+  });
+}
+
+function renderQuestionnaire(questions, cardIdx) {
+  let html = `<div class="questionnaire" id="questionnaire-${cardIdx}">`;
+  for (const q of questions) {
+    html += `<div class="q-item"><p class="q-question">${escapeHTML(q.question)}</p><div class="q-options">`;
+    for (const opt of q.options) {
+      html += `<button class="q-option" data-card="${cardIdx}" data-qid="${q.id}" data-risk="${opt.risk}" onclick="selectQOption(this,'${cardIdx}','${q.id}',this.getAttribute('data-risk'))">${escapeHTML(opt.label)}</button>`;
+    }
+    html += `</div></div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+window.selectQOption = function(btn, cardIdx, qid, risk) {
+  // Deselect siblings
+  const container = btn.closest('.q-options');
+  container.querySelectorAll('.q-option').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+
+  survAnswers[qid] = risk;
+
+  // Check if all questions answered
+  const questionnaire = btn.closest('.questionnaire');
+  const allQs = questionnaire.querySelectorAll('.q-item');
+  const allAnswered = Array.from(allQs).every(q => q.querySelector('.q-option.selected'));
+
+  if (allAnswered) {
+    const answers = Object.entries(survAnswers).map(([k, v]) => ({ qid: k, risk: v }));
+    const resolved = resolveSurvivorship(answers);
+
+    // Update results
+    const idx = parseInt(cardIdx);
+    if (currentAuditResults && currentAuditResults[idx]) {
+      currentAuditResults[idx] = resolved;
+      renderModuleCards(currentAuditResults);
+      renderSummaryBar(currentAuditResults);
+    }
+  }
+};
+
+function escapeHTML(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+/* ────────────────────────────────────
+   RECENT AUDITS
+──────────────────────────────────── */
+function saveRecentAudit(strategy, auditResults, rawInput) {
+  try {
+    const recent = JSON.parse(sessionStorage.getItem('pol_recent_audits') || '[]');
+    const entry = {
+      id: Date.now(),
+      timestamp: new Date().toISOString(),
+      preview: rawInput.substring(0, 80) + (rawInput.length > 80 ? '...' : ''),
+      overall: deriveOverallStatus(auditResults),
+      strategy: JSON.stringify(strategy)
+    };
+    recent.unshift(entry);
+    sessionStorage.setItem('pol_recent_audits', JSON.stringify(recent.slice(0, 5)));
+    renderRecentAudits();
+  } catch {}
+}
+
+function renderRecentAudits() {
+  try {
+    const recent = JSON.parse(sessionStorage.getItem('pol_recent_audits') || '[]');
+    const container = document.getElementById('recent-audits');
+    const list = document.getElementById('recent-list');
+    if (recent.length === 0) { container.classList.remove('visible'); return; }
+    container.classList.add('visible');
+    list.innerHTML = recent.map(r => `
+      <div class="recent-item" onclick="loadRecentAudit('${r.id}')">
+        <span>${escapeHTML(r.preview)}</span>
+        <span class="recent-item-meta">${new Date(r.timestamp).toLocaleDateString()} · <span class="count-chip ${r.overall}" style="font-size:.42rem">${r.overall.toUpperCase()}</span></span>
+      </div>`).join('');
+  } catch {}
+}
+
+window.loadRecentAudit = function(id) {
+  try {
+    const recent = JSON.parse(sessionStorage.getItem('pol_recent_audits') || '[]');
+    const entry = recent.find(r => r.id == id);
+    if (!entry) return;
+    const strategy = JSON.parse(entry.strategy);
+    runAudit(strategy, entry.preview);
+  } catch {}
+};
+
+/* ────────────────────────────────────
+   ROUTING
+──────────────────────────────────── */
+function handleRoute() {
+  const hash = window.location.hash;
+  if (hash.startsWith('#/audit/')) {
+    try {
+      const encoded = hash.replace('#/audit/', '');
+      const strategy = JSON.parse(atob(encoded));
+      runAudit(strategy, JSON.stringify(strategy));
+    } catch {}
+  } else if (hash.startsWith('#/example/')) {
+    const name = hash.replace('#/example/', '');
+    if (EXAMPLES[name]) {
+      document.getElementById('strategy-input').value = EXAMPLES[name];
+      checkRunnable();
+    }
+  }
+}
+
+/* ────────────────────────────────────
+   MAIN AUDIT FLOW
+──────────────────────────────────── */
+async function runAudit(parsedStrategy, rawInput) {
+  currentStrategy = parsedStrategy;
+  currentRawInput = rawInput || '';
+  survAnswers = {};
+
+  hideError();
+
+  // Show results
+  document.getElementById('audit-results').classList.add('visible');
+  document.getElementById('parsed-disclosure').classList.add('visible');
+  document.getElementById('parsed-json-pre').textContent = JSON.stringify(parsedStrategy, null, 2);
+
+  // Run modules
+  const results = [];
+  results.push(auditLookahead(parsedStrategy));
+  results.push(auditOverfitting(parsedStrategy));
+  results.push(auditCorrelation(parsedStrategy));
+  results.push(auditSurvivorship(parsedStrategy));
+  results.push(auditFees(parsedStrategy));
+  results.push(auditConsistency(parsedStrategy));
+
+  currentAuditResults = results;
+
+  renderSummaryBar(results);
+  renderModuleCards(results);
+
+  // Store hash
+  try {
+    const encoded = btoa(JSON.stringify(parsedStrategy));
+    if (encoded.length < 4000) history.replaceState(null, '', `#/audit/${encoded}`);
+  } catch {}
+
+  // Save recent
+  saveRecentAudit(parsedStrategy, results, rawInput || '');
+
+  // Scroll to results
+  document.getElementById('summary-bar').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function handleRunAudit() {
+  const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
+  hideError();
+
+  if (activeTab === 'json') {
+    const jsonText = document.getElementById('json-input').value.trim();
+    try {
+      const parsed = JSON.parse(jsonText);
+      await runAudit(parsed, jsonText);
+    } catch {
+      showError('Invalid JSON. Check the format and try again.', false);
+    }
+    return;
+  }
+
+  // Plain English mode — fully client-side
+  const strategyText = document.getElementById('strategy-input').value.trim();
+  const { sanitized, redactedTypes } = sanitize(strategyText);
+
+  if (redactedTypes.length > 0) {
+    document.getElementById('pii-warning').classList.remove('hidden');
+    document.getElementById('pii-warning-text').textContent = `Your strategy description contains what looks like: ${redactedTypes.join(', ')}. Please remove sensitive data before submitting.`;
+    return;
+  }
+
+  document.getElementById('pii-warning').classList.add('hidden');
+
+  // Show loading
+  const loading = document.getElementById('loading-state');
+  loading.classList.add('active');
+  document.getElementById('loading-label').textContent = 'Parsing strategy logic...';
+  document.getElementById('run-audit-btn').disabled = true;
+
+  // Reset steps
+  ['step-parse','step-lookahead','step-overfit','step-corr','step-surv','step-fees','step-consist'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.className = ''; el.querySelector('.step-icon').textContent = '◌'; }
+  });
+
+  stepActive('step-parse');
+
+  const asset     = document.getElementById('f-assets').value;
+  const win       = document.getElementById('f-window').value;
+  const frequency = document.getElementById('f-freq').value;
+
+  // Small async yield so the loading UI renders before the sync parse work
+  await new Promise(r => setTimeout(r, 30));
+
+  const parsed = parseStrategyFromText({ strategyText, asset, window: win, frequency });
+  stepDone('step-parse');
+
+  document.getElementById('loading-label').textContent = 'Running audit modules...';
+
+  const steps = ['step-lookahead','step-overfit','step-corr','step-surv','step-fees','step-consist'];
+  for (const step of steps) {
+    stepActive(step);
+    await new Promise(r => setTimeout(r, 90));
+    stepDone(step);
+  }
+
+  loading.classList.remove('active');
+  document.getElementById('run-audit-btn').disabled = false;
+  await runAudit(parsed, strategyText);
+}
+
+/* ────────────────────────────────────
+   INPUT VALIDATION
+──────────────────────────────────── */
+function checkRunnable() {
+  const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
+  let enabled = false;
+  if (activeTab === 'plaintext') {
+    enabled = document.getElementById('strategy-input').value.trim().length >= 50;
+  } else {
+    const jsonText = document.getElementById('json-input').value.trim();
+    if (jsonText.length > 10) {
+      try { JSON.parse(jsonText); enabled = true; } catch {}
+    }
+  }
+  document.getElementById('run-audit-btn').disabled = !enabled;
+}
+
+/* ────────────────────────────────────
+   DOM READY
+──────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', function() {
+
+  // Tabs
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+      document.getElementById('tab-' + this.dataset.tab).classList.add('active');
+      checkRunnable();
+    });
+  });
+
+  // Strategy input
+  document.getElementById('strategy-input').addEventListener('input', function() {
+    checkRunnable();
+    document.getElementById('pii-warning').classList.add('hidden');
+  });
+  document.getElementById('json-input').addEventListener('input', checkRunnable);
+
+  // Quick fill toggle
+  document.getElementById('qf-toggle').addEventListener('click', function() {
+    const qf = document.getElementById('quick-fill');
+    const open = !qf.classList.contains('hidden');
+    if (open) { qf.classList.add('hidden'); this.classList.remove('open'); }
+    else { qf.classList.remove('hidden'); this.classList.add('open'); }
+  });
+
+  // Example chips
+  document.querySelectorAll('.chip[data-example]').forEach(chip => {
+    chip.addEventListener('click', function() {
+      const key = this.dataset.example;
+      if (EXAMPLES[key]) {
+        document.getElementById('strategy-input').value = EXAMPLES[key];
+        checkRunnable();
+        window.location.hash = '#/example/' + key;
+      }
+    });
+  });
+
+  // Validate JSON
+  document.getElementById('validate-json-btn').addEventListener('click', function() {
+    const jsonText = document.getElementById('json-input').value.trim();
+    const status = document.getElementById('json-status');
+    try {
+      JSON.parse(jsonText);
+      status.className = 'json-status valid';
+      status.textContent = '✓ Valid JSON';
+      checkRunnable();
+    } catch(e) {
+      status.className = 'json-status invalid';
+      status.textContent = '✕ Invalid JSON: ' + e.message;
+    }
+  });
+
+  // Run audit
+  document.getElementById('run-audit-btn').addEventListener('click', handleRunAudit);
+
+  // Retry
+  document.getElementById('retry-btn').addEventListener('click', function() {
+    hideError();
+    handleRunAudit();
+  });
+
+  // New audit
+  document.getElementById('new-audit-btn').addEventListener('click', function() {
+    document.getElementById('audit-results').classList.remove('visible');
+    document.getElementById('parsed-disclosure').classList.remove('visible');
+    document.getElementById('strategy-input').value = '';
+    document.getElementById('json-input').value = '';
+    document.getElementById('run-audit-btn').disabled = true;
+    window.location.hash = '';
+    document.getElementById('strategy-input').scrollIntoView({ behavior: 'smooth' });
+  });
+
+  // Export buttons
+  document.getElementById('copy-banzhuan-btn').addEventListener('click', function() {
+    if (currentStrategy && currentAuditResults) {
+      copyText(JSON.stringify(generateBanZhuanConfig(currentStrategy, currentAuditResults), null, 2));
+    }
+  });
+
+  document.getElementById('download-banzhuan-btn').addEventListener('click', function() {
+    if (currentStrategy && currentAuditResults) {
+      downloadFile(JSON.stringify(generateBanZhuanConfig(currentStrategy, currentAuditResults), null, 2), 'banzhuan-strategy-config.json', 'application/json');
+    }
+  });
+
+  document.getElementById('download-md-btn').addEventListener('click', function() {
+    if (currentStrategy && currentAuditResults) {
+      downloadFile(generateMarkdownReport(currentStrategy, currentAuditResults), 'signal-integrity-audit.md', 'text/markdown');
+    }
+  });
+
+  document.getElementById('download-ap2-btn').addEventListener('click', function() {
+    if (currentStrategy && currentAuditResults) {
+      downloadFile(JSON.stringify(generateAP2JSON(currentStrategy, currentAuditResults, currentRawInput), null, 2), 'ap2-audit-export.json', 'application/json');
+    }
+  });
+
+  document.getElementById('share-btn').addEventListener('click', function() {
+    copyText(window.location.href);
+    showToast('Permalink copied');
+  });
+
+  // Recent audits
+  document.getElementById('clear-recent').addEventListener('click', function() {
+    sessionStorage.removeItem('pol_recent_audits');
+    document.getElementById('recent-audits').classList.remove('visible');
+  });
+
+  // Load recent audits
+  renderRecentAudits();
+
+  // Handle routing
+  handleRoute();
+});
+
+
+var MANIFEST=JSON.parse('{"tool_id": "rbe-07-signal-auditor", "version": "1.0.0", "title": "AI·07 Agent Signal Integrity Auditor", "description": "Stress-test your trading signal logic before you backtest it. Catch look-ahead bias, overfitting, and fee blindness in seconds — entirely in your browser.", "category": "fintech", "tags": ["Agent", "Signal", "Integrity", "Auditor"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "rbe_07_signal_auditor", "description": "Run AI·07 Agent Signal Integrity Auditor. Stress-test your trading signal logic before you backtest it. Catch look-ahead bias, overfitting, and fee blindness in seconds — entirely in your browser.", "inputSchema": {"type": "object", "properties": {}}}, "execution": {"type": "browser-javascript", "entry": "tools/rbe-07-signal-auditor.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+</script>
+
+<script>
+/* AIN canonical i18n — reconcile-2026-05-17 */
+const TRANSLATIONS = {
+  en: {
+    "nav.alltools": "All Tools",
+    "nav.hub": "← RBE Suite Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "RBE · Rule-Based Engine Suite · RBE-07",
+    "hero.badge.privacy": "Zero PII · Client-side",
+    "hero.badge.reviewed": "Last Reviewed:",
+    "footer.alltools": "All Tools",
+    "footer.hub": "RBE Suite Hub",
+    "footer.sitemap": "Sitemap",
+    "footer.contact": "Contact",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Zero PII \u00a0 📡 No server calls \u00a0 💻 Client-side",
+    "pii.banner": "🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only."
+  },
+  es: {
+    "nav.alltools": "Todas las herramientas",
+    "nav.hub": "← RBE Suite Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "RBE · Rule-Based Engine Suite · RBE-07",
+    "hero.badge.privacy": "Sin PII · Solo cliente",
+    "hero.badge.reviewed": "Última revisión:",
+    "footer.alltools": "Todas las herramientas",
+    "footer.hub": "RBE Suite Hub",
+    "footer.sitemap": "Mapa del sitio",
+    "footer.contact": "Contacto",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Sin PII \u00a0 📡 Sin llamadas de servidor \u00a0 💻 Solo cliente",
+    "pii.banner": "🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No ingrese datos personales reales — use entradas sintéticas o anonimizadas."
+  },
+  fr: {
+    "nav.alltools": "Tous les outils",
+    "nav.hub": "← RBE Suite Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "RBE · Rule-Based Engine Suite · RBE-07",
+    "hero.badge.privacy": "Zéro PII · Côté client",
+    "hero.badge.reviewed": "Dernière révision :",
+    "footer.alltools": "Tous les outils",
+    "footer.hub": "RBE Suite Hub",
+    "footer.sitemap": "Plan du site",
+    "footer.contact": "Contact",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Zéro PII \u00a0 📡 Aucun appel serveur \u00a0 💻 Côté client",
+    "pii.banner": "🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n'est transmise. N'entrez pas de données personnelles réelles — utilisez des entrées synthétiques ou anonymisées."
+  },
+  ar: {
+    "nav.alltools": "جميع الأدوات",
+    "nav.hub": "→ RBE Suite Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "RBE · Rule-Based Engine Suite · RBE-07",
+    "hero.badge.privacy": "بدون بيانات شخصية · من جهة العميل",
+    "hero.badge.reviewed": "آخر مراجعة:",
+    "footer.alltools": "جميع الأدوات",
+    "footer.hub": "RBE Suite Hub",
+    "footer.sitemap": "خريطة الموقع",
+    "footer.contact": "اتصل بنا",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 بدون بيانات شخصية \u00a0 📡 بدون اتصالات خادم \u00a0 💻 من جهة العميل",
+    "pii.banner": "🔒 تتم معالجة جميع المدخلات محليًا في متصفحك. لا يتم نقل أي بيانات. لا تُدخل بيانات شخصية حقيقية — استخدم مدخلات اصطناعية أو مجهولة الهوية فقط.",
+    "lang_dir": "rtl"
+  },
+  pt: {
+    "nav.alltools": "Todas as ferramentas",
+    "nav.hub": "← RBE Suite Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "RBE · Rule-Based Engine Suite · RBE-07",
+    "hero.badge.privacy": "Zero PII · Lado do cliente",
+    "hero.badge.reviewed": "Última revisão:",
+    "footer.alltools": "Todas as ferramentas",
+    "footer.hub": "RBE Suite Hub",
+    "footer.sitemap": "Mapa do site",
+    "footer.contact": "Contato",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Zero PII \u00a0 📡 Sem chamadas de servidor \u00a0 💻 Lado do cliente",
+    "pii.banner": "🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido. Não insira dados pessoais reais — use entradas sintéticas ou anonimizadas."
+  },
+  zh: {
+    "nav.alltools": "所有工具",
+    "nav.hub": "← RBE Suite Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "RBE · Rule-Based Engine Suite · RBE-07",
+    "hero.badge.privacy": "零PII · 客户端",
+    "hero.badge.reviewed": "最后审查：",
+    "footer.alltools": "所有工具",
+    "footer.hub": "RBE Suite Hub",
+    "footer.sitemap": "网站地图",
+    "footer.contact": "联系我们",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 零PII \u00a0 📡 无服务器调用 \u00a0 💻 客户端",
+    "pii.banner": "🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。请勿输入真实个人数据——仅使用合成或匿名输入。"
+  }
+};
+
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key] !== undefined) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="' + lang + '"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function initLang() {
+  let saved = 'en';
+  try { saved = sessionStorage.getItem('ain_lang') || 'en'; } catch(e) {}
+  if (TRANSLATIONS[saved]) setLang(saved);
+})();
+
+function scrollMfst() {
+  const s = document.getElementById('mfstSec');
+  if (s) s.scrollIntoView({behavior:'smooth', block:'start'});
+}
+</script>
+<script>
+/* manifest-safeguard — rbe-07 */
+(function(){
+  var M = typeof MANIFEST !== 'undefined' ? MANIFEST : JSON.parse('{"tool_id":"rbe-07-signal-auditor","version":"1.0.0","title":"AI·07 Agent Signal Integrity Auditor","description":"Stress-test your trading signal logic before you backtest it. Catch look-ahead bias, overfitting, and fee blindness in seconds — entirely in your browser.","category":"fintech","tags":["Agent","Signal","Integrity","Auditor"],"audience":["compliance","risk","treasury","fintech"],"input_schema":{"type":"object","properties":{}},"output_schema":{"type":"object","properties":{}},"mcp_tool_definition":{"name":"rbe_07_signal_auditor","description":"Run AI·07 Agent Signal Integrity Auditor.","inputSchema":{"type":"object","properties":{}}},"execution":{"type":"browser-javascript","entry":"tools/rbe-07-signal-auditor.html","function_name":"runTool","timeout_ms":5000},"ap2_export":false}');
+  window.toggleMfst = function(){
+    var b = document.getElementById('mfstBody');
+    var a = document.getElementById('mfstArr');
+    var code = document.getElementById('mfstCode');
+    if (!b) return;
+    var showing = b.style.display === 'block';
+    b.style.display = showing ? 'none' : 'block';
+    if (a) a.textContent = showing ? '▼' : '▲';
+    if (!showing && code) code.textContent = JSON.stringify(M, null, 2);
+  };
+})();
+</script>
+</body>
+</html>

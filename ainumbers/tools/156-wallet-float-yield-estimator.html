@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Wallet Float Yield Estimator · AINumbers.co</title>
+<meta name="description" content="Calculate float revenue on stored value balances. Inputs: average wallet balance, user count, Fed Funds rate, reserve requirement, FDIC pass-through eligibility. Outputs float revenue projection, reserve drag, net yield, and Markdown treasury memo. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/156-wallet-float-yield-estimator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Wallet Float Yield Estimator","url":"https://ainumbers.co/tools/164-wallet-float-yield-estimator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "wallet-float-yield-estimator",
+  "version": "1.0.0",
+  "title": "Wallet Float Yield Estimator",
+  "description": "Calculates float revenue on stored value balances considering Fed Funds rate, reserve requirements, FDIC pass-through eligibility, and dormancy rates. Outputs gross float revenue, reserve drag, net yield, and treasury memo.",
+  "category": "cat-14",
+  "tags": ["float yield","stored value","Fed Funds","FDIC","reserve","wallet","BaaS","treasury","dormancy"],
+  "audience": ["treasury","product","engineer"],
+  "input_schema": {"type":"object","properties":{"user_count":{"type":"integer"},"avg_balance":{"type":"number"},"fed_funds_rate":{"type":"number"},"fdic_eligible_pct":{"type":"number"},"reserve_req_pct":{"type":"number"},"dormancy_rate":{"type":"number"},"pass_through_pct":{"type":"number"},"mgmt_fee_bps":{"type":"number"}},"required":["user_count","avg_balance","fed_funds_rate"]},
+  "output_schema": {"type":"object","properties":{"gross_float_revenue":{"type":"number"},"reserve_drag":{"type":"number"},"net_yield_pct":{"type":"number"},"net_yield_bps":{"type":"number"},"annual_net_revenue":{"type":"number"},"per_user_annual":{"type":"number"}}},
+  "mcp_tool_definition": {"name":"estimate_wallet_float_yield","description":"Estimates wallet float yield on stored value balances including reserve drag, FDIC pass-through, and net treasury revenue.","inputSchema":{"type":"object","properties":{"user_count":{"type":"integer","description":"Active user count"},"avg_balance":{"type":"number","description":"Average wallet balance per user in USD"},"fed_funds_rate":{"type":"number","description":"Current Fed Funds rate as percentage"}},"required":["user_count","avg_balance","fed_funds_rate"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/164-wallet-float-yield-estimator.html","function_name":"estimateYield","timeout_ms":3000},
+  "ap2_export": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1000px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1000px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1000px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}.nav-trail a:hover{color:var(--teal)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}.nav-sep{color:var(--border-2)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:640px;line-height:1.8;margin-bottom:1.25rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0;flex:1}
+.tool-grid{display:grid;grid-template-columns:300px 1fr;gap:1.5rem;align-items:start}
+@media(max-width:820px){.tool-grid{grid-template-columns:1fr}}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.panel-body{padding:1.25rem}
+.field{margin-bottom:1rem}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.field input,.field select{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.75rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none;transition:border-color .2s;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--teal)}
+.field-hint{font-size:.6rem;color:var(--muted);margin-top:.25rem}
+.slider-wrap{margin-top:.35rem}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--teal);margin-bottom:.25rem}
+input[type=range]{width:100%;accent-color:var(--teal)}
+.run-btn{width:100%;background:var(--teal);color:var(--bg);border:none;padding:.65rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.85rem}
+.run-btn:hover{background:var(--teal-lt)}
+.output-panel{display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border)}
+@media(max-width:600px){.metrics-grid{grid-template-columns:repeat(2,1fr)}}
+.metric-cell{background:var(--bg-2);padding:.85rem 1rem;text-align:center}
+.metric-val{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--bright);line-height:1}
+.metric-val.teal{color:var(--teal)}.metric-val.gold{color:var(--gold)}.metric-val.green{color:var(--green)}.metric-val.red{color:var(--red)}.metric-val.warn{color:var(--warn)}
+.metric-lbl{font-family:'JetBrains Mono',monospace;font-size:.4rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:.25rem}
+.rate-sens{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border)}
+.rate-cell{background:var(--bg-2);padding:.75rem .85rem;text-align:center}
+.rate-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;color:var(--muted);margin-bottom:.25rem}
+.rate-val{font-family:'DM Serif Display',serif;font-size:1rem;line-height:1;margin-bottom:.2rem}
+.rate-net{font-family:'JetBrains Mono',monospace;font-size:.52rem}
+.waterfall{padding:1.25rem;display:flex;flex-direction:column;gap:5px}
+.wf-row{display:grid;grid-template-columns:200px 1fr 100px;gap:.75rem;align-items:center}
+.wf-label{font-size:.7rem;color:var(--text)}
+.wf-bar-wrap{height:18px;background:var(--bg-3);border-radius:3px;overflow:hidden}
+.wf-bar{height:100%;border-radius:3px;transition:width .4s}
+.wf-val{font-family:'JetBrains Mono',monospace;font-size:.62rem;text-align:right}
+.wf-sep{border-top:1px dashed var(--border);margin:.3rem 0}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.72rem;color:var(--body);line-height:1.8;white-space:pre-wrap}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+/* 5D-nav-bc-v1 */
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-privacy::before{content:'·';color:var(--green)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick='setLang("zh")'>中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/embedded-finance-baas-hub.html">BaaS Hub</a><span class="nav-sep">/</span><span>T-156</span></div>
+
+    <a href="../guides/embedded-finance-baas-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-14 · T164 · Embedded Finance &amp; BaaS Infrastructure</div>
+  <h1 class="tool-title">Wallet Float <em>Yield Estimator</em></h1>
+  <p class="hero-desc">Calculate float revenue on stored value balances. Model gross yield vs. reserve drag, FDIC pass-through benefit, dormancy impact, and net treasury yield in basis points and dollar terms. Rate sensitivity analysis across Fed Funds scenarios. Outputs Markdown treasury memo.</p>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-teal">Float Yield</span>
+    <span class="badge badge-gold">Fed Funds</span>
+    <span class="badge badge-purple">Stored Value</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+        </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+<div class="tool-grid">
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Float Parameters</span></div>
+    <div class="panel-body">
+      <div class="field">
+        <label>Wallet Programme Type</label>
+        <select id="progType">
+          <option value="prepaid">Prepaid / Debit Wallet</option>
+          <option value="stored_value" selected>Stored Value (Non-Bank)</option>
+          <option value="neobank">Neobank Deposit Account</option>
+          <option value="crypto_fiat">Crypto On-Ramp Fiat Balance</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Active User Count</label>
+        <input type="number" id="userCount" value="150000" min="1">
+      </div>
+      <div class="field">
+        <label>Average Wallet Balance per User (USD)</label>
+        <input type="number" id="avgBal" value="240" min="0">
+      </div>
+      <div class="field">
+        <label>Fed Funds Rate (%)</label>
+        <div class="slider-wrap">
+          <div class="slider-val" id="ffRateVal">4.50%</div>
+          <input type="range" id="ffRate" min="0" max="8" step="0.25" value="4.50" oninput="document.getElementById('ffRateVal').textContent=parseFloat(this.value).toFixed(2)+'%'">
+        </div>
+      </div>
+      <div class="field">
+        <label>Investment Yield vs. Fed Funds (±%)</label>
+        <input type="number" id="spreadVsFF" value="-0.25" step="0.05" min="-2" max="2">
+        <div class="field-hint">Spread above/below Fed Funds (MMF, T-Bills, IOER)</div>
+      </div>
+      <div class="field">
+        <label>FDIC Pass-Through Eligible (%)</label>
+        <input type="number" id="fdicElig" value="75" step="5" min="0" max="100">
+        <div class="field-hint">% meeting documented FDIC pass-through requirements</div>
+      </div>
+      <div class="field">
+        <label>Reserve Requirement (% of pool)</label>
+        <input type="number" id="reservePct" value="5" step="0.5" min="0" max="25">
+        <div class="field-hint">Liquidity buffer — earns zero or short-duration yield</div>
+      </div>
+      <div class="field">
+        <label>Dormancy Rate (%/year)</label>
+        <input type="number" id="dormancyRate" value="12" step="1" min="0" max="50">
+        <div class="field-hint">Dormant balances may require escheatment provisioning</div>
+      </div>
+      <div class="field">
+        <label>Treasury Management Fee (bps/year)</label>
+        <input type="number" id="mgmtFee" value="15" min="0" max="100">
+        <div class="field-hint">Custodian / sweep programme management fee</div>
+      </div>
+      <button class="run-btn" onclick="estimateYield()">▶ Estimate Float Yield</button>
+    </div>
+  </div>
+
+  <div class="output-panel" id="outputPanel">
+    <div class="out-section"><div class="out-body" style="text-align:center;padding:3rem;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.62rem">Configure parameters and click Estimate Float Yield</div></div>
+  </div>
+</div></div></div>
+
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/embedded-finance-baas-hub.html"><span data-i18n="footer.hub_embedded_finance_baas">BaaS Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+function fmt(n){return n>=1e6?'$'+(n/1e6).toFixed(2)+'M':n>=1e3?'$'+(n/1e3).toFixed(1)+'K':'$'+n.toFixed(0)}
+function fmtBps(n){return Math.round(n*10000)+' bps'}
+function pct(n){return n.toFixed(2)+'%'}
+function fmtN(n){return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':n.toLocaleString()}
+
+function estimateYield(){
+  const progType   = document.getElementById('progType').value;
+  const users      = parseInt(document.getElementById('userCount').value)||0;
+  const avgBal     = parseFloat(document.getElementById('avgBal').value)||0;
+  const ffRate     = parseFloat(document.getElementById('ffRate').value)/100;
+  const spread     = parseFloat(document.getElementById('spreadVsFF').value)/100;
+  const fdicElig   = parseFloat(document.getElementById('fdicElig').value)/100;
+  const reservePct = parseFloat(document.getElementById('reservePct').value)/100;
+  const dormancy   = parseFloat(document.getElementById('dormancyRate').value)/100;
+  const mgmtFee    = parseFloat(document.getElementById('mgmtFee').value)/10000;
+
+  const progLabels = {prepaid:'Prepaid / Debit Wallet',stored_value:'Stored Value',neobank:'Neobank Deposit',crypto_fiat:'Crypto On-Ramp Fiat'};
+
+  /* ── Pool composition ── */
+  const totalPool      = users * avgBal;
+  const activePool     = totalPool * (1 - dormancy);
+  const dormantPool    = totalPool * dormancy;
+  const reservePool    = totalPool * reservePct;
+  const investablePool = totalPool - reservePool;            // reserve earns ~0 or very short-duration
+
+  /* ── Yield calculation ── */
+  const investYield    = ffRate + spread;                    // effective investment yield
+  const reserveYield   = Math.max(0, ffRate - 0.005);       // reserve earns ~fed funds - 5bps (short-duration)
+
+  const grossFloat     = investablePool * investYield + reservePool * reserveYield;
+  const mgmtFeeAmt     = totalPool * mgmtFee;
+  const escheatProv    = dormantPool * 0.05;                  // 5% provision on dormant balances for escheatment
+
+  const netFloat       = grossFloat - mgmtFeeAmt - escheatProv;
+  const netYieldPct    = totalPool > 0 ? netFloat / totalPool : 0;
+  const perUserAnnual  = users > 0 ? netFloat / users : 0;
+
+  /* ── Rate sensitivity ── */
+  const rateScenarios = [1.0, 2.0, 3.0, 4.5, 5.5].map(r=>{
+    const iy = r/100 + spread;
+    const gross = investablePool * iy + reservePool * Math.max(0,r/100-0.005);
+    const net = gross - mgmtFeeAmt - escheatProv;
+    return {rate:r, gross, net, yieldBps:Math.round(net/totalPool*10000)};
+  });
+
+  /* ── Waterfall ── */
+  const wfMax = grossFloat;
+  function wfRow(label,val,col){
+    const bar = Math.abs(val)/(Math.abs(wfMax)||1)*100;
+    const sign = val>=0?'+':'-';
+    return `<div class="wf-row">
+      <div class="wf-label">${label}</div>
+      <div class="wf-bar-wrap"><div class="wf-bar" style="width:${Math.min(bar,100)}%;background:${col}"></div></div>
+      <div class="wf-val" style="color:${col}">${sign}${fmt(Math.abs(val))}</div>
+    </div>`;
+  }
+
+  const rateCells = rateScenarios.map(s=>{
+    const col = s.net>0?'var(--green)':s.net>0?'var(--warn)':'var(--red)';
+    const isSelected = Math.abs(s.rate - ffRate*100) < 0.6;
+    return `<div class="rate-cell" style="${isSelected?'background:var(--teal-dim)':''}">
+      <div class="rate-label">${s.rate.toFixed(1)}%${isSelected?' ◀':''}</div>
+      <div class="rate-val" style="color:${col}">${fmt(s.net)}</div>
+      <div class="rate-net" style="color:var(--muted)">${s.yieldBps} bps</div>
+    </div>`;
+  }).join('');
+
+  const memo = `WALLET FLOAT YIELD ANALYSIS
+Programme: ${progLabels[progType]} | Users: ${fmtN(users)}
+Generated: ${new Date().toLocaleDateString()} | Tool: AINumbers.co T164
+
+POOL COMPOSITION
+  Total Pool Balance:           ${fmt(totalPool)}
+  Active Balance (${(100-dormancy*100).toFixed(0)}%):       ${fmt(activePool)}
+  Dormant Balance (${(dormancy*100).toFixed(0)}%):          ${fmt(dormantPool)}
+  Reserve (${(reservePct*100).toFixed(0)}%):                ${fmt(reservePool)}
+  Investable Pool:              ${fmt(investablePool)}
+
+YIELD PARAMETERS
+  Fed Funds Rate:               ${pct(ffRate*100)}
+  Investment Spread vs. FF:     ${spread>=0?'+':''}${pct(spread*100)}
+  Effective Investment Yield:   ${pct(investYield*100)}
+  FDIC Pass-Through Eligible:   ${pct(fdicElig*100)}
+
+ANNUAL REVENUE MODEL
+  Gross Float Revenue:          +${fmt(grossFloat)}  (${fmtBps(grossFloat/totalPool)})
+  Treasury Mgmt Fee:            −${fmt(mgmtFeeAmt)}  (${Math.round(mgmtFee*10000)} bps)
+  Escheatment Provision:        −${fmt(escheatProv)}
+  ─────────────────────────────────
+  Net Float Revenue:            ${fmt(netFloat)}  (${fmtBps(netYieldPct)})
+  Per-User Annual Float Rev:    ${fmt(perUserAnnual)}
+
+RATE SENSITIVITY (Net Annual Revenue)
+${rateScenarios.map(s=>`  FF ${s.rate.toFixed(1)}%: ${fmt(s.net).padStart(12)} (${s.yieldBps} bps)${Math.abs(s.rate-ffRate*100)<0.6?' ← Current':''}`).join('\n')}
+
+NOTES
+  • Reserve pool earns short-duration yield (~FF−5bps) for operational liquidity
+  • Dormant balances require state escheatment procedures after 3–5 years
+  • FDIC pass-through requires documented beneficial ownership records
+  • Stored value programmes may be subject to state money transmission laws
+
+REGULATORY REFERENCES
+  1. FDIC Advisory Opinion 2008-2 (FBO pass-through insurance)
+  2. State unclaimed property / escheatment statutes (varies by state)
+  3. FDIC Rule 12 CFR Part 370 (Recordkeeping for timely deposit insurance)
+
+DISCLAIMER
+  For treasury modelling purposes only. Actual yield depends on investment
+  policy, custodian arrangements, and regulatory requirements.
+  AINumbers.co Zero PII — no inputs stored or transmitted.`;
+
+  document.getElementById('outputPanel').innerHTML = `
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Float Yield Summary</span></div>
+      <div class="metrics-grid">
+        <div class="metric-cell"><div class="metric-val teal">${fmt(grossFloat)}</div><div class="metric-lbl">Gross Float/Year</div></div>
+        <div class="metric-cell"><div class="metric-val green">${fmt(netFloat)}</div><div class="metric-lbl">Net Float/Year</div></div>
+        <div class="metric-cell"><div class="metric-val gold">${fmtBps(netYieldPct)}</div><div class="metric-lbl">Net Yield (bps)</div></div>
+        <div class="metric-cell"><div class="metric-val teal">${fmt(perUserAnnual)}</div><div class="metric-lbl">Per-User Annual</div></div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Yield Waterfall</span></div>
+      <div class="waterfall">
+        ${wfRow('Investable Pool Yield',investablePool*investYield,'var(--teal)')}
+        ${wfRow('Reserve Yield (short)',reservePool*Math.max(0,ffRate-0.005),'var(--teal)')}
+        <div class="wf-sep"></div>
+        ${wfRow('Gross Float Revenue',grossFloat,'var(--green)')}
+        ${wfRow('Treasury Mgmt Fee',-mgmtFeeAmt,'var(--body)')}
+        ${wfRow('Escheatment Provision',-escheatProv,'var(--warn)')}
+        <div class="wf-sep"></div>
+        ${wfRow('Net Float Revenue',netFloat,'var(--teal)')}
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Rate Sensitivity — Net Annual Revenue</span></div>
+      <div class="rate-sens">${rateCells}</div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Treasury Memo (Markdown)</span><button class="copy-btn" onclick="copyMemo()">Copy</button></div>
+      <div class="out-body" style="padding:.75rem"><div class="memo-block">${memo}</div></div>
+    </div>
+  `;
+  window._memo = memo;
+}
+
+function copyMemo(){if(window._memo){navigator.clipboard.writeText(window._memo).then(()=>{const b=document.querySelector('.copy-btn');if(b){b.textContent='Copied ✓';setTimeout(()=>b.textContent='Copy',2000)}})}}
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+    'nav.hub': '← Cat-14 Hub',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.hub': '← Centro Cat-14',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+    'nav.hub': '← Centre Cat-14',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+    'nav.hub': '← مركز Cat-14',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.hub': '← Central Cat-14',
+  }, zh:{
+    'nav.alltools': '所有工具',
+    'nav.hub': '← Cat-14 中心',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+estimateYield();
+</script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "wallet-float-yield-estimator", "version": "1.0.0", "title": "Wallet Float Yield Estimator", "description": "Calculate float revenue on stored value balances. Inputs: average wallet balance, user count, Fed Funds rate, reserve requirement, FDIC pass-through eligibility. Outputs float revenue projection, reserve drag, net yield, and Markdown treasury memo. Client-side. Zero PII.", "category": "embedded-finance-baas", "tags": ["Float Yield", "Fed Funds", "Stored Value", "Zero PII", "Client-Side"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"progType": {"type": "string"}, "userCount": {"type": "string"}, "avgBal": {"type": "string"}, "ffRate": {"type": "string"}, "spreadVsFF": {"type": "string"}, "fdicElig": {"type": "string"}, "reservePct": {"type": "string"}, "dormancyRate": {"type": "string"}, "mgmtFee": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "wallet_float_yield_estimator", "description": "Run Wallet Float Yield Estimator. Calculate float revenue on stored value balances. Inputs: average wallet balance, user count, Fed Funds rate, reserve requirement, FDIC pass-through eligibility. Outputs float revenue projection, rese", "inputSchema": {"type": "object", "properties": {"progType": {"type": "string"}, "userCount": {"type": "string"}, "avgBal": {"type": "string"}, "ffRate": {"type": "string"}, "spreadVsFF": {"type": "string"}, "fdicElig": {"type": "string"}, "reservePct": {"type": "string"}, "dormancyRate": {"type": "string"}, "mgmtFee": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/156-wallet-float-yield-estimator.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

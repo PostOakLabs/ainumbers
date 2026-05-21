@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Asset Allocation Heatmapper · AINumbers.co</title>
+<meta name="description" content="Visualize pairwise correlations across up to 10 asset classes. Enter allocations, see portfolio volatility, Sharpe ratio, and diversification score as an interactive heatmap. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/pf-133-asset-allocation-heatmapper">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Asset Allocation Heatmapper","url":"https://ainumbers.co/tools/pf-133-asset-allocation-heatmapper","description":"Visualize pairwise correlations across up to 10 asset classes. Enter allocations, see portfolio volatility, Sharpe ratio, and diversification score as an interactive heatmap. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* Edu disclaimer (canonical §9.3) */
+.edu-disclaimer {
+  border: 1px solid var(--warn);
+  border-left: 3px solid var(--warn);
+  background: rgba(245, 158, 11, 0.06);
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  font-size: 0.76rem;
+  color: var(--body);
+  line-height: 1.7;
+  border-radius: var(--radius);
+}
+.edu-disclaimer-label {
+  display: block;
+  color: var(--warn);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased;padding-bottom:24px}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button,input,select{font-family:'Sora',sans-serif}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:960px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500;color:var(--bright);letter-spacing:-.02em}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.78rem}
+.back-link{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);padding:.3rem .8rem;border-radius:4px;transition:all .2s}
+.back-link:hover{color:var(--teal);border-color:var(--teal)}
+.content{max-width:960px;margin:0 auto;padding:2rem 1.5rem;position:relative;z-index:1}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.2em;text-transform:uppercase;color:var(--green);margin-bottom:.5rem}
+.tool-title{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.5rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.module{background:var(--bg-2);border:1px solid var(--border);padding:1.5rem;margin-bottom:1.5rem}
+.module.green-accent{border-left:3px solid var(--green)}
+.module-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--green);margin-bottom:1.25rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+label{font-size:.65rem;color:var(--body);display:block;margin-bottom:.2rem}
+input[type="number"],input[type="text"],select{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.4rem .65rem;font-size:.75rem;border-radius:4px;outline:none;transition:border-color .15s}
+input[type="number"]:focus,input[type="text"]:focus,select:focus{border-color:var(--green)}
+.outcome-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:1.5rem}
+@media(max-width:600px){.outcome-grid{grid-template-columns:repeat(2,1fr)}}
+.outcome-cell{background:var(--bg-2);padding:1rem;text-align:center}
+.outcome-label{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.outcome-val{font-family:'DM Serif Display',serif;font-size:1.3rem;line-height:1}
+.outcome-sub{font-size:.62rem;color:var(--body);margin-top:.15rem}
+.asset-tbl{width:100%;border-collapse:collapse}
+.asset-tbl th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.4rem .5rem;text-align:left;border-bottom:1px solid var(--border)}
+.asset-tbl td{padding:.3rem .5rem;border-bottom:1px solid rgba(30,47,74,.35)}
+.asset-tbl input{padding:.28rem .5rem}
+.del-btn{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:.9rem;padding:.1rem .35rem;transition:color .2s}
+.del-btn:hover{color:var(--red)}
+.add-btn{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.35rem .9rem;background:var(--green-dim);border:1px solid rgba(34,197,94,.3);color:var(--green);border-radius:3px;cursor:pointer;margin-top:.75rem;transition:all .2s}
+.add-btn:hover{background:var(--green);color:var(--bg)}
+.heatmap-wrap{overflow-x:auto}
+.heatmap{border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.58rem}
+.heatmap th{padding:.35rem .5rem;color:var(--muted);font-weight:400;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis}
+.heatmap td{width:50px;height:36px;text-align:center;font-size:.62rem;font-weight:500}
+.alloc-bar{height:16px;border-radius:3px;display:flex;overflow:hidden;background:var(--border);margin-top:.75rem}
+.alloc-seg{height:100%}
+.alloc-legend{display:flex;flex-wrap:wrap;gap:.4rem .85rem;margin-top:.5rem}
+.alloc-leg-item{display:flex;align-items:center;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--body)}
+.alloc-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.export-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;padding:.5rem 1.1rem;border-radius:4px;cursor:pointer;border:none;background:var(--green);color:var(--bg);transition:background .2s;margin-right:.5rem}
+.export-btn:hover{background:#4ADE80}
+.export-btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}
+.export-btn.ghost:hover{border-color:var(--teal);color:var(--teal)}
+/* ── tooltip helper ──────────────────────────────── */
+.tip-wrap{position:relative;display:inline-flex;align-items:center;gap:.3rem}
+.tip-icon{font-size:.72rem;color:var(--muted);cursor:help;user-select:none}
+.tip-icon:hover{color:var(--teal)}
+.tip-box{display:none;position:absolute;bottom:120%;left:50%;transform:translateX(-50%);background:var(--bg-4);border:1px solid var(--border-2);color:var(--text);font-size:.72rem;line-height:1.55;padding:.55rem .75rem;border-radius:4px;width:220px;z-index:99;pointer-events:none;font-family:'Sora',sans-serif;font-weight:300}
+.tip-icon:hover+.tip-box,.tip-wrap:focus-within .tip-box{display:block}
+/* ── debounce via CSS animation trick not needed — handled in JS ── */
+/* ── print styles ─────────────────────────────────── */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+@media print{nav,canvas{min-height:200px}.module{border:1px solid #ccc!important}body{background:#fff!important;color:#000!important}}
+/* ── aria-live region ─────────────────────────────── */
+.sr-live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+.preset-bar{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1rem}
+.preset-btn{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.25rem .65rem;background:var(--bg-3);border:1px solid var(--border);color:var(--body);border-radius:3px;cursor:pointer;transition:all .2s}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal)}
+.corr-note{font-size:.72rem;color:var(--muted);margin-top:.6rem;line-height:1.5}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.container{max-width:960px;margin:0 auto;padding:0 1.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<!-- LANG BAR (Phase 5 baseline insertion 2026-05-12) -->
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+
+
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:0 2rem;height:34px;display:flex;align-items:center;width:100%}
+.lang-inner{max-width:1200px;margin:0 auto;display:flex;gap:.5rem;align-items:center;justify-content:flex-end;width:100%}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;background:transparent;border:none;color:var(--muted);padding:.4rem .9rem;cursor:pointer;text-transform:uppercase;transition:color .2s}
+.lang-btn:hover{color:var(--text)}
+.lang-btn.active{color:var(--teal)}
+</style>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<script>
+// Phase 5 baseline stub — visual-state only. Full TRANSLATIONS object lands in the next sweep.
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+  }, zh:{
+    'nav.alltools': '所有工具',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+</script>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/open-banking-integration-hub.html">Open Banking Hub</a><span class="nav-sep">/</span><span>Tool PF-133</span></div>
+
+    <a href="../guides/open-banking-integration-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+<div class="content">
+  <div id="sr-live-133" class="sr-live" aria-live="polite" aria-atomic="true"></div>
+  <div class="hero-eyebrow">Tool 133 · Cat-10 · Personal Finance</div>
+  <h1 class="tool-title">Asset Allocation Heatmapper</h1>
+  <p class="hero-desc">Enter up to 10 asset classes with weights and volatility assumptions. See pairwise correlations, weighted portfolio volatility, Sharpe ratio, and diversification score rendered as an interactive heatmap. Zero API. Zero PII.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-privacy"><span data-i18n="hero.badge.privacy">Zero PII · Client-side</span></span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+    <!-- Edu disclaimer (canonical §9.3) -->
+  <div class="edu-disclaimer">
+    <strong class="edu-disclaimer-label" data-i18n="disclaimer.label">Educational Use Only</strong>
+    <span data-i18n="disclaimer.body">This tool provides a self-assessment / educational framework for internal planning purposes only. It is not a regulatory audit, legal advice, or a substitute for a formal compliance review by a qualified advisor. Verify all interpretations against the official source text and applicable RTS/ITS/guidance published by the relevant authority.</span>
+  </div>
+
+
+  <div class="module green-accent">
+    <div class="module-title">Quick Presets</div>
+    <div class="preset-bar">
+      <button class="preset-btn" onclick="loadPreset('6040')">60/40 Classic</button>
+      <button class="preset-btn" onclick="loadPreset('8020')">80/20 Aggressive</button>
+      <button class="preset-btn" onclick="loadPreset('threefund')">3-Fund Lazy</button>
+      <button class="preset-btn" onclick="loadPreset('allweather')">All Weather</button>
+    </div>
+  </div>
+
+  <div class="module green-accent">
+    <div class="module-title">Module 1 · Portfolio Assets</div>
+    <table class="asset-tbl">
+      <thead><tr><th>Asset Class</th><th>Weight (%)</th><th>Exp. Return (%)</th><th>Volatility σ (%)</th><th></th></tr></thead>
+      <tbody id="asset-tbody"></tbody>
+    </table>
+    <button class="add-btn" onclick="addAsset()">+ Add Asset</button>
+    <span id="w-warn" style="font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--warn);margin-left:1rem;display:none">⚠ Weights must sum to 100%</span>
+  </div>
+
+  <div class="outcome-grid">
+    <div class="outcome-cell"><div class="outcome-label">Portfolio Volatility</div><div class="outcome-val" id="out-vol" style="color:var(--gold)">—</div><div class="outcome-sub">Weighted σ (ann.)</div></div>
+    <div class="outcome-cell"><div class="outcome-label">Expected Return</div><div class="outcome-val" id="out-ret" style="color:var(--green)">—</div><div class="outcome-sub">Weighted avg</div></div>
+    <div class="outcome-cell"><div class="outcome-label">Sharpe Ratio</div><div class="outcome-val" id="out-sharpe" style="color:var(--teal)">—</div><div class="outcome-sub">RFR = 4.5%</div></div>
+    <div class="outcome-cell"><div class="outcome-label">Diversification Score</div><div class="outcome-val" id="out-div" style="color:var(--purple)">—</div><div class="outcome-sub">/100 — higher = less correlated</div></div>
+  </div>
+
+  <div class="module">
+    <div class="module-title">Allocation Bar</div>
+    <div class="alloc-bar" id="alloc-bar"></div>
+    <div class="alloc-legend" id="alloc-legend"></div>
+  </div>
+
+  <div class="module">
+    <div class="module-title">Correlation Heatmap</div>
+    <p style="font-size:.74rem;color:var(--body);margin-bottom:.5rem">Blue tones = negative correlation (diversifying). Red tones = positive (concentrating). Diagonal = 1.0.</p>
+    <p class="corr-note">⚠ Correlations are long-run historical averages (pre-2022). Stock-bond correlation turned positive in 2022 rate-rise environment. Treat these as approximate guides, not real-time data.</p>
+    <div class="heatmap-wrap"><table class="heatmap" id="heatmap"></table></div>
+  </div>
+
+  <div style="margin-bottom:1.5rem">
+    <button class="export-btn" id="btn-export-md" onclick="exportMD()">⬇ Export Markdown</button>
+    <button class="export-btn ghost" id="btn-export-csv" onclick="exportCSV()">⬇ Export CSV</button>
+  </div>
+</div>
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+<script>
+const CORR={
+  'us stocks':   {'us stocks':1.0,'int stocks':0.82,'bonds':-0.12,'reits':0.65,'commodities':0.08,'cash':-0.05,'gold':-0.02,'crypto':0.28,'tips':0.02,'int bonds':0.05},
+  'int stocks':  {'us stocks':0.82,'int stocks':1.0,'bonds':-0.08,'reits':0.56,'commodities':0.18,'cash':-0.04,'gold':0.04,'crypto':0.22,'tips':0.05,'int bonds':0.1},
+  'bonds':       {'us stocks':-0.12,'int stocks':-0.08,'bonds':1.0,'reits':0.22,'commodities':-0.15,'cash':0.42,'gold':0.18,'crypto':-0.08,'tips':0.72,'int bonds':0.78},
+  'reits':       {'us stocks':0.65,'int stocks':0.56,'bonds':0.22,'reits':1.0,'commodities':0.15,'cash':0.05,'gold':0.1,'crypto':0.18,'tips':0.25,'int bonds':0.2},
+  'commodities': {'us stocks':0.08,'int stocks':0.18,'bonds':-0.15,'reits':0.15,'commodities':1.0,'cash':-0.02,'gold':0.55,'crypto':0.12,'tips':0.32,'int bonds':-0.1},
+  'cash':        {'us stocks':-0.05,'int stocks':-0.04,'bonds':0.42,'reits':0.05,'commodities':-0.02,'cash':1.0,'gold':0.05,'crypto':-0.05,'tips':0.38,'int bonds':0.3},
+  'gold':        {'us stocks':-0.02,'int stocks':0.04,'bonds':0.18,'reits':0.1,'commodities':0.55,'cash':0.05,'gold':1.0,'crypto':0.2,'tips':0.28,'int bonds':0.12},
+  'crypto':      {'us stocks':0.28,'int stocks':0.22,'bonds':-0.08,'reits':0.18,'commodities':0.12,'cash':-0.05,'gold':0.2,'crypto':1.0,'tips':-0.05,'int bonds':-0.08},
+  'tips':        {'us stocks':0.02,'int stocks':0.05,'bonds':0.72,'reits':0.25,'commodities':0.32,'cash':0.38,'gold':0.28,'crypto':-0.05,'tips':1.0,'int bonds':0.65},
+  'int bonds':   {'us stocks':0.05,'int stocks':0.1,'bonds':0.78,'reits':0.2,'commodities':-0.1,'cash':0.3,'gold':0.12,'crypto':-0.08,'tips':0.65,'int bonds':1.0},
+};
+const COLORS=['#22C55E','#14B8A6','#9B72F5','#D4A847','#EF4444','#F59E0B','#2DD4BF','#A78BFA','#4ADE80','#60A5FA'];
+let assets=[{name:'US Stocks',weight:60,ret:9.5,vol:17.0},{name:'Bonds',weight:25,ret:4.2,vol:6.5},{name:'Int Stocks',weight:10,ret:7.8,vol:18.5},{name:'Gold',weight:5,ret:5.5,vol:14.0}];
+function addAsset(){if(assets.length>=10){alert('Maximum 10 assets.');return;}assets.push({name:'Asset '+(assets.length+1),weight:0,ret:6,vol:12});
+const PRESETS={
+  '6040':[{name:'US Stocks',weight:40,ret:9.5,vol:17},{name:'Int Stocks',weight:20,ret:7.8,vol:18.5},{name:'Bonds',weight:25,ret:4.2,vol:6.5},{name:'REITs',weight:10,ret:7.0,vol:18},{name:'Cash',weight:5,ret:4.8,vol:0.5}],
+  '8020':[{name:'US Stocks',weight:60,ret:9.5,vol:17},{name:'Int Stocks',weight:20,ret:7.8,vol:18.5},{name:'Bonds',weight:20,ret:4.2,vol:6.5}],
+  'threefund':[{name:'US Stocks',weight:60,ret:9.5,vol:17},{name:'Int Stocks',weight:20,ret:7.8,vol:18.5},{name:'Bonds',weight:20,ret:4.2,vol:6.5}],
+  'allweather':[{name:'US Stocks',weight:30,ret:9.5,vol:17},{name:'Bonds',weight:40,ret:4.2,vol:6.5},{name:'TIPS',weight:15,ret:3.5,vol:5.5},{name:'Gold',weight:7.5,ret:5.5,vol:14},{name:'Commodities',weight:7.5,ret:4.0,vol:18}]
+};
+function loadPreset(key){assets=[...PRESETS[key]];renderTable();calc();}
+renderTable();calc();}
+function removeAsset(i){assets.splice(i,1);renderTable();calc();}
+function renderTable(){
+  const tb=document.getElementById('asset-tbody');tb.innerHTML='';
+  assets.forEach((a,i)=>{tb.innerHTML+=`<tr>
+    <td><input type="text" value="${a.name}" oninput="assets[${i}].name=this.value;calc()" style="width:140px;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.28rem .5rem;font-size:.75rem;border-radius:4px;outline:none"></td>
+    <td><input type="number" value="${a.weight}" min="0" max="100" step="0.5" oninput="assets[${i}].weight=parseFloat(this.value)||0;calc()" style="width:70px"></td>
+    <td><input type="number" value="${a.ret}" min="-20" max="30" step="0.1" oninput="assets[${i}].ret=parseFloat(this.value)||0;calc()" style="width:70px"></td>
+    <td><input type="number" value="${a.vol}" min="0" max="60" step="0.5" oninput="assets[${i}].vol=parseFloat(this.value)||0;calc()" style="width:70px"></td>
+    <td><button class="del-btn" onclick="removeAsset(${i})">✕</button></td>
+  </tr>`;});
+}
+function getCorr(a,b){
+  const ka=a.toLowerCase().replace(/[^a-z ]/g,'').trim(),kb=b.toLowerCase().replace(/[^a-z ]/g,'').trim();
+  if(ka===kb)return 1.0;
+  for(const k1 of Object.keys(CORR)){if(ka.includes(k1)||k1.includes(ka)){for(const k2 of Object.keys(CORR[k1])){if(kb.includes(k2)||k2.includes(kb))return CORR[k1][k2];}}}
+  return 0.35;
+}
+function calc(){
+  const tw=assets.reduce((s,a)=>s+a.weight,0);
+  document.getElementById('w-warn').style.display=Math.abs(tw-100)>0.5?'inline':'none';
+  const expOk=Math.abs(tw-100)<=0.5;
+  document.getElementById('btn-export-md').disabled=!expOk;
+  document.getElementById('btn-export-csv').disabled=!expOk;
+  document.getElementById('btn-export-md').style.opacity=expOk?'1':'0.4';
+  document.getElementById('btn-export-csv').style.opacity=expOk?'1':'0.4';
+  const n=assets.length;if(!n)return;
+  const w=assets.map(a=>a.weight/100);
+  let variance=0;
+  for(let i=0;i<n;i++)for(let j=0;j<n;j++){const c=getCorr(assets[i].name,assets[j].name);variance+=w[i]*w[j]*(assets[i].vol/100)*(assets[j].vol/100)*c;}
+  const pVol=Math.sqrt(Math.max(0,variance))*100,pRet=assets.reduce((s,a,i)=>s+w[i]*a.ret,0),sharpe=pVol>0?(pRet-4.5)/pVol:0,wAvgVol=assets.reduce((s,a,i)=>s+w[i]*a.vol,0),divScore=Math.round(Math.max(0,Math.min(100,(1-pVol/wAvgVol)*100+50)));
+  document.getElementById('out-vol').textContent=pVol.toFixed(1)+'%';
+  document.getElementById('out-ret').textContent=pRet.toFixed(1)+'%';
+  document.getElementById('out-sharpe').textContent=sharpe.toFixed(2);
+  document.getElementById('out-div').textContent=divScore;
+  const bar=document.getElementById('alloc-bar'),leg=document.getElementById('alloc-legend');
+  bar.innerHTML='';leg.innerHTML='';
+  assets.forEach((a,i)=>{const pct=tw>0?(a.weight/tw*100):0;bar.innerHTML+=`<div class="alloc-seg" style="width:${pct}%;background:${COLORS[i%COLORS.length]}"></div>`;leg.innerHTML+=`<div class="alloc-leg-item"><div class="alloc-dot" style="background:${COLORS[i%COLORS.length]}"></div>${a.name} ${a.weight}%</div>`;});
+  document.getElementById('sr-live-133').textContent=`Portfolio volatility ${pVol.toFixed(1)}%, expected return ${pRet.toFixed(1)}%, Sharpe ${sharpe.toFixed(2)}, diversification ${divScore}.`;
+  drawHeatmap();
+}
+function corrColor(v){if(v>=0){const r=Math.round(239*v),g=Math.round(68*v),b=Math.round(68*v);return`rgba(${r},${g},${b},${0.12+v*0.75})`;}const abs=Math.abs(v);return`rgba(20,${Math.round(184*abs)},${Math.round(166*abs)},${0.12+abs*0.75})`;}
+function drawHeatmap(){
+  const tbl=document.getElementById('heatmap');if(!assets.length){tbl.innerHTML='';return;}
+  let h='<thead><tr><th></th>';assets.forEach(a=>h+=`<th title="${a.name}">${a.name.length>9?a.name.substring(0,9)+'…':a.name}</th>`);h+='</tr></thead><tbody>';
+  assets.forEach((a,i)=>{h+=`<tr><th style="text-align:right;padding-right:.5rem;white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis">${a.name}</th>`;assets.forEach((b,j)=>{const c=getCorr(a.name,b.name),bg=corrColor(c),tc=Math.abs(c)>0.55?'var(--white)':'var(--text)';h+=`<td style="background:${bg};color:${tc}" title="${a.name}/${b.name}: ${c.toFixed(2)}">${c.toFixed(2)}</td>`;});h+='</tr>';});h+='</tbody>';tbl.innerHTML=h;
+}
+function exportMD(){let md=`# Asset Allocation Analysis\n**Generated:** ${new Date().toISOString()}\n\n## Portfolio\n| Asset | Weight | Return | Volatility |\n|---|---|---|---|\n`;assets.forEach(a=>md+=`| ${a.name} | ${a.weight}% | ${a.ret}% | ${a.vol}% |\n`);md+=`\n## Stats\n| Metric | Value |\n|---|---|\n| Portfolio Volatility | ${document.getElementById('out-vol').textContent} |\n| Expected Return | ${document.getElementById('out-ret').textContent} |\n| Sharpe Ratio | ${document.getElementById('out-sharpe').textContent} |\n| Diversification Score | ${document.getElementById('out-div').textContent}/100 |\n\n---\n*Generated by AINumbers.co Tool 133. Not financial advice.*`;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([md],{type:'text/markdown'}));a.download='asset-allocation.md';a.click();}
+function exportCSV(){let csv='Asset,Weight,Return,Volatility\n';assets.forEach(a=>csv+=`${a.name},${a.weight},${a.ret},${a.vol}\n`);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='asset-allocation.csv';a.click();}
+renderTable();calc();
+</script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "pf-133-asset-allocation-heatmapper", "version": "1.0.0", "title": "Asset Allocation Heatmapper", "description": "Visualize pairwise correlations across up to 10 asset classes. Enter allocations, see portfolio volatility, Sharpe ratio, and diversification score as an interactive heatmap. Client-side. Zero PII.", "category": "open-banking-integration", "tags": ["Asset", "Allocation", "Heatmapper"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "pf_133_asset_allocation_heatmapper", "description": "Run Asset Allocation Heatmapper. Visualize pairwise correlations across up to 10 asset classes. Enter allocations, see portfolio volatility, Sharpe ratio, and diversification score as an interactive heatmap. Client-side. Zero PII.", "inputSchema": {"type": "object", "properties": {}}}, "execution": {"type": "browser-javascript", "entry": "tools/pf-133-asset-allocation-heatmapper.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
+  function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+</script>
+</body>
+</html>

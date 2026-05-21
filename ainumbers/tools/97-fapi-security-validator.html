@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Tool 97 — FAPI Security Header &amp; Compliance Validator · AINumbers.co</title>
+<meta name="description" content="Validate Open Banking HTTP security headers and OAuth flows against FAPI 1.0, FAPI 2.0, UK OB Security Profile, and PSD2 RTS. Browser-only, zero PII.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FAPI Security Header & Compliance Validator","url":"https://ainumbers.co/tools/97-fapi-security-validator.html","description":"Validate Open Banking HTTP security headers and OAuth flows against FAPI 1.0, FAPI 2.0, UK OB Security Profile, and PSD2 RTS. Browser-only, zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* Edu disclaimer (canonical §9.3) */
+.edu-disclaimer {
+  border: 1px solid var(--warn);
+  border-left: 3px solid var(--warn);
+  background: rgba(245, 158, 11, 0.06);
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  font-size: 0.76rem;
+  color: var(--body);
+  line-height: 1.7;
+  border-radius: var(--radius);
+}
+.edu-disclaimer-label {
+  display: block;
+  color: var(--warn);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-glow:rgba(20,184,166,.06);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--radius:6px;--radius-lg:10px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.15}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1200px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+
+/* ─── Lang bar ───────────────────────────────────────────── */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:0 2rem;height:34px;display:flex;align-items:center}
+.lang-inner{max-width:1200px;margin:0 auto;width:100%;display:flex;gap:.5rem;justify-content:flex-end}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid transparent;padding:.2rem .5rem;cursor:pointer;line-height:1;transition:color .15s}
+.lang-btn.active{color:var(--teal-lt);border-bottom:1px solid var(--teal)}
+
+/* ─── Nav ────────────────────────────────────────────────── */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1200px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-mark-grid{width:32px;height:32px;display:flex;align-items:center;justify-content:center}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+@media(max-width:600px){}
+/* ─── Hero ───────────────────────────────────────────────── */
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.7rem,3vw,2.6rem);color:var(--white);max-width:720px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.2rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}.badge-privacy::before{content:'·';color:var(--green)}
+.badge-spec{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+
+/* ─── Tool section ───────────────────────────────────────── */
+.tool-section{padding:2.5rem 0 4rem;position:relative;z-index:1}
+
+/* ─── Tab bar ────────────────────────────────────────────── */
+.tab-bar{display:flex;border-bottom:1px solid var(--border);margin-bottom:2rem;overflow-x:auto}
+.tab-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);background:transparent;border:none;border-bottom:2px solid transparent;padding:.85rem 1.25rem;cursor:pointer;white-space:nowrap;transition:all .15s}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--teal-lt);border-bottom:2px solid var(--teal);background:rgba(20,184,166,.04)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* ─── Common form elements ───────────────────────────────── */
+.section-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:.75rem}
+.input-group{margin-bottom:1rem}
+.input-group label{display:block;font-size:.75rem;color:var(--text);margin-bottom:6px}
+.input-group input,.input-group textarea,.input-group select{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.6rem .85rem;font-family:'JetBrains Mono',monospace;font-size:.8rem;border-radius:var(--radius);outline:none;transition:border-color .2s}
+.input-group input:focus,.input-group textarea:focus,.input-group select:focus{border-color:var(--teal)}
+.input-group textarea{min-height:180px;resize:vertical;line-height:1.65}
+.input-group textarea::placeholder{color:var(--muted)}
+select{-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a6a8a'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .7rem center;padding-right:2rem;cursor:pointer}
+
+/* ─── Buttons ────────────────────────────────────────────── */
+.btn-primary{background:var(--teal);color:#080E1A;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;padding:.65rem 1.5rem;border:1px solid var(--teal);cursor:pointer;transition:all .2s;border-radius:0}
+.btn-primary:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+.btn-secondary{background:transparent;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;padding:.65rem 1.5rem;border:1px solid var(--border-2);cursor:pointer;transition:all .2s;border-radius:0}
+.btn-secondary:hover{border-color:var(--text)}
+.btn-row{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1rem}
+
+/* ─── Standard selector pills ────────────────────────────── */
+.std-pills{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.5rem}
+.std-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .85rem;border:1px solid var(--border);color:var(--muted);background:transparent;cursor:pointer;transition:all .15s}
+.std-pill:hover{border-color:var(--teal);color:var(--teal)}
+.std-pill.active{border-color:var(--teal);color:var(--bg);background:var(--teal)}
+
+/* ─── Mode toggle ────────────────────────────────────────── */
+.mode-toggle{display:flex;gap:1px;background:var(--border);margin-bottom:1.25rem}
+.mode-btn{flex:1;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem .75rem;background:var(--bg-2);color:var(--muted);border:none;cursor:pointer;transition:all .15s;text-align:center}
+.mode-btn.active{background:var(--bg-4);color:var(--teal-lt)}
+
+/* ─── Stats banner ───────────────────────────────────────── */
+.stats-banner{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-top:2px solid var(--teal);margin-bottom:1.5rem}
+@media(max-width:768px){.stats-banner{grid-template-columns:repeat(2,1fr)}}
+.stat-block{background:var(--bg-2);padding:1.25rem 1.5rem;text-align:center}
+.stat-num{font-family:'DM Serif Display',serif;font-size:2rem;color:var(--white);line-height:1}
+.stat-num.accent{color:var(--teal-lt)}.stat-num.gold{color:var(--gold)}.stat-num.green{color:var(--green)}.stat-num.red{color:var(--red)}
+.stat-lbl{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:.35rem}
+.grade-big{font-family:'DM Serif Display',serif;font-size:2.4rem;line-height:1}
+.grade-a{color:var(--teal-lt)}.grade-b{color:var(--gold)}.grade-c{color:var(--warn)}.grade-f{color:var(--red)}
+
+/* ─── Result status bar ──────────────────────────────────── */
+.result-status-bar{display:flex;align-items:center;gap:.85rem;padding:.85rem 1rem;margin-bottom:1.25rem;border-left:4px solid var(--teal);background:var(--teal-glow)}
+.result-status-bar.invalid{border-left-color:var(--red);background:rgba(239,68,68,.04)}
+.result-status-bar.warn{border-left-color:var(--warn);background:rgba(245,158,11,.04)}
+.rsb-dot{width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;animation:pulse 2s infinite}
+.result-status-bar.invalid .rsb-dot{background:var(--red)}
+.result-status-bar.warn .rsb-dot{background:var(--warn)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.rsb-status{font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:500;color:var(--bright)}
+.rsb-detail{font-size:.75rem;color:var(--body)}
+
+/* ─── Results table ──────────────────────────────────────── */
+.results-table-wrap{overflow-x:auto;margin-bottom:1.5rem}
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-4);white-space:nowrap}
+td{padding:.65rem .9rem;border-bottom:1px solid rgba(30,47,74,.4);vertical-align:top}
+tr:nth-child(even) td{background:rgba(255,255,255,.012)}
+tr:hover td{background:rgba(20,184,166,.02)}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .4rem;border-radius:2px;white-space:nowrap;display:inline-block}
+.tag-green{background:var(--green-dim);color:var(--green)}
+.tag-warn{background:rgba(245,158,11,.1);color:var(--warn)}
+.tag-red{background:var(--red-dim);color:var(--red)}
+.tag-teal{background:var(--teal-dim);color:var(--teal)}
+.tag-purple{background:var(--purple-dim);color:var(--purple)}
+.tag-muted{background:var(--bg-3);color:var(--muted)}
+.sev-required{border:1px solid rgba(239,68,68,.4);color:var(--red);background:var(--red-dim)}
+.sev-recommended{border:1px solid rgba(245,158,11,.3);color:var(--warn);background:rgba(245,158,11,.08)}
+.sev-info{border:1px solid var(--border);color:var(--muted);background:transparent}
+
+/* ─── Error / warn items ─────────────────────────────────── */
+.error-item,.warn-item{border-left:3px solid var(--red);background:rgba(239,68,68,.06);padding:.75rem 1rem;margin-bottom:.5rem;border-radius:0 var(--radius) var(--radius) 0}
+.warn-item{border-left-color:var(--warn);background:rgba(212,168,71,.06)}
+.error-path{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--teal);margin-bottom:.25rem}
+.error-rule{font-size:.75rem;color:var(--text);margin-bottom:.2rem}
+.error-fix{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);font-style:italic}
+
+/* ─── Code block ─────────────────────────────────────────── */
+.fmt-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;overflow-x:auto;position:relative;margin-bottom:1rem}
+.fmt-block pre{background:transparent;border:none;padding:0;margin:0;font-family:'JetBrains Mono',monospace;font-size:.68rem;line-height:1.75;color:var(--text);white-space:pre-wrap;word-break:break-word}
+.copy-btn{position:absolute;top:.65rem;right:.75rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid var(--border);padding:.25rem .55rem;cursor:pointer;transition:all .2s}
+.copy-btn:hover{color:var(--teal);border-color:var(--teal)}
+
+/* ─── Collapsible ────────────────────────────────────────── */
+.coll-section{border:1px solid var(--border);margin-top:1rem}
+.coll-trigger{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1rem;cursor:pointer;user-select:none;background:var(--bg-2);transition:background .15s}
+.coll-trigger:hover{background:var(--bg-3)}
+.coll-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--text)}
+.coll-count{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.coll-arrow{color:var(--teal-lt);transition:transform .2s;font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.coll-trigger.open .coll-arrow{transform:rotate(180deg)}
+.coll-body{display:none;padding:1rem;background:var(--bg-3);border-top:1px solid var(--border)}
+.coll-body.open{display:block}
+
+/* ─── Privacy notice ─────────────────────────────────────── */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.privacy-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;margin-top:.25rem;animation:pulse 2s infinite}
+
+/* ─── Comp grid ──────────────────────────────────────────── */
+.comp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:1.25rem}
+.info-card{background:var(--bg-3);border:1px solid var(--border);padding:1rem;border-radius:var(--radius)}
+.info-card.related{border-left:3px solid var(--teal)}
+.ic-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+.ic-value{font-size:.85rem;color:var(--bright);line-height:1.4}
+.ic-sub{font-size:.7rem;color:var(--body);margin-top:.3rem}
+
+/* ─── Ref table styles ───────────────────────────────────── */
+.ref-table-wrap{overflow-x:auto}
+.ref-table{width:100%;border-collapse:collapse;font-size:.76rem}
+.ref-table th{background:var(--bg-4);font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.65rem .9rem;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+.ref-table th.col-fapi1{color:var(--teal)}.ref-table th.col-fapi2{color:var(--gold)}.ref-table th.col-ukoob{color:var(--purple)}.ref-table th.col-psd2{color:var(--green)}
+.ref-table td{padding:.65rem .9rem;border-bottom:1px solid rgba(30,47,74,.4);vertical-align:top;color:var(--body)}
+.ref-table td:first-child{color:var(--text);font-weight:500;white-space:nowrap}
+.ref-table tr:nth-child(even) td{background:rgba(255,255,255,.01)}
+.ref-table tr:hover td{background:rgba(20,184,166,.02)}
+.req-yes{color:var(--green)}.req-no{color:var(--muted)}.req-rec{color:var(--warn)}.req-cond{color:var(--gold)}
+
+/* ─── URL display ────────────────────────────────────────── */
+.url-parsed{display:flex;flex-direction:column;gap:.35rem;margin-bottom:1rem}
+.url-param{display:flex;gap:.75rem;align-items:flex-start;padding:.4rem .75rem;background:var(--bg-2);border:1px solid var(--border)}
+.url-key{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--gold);flex-shrink:0;min-width:140px}
+.url-val{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--teal);word-break:break-all}
+
+/* ─── Section title ──────────────────────────────────────── */
+.sec-title{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin:1.75rem 0 .85rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+
+/* ─── Empty state ────────────────────────────────────────── */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem;text-align:center}
+.empty-icon{font-size:2.5rem;margin-bottom:1rem;opacity:.4}
+.empty-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--muted);margin-bottom:.5rem}
+.empty-sub{font-size:.78rem;color:var(--muted);max-width:380px;line-height:1.7}
+
+/* ─── JWT warning banner ─────────────────────────────────── */
+.jwt-warning{display:none;align-items:flex-start;gap:.75rem;padding:.85rem 1rem;background:var(--gold-dim);border:1px solid rgba(212,168,71,.3);border-left:3px solid var(--gold);margin-bottom:1rem;font-size:.75rem;color:var(--text)}
+
+/* ─── Footer ─────────────────────────────────────────────── */
+}
+
+/* ─── Responsive ─────────────────────────────────────────── */
+@media(max-width:768px){
+  .comp-grid{grid-template-columns:1fr}
+  .btn-row{flex-direction:column}
+  .btn-primary,.btn-secondary{width:100%;text-align:center}
+}
+
+/* ── AP2 Export Button ────────────────────────────────────────────────── */
+#ap2ExportBtn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .5rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: .4rem 1rem;
+  border-radius: 4px;
+  cursor: not-allowed;
+  border: 1px solid var(--border, #1E2F4A);
+  background: transparent;
+  color: var(--muted, #3A5270);
+  opacity: .28;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transition: opacity .2s, border-color .2s, color .2s;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+#ap2ExportBtn .ap2-sub {
+  font-size: .44rem;
+  letter-spacing: .08em;
+  opacity: .65;
+  display: block;
+  margin-top: 1px;
+}
+#ap2ExportBtn.ready { opacity: 1; cursor: pointer; border-color: var(--border-2, #263855); }
+#ap2ExportBtn.ready:hover {
+  border-color: var(--teal, #14B8A6);
+  color: var(--teal-lt, #2DD4BF);
+  background: var(--teal-dim, rgba(20,184,166,.12));
+}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- Lang bar -->
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<!-- Nav -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <div class="logo-mark-grid">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+    </div>
+    <div class="logo-text">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/open-banking-integration-hub.html">Open Banking Hub</a><span class="nav-sep">/</span><span>T-97</span></div>
+
+    <a href="../guides/open-banking-integration-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<!-- Hero -->
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Tool 97 · Open Banking &amp; APIs · cat-5</div>
+  <h1 class="tool-title">FAPI Security Header<br><em>&amp; Compliance Validator</em></h1>
+  <p class="hero-desc">Paste raw HTTP response headers or an authorization request URL and instantly validate against FAPI 1.0 Read-Write, FAPI 2.0 Security Profile, UK OB Security Profile, PSD2 RTS Article 98, and Berlin Group NextGenPSD2. Outputs a pass/fail report with remediation guidance. Client-side only — no credentials leave your browser.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-privacy">Zero PII · Client-Side Only</span>
+    <span class="hero-badge badge-spec">FAPI 1.0 · FAPI 2.0 · UK OB · PSD2 RTS</span>
+    <span class="hero-badge badge-teal">Header Validator · OAuth Analyzer</span>
+    <span class="hero-badge badge-purple">Security Engineer · API Dev · Compliance</span>
+    <span class="hero-badge badge-warn" data-i18n="hero.badge.var">FAPI 2.0 non-compliance blocks Open Banking participation in UK/EU/AU markets.</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+</div></div>
+
+<!-- Tool -->
+<section class="tool-section"><div class="container">
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('tab-header',this)">01 — Header Validator</button>
+    <button class="tab-btn" onclick="switchTab('tab-oauth',this)">02 — OAuth / OIDC Analyzer</button>
+    <button class="tab-btn" onclick="switchTab('tab-reference',this)">03 — Security Profile Reference</button>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       TAB 1 — HEADER VALIDATOR
+  ═══════════════════════════════════════════════════════════════ -->
+  <div id="tab-header" class="tab-content active">
+
+    <div class="section-label" style="margin-bottom:.85rem">Select Standard</div>
+    <div class="std-pills" id="stdPills">
+      <button class="std-pill active" data-std="FAPI_1_RW" onclick="selectStd(this)">FAPI 1.0 Read-Write</button>
+      <button class="std-pill" data-std="FAPI_2" onclick="selectStd(this)">FAPI 2.0</button>
+      <button class="std-pill" data-std="UK_OB_SECURITY" onclick="selectStd(this)">UK OB Security Profile</button>
+      <button class="std-pill" data-std="PSD2_RTS" onclick="selectStd(this)">PSD2 RTS Art. 98</button>
+      <button class="std-pill" data-std="BERLIN_GROUP" onclick="selectStd(this)">Berlin Group NextGenPSD2</button>
+    </div>
+
+    <div class="section-label" style="margin-bottom:.85rem">Input Mode</div>
+    <div class="mode-toggle" style="max-width:480px;margin-bottom:1.25rem">
+      <button class="mode-btn active" onclick="selectMode('raw',this)">Paste Headers</button>
+      <button class="mode-btn" onclick="selectMode('http',this)">Full HTTP Response</button>
+    </div>
+
+    <div class="input-group">
+      <label>HTTP Headers <span style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">(paste raw headers, one per line)</span></label>
+      <textarea id="headerInput" placeholder="HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+x-fapi-interaction-id: 93bac548-d2de-4546-b106-880a5018460d
+x-fapi-auth-date: Sun, 10 Sep 2023 19:43:31 UTC
+cache-control: no-store
+x-frame-options: DENY
+x-content-type-options: nosniff
+strict-transport-security: max-age=31536000; includeSubDomains"></textarea>
+    </div>
+
+    <div id="jwtWarning" class="jwt-warning">
+      <span style="font-size:1.1rem;flex-shrink:0">⚠</span>
+      <div><strong style="color:var(--gold)">Possible real JWT detected.</strong> This input appears to contain a real signed token (3-part base64 structure). Please use synthetic tokens for testing. No data is transmitted from this tool.</div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-primary" onclick="validateHeaders()">Validate Headers →</button>
+      <button class="btn-secondary" onclick="loadHeaderExample()">Load Example</button>
+      <button class="btn-secondary" onclick="clearHeader()">Clear</button>
+    </div>
+
+    <div class="pii-notice">
+  <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+</div>
+  <!-- Edu disclaimer (canonical §9.3) -->
+  <div class="edu-disclaimer">
+    <strong class="edu-disclaimer-label" data-i18n="disclaimer.label">Educational Use Only</strong>
+    <span data-i18n="disclaimer.body">This tool provides a self-assessment / educational framework for internal planning purposes only. It is not a regulatory audit, legal advice, or a substitute for a formal compliance review by a qualified advisor. Verify all interpretations against the official source text and applicable RTS/ITS/guidance published by the relevant authority.</span>
+  </div>
+<div class="pii-notice">🔒 No data leaves your browser. Validation is 100% client-side. Tab close = data gone.</div></div>
+
+    <!-- Results area -->
+    <div id="headerResults" style="margin-top:2rem"></div>
+
+  </div><!-- /tab-header -->
+
+
+  <!-- ════════════════════════════════════════════════════════════
+       TAB 2 — OAUTH / OIDC ANALYZER
+  ═══════════════════════════════════════════════════════════════ -->
+  <div id="tab-oauth" class="tab-content">
+
+    <div class="section-label" style="margin-bottom:.85rem">FAPI Profile</div>
+    <div class="std-pills" id="oauthStdPills">
+      <button class="std-pill active" data-std="FAPI_1_RW" onclick="selectOAuthStd(this)">FAPI 1.0 Read-Write</button>
+      <button class="std-pill" data-std="FAPI_2" onclick="selectOAuthStd(this)">FAPI 2.0</button>
+      <button class="std-pill" data-std="UK_OB_SECURITY" onclick="selectOAuthStd(this)">UK OB Security Profile</button>
+    </div>
+
+    <div class="input-group">
+      <label>Authorization Request URL <span style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">(can be synthetic / mock)</span></label>
+      <textarea id="oauthInput" style="min-height:120px" placeholder="https://auth.example-aspsp.com/authorize?response_type=code&client_id=abc123&redirect_uri=https%3A%2F%2Fapp.tpp.com%2Fcallback&scope=openid+accounts&state=xyzABC123def456GHI&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256&nonce=n-0S6_WzA2Mj"></textarea>
+    </div>
+
+    <div id="jwtWarningOAuth" class="jwt-warning"></div>
+
+    <div class="btn-row">
+      <button class="btn-primary" onclick="analyzeOAuth()">Analyze Request →</button>
+      <button class="btn-secondary" onclick="loadOAuthExample()">Load Example</button>
+      <button class="btn-secondary" onclick="document.getElementById('oauthInput').value=''">Clear</button>
+    </div>
+
+    <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div><div>No data leaves your browser. No keys or credentials are extracted or stored.</div></div>
+
+    <div id="oauthResults" style="margin-top:2rem"></div>
+
+  </div><!-- /tab-oauth -->
+
+
+  <!-- ════════════════════════════════════════════════════════════
+       TAB 3 — SECURITY PROFILE REFERENCE
+  ═══════════════════════════════════════════════════════════════ -->
+  <div id="tab-reference" class="tab-content">
+
+    <div class="section-label" style="margin-bottom:1rem">Comparison across FAPI 1.0 Baseline · FAPI 1.0 Advanced · FAPI 2.0 · UK OB · PSD2 RTS Art. 98 · Berlin Group NextGenPSD2</div>
+
+    <div class="ref-table-wrap">
+      <table class="ref-table">
+        <thead>
+          <tr>
+            <th style="min-width:180px">Requirement / Feature</th>
+            <th class="col-fapi1">FAPI 1.0 Baseline</th>
+            <th class="col-fapi1">FAPI 1.0 Advanced (RW)</th>
+            <th class="col-fapi2">FAPI 2.0</th>
+            <th class="col-ukoob">UK OB Security</th>
+            <th class="col-psd2">PSD2 RTS Art. 98</th>
+            <th>Berlin Group NG-PSD2</th>
+          </tr>
+        </thead>
+        <tbody id="refTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="sec-title">Required HTTP Security Headers by Profile</div>
+    <div class="comp-grid" id="headerRefGrid"></div>
+
+    <div class="sec-title">Related Tools</div>
+    <div class="comp-grid">
+      <div class="info-card related">
+        <div class="ic-label">Tool 19 — Cat-5</div>
+        <div class="ic-value">SCA Exemption &amp; FAPI Payload Generator</div>
+        <div class="ic-sub">Generate FAPI JWT payloads to test here</div>
+      </div>
+      <div class="info-card related">
+        <div class="ic-label">Tool 88 — Compliance</div>
+        <div class="ic-value">Compliance Readiness Assessment</div>
+        <div class="ic-sub">Validate entity-level FAPI + PSD3 posture</div>
+      </div>
+      <div class="info-card related">
+        <div class="ic-label">Tool 92 — Cat-5</div>
+        <div class="ic-value">SCA Exemption Mapper</div>
+        <div class="ic-sub">Map SCA exemptions across EU / UK frameworks</div>
+      </div>
+    </div>
+
+    <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div><div>All reference data is embedded. No external requests.</div></div>
+
+  </div><!-- /tab-reference -->
+
+</div></section>
+
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+var MANIFEST = {
+  tool_id: 'fapi-security-validator',
+  version: '1.0.0',
+  title: 'FAPI Security Header & Compliance Validator',
+  description: 'Validates HTTP security headers against FAPI 1.0 Advanced and FAPI 2.0 Message Signing standards. Checks for PKCE, DPoP, PAR, mTLS, and required header values. Produces a security compliance report with gap remediation guidance.',
+  category: 'open-banking-apis',
+  tags: ['FAPI', 'security', 'headers', 'PKCE', 'DPoP', 'PAR', 'mTLS', 'open banking', 'OAuth2'],
+  audience: ['engineer', 'security', 'compliance'],
+  input_schema: {
+    type: 'object',
+    required: ['headers'],
+    properties: {
+      headers:  { type: 'object', description: 'HTTP header key-value pairs to validate' },
+      standard: { type: 'string', enum: ['fapi1', 'fapi2'], description: 'FAPI standard to validate against' }
+    }
+  },
+  output_schema: {
+    type: 'object',
+    properties: {
+      pass_count:  { type: 'number' },
+      warn_count:  { type: 'number' },
+      fail_count:  { type: 'number' },
+      score:       { type: 'number', minimum: 0, maximum: 100 },
+      fapi_ready:  { type: 'boolean' }
+    }
+  },
+  mcp_tool_definition: {
+    name: 'validate_fapi_security_headers',
+    description: 'Validate HTTP security headers against FAPI 1.0 Advanced or FAPI 2.0 standards. Returns pass/warn/fail counts, a compliance score, and specific remediation steps for each failing header. Use when an agent needs to assess the security posture of an open banking API endpoint.',
+    inputSchema: {
+      type: 'object',
+      required: ['headers'],
+      properties: {
+        headers:  { type: 'object' },
+        standard: { type: 'string', enum: ['fapi1', 'fapi2'] }
+      }
+    }
+  },
+  execution: {
+    type: 'browser-javascript',
+    entry: 'tools/97-fapi-security-validator.html',
+    function_name: 'validateHeaders',
+    timeout_ms: 3000
+  },
+  ap2_export: true
+};
+
+/* ═══════════════════════════════════════════════════════
+   AP2 SCHEMA HELPER
+═══════════════════════════════════════════════════════ */
+const AP2Schema = {
+  version: '1.0',
+  type: '@ainumbers.co/mandate-v1',
+  build(toolId, toolSlug, payload, inputs) {
+    return {
+      '@type':      AP2Schema.type,
+      '@version':   AP2Schema.version,
+      '@generated': new Date().toISOString(),
+      tool_id:      toolId,
+      tool_slug:    toolSlug,
+      mandate_id:   (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2)),
+      issued_by:    'ainumbers.co',
+      ap2_export:   true,
+      payload,
+      source_tool_inputs: inputs,
+      last_reviewed: '2025-01-15'
+    };
+  },
+  download(manifest, filename) {
+    const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename || `ainumbers-${manifest.mandate_id}.policy.json`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(a.href);
+  }
+,
+  validate: function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+}};
+
+function enableAP2Btn() {
+  const btn = document.getElementById('ap2ExportBtn');
+  if (!btn) return;
+  btn.classList.add('ready');
+  btn.removeAttribute('disabled');
+  btn.title = 'For API integration · audit trail';
+}
+
+function showAP2Toast() {
+  let el = document.getElementById('ap2ToastG3');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'ap2ToastG3';
+    el.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3,#111E35);border:1px solid var(--border,#1E2F4A);border-left:3px solid var(--green,#22C55E);padding:.7rem 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.58rem;color:var(--green,#22C55E);z-index:9999;display:flex;align-items:center;gap:.5rem;border-radius:4px;box-shadow:0 4px 24px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s;pointer-events:none';
+    el.innerHTML = '<strong>{}</strong>&nbsp;Policy Mandate JSON downloaded';
+    document.body.appendChild(el);
+  }
+  el.style.opacity = '1'; el.style.transform = 'translateY(0)';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateY(8px)'; }, 2200);
+}
+
+
+'use strict';
+
+// ─── Active standard state ────────────────────────────────────────────────
+let activeStd = 'FAPI_1_RW';
+let activeOAuthStd = 'FAPI_1_RW';
+
+// ─── Validation rule database ─────────────────────────────────────────────
+// Keys: lowercase header name for matching. required = CRITICAL; else recommended.
+const FAPI_HEADER_RULES = {
+  FAPI_1_RW: [
+    { header:'x-fapi-interaction-id', required:true,
+      pattern:/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      ref:'FAPI 1.0 RW §6.2.1-12',
+      fix:'Add: x-fapi-interaction-id: <UUID v4>',
+      note:'Must be a valid UUID v4 on every API response.' },
+    { header:'cache-control', required:true, mustContain:'no-store',
+      ref:'FAPI 1.0 RW §6.2.1-8',
+      fix:'Add: Cache-Control: no-store',
+      note:'Prevents caching of sensitive token/resource responses.' },
+    { header:'strict-transport-security', required:true,
+      ref:'FAPI 1.0 RW §6.2.1-9',
+      fix:'Add: Strict-Transport-Security: max-age=31536000; includeSubDomains',
+      note:'HSTS required on all endpoints. Minimum max-age 31536000 (1 year).' },
+    { header:'content-type', required:true, mustContain:'application/json',
+      ref:'FAPI 1.0 RW §6.2.1',
+      fix:'Set: Content-Type: application/json; charset=utf-8',
+      note:'All API responses must use application/json media type.' },
+    { header:'x-fapi-auth-date', required:false,
+      ref:'FAPI 1.0 RW §6.2.1-3',
+      fix:'Add: x-fapi-auth-date: <RFC 7231 date>',
+      note:'Include when SCA authentication has been performed.' },
+    { header:'x-content-type-options', required:false, mustContain:'nosniff',
+      ref:'OWASP Secure Headers',
+      fix:'Add: X-Content-Type-Options: nosniff',
+      note:'Prevents MIME-type sniffing attacks.' },
+    { header:'x-frame-options', required:false, validValues:['DENY','SAMEORIGIN'],
+      ref:'OWASP Secure Headers',
+      fix:'Add: X-Frame-Options: DENY',
+      note:'Prevents clickjacking via iframe embedding.' },
+    { header:'content-security-policy', required:false,
+      ref:'OWASP Secure Headers',
+      fix:'Add: Content-Security-Policy: default-src \'self\'',
+      note:'Recommended for browser-facing endpoints to restrict resource loading.' },
+    { header:'pragma', required:false, mustContain:'no-cache',
+      ref:'FAPI 1.0 legacy support',
+      fix:'Add: Pragma: no-cache',
+      note:'Legacy HTTP/1.0 cache control — pair with Cache-Control: no-store.' },
+  ],
+  FAPI_2: [
+    { header:'x-fapi-interaction-id', required:true,
+      pattern:/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      ref:'FAPI 2.0 §5.3',
+      fix:'Add: x-fapi-interaction-id: <UUID v4>',
+      note:'Mandatory correlation ID on all responses.' },
+    { header:'cache-control', required:true, mustContain:'no-store',
+      ref:'FAPI 2.0 §5.3',
+      fix:'Add: Cache-Control: no-store',
+      note:'Required; same as FAPI 1.0.' },
+    { header:'strict-transport-security', required:true,
+      ref:'FAPI 2.0 §5.3 / RFC 6797',
+      fix:'Add: Strict-Transport-Security: max-age=31536000; includeSubDomains',
+      note:'HSTS mandatory. FAPI 2.0 requires TLS 1.2+ minimum.' },
+    { header:'content-type', required:true, mustContain:'application/json',
+      ref:'FAPI 2.0 §5.3',
+      fix:'Set: Content-Type: application/json; charset=utf-8',
+      note:'JSON content type required on all resource responses.' },
+    { header:'dpop', required:false,
+      ref:'FAPI 2.0 §5.3.2 / RFC 9449',
+      fix:'Support DPoP: include DPoP-Proof header from client, echo DPoP nonce in response',
+      note:'DPoP or mTLS token binding strongly recommended for FAPI 2.0. DPoP-Nonce response header required when using DPoP.' },
+    { header:'x-content-type-options', required:false, mustContain:'nosniff',
+      ref:'OWASP Secure Headers',
+      fix:'Add: X-Content-Type-Options: nosniff',
+      note:'Recommended for all endpoints.' },
+    { header:'x-frame-options', required:false, validValues:['DENY','SAMEORIGIN'],
+      ref:'OWASP Secure Headers',
+      fix:'Add: X-Frame-Options: DENY' },
+    { header:'content-security-policy', required:false,
+      ref:'OWASP',
+      fix:'Add: Content-Security-Policy: default-src \'self\'' },
+  ],
+  UK_OB_SECURITY: [
+    { header:'x-fapi-interaction-id', required:true,
+      pattern:/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      ref:'UK OB Security Profile v3.1.10 §6.3',
+      fix:'Add: x-fapi-interaction-id: <UUID v4>',
+      note:'Required on all resource server responses.' },
+    { header:'x-fapi-financial-id', required:true,
+      ref:'UK OB Security Profile v3.1.10 §6.3',
+      fix:'Add: x-fapi-financial-id: <ASPSP OB Organisation ID>',
+      note:'ASPSP must include its Open Banking organisation ID in every response.' },
+    { header:'cache-control', required:true, mustContain:'no-store',
+      ref:'UK OB Security Profile §6.3',
+      fix:'Add: Cache-Control: no-store' },
+    { header:'strict-transport-security', required:true,
+      ref:'UK OB Security Profile §6.3',
+      fix:'Add: Strict-Transport-Security: max-age=31536000; includeSubDomains' },
+    { header:'content-type', required:true, mustContain:'application/json',
+      ref:'UK OB Security Profile §6.3',
+      fix:'Set: Content-Type: application/json; charset=utf-8' },
+    { header:'x-jws-signature', required:false,
+      ref:'UK OB Security Profile §9',
+      fix:'Add: x-jws-signature: <detached JWS>',
+      note:'Required on all payment API POST responses (PIS, VRP, CBPII). Omitting on non-payment endpoints is acceptable.' },
+    { header:'x-fapi-auth-date', required:false,
+      ref:'UK OB Security Profile §6.3',
+      fix:'Add: x-fapi-auth-date: <RFC 7231 date>',
+      note:'Include when SCA was performed in the current request chain.' },
+    { header:'x-content-type-options', required:false, mustContain:'nosniff',
+      ref:'OWASP / UK OB best practice',
+      fix:'Add: X-Content-Type-Options: nosniff' },
+    { header:'x-frame-options', required:false, validValues:['DENY','SAMEORIGIN'],
+      ref:'OWASP',
+      fix:'Add: X-Frame-Options: DENY' },
+  ],
+  PSD2_RTS: [
+    { header:'strict-transport-security', required:true,
+      ref:'PSD2 RTS Art. 98(1)(d)',
+      fix:'Add: Strict-Transport-Security: max-age=31536000; includeSubDomains',
+      note:'PSD2 RTS mandates TLS and HSTS on all interfaces.' },
+    { header:'content-type', required:true, mustContain:'application/json',
+      ref:'PSD2 RTS Art. 30 / EBA Guidelines',
+      fix:'Set: Content-Type: application/json; charset=utf-8' },
+    { header:'cache-control', required:true, mustContain:'no-store',
+      ref:'PSD2 RTS Art. 98 / EBA Op. 2020/10',
+      fix:'Add: Cache-Control: no-store',
+      note:'Prevents caching of account/payment API responses.' },
+    { header:'x-content-type-options', required:false, mustContain:'nosniff',
+      ref:'EBA Security Guidelines 2019',
+      fix:'Add: X-Content-Type-Options: nosniff' },
+    { header:'x-frame-options', required:false, validValues:['DENY','SAMEORIGIN'],
+      ref:'EBA Security Guidelines',
+      fix:'Add: X-Frame-Options: DENY' },
+    { header:'content-security-policy', required:false,
+      ref:'EBA Security Guidelines',
+      fix:'Add: Content-Security-Policy: default-src \'self\'',
+      note:'Recommended for browser-facing consent and redirect pages.' },
+  ],
+  BERLIN_GROUP: [
+    { header:'x-request-id', required:true,
+      pattern:/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      ref:'Berlin Group NextGenPSD2 XS2A v2.0 §7.5',
+      fix:'Add: X-Request-ID: <UUID>',
+      note:'Berlin Group uses X-Request-ID (not x-fapi-interaction-id) as the correlation header.' },
+    { header:'strict-transport-security', required:true,
+      ref:'NextGenPSD2 §7.5 / PSD2 RTS',
+      fix:'Add: Strict-Transport-Security: max-age=31536000; includeSubDomains' },
+    { header:'content-type', required:true, mustContain:'application/json',
+      ref:'NextGenPSD2 §7.5',
+      fix:'Set: Content-Type: application/json; charset=utf-8' },
+    { header:'cache-control', required:true, mustContain:'no-store',
+      ref:'NextGenPSD2 §7.5',
+      fix:'Add: Cache-Control: no-store' },
+    { header:'aspsp-sca-approach', required:false,
+      ref:'NextGenPSD2 §7.5',
+      fix:'Add: ASPSP-SCA-Approach: REDIRECT (or EMBEDDED, DECOUPLED)',
+      note:'Berlin Group requires ASPSP to indicate the SCA approach in the response.' },
+    { header:'x-content-type-options', required:false, mustContain:'nosniff',
+      ref:'OWASP',
+      fix:'Add: X-Content-Type-Options: nosniff' },
+    { header:'x-frame-options', required:false, validValues:['DENY','SAMEORIGIN'],
+      ref:'OWASP',
+      fix:'Add: X-Frame-Options: DENY' },
+  ]
+};
+
+// ─── OAuth validation rules ───────────────────────────────────────────────
+const OAUTH_RULES = {
+  FAPI_1_RW: [
+    { param:'response_type', required:true, validValues:['code','code id_token'],
+      ref:'FAPI 1.0 RW §5.2.2-1',
+      note:'FAPI 1.0 Advanced allows code or code id_token (hybrid). Implicit not permitted.',
+      fix:'Set response_type=code or response_type=code+id_token' },
+    { param:'code_challenge_method', required:true, validValues:['S256'],
+      ref:'FAPI 1.0 RW §5.2.2-7',
+      note:'PKCE is mandatory. S256 is the only permitted method (plain is not allowed).',
+      fix:'Set code_challenge_method=S256' },
+    { param:'code_challenge', required:true,
+      ref:'FAPI 1.0 RW §5.2.2-7',
+      note:'PKCE code_challenge (S256 hash of verifier) must be present.',
+      fix:'Include code_challenge parameter (base64url-encoded SHA-256 of verifier)' },
+    { param:'state', required:true, minLength:22,
+      ref:'FAPI 1.0 RW §5.2.2-10',
+      note:'State parameter must carry sufficient entropy (>=128 bits). Length >=22 chars is a proxy.',
+      fix:'Generate state with crypto.getRandomValues(), at least 22 chars' },
+    { param:'redirect_uri', required:true, mustBeHttps:true,
+      ref:'FAPI 1.0 RW §5.2.2-12',
+      note:'Redirect URI must be HTTPS (no localhost in production).',
+      fix:'Use an HTTPS redirect_uri registered with the authorization server' },
+    { param:'scope', required:true, mustContain:'openid',
+      ref:'FAPI 1.0 RW §5.2.2 / OIDC Core',
+      note:'openid scope required for OIDC flows and ID token issuance.',
+      fix:'Include openid in the scope parameter' },
+    { param:'nonce', required:false,
+      ref:'FAPI 1.0 RW §5.2.2-8 / OIDC Core',
+      note:'Nonce required when requesting an ID token to bind it to the client session.',
+      fix:'Include nonce parameter (random, unique per request)' },
+    { param:'request', required:false,
+      ref:'FAPI 1.0 RW §5.2.2-13',
+      note:'JAR (JWT Authorization Request) is optional in FAPI 1.0 but required in FAPI 2.0.',
+      fix:'For FAPI 2.0 compliance, include a signed request object as the request parameter' },
+  ],
+  FAPI_2: [
+    { param:'response_type', required:true, validValues:['code'],
+      ref:'FAPI 2.0 §4.3.1',
+      note:'FAPI 2.0 restricts response_type to code only. Hybrid flow (code id_token) is not permitted.',
+      fix:'Set response_type=code' },
+    { param:'code_challenge_method', required:true, validValues:['S256'],
+      ref:'FAPI 2.0 §4.3.1 / RFC 7636',
+      note:'PKCE S256 is mandatory.',
+      fix:'Set code_challenge_method=S256' },
+    { param:'code_challenge', required:true,
+      ref:'FAPI 2.0 §4.3.1',
+      fix:'Include code_challenge (S256 hash of verifier)' },
+    { param:'state', required:true, minLength:22,
+      ref:'FAPI 2.0 §4.3.1',
+      note:'State entropy requirement: >= 128 bits.',
+      fix:'Generate state with at least 22 chars of cryptographic randomness' },
+    { param:'redirect_uri', required:true, mustBeHttps:true,
+      ref:'FAPI 2.0 §4.3.1',
+      fix:'Use HTTPS redirect_uri' },
+    { param:'scope', required:true, mustContain:'openid',
+      ref:'FAPI 2.0 / OIDC Core',
+      fix:'Include openid in scope' },
+    { param:'nonce', required:true,
+      ref:'FAPI 2.0 §4.3.1',
+      note:'Nonce is mandatory in FAPI 2.0 for all OIDC flows.',
+      fix:'Include nonce parameter with sufficient entropy' },
+    { param:'request', required:true,
+      ref:'FAPI 2.0 §4.3.2 — JAR required',
+      note:'JWT Authorization Request (JAR) is mandatory in FAPI 2.0. The request parameter must be a signed JWT.',
+      fix:'Wrap all authorization parameters in a signed JWT and pass as the request parameter' },
+    { param:'client_id', required:true,
+      ref:'FAPI 2.0 §4.3.1',
+      fix:'Include client_id matching the registered client at the authorization server' },
+  ],
+  UK_OB_SECURITY: [
+    { param:'response_type', required:true, validValues:['code','code id_token'],
+      ref:'UK OB Security Profile v3.1.10 §6.2',
+      note:'UK OB allows code or code id_token. Implicit flow prohibited.',
+      fix:'Set response_type=code' },
+    { param:'code_challenge_method', required:true, validValues:['S256'],
+      ref:'UK OB Security Profile §6.2',
+      fix:'Set code_challenge_method=S256' },
+    { param:'code_challenge', required:true,
+      ref:'UK OB Security Profile §6.2',
+      fix:'Include PKCE code_challenge' },
+    { param:'state', required:true, minLength:22,
+      ref:'UK OB Security Profile §6.2',
+      fix:'Generate state with >= 128 bits entropy' },
+    { param:'redirect_uri', required:true, mustBeHttps:true,
+      ref:'UK OB Security Profile §6.2',
+      fix:'Use HTTPS redirect_uri registered with Open Banking Directory' },
+    { param:'scope', required:true, mustContain:'openid',
+      ref:'OIDC Core / UK OB',
+      fix:'Include openid in scope' },
+    { param:'nonce', required:true,
+      ref:'UK OB Security Profile §6.2',
+      note:'Nonce required for all UK OB authorization requests.',
+      fix:'Include nonce parameter' },
+    { param:'request', required:false,
+      ref:'UK OB Security Profile §6.5',
+      note:'UK OB uses the OIDC request object for FAPI compliance. Recommended, required for some ASPSPs.',
+      fix:'Include signed request object for maximum compatibility' },
+  ]
+};
+
+// ─── Reference table data ─────────────────────────────────────────────────
+const REF_ROWS = [
+  { dim:'Token Endpoint Auth', fapi1b:'client_secret_basic / private_key_jwt', fapi1a:'private_key_jwt or tls_client_auth', fapi2:'private_key_jwt or tls_client_auth', ukoob:'private_key_jwt (eIDAS/OBIE cert)', psd2:'eIDAS QWAC cert', berlin:'eIDAS QWAC cert' },
+  { dim:'PKCE Required', fapi1b:req('Yes','S256'), fapi1a:req('Yes','S256'), fapi2:req('Yes','S256'), ukoob:req('Yes','S256'), psd2:rec('Recommended'), berlin:rec('Recommended') },
+  { dim:'PAR (Pushed Auth Requests)', fapi1b:no('Optional'), fapi1a:no('Optional'), fapi2:req('Required'), ukoob:no('Optional'), psd2:no('Not specified'), berlin:no('Not specified') },
+  { dim:'JAR (JWT Auth Request)', fapi1b:no('Optional'), fapi1a:req('Required (RW)'), fapi2:req('Required'), ukoob:rec('Recommended'), psd2:no('Optional'), berlin:no('Optional') },
+  { dim:'JARM (JWT Auth Response)', fapi1b:no('Optional'), fapi1a:req('Required'), fapi2:req('Required'), ukoob:no('Optional'), psd2:no('Not specified'), berlin:no('Not specified') },
+  { dim:'DPoP / mTLS Token Binding', fapi1b:no('mTLS optional'), fapi1a:req('mTLS required'), fapi2:rec('DPoP or mTLS recommended'), ukoob:rec('mTLS recommended'), psd2:req('eIDAS mTLS'), berlin:req('eIDAS mTLS') },
+  { dim:'Response Type', fapi1b:'code or code id_token', fapi1a:'code or code id_token', fapi2:'code only', ukoob:'code or code id_token', psd2:'code', berlin:'code' },
+  { dim:'ID Token Signing Alg', fapi1b:'RS256 or ES256', fapi1a:'PS256 or ES256', fapi2:'PS256 or ES256', ukoob:'PS256', psd2:'RS256 or PS256', berlin:'RS256 or PS256' },
+  { dim:'TLS Minimum Version', fapi1b:'TLS 1.2', fapi1a:'TLS 1.2', fapi2:'TLS 1.2 (1.3 recommended)', ukoob:'TLS 1.2', psd2:'TLS 1.2', berlin:'TLS 1.2' },
+  { dim:'x-fapi-interaction-id', fapi1b:req('Required'), fapi1a:req('Required'), fapi2:req('Required'), ukoob:req('Required'), psd2:no('Not specified'), berlin:no('Use X-Request-ID') },
+  { dim:'x-fapi-financial-id', fapi1b:no('N/A'), fapi1a:no('N/A'), fapi2:no('N/A'), ukoob:req('Required'), psd2:no('N/A'), berlin:no('N/A') },
+  { dim:'X-Request-ID', fapi1b:no('N/A'), fapi1a:no('N/A'), fapi2:no('N/A'), ukoob:no('N/A'), psd2:no('N/A'), berlin:req('Required') },
+  { dim:'cache-control: no-store', fapi1b:req('Required'), fapi1a:req('Required'), fapi2:req('Required'), ukoob:req('Required'), psd2:req('Required'), berlin:req('Required') },
+  { dim:'HSTS (Strict-Transport-Security)', fapi1b:req('Required'), fapi1a:req('Required'), fapi2:req('Required'), ukoob:req('Required'), psd2:req('Required'), berlin:req('Required') },
+  { dim:'JWS Signature on Responses', fapi1b:no('Optional'), fapi1a:req('Required (payments)'), fapi2:no('Optional'), ukoob:req('Required (PIS/VRP)'), psd2:no('Optional'), berlin:no('Optional') },
+  { dim:'Authorization Server Standard', fapi1b:'OIDC Core', fapi1a:'OIDC Core + JAR', fapi2:'OIDC Core + PAR + JAR', ukoob:'OIDC Core + UK OB Profile', psd2:'OAuth 2.0 + OIDC', berlin:'OAuth 2.0 + OIDC' },
+  { dim:'Certificate Type', fapi1b:'Any X.509', fapi1a:'Any X.509', fapi2:'Any X.509', ukoob:'OBIE OB Org cert', psd2:'eIDAS QWAC / QSEAL', berlin:'eIDAS QWAC / QSEAL' },
+];
+
+function req(t){ return '<span class="req-yes">✓ '+t+'</span>'; }
+function rec(t){ return '<span class="req-rec">⬦ '+t+'</span>'; }
+function no(t) { return '<span class="req-no">– '+t+'</span>'; }
+
+// ─── Header reference grid data ───────────────────────────────────────────
+const HEADER_REF = [
+  { name:'x-fapi-interaction-id', type:'UUID v4', purpose:'Correlation ID for log tracing', profiles:'FAPI 1.0, FAPI 2.0, UK OB', required:'Required' },
+  { name:'x-fapi-financial-id', type:'String (OB Org ID)', purpose:'ASPSP identifier in UK Open Banking ecosystem', profiles:'UK OB Security Profile', required:'Required (UK OB)' },
+  { name:'X-Request-ID', type:'UUID v4', purpose:'Request correlation for Berlin Group ASPSPs', profiles:'Berlin Group NextGenPSD2', required:'Required (Berlin Group)' },
+  { name:'cache-control: no-store', type:'Directive', purpose:'Prevent caching of API responses containing account/payment data', profiles:'All FAPI + PSD2 profiles', required:'Required (all)' },
+  { name:'strict-transport-security', type:'HSTS', purpose:'Enforce HTTPS-only connections for API consumers', profiles:'All profiles', required:'Required (all)' },
+  { name:'x-jws-signature', type:'Detached JWS', purpose:'Non-repudiation signature on payment API responses', profiles:'UK OB Security Profile', required:'Required on PIS/VRP' },
+  { name:'x-fapi-auth-date', type:'RFC 7231 date', purpose:'Timestamp of last SCA authentication event', profiles:'FAPI 1.0, UK OB', required:'Conditional (SCA)' },
+  { name:'content-type: application/json', type:'Media type', purpose:'Declares JSON payload on all resource server responses', profiles:'All profiles', required:'Required (all)' },
+  { name:'dpop / dpop-nonce', type:'DPoP proof JWT', purpose:'Sender-constrained token binding (FAPI 2.0 recommended)', profiles:'FAPI 2.0', required:'Recommended' },
+  { name:'aspsp-sca-approach', type:'Enum string', purpose:'Indicates redirect/embedded/decoupled SCA flow to TPP', profiles:'Berlin Group NextGenPSD2', required:'Required (Berlin Group)' },
+  { name:'x-content-type-options: nosniff', type:'Directive', purpose:'Prevent MIME-type sniffing attacks', profiles:'All (OWASP)', required:'Recommended' },
+  { name:'x-frame-options: DENY', type:'Directive', purpose:'Prevent iframe embedding / clickjacking', profiles:'All (OWASP)', required:'Recommended' },
+];
+
+// ─── Parse raw headers into a map ─────────────────────────────────────────
+function parseHeaders(raw) {
+  const map = {};
+  raw.split('\n').forEach(line => {
+    const idx = line.indexOf(':');
+    if (idx < 1) return;
+    const key = line.slice(0, idx).trim().toLowerCase();
+    const val = line.slice(idx + 1).trim();
+    map[key] = val;
+  });
+  return map;
+}
+
+// ─── Check for real JWT in input ──────────────────────────────────────────
+function looksLikeRealJWT(text) {
+  const jwtRe = /eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/;
+  return jwtRe.test(text);
+}
+
+// ─── Main header validation ───────────────────────────────────────────────
+function validateHeaders() {
+  const raw = document.getElementById('headerInput').value.trim();
+  if (!raw) { alert('Please paste some HTTP headers first.'); return; }
+
+  document.getElementById('jwtWarning').style.display = looksLikeRealJWT(raw) ? 'flex' : 'none';
+
+  const hmap = parseHeaders(raw);
+  const rules = FAPI_HEADER_RULES[activeStd] || [];
+
+  let passed = 0, failed = 0, warnings = 0;
+  const rows = [];
+
+  rules.forEach(rule => {
+    const val = hmap[rule.header];
+    let status, statusLabel, detail, severity;
+
+    if (val === undefined || val === null || val === '') {
+      // Header absent
+      if (rule.required) {
+        status = 'fail'; statusLabel = 'FAIL'; failed++;
+        severity = 'required';
+        detail = 'Header missing. ' + rule.fix;
+      } else {
+        status = 'warn'; statusLabel = 'WARN'; warnings++;
+        severity = 'recommended';
+        detail = 'Header absent. ' + rule.fix;
+      }
+    } else {
+      // Header present — check constraints
+      let ok = true;
+      let failReason = '';
+      if (rule.pattern && !rule.pattern.test(val)) {
+        ok = false; failReason = 'Value format invalid. Expected ' + rule.pattern.toString() + '. Got: ' + val;
+      }
+      if (rule.mustContain && !val.toLowerCase().includes(rule.mustContain.toLowerCase())) {
+        ok = false; failReason = 'Must contain "' + rule.mustContain + '". Got: ' + val;
+      }
+      if (rule.validValues && !rule.validValues.some(v => val.toUpperCase().includes(v.toUpperCase()))) {
+        ok = false; failReason = 'Must be one of [' + rule.validValues.join(', ') + ']. Got: ' + val;
+      }
+      if (ok) {
+        status = 'pass'; statusLabel = 'PASS'; passed++;
+        severity = rule.required ? 'required' : 'recommended';
+        detail = 'Value: ' + val.slice(0, 80) + (val.length > 80 ? '...' : '');
+      } else {
+        if (rule.required) {
+          status = 'fail'; statusLabel = 'FAIL'; failed++;
+          severity = 'required';
+        } else {
+          status = 'warn'; statusLabel = 'WARN'; warnings++;
+          severity = 'recommended';
+        }
+        detail = failReason;
+      }
+    }
+    rows.push({ rule, status, statusLabel, detail, severity, val });
+  });
+
+  // Grade
+  const grade = failed === 0 && warnings <= 1 ? 'A' : failed <= 1 ? 'B' : failed <= 3 ? 'C' : 'F';
+  const gradeClass = grade === 'A' ? 'grade-a' : grade === 'B' ? 'grade-b' : grade === 'C' ? 'grade-c' : 'grade-f';
+  const statusBarClass = failed > 0 ? 'invalid' : warnings > 0 ? 'warn' : '';
+  const statusText = failed > 0 ? 'VALIDATION FAILED' : warnings > 0 ? 'PASSED WITH WARNINGS' : 'FULLY COMPLIANT';
+
+  const stdNames = { FAPI_1_RW:'FAPI 1.0 Read-Write', FAPI_2:'FAPI 2.0', UK_OB_SECURITY:'UK OB Security Profile', PSD2_RTS:'PSD2 RTS Art. 98', BERLIN_GROUP:'Berlin Group NextGenPSD2' };
+
+  let html = '';
+
+  // Status bar
+  html += `<div class="result-status-bar ${statusBarClass}">
+    <div class="rsb-dot"></div>
+    <span class="rsb-status">${statusText}</span>
+    <span class="rsb-detail">Standard: ${stdNames[activeStd]} &nbsp;·&nbsp; ${rules.length} checks evaluated</span>
+  </div>`;
+
+  // Stats banner
+  html += `<div class="stats-banner">
+    <div class="stat-block"><div class="stat-num accent">${passed}</div><div class="stat-lbl">Checks Passed</div></div>
+    <div class="stat-block"><div class="stat-num red">${failed}</div><div class="stat-lbl">Checks Failed</div></div>
+    <div class="stat-block"><div class="stat-num gold">${warnings}</div><div class="stat-lbl">Warnings</div></div>
+    <div class="stat-block"><div class="grade-big ${gradeClass}">${grade}</div><div class="stat-lbl">Overall Grade</div></div>
+  </div>`;
+
+  // Results table
+  html += `<div class="results-table-wrap">
+    <table>
+      <thead><tr>
+        <th style="min-width:200px">Header</th>
+        <th>Status</th>
+        <th>Severity</th>
+        <th>Standard Reference</th>
+        <th>Details</th>
+      </tr></thead>
+      <tbody>`;
+
+  rows.forEach(r => {
+    const statusTag = r.status === 'pass'
+      ? '<span class="tag tag-green">✓ PASS</span>'
+      : r.status === 'fail'
+        ? '<span class="tag tag-red">✗ FAIL</span>'
+        : '<span class="tag tag-warn">⚠ WARN</span>';
+    const sevTag = r.severity === 'required'
+      ? '<span class="tag sev-required">Required</span>'
+      : r.severity === 'recommended'
+        ? '<span class="tag sev-recommended">Recommended</span>'
+        : '<span class="tag sev-info">Info</span>';
+    html += `<tr>
+      <td><code style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--teal)">${r.rule.header}</code></td>
+      <td>${statusTag}</td>
+      <td>${sevTag}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--body)">${r.rule.ref}</td>
+      <td style="font-size:.73rem;color:var(--body)">${escapeHtml(r.detail)}${r.rule.note ? '<br><span style="color:var(--muted);font-size:.65rem;font-style:italic">'+escapeHtml(r.rule.note)+'</span>' : ''}</td>
+    </tr>`;
+  });
+  html += '</tbody></table></div>';
+
+  // Remediation panel
+  const failedRows = rows.filter(r => r.status !== 'pass');
+  if (failedRows.length > 0) {
+    html += `<div class="sec-title">Remediation Guide (${failedRows.length} action${failedRows.length > 1 ? 's' : ''})</div>`;
+    failedRows.forEach((r, i) => {
+      const cls = r.status === 'fail' ? 'error-item' : 'warn-item';
+      html += `<div class="${cls}">
+        <div class="error-path">${r.rule.header}</div>
+        <div class="error-rule">${r.status === 'fail' ? 'FAIL' : 'WARNING'}: ${r.detail}</div>
+        <div class="error-fix">Fix: ${r.rule.fix}</div>
+      </div>`;
+    });
+  }
+
+  // Export
+  html += `<div style="margin-top:1.25rem">
+    <button class="btn-secondary" onclick="exportHeaderReport(${JSON.stringify(rows).replace(/</g,'&lt;').length})">↓ Export Report (Markdown)</button>
+  <div class="results-export-row"><button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the analysis above to generate a Policy Mandate">{} Export Policy Mandate<span class="ap2-sub">API · audit trail</span></button></div>
+  </div>`;
+
+  // Store rows for export
+  window._lastHeaderRows = rows;
+  window._lastHeaderStd = activeStd;
+  enableAP2Btn();
+
+  document.getElementById('headerResults').innerHTML = html;
+}
+
+// ─── Export header report ─────────────────────────────────────────────────
+function exportHeaderReport() {
+  const rows = window._lastHeaderRows || [];
+  const stdNames = { FAPI_1_RW:'FAPI 1.0 Read-Write', FAPI_2:'FAPI 2.0', UK_OB_SECURITY:'UK OB Security Profile', PSD2_RTS:'PSD2 RTS Art. 98', BERLIN_GROUP:'Berlin Group NextGenPSD2' };
+  const passed = rows.filter(r => r.status === 'pass').length;
+  const failed = rows.filter(r => r.status === 'fail').length;
+  const warnings = rows.filter(r => r.status === 'warn').length;
+  let md = `# FAPI Security Header Validation Report\n`;
+  md += `**Date:** ${new Date().toISOString().split('T')[0]}\n`;
+  md += `**Tool:** AINumbers.co Tool 97 — FAPI Security Header & Compliance Validator\n`;
+  md += `**Standard:** ${stdNames[window._lastHeaderStd] || window._lastHeaderStd}\n\n`;
+  md += `## Summary\n| Metric | Count |\n|---|---|\n| Passed | ${passed} |\n| Failed | ${failed} |\n| Warnings | ${warnings} |\n\n`;
+  md += `## Results\n| Header | Status | Severity | Reference |\n|---|---|---|---|\n`;
+  rows.forEach(r => { md += `| ${r.rule.header} | ${r.statusLabel} | ${r.severity} | ${r.rule.ref} |\n`; });
+  md += `\n## Remediation Actions\n`;
+  rows.filter(r => r.status !== 'pass').forEach((r, i) => {
+    md += `${i+1}. **[${r.statusLabel}] ${r.rule.header}** — ${r.rule.fix}\n`;
+  });
+  md += `\n---\n*Generated by AINumbers.co Tool 97 · Post Oak Labs · CC BY 4.0*\n*Not a substitute for official security review or certification.*`;
+  const a = document.createElement('a');
+  a.href = 'data:text/markdown;charset=utf-8,' + encodeURIComponent(md);
+  a.download = 'fapi-header-validation-report.md';
+  a.click();
+}
+
+// ─── OAuth / OIDC analysis ────────────────────────────────────────────────
+function analyzeOAuth() {
+  const raw = document.getElementById('oauthInput').value.trim();
+  if (!raw) { alert('Please paste an authorization request URL first.'); return; }
+
+  if (looksLikeRealJWT(raw)) {
+    document.getElementById('jwtWarningOAuth').innerHTML = '<span style="font-size:1.1rem;flex-shrink:0">⚠</span><div><strong style="color:var(--gold)">Possible real JWT detected.</strong> Please use synthetic tokens for testing.</div>';
+    document.getElementById('jwtWarningOAuth').style.display = 'flex';
+  } else {
+    document.getElementById('jwtWarningOAuth').style.display = 'none';
+  }
+
+  // Parse URL params
+  let paramStr = raw;
+  if (raw.includes('?')) paramStr = raw.split('?')[1];
+  const params = {};
+  paramStr.split('&').forEach(p => {
+    const eq = p.indexOf('=');
+    if (eq < 1) return;
+    const k = decodeURIComponent(p.slice(0, eq).trim());
+    const v = decodeURIComponent(p.slice(eq + 1).replace(/\+/g, ' ').trim());
+    params[k] = v;
+  });
+
+  const rules = OAUTH_RULES[activeOAuthStd] || [];
+  let passed = 0, failed = 0, warnings = 0;
+  const rows = [];
+
+  rules.forEach(rule => {
+    const val = params[rule.param];
+    let status, statusLabel, detail;
+
+    if (val === undefined || val === '') {
+      if (rule.required) {
+        status = 'fail'; statusLabel = 'FAIL'; failed++;
+        detail = 'Parameter missing. ' + rule.fix;
+      } else {
+        status = 'warn'; statusLabel = 'WARN'; warnings++;
+        detail = 'Parameter absent (recommended). ' + rule.fix;
+      }
+    } else {
+      let ok = true, failReason = '';
+      if (rule.validValues && !rule.validValues.includes(val)) {
+        ok = false; failReason = 'Value must be one of [' + rule.validValues.join(', ') + ']. Got: ' + val;
+      }
+      if (rule.mustContain && !val.includes(rule.mustContain)) {
+        ok = false; failReason = 'Must contain "' + rule.mustContain + '". Got: ' + val;
+      }
+      if (rule.mustBeHttps && !val.startsWith('https://')) {
+        ok = false; failReason = 'Must use HTTPS. Got: ' + val;
+      }
+      if (rule.minLength && val.length < rule.minLength) {
+        ok = false; failReason = 'Insufficient entropy (length ' + val.length + ' < ' + rule.minLength + '). ' + rule.fix;
+      }
+      if (ok) {
+        status = 'pass'; statusLabel = 'PASS'; passed++;
+        detail = 'Value: ' + val.slice(0, 60) + (val.length > 60 ? '...' : '');
+      } else {
+        if (rule.required) { status = 'fail'; statusLabel = 'FAIL'; failed++; }
+        else { status = 'warn'; statusLabel = 'WARN'; warnings++; }
+        detail = failReason;
+      }
+    }
+    rows.push({ rule, status, statusLabel, detail, val });
+  });
+
+  const stdNames = { FAPI_1_RW:'FAPI 1.0 Read-Write', FAPI_2:'FAPI 2.0', UK_OB_SECURITY:'UK OB Security Profile' };
+  const statusBarClass = failed > 0 ? 'invalid' : warnings > 0 ? 'warn' : '';
+  const statusText = failed > 0 ? 'VALIDATION FAILED' : warnings > 0 ? 'PASSED WITH WARNINGS' : 'FULLY COMPLIANT';
+  const grade = failed === 0 && warnings <= 1 ? 'A' : failed <= 1 ? 'B' : failed <= 3 ? 'C' : 'F';
+  const gradeClass = grade === 'A' ? 'grade-a' : grade === 'B' ? 'grade-b' : grade === 'C' ? 'grade-c' : 'grade-f';
+
+  let html = '';
+
+  // Status bar
+  html += `<div class="result-status-bar ${statusBarClass}">
+    <div class="rsb-dot"></div>
+    <span class="rsb-status">${statusText}</span>
+    <span class="rsb-detail">Profile: ${stdNames[activeOAuthStd]} &nbsp;·&nbsp; ${Object.keys(params).length} params parsed &nbsp;·&nbsp; ${rules.length} checks</span>
+  </div>`;
+
+  // Stats
+  html += `<div class="stats-banner">
+    <div class="stat-block"><div class="stat-num accent">${passed}</div><div class="stat-lbl">Checks Passed</div></div>
+    <div class="stat-block"><div class="stat-num red">${failed}</div><div class="stat-lbl">Checks Failed</div></div>
+    <div class="stat-block"><div class="stat-num gold">${warnings}</div><div class="stat-lbl">Warnings</div></div>
+    <div class="stat-block"><div class="grade-big ${gradeClass}">${grade}</div><div class="stat-lbl">Overall Grade</div></div>
+  </div>`;
+
+  // Parsed params display
+  html += `<div class="sec-title">Parsed Parameters (${Object.keys(params).length})</div>
+  <div class="url-parsed">`;
+  Object.entries(params).forEach(([k, v]) => {
+    html += `<div class="url-param"><span class="url-key">${escapeHtml(k)}</span><span class="url-val">${escapeHtml(v)}</span></div>`;
+  });
+  html += `</div>`;
+
+  // Results table
+  html += `<div class="sec-title">Compliance Check Results</div>
+  <div class="results-table-wrap"><table>
+    <thead><tr>
+      <th>Parameter</th>
+      <th>Status</th>
+      <th>Required</th>
+      <th>Standard Reference</th>
+      <th>Details</th>
+    </tr></thead><tbody>`;
+
+  rows.forEach(r => {
+    const statusTag = r.status === 'pass'
+      ? '<span class="tag tag-green">✓ PASS</span>'
+      : r.status === 'fail'
+        ? '<span class="tag tag-red">✗ FAIL</span>'
+        : '<span class="tag tag-warn">⚠ WARN</span>';
+    const reqTag = r.rule.required
+      ? '<span class="tag sev-required">Required</span>'
+      : '<span class="tag sev-recommended">Recommended</span>';
+    html += `<tr>
+      <td><code style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--gold)">${escapeHtml(r.rule.param)}</code></td>
+      <td>${statusTag}</td>
+      <td>${reqTag}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--body)">${escapeHtml(r.rule.ref)}</td>
+      <td style="font-size:.73rem;color:var(--body)">${escapeHtml(r.detail)}${r.rule.note ? '<br><span style="color:var(--muted);font-size:.65rem;font-style:italic">'+escapeHtml(r.rule.note)+'</span>' : ''}</td>
+    </tr>`;
+  });
+  html += '</tbody></table></div>';
+
+  // Remediation
+  const failedRows = rows.filter(r => r.status !== 'pass');
+  if (failedRows.length > 0) {
+    html += `<div class="sec-title">Remediation Actions</div>`;
+    failedRows.forEach(r => {
+      const cls = r.status === 'fail' ? 'error-item' : 'warn-item';
+      html += `<div class="${cls}">
+        <div class="error-path">${r.rule.param}</div>
+        <div class="error-rule">${r.statusLabel}: ${r.detail}</div>
+        <div class="error-fix">Fix: ${r.rule.fix}</div>
+      </div>`;
+    });
+  }
+
+  document.getElementById('oauthResults').innerHTML = html;
+}
+
+// ─── Build reference tab ──────────────────────────────────────────────────
+function buildReferenceTab() {
+  // Reference table
+  const tbody = document.getElementById('refTableBody');
+  if (tbody) {
+    tbody.innerHTML = REF_ROWS.map(r => `
+      <tr>
+        <td>${r.dim}</td>
+        <td>${r.fapi1b}</td>
+        <td>${r.fapi1a}</td>
+        <td>${r.fapi2}</td>
+        <td>${r.ukoob}</td>
+        <td>${r.psd2}</td>
+        <td>${r.berlin}</td>
+      </tr>`).join('');
+  }
+
+  // Header reference grid
+  const grid = document.getElementById('headerRefGrid');
+  if (grid) {
+    grid.innerHTML = HEADER_REF.map(h => `
+      <div class="info-card">
+        <div class="ic-label">${h.required}</div>
+        <div class="ic-value" style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--teal)">${h.name}</div>
+        <div class="ic-sub">${h.purpose}</div>
+        <div style="margin-top:.5rem;font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted)">${h.profiles}</div>
+      </div>`).join('');
+  }
+}
+
+// ─── UI helpers ───────────────────────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).style.display = 'block';
+  btn.classList.add('active');
+}
+
+function selectStd(btn) {
+  document.querySelectorAll('#stdPills .std-pill').forEach(el => el.classList.remove('active'));
+  btn.classList.add('active');
+  activeStd = btn.dataset.std;
+  // Clear results when standard changes
+  document.getElementById('headerResults').innerHTML = '';
+  document.getElementById('jwtWarning').style.display = 'none';
+}
+
+function selectOAuthStd(btn) {
+  document.querySelectorAll('#oauthStdPills .std-pill').forEach(el => el.classList.remove('active'));
+  btn.classList.add('active');
+  activeOAuthStd = btn.dataset.std;
+  document.getElementById('oauthResults').innerHTML = '';
+}
+
+function selectMode(mode, btn) {
+  document.querySelectorAll('.mode-btn').forEach(el => el.classList.remove('active'));
+  btn.classList.add('active');
+  const ta = document.getElementById('headerInput');
+  if (mode === 'http') {
+    ta.placeholder = 'HTTP/1.1 200 OK\nContent-Type: application/json; charset=utf-8\nx-fapi-interaction-id: 93bac548-d2de-4546-b106-880a5018460d\ncache-control: no-store\n...';
+  } else {
+    ta.placeholder = 'x-fapi-interaction-id: 93bac548-d2de-4546-b106-880a5018460d\ncache-control: no-store\n...';
+  }
+}
+
+function loadHeaderExample() {
+  const examples = {
+    FAPI_1_RW: `HTTP/1.1 200 OK\nContent-Type: application/json; charset=utf-8\nx-fapi-interaction-id: 93bac548-d2de-4546-b106-880a5018460d\nx-fapi-auth-date: Sun, 10 Sep 2023 19:43:31 UTC\ncache-control: no-store\nx-frame-options: DENY\nx-content-type-options: nosniff`,
+    FAPI_2:    `HTTP/1.1 200 OK\nContent-Type: application/json; charset=utf-8\nx-fapi-interaction-id: 7d2e6b3a-1f4c-4a9e-b8c2-5e0a123456cd\ncache-control: no-store\nstrict-transport-security: max-age=31536000; includeSubDomains\nx-content-type-options: nosniff`,
+    UK_OB_SECURITY: `HTTP/1.1 200 OK\nContent-Type: application/json; charset=utf-8\nx-fapi-interaction-id: 4a1b2c3d-5e6f-7890-ab12-cdef01234567\nx-fapi-financial-id: 0015800001041RHAA1\ncache-control: no-store\nstrict-transport-security: max-age=31536000; includeSubDomains\nx-content-type-options: nosniff`,
+    PSD2_RTS:  `HTTP/1.1 200 OK\nContent-Type: application/json; charset=utf-8\ncache-control: no-store\nstrict-transport-security: max-age=31536000; includeSubDomains\nx-content-type-options: nosniff`,
+    BERLIN_GROUP: `HTTP/1.1 200 OK\nContent-Type: application/json; charset=utf-8\nX-Request-ID: f7a3b2c1-d4e5-6f78-9012-345678abcdef\nascx-sca-approach: REDIRECT\ncache-control: no-store\nstrict-transport-security: max-age=31536000; includeSubDomains`,
+  };
+  document.getElementById('headerInput').value = examples[activeStd] || examples.FAPI_1_RW;
+}
+
+function loadOAuthExample() {
+  const examples = {
+    FAPI_1_RW: 'https://auth.example-aspsp.com/authorize?response_type=code&client_id=abc123&redirect_uri=https%3A%2F%2Fapp.tpp.com%2Fcallback&scope=openid+accounts&state=xyzABC123def456GHIjkl&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256&nonce=n-0S6_WzA2Mj',
+    FAPI_2:    'https://auth.example-aspsp.com/authorize?response_type=code&client_id=client-fapi2-001&redirect_uri=https%3A%2F%2Fapp.tpp.com%2Fcallback&scope=openid+accounts+payments&state=randomState12345678901234&code_challenge=dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk&code_challenge_method=S256&nonce=cfmb17k2d9wbJ12v&request=eyJhbGciOiJQUzI1NiJ9.eyJyZXNwb25zZV90eXBlIjoiY29kZSJ9.placeholder',
+    UK_OB_SECURITY: 'https://auth.example-aspsp.com/authorize?response_type=code+id_token&client_id=uk-ob-client-001&redirect_uri=https%3A%2F%2Fapp.tpp.com%2Fcallback&scope=openid+accounts&state=obABC123XYZ456defGHI&code_challenge=s256ChallengeBase64UrlEncodedHere12345678901&code_challenge_method=S256&nonce=obNonce789xyz',
+  };
+  document.getElementById('oauthInput').value = examples[activeOAuthStd] || examples.FAPI_1_RW;
+}
+
+function clearHeader() {
+  document.getElementById('headerInput').value = '';
+  document.getElementById('headerResults').innerHTML = '';
+  document.getElementById('jwtWarning').style.display = 'none';
+}
+
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-05 Hub',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-05',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-05',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-05',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-05',
+  }, zh:{
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-05 中心',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+
+function copyCode(btn) {
+  const pre = btn.closest('.fmt-block').querySelector('pre');
+  if (pre) {
+    navigator.clipboard.writeText(pre.textContent).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = 'Copied ✓';
+      setTimeout(() => { btn.textContent = orig; }, 1800);
+    });
+  }
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  // Show first tab
+  document.getElementById('tab-header').style.display = 'block';
+  buildReferenceTab();
+});
+
+function exportAP2() {
+  const rows   = window._lastHeaderRows || [];
+  const std    = window._lastHeaderStd  || 'fapi1';
+  if (!rows.length) return;
+  const passCount = rows.filter(r => r.status === 'pass' || r.status === 'PASS').length;
+  const warnCount = rows.filter(r => r.status === 'warn' || r.status === 'WARN').length;
+  const failCount = rows.filter(r => r.status === 'fail' || r.status === 'FAIL').length;
+  const total     = rows.length;
+  const score     = total ? Math.round(((passCount + warnCount * 0.5) / total) * 100) : 0;
+  const fapiReady = failCount === 0;
+  const payload = {
+    mandate_type: 'fapi_security_validation',
+    standard:     std,
+    pass_count:   passCount,
+    warn_count:   warnCount,
+    fail_count:   failCount,
+    score,
+    fapi_ready:   fapiReady,
+    results:      rows.map(r => ({ header: r.header, status: r.status, detail: r.detail, remediation: r.remediation })),
+  };
+  const inputs = { standard: std, headerCount: rows.length };
+  const summary = `FAPI Security Validator (${std.toUpperCase()}): score ${score}% — ${passCount} pass, ${warnCount} warn, ${failCount} fail. ${fapiReady ? 'FAPI READY' : 'NOT FAPI READY'}.`;
+  const agent_instructions = [
+    fapiReady ? `All headers pass ${std.toUpperCase()} requirements — endpoint is FAPI compliant.` : `${failCount} FAILURE(S) detected — endpoint is NOT ${std.toUpperCase()} compliant. Remediate before certification.`,
+    warnCount > 0 ? `${warnCount} warning(s) — review header values to improve security posture.` : '',
+    failCount > 0 ? `Failing headers: ${rows.filter(r => r.status === 'fail' || r.status === 'FAIL').map(r => r.header).join(', ')}.` : '',
+    'Re-validate after any API gateway or security middleware change.',
+  ].filter(Boolean);
+  const mandate = {
+    ...AP2Schema.build('T97', 'fapi-security-validator', payload, inputs),
+    summary,
+    agent_instructions,
+    regulatory_citations: [
+      'FAPI 1.0 Advanced — openid.net/specs/openid-financial-api-part-2-1_0.html',
+      'FAPI 2.0 Message Signing — openid.net/specs/fapi-2_0-message-signing.html',
+      'OAuth 2.0 Security Best Current Practice — RFC 9700',
+      'UK Open Banking Security Profile v3.1.11',
+    ]
+  };
+  AP2Schema.validate(mandate);
+  AP2Schema.download(mandate, `fapi-${std}-validation.policy.json`);
+  showAP2Toast();
+}
+
+</script>
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "fapi-security-validator", "version": "1.0.0", "title": "Tool 97 — FAPI Security Header &amp; Compliance Validator", "description": "Validate Open Banking HTTP security headers and OAuth flows against FAPI 1.0, FAPI 2.0, UK OB Security Profile, and PSD2 RTS. Browser-only, zero PII.", "category": "open-banking-integration", "tags": ["✓ PASS", "✗ FAIL", "⚠ WARN", "Required", "Recommended", "Info"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"headerInput": {"type": "string"}, "oauthInput": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "fapi_security_validator", "description": "Run Tool 97 — FAPI Security Header &amp; Compliance Validator. Validate Open Banking HTTP security headers and OAuth flows against FAPI 1.0, FAPI 2.0, UK OB Security Profile, and PSD2 RTS. Browser-only, zero PII.", "inputSchema": {"type": "object", "properties": {"headerInput": {"type": "string"}, "oauthInput": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/97-fapi-security-validator.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(s); }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VDCAP Payload Auditor & Card Fee Optimizer | AINumbers.co</title>
+<meta name="description" content="Audit CNP payment payloads against Visa April 2026 VDCAP requirements. Detect missing Network Token, Device ID, IP fields. Estimate annual fee savings. Decode ISO 8583 bitmaps. Client-side. Zero PII.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-glow:rgba(20,184,166,.06);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--radius:6px;--radius-lg:10px;--shadow:0 4px 24px rgba(0,0,0,.4)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:.85rem;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.mono{font-family:'JetBrains Mono',monospace}
+
+
+
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+
+.nav-back:hover{border-color:var(--teal);color:var(--teal)}
+
+
+.page{max-width:1280px;margin:0 auto;padding:32px 24px 80px}
+.tool-header{margin-bottom:32px}
+
+.tool-h1{font-family:'DM Serif Display',serif;font-size:2rem;color:var(--white);line-height:1.2;margin-bottom:10px}
+.tool-sub{color:var(--body);font-size:.82rem;line-height:1.75;max-width:680px;margin-bottom:16px}
+.pill-row{display:flex;gap:8px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;padding:.22rem .65rem;border-radius:20px;border:1px solid}
+.pill-teal{background:var(--teal-dim);border-color:rgba(20,184,166,.3);color:var(--teal)}
+.pill-gold{background:var(--gold-dim);border-color:rgba(212,168,71,.3);color:var(--gold)}
+.pill-green{background:var(--green-dim);border-color:rgba(34,197,94,.3);color:var(--green)}
+
+.layout{display:grid;grid-template-columns:1fr 360px;gap:20px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}}
+
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.panel-body{padding:18px}
+
+.format-row{display:flex;gap:6px;margin-bottom:14px}
+.fmt-btn{background:var(--bg-3);border:1px solid var(--border);color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.6rem;padding:.25rem .65rem;border-radius:3px;transition:all .15s}
+.fmt-btn.active{background:var(--teal-dim);border-color:var(--teal);color:var(--teal)}
+.fmt-btn:hover:not(.active){border-color:var(--border-2);color:var(--text)}
+
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--bright);padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:.72rem;line-height:1.6;resize:vertical;min-height:240px;outline:none;transition:border-color .2s}
+textarea:focus{border-color:var(--teal)}
+textarea::placeholder{color:var(--muted)}
+
+.btn-row{display:flex;gap:8px;margin-top:12px}
+.btn-primary{background:var(--teal);color:#080E1A;border:none;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-weight:600;font-size:.65rem;letter-spacing:.06em;padding:.45rem 1.1rem;transition:background .15s}
+.btn-primary:hover{background:#2DD4BF}
+.btn-secondary{background:none;border:1px solid var(--border-2);color:var(--body);border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.63rem;padding:.42rem .85rem;transition:all .15s}
+.btn-secondary:hover{border-color:var(--text);color:var(--text)}
+
+.vol-row{display:flex;align-items:center;gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.vol-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);white-space:nowrap}
+input[type=number],input[type=text]{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--bright);padding:.35rem .65rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;outline:none;transition:border-color .2s;width:160px}
+input:focus{border-color:var(--teal)}
+
+/* results */
+.results-wrap{display:none}
+.results-wrap.visible{display:block}
+
+.score-banner{border-radius:var(--radius-lg);padding:20px 22px;margin-bottom:16px;display:flex;align-items:center;gap:20px}
+.score-banner.pass{background:var(--green-dim);border:1px solid rgba(34,197,94,.3)}
+.score-banner.warn{background:var(--gold-dim);border:1px solid rgba(212,168,71,.3)}
+.score-banner.fail{background:var(--red-dim);border:1px solid rgba(239,68,68,.3)}
+.score-big{font-family:'DM Serif Display',serif;font-size:3rem;line-height:1}
+.score-banner.pass .score-big{color:var(--green)}
+.score-banner.warn .score-big{color:var(--gold)}
+.score-banner.fail .score-big{color:var(--red)}
+.score-meta{flex:1}
+.score-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.score-desc{font-size:.78rem;color:var(--text)}
+
+.fields-table{width:100%;border-collapse:collapse;margin-bottom:16px}
+.fields-table th{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:6px 10px;text-align:left;border-bottom:1px solid var(--border)}
+.fields-table td{padding:8px 10px;border-bottom:1px solid rgba(30,47,74,.5);font-size:.76rem;vertical-align:top}
+.fields-table tr:last-child td{border-bottom:none}
+.status-pass{color:var(--green);font-family:'JetBrains Mono',monospace;font-size:.65rem}
+.status-fail{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.65rem}
+.status-warn{color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.65rem}
+.field-name{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--bright)}
+.field-desc{font-size:.71rem;color:var(--body);margin-top:2px}
+
+.savings-card{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:16px}
+.savings-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.savings-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.savings-item .sv-n{font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--gold)}
+.savings-item .sv-l{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+/* sidebar panels */
+.sb-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:14px;overflow:hidden}
+.sb-head{padding:12px 16px;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.sb-body{padding:14px 16px}
+
+.vdcap-field-list{display:flex;flex-direction:column;gap:6px}
+.vf-item{display:flex;align-items:flex-start;gap:8px;padding:6px 8px;border-radius:var(--radius);background:var(--bg-3)}
+.vf-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.vf-dot.required{background:var(--red)}
+.vf-dot.recommended{background:var(--gold)}
+.vf-dot.optional{background:var(--muted)}
+.vf-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--bright)}
+.vf-sub{font-size:.66rem;color:var(--body)}
+.vf-saving{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--gold);margin-top:2px}
+
+.tier-table{width:100%;border-collapse:collapse}
+.tier-table tr{border-bottom:1px solid rgba(30,47,74,.4)}
+.tier-table tr:last-child{border-bottom:none}
+.tier-table td{padding:6px 0;font-size:.72rem}
+.tier-table td:first-child{color:var(--body);padding-right:10px}
+.tier-table td:last-child{font-family:'JetBrains Mono',monospace;color:var(--gold);text-align:right}
+
+/* bitmap section */
+.bitmap-wrap{margin-top:16px;display:none}
+.bitmap-wrap.visible{display:block}
+.bitmap-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;margin:10px 0}
+.bit-cell{height:26px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.5rem;cursor:pointer;transition:all .15s}
+.bit-cell.set{background:var(--teal-dim);border:1px solid rgba(20,184,166,.3);color:var(--teal)}
+.bit-cell.unset{background:var(--bg-3);border:1px solid var(--border);color:var(--muted)}
+.bit-cell:hover{border-color:var(--border-2)}
+.bit-detail{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:.72rem;color:var(--text);min-height:40px}
+
+.export-row{display:flex;gap:8px;margin-top:16px}
+
+
+/* ── LANG BAR ── */
+.lang-bar {
+  background: var(--deep);
+  border-bottom: 1px solid var(--edge);
+  padding: 0 2rem;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.lang-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+.lang-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+.lang-btn:hover { color: var(--body); border-color: var(--edge); }
+.lang-btn.active { color: var(--teal-lt); border-bottom: 1px solid var(--teal); }
+
+/* ── AINUMBERS LOGO ── */
+.logo { display:flex; align-items:center; gap:10px; flex-shrink:0; text-decoration:none; }
+.logo-mark-grid { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:32px; height:32px; }
+.logo-text { display:flex; flex-direction:column; gap:2px; }
+.logo-name { font-family:'JetBrains Mono',monospace; font-size:.95rem; font-weight:500; color:var(--bright); letter-spacing:-.02em; line-height:1; }
+.logo-ai { color:var(--teal); }
+.logo-co { color:var(--muted); font-size:.8rem; }
+
+@media(max-width:600px){}
+
+/* ── NAV CTA ── */
+
+
+/* ── BACKGROUND GRID ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(20,184,166,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20,184,166,.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── FOOTER ── */
+@media(max-width:600px){   }
+
+/* ── HERO ── */
+.hero {
+  padding: 3.5rem 0 3rem; border-bottom: 1px solid var(--edge);
+  position: relative; overflow: hidden;
+}
+.hero::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+.hero-eyebrow {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.57rem;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--accent-lt); margin-bottom: 1rem;
+  display: flex; align-items: center; gap: 0.75rem;
+}
+.hero-eyebrow::before { content: ''; display: block; width: 28px; height: 1px; background: var(--accent); }
+.hero h1 { font-size: clamp(1.7rem, 3vw, 2.6rem); color: var(--white); max-width: 720px; margin-bottom: 0.75rem; }
+.hero-sub { font-size: 0.88rem; color: var(--body); max-width: 640px; line-height: 1.85; margin-bottom: 1.2rem; }
+.hero-meta { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.52rem;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 0.35rem 0.75rem; border: 1px solid;
+}
+.badge-privacy { color: var(--muted); border-color: var(--edge); }
+.badge-privacy::before { content: '·'; color: var(--green-lt); }
+.badge-spec { color: var(--gold); border-color: rgba(192,144,64,0.3); }
+
+/* ── RTL SUPPORT ── */
+[dir="rtl"] .nav-inner,[dir="rtl"] .nav-links { flex-direction: row-reverse; }
+[dir="rtl"] .lang-inner { flex-direction: row-reverse; justify-content: flex-start; }
+[dir="rtl"] label,[dir="rtl"] .label,[dir="rtl"] .input-label-text,
+[dir="rtl"] .input-label-hint,[dir="rtl"] .section-head,[dir="rtl"] .panel-label,
+[dir="rtl"] .form-label,[dir="rtl"] .field-label { text-align:right;direction:rtl; }
+[dir="rtl"] .stat-cell,[dir="rtl"] .stat-label,[dir="rtl"] .stat-sub,
+[dir="rtl"] .kpi-label { text-align:right; }
+[dir="rtl"] .config-panel,[dir="rtl"] .left-panel { order:2; }
+[dir="rtl"] .output-panel,[dir="rtl"] .results-panel,[dir="rtl"] .right-panel { order:1; }
+[dir="rtl"] .tool-grid,[dir="rtl"] .split-grid { direction:rtl; }
+[dir="rtl"] .hero,[dir="rtl"] .hero-eyebrow { direction:rtl;text-align:right; }
+[dir="rtl"] .hero-eyebrow::before { margin-left:0.5rem;margin-right:0; }
+[dir="rtl"] .hero-meta { justify-content:flex-end; }
+[dir="rtl"] .collapsible-trigger { text-align:right; }
+
+
+/* ═══════════════════════════════════════════════════════════
+   AINumbers.co — Global Layout & Spacing Patch  v2.0
+   Applied to all tools for consistent UX:
+   • 8-pt grid system throughout (base 8px, multiples of 8/16/24)
+   • Nav: logo left, CTA right with flex grow spacer
+   • Lang bar: right-aligned toggles above nav
+   • Hero & content: 24px side padding, never edge-flush
+   • Footer: centered layout, mobile-first text centering
+═══════════════════════════════════════════════════════════ */
+
+/* ── Page shell: max 1440px centered ── */
+.page-shell {
+  max-width: 1440px;
+  margin: 0 auto;
+  position: relative;
+  min-height: 100vh;
+  box-shadow: 0 0 0 1px rgba(30,47,74,.6), 0 0 80px rgba(0,0,0,.5);
+  overflow-x: hidden;
+}
+body { overflow-x: hidden; }
+
+/* ── Lang bar ── */
+.lang-bar {
+  background: var(--bg-2, #0D1627);
+  border-bottom: 1px solid var(--border, #1E2F4A);
+  padding: 0 24px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  position: relative;
+  z-index: 101;
+}
+.lang-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  align-items: center;
+}
+.lang-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted, #3A5270);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+  border-radius: 3px;
+}
+.lang-btn:hover { color: var(--body, #6888A8); border-color: var(--border, #1E2F4A); }
+.lang-btn.active { color: var(--teal, #14B8A6); border-color: rgba(20,184,166,.35); }
+
+/* ── Nav: logo left | spacer | CTA right ── */
+
+
+/* Push everything after the logo to the right */
+.nav-inner > *:not(.logo):not(:first-child),
+.nav-links,
+.nav-back,
+.nav-meta,
+.nav-cta-wrap {
+  margin-left: auto;
+}
+/* Only apply once — reset margin if there are multiple right-side items */
+.nav-links + *,
+.nav-meta + .nav-links { margin-left: 0; }
+
+/* CTA button */
+
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+
+/* ── Universal container: always 24px side padding ── */
+.container,
+.page,
+.search-inner,
+.mode-inner,
+.footer-inner,
+.tool-wrap,
+.main-wrap,
+.hero > .container,
+.collapsible-outer {
+  max-width: 1200px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-left: clamp(16px, 3vw, 24px) !important;
+  padding-right: clamp(16px, 3vw, 24px) !important;
+}
+
+/* ── Hero section ── */
+.hero {
+  padding: 3rem 24px 2.5rem;
+  border-bottom: 1px solid var(--border, #1E2F4A);
+  position: relative;
+  overflow: hidden;
+}
+.hero > .container {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* ── Collapsible sections padding ── */
+.collapsible-trigger,
+.collapsible-body {
+  /* these are full-width inside a padded container already */
+}
+/* Fix the inline-style padded wrapper around collapsibles */
+[style*="padding:1.5rem 2rem"] {
+  padding-left: clamp(16px, 3vw, 24px) !important;
+  padding-right: clamp(16px, 3vw, 24px) !important;
+}
+
+/* ── Ensure .page has content padding (used in many files as main wrapper) ── */
+.page {
+  padding-top: 32px !important;
+  padding-bottom: 80px !important;
+}
+
+/* Mobile footer: stack and center everything */
+@media (max-width: 640px) {
+      }
+
+/* ── Readable prose max-width ── */
+p, li, .tool-sub, .hero-sub {
+  max-width: 72ch;
+}
+
+/* ── Tablet adjustments ── */
+@media (max-width: 1024px) {
+  .tool-wrap, .main-wrap {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+}
+/* ── Mobile ── */
+@media (max-width: 640px) {
+  nav { padding: 0 16px; }
+  .lang-bar { padding: 0 16px; }
+  .hero { padding: 2rem 16px 2rem; }
+  }
+/* ═══════════════════════════════ End AINumbers Patch v2.0 ═══ */
+
+/* ── Footer ─────────────────────────────────────────── */
+footer { border-top: 1px solid var(--border); padding: 1.75rem 1.5rem; margin-top: 3rem; }
+.footer-inner-ai { display:flex; align-items:center; gap:2rem; flex-wrap:wrap; justify-content:space-between; }
+.footer-links-ai { display:flex; gap:1.25rem; font-family:'JetBrains Mono',monospace; font-size:.52rem; color:var(--muted); }
+.footer-links-ai a { color:var(--muted); text-decoration:none; transition:color .2s; }
+.footer-links-ai a:hover { color:var(--teal-lt); }
+.footer-badge-ai { display:flex; flex-direction:column; gap:.3rem; font-family:'JetBrains Mono',monospace; font-size:.5rem; color:var(--muted); }
+.footer-brand-link { display:flex; align-items:center; gap:.5rem; text-decoration:none; color:var(--text); }
+.footer-wordmark { font-family:'JetBrains Mono',monospace; font-size:.9rem; font-weight:500; }
+.logo-icon-sm { background:var(--teal); color:#000; font-weight:700; font-size:.7rem; padding:.15rem .3rem; border-radius:3px; }
+@media(max-width:640px){ .footer-inner-ai { flex-direction:column; text-align:center; } .footer-badge-ai { align-items:center; } }
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:1rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.nav-bc{margin-left:0!important;justify-self:center}
+.nav-right{margin-left:0!important;justify-self:end}
+</style>
+  <link rel="canonical" href="https://ainumbers.co/tools/51-vdcap-payload-auditor.html">
+  <meta name="twitter:site" content="@ainumbers">
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<div class="page-shell">
+
+
+<!-- LANG BAR -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/payment-scheme-network-hub.html">Payment Scheme Hub</a><span class="nav-sep">/</span><span>T-51</span></div>
+    <a href="../guides/payment-scheme-network-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="container">
+    <div class="hero-eyebrow"><span data-i18n="t51.hero.eyebrow">Tool 51 · Core Infrastructure · Card Economics</span></div>
+    <h1><span data-i18n="t51.hero.title">VDCAP Payload Auditor <em style="font-style:italic;color:var(--gold)">&amp; Card Fee Optimizer</em></span></h1>
+    <p class="hero-sub"><span data-i18n="t51.hero.sub">Paste a CNP payment payload and audit it against Visa's April 2026 VDCAP requirements. Detect missing fields, estimate annual fee savings, validate 3DS 2.x flags, and decode ISO 8583 bitmaps — entirely in-browser. Zero PII leaves the tab.</span></p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-privacy">Zero PII · Client-Side Only</span>
+      <span class="hero-badge badge-spec">VDCAP April 2026 — <span id="deadlineCountdown" style="font-weight:600">…</span></span>
+      <span class="hero-badge badge-spec">ISO 8583 Decoder</span>
+      <span class="hero-badge badge-spec">Fee Savings Estimator</span>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+    <div>
+      <!-- INPUT PANEL -->
+      <div class="panel" style="margin-bottom:16px">
+        <div class="panel-head">
+          <span class="panel-title">Payload Input</span>
+          <div class="format-row" style="margin:0">
+            <button class="fmt-btn active" onclick="setFmt('json')" id="fmt-json">JSON</button>
+            <button class="fmt-btn" onclick="setFmt('iso8583')" id="fmt-iso8583">ISO 8583 Hex</button>
+          </div>
+        </div>
+        
+<div class="pii-notice">
+  <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+</div>
+<div class="panel-body">
+          <textarea id="payloadInput" placeholder='Paste your payment request JSON here — Stripe, Adyen, Checkout.com, or generic format.&#10;&#10;Example:&#10;{&#10;  "amount": 9900,&#10;  "currency": "usd",&#10;  "payment_method": {&#10;    "card": {&#10;      "number": "4242...",&#10;      "exp_month": 12,&#10;      "exp_year": 2027&#10;    }&#10;  }&#10;}'></textarea>
+          <div class="vol-row">
+            <span class="vol-label">Annual processing volume ($)</span>
+            <input type="number" id="annualVol" value="50000000" min="0" step="1000000">
+          </div>
+          <div class="btn-row">
+            <button class="btn-primary" onclick="runAudit()">Run VDCAP Audit →</button>
+            <button class="btn-secondary" onclick="loadSample('good')">Load Good Sample</button>
+            <button class="btn-secondary" onclick="loadSample('bad')">Load Missing Fields</button>
+            <button class="btn-secondary" onclick="clearAll()">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RESULTS -->
+      <div class="results-wrap" id="resultsWrap">
+        <div class="score-banner" id="scoreBanner">
+          <div class="score-big" id="scoreBig">—</div>
+          <div class="score-meta">
+            <div class="score-label">VDCAP Compliance Score</div>
+            <div class="score-desc" id="scoreDesc">Run an audit to see results.</div>
+          </div>
+        </div>
+
+        <div class="savings-card">
+          <div class="savings-title">Estimated Annual Fee Impact at Your Volume</div>
+          <div class="savings-grid">
+            <div class="savings-item"><div class="sv-n" id="savCurrentLoss">—</div><div class="sv-l">Fee Leakage / Year</div></div>
+            <div class="savings-item"><div class="sv-n" id="savPotential">—</div><div class="sv-l">Recoverable Savings</div></div>
+            <div class="savings-item"><div class="sv-n" id="savScore">—</div><div class="sv-l">Data Quality Score</div></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><span class="panel-title">Field-by-Field Audit</span></div>
+          <div class="panel-body" style="padding:0">
+            <table class="fields-table" id="fieldsTable">
+              <thead><tr><th>Status</th><th>Field</th><th>Impact</th></tr></thead>
+              <tbody id="fieldsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ISO 8583 bitmap -->
+        <div class="bitmap-wrap" id="bitmapWrap">
+          <div class="panel">
+            <div class="panel-head"><span class="panel-title">ISO 8583 Bitmap Decoder</span></div>
+            <div class="panel-body">
+              <p style="font-size:.72rem;color:var(--body);margin-bottom:10px">128-bit primary + secondary bitmap. Green cells = field present in message.</p>
+              <div class="bitmap-grid" id="bitmapGrid"></div>
+              <div class="bit-detail" id="bitDetail">Click any bit cell to see the ISO 8583 field definition.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="export-row">
+          <button class="btn-primary" onclick="exportMD()">Export Report (MD)</button>
+          <button class="btn-secondary" onclick="exportCSV()">Export CSV</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div>
+      <div class="sb-panel">
+        <div class="sb-head">VDCAP Field Requirements (Apr 2026)</div>
+        <div class="sb-body">
+          <div class="vdcap-field-list" id="vdcapRefList"></div>
+          <div style="margin-top:10px;display:flex;gap:10px;font-size:.62rem">
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block"></span>Required</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:var(--gold);display:inline-block"></span>Recommended</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:var(--muted);display:inline-block"></span>Optional</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sb-panel">
+        <div class="sb-head">Visa Interchange Tier Reference</div>
+        <div class="sb-body">
+          <table class="tier-table">
+            <tr><td>CPS/Card Not Present</td><td>1.80% + $0.10</td></tr>
+            <tr><td>CPS/e-Commerce Basic</td><td>1.87% + $0.10</td></tr>
+            <tr><td>CPS/e-Commerce Preferred</td><td>1.65% + $0.10</td></tr>
+            <tr><td>Verified by Visa (3DS)</td><td>1.75% + $0.10</td></tr>
+            <tr><td>Network Token (VTS)</td><td>1.58% + $0.10</td></tr>
+            <tr><td>VDCAP Full Compliance</td><td style="color:var(--green)">1.45%–1.55% est.</td></tr>
+          </table>
+          <p style="font-size:.62rem;color:var(--muted);margin-top:8px">Rates are illustrative published benchmarks. Actual rates depend on your acquirer agreement and merchant tier.</p>
+        </div>
+      </div>
+
+      <div class="sb-panel">
+        <div class="sb-head">3DS 2.x ECI Codes</div>
+        <div class="sb-body" style="font-size:.71rem">
+          <div style="display:grid;gap:6px">
+            <div style="display:flex;gap:10px"><span style="font-family:'JetBrains Mono',monospace;color:var(--green);font-size:.68rem">05</span><span style="color:var(--body)">Full authentication — liability shifted to issuer</span></div>
+            <div style="display:flex;gap:10px"><span style="font-family:'JetBrains Mono',monospace;color:var(--gold);font-size:.68rem">06</span><span style="color:var(--body)">Attempted auth — partial liability shift</span></div>
+            <div style="display:flex;gap:10px"><span style="font-family:'JetBrains Mono',monospace;color:var(--red);font-size:.68rem">07</span><span style="color:var(--body)">No 3DS — merchant retains chargeback liability</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── VDCAP field definitions ──────────────────────────────────────────────────
+const VDCAP_FIELDS = [
+  { key: ['network_token','payment_method_options.card.network_token','token_data','networkToken'], label: 'Network Token (VTS/MDES)', tier: 'required', feeBps: 5, desc: 'Visa Token Service or Mastercard DETS token replacing PAN' },
+  { key: ['device_id','device_fingerprint','deviceId','client_ip.device','metadata.device_id'], label: 'Device ID / Fingerprint', tier: 'required', feeBps: 2, desc: 'Unique device identifier used in Visa fraud intelligence models' },
+  { key: ['ip_address','customer_ip','ip','metadata.ip_address','client_ip'], label: 'IP Address', tier: 'required', feeBps: 1, desc: 'Originating IP address of the cardholder at transaction time' },
+  { key: ['three_ds','threeds2','payment_method_options.card.request_three_d_secure','eci','eci_indicator','three_d_secure'], label: '3DS 2.x Indicator (ECI)', tier: 'recommended', feeBps: 3, desc: '3D Secure 2.x electronic commerce indicator — prevents soft declines and shifts liability' },
+  { key: ['billing_details','billing_address','billing','payment_method.billing_details'], label: 'Billing Address (full)', tier: 'recommended', feeBps: 0.5, desc: 'Full billing address for AVS match — improves approval rate and reduces interchange' },
+  { key: ['email','customer_email','billing_details.email','receipt_email'], label: 'Customer Email', tier: 'recommended', feeBps: 0.3, desc: 'Email used in Visa advanced fraud scoring; required for some merchant categories' },
+  { key: ['shipping_address','shipping','shipping_details'], label: 'Shipping Address', tier: 'optional', feeBps: 0.1, desc: 'For physical goods merchants; reduces card-not-present fraud flags' },
+  { key: ['metadata.mcc','mcc','merchant_category_code'], label: 'Merchant Category Code', tier: 'optional', feeBps: 0.1, desc: 'Ensures correct interchange routing — missing MCC may cause mis-classification' },
+];
+
+// ── ISO 8583 bit map definitions (primary + secondary 128 bits) ──────────────
+const ISO_FIELDS = {
+  1:'Secondary Bitmap Indicator',2:'Primary Account Number (PAN)',3:'Processing Code',4:'Transaction Amount',5:'Settlement Amount',6:'Cardholder Billing Amount',7:'Transmission Date & Time',8:'Cardholder Billing Fee Amount',9:'Settlement Conv Rate',10:'Cardholder Billing Conv Rate',11:'System Trace Audit Number',12:'Local Transaction Time',13:'Local Transaction Date',14:'Expiration Date',15:'Settlement Date',16:'Currency Conv Date',17:'Capture Date',18:'Merchant Category Code',19:'Acquiring Institution Country Code',20:'PAN Extended Country Code',21:'Forwarding Institution Country Code',22:'Point of Service Entry Mode',23:'Application PAN Sequence Number',24:'Network International ID',25:'Point of Service Condition Code',26:'POS PIN Capture Code',27:'Auth ID Response Length',28:'Amount Transaction Fee',29:'Amount Settlement Fee',30:'Amount Transaction Processing Fee',31:'Amount Settlement Processing Fee',32:'Acquiring Institution ID',33:'Forwarding Institution ID',34:'Primary Account Number Extended',35:'Track 2 Data',36:'Track 3 Data',37:'Retrieval Reference Number',38:'Authorization Identification Response',39:'Response Code',40:'Service Restriction Code',41:'Card Acceptor Terminal ID',42:'Card Acceptor ID',43:'Card Acceptor Name/Location',44:'Additional Response Data',45:'Track 1 Data',46:'Additional Data ISO',47:'Additional Data National',48:'Additional Data Private',49:'Currency Code Transaction',50:'Currency Code Settlement',51:'Currency Code Cardholder Billing',52:'Personal ID Number Data',53:'Security Related Control Info',54:'Additional Amounts',55:'ICC Data (EMV)',56:'Reserved ISO',57:'Reserved National',58:'Reserved National',59:'Reserved National',60:'Reserved Private',61:'Reserved Private',62:'Reserved Private',63:'Reserved Private',64:'Message Authentication Code (MAC)',65:'Bitmap, Extended',66:'Settlement Code',67:'Extended Payment Code',68:'Receiving Institution Country Code',69:'Settlement Institution Country Code',70:'Network Management Info Code',71:'Message Number',72:'Message Number Last',73:'Date Action',74:'Credits Number',75:'Credits Reversal Number',76:'Debits Number',77:'Debits Reversal Number',78:'Transfer Number',79:'Transfer Reversal Number',80:'Inquiries Number',81:'Authorizations Number',82:'Credits, Processing Fee Amount',83:'Credits Transaction Fee Amount',84:'Debits Processing Fee Amount',85:'Debits Transaction Fee Amount',86:'Credits Amount',87:'Credits Reversal Amount',88:'Debits Amount',89:'Debits Reversal Amount',90:'Original Data Elements',91:'File Update Code',92:'File Security Code',93:'Response Indicator',94:'Service Indicator',95:'Replacement Amounts',96:'Message Security Code',97:'Amount Net Settlement',98:'Payee',99:'Settlement Institution ID',100:'Receiving Institution ID',101:'File Name',102:'Account ID 1',103:'Account ID 2',104:'Transaction Description',105:'Reserved ISO',106:'Reserved ISO',107:'Reserved ISO',108:'Reserved ISO',109:'Reserved ISO',110:'Reserved ISO',111:'Reserved ISO',112:'Reserved National',113:'Reserved National',114:'Reserved National',115:'Reserved National',116:'Reserved Private',117:'Reserved Private',118:'Reserved Private',119:'Reserved Private',120:'Reserved Private',121:'Reserved Private',122:'Reserved Private',123:'Reserved Private',124:'Reserved Private',125:'Reserved Private',126:'Reserved Private',127:'Reserved Private',128:'MAC 2'
+};
+
+let currentFmt = 'json';
+let lastResult = null;
+
+function setFmt(f) {
+  currentFmt = f;
+  document.querySelectorAll('.fmt-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('fmt-'+f).classList.add('active');
+  const ta = document.getElementById('payloadInput');
+  if (f === 'iso8583') {
+    ta.placeholder = 'Paste ISO 8583 hex string here.\n\nExample:\n0200\nB220000000000000\n0000000001000000\n...';
+  } else {
+    ta.placeholder = 'Paste your payment request JSON here — Stripe, Adyen, Checkout.com, or generic format.';
+  }
+}
+
+const SAMPLES = {
+  good: JSON.stringify({
+    amount: 9900, currency: 'usd',
+    payment_method: { card: { exp_month: 12, exp_year: 2027 } },
+    network_token: 'vts_4111000000000000_abc123xyz',
+    device_id: 'dev_7f8e9d2c1b4a3e5f',
+    ip_address: '198.51.100.42',
+    three_ds: { eci: '05', authentication_value: 'AAABB...' },
+    billing_details: { name: 'Jane Doe', email: 'jane@example.com', address: { line1: '123 Main St', city: 'Austin', postal_code: '78701', country: 'US' } },
+    shipping_address: { line1: '123 Main St', city: 'Austin', postal_code: '78701' },
+    metadata: { mcc: '5411', device_fingerprint: 'fp_abc123' }
+  }, null, 2),
+  bad: JSON.stringify({
+    amount: 9900, currency: 'usd',
+    payment_method: { card: { number: '4242424242424242', exp_month: 12, exp_year: 2027, cvc: '123' } },
+    billing_details: { name: 'John Smith' }
+  }, null, 2)
+};
+
+function loadSample(type) {
+  document.getElementById('payloadInput').value = SAMPLES[type];
+  currentFmt = 'json';
+  document.querySelectorAll('.fmt-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('fmt-json').classList.add('active');
+}
+
+function clearAll() {
+  document.getElementById('payloadInput').value = '';
+  document.getElementById('resultsWrap').classList.remove('visible');
+  document.getElementById('bitmapWrap').classList.remove('visible');
+}
+
+function flattenObj(obj, prefix='') {
+  const out = {};
+  if (typeof obj !== 'object' || obj === null) return out;
+  for (const k of Object.keys(obj)) {
+    const full = prefix ? `${prefix}.${k}` : k;
+    out[full.toLowerCase()] = obj[k];
+    if (typeof obj[k] === 'object' && obj[k] !== null && !Array.isArray(obj[k])) {
+      Object.assign(out, flattenObj(obj[k], full));
+    }
+  }
+  return out;
+}
+
+function findKey(flat, keys) {
+  for (const k of keys) {
+    if (flat.hasOwnProperty(k.toLowerCase())) return flat[k.toLowerCase()];
+  }
+  return undefined;
+}
+
+function fmtDollar(n) {
+  if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return '$' + (n/1e3).toFixed(0) + 'K';
+  return '$' + n.toFixed(0);
+}
+
+function runAudit() {
+  const raw = document.getElementById('payloadInput').value.trim();
+  if (!raw) { alert('Paste a payload first.'); return; }
+
+  const vol = parseFloat(document.getElementById('annualVol').value) || 50000000;
+
+  if (currentFmt === 'iso8583') {
+    renderBitmap(raw.replace(/\s/g,''));
+    document.getElementById('resultsWrap').classList.add('visible');
+    document.getElementById('bitmapWrap').classList.add('visible');
+    document.getElementById('scoreBanner').className = 'score-banner warn';
+    document.getElementById('scoreBig').textContent = 'ISO';
+    document.getElementById('scoreDesc').textContent = 'ISO 8583 bitmap decoded. VDCAP field audit requires JSON payload.';
+    document.getElementById('savCurrentLoss').textContent = '—';
+    document.getElementById('savPotential').textContent = '—';
+    document.getElementById('savScore').textContent = '—';
+    document.getElementById('fieldsTbody').innerHTML = '<tr><td colspan="3" style="padding:16px;color:var(--muted);font-size:.72rem">Switch to JSON format for full VDCAP field audit.</td></tr>';
+    return;
+  }
+
+  let parsed;
+  try { parsed = JSON.parse(raw); }
+  catch(e) { alert('Invalid JSON: ' + e.message); return; }
+
+  const flat = flattenObj(parsed);
+  let totalBps = 0, foundBps = 0;
+  const rows = [];
+
+  for (const f of VDCAP_FIELDS) {
+    const val = findKey(flat, f.key);
+    const present = val !== undefined && val !== null && val !== '';
+    const isBad = present && f.tier === 'required' && (
+      (f.label.includes('Network Token') && String(val).match(/^4[0-9]{12,}/)) ||
+      (f.label.includes('3DS') && String(val) === 'false')
+    );
+
+    if (f.feeBps > 0) {
+      totalBps += f.feeBps;
+      if (present && !isBad) foundBps += f.feeBps;
+    }
+
+    let status, statusClass;
+    if (present && !isBad) { status = '✓ Present'; statusClass = 'status-pass'; }
+    else if (isBad) { status = '⚠ Invalid'; statusClass = 'status-warn'; }
+    else { status = '✗ Missing'; statusClass = 'status-fail'; }
+
+    rows.push({ ...f, present, isBad, status, statusClass });
+  }
+
+  // score
+  const required = rows.filter(r => r.tier === 'required');
+  const reqPassed = required.filter(r => r.present && !r.isBad).length;
+  const pct = Math.round((reqPassed / required.length) * 100);
+
+  // render score banner
+  const banner = document.getElementById('scoreBanner');
+  banner.className = 'score-banner ' + (pct === 100 ? 'pass' : pct >= 60 ? 'warn' : 'fail');
+  document.getElementById('scoreBig').textContent = pct + '%';
+  document.getElementById('scoreDesc').textContent = pct === 100
+    ? 'All required VDCAP fields present. Eligible for maximum fee reduction.'
+    : `${reqPassed}/${required.length} required fields present. Missing fields are costing you interchange margin.`;
+
+  // savings
+  const missingBps = totalBps - foundBps;
+  const currentLoss = vol * (missingBps / 10000);
+  const potential = vol * (totalBps / 10000) * 0.7;
+  document.getElementById('savCurrentLoss').textContent = fmtDollar(currentLoss);
+  document.getElementById('savPotential').textContent = fmtDollar(potential);
+  document.getElementById('savScore').textContent = pct === 100 ? 'A+' : pct >= 80 ? 'B' : pct >= 60 ? 'C' : 'D';
+
+  // table
+  const tbody = document.getElementById('fieldsTbody');
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td><span class="${r.statusClass}">${r.status}</span><br><span style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)">${r.tier.toUpperCase()}</span></td>
+      <td><span class="field-name">${r.label}</span><div class="field-desc">${r.desc}</div></td>
+      <td><span style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--gold)">${r.feeBps > 0 ? r.feeBps + 'bps' : '—'}</span></td>
+    </tr>`).join('');
+
+  document.getElementById('resultsWrap').classList.add('visible');
+  document.getElementById('bitmapWrap').classList.remove('visible');
+  lastResult = { rows, pct, vol, currentLoss, potential };
+}
+
+function updateDeadline() {
+  const deadline = new Date('2026-04-01T00:00:00Z');
+  const now = new Date();
+  const days = Math.ceil((deadline - now) / 86400000);
+  const el = document.getElementById('deadlineCountdown');
+  if (!el) return;
+  if (days > 0) {
+    el.textContent = days + ' days remaining';
+    el.style.color = days < 90 ? 'var(--red)' : days < 180 ? 'var(--warn)' : 'var(--gold)';
+  } else {
+    el.textContent = 'MANDATE ACTIVE';
+    el.style.color = 'var(--red)';
+    el.style.fontWeight = '700';
+  }
+}
+
+function showBitDetail(num, set) {
+  const fieldName = ISO_FIELDS[num] || 'Unknown / Reserved';
+  document.getElementById('bitDetail').innerHTML =
+    'DE <span style="font-family:\'JetBrains Mono\',monospace;color:var(--teal)">' + num + '</span>' +
+    ' — <strong style="color:var(--bright)">' + fieldName + '</strong>' +
+    '<br><span style="font-size:.7rem">' +
+    (set
+      ? '<span style="color:var(--green)">\u2705 Present in this message</span>'
+      : '<span style="color:var(--muted)">\u2b1c Absent from this message</span>') +
+    '</span>';
+}
+
+function renderBitmap(hex) {
+  const grid = document.getElementById('bitmapGrid');
+  grid.innerHTML = '';
+
+  // Convert hex to binary bits
+  const bits = [];
+  for (let i = 0; i < Math.min(hex.length, 32); i++) {
+    const nibble = parseInt(hex[i], 16);
+    for (let b = 3; b >= 0; b--) bits.push((nibble >> b) & 1);
+  }
+  while (bits.length < 128) bits.push(0);
+
+  for (let i = 0; i < 128; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'bit-cell ' + (bits[i] ? 'set' : 'unset');
+    cell.textContent = i + 1;
+    cell.title = ISO_FIELDS[i+1] || 'Unknown';
+    cell.onclick = () => showBitDetail(i + 1, bits[i]);
+    grid.appendChild(cell);
+  }
+}
+
+function renderRefList() {
+  const el = document.getElementById('vdcapRefList');
+  if (!el) return;
+  el.innerHTML = VDCAP_FIELDS.map(f => {
+    const saving = f.feeBps > 0 ? '<div class="vf-saving">' + f.feeBps + 'bps fee reduction</div>' : '';
+    return '<div class="vf-item">' +
+      '<div class="vf-dot ' + f.tier + '"></div>' +
+      '<div><div class="vf-label">' + f.label + '</div>' +
+      '<div class="vf-sub">' + f.desc + '</div>' +
+      saving + '</div></div>';
+  }).join('');
+}
+
+function exportMD() {
+  if (!lastResult) return;
+  const { rows, pct, vol, currentLoss } = lastResult;
+  let md = `# VDCAP Payload Audit Report\n\n`;
+  md += `**Compliance Score:** ${pct}%\n`;
+  md += `**Annual Volume:** $${(vol/1e6).toFixed(1)}M\n`;
+  md += `**Estimated Fee Leakage:** ${(currentLoss/1e3).toFixed(0)}K/year\n\n`;
+  md += `## Field-by-Field Results\n\n`;
+  md += `| Field | Status | Tier | Impact |\n|---|---|---|---|\n`;
+  rows.forEach(r => md += `| ${r.label} | ${r.status} | ${r.tier} | ${r.feeBps}bps |\n`);
+  md += `\n---\n*Generated by AINumbers.co VDCAP Auditor — client-side, zero PII*\n`;
+  const a = document.createElement('a');
+  a.href = 'data:text/markdown;charset=utf-8,' + encodeURIComponent(md);
+  a.download = 'vdcap-audit-report.md';
+  a.click();
+}
+
+function exportCSV() {
+  if (!lastResult) return;
+  let csv = 'Field,Status,Tier,Fee Impact (bps)\n';
+  lastResult.rows.forEach(r => csv += `"${r.label}","${r.status}","${r.tier}",${r.feeBps}\n`);
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'vdcap-audit.csv';
+  a.click();
+}
+
+const I18N = {
+  'en': {
+    'nav.home': 'Home',
+    'nav.a2a': 'A2A Payments',
+    'nav.glossary': 'Glossary',
+    'nav.tools': 'Tools',
+    'nav.contact': 'Contact',
+    'footer.alltools': 'All Tools',
+    'footer.a2a': 'A2A Payments',
+    'footer.glossary': 'Glossary',
+    'footer.home': 'Home',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Privacy Statement',
+    'about.trigger': 'About This Tool',
+    'about.trigger2': 'About This Tool ▾',
+    'priv.runs': 'This tool runs entirely in your browser.',
+    'priv.notrans': 'No data is transmitted to any server.',
+    'priv.local': 'All inputs, calculations, and generated outputs are processed locally on your device.',
+    'priv.never': 'and never leaves your device.',
+    'priv.blocked': 'are overridden at runtime to block all outbound network calls.',
+    'priv.allproc': 'All processing in your browser · No data transmitted',
+    'priv.zeropii': 'Zero PII · Client-Side Only',
+    'priv.zeropii2': 'Zero PII · 100% Client-Side',
+    'about.howworks': 'How it works:',
+    'about.audience': 'Target audience:',
+    'about.limits': 'Limitations:',
+    'about.export': 'Export:',
+    'about.whatdoes': 'What this tool does:',
+    'about.whatdoes2': 'What this tool does',
+    'about.whatsim': 'What it simulates:',
+    'about.source': 'Source:',
+    'about.builtby': 'Built by',
+    'about.dataprivacy': 'Data privacy:',
+    'about.dataprivnote': 'Data privacy note:',
+    'about.whatisthis': 'What is this?',
+    'about.results_export': 'Results can be downloaded as JSON or Markdown for use in downstream workflows, agent runtimes, or audit documentation.',
+    'btn.reset': '↺ Reset',
+    'btn.clear': '↺ Clear',
+    'btn.exportcsv': '↓ Export CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Print',
+    'btn.copy': 'Copy',
+    'btn.alltools': '← All Tools',
+    'lbl.jurisdiction': 'Jurisdiction',
+    'lbl.currency': 'Currency',
+    'lbl.amount': 'Amount',
+    'lbl.status': 'Status',
+    'lbl.type': 'Type',
+    'lbl.rail': 'Rail',
+    'lbl.paymentrail': 'Payment Rail',
+    'lbl.selectopt': '— Select —',
+    'lbl.config': 'Configuration',
+    'lbl.valresults': 'Validation Results',
+    'geo.us': 'United States',
+    'geo.uk': 'United Kingdom',
+    'geo.eu': 'European Union',
+    'geo.brazil': 'Brazil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brazil)',
+    'pay.sameday': 'Same-Day ACH',
+    'pay.nextday': 'Next-Day ACH',
+    'sev.high': 'High',
+    'sev.medium': 'Medium',
+    'tai01.hero.eyebrow': 'AI · 01 · Tax · Agentic Intelligence Suite',
+    'tai01.hero.title': 'SMB Treasury Tax Assistant',
+    'tai01.hero.sub': 'Privacy-first cross-border tax planning for SMBs on tokenized A2A rails. Estimates liability, identifies deductions, and generates audit-ready strategy reports across five jurisdictions.',
+    'tai01.lbl.jurisdiction': 'Jurisdiction',
+    'tai01.lbl.revenue': 'Annual Revenue (USD)',
+    'tai01.lbl.expenses': 'Deductible Expenses',
+    'tai01.lbl.txtype': 'Transaction Type',
+    'tai01.lbl.corridor': 'Corridor',
+    'tai01.lbl.rail': 'Payment Rail',
+    'tai01.btn.calculate': '▶ Calculate Tax Liability',
+    'tai01.btn.exportjson': '↓ Export JSON',
+    'tai01.btn.exportmd': '↓ Export Markdown',
+    'tai01.lbl.liability': 'Tax Liability',
+    'tai01.lbl.deductions': 'Deductions',
+    'tai01.lbl.netdue': 'Net Due',
+    'tai01.lbl.withtax': 'Withholding Tax',
+    'tai01.lbl.compliance': 'Compliance Checklist',
+    'tai01.lbl.strategy': 'Strategy Notes',
+    't51.hero.eyebrow': 'Tool 51 · Core Infrastructure · Card Economics',
+    't51.hero.title': 'VDCAP Payload Auditor & Card Fee Optimizer',
+    't51.hero.sub': 'Paste a CNP payment payload and audit it against Visa\'s April 2026 VDCAP requirements. Detect missing fields, estimate annual fee savings, validate 3DS 2.x flags, and decode ISO 8583 bitmaps — entirely in-browser. Zero PII leaves the tab.',
+    'priv.zeropii': 'Zero PII · Client-Side Only',
+    'priv.notrans': 'No data is transmitted to any server.',
+
+  },
+  'es': {
+    'nav.home': 'Inicio',
+    'nav.a2a': 'Pagos A2A',
+    'nav.glossary': 'Glosario',
+    'nav.tools': 'Herramientas',
+    'nav.contact': 'Contacto',
+    'footer.alltools': 'Todas las Herramientas',
+    'footer.a2a': 'Pagos A2A',
+    'footer.glossary': 'Glosario',
+    'footer.home': 'Inicio',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Declaración de Privacidad',
+    'about.trigger': 'Acerca de Esta Herramienta',
+    'about.trigger2': 'Acerca de Esta Herramienta ▾',
+    'priv.runs': 'Esta herramienta se ejecuta completamente en su navegador.',
+    'priv.notrans': 'No se transmiten datos a ningún servidor.',
+    'priv.local': 'Todas las entradas, cálculos y resultados generados se procesan localmente en su dispositivo.',
+    'priv.never': 'y nunca sale de su dispositivo.',
+    'priv.blocked': 'se anulan en tiempo de ejecución para bloquear todas las llamadas de red salientes.',
+    'priv.allproc': 'Todo el procesamiento en su navegador · Sin datos transmitidos',
+    'priv.zeropii': 'Sin PII · Solo en el Navegador',
+    'priv.zeropii2': 'Sin PII · 100% en el Navegador',
+    'about.howworks': 'Cómo funciona:',
+    'about.audience': 'Público objetivo:',
+    'about.limits': 'Limitaciones:',
+    'about.export': 'Exportar:',
+    'about.whatdoes': 'Qué hace esta herramienta:',
+    'about.whatdoes2': 'Qué hace esta herramienta',
+    'about.whatsim': 'Qué simula:',
+    'about.source': 'Fuente:',
+    'about.builtby': 'Creado por',
+    'about.dataprivacy': 'Privacidad de datos:',
+    'about.dataprivnote': 'Nota de privacidad de datos:',
+    'about.whatisthis': '¿Qué es esto?',
+    'about.results_export': 'Los resultados se pueden descargar como JSON o Markdown para su uso en flujos de trabajo posteriores, tiempos de ejecución de agentes o documentación de auditoría.',
+    'btn.reset': '↺ Restablecer',
+    'btn.clear': '↺ Limpiar',
+    'btn.exportcsv': '↓ Exportar CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimir',
+    'btn.copy': 'Copiar',
+    'btn.alltools': '← Todas las Herramientas',
+    'lbl.jurisdiction': 'Jurisdicción',
+    'lbl.currency': 'Moneda',
+    'lbl.amount': 'Monto',
+    'lbl.status': 'Estado',
+    'lbl.type': 'Tipo',
+    'lbl.rail': 'Carril',
+    'lbl.paymentrail': 'Carril de Pago',
+    'lbl.selectopt': '— Seleccionar —',
+    'lbl.config': 'Configuración',
+    'lbl.valresults': 'Resultados de Validación',
+    'geo.us': 'Estados Unidos',
+    'geo.uk': 'Reino Unido',
+    'geo.eu': 'Unión Europea',
+    'geo.brazil': 'Brasil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brasil)',
+    'pay.sameday': 'ACH en el Mismo Día',
+    'pay.nextday': 'ACH al Día Siguiente',
+    'sev.high': 'Alto',
+    'sev.medium': 'Medio',
+    'tai01.hero.eyebrow': 'IA · 01 · Fiscal · Suite de Inteligencia Agente',
+    'tai01.hero.title': 'Asistente Fiscal de Tesorería para PYMEs',
+    'tai01.hero.sub': 'Planificación fiscal transfronteriza centrada en la privacidad para pymes en rieles A2A tokenizados. Estima responsabilidades, identifica deducciones y genera informes de estrategia listos para auditoría.',
+    'tai01.lbl.jurisdiction': 'Jurisdicción',
+    'tai01.lbl.revenue': 'Ingresos Anuales (USD)',
+    'tai01.lbl.expenses': 'Gastos Deducibles',
+    'tai01.lbl.txtype': 'Tipo de Transacción',
+    'tai01.lbl.corridor': 'Corredor',
+    'tai01.lbl.rail': 'Carril de Pago',
+    'tai01.btn.calculate': '▶ Calcular Obligación Fiscal',
+    'tai01.btn.exportjson': '↓ Exportar JSON',
+    'tai01.btn.exportmd': '↓ Exportar Markdown',
+    'tai01.lbl.liability': 'Obligación Fiscal',
+    'tai01.lbl.deductions': 'Deducciones',
+    'tai01.lbl.netdue': 'Neto a Pagar',
+    'tai01.lbl.withtax': 'Retención Fiscal',
+    'tai01.lbl.compliance': 'Lista de Verificación de Cumplimiento',
+    'tai01.lbl.strategy': 'Notas de Estrategia',
+    't51.hero.eyebrow': 'Herramienta 51 · Infraestructura Central · Economía de Tarjetas',
+    't51.hero.title': 'Auditor de Payload VDCAP y Optimizador de Comisiones de Tarjeta',
+    't51.hero.sub': 'Pegue un payload de pago CNP y audítelo contra los requisitos VDCAP de Visa de abril 2026. Detecte campos faltantes, estime ahorros anuales en comisiones, valide indicadores 3DS 2.x y decodifique mapas de bits ISO 8583.',
+
+  },
+  'fr': {
+    'nav.home': 'Accueil',
+    'nav.a2a': 'Paiements A2A',
+    'nav.glossary': 'Glossaire',
+    'nav.tools': 'Outils',
+    'nav.contact': 'Contact',
+    'footer.alltools': 'Tous les Outils',
+    'footer.a2a': 'Paiements A2A',
+    'footer.glossary': 'Glossaire',
+    'footer.home': 'Accueil',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Déclaration de Confidentialité',
+    'about.trigger': 'À Propos de Cet Outil',
+    'about.trigger2': 'À Propos de Cet Outil ▾',
+    'priv.runs': 'Cet outil fonctionne entièrement dans votre navigateur.',
+    'priv.notrans': 'Aucune donnée n\'est transmise à un serveur.',
+    'priv.local': 'Toutes les entrées, calculs et sorties générées sont traités localement sur votre appareil.',
+    'priv.never': 'et ne quitte jamais votre appareil.',
+    'priv.blocked': 'sont remplacés au moment de l\'exécution pour bloquer tous les appels réseau sortants.',
+    'priv.allproc': 'Tout le traitement dans votre navigateur · Aucune donnée transmise',
+    'priv.zeropii': 'Zéro PII · Côté Client Uniquement',
+    'priv.zeropii2': 'Zéro PII · 100% Côté Client',
+    'about.howworks': 'Comment ça fonctionne :',
+    'about.audience': 'Public cible :',
+    'about.limits': 'Limitations :',
+    'about.export': 'Export :',
+    'about.whatdoes': 'Ce que fait cet outil :',
+    'about.whatdoes2': 'Ce que fait cet outil',
+    'about.whatsim': 'Ce qu\'il simule :',
+    'about.source': 'Source :',
+    'about.builtby': 'Créé par',
+    'about.dataprivacy': 'Confidentialité des données :',
+    'about.dataprivnote': 'Note sur la confidentialité des données :',
+    'about.whatisthis': 'Qu\'est-ce que c\'est ?',
+    'about.results_export': 'Les résultats peuvent être téléchargés en JSON ou Markdown pour une utilisation dans des flux de travail en aval, des environnements d\'exécution d\'agents ou de la documentation d\'audit.',
+    'btn.reset': '↺ Réinitialiser',
+    'btn.clear': '↺ Effacer',
+    'btn.exportcsv': '↓ Exporter CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimer',
+    'btn.copy': 'Copier',
+    'btn.alltools': '← Tous les Outils',
+    'lbl.jurisdiction': 'Juridiction',
+    'lbl.currency': 'Devise',
+    'lbl.amount': 'Montant',
+    'lbl.status': 'Statut',
+    'lbl.type': 'Type',
+    'lbl.rail': 'Rail',
+    'lbl.paymentrail': 'Rail de Paiement',
+    'lbl.selectopt': '— Sélectionner —',
+    'lbl.config': 'Configuration',
+    'lbl.valresults': 'Résultats de Validation',
+    'geo.us': 'États-Unis',
+    'geo.uk': 'Royaume-Uni',
+    'geo.eu': 'Union Européenne',
+    'geo.brazil': 'Brésil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brésil)',
+    'pay.sameday': 'ACH le Jour Même',
+    'pay.nextday': 'ACH le Lendemain',
+    'sev.high': 'Élevé',
+    'sev.medium': 'Moyen',
+    'tai01.hero.eyebrow': 'IA · 01 · Fiscal · Suite d\'Intelligence Agente',
+    'tai01.hero.title': 'Assistant Fiscal de Trésorerie PME',
+    'tai01.hero.sub': 'Planification fiscale transfrontalière axée sur la confidentialité pour les PME sur rails A2A tokenisés. Estime les obligations, identifie les déductions et génère des rapports de stratégie prêts pour audit.',
+    'tai01.lbl.jurisdiction': 'Juridiction',
+    'tai01.lbl.revenue': 'Revenus Annuels (USD)',
+    'tai01.lbl.expenses': 'Dépenses Déductibles',
+    'tai01.lbl.txtype': 'Type de Transaction',
+    'tai01.lbl.corridor': 'Corridor',
+    'tai01.lbl.rail': 'Rail de Paiement',
+    'tai01.btn.calculate': '▶ Calculer l\'Obligation Fiscale',
+    'tai01.btn.exportjson': '↓ Exporter JSON',
+    'tai01.btn.exportmd': '↓ Exporter Markdown',
+    'tai01.lbl.liability': 'Obligation Fiscale',
+    'tai01.lbl.deductions': 'Déductions',
+    'tai01.lbl.netdue': 'Net à Payer',
+    'tai01.lbl.withtax': 'Retenue à la Source',
+    'tai01.lbl.compliance': 'Liste de Contrôle de Conformité',
+    'tai01.lbl.strategy': 'Notes de Stratégie',
+    't51.hero.eyebrow': 'Outil 51 · Infrastructure Centrale · Économie des Cartes',
+    't51.hero.title': 'Auditeur de Charge Utile VDCAP et Optimiseur de Frais de Carte',
+    't51.hero.sub': 'Collez un payload de paiement CNP et auditez-le par rapport aux exigences VDCAP de Visa d\'avril 2026. Détectez les champs manquants, estimez les économies annuelles, validez les indicateurs 3DS 2.x et décodez les bitmaps ISO 8583.',
+
+  },
+  'ar': {
+    'nav.home': 'الرئيسية',
+    'nav.a2a': 'مدفوعات A2A',
+    'nav.glossary': 'المسرد',
+    'nav.tools': 'الأدوات',
+    'nav.contact': 'تواصل معنا',
+    'footer.alltools': 'جميع الأدوات',
+    'footer.a2a': 'مدفوعات A2A',
+    'footer.glossary': 'المسرد',
+    'footer.home': 'الرئيسية',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'بيان الخصوصية',
+    'about.trigger': 'حول هذه الأداة',
+    'about.trigger2': 'حول هذه الأداة ▾',
+    'priv.runs': 'تعمل هذه الأداة بالكامل في متصفحك.',
+    'priv.notrans': 'لا يتم إرسال أي بيانات إلى أي خادم.',
+    'priv.local': 'تتم معالجة جميع المدخلات والحسابات والمخرجات محليًا على جهازك.',
+    'priv.never': 'ولا يغادر جهازك أبدًا.',
+    'priv.blocked': 'تُستبدل في وقت التشغيل لحجب جميع استدعاءات الشبكة الصادرة.',
+    'priv.allproc': 'جميع المعالجة في متصفحك · لا بيانات مُرسَلة',
+    'priv.zeropii': 'بدون بيانات شخصية · من جانب العميل فقط',
+    'priv.zeropii2': 'بدون بيانات شخصية · 100% من جانب العميل',
+    'about.howworks': 'كيف تعمل:',
+    'about.audience': 'الجمهور المستهدف:',
+    'about.limits': 'القيود:',
+    'about.export': 'تصدير:',
+    'about.whatdoes': 'ما تفعله هذه الأداة:',
+    'about.whatdoes2': 'ما تفعله هذه الأداة',
+    'about.whatsim': 'ما يحاكيه:',
+    'about.source': 'المصدر:',
+    'about.builtby': 'أُنشئ بواسطة',
+    'about.dataprivacy': 'خصوصية البيانات:',
+    'about.dataprivnote': 'ملاحظة خصوصية البيانات:',
+    'about.whatisthis': 'ما هذا؟',
+    'about.results_export': 'يمكن تنزيل النتائج بتنسيق JSON أو Markdown للاستخدام في سير العمل اللاحق أو بيئات تشغيل الوكلاء أو وثائق التدقيق.',
+    'btn.reset': '↺ إعادة تعيين',
+    'btn.clear': '↺ مسح',
+    'btn.exportcsv': '↓ تصدير CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ طباعة',
+    'btn.copy': 'نسخ',
+    'btn.alltools': '← جميع الأدوات',
+    'lbl.jurisdiction': 'الاختصاص القضائي',
+    'lbl.currency': 'العملة',
+    'lbl.amount': 'المبلغ',
+    'lbl.status': 'الحالة',
+    'lbl.type': 'النوع',
+    'lbl.rail': 'المسار',
+    'lbl.paymentrail': 'مسار الدفع',
+    'lbl.selectopt': '— اختر —',
+    'lbl.config': 'الإعدادات',
+    'lbl.valresults': 'نتائج التحقق',
+    'geo.us': 'الولايات المتحدة',
+    'geo.uk': 'المملكة المتحدة',
+    'geo.eu': 'الاتحاد الأوروبي',
+    'geo.brazil': 'البرازيل',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'سيبا',
+    'pay.sepainstant': 'SEPA فوري',
+    'pay.pix': 'PIX (البرازيل)',
+    'pay.sameday': 'ACH في اليوم ذاته',
+    'pay.nextday': 'ACH في اليوم التالي',
+    'sev.high': 'عالٍ',
+    'sev.medium': 'متوسط',
+    'tai01.hero.eyebrow': 'ذكاء اصطناعي · 01 · ضريبة · مجموعة الذكاء الوكيل',
+    'tai01.hero.title': 'مساعد ضريبة الخزينة للمؤسسات الصغيرة والمتوسطة',
+    'tai01.hero.sub': 'تخطيط ضريبي عابر للحدود يُولي الخصوصية الأولوية للمؤسسات الصغيرة والمتوسطة على قضبان A2A المُرمَّزة. يقدر الالتزامات ويحدد الخصومات وينشئ تقارير استراتيجية جاهزة للتدقيق.',
+    'tai01.lbl.jurisdiction': 'الاختصاص القضائي',
+    'tai01.lbl.revenue': 'الإيرادات السنوية (USD)',
+    'tai01.lbl.expenses': 'المصروفات القابلة للخصم',
+    'tai01.lbl.txtype': 'نوع المعاملة',
+    'tai01.lbl.corridor': 'الممر',
+    'tai01.lbl.rail': 'مسار الدفع',
+    'tai01.btn.calculate': '▶ احسب الالتزام الضريبي',
+    'tai01.btn.exportjson': '↓ تصدير JSON',
+    'tai01.btn.exportmd': '↓ تصدير Markdown',
+    'tai01.lbl.liability': 'الالتزام الضريبي',
+    'tai01.lbl.deductions': 'الخصومات',
+    'tai01.lbl.netdue': 'المستحق الصافي',
+    'tai01.lbl.withtax': 'ضريبة الاستقطاع',
+    'tai01.lbl.compliance': 'قائمة تحقق الامتثال',
+    'tai01.lbl.strategy': 'ملاحظات الاستراتيجية',
+    't51.hero.eyebrow': 'الأداة 51 · البنية التحتية الأساسية · اقتصاديات البطاقات',
+    't51.hero.title': 'مدقق حمولة VDCAP ومحسّن رسوم البطاقات',
+    't51.hero.sub': 'الصق حمولة دفع CNP وقم بتدقيقها وفقاً لمتطلبات Visa VDCAP لأبريل 2026. اكتشف الحقول المفقودة، وقدّر وفورات الرسوم السنوية، وتحقق من علامات 3DS 2.x وفك تشفير خرائط البتات ISO 8583.',
+
+  },
+  'pt': {
+    'nav.home': 'Início',
+    'nav.a2a': 'Pagamentos A2A',
+    'nav.glossary': 'Glossário',
+    'nav.tools': 'Ferramentas',
+    'nav.contact': 'Contato',
+    'footer.alltools': 'Todas as Ferramentas',
+    'footer.a2a': 'Pagamentos A2A',
+    'footer.glossary': 'Glossário',
+    'footer.home': 'Início',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Declaração de Privacidade',
+    'about.trigger': 'Sobre Esta Ferramenta',
+    'about.trigger2': 'Sobre Esta Ferramenta ▾',
+    'priv.runs': 'Esta ferramenta funciona inteiramente no seu navegador.',
+    'priv.notrans': 'Nenhum dado é transmitido para nenhum servidor.',
+    'priv.local': 'Todas as entradas, cálculos e saídas geradas são processados localmente no seu dispositivo.',
+    'priv.never': 'e nunca sai do seu dispositivo.',
+    'priv.blocked': 'são substituídos em tempo de execução para bloquear todas as chamadas de rede de saída.',
+    'priv.allproc': 'Todo o processamento no seu navegador · Nenhum dado transmitido',
+    'priv.zeropii': 'Sem PII · Somente no Navegador',
+    'priv.zeropii2': 'Sem PII · 100% no Navegador',
+    'about.howworks': 'Como funciona:',
+    'about.audience': 'Público-alvo:',
+    'about.limits': 'Limitações:',
+    'about.export': 'Exportar:',
+    'about.whatdoes': 'O que esta ferramenta faz:',
+    'about.whatdoes2': 'O que esta ferramenta faz',
+    'about.whatsim': 'O que simula:',
+    'about.source': 'Fonte:',
+    'about.builtby': 'Criado por',
+    'about.dataprivacy': 'Privacidade de dados:',
+    'about.dataprivnote': 'Nota de privacidade de dados:',
+    'about.whatisthis': 'O que é isso?',
+    'about.results_export': 'Os resultados podem ser baixados como JSON ou Markdown para uso em fluxos de trabalho downstream, ambientes de execução de agentes ou documentação de auditoria.',
+    'btn.reset': '↺ Redefinir',
+    'btn.clear': '↺ Limpar',
+    'btn.exportcsv': '↓ Exportar CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimir',
+    'btn.copy': 'Copiar',
+    'btn.alltools': '← Todas as Ferramentas',
+    'lbl.jurisdiction': 'Jurisdição',
+    'lbl.currency': 'Moeda',
+    'lbl.amount': 'Valor',
+    'lbl.status': 'Status',
+    'lbl.type': 'Tipo',
+    'lbl.rail': 'Trilho',
+    'lbl.paymentrail': 'Trilho de Pagamento',
+    'lbl.selectopt': '— Selecionar —',
+    'lbl.config': 'Configuração',
+    'lbl.valresults': 'Resultados de Validação',
+    'geo.us': 'Estados Unidos',
+    'geo.uk': 'Reino Unido',
+    'geo.eu': 'União Europeia',
+    'geo.brazil': 'Brasil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brasil)',
+    'pay.sameday': 'ACH no Mesmo Dia',
+    'pay.nextday': 'ACH no Dia Seguinte',
+    'sev.high': 'Alto',
+    'sev.medium': 'Médio',
+    'tai01.hero.eyebrow': 'IA · 01 · Fiscal · Suite de Inteligência Agente',
+    'tai01.hero.title': 'Assistente Fiscal de Tesouraria para PMEs',
+    'tai01.hero.sub': 'Planejamento fiscal transfronteiriço com privacidade em primeiro lugar para PMEs em trilhos A2A tokenizados. Estima obrigações, identifica deduções e gera relatórios de estratégia prontos para auditoria.',
+    'tai01.lbl.jurisdiction': 'Jurisdição',
+    'tai01.lbl.revenue': 'Receita Anual (USD)',
+    'tai01.lbl.expenses': 'Despesas Dedutíveis',
+    'tai01.lbl.txtype': 'Tipo de Transação',
+    'tai01.lbl.corridor': 'Corredor',
+    'tai01.lbl.rail': 'Trilho de Pagamento',
+    'tai01.btn.calculate': '▶ Calcular Obrigação Fiscal',
+    'tai01.btn.exportjson': '↓ Exportar JSON',
+    'tai01.btn.exportmd': '↓ Exportar Markdown',
+    'tai01.lbl.liability': 'Obrigação Fiscal',
+    'tai01.lbl.deductions': 'Deduções',
+    'tai01.lbl.netdue': 'Líquido a Pagar',
+    'tai01.lbl.withtax': 'Imposto Retido na Fonte',
+    'tai01.lbl.compliance': 'Checklist de Conformidade',
+    'tai01.lbl.strategy': 'Notas de Estratégia',
+    't51.hero.eyebrow': 'Ferramenta 51 · Infraestrutura Central · Economia de Cartões',
+    't51.hero.title': 'Auditor de Payload VDCAP e Otimizador de Taxas de Cartão',
+    't51.hero.sub': 'Cole um payload de pagamento CNP e audite-o contra os requisitos VDCAP da Visa de abril de 2026. Detecte campos ausentes, estime economias anuais em taxas, valide sinalizadores 3DS 2.x e decodifique bitmaps ISO 8583.',
+
+  },
+  'zh': {
+    'nav.home': '首页',
+    'nav.a2a': 'A2A 支付',
+    'nav.glossary': '术语表',
+    'nav.tools': '工具',
+    'nav.contact': '联系我们',
+    'footer.alltools': '所有工具',
+    'footer.a2a': 'A2A 支付',
+    'footer.glossary': '术语表',
+    'footer.home': '首页',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': '隐私声明',
+    'about.trigger': '关于此工具',
+    'about.trigger2': '关于此工具 ▾',
+    'priv.runs': '此工具完全在您的浏览器中运行。',
+    'priv.notrans': '没有任何数据被传输到服务器。',
+    'priv.local': '所有输入、计算和生成的输出均在您的设备本地处理。',
+    'priv.never': '且永远不会离开您的设备。',
+    'priv.blocked': '在运行时被覆盖以阻止所有出站网络调用。',
+    'priv.allproc': '所有处理在浏览器中进行 · 无数据传输',
+    'priv.zeropii': '零个人信息 · 纯本地运行',
+    'priv.zeropii2': '零个人信息 · 100% 本地运行',
+    'about.howworks': '工作原理：',
+    'about.audience': '目标用户：',
+    'about.limits': '局限性：',
+    'about.export': '导出：',
+    'about.whatdoes': '此工具的功能：',
+    'about.whatdoes2': '此工具的功能',
+    'about.whatsim': '模拟内容：',
+    'about.source': '来源：',
+    'about.builtby': '作者',
+    'about.dataprivacy': '数据隐私：',
+    'about.dataprivnote': '数据隐私说明：',
+    'about.whatisthis': '这是什么？',
+    'about.results_export': '结果可下载为 JSON 或 Markdown 格式，用于下游工作流、代理运行时或审计文档。',
+    'btn.reset': '↺ 重置',
+    'btn.clear': '↺ 清除',
+    'btn.exportcsv': '↓ 导出 CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ 打印',
+    'btn.copy': '复制',
+    'btn.alltools': '← 所有工具',
+    'lbl.jurisdiction': '司法管辖区',
+    'lbl.currency': '货币',
+    'lbl.amount': '金额',
+    'lbl.status': '状态',
+    'lbl.type': '类型',
+    'lbl.rail': '支付轨道',
+    'lbl.paymentrail': '支付轨道',
+    'lbl.selectopt': '— 请选择 —',
+    'lbl.config': '配置',
+    'lbl.valresults': '验证结果',
+    'geo.us': '美国',
+    'geo.uk': '英国',
+    'geo.eu': '欧盟',
+    'geo.brazil': '巴西',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA 即时',
+    'pay.pix': 'PIX（巴西）',
+    'pay.sameday': '同日 ACH',
+    'pay.nextday': '次日 ACH',
+    'sev.high': '高',
+    'sev.medium': '中',
+    'tai01.hero.eyebrow': 'AI · 01 · 税务 · 智能代理套件',
+    'tai01.hero.title': '中小企业财税助手',
+    'tai01.hero.sub': '面向代币化 A2A 轨道上中小企业的隐私优先跨境税务规划。跨五个司法管辖区估算税负、识别扣除项并生成审计就绪的策略报告。',
+    'tai01.lbl.jurisdiction': '司法管辖区',
+    'tai01.lbl.revenue': '年收入（USD）',
+    'tai01.lbl.expenses': '可抵扣费用',
+    'tai01.lbl.txtype': '交易类型',
+    'tai01.lbl.corridor': '通道',
+    'tai01.lbl.rail': '支付轨道',
+    'tai01.btn.calculate': '▶ 计算税负',
+    'tai01.btn.exportjson': '↓ 导出 JSON',
+    'tai01.btn.exportmd': '↓ 导出 Markdown',
+    'tai01.lbl.liability': '税负',
+    'tai01.lbl.deductions': '扣除项',
+    'tai01.lbl.netdue': '应缴净额',
+    'tai01.lbl.withtax': '预扣税',
+    'tai01.lbl.compliance': '合规检查清单',
+    'tai01.lbl.strategy': '策略说明',
+    't51.hero.eyebrow': '工具 51 · 核心基础设施 · 卡经济学',
+    't51.hero.title': 'VDCAP 有效载荷审计器 & 卡费优化器',
+    't51.hero.sub': '粘贴 CNP 支付有效载荷并根据 Visa 2026年4月 VDCAP 要求进行审计。检测缺失字段，估算年度费用节省，验证 3DS 2.x 标志，并解码 ISO 8583 位图——完全在浏览器内完成。',
+
+  },
+};
+
+
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})(););
+  document.querySelectorAll('.lang-btn').forEach(function(b){
+    if(b.getAttribute('data-lang')===lang) b.classList.add('active');
+  });
+  document.documentElement.lang = lang==='zh'?'zh-Hans':lang;
+  document.documentElement.dir  = lang==='ar'?'rtl':'ltr';
+  var s = I18N[lang]||I18N['en'];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var k=el.getAttribute('data-i18n');
+    if(s[k]!==undefined) el.textContent=s[k];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el){
+    var k=el.getAttribute('data-i18n-placeholder');
+    if(s[k]!==undefined) el.placeholder=s[k];
+  });
+  window._lang=lang;
+}
+
+
+updateDeadline();
+renderRefList();
+</script>
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id":"vdcap-payload-auditor","version":"1.0.0","title":"VDCAP Payload Auditor & Card Fee Optimizer","description":"Audit CNP payment payloads against Visa VDCAP requirements. Detect missing fields. Estimate annual fee savings. Decode ISO 8583 bitmaps. Client-side. Zero PII.","category":"cat-19","tags":["VDCAP","Visa","Card Payments","ISO 8583"],"audience":["fintech","compliance","payments"],"input_schema":{"type":"object","properties":{}},"output_schema":{"type":"object","properties":{}},"mcp_tool_definition":{"name":"vdcap_payload_auditor","description":"Run VDCAP Payload Auditor. Audit CNP payment payloads against Visa VDCAP requirements.","inputSchema":{"type":"object","properties":{}}},"execution":{"type":"browser-javascript","entry":"tools/51-vdcap-payload-auditor.html","function_name":"auditPayload","timeout_ms":5000},"ap2_export":false}');
+  function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){var s=JSON.stringify(MANIFEST,null,2);if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(s);}}
+  function scrollMfst(){var el=document.getElementById('mfstSec');if(el)el.scrollIntoView({behavior:'smooth'});}
+</script>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+</body>
+</html>

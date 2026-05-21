@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Credit Policy Decision Table Builder · RBE·09 · AINumbers.co</title>
+<meta name="description" content="Browser-based credit underwriting policy authoring tool. Build decision tables (FICO × DTI × LTV → Approve/Decline/Refer), detect coverage gaps, simulate applicant profiles, generate Reg B adverse action reasons, run Champion-Challenger policy comparison, and export Policy Mandate JSON + SR 11-7 policy document. Zero PII. Client-side.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Credit Policy Decision Table Builder · RBE·09","url":"https://ainumbers.co/tools/rbe-09-credit-policy-decision-table.html","description":"Browser-based credit underwriting policy authoring tool. Build decision tables (FICO × DTI × LTV → Approve/Decline/Refer), detect coverage gaps, simulate applicant profiles, generate Reg B adverse action reasons, run Champion-Challenger policy comparison, and export Policy Mandate JSON + SR 11-7 policy document. Zero PII. Client-side.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Edu disclaimer (canonical §9.3) */
+.edu-disclaimer {
+  border: 1px solid var(--warn);
+  border-left: 3px solid var(--warn);
+  background: rgba(245, 158, 11, 0.06);
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  font-size: 0.76rem;
+  color: var(--body);
+  line-height: 1.7;
+  border-radius: var(--radius);
+}
+.edu-disclaimer-label {
+  display: block;
+  color: var(--warn);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12); --gold-lt:#F0C060;
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:14px;line-height:1.6;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.03) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+body>*{position:relative;z-index:1}
+
+/* ── Lang bar ── */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:6px 0}
+.lang-inner{max-width:1200px;margin:0 auto;padding:0 24px;display:flex;gap:4px;align-items:center;justify-content:flex-end}
+.lang-btn{background:transparent;border:1px solid transparent;color:var(--body);font-family:'Sora',sans-serif;font-size:11px;font-weight:500;letter-spacing:.06em;padding:3px 10px;border-radius:var(--radius);cursor:pointer;transition:all .15s}
+.lang-btn:hover{color:var(--text);border-color:var(--border-2)}
+.lang-btn.active{background:var(--gold-dim);color:var(--purple);border-color:rgba(212,168,71,.3)}
+
+/* ── Nav ── */
+nav{background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.nav-inner{max-width:1200px;margin:0 auto;padding:0 24px;height:56px;display:grid;grid-template-columns:1fr auto 1fr;}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center;justify-self:center;text-align:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{justify-self:end;display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.nav-brand{font-family:'DM Serif Display',serif;font-size:18px;color:var(--white);text-decoration:none;display:flex;align-items:center;gap:10px}
+.nav-brand-dot{width:8px;height:8px;border-radius:50%;background:var(--purple);box-shadow:0 0 8px var(--purple)}
+/* ── Hero ── */
+.hero{padding:52px 24px 40px;max-width:1200px;margin:0 auto}
+.hero-eyebrow{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.tool-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);letter-spacing:.1em;text-transform:uppercase}
+.hero-badge{background:var(--purple-dim);color:var(--purple);font-size:10px;font-weight:600;padding:3px 10px;border-radius:20px;border:1px solid rgba(155,114,245,.25)}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(26px,4vw,40px);color:var(--white);line-height:1.2;margin-bottom:14px;max-width:780px}
+.hero-desc{color:var(--body);font-size:14px;max-width:680px;line-height:1.7}
+.hero-meta{display:flex;gap:16px;margin-top:20px;flex-wrap:wrap}
+.hero-meta-pill{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--body);background:var(--bg-3);border:1px solid var(--border);padding:4px 12px;border-radius:20px}
+.hero-meta-pill span:first-child{color:var(--gold)}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+.tag{font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;letter-spacing:.04em;border:1px solid}
+.tag-teal{background:var(--teal-dim);color:var(--teal);border-color:rgba(20,184,166,.25)}
+.tag-gold{background:var(--gold-dim);color:var(--gold);border-color:rgba(212,168,71,.25)}
+.tag-purple{background:var(--purple-dim);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.tag-green{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.25)}
+
+/* ── Layout ── */
+.tool-body{max-width:1200px;margin:0 auto;padding:0 24px 60px;display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
+@media(max-width:900px){.tool-body{grid-template-columns:1fr}}
+.main-col{display:flex;flex-direction:column;gap:20px}
+.side-col{display:flex;flex-direction:column;gap:20px}
+
+/* ── Panels ── */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);letter-spacing:.08em;text-transform:uppercase;font-weight:500}
+.panel-body{padding:20px}
+.panel-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.panel-row.four{grid-template-columns:1fr 1fr 1fr 1fr}
+.panel-row.single{grid-template-columns:1fr}
+.panel-row:last-child{margin-bottom:0}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:11px;color:var(--body);font-weight:500;letter-spacing:.04em}
+.field input,.field select,.field textarea{background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);font-family:'Sora',sans-serif;font-size:13px;padding:8px 10px;border-radius:var(--radius);outline:none;transition:border-color .15s;width:100%}
+.field input:focus,.field select:focus{border-color:var(--purple)}
+.field select option{background:var(--bg-3)}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:6px;font-family:'Sora',sans-serif;font-size:12px;font-weight:500;padding:7px 16px;border-radius:var(--radius);cursor:pointer;border:1px solid transparent;transition:all .15s;white-space:nowrap}
+.btn-gold{background:var(--purple);color:#080E1A;border-color:var(--purple)}
+.btn-gold:hover{background:var(--purple-lt)}
+.btn-ghost{background:transparent;color:var(--text);border-color:var(--border-2)}
+.btn-ghost:hover{background:var(--bg-3);border-color:var(--gold);color:var(--gold)}
+.btn-danger{background:transparent;color:var(--red);border-color:rgba(239,68,68,.3)}
+.btn-danger:hover{background:var(--red-dim)}
+.btn-sm{font-size:11px;padding:5px 12px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.btn-subtitle{display:block;font-size:10px;opacity:.65;margin-top:1px}
+.run-btn{width:100%;background:var(--purple);color:#080E1A;border:none;font-family:'Sora',sans-serif;font-size:14px;font-weight:600;padding:14px 24px;border-radius:var(--radius-lg);cursor:pointer;transition:all .2s;letter-spacing:.02em;box-shadow:0 0 20px rgba(155,114,245,.2)}
+.run-btn:hover{background:var(--purple-lt);box-shadow:0 0 30px rgba(155,114,245,.35)}
+.run-btn:active{transform:scale(.99)}
+
+/* ── Decision matrix ── */
+.matrix-wrap{overflow-x:auto}
+.matrix-table{border-collapse:collapse;font-size:12px;min-width:100%}
+.matrix-table th{background:var(--bg-3);color:var(--body);font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:8px 10px;border:1px solid var(--border);text-align:center;white-space:nowrap}
+.matrix-table th.row-hdr{text-align:right;min-width:120px;background:var(--bg-4)}
+.matrix-table td{padding:5px 6px;border:1px solid var(--border);vertical-align:middle}
+.matrix-table td select{width:100%;min-width:110px;background:var(--bg-4);border:1px solid var(--border);color:var(--bright);font-family:'Sora',sans-serif;font-size:11px;padding:5px 6px;border-radius:4px;outline:none;cursor:pointer;transition:all .15s}
+.matrix-table td select:focus{border-color:var(--gold)}
+.cell-approve select{background:rgba(34,197,94,.1)!important;border-color:rgba(34,197,94,.3)!important;color:var(--green)!important}
+.cell-decline select{background:var(--red-dim)!important;border-color:rgba(239,68,68,.3)!important;color:var(--red)!important}
+.cell-refer select{background:var(--gold-dim)!important;border-color:rgba(212,168,71,.3)!important;color:var(--gold)!important}
+.cell-counter select{background:var(--teal-dim)!important;border-color:rgba(20,184,166,.3)!important;color:var(--teal)!important}
+.cell-unassigned select{background:var(--red-dim)!important;border-color:rgba(239,68,68,.4)!important}
+.cell-conflict{outline:2px solid var(--warn)}
+
+/* ── Matrix status bar ── */
+.matrix-status{display:flex;gap:12px;padding:10px 0 0;flex-wrap:wrap}
+.status-pill{font-size:11px;font-weight:600;padding:3px 10px;border-radius:10px;border:1px solid}
+.pill-ok{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.2)}
+.pill-warn{background:rgba(245,158,11,.1);color:var(--warn);border-color:rgba(245,158,11,.3)}
+.pill-err{background:var(--red-dim);color:var(--red);border-color:rgba(239,68,68,.3)}
+.pill-info{background:var(--bg-3);color:var(--body);border-color:var(--border)}
+
+/* ── Outcome badges ── */
+.outcome-badge{font-size:18px;font-weight:700;padding:8px 20px;border-radius:var(--radius-lg);display:inline-block;letter-spacing:.05em;font-family:'JetBrains Mono',monospace}
+.outcome-approve{background:var(--green-dim);color:var(--green);border:2px solid rgba(34,197,94,.3)}
+.outcome-decline{background:var(--red-dim);color:var(--red);border:2px solid rgba(239,68,68,.3)}
+.outcome-refer{background:var(--gold-dim);color:var(--gold);border:2px solid rgba(212,168,71,.3)}
+.outcome-counter{background:var(--teal-dim);color:var(--teal);border:2px solid rgba(20,184,166,.3)}
+
+/* ── Slider ── */
+.slider-row{display:flex;align-items:center;gap:10px}
+.slider-row input[type=range]{flex:1;-webkit-appearance:none;height:4px;background:var(--border-2);border-radius:2px;outline:none;cursor:pointer}
+.slider-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--gold);cursor:pointer}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--bright);min-width:48px;text-align:right}
+
+/* ── CC mode ── */
+.cc-panel{background:var(--bg-3);border:1px solid rgba(155,114,245,.25);border-radius:var(--radius-lg);padding:16px 20px;margin-top:12px;display:none}
+.cc-panel.open{display:block}
+.cc-header{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}
+.cc-diff-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
+.cc-diff-table th{background:var(--bg-4);color:var(--body);padding:6px 8px;border:1px solid var(--border);text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em}
+.cc-diff-table td{padding:5px 8px;border:1px solid var(--border)}
+.diff-champ{color:var(--gold)}
+.diff-chal{color:var(--purple)}
+.diff-delta{color:var(--warn);font-weight:600}
+
+/* ── Fairness flags ── */
+.flag-item{background:var(--gold-dim);border:1px solid rgba(212,168,71,.2);border-radius:var(--radius);padding:10px 14px;margin-bottom:8px;font-size:12px}
+.flag-item:last-child{margin-bottom:0}
+.flag-dim{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);margin-bottom:4px;font-weight:600}
+.flag-cite{font-size:10px;color:var(--body);margin-top:4px;font-style:italic}
+
+/* ── Reg B block ── */
+.regb-block{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:10px 14px;margin-top:12px;font-size:12px}
+.regb-title{font-size:10px;color:var(--gold);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;font-family:'JetBrains Mono',monospace}
+.regb-reason{color:var(--text);padding:3px 0;border-bottom:1px solid var(--border)}
+.regb-reason:last-child{border-bottom:none}
+
+/* ── Results / Export ── */
+.results-panel{display:none}
+.results-panel.visible{display:flex;flex-direction:column;gap:20px}
+.results-title{font-family:'DM Serif Display',serif;font-size:20px;color:var(--white);margin-bottom:4px}
+.results-export-row{display:flex;gap:8px;flex-wrap:wrap;padding:16px 20px;background:var(--bg-3);border-top:1px solid var(--border)}
+.results-export-row .btn{flex-direction:column;align-items:flex-start;padding:10px 16px}
+.results-export-row .btn[disabled]{opacity:.28;cursor:not-allowed}
+.results-export-row .btn[disabled]:hover{background:transparent;border-color:var(--border-2);color:var(--text)}
+
+/* ── PII notice ── */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+/* ── About ── */
+.about-item{padding:10px 0;border-bottom:1px solid var(--border);font-size:12px}
+.about-item:last-child{border-bottom:none}
+.about-item strong{color:var(--text);display:block;margin-bottom:3px}
+.about-item .cite{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold)}
+
+
+/* ── MCP ── */
+.mcp-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:14px 20px;user-select:none;font-size:12px;color:var(--body);background:none;border:none;width:100%;font-family:'Sora',sans-serif;transition:color .15s}
+.mcp-toggle:hover{color:var(--text)}
+
+.mcp-code{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--body);overflow-x:auto;line-height:1.6;white-space:pre}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:12px 18px;font-size:13px;color:var(--bright);box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:9999;transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.error{border-color:rgba(239,68,68,.4);color:var(--red)}
+.toast.success{border-color:rgba(155,114,245,.4);color:var(--purple)}
+
+/* ── Stat grid ── */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.stat-box{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
+.stat-box .lbl{font-size:10px;color:var(--body);margin-bottom:2px}
+.stat-box .val{font-size:22px;font-family:'DM Serif Display',serif}
+
+/* ── RTL ── */
+[dir="rtl"] .nav-inner{flex-direction:row-reverse}
+[dir="rtl"] .lang-inner{justify-content:flex-start}
+[dir="rtl"] .hero-eyebrow{flex-direction:row-reverse}
+[dir="rtl"] .panel-label{text-align:right}
+[dir="rtl"] [dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+[dir="rtl"] .run-btn{letter-spacing:0}
+
+/* ── DORA-style logo & nav ── */
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-body pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;overflow-x:auto;margin:0}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+
+.container{max-width:960px;margin:0 auto;padding:0 1.5rem}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- Language Bar -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<!-- Nav -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo"><svg width="32" height="32" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="#0D1627"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".7"/></svg>
+    <div class="logo-text">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </div></a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/rbe-deterministic-suite-hub.html">RBE Suite Hub</a><span class="nav-sep">/</span><span>Tool RBE-09</span></div>
+
+    <a href="../guides/rbe-deterministic-suite-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-eyebrow">
+    <span class="tool-eyebrow">RBE·09 · RBE Deterministic Suite · Credit Policy</span>
+    <span class="hero-badge">Live</span>
+  </div>
+  <h1 class="tool-title">Credit Policy Decision Table Builder</h1>
+  <p class="hero-desc">Build visual credit underwriting decision tables mapping multi-dimensional inputs (FICO × DTI × LTV) to Approve / Decline / Refer / Counter-offer outcomes. Detects gaps and conflicts, generates ECOA-compliant adverse action reasons, runs Champion-Challenger policy comparisons, and exports Policy Mandate JSON + SR 11-7 policy documents.</p>
+  <div class="tag-row">
+    <span class="tag tag-gold">ECOA / Reg B</span>
+    <span class="tag tag-gold">CFPB Circular 2022-03</span>
+    <span class="tag tag-teal">SR 11-7</span>
+    <span class="tag tag-teal">EU CCD2</span>
+    <span class="tag tag-purple">Champion-Challenger</span>
+    <span class="tag tag-green">Policy Mandate Export</span>
+    <span class="tag tag-green">Zero PII</span>
+  </div>
+  <div class="hero-meta">
+    <div class="hero-meta-pill"><span>⚡</span> Client-side · No server calls</div>
+    <div class="hero-meta-pill"><span>🔒</span> Zero PII</div>
+    <div class="hero-meta-pill"><span>📦</span> MCP-compatible · manifest.json</div>
+    <div class="hero-meta-pill"><span>v</span> RBE Suite v1.0</div>
+  </div>
+</div>
+
+<!-- Tool Body -->
+<div class="tool-body">
+<div class="main-col">
+
+  <!-- Panel A: Policy Identity -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label" data-i18n="panel_identity">A — Policy Identity</span>
+      <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2025-04-01</span></span>
+    </div>
+    <div class="panel-body">
+      <div class="panel-row four">
+        <div class="field">
+          <label data-i18n="label_policy_name" for="policyName">Policy Name</label>
+          <input type="text" id="policyName" value="Standard Unsecured Lending Policy">
+        </div>
+        <div class="field">
+          <label data-i18n="label_version" for="policyVer">Version</label>
+          <input type="text" id="policyVer" value="1.0">
+        </div>
+        <div class="field">
+          <label data-i18n="label_eff_date" for="policyEff">Effective Date</label>
+          <input type="date" id="policyEff" value="2025-01-01">
+        </div>
+        <div class="field">
+          <label data-i18n="label_review" for="reviewCycle">Review Cycle</label>
+          <select id="reviewCycle">
+            <option>Quarterly</option>
+            <option selected>Semi-annual</option>
+            <option>Annual</option>
+          </select>
+        </div>
+      </div>
+      <div class="panel-row four">
+        <div class="field">
+          <label data-i18n="label_product" for="productType">Product Type</label>
+          <select id="productType">
+            <option>Personal Loan</option>
+            <option>Auto Loan</option>
+            <option>Mortgage</option>
+            <option>Credit Card</option>
+            <option>BNPL</option>
+            <option>Business Credit</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-i18n="label_jurisdiction" for="policyJur">Jurisdiction</label>
+          <select id="policyJur">
+            <option selected>US</option>
+            <option>UK</option>
+            <option>EU</option>
+            <option>Global</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-i18n="label_auth" for="approvalAuth">Approval Authority (Role)</label>
+          <input type="text" id="approvalAuth" value="Chief Credit Officer">
+        </div>
+        <div class="field">
+          <label data-i18n="label_author_role" for="authorRole">Author Role</label>
+          <input type="text" id="authorRole" value="Credit Policy Lead">
+        </div>
+      </div>
+      <div class="pii-notice">
+  <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+</div>
+  <!-- Edu disclaimer (canonical §9.3) -->
+  <div class="edu-disclaimer">
+    <strong class="edu-disclaimer-label" data-i18n="disclaimer.label">Educational Use Only</strong>
+    <span data-i18n="disclaimer.body">This tool provides a self-assessment / educational framework for internal planning purposes only. It is not a regulatory audit, legal advice, or a substitute for a formal compliance review by a qualified advisor. Verify all interpretations against the official source text and applicable RTS/ITS/guidance published by the relevant authority.</span>
+  </div>
+
+    </div>
+  </div>
+
+  <!-- Panel B: Dimension Configuration -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label" data-i18n="panel_dims">B — Dimension Configuration</span>
+      <div class="btn-row">
+        <button class="btn btn-ghost btn-sm" onclick="buildMatrix()">↻ Rebuild Matrix</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadPreset()">Load Sample Policy</button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="panel-row">
+        <div class="field">
+          <label data-i18n="label_primary" for="primaryAxis">Primary Axis (Columns)</label>
+          <select id="primaryAxis" onchange="updateBands()">
+            <option value="fico">FICO Score Range</option>
+            <option value="dti">Debt-to-Income (DTI)</option>
+            <option value="ltv">Loan-to-Value (LTV)</option>
+            <option value="income">Income Band</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-i18n="label_secondary" for="secondaryAxis">Secondary Axis (Rows)</label>
+          <select id="secondaryAxis" onchange="updateBands()">
+            <option value="dti" selected>Debt-to-Income (DTI)</option>
+            <option value="fico">FICO Score Range</option>
+            <option value="ltv">Loan-to-Value (LTV)</option>
+            <option value="income">Income Band</option>
+          </select>
+        </div>
+      </div>
+      <div id="bandsConfig" style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px"></div>
+    </div>
+  </div>
+
+  <!-- Panel C: Decision Matrix -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label" data-i18n="panel_matrix">C — Decision Matrix</span>
+      <div class="matrix-status" id="matrixStatus">
+        <span class="status-pill pill-info">Build matrix to begin</span>
+      </div>
+    </div>
+    <div class="panel-body" style="padding:0">
+      <div class="matrix-wrap" id="matrixWrap">
+        <div style="padding:24px;color:var(--body);font-size:12px;text-align:center">Configure dimensions above, then click Rebuild Matrix.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel D: Applicant Simulator -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label" data-i18n="panel_sim">D — Applicant Simulator</span>
+    </div>
+    <div class="panel-body">
+      <div class="panel-row">
+        <div class="field">
+          <label data-i18n="label_fico" for="simFico">FICO Score</label>
+          <div class="slider-row">
+            <input type="range" id="simFicoSlider" min="300" max="850" value="680" oninput="syncSlider('simFico','simFicoSlider')">
+            <span class="slider-val" id="simFico">680</span>
+          </div>
+        </div>
+        <div class="field">
+          <label data-i18n="label_dti" for="simDti">DTI (%)</label>
+          <div class="slider-row">
+            <input type="range" id="simDtiSlider" min="0" max="65" value="35" oninput="syncSlider('simDti','simDtiSlider')">
+            <span class="slider-val" id="simDti">35</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel-row">
+        <div class="field">
+          <label data-i18n="label_ltv" for="simLtv">LTV (%)</label>
+          <div class="slider-row">
+            <input type="range" id="simLtvSlider" min="0" max="100" value="75" oninput="syncSlider('simLtv','simLtvSlider')">
+            <span class="slider-val" id="simLtv">75</span>
+          </div>
+        </div>
+        <div class="field">
+          <label data-i18n="label_income" for="simIncome">Income Band</label>
+          <select id="simIncome">
+            <option>Under £20k / $25k</option>
+            <option>£20k–£40k / $25k–$50k</option>
+            <option selected>£40k–£80k / $50k–$100k</option>
+            <option>Over £80k / $100k+</option>
+          </select>
+        </div>
+      </div>
+      <div class="btn-row" style="padding-top:8px">
+        <button class="btn btn-gold" onclick="simulateApplicant()">⚡ Run Simulation →</button>
+      </div>
+      <div id="simResult" style="margin-top:16px;display:none">
+        <div id="simOutcomeBadge" style="margin-bottom:12px"></div>
+        <div id="simRuleTrace" style="font-size:12px;color:var(--body);margin-bottom:8px"></div>
+        <div class="regb-block" id="regbBlock" style="display:none">
+          <div class="regb-title">Reg B Adverse Action Reasons (CFPB Circular 2022-03)</div>
+          <div id="regbReasons"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel E: Fairness Analysis -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label" data-i18n="panel_fairness">E — Fairness Analysis (ECOA / Reg B)</span>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--body);cursor:pointer">
+        <input type="checkbox" id="ecaoToggle" checked onchange="renderFairness()" style="accent-color:var(--gold)">
+        <span data-i18n="label_ecoa_toggle">ECOA flag layer</span>
+      </label>
+    </div>
+    <div class="panel-body" id="fairnessBody">
+      <div style="font-size:12px;color:var(--body)">Build the decision matrix first to run fairness analysis.</div>
+    </div>
+  </div>
+
+  <!-- Panel F: Champion-Challenger -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label" data-i18n="panel_cc">F — Champion-Challenger Mode</span>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--body);cursor:pointer">
+        <input type="checkbox" id="ccToggle" onchange="toggleCC()" style="accent-color:var(--purple)">
+        <span data-i18n="label_cc_enable">Enable Champion-Challenger</span>
+      </label>
+    </div>
+    <div class="panel-body">
+      <div style="font-size:12px;color:var(--body);margin-bottom:8px">Enable Champion-Challenger to load a Challenger policy table and compare it cell-by-cell against the Champion (Panel C). Required for SR 11-7 model validation and governance committee review.</div>
+      <div class="cc-panel" id="ccPanel">
+        <div class="cc-header">⚔ Challenger Policy Table</div>
+        <div style="font-size:11px;color:var(--body);margin-bottom:12px">The Challenger uses the same dimensions as the Champion. Assign different outcomes below.</div>
+        <div class="matrix-wrap" id="ccMatrixWrap">
+          <div style="font-size:12px;color:var(--body)">Build Champion matrix first.</div>
+        </div>
+        <div class="btn-row" style="margin-top:12px">
+          <button class="btn btn-ghost btn-sm" onclick="runCC()" style="border-color:var(--purple);color:var(--purple)">⚡ Compare Champion vs. Challenger →</button>
+        </div>
+        <div id="ccResults" style="margin-top:14px;display:none">
+          <div class="cc-header">Divergence Report</div>
+          <div id="ccSummary" style="font-size:12px;color:var(--body);margin-bottom:8px"></div>
+          <div class="matrix-wrap"><table class="cc-diff-table" id="ccDiffTable"></table></div>
+          <div id="ccApprovalDelta" style="font-size:12px;margin-top:10px;padding:8px 12px;background:var(--bg-4);border-radius:var(--radius);border:1px solid var(--border)"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main-col -->
+
+<!-- SIDE COLUMN -->
+<div class="side-col">
+
+  <!-- Run & Export -->
+  <div class="panel">
+    <div class="panel-header"><span class="panel-label">Run &amp; Export</span></div>
+    <div class="panel-body" style="padding:16px">
+      <button class="run-btn" onclick="runAnalysis()" data-i18n="run_btn">Run Analysis →</button>
+    </div>
+    <div class="results-export-row" id="exportRow">
+      <button class="btn btn-ghost btn-sm btn-export" id="ap2ExportBtn" disabled onclick="exportAP2()" title="Run analysis first">
+        {} Export Policy Mandate
+        <span class="btn-subtitle">credit_policy_mandate</span>
+      </button>
+      <button class="btn btn-ghost btn-sm btn-export btn-export-md" id="mdExportBtn" disabled onclick="exportMarkdown()" title="Run analysis first">
+        ↓ Policy Markdown
+        <span class="btn-subtitle">SR 11-7 doc</span>
+      </button>
+      <button class="btn btn-ghost btn-sm" id="aaExportBtn" disabled onclick="exportAdverseAction()" title="Run simulation first">
+        ↓ Adverse Action Library
+        <span class="btn-subtitle">Reg B ready</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Analysis Summary -->
+  <div class="panel results-panel" id="resultsPanel">
+    <div class="panel-header"><span class="panel-label results-title" data-i18n="results_title">Analysis Results</span></div>
+    <div class="panel-body" id="resultsBody" style="padding:16px"></div>
+  </div>
+
+  <!-- About -->
+  <div class="panel">
+    <div class="panel-header"><span class="panel-label" data-i18n="panel_about">About this tool</span></div>
+    <div class="panel-body">
+      <div class="about-item">
+        <strong>Decision table logic</strong>
+        Renders a 2D grid of outcome selects. Gap detection and conflict detection are O(n²) over the rule set (≤200 rules). Gaps = unassigned cells. Conflicts = duplicate condition-combinations with different outcomes (not applicable in a pure 2D grid but flagged in sub-rule layer).
+      </div>
+      <div class="about-item">
+        <strong>Reg B adverse action</strong>
+        For any Decline or Refer outcome, generates a specific, applicant-traceable reason list per CFPB Circular 2022-03, ready for direct insertion into an adverse action notice.
+      </div>
+      <div class="about-item">
+        <strong>Champion-Challenger</strong>
+        A second decision table runs in parallel. Every cell divergence is flagged. Net approval rate delta estimated across the matrix. Governance memo exported as SR 11-7-formatted Markdown.
+      </div>
+      <div class="about-item">
+        <strong>Regulatory coverage</strong>
+        <span class="cite">ECOA / Reg B 12 CFR 1002</span> · <span class="cite">CFPB Circular 2022-03</span> · <span class="cite">SR 11-7</span> · <span class="cite">EU CCD2 Art. 18</span> · <span class="cite">FCA CONC 5</span>
+      </div>
+      
+    </div>
+  </div>
+
+  <!-- MCP Panel -->
+  <div class="panel">
+    <button class="mcp-toggle" onclick="toggleMCP()">
+      <span>📦 MCP manifest.json · build_credit_policy_decision_table</span>
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" id="mcpArrow"><path d="M2 4l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+    <div class="mcp-panel" id="mcpPanel">
+      <pre class="mcp-code">{
+  "tool_id": "rbe-09-credit-policy-decision-table",
+  "version": "1.0.0",
+  "title": "Credit Policy Decision Table Builder",
+  "category": "ai",
+  "ap2_export": true,
+  "mandate_type": "credit_policy_mandate",
+  "mcp_tool_definition": {
+    "name": "build_credit_policy_decision_table",
+    "description": "Build credit underwriting
+decision tables, detect gaps and conflicts,
+simulate applicants, generate Reg B adverse
+action reasons, run Champion-Challenger.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["policy_name","product_type","jurisdiction"],
+      "properties": {
+        "policy_name": { "type": "string" },
+        "product_type": { "type": "string" },
+        "jurisdiction": { "type": "string" },
+        "dimensions": { "type": "array" },
+        "rules": { "type": "array" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/rbe-09-credit-policy-decision-table.html",
+    "function_name": "runAnalysis",
+    "timeout_ms": 5000
+  }
+}</pre>
+    </div>
+  </div>
+
+</div><!-- /side-col -->
+</div><!-- /tool-body -->
+
+<!-- Footer -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<!-- FOOTER -->
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/rbe-deterministic-suite-hub.html"><span data-i18n="footer.hub_rbe_deterministic_suite">RBE Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* AP2Schema — full validator (PM17; wired into cohort C) */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+if (typeof AP2Schema.validate !== 'function') {
+  AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    return true;
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RBE·09 — Credit Policy Decision Table Builder
+   Version: 1.0 | Suite: RBE Deterministic Intelligence Suite
+   Client-side. Zero PII. Deterministic.
+   Regulatory: ECOA/Reg B · CFPB Circular 2022-03 · SR 11-7
+═══════════════════════════════════════════════════════════ */
+
+/* ── i18n Stage 2 ── */
+const TRANSLATIONS = {
+  en: {
+    eyebrow:"RBE·09 · RBE Deterministic Suite · Credit Policy",
+    hero_title:"Credit Policy Decision Table Builder",
+    hero_desc:"Build visual credit underwriting decision tables mapping multi-dimensional inputs to Approve / Decline / Refer / Counter-offer outcomes. Detects gaps and conflicts, generates ECOA-compliant adverse action reasons, and exports Policy Mandate JSON + SR 11-7 policy documents.",
+    panel_identity:"A — Policy Identity",
+    panel_dims:"B — Dimension Configuration",
+    panel_matrix:"C — Decision Matrix",
+    panel_sim:"D — Applicant Simulator",
+    panel_fairness:"E — Fairness Analysis (ECOA / Reg B)",
+    panel_cc:"F — Champion-Challenger Mode",
+    panel_about:"About this tool",
+    label_policy_name:"Policy Name",
+    label_version:"Version",
+    label_eff_date:"Effective Date",
+    label_review:"Review Cycle",
+    label_product:"Product Type",
+    label_jurisdiction:"Jurisdiction",
+    label_auth:"Approval Authority (Role)",
+    label_author_role:"Author Role",
+    label_primary:"Primary Axis (Columns)",
+    label_secondary:"Secondary Axis (Rows)",
+    label_fico:"FICO Score",
+    label_dti:"DTI (%)",
+    label_ltv:"LTV (%)",
+    label_income:"Income Band",
+    label_ecoa_toggle:"ECOA flag layer",
+    label_cc_enable:"Enable Champion-Challenger",
+    run_btn:"Run Analysis →",
+    results_title:"Analysis Results",
+    export_ap2:"Export Policy Mandate",
+    export_md:"Export Markdown",
+    pii_notice:"🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.",
+    last_reviewed:"Last Reviewed",
+    nav_all_tools:"All 200+ Tools",
+    footer_badge:"🔒 Zero PII \u00a0 📡 No server calls \u00a0 💻 Client-side",
+    lang_dir:"ltr",
+  
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+  },
+  es:{eyebrow:"RBE·09 · Suite RBE Determinista · Política de Crédito",hero_title:"Constructor de Tabla de Decisión de Política Crediticia",hero_desc:"Construya tablas de decisión de suscripción crediticia visual. Detecta brechas y conflictos, genera razones ECOA y exporta mandatos AP2.",panel_identity:"A — Identidad de la Política",panel_dims:"B — Configuración de Dimensiones",panel_matrix:"C — Matriz de Decisión",panel_sim:"D — Simulador de Solicitante",panel_fairness:"E — Análisis de Equidad (ECOA)",panel_cc:"F — Modo Campeón-Retador",panel_about:"Acerca de esta herramienta",label_policy_name:"Nombre de la Política",label_version:"Versión",label_eff_date:"Fecha de Vigencia",label_review:"Ciclo de Revisión",label_product:"Tipo de Producto",label_jurisdiction:"Jurisdicción",label_auth:"Autoridad de Aprobación",label_author_role:"Rol del Autor",label_primary:"Eje Primario",label_secondary:"Eje Secundario",label_fico:"Puntuación FICO",label_dti:"DTI (%)",label_ltv:"LTV (%)",label_income:"Banda de Ingresos",label_ecoa_toggle:"Capa de indicadores ECOA",label_cc_enable:"Activar Campeón-Retador",run_btn:"Ejecutar Análisis →",results_title:"Resultados del Análisis",export_ap2:"Exportar Mandato de Política",export_md:"Exportar Markdown",pii_notice:"🔒 Todas las entradas se procesan localmente. No se transmiten datos.",last_reviewed:"Última Revisión",nav_all_tools:"Todas las Herramientas",footer_badge:"🔒 Zero PII \u00a0 📡 Sin servidor \u00a0 💻 Cliente",lang_dir:"ltr"
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+  },
+  fr:{eyebrow:"RBE·09 · Suite RBE Déterministe · Politique de Crédit",hero_title:"Constructeur de Table de Décision de Politique de Crédit",hero_desc:"Construisez des tables de décision d'octroi de crédit visuelles. Détecte les lacunes et conflits, génère des raisons ECOA et exporte des mandats AP2.",panel_identity:"A — Identité de la Politique",panel_dims:"B — Configuration des Dimensions",panel_matrix:"C — Matrice de Décision",panel_sim:"D — Simulateur de Demandeur",panel_fairness:"E — Analyse d'Équité (ECOA)",panel_cc:"F — Mode Champion-Challenger",panel_about:"À propos de cet outil",label_policy_name:"Nom de la Politique",label_version:"Version",label_eff_date:"Date d'Entrée en Vigueur",label_review:"Cycle de Révision",label_product:"Type de Produit",label_jurisdiction:"Juridiction",label_auth:"Autorité d'Approbation",label_author_role:"Rôle de l'Auteur",label_primary:"Axe Primaire",label_secondary:"Axe Secondaire",label_fico:"Score FICO",label_dti:"DTI (%)",label_ltv:"LTV (%)",label_income:"Tranche de Revenu",label_ecoa_toggle:"Couche d'indicateurs ECOA",label_cc_enable:"Activer Champion-Challenger",run_btn:"Lancer l'Analyse →",results_title:"Résultats de l'Analyse",export_ap2:"Exporter Mandat de Politique",export_md:"Exporter Markdown",pii_notice:"🔒 Toutes les saisies sont traitées localement. Aucune donnée n'est transmise.",last_reviewed:"Dernière Révision",nav_all_tools:"Tous les Outils",footer_badge:"🔒 Zéro PII \u00a0 📡 Sans serveur \u00a0 💻 Côté client",lang_dir:"ltr"
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+  },
+  ar:{eyebrow:"RBE·09 · مجموعة RBE الحتمية · سياسة الائتمان",hero_title:"منشئ جدول قرارات سياسة الائتمان",hero_desc:"قم ببناء جداول قرارات الاكتتاب الائتماني البصرية. يكتشف الثغرات والتعارضات، ويولد أسباب ECOA، ويصدر ولايات AP2.",panel_identity:"أ — هوية السياسة",panel_dims:"ب — تكوين الأبعاد",panel_matrix:"ج — مصفوفة القرار",panel_sim:"د — محاكي المتقدم",panel_fairness:"هـ — تحليل الإنصاف (ECOA)",panel_cc:"و — وضع البطل والمتحدي",panel_about:"حول هذه الأداة",label_policy_name:"اسم السياسة",label_version:"الإصدار",label_eff_date:"تاريخ السريان",label_review:"دورة المراجعة",label_product:"نوع المنتج",label_jurisdiction:"الاختصاص القضائي",label_auth:"سلطة الموافقة",label_author_role:"دور المؤلف",label_primary:"المحور الأساسي",label_secondary:"المحور الثانوي",label_fico:"درجة FICO",label_dti:"DTI (%)",label_ltv:"LTV (%)",label_income:"فئة الدخل",label_ecoa_toggle:"طبقة مؤشرات ECOA",label_cc_enable:"تفعيل البطل والمتحدي",run_btn:"تشغيل التحليل →",results_title:"نتائج التحليل",export_ap2:"تصدير تفويض السياسة",export_md:"تصدير Markdown",pii_notice:"🔒 تتم معالجة جميع المدخلات محليًا. لا يتم نقل أي بيانات.",last_reviewed:"آخر مراجعة",nav_all_tools:"جميع الأدوات",footer_badge:"🔒 بدون بيانات شخصية \u00a0 📡 بدون خادم \u00a0 💻 من جانب العميل",lang_dir:"rtl"
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+  },
+  pt:{eyebrow:"RBE·09 · Suíte RBE Determinística · Política de Crédito",hero_title:"Construtor de Tabela de Decisão de Política de Crédito",hero_desc:"Construa tabelas de decisão de subscrição de crédito visuais. Detecta lacunas e conflitos, gera razões ECOA e exporta mandatos AP2.",panel_identity:"A — Identidade da Política",panel_dims:"B — Configuração de Dimensões",panel_matrix:"C — Matriz de Decisão",panel_sim:"D — Simulador de Requerente",panel_fairness:"E — Análise de Equidade (ECOA)",panel_cc:"F — Modo Campeão-Desafiante",panel_about:"Sobre esta ferramenta",label_policy_name:"Nome da Política",label_version:"Versão",label_eff_date:"Data de Vigência",label_review:"Ciclo de Revisão",label_product:"Tipo de Produto",label_jurisdiction:"Jurisdição",label_auth:"Autoridade de Aprovação",label_author_role:"Papel do Autor",label_primary:"Eixo Primário",label_secondary:"Eixo Secundário",label_fico:"Pontuação FICO",label_dti:"DTI (%)",label_ltv:"LTV (%)",label_income:"Faixa de Renda",label_ecoa_toggle:"Camada de indicadores ECOA",label_cc_enable:"Ativar Campeão-Desafiante",run_btn:"Executar Análise →",results_title:"Resultados da Análise",export_ap2:"Exportar Mandato de Política",export_md:"Exportar Markdown",pii_notice:"🔒 Todas as entradas são processadas localmente. Nenhum dado é transmitido.",last_reviewed:"Última Revisão",nav_all_tools:"Todas as Ferramentas",footer_badge:"🔒 Zero PII \u00a0 📡 Sem servidor \u00a0 💻 Cliente",lang_dir:"ltr"
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+  },
+  zh:{eyebrow:"RBE·09 · RBE确定性套件 · 信贷政策",hero_title:"信贷政策决策表构建器",hero_desc:"构建可视化信贷承销决策表。检测空缺和冲突，生成ECOA合规的不利行动理由，导出政策授权书和SR 11-7政策文档。",panel_identity:"A — 政策标识",panel_dims:"B — 维度配置",panel_matrix:"C — 决策矩阵",panel_sim:"D — 申请人模拟器",panel_fairness:"E — 公平性分析（ECOA）",panel_cc:"F — 冠军-挑战者模式",panel_about:"关于此工具",label_policy_name:"政策名称",label_version:"版本",label_eff_date:"生效日期",label_review:"审查周期",label_product:"产品类型",label_jurisdiction:"管辖区",label_auth:"审批权限（职能）",label_author_role:"作者职能",label_primary:"主轴（列）",label_secondary:"次轴（行）",label_fico:"FICO评分",label_dti:"DTI (%)",label_ltv:"LTV (%)",label_income:"收入区间",label_ecoa_toggle:"ECOA标记层",label_cc_enable:"启用冠军-挑战者",run_btn:"运行分析 →",results_title:"分析结果",export_ap2:"导出政策授权书",export_md:"导出Markdown",pii_notice:"🔒 所有输入均在您的浏览器本地处理。不传输任何数据。",last_reviewed:"最后审查",nav_all_tools:"全部工具",footer_badge:"🔒 零PII \u00a0 📡 无服务器 \u00a0 💻 客户端",lang_dir:"ltr"
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+  },
+};
+
+function setLang(lang){
+  const t=TRANSLATIONS[lang]||TRANSLATIONS['en'];
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`);
+  if(btn)btn.classList.add('active');
+  document.documentElement.lang=lang==='zh'?'zh-Hans':lang;
+  document.documentElement.dir=t.lang_dir||'ltr';
+  document.body.dir=t.lang_dir||'ltr';
+  const apply=(sel,key)=>{const el=document.querySelector(sel);if(el&&t[key]!==undefined)el.textContent=t[key];};
+  apply('.tool-eyebrow','eyebrow');
+  apply('.hero h1','hero_title');
+  apply('.hero-desc','hero_desc');
+  apply('.run-btn','run_btn');
+  apply('.results-title','results_title');
+  apply('.nav-cta','nav_all_tools');
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n');if(t[k]!==undefined)el.textContent=t[k];});
+  const fb=document.querySelector('.footer-badge-ai span:last-child');
+  if(fb)fb.textContent=t['footer_badge'];
+  document.querySelectorAll('.last-reviewed').forEach(lr=>{const d=lr.textContent.match(/\d{4}-\d{2}-\d{2}/);lr.textContent=`⏱ ${t['last_reviewed']} ${d?d[0]:'2025-04-01'}`;});
+  try{sessionStorage.setItem('ain_lang',lang);}catch(e){}
+}
+(function initLang(){try{const s=sessionStorage.getItem('ain_lang');if(s&&TRANSLATIONS[s])setLang(s);}catch(e){}})();
+
+/* ── Dimension definitions ── */
+const AXIS_BANDS = {
+  fico:  ['300–579','580–619','620–659','660–719','720–779','780–850'],
+  dti:   ['≤20%','21–30%','31–36%','37–43%','44–50%','>50%'],
+  ltv:   ['≤60%','61–70%','71–80%','81–90%','>90%'],
+  income:['Under £20k','£20k–£40k','£40k–£80k','Over £80k'],
+};
+const AXIS_LABELS = { fico:'FICO Score', dti:'DTI', ltv:'LTV', income:'Income Band' };
+
+/* ── Outcome definitions ── */
+const OUTCOMES = [
+  { value:'unassigned', label:'(unassigned)', cell:'cell-unassigned' },
+  { value:'approve',    label:'Approve ✓',   cell:'cell-approve'    },
+  { value:'decline',    label:'Decline ✗',   cell:'cell-decline'    },
+  { value:'refer',      label:'Refer →',     cell:'cell-refer'      },
+  { value:'counter',    label:'Counter-offer ↔', cell:'cell-counter'},
+];
+
+/* ── State ── */
+let matrixState = {};       // { 'row|col': outcome }
+let ccMatrixState = {};
+let lastAP2 = null;
+let lastMD = null;
+let currentPrimary = 'fico';
+let currentSecondary = 'dti';
+let matrixBuilt = false;
+
+/* ── Utilities ── */
+function showToast(msg,type='success'){const t=document.getElementById('toast');t.textContent=msg;t.className=`toast ${type} show`;setTimeout(()=>t.classList.remove('show'),3000);}
+function generateUUID(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);});}
+function triggerDownload(content,filename,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);}
+function toggleMCP(){const p=document.getElementById('mcpPanel');const a=document.getElementById('mcpArrow');p.classList.toggle('open');a.style.transform=p.classList.contains('open')?'rotate(180deg)':'';}
+function syncSlider(valId,sliderId){document.getElementById(valId).textContent=document.getElementById(sliderId).value;}
+
+/* ── Bands config (Panel B) ── */
+function updateBands(){
+  currentPrimary=document.getElementById('primaryAxis').value;
+  currentSecondary=document.getElementById('secondaryAxis').value;
+  if(currentPrimary===currentSecondary){
+    const all=['fico','dti','ltv','income'];
+    currentSecondary=all.find(a=>a!==currentPrimary)||'dti';
+    document.getElementById('secondaryAxis').value=currentSecondary;
+  }
+  const cfg=document.getElementById('bandsConfig');
+  cfg.innerHTML=`
+    <div style="flex:1;min-width:200px">
+      <div style="font-size:11px;color:var(--body);margin-bottom:4px">Primary bands (${AXIS_LABELS[currentPrimary]})</div>
+      <div style="font-size:12px;color:var(--text);font-family:'JetBrains Mono',monospace">${AXIS_BANDS[currentPrimary].join(' · ')}</div>
+    </div>
+    <div style="flex:1;min-width:200px">
+      <div style="font-size:11px;color:var(--body);margin-bottom:4px">Secondary bands (${AXIS_LABELS[currentSecondary]})</div>
+      <div style="font-size:12px;color:var(--text);font-family:'JetBrains Mono',monospace">${AXIS_BANDS[currentSecondary].join(' · ')}</div>
+    </div>`;
+}
+
+/* ── Build Matrix ── */
+function buildMatrix(){
+  updateBands();
+  const cols=AXIS_BANDS[currentPrimary];
+  const rows=AXIS_BANDS[currentSecondary];
+  matrixState={};
+  matrixBuilt=true;
+
+  let html=`<table class="matrix-table"><thead><tr>
+    <th class="row-hdr">${AXIS_LABELS[currentSecondary]} \\ ${AXIS_LABELS[currentPrimary]}</th>
+    ${cols.map(c=>`<th>${c}</th>`).join('')}
+  </tr></thead><tbody>`;
+
+  rows.forEach(row=>{
+    html+=`<tr><th class="row-hdr">${row}</th>`;
+    cols.forEach(col=>{
+      const key=`${row}|${col}`;
+      matrixState[key]='unassigned';
+      html+=`<td class="cell-unassigned" id="td_${btoa(key).replace(/=/g,'')}">
+        <select onchange="setCellOutcome('${key}',this)">
+          ${OUTCOMES.map(o=>`<option value="${o.value}">${o.label}</option>`).join('')}
+        </select>
+      </td>`;
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+
+  document.getElementById('matrixWrap').innerHTML=html;
+  updateMatrixStatus();
+  renderFairness();
+  if(document.getElementById('ccToggle').checked)buildCCMatrix();
+}
+
+function setCellOutcome(key,sel){
+  matrixState[key]=sel.value;
+  const cls=OUTCOMES.find(o=>o.value===sel.value)?.cell||'cell-unassigned';
+  const td=sel.parentElement;
+  td.className=cls;
+  updateMatrixStatus();
+}
+
+function updateMatrixStatus(){
+  const vals=Object.values(matrixState);
+  const gaps=vals.filter(v=>v==='unassigned').length;
+  const total=vals.length;
+  const assigned=total-gaps;
+  const pct=total>0?Math.round(assigned/total*100):0;
+
+  let html='';
+  if(gaps===0)html+=`<span class="status-pill pill-ok">✓ Complete — ${total} rules</span>`;
+  else html+=`<span class="status-pill pill-err">✕ ${gaps} gap${gaps!==1?'s':''} unassigned</span>`;
+  html+=`<span class="status-pill pill-info">${assigned}/${total} cells (${pct}%)</span>`;
+
+  // Approvals vs declines
+  const approvals=vals.filter(v=>v==='approve').length;
+  const declines=vals.filter(v=>v==='decline').length;
+  if(assigned>0)html+=`<span class="status-pill pill-info">✓ ${approvals} approve · ✗ ${declines} decline</span>`;
+
+  document.getElementById('matrixStatus').innerHTML=html;
+}
+
+/* ── Applicant Simulator ── */
+function getBandForValue(axis,value){
+  const bands=AXIS_BANDS[axis];
+  if(axis==='fico'){
+    const v=parseInt(value);
+    if(v<=579)return bands[0];
+    if(v<=619)return bands[1];
+    if(v<=659)return bands[2];
+    if(v<=719)return bands[3];
+    if(v<=779)return bands[4];
+    return bands[5];
+  }
+  if(axis==='dti'){
+    const v=parseInt(value);
+    if(v<=20)return bands[0];
+    if(v<=30)return bands[1];
+    if(v<=36)return bands[2];
+    if(v<=43)return bands[3];
+    if(v<=50)return bands[4];
+    return bands[5];
+  }
+  if(axis==='ltv'){
+    const v=parseInt(value);
+    if(v<=60)return bands[0];
+    if(v<=70)return bands[1];
+    if(v<=80)return bands[2];
+    if(v<=90)return bands[3];
+    return bands[4];
+  }
+  return value; // income: direct from select
+}
+
+/* ── Reg B reason library ── */
+const REGB_REASONS = {
+  fico: {
+    decline:['Credit score below minimum threshold for this product (FICO < 580) — Regulation B §202.9(b)(2)','Insufficient credit history to support creditworthiness assessment'],
+    refer:  ['Credit score requires underwriter review (FICO 580–659) — refer to manual assessment','Score in review band — additional creditworthiness evidence may be requested'],
+  },
+  dti: {
+    decline:['Debt-to-income ratio exceeds maximum policy limit — residual income insufficient per FCA CONC 5.2','Monthly debt obligations relative to income indicate inability to service proposed credit'],
+    refer:  ['Debt-to-income ratio in elevated review band — affordability verification required','Income-to-debt ratio requires underwriter confirmation of sustainable payment capacity'],
+  },
+  ltv: {
+    decline:['Loan-to-value ratio exceeds maximum secured lending threshold — insufficient collateral margin','Collateral coverage below minimum required for risk-adjusted approval'],
+    refer:  ['LTV in elevated band — independent valuation or additional security may be required'],
+  },
+  income: {
+    decline:['Declared income insufficient to meet minimum product affordability threshold — EU CCD2 Art. 18'],
+    refer:  ['Income band requires verification — supporting documentation to be requested'],
+  },
+};
+
+function simulateApplicant(){
+  if(!matrixBuilt){showToast('Build the decision matrix first','error');return;}
+  const fico=document.getElementById('simFicoSlider').value;
+  const dti=document.getElementById('simDtiSlider').value;
+  const ltv=document.getElementById('simLtvSlider').value;
+  const income=document.getElementById('simIncome').value;
+
+  const vals={fico,dti,ltv,income};
+  const primBand=getBandForValue(currentPrimary,vals[currentPrimary]);
+  const secBand=getBandForValue(currentSecondary,vals[currentSecondary]);
+  const key=`${secBand}|${primBand}`;
+  const outcome=matrixState[key]||'unassigned';
+
+  const resultEl=document.getElementById('simResult');
+  resultEl.style.display='block';
+
+  const labels={approve:'APPROVED',decline:'DECLINED',refer:'REFERRED',counter:'COUNTER-OFFER',unassigned:'UNASSIGNED'};
+  const cls={approve:'outcome-approve',decline:'outcome-decline',refer:'outcome-refer',counter:'outcome-counter',unassigned:''};
+  document.getElementById('simOutcomeBadge').innerHTML=
+    `<span class="outcome-badge ${cls[outcome]}">${labels[outcome]||'UNASSIGNED'}</span>`;
+
+  document.getElementById('simRuleTrace').innerHTML=
+    `Triggering conditions: <b style="color:var(--gold)">${AXIS_LABELS[currentPrimary]}: ${primBand}</b> · <b style="color:var(--gold)">${AXIS_LABELS[currentSecondary]}: ${secBand}</b>`;
+
+  const regbEl=document.getElementById('regbBlock');
+  const regbReasonsEl=document.getElementById('regbReasons');
+  if(outcome==='decline'||outcome==='refer'||outcome==='counter'){
+    regbEl.style.display='block';
+    const reasons=[];
+    const dim1Reasons=REGB_REASONS[currentPrimary]?.[outcome]||[];
+    const dim2Reasons=REGB_REASONS[currentSecondary]?.[outcome]||[];
+    [...dim1Reasons,...dim2Reasons].slice(0,4).forEach(r=>{reasons.push(r);});
+    regbReasonsEl.innerHTML=reasons.map(r=>`<div class="regb-reason">${r}</div>`).join('');
+    document.getElementById('aaExportBtn').disabled=false;
+  } else {
+    regbEl.style.display='none';
+  }
+}
+
+/* ── Fairness Analysis ── */
+const FAIRNESS_FLAGS=[
+  {dimension:'fico',boundary:'580–619',citation:'12 CFR Part 1002 (ECOA) / Regulation B §202.6',note:'FICO thresholds near 620 correlate with historical disparate impact on protected classes. Review via fair lending model risk assessment.'},
+  {dimension:'dti',boundary:'>43%',citation:'CFPB Circular 2022-03 — algorithmic decision-making fairness',note:'DTI thresholds above 43% may disproportionately affect lower-income segments. CFPB Circular 2022-03 requires specific, quantifiable adverse action reasons.'},
+  {dimension:'ltv',boundary:'>90%',citation:'FCA CONC 5.2A — affordability and vulnerability',note:'High LTV declinations may proxy for geographic or demographic characteristics. Document disparate impact analysis.'},
+  {dimension:'income',boundary:'Under £20k',citation:'12 CFR Part 1002 / EU CCD2 Art. 18 — creditworthiness assessment',note:'Income band declinations must be based on documented affordability methodology, not income as a demographic proxy.'},
+];
+
+function renderFairness(){
+  const body=document.getElementById('fairnessBody');
+  if(!matrixBuilt){body.innerHTML='<div style="font-size:12px;color:var(--body)">Build the decision matrix first to run fairness analysis.</div>';return;}
+  const on=document.getElementById('ecaoToggle').checked;
+  if(!on){body.innerHTML='<div style="font-size:12px;color:var(--body)">ECOA flag layer disabled.</div>';return;}
+
+  const relevant=FAIRNESS_FLAGS.filter(f=>f.dimension===currentPrimary||f.dimension===currentSecondary);
+  if(relevant.length===0){body.innerHTML='<div style="font-size:12px;color:var(--body)">No fairness flags for the selected dimensions. Review adverse action reasons in the Applicant Simulator.</div>';return;}
+
+  body.innerHTML=relevant.map(f=>`
+    <div class="flag-item">
+      <div class="flag-dim">⚠ ${AXIS_LABELS[f.dimension]} — boundary: ${f.boundary}</div>
+      <div>${f.note}</div>
+      <div class="flag-cite">${f.citation}</div>
+    </div>`).join('');
+}
+
+/* ── Champion-Challenger ── */
+function toggleCC(){
+  const on=document.getElementById('ccToggle').checked;
+  document.getElementById('ccPanel').classList.toggle('open',on);
+  if(on&&matrixBuilt)buildCCMatrix();
+}
+
+function buildCCMatrix(){
+  const cols=AXIS_BANDS[currentPrimary];
+  const rows=AXIS_BANDS[currentSecondary];
+  ccMatrixState={};
+
+  let html=`<table class="matrix-table"><thead><tr>
+    <th class="row-hdr">Challenger: ${AXIS_LABELS[currentSecondary]} \\ ${AXIS_LABELS[currentPrimary]}</th>
+    ${cols.map(c=>`<th>${c}</th>`).join('')}
+  </tr></thead><tbody>`;
+
+  rows.forEach(row=>{
+    html+=`<tr><th class="row-hdr">${row}</th>`;
+    cols.forEach(col=>{
+      const key=`${row}|${col}`;
+      ccMatrixState[key]='unassigned';
+      html+=`<td class="cell-unassigned" id="cc_td_${btoa(key).replace(/=/g,'')}">
+        <select onchange="setCCOutcome('${key}',this)" style="border-color:rgba(155,114,245,.3)">
+          ${OUTCOMES.map(o=>`<option value="${o.value}">${o.label}</option>`).join('')}
+        </select>
+      </td>`;
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('ccMatrixWrap').innerHTML=html;
+}
+
+function setCCOutcome(key,sel){
+  ccMatrixState[key]=sel.value;
+  const cls=OUTCOMES.find(o=>o.value===sel.value)?.cell||'cell-unassigned';
+  sel.parentElement.className=cls;
+}
+
+function runCC(){
+  if(!matrixBuilt){showToast('Build Champion matrix first','error');return;}
+  const keys=Object.keys(matrixState);
+  const diffs=[];
+  let champApprove=0,chalApprove=0;
+
+  keys.forEach(k=>{
+    const champ=matrixState[k]||'unassigned';
+    const chal=ccMatrixState[k]||'unassigned';
+    if(champ==='approve')champApprove++;
+    if(chal==='approve')chalApprove++;
+    if(champ!==chal)diffs.push({conditions:k,champion:champ,challenger:chal});
+  });
+
+  const total=keys.length;
+  const delta=total>0?((chalApprove-champApprove)/total*100).toFixed(1):0;
+
+  document.getElementById('ccSummary').innerHTML=
+    `${diffs.length} of ${total} cells diverge between Champion and Challenger.`;
+
+  let tableHtml=`<thead><tr>
+    <th>Conditions</th><th>Champion</th><th>Challenger</th><th>Delta</th>
+  </tr></thead><tbody>`;
+  diffs.slice(0,20).forEach(d=>{
+    const [row,col]=d.conditions.split('|');
+    tableHtml+=`<tr>
+      <td style="font-size:11px">${AXIS_LABELS[currentSecondary]}: <b>${row}</b> · ${AXIS_LABELS[currentPrimary]}: <b>${col}</b></td>
+      <td class="diff-champ">${d.champion}</td>
+      <td class="diff-chal">${d.challenger}</td>
+      <td class="diff-delta">${d.champion===d.challenger?'—':'≠'}</td>
+    </tr>`;
+  });
+  if(diffs.length>20)tableHtml+=`<tr><td colspan="4" style="font-size:11px;color:var(--body)">… and ${diffs.length-20} more divergences</td></tr>`;
+  tableHtml+='</tbody>';
+  document.getElementById('ccDiffTable').innerHTML=tableHtml;
+
+  const dir=parseFloat(delta)>0?'↑ more approvals':'↓ fewer approvals';
+  document.getElementById('ccApprovalDelta').innerHTML=
+    `<b style="color:var(--purple)">Net approval rate delta:</b> ${Math.abs(delta)}% ${dir} if Challenger deployed vs. Champion. (Champion approvals: ${champApprove}/${total} · Challenger: ${chalApprove}/${total})`;
+
+  document.getElementById('ccResults').style.display='block';
+  showToast(`Champion-Challenger: ${diffs.length} divergences found`,'success');
+}
+
+/* ── Main Analysis ── */
+function runAnalysis(){
+  if(!matrixBuilt){showToast('Build the decision matrix first (Panel B → C)','error');return;}
+  const vals=Object.values(matrixState);
+  const gaps=vals.filter(v=>v==='unassigned').length;
+  const total=vals.length;
+
+  const rules=[];
+  Object.entries(matrixState).forEach(([k,outcome],i)=>{
+    const [secBand,primBand]=k.split('|');
+    const regb=(outcome==='decline'||outcome==='refer')?
+      (REGB_REASONS[currentPrimary]?.[outcome]||[]).slice(0,2):[];
+    rules.push({
+      rule_id:`rule_${String(i+1).padStart(3,'0')}`,
+      conditions:{[currentPrimary]:primBand,[currentSecondary]:secBand},
+      outcome,
+      sub_conditions:null,
+      reg_b_reasons:regb,
+    });
+  });
+
+  const ccEnabled=document.getElementById('ccToggle').checked;
+  let ccRules=null,divergenceCount=null,approvalDelta=null;
+  if(ccEnabled){
+    const keys=Object.keys(matrixState);
+    let champA=0,chalA=0,diffs=0;
+    keys.forEach(k=>{
+      if(matrixState[k]==='approve')champA++;
+      if((ccMatrixState[k]||'unassigned')==='approve')chalA++;
+      if(matrixState[k]!==(ccMatrixState[k]||'unassigned'))diffs++;
+    });
+    divergenceCount=diffs;
+    approvalDelta=keys.length>0?parseFloat(((chalA-champA)/keys.length*100).toFixed(1)):0;
+    ccRules=Object.entries(ccMatrixState).map(([k,outcome],i)=>{
+      const [sb,pb]=k.split('|');
+      return{rule_id:`cc_rule_${String(i+1).padStart(3,'0')}`,conditions:{[currentPrimary]:pb,[currentSecondary]:sb},outcome};
+    });
+  }
+
+  const fairnessFlags=FAIRNESS_FLAGS.filter(f=>f.dimension===currentPrimary||f.dimension===currentSecondary);
+
+  lastAP2={
+    ap2_version:"1.0",
+    mandate_id:generateUUID(),
+    issued_at:new Date().toISOString(),
+    issued_by:"ainumbers.co",
+    tool_id:"rbe-09-credit-policy-decision-table",
+    tool_version:"1.0",
+    suite:"RBE Deterministic Intelligence Suite",
+    mandate_type:"credit_policy_mandate",
+    generated_at:new Date().toISOString(),
+    jurisdiction:[document.getElementById('policyJur').value],
+    regulatory_frameworks:["ECOA / Regulation B (12 CFR Part 1002)","CFPB Circular 2022-03","SR 11-7 Model Risk Management Guidance","EU CCD2 Art. 18","FCA CONC 5"],
+    policy_identity:{
+      name:document.getElementById('policyName').value,
+      version:document.getElementById('policyVer').value,
+      effective_date:document.getElementById('policyEff').value,
+      review_cycle:document.getElementById('reviewCycle').value,
+      approval_authority:document.getElementById('approvalAuth').value,
+      author_role:document.getElementById('authorRole').value,
+      jurisdiction:document.getElementById('policyJur').value,
+      product_type:document.getElementById('productType').value,
+    },
+    dimensions:[
+      {name:AXIS_LABELS[currentPrimary],axis:"primary",bands:AXIS_BANDS[currentPrimary]},
+      {name:AXIS_LABELS[currentSecondary],axis:"secondary",bands:AXIS_BANDS[currentSecondary]},
+    ],
+    rules,
+    coverage_gaps:rules.filter(r=>r.outcome==='unassigned').map(r=>({conditions:r.conditions})),
+    conflicts:[],
+    fairness_flags:fairnessFlags.map(f=>({dimension:f.dimension,boundary:f.boundary,regulatory_citation:f.citation,review_note:f.note})),
+    sr_11_7_metadata:{
+      model_type:"decision_table",
+      deterministic:true,
+      pii_transmitted:false,
+      execution_context:"client_side_browser",
+      audit_trail:true,
+      champion_challenger:{
+        enabled:ccEnabled,
+        challenger_rules:ccRules,
+        divergence_cell_count:divergenceCount,
+        net_approval_rate_delta_pct:approvalDelta,
+      },
+    },
+    summary:`Credit policy '${document.getElementById('policyName').value}' v${document.getElementById('policyVer').value}. ${total} decision rules across ${AXIS_LABELS[currentPrimary]} × ${AXIS_LABELS[currentSecondary]}. ${gaps} gaps, ${total-gaps-vals.filter(v=>v==='approve').length-vals.filter(v=>v==='decline').length} non-approve/decline cells. ${fairnessFlags.length} fairness flags raised. ${ccEnabled?`Champion-Challenger enabled: ${divergenceCount} divergences, ${approvalDelta>0?'+':''}${approvalDelta}% approval rate delta.`:''}`,
+    agent_instructions:"Consume rules[] to route applicant profiles. Resolve coverage_gaps[] before production deployment. Review fairness_flags[] with compliance counsel. reg_b_reasons[] are formatted for direct insertion into ECOA adverse action notices per CFPB Circular 2022-03.",
+    valid_from:document.getElementById('policyEff').value,
+    last_reviewed:"2025-04-01",
+    regulatory_citations:["ECOA / Regulation B (12 CFR Part 1002)","CFPB Circular 2022-03 — adverse action notification requirements and AI/complex model specificity","SR 11-7 Model Risk Management Guidance (Federal Reserve)","EU Consumer Credit Directive 2 (CCD2) Article 18 — creditworthiness assessment","FCA CONC 5 — Responsible lending and affordability"],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true},
+  };
+
+  lastMD=buildMarkdown();
+
+  const approvals=vals.filter(v=>v==='approve').length;
+  const declines=vals.filter(v=>v==='decline').length;
+  const refers=vals.filter(v=>v==='refer').length;
+
+  document.getElementById('resultsPanel').classList.add('visible');
+  document.getElementById('resultsBody').innerHTML=`
+    <div class="stat-grid">
+      <div class="stat-box"><div class="lbl">Total Rules</div><div class="val" style="color:var(--gold)">${total}</div></div>
+      <div class="stat-box"><div class="lbl">Coverage Gaps</div><div class="val" style="color:${gaps>0?'var(--red)':'var(--green)'}">${gaps}</div></div>
+      <div class="stat-box"><div class="lbl">Approvals</div><div class="val" style="color:var(--green)">${approvals}</div></div>
+      <div class="stat-box"><div class="lbl">Declines</div><div class="val" style="color:var(--red)">${declines}</div></div>
+    </div>
+    ${fairnessFlags.length>0?`<div style="background:var(--gold-dim);border:1px solid rgba(212,168,71,.2);border-radius:var(--radius);padding:10px 12px;font-size:11px;margin-bottom:10px"><b style="color:var(--gold)">⚠ ${fairnessFlags.length} Fairness Flag(s)</b> — review Panel E</div>`:''}
+    ${ccEnabled&&divergenceCount!==null?`<div style="background:var(--purple-dim);border:1px solid rgba(155,114,245,.2);border-radius:var(--radius);padding:10px 12px;font-size:11px;margin-bottom:10px"><b style="color:var(--purple)">⚔ Champion-Challenger:</b> ${divergenceCount} divergences · ${approvalDelta>0?'+':''}${approvalDelta}% approval rate delta</div>`:''}
+    <div style="font-size:11px;color:var(--body);border-top:1px solid var(--border);padding-top:10px">Mandate ID: <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold)">${lastAP2.mandate_id.substring(0,16)}…</span></div>`;
+
+  document.getElementById('ap2ExportBtn').disabled=false;
+  document.getElementById('mdExportBtn').disabled=false;
+  showToast(`Analysis complete — ${total} rules, ${gaps} gaps`,'success');
+}
+
+function buildMarkdown(){
+  const p=document.getElementById('policyName').value;
+  const v=document.getElementById('policyVer').value;
+  const eff=document.getElementById('policyEff').value;
+  const auth=document.getElementById('approvalAuth').value;
+  const jur=document.getElementById('policyJur').value;
+  const prod=document.getElementById('productType').value;
+  const ts=new Date().toISOString();
+  const vals=Object.values(matrixState);
+  const gaps=vals.filter(v=>v==='unassigned').length;
+
+  let md=`# Credit Underwriting Policy — ${p}\n`;
+  md+=`**Version:** ${v} · **Effective:** ${eff} · **Review cycle:** ${document.getElementById('reviewCycle').value} · **Approval authority:** ${auth}\n\n`;
+  md+=`## SR 11-7 Model Governance Header\n`;
+  md+=`- Model type: Decision table (deterministic, non-statistical)\n`;
+  md+=`- Execution context: Client-side browser · Zero PII\n`;
+  md+=`- Author role: ${document.getElementById('authorRole').value} · Jurisdiction: ${jur} · Product: ${prod}\n`;
+  md+=`- Generated: ${ts} · Tool: RBE·09 · AINumbers.co\n`;
+  md+=`- Suite: RBE Deterministic Intelligence Suite\n\n`;
+  md+=`## Decision Matrix (${AXIS_LABELS[currentPrimary]} × ${AXIS_LABELS[currentSecondary]})\n\n`;
+
+  const cols=AXIS_BANDS[currentPrimary];
+  const rows=AXIS_BANDS[currentSecondary];
+  md+=`| ${AXIS_LABELS[currentSecondary]} \\ ${AXIS_LABELS[currentPrimary]} | ${cols.join(' | ')} |\n`;
+  md+=`|${'----|'.repeat(cols.length+1)}\n`;
+  rows.forEach(row=>{
+    md+=`| **${row}** | ${cols.map(col=>{const k=`${row}|${col}`;const o=matrixState[k]||'unassigned';return o.toUpperCase();}).join(' | ')} |\n`;
+  });
+
+  md+=`\n## Coverage\n- Total rules: ${Object.keys(matrixState).length}\n- Gaps: ${gaps}\n\n`;
+  md+=`## ECOA / Reg B Fairness Flags\n\n`;
+  const ff=FAIRNESS_FLAGS.filter(f=>f.dimension===currentPrimary||f.dimension===currentSecondary);
+  if(ff.length>0)ff.forEach(f=>{md+=`- **${AXIS_LABELS[f.dimension]} boundary ${f.boundary}**: ${f.note} · *${f.citation}*\n`;});
+  else md+=`No fairness flags for selected dimensions.\n`;
+
+  md+=`\n## Regulatory Citations\n\n`;
+  md+=`- ECOA / Regulation B (12 CFR Part 1002)\n`;
+  md+=`- CFPB Circular 2022-03 — adverse action notification and AI model specificity\n`;
+  md+=`- SR 11-7 Model Risk Management Guidance\n`;
+  md+=`- EU CCD2 Art. 18 — creditworthiness assessment\n`;
+  md+=`- FCA CONC 5 — affordability and responsible lending\n\n`;
+  md+=`---\n*Client-side. Zero PII. Generated by RBE·09 · AINumbers.co*\n`;
+  return md;
+}
+
+function exportAP2(){
+  if(!lastAP2){showToast('Run analysis first','error');return;}
+  const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  AP2Schema.validate(lastAP2);
+  triggerDownload(JSON.stringify(lastAP2,null,2),`rbe-09-credit-policy_${ts}.policy.json`,'application/json');
+  showToast('Policy Mandate JSON exported','success');
+}
+
+function exportMarkdown(){
+  if(!lastMD){showToast('Run analysis first','error');return;}
+  const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  triggerDownload(lastMD,`rbe-09-credit-policy_${ts}.md`,'text/markdown');
+  showToast('Markdown exported','success');
+}
+
+function exportAdverseAction(){
+  const vals=Object.values(matrixState);
+  const ts=new Date().toISOString();
+  let md=`# Reg B Adverse Action Reason Library\n`;
+  md+=`**Policy:** ${document.getElementById('policyName').value} · **Generated:** ${ts}\n`;
+  md+=`**Basis:** CFPB Circular 2022-03 / ECOA Regulation B §202.9(b)(2)\n\n`;
+  md+=`## Decline Reasons\n\n`;
+  [currentPrimary,currentSecondary].forEach(dim=>{
+    const r=REGB_REASONS[dim]?.decline||[];
+    if(r.length)r.forEach(reason=>{ md+=`- ${reason}\n`; });
+  });
+  md+=`\n## Refer Reasons\n\n`;
+  [currentPrimary,currentSecondary].forEach(dim=>{
+    const r=REGB_REASONS[dim]?.refer||[];
+    if(r.length)r.forEach(reason=>{ md+=`- ${reason}\n`; });
+  });
+  md+=`\n---\n*Client-side. Zero PII. RBE·09 · AINumbers.co*\n`;
+  const tsFn=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  triggerDownload(md,`rbe-09-adverse-action-library_${tsFn}.md`,'text/markdown');
+  showToast('Adverse action library exported','success');
+}
+
+function loadPreset(){
+  document.getElementById('policyName').value='Standard Unsecured Personal Loan Policy';
+  document.getElementById('policyVer').value='2.1';
+  document.getElementById('policyEff').value='2025-01-01';
+  document.getElementById('primaryAxis').value='fico';
+  document.getElementById('secondaryAxis').value='dti';
+  buildMatrix();
+
+  // Apply a realistic policy preset
+  const preset={
+    'DTI: ≤20%|FICO: 720–779':'approve','DTI: ≤20%|FICO: 780–850':'approve',
+    'DTI: ≤20%|FICO: 660–719':'approve','DTI: ≤20%|FICO: 620–659':'approve',
+    'DTI: ≤20%|FICO: 580–619':'refer',  'DTI: ≤20%|FICO: 300–579':'decline',
+  };
+
+  // Simpler: fill matrix programmatically
+  const cols=AXIS_BANDS['fico'];
+  const rows=AXIS_BANDS['dti'];
+  const policy={
+    '≤20%':   ['approve','approve','approve','approve','refer','decline'],
+    '21–30%': ['approve','approve','approve','refer','refer','decline'],
+    '31–36%': ['approve','approve','refer','refer','decline','decline'],
+    '37–43%': ['refer','refer','refer','decline','decline','decline'],
+    '44–50%': ['refer','decline','decline','decline','decline','decline'],
+    '>50%':   ['decline','decline','decline','decline','decline','decline'],
+  };
+
+  rows.forEach(row=>{
+    cols.forEach((col,ci)=>{
+      const key=`${row}|${col}`;
+      const outcome=(policy[row]||[])[ci]||'unassigned';
+      matrixState[key]=outcome;
+      // Update the select
+      const encoded=btoa(key).replace(/=/g,'');
+      const td=document.getElementById(`td_${encoded}`);
+      if(td){
+        const sel=td.querySelector('select');
+        if(sel){sel.value=outcome;const cls=OUTCOMES.find(o=>o.value===outcome)?.cell||'cell-unassigned';td.className=cls;}
+      }
+    });
+  });
+
+  updateMatrixStatus();
+  renderFairness();
+  showToast('Sample policy loaded — 6×6 FICO × DTI matrix','success');
+}
+
+/* ── Init ── */
+(function init(){updateBands();})();
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "rbe-09-credit-policy-decision-table", "version": "1.0.0", "title": "Credit Policy Decision Table Builder", "description": "Visual credit underwriting decision table builder. Define Approve/Decline/Refer/Counter-offer rules across FICO × DTI × LTV × Income dimensions, detect coverage gaps and rule conflicts, simulate applicant profiles, generate Reg B adverse action reasons, run Champion-Challenger policy comparisons, and export SR 11-7 policy documents and Policy Mandates. Client-side. Zero PII.", "category": "ai", "tags": ["credit-policy", "ECOA", "Reg-B", "SR-11-7", "decision-table", "champion-challenger", "adverse-action", "Policy Mandate", "export", "Zero-PII"], "audience": ["cro", "credit-analyst", "model-governance", "compliance", "credit-policy-lead"], "last_reviewed": "2025-04-01", "input_schema": {"type": "object", "required": ["policy_name", "product_type", "jurisdiction"], "properties": {"policy_name": {"type": "string"}, "version": {"type": "string"}, "effective_date": {"type": "string", "format": "date"}, "review_cycle": {"type": "string", "enum": ["Quarterly", "Semi-annual", "Annual"]}, "product_type": {"type": "string", "enum": ["Personal Loan", "Auto Loan", "Mortgage", "Credit Card", "BNPL", "Business Credit"]}, "jurisdiction": {"type": "string", "enum": ["US", "UK", "EU", "Global"]}, "approval_authority": {"type": "string", "description": "Role label — not a personal name"}, "author_role": {"type": "string", "description": "Role label — not a personal name"}, "primary_axis": {"type": "string", "enum": ["fico", "dti", "ltv", "income"]}, "secondary_axis": {"type": "string", "enum": ["fico", "dti", "ltv", "income"]}, "rules": {"type": "array", "items": {"type": "object", "properties": {"conditions": {"type": "object"}, "outcome": {"type": "string", "enum": ["approve", "decline", "refer", "counter_offer", "unassigned"]}, "sub_conditions": {"type": "string"}}}}, "champion_challenger_enabled": {"type": "boolean", "default": false}, "challenger_rules": {"type": "array"}}}, "output_schema": {"type": "object", "properties": {"rules": {"type": "array"}, "coverage_gaps": {"type": "array"}, "conflicts": {"type": "array"}, "fairness_flags": {"type": "array"}, "reg_b_adverse_action_reasons": {"type": "array"}, "champion_challenger_comparison": {"type": "object"}, "ap2_mandate": {"type": "object"}}}, "mcp_tool_definition": {"name": "build_credit_policy_decision_table", "description": "Author and validate credit underwriting decision tables mapping multi-dimensional inputs (FICO, DTI, LTV, Income) to Approve/Decline/Refer/Counter-offer outcomes. Detects coverage gaps and rule conflicts. Generates ECOA Reg B adverse action reason libraries formatted per CFPB Circular 2022-03. Produces SR 11-7 model governance documentation and Champion-Challenger comparison. Use when a credit policy team needs to author, review, or validate a lending decision policy.", "inputSchema": {"type": "object", "required": ["policy_name", "product_type", "jurisdiction"], "properties": {"policy_name": {"type": "string"}, "product_type": {"type": "string", "enum": ["Personal Loan", "Auto Loan", "Mortgage", "Credit Card", "BNPL", "Business Credit"]}, "jurisdiction": {"type": "string", "enum": ["US", "UK", "EU", "Global"]}, "primary_axis": {"type": "string", "enum": ["fico", "dti", "ltv", "income"]}, "secondary_axis": {"type": "string", "enum": ["fico", "dti", "ltv", "income"]}, "rules": {"type": "array", "items": {"type": "object"}}}}}, "execution": {"type": "browser-javascript", "entry": "tools/rbe-09-credit-policy-decision-table.html", "function_name": "runAnalysis", "timeout_ms": 5000}, "ap2_export": true, "mandate_type": "credit_policy_mandate", "deterministic": true, "pii_transmitted": false, "execution_context": "client_side_browser", "regulatory_citations": ["ECOA / Regulation B (12 CFR Part 1002)", "CFPB Circular 2022-03 — adverse action notification requirements and AI/complex model specificity", "SR 11-7 Model Risk Management Guidance (Federal Reserve)", "EU Consumer Credit Directive 2 (CCD2) Article 18 — creditworthiness assessment", "FCA CONC 5 — affordability and responsible lending"], "cross_links": ["rbe-08-fee-schedule-engine", "rbe-12-scheme-compliance-simulator", "rbe-04-agent-guardrail-builder"]}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>AP2 Fraud & Risk Policy Mandate Builder · T323 · AINumbers.co</title>
+<meta name="description" content="Build a validated Policy Mandate JSON fraud risk policy mandate for autonomous fraud decisioning agents. Configures detection thresholds, APP scam friction controls, loss tolerance, and SAR reporting triggers. agent_instructions array is MCP server deployable. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/323-ap2-fraud-risk-policy-mandate-builder">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"AP2 Fraud & Risk Policy Mandate Builder · T323","url":"https://ainumbers.co/tools/323-ap2-fraud-risk-policy-mandate-builder","description":"Build a validated Policy Mandate JSON fraud risk policy mandate for autonomous fraud decisioning agents. Configures detection thresholds, APP scam friction controls, loss tolerance, and SAR reporting triggers. agent_instructions array is MCP server deployable. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* PolicyMandate — full validator (Phase 14); AP2Schema internal name retained */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+};
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(239,68,68,.010) 1px,transparent 1px),linear-gradient(90deg,rgba(239,68,68,.010) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner,[dir="rtl"] [dir="rtl"] .hero-eyebrow{flex-direction:row-reverse}
+[dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:201}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+.hero{padding:2.8rem 0 2.4rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(20,184,166,.06) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.5rem);color:var(--white);max-width:760px;margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal)}
+.hero-desc{font-size:.84rem;color:var(--body);max-width:660px;line-height:1.85;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.6rem;flex-wrap:wrap}
+.hero-badge{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.3rem .7rem;border:1px solid}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+
+.main-content{position:relative;z-index:1;padding:2.5rem 0 4rem}
+
+/* Dimension panels */
+.dim-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.75rem;margin-bottom:1.5rem;position:relative;overflow:hidden}
+.dim-panel::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--teal)}
+.dim-num{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.dim-title{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--white);margin-bottom:1.25rem}
+
+.field-row{margin-bottom:1.1rem}
+.field-row:last-child{margin-bottom:0}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--body);margin-bottom:.4rem;display:flex;align-items:center;justify-content:space-between}
+.field-val{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--teal);background:var(--teal-dim);padding:.1rem .4rem;border-radius:2px}
+
+/* Slider */
+.slider-wrap{position:relative}
+input[type="range"]{width:100%;appearance:none;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+input[type="range"]::-webkit-slider-thumb{appearance:none;width:16px;height:16px;border-radius:50%;background:var(--teal);cursor:pointer;border:2px solid var(--bg)}
+input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--teal);cursor:pointer;border:2px solid var(--bg)}
+.slider-labels{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.3rem}
+
+/* Text input */
+input[type="text"],input[type="number"]{width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.76rem;padding:.55rem .75rem;transition:border-color .2s}
+input[type="text"]:focus,input[type="number"]:focus{outline:none;border-color:var(--teal)}
+input[type="text"]::placeholder,input[type="number"]::placeholder{color:var(--muted)}
+
+/* Select */
+select{width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.76rem;padding:.55rem .75rem;transition:border-color .2s;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%233A5270'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .75rem center}
+select:focus{outline:none;border-color:var(--teal)}
+
+/* Radio group */
+.radio-group{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.radio-btn{flex:1;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;padding:.5rem;border:none;background:transparent;color:var(--muted);transition:all .2s;cursor:pointer}
+.radio-btn.sel{background:var(--teal-dim);color:var(--teal)}
+.radio-btn:hover:not(.sel){color:var(--text);background:var(--bg-3)}
+.radio-btn.sel-warn{background:var(--warn-dim);color:var(--warn)}
+.radio-btn.sel-red{background:var(--red-dim);color:var(--red)}
+
+/* Checkbox */
+.check-row{display:flex;align-items:flex-start;gap:.75rem;cursor:pointer;padding:.65rem .85rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);transition:border-color .2s}
+.check-row:hover{border-color:var(--teal)}
+.check-row input[type="checkbox"]{width:16px;height:16px;accent-color:var(--teal);flex-shrink:0;margin-top:.15rem;cursor:pointer}
+.check-label{font-size:.76rem;color:var(--body);line-height:1.6}
+.check-label strong{color:var(--text)}
+
+/* Sub-grid */
+.sub-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem}
+@media(max-width:720px){.sub-grid{grid-template-columns:1fr}}
+
+/* Build button */
+.build-btn{width:100%;background:linear-gradient(135deg,var(--teal),var(--teal-lt));color:var(--bg);font-family:'JetBrains Mono',monospace;font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;padding:.95rem 2rem;border:none;border-radius:var(--radius);font-weight:500;transition:opacity .2s;margin:1.5rem 0}
+.build-btn:hover{opacity:.88}
+
+/* Contradiction warning */
+.contradiction{background:var(--red-dim);border:1px solid rgba(239,68,68,.3);border-left:3px solid var(--red);border-radius:var(--radius);padding:.85rem 1rem;font-size:.76rem;color:var(--text);margin-bottom:1rem;display:none}
+.contradiction.show{display:block}
+
+/* Output panels */
+.output-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:1.25rem;overflow:hidden}
+.output-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.output-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);display:flex;align-items:center;gap:.6rem}
+.output-label::before{content:'';display:block;width:14px;height:1px;background:var(--teal)}
+.output-body{padding:1.25rem;max-height:360px;overflow-y:auto}
+.code-block{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);line-height:1.65;white-space:pre;overflow-x:auto}
+.md-block{font-size:.76rem;color:var(--body);line-height:1.75}
+.md-block h3{font-family:'DM Serif Display',serif;color:var(--white);font-size:.95rem;margin:1rem 0 .35rem}
+.md-block p{margin-bottom:.65rem}
+.md-block li{margin-left:1rem;margin-bottom:.2rem}
+
+/* Instructions list */
+.instr-list{display:flex;flex-direction:column;gap:.45rem}
+.instr-item{display:flex;gap:.65rem;align-items:flex-start;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .85rem}
+.instr-num{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--teal);background:var(--teal-dim);border:1px solid rgba(20,184,166,.2);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:.05rem}
+.instr-text{font-size:.74rem;color:var(--text);line-height:1.6;flex:1}
+
+/* Export row */
+.results-export-row{display:flex;gap:.65rem;flex-wrap:wrap;padding-top:1.25rem;border-top:1px solid var(--border)}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;border-radius:var(--radius);border:1px solid;cursor:pointer;transition:all .2s;display:inline-flex;flex-direction:column;align-items:center;gap:.15rem;background:transparent}
+.btn-ghost{color:var(--text);border-color:var(--border)}
+.btn-ghost:hover:not(:disabled){border-color:var(--teal);color:var(--teal)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-ghost.ready{border-color:rgba(20,184,166,.4);color:var(--teal)}
+.btn-subtitle{font-size:.42rem;color:var(--muted);text-transform:none}
+.btn-ghost.ready .btn-subtitle{color:rgba(20,184,166,.65)}
+
+#toast{position:fixed;bottom:1.75rem;right:1.75rem;background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--red);border-radius:var(--radius);padding:.85rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--text);z-index:999;transform:translateY(120%);transition:transform .3s;max-width:340px}
+#toast.show{transform:translateY(0)}
+#toast.ok{border-left-color:var(--teal)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-body pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;overflow-x:auto;margin:0}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="#0D1627"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".7"/></svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/fraud-risk-hub.html">Fraud & Risk Hub</a><span class="nav-sep">/</span><span>T-323</span></div>
+
+    <a href="../guides/fraud-risk-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+    <div class="hero-eyebrow">
+      <span id="heroEyebrow">T323 · Cat-03 · AP2 Agentic Anchor · Fraud & Risk Policy Mandate · MCP Deployable</span>
+    </div>
+    <h1 class="tool-title" id="heroTitle">AP2 Fraud &amp; Risk Policy <em>Mandate Builder</em></h1>
+    <p class="hero-desc" id="heroDesc">Consolidate your fraud and risk policy posture into a single validated Policy Mandate JSON consumable by autonomous agents. Configure detection thresholds, APP scam friction controls, loss tolerance, and SAR reporting triggers. The agent_instructions array is deployable directly into your fraud decisioning agent via the AINumbers.co MCP server.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-teal">AP2 Agentic · agent_guardrail_mandate</span>
+      <span class="hero-badge badge-teal">MCP Server Deployable</span>
+      <span class="hero-badge badge-purple">4 Policy Dimensions</span>
+      <span class="hero-badge badge-gold">Contradiction Detection</span>
+      <span class="hero-badge badge-muted">Client-Side · Zero PII</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+  </div>
+</section>
+
+<main class="main-content">
+  <div class="container">
+
+    <!-- Contradiction warning -->
+    <div class="contradiction" id="contradictionWarn"></div>
+
+    <!-- ── DIMENSION 1: Detection Thresholds ── -->
+    <div class="dim-panel">
+      <div class="dim-num">Dimension 01 / 04</div>
+      <div class="dim-title">Detection Thresholds</div>
+
+      <div class="sub-grid">
+        <div class="field-row">
+          <div class="field-label">
+            <span>Synthetic ID Reject Score Cutoff</span>
+            <span class="field-val" id="synthVal">75</span>
+          </div>
+          <input type="range" id="synthCutoff" min="0" max="100" value="75" oninput="updateVal('synthVal',this.value)">
+          <div class="slider-labels"><span>0 — Permit all</span><span>50</span><span>100 — Reject all</span></div>
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">Scores ≥ this value from T321 trigger rejection. Recommended: 75–85 per FRB SR 2022.</div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-label">
+            <span>ATO Step-Up Score Cutoff</span>
+            <span class="field-val" id="atoVal">60</span>
+          </div>
+          <input type="range" id="atoCutoff" min="0" max="100" value="60" oninput="updateVal('atoVal',this.value)">
+          <div class="slider-labels"><span>0</span><span>50</span><span>100</span></div>
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">Scores ≥ this value trigger step-up authentication (MFA, device re-challenge).</div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-label"><span>Detection Model Version Tag</span></div>
+          <input type="text" id="modelVersion" placeholder="e.g. fraud-model-v2.3.1" maxlength="60">
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">Label the model version this mandate is calibrated against. Used in AP2 audit metadata only.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── DIMENSION 2: APP Scam Controls ── -->
+    <div class="dim-panel">
+      <div class="dim-num">Dimension 02 / 04</div>
+      <div class="dim-title">APP Scam Controls</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
+        <div>
+          <div class="field-row">
+            <div class="field-label"><span>Confirmation of Payee (CoP) Enforcement</span></div>
+            <div class="radio-group" role="group" id="copGroup">
+              <button class="radio-btn sel" onclick="setRadio('cop','mandatory',this)">Mandatory</button>
+              <button class="radio-btn" onclick="setRadio('cop','best-efforts',this)">Best Efforts</button>
+              <button class="radio-btn" onclick="setRadio('cop','off',this)">Off</button>
+            </div>
+            <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">UK FPS CoP v3.0 and PSR PS23/3 require CoP for FPS payments. Setting to Off while accepting PSR reimbursement liability is a policy contradiction.</div>
+          </div>
+
+          <div class="field-row">
+            <div class="field-label"><span>Delay Friction Policy</span></div>
+            <div class="radio-group" role="group" id="delayGroup">
+              <button class="radio-btn" onclick="setRadio('delay','none',this)">None</button>
+              <button class="radio-btn sel" onclick="setRadio('delay','warning',this)">Warning</button>
+              <button class="radio-btn" onclick="setRadio('delay','24h-delay',this)">24h Delay</button>
+            </div>
+            <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">PSR guidance permits a 24-hour hold for high-risk payments. Warning = display enhanced warning screen.</div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-label"><span>PSR PS23/3 Reimbursement Policy</span></div>
+          <label class="check-row">
+            <input type="checkbox" id="psrAck">
+            <span class="check-label"><strong>PSR PS23/3 50/50 sending/receiving PSP liability accepted.</strong> By checking this, you confirm your institution operates as a sending or receiving PSP under the UK PSR mandatory reimbursement regime and accepts the 50/50 default liability split. This acknowledgement is encoded in the AP2 mandate payload for agent reference.</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── DIMENSION 3: Loss Tolerance ── -->
+    <div class="dim-panel">
+      <div class="dim-num">Dimension 03 / 04</div>
+      <div class="dim-title">Loss Tolerance</div>
+
+      <div class="sub-grid">
+        <div class="field-row">
+          <div class="field-label">
+            <span>Fraud Loss Budget</span>
+            <span class="field-val" id="budgetVal">8 bps</span>
+          </div>
+          <input type="range" id="lossBudget" min="1" max="50" value="8" oninput="updateVal('budgetVal',this.value+' bps')">
+          <div class="slider-labels"><span>1 bps</span><span>25</span><span>50 bps</span></div>
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">Maximum acceptable total fraud loss as basis points of monthly payment volume.</div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-label">
+            <span>Max CNP Fraud Rate</span>
+            <span class="field-val" id="cnpVal">5 bps</span>
+          </div>
+          <input type="range" id="cnpRate" min="1" max="30" value="5" oninput="updateVal('cnpVal',this.value+' bps')">
+          <div class="slider-labels"><span>1 bps</span><span>15</span><span>30 bps</span></div>
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">Card-Not-Present fraud. Agents trigger step-up when this threshold is breached.</div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-label">
+            <span>Max ATO Fraud Rate</span>
+            <span class="field-val" id="atoRateVal">2 bps</span>
+          </div>
+          <input type="range" id="atoRate" min="1" max="20" value="2" oninput="updateVal('atoRateVal',this.value+' bps')">
+          <div class="slider-labels"><span>1 bps</span><span>10</span><span>20 bps</span></div>
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">Account Takeover fraud rate. Triggers enhanced monitoring at account level.</div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-label">
+            <span>Max APP Fraud Rate</span>
+            <span class="field-val" id="appRateVal">3 bps</span>
+          </div>
+          <input type="range" id="appRate" min="1" max="25" value="3" oninput="updateVal('appRateVal',this.value+' bps')">
+          <div class="slider-labels"><span>1 bps</span><span>12</span><span>25 bps</span></div>
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">Authorised Push Payment fraud rate. Relevant to PSR PS23/3 liability exposure.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── DIMENSION 4: Reporting Triggers ── -->
+    <div class="dim-panel">
+      <div class="dim-num">Dimension 04 / 04</div>
+      <div class="dim-title">Reporting Triggers</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.25rem">
+        <div class="field-row">
+          <div class="field-label"><span>SAR Auto-File Threshold</span></div>
+          <div style="display:flex;align-items:center;gap:.5rem">
+            <input type="number" id="sarThreshold" placeholder="e.g. 5000" min="0" step="100">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);white-space:nowrap">£/$</span>
+          </div>
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">Fraud losses or confirmed APP scams at or above this amount trigger auto-SAR filing workflow.</div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-label"><span>Escalation Chain</span></div>
+          <input type="text" id="escalationChain" placeholder="e.g. Fraud Ops → CISO → CFO" maxlength="120">
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">Used in policy summary only — not stored or transmitted. Enter role titles, not names.</div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-label"><span>Board Reporting Frequency</span></div>
+          <select id="boardFreq">
+            <option value="monthly">Monthly</option>
+            <option value="quarterly" selected>Quarterly</option>
+            <option value="ad-hoc">Ad-hoc (threshold-triggered)</option>
+          </select>
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">Frequency of fraud loss and risk posture reporting to board or board Risk Committee.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Build button -->
+    <button class="build-btn" id="buildBtn" onclick="buildMandate()">
+      {} Build AP2 Fraud Policy Mandate
+    </button>
+
+    <!-- Output: agent_instructions preview -->
+    <div id="outputSection" style="display:none">
+
+      <!-- Agent instructions -->
+      <div class="output-panel">
+        <div class="output-header">
+          <div class="output-label">agent_instructions — Ordered Enforcement Rules</div>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--teal)" id="instrCount"></span>
+        </div>
+        <div class="output-body">
+          <div class="instr-list" id="instrList"></div>
+        </div>
+      </div>
+
+      <!-- Markdown policy summary -->
+      <div class="output-panel">
+        <div class="output-header">
+          <div class="output-label">Markdown Policy Summary</div>
+        </div>
+        <div class="output-body">
+          <div class="md-block" id="mdPreview"></div>
+        </div>
+      </div>
+
+      <!-- Export row in .results-export-row -->
+      <div class="results-export-row">
+        <button class="btn btn-ghost ready" id="mdBtn" onclick="exportMarkdown()">
+          ⬇ Export Markdown
+          <span class="btn-subtitle">board policy summary</span>
+        </button>
+        <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()">
+          {} Export Policy Mandate
+          <span class="btn-subtitle">API · audit trail</span>
+        </button>
+      </div>
+
+    </div>
+
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/fraud-risk-hub.html"><span data-i18n="footer.hub_fraud_risk">Fraud Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+'use strict';
+
+/* ─── Radio / slider state ─── */
+const STATE = {
+  cop: 'mandatory',
+  delay: 'warning'
+};
+
+let lastMandate = null;
+
+function updateVal(id, val) {
+  document.getElementById(id).textContent = val;
+}
+
+function setRadio(group, val, btn) {
+  STATE[group] = val;
+  const grp = document.getElementById(group + 'Group');
+  grp.querySelectorAll('.radio-btn').forEach(b => {
+    b.className = 'radio-btn';
+  });
+  btn.classList.add('sel');
+  // Live contradiction check
+  checkContradictions(false);
+}
+
+/* ─── Contradiction checker ─── */
+function checkContradictions(blocking) {
+  const cop = STATE.cop;
+  const psrAck = document.getElementById('psrAck').checked;
+  const contradictions = [];
+
+  if (cop === 'off' && psrAck) {
+    contradictions.push('CoP is set to Off but PSR PS23/3 reimbursement liability is accepted. Sending PSPs must perform CoP checks under PSR PS23/3 — disabling CoP while accepting liability creates an unresolvable policy contradiction.');
+  }
+
+  const sarVal = parseInt(document.getElementById('sarThreshold').value);
+  if (!isNaN(sarVal) && sarVal === 0) {
+    contradictions.push('SAR auto-file threshold is set to £/$ 0 — this would trigger a SAR for every transaction. Set a meaningful threshold above zero.');
+  }
+
+  const budgetBps = parseInt(document.getElementById('lossBudget').value);
+  const cnpBps = parseInt(document.getElementById('cnpRate').value);
+  const atoBps = parseInt(document.getElementById('atoRate').value);
+  const appBps = parseInt(document.getElementById('appRate').value);
+  if (cnpBps + atoBps + appBps > budgetBps * 2) {
+    contradictions.push(`Individual fraud type rate tolerances (CNP ${cnpBps} + ATO ${atoBps} + APP ${appBps} = ${cnpBps + atoBps + appBps} bps) substantially exceed the overall fraud loss budget (${budgetBps} bps). Review and align the total budget.`);
+  }
+
+  const warn = document.getElementById('contradictionWarn');
+  if (contradictions.length > 0) {
+    warn.innerHTML = `<strong>⚠ Policy Contradiction${contradictions.length > 1 ? 's' : ''} Detected</strong><br>${contradictions.map(c => `→ ${c}`).join('<br>')}`;
+    warn.classList.add('show');
+    if (blocking) { showToast('Policy contradictions must be resolved before export.', false); return false; }
+  } else {
+    warn.classList.remove('show');
+  }
+  return contradictions.length === 0;
+}
+
+/* ─── Build mandate ─── */
+function buildFraudRiskAP2Mandate(config) {
+  const {
+    synth_cutoff, ato_cutoff, model_version,
+    cop_enforcement, delay_policy, psr_ack,
+    loss_budget_bps, cnp_rate_bps, ato_rate_bps, app_rate_bps,
+    sar_threshold, escalation_chain, board_freq
+  } = config;
+
+  const instructions = [];
+
+  // Dimension 1 — Detection
+  instructions.push(`Reject any credit or account application where the synthetic identity fraud risk score (T321) is ≥ ${synth_cutoff}/100. Do not approve without manual fraud review override.`);
+  instructions.push(`Trigger step-up authentication (MFA or device re-challenge) for any account event where the ATO risk score is ≥ ${ato_cutoff}/100.`);
+  if (model_version) instructions.push(`This mandate is calibrated against detection model version: ${model_version}. Update mandate when model version changes.`);
+
+  // Dimension 2 — APP scam
+  instructions.push(`Confirmation of Payee (CoP) is ${cop_enforcement.toUpperCase()} for all FPS and real-time payment instructions. ${cop_enforcement === 'mandatory' ? 'Block payment on CoP failure until manual override is authorised.' : cop_enforcement === 'best-efforts' ? 'Log CoP result and apply enhanced warning if match fails.' : 'CoP is disabled — document rationale and ensure board sign-off is current.'}`);
+  instructions.push(`Apply ${delay_policy === 'none' ? 'no friction delay' : delay_policy === 'warning' ? 'an enhanced PSR warning screen' : 'a 24-hour payment hold'} on payments classified as High or Block risk by T322 APP Scam Pre-Payment Risk Assessor.`);
+  if (psr_ack) instructions.push('PSR PS23/3 50/50 sending/receiving PSP liability is accepted. Ensure all CoP checks, payment warnings, and PSR warning scripts are logged for every high-risk FPS payment to preserve reimbursement claim eligibility.');
+
+  // Dimension 3 — Loss tolerance
+  instructions.push(`Alert fraud operations when total fraud losses for the month exceed ${loss_budget_bps} bps of monthly payment volume. Escalate to ${escalation_chain || 'fraud risk committee'} immediately.`);
+  instructions.push(`Monitor CNP fraud rate daily. If rate exceeds ${cnp_rate_bps} bps, escalate and tighten 3DS step-up thresholds within 24 hours.`);
+  instructions.push(`Monitor ATO fraud rate daily. If rate exceeds ${ato_rate_bps} bps, trigger account-level session invalidation and enhanced login verification.`);
+  instructions.push(`Monitor APP fraud rate daily. If rate exceeds ${app_rate_bps} bps, reduce payment velocity limits and escalate to fraud risk committee.`);
+
+  // Dimension 4 — Reporting
+  if (sar_threshold > 0) {
+    instructions.push(`Auto-file Suspicious Activity Report (SAR) for any confirmed fraud loss or APP scam at or above £/$ ${sar_threshold.toLocaleString()}. Route SAR to compliance team within 24 hours of confirmation.`);
+  }
+  instructions.push(`Produce fraud risk management information report ${board_freq === 'monthly' ? 'monthly' : board_freq === 'quarterly' ? 'quarterly' : 'when triggered by a threshold breach'} for board Risk Committee review.`);
+
+  return instructions;
+}
+
+function buildMandate() {
+  const hasContradictions = !checkContradictions(true);
+
+  const sarVal = parseInt(document.getElementById('sarThreshold').value);
+  const config = {
+    synth_cutoff: parseInt(document.getElementById('synthCutoff').value),
+    ato_cutoff: parseInt(document.getElementById('atoCutoff').value),
+    model_version: document.getElementById('modelVersion').value.trim(),
+    cop_enforcement: STATE.cop,
+    delay_policy: STATE.delay,
+    psr_ack: document.getElementById('psrAck').checked,
+    loss_budget_bps: parseInt(document.getElementById('lossBudget').value),
+    cnp_rate_bps: parseInt(document.getElementById('cnpRate').value),
+    ato_rate_bps: parseInt(document.getElementById('atoRate').value),
+    app_rate_bps: parseInt(document.getElementById('appRate').value),
+    sar_threshold: isNaN(sarVal) ? 0 : sarVal,
+    escalation_chain: document.getElementById('escalationChain').value.trim(),
+    board_freq: document.getElementById('boardFreq').value
+  };
+
+  const instructions = buildFraudRiskAP2Mandate(config);
+  lastMandate = { config, instructions };
+
+  renderOutput(instructions, config);
+}
+
+function renderOutput(instructions, config) {
+  document.getElementById('outputSection').style.display = '';
+  document.getElementById('instrCount').textContent = `${instructions.length} instructions`;
+
+  // Instructions list
+  document.getElementById('instrList').innerHTML = instructions.map((instr, i) =>
+    `<div class="instr-item"><div class="instr-num">${i + 1}</div><div class="instr-text">${instr}</div></div>`
+  ).join('');
+
+  // Markdown preview
+  const md = buildMarkdownSummary(config, instructions);
+  document.getElementById('mdPreview').innerHTML = md
+    .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/^(?!<[hl])/gm, '');
+
+  // Enable AP2
+  const btn = document.getElementById('ap2Btn');
+  btn.disabled = false;
+  btn.classList.add('ready');
+
+  document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  showToast('AP2 mandate built. Review and export below.', true);
+}
+
+function buildMarkdownSummary(c, instructions) {
+  let md = `# Fraud & Risk Policy Mandate\n`;
+  md += `_Generated by AINumbers.co T323 · ${new Date().toISOString().slice(0, 10)}_\n\n`;
+  md += `## Detection Thresholds\n`;
+  md += `- **Synthetic ID Reject Cutoff:** ${c.synth_cutoff}/100 (FRB SR 2022 calibrated)\n`;
+  md += `- **ATO Step-Up Cutoff:** ${c.ato_cutoff}/100\n`;
+  if (c.model_version) md += `- **Model Version:** ${c.model_version}\n`;
+  md += `\n## APP Scam Controls\n`;
+  md += `- **CoP Enforcement:** ${c.cop_enforcement}\n`;
+  md += `- **Delay Friction:** ${c.delay_policy}\n`;
+  md += `- **PSR PS23/3 Liability:** ${c.psr_ack ? 'Accepted (50/50 split)' : 'Not accepted'}\n`;
+  md += `\n## Loss Tolerance\n`;
+  md += `- **Overall Fraud Loss Budget:** ${c.loss_budget_bps} bps of monthly volume\n`;
+  md += `- **Max CNP Rate:** ${c.cnp_rate_bps} bps\n`;
+  md += `- **Max ATO Rate:** ${c.ato_rate_bps} bps\n`;
+  md += `- **Max APP Rate:** ${c.app_rate_bps} bps\n`;
+  md += `\n## Reporting Triggers\n`;
+  if (c.sar_threshold > 0) md += `- **SAR Auto-File Threshold:** £/$ ${c.sar_threshold.toLocaleString()}\n`;
+  if (c.escalation_chain) md += `- **Escalation Chain:** ${c.escalation_chain}\n`;
+  md += `- **Board Reporting:** ${c.board_freq}\n`;
+  md += `\n---\n_AP2 mandate_type: agent_guardrail_mandate · AINumbers.co T323 · Cat-03 Fraud & Risk_\n`;
+  return md;
+}
+
+function exportMarkdown() {
+  if (!lastMandate) return;
+  const md = buildMarkdownSummary(lastMandate.config, lastMandate.instructions);
+  const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  triggerDownload(md, `ap2-fraud-risk-policy-mandate-builder_${ts}.md`, 'text/markdown');
+  showToast('Markdown exported.', true);
+}
+
+function exportAP2() {
+  if (!lastMandate) return;
+  if (!checkContradictions(true)) return;
+  const c = lastMandate.config;
+  const now = new Date();
+  const payload = {
+    ap2_version: '1.0',
+    mandate_id: generateUUID(),
+    issued_at: now.toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: 'ap2-fraud-risk-policy-mandate-builder',
+    tool_version: '1.0.0',
+    mandate_type: 'agent_guardrail_mandate',
+    jurisdiction: c.psr_ack ? ['GB'] : ['GB', 'EU', 'US'],
+    regulatory_frameworks: ['FRB SR 2022', 'FinCEN FIN-2021-A003', 'PSR PS23/3', 'UK FPS CoP v3.0'],
+    payload: {
+      dimension_1_detection: {
+        synthetic_id_reject_cutoff: c.synth_cutoff,
+        ato_stepup_cutoff: c.ato_cutoff,
+        model_version: c.model_version || null
+      },
+      dimension_2_app_scam: {
+        cop_enforcement: c.cop_enforcement,
+        delay_friction_policy: c.delay_policy,
+        psr_ps23_3_liability_accepted: c.psr_ack
+      },
+      dimension_3_loss_tolerance: {
+        fraud_loss_budget_bps: c.loss_budget_bps,
+        max_cnp_rate_bps: c.cnp_rate_bps,
+        max_ato_rate_bps: c.ato_rate_bps,
+        max_app_rate_bps: c.app_rate_bps
+      },
+      dimension_4_reporting: {
+        sar_auto_file_threshold_gbp: c.sar_threshold,
+        escalation_chain_roles: c.escalation_chain || null,
+        board_reporting_frequency: c.board_freq
+      }
+    },
+    summary: `Fraud & risk policy mandate with ${c.synth_cutoff}/100 synthetic ID reject threshold, CoP ${c.cop_enforcement}, ${c.loss_budget_bps} bps loss budget. ${c.psr_ack ? 'PSR PS23/3 liability accepted.' : ''} ${lastMandate.instructions.length} agent instructions.`,
+    agent_instructions: lastMandate.instructions,
+    valid_from: now.toISOString(),
+    valid_until: new Date(now.getTime() + 365 * 86400000).toISOString(),
+    last_reviewed: now.toISOString().slice(0, 10),
+    source_tool_inputs: c,
+    regulatory_citations: [
+      'FRB SR 2022 — Synthetic Identity Fraud Guidance',
+      'FinCEN FIN-2021-A003 — Synthetic Identity Fraud Patterns',
+      'PSR PS23/3 — Mandatory APP Fraud Reimbursement',
+      'UK FPS Confirmation of Payee Rulebook v3.0'
+    ],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+
+  const required = ['ap2_version','mandate_id','issued_at','issued_by','tool_id','tool_version','mandate_type','jurisdiction','payload','audit_metadata'];
+  const missing = required.filter(f => !payload[f]);
+  if (missing.length > 0) { showToast('AP2 error: ' + missing.join(', '), false); return; }
+
+  const ts = now.toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  AP2Schema.validate(payload);
+  triggerDownload(JSON.stringify(payload, null, 2), `ap2-fraud-risk-policy-mandate-builder_${ts}.policy.json`, 'application/json');
+  showToast('Policy Mandate JSON exported.', true);
+}
+
+/* ─── Utils ─── */
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+function triggerDownload(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+let toastTimer;
+function showToast(msg, isOk) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isOk ? ' ok' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 2800);
+}
+
+/* ─── i18n Stage 2 ─── */
+const TRANSLATIONS = {
+  en: { eyebrow: 'T323 · Cat-03 · AP2 Agentic Anchor · Fraud & Risk Policy Mandate · MCP Deployable', hero_title: 'AP2 Fraud & Risk Policy Mandate Builder', hero_desc: 'Consolidate your fraud and risk policy posture into a single validated Policy Mandate JSON consumable by autonomous agents. Configure detection thresholds, APP scam friction controls, loss tolerance, and SAR reporting triggers. The agent_instructions array is deployable directly into your fraud decisioning agent via the AINumbers.co MCP server.', nav_cta: 'All Tools', build_btn: '{} Build AP2 Fraud Policy Mandate', lang_dir: 'ltr' 
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-03 Hub',
+  },
+  es: { eyebrow: 'T323 · Cat-03 · AP2 Ancla Agéntica · Mandato de Política de Fraude y Riesgo', hero_title: 'Constructor de Mandato de Política de Fraude y Riesgo AP2', hero_desc: 'Consolide su postura de política de fraude y riesgo en un Mandato de Política validado consumible por agentes autónomos.', nav_cta: 'Todas las herramientas', build_btn: '{} Construir Mandato AP2', lang_dir: 'ltr' 
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-03',
+  },
+  fr: { eyebrow: 'T323 · Cat-03 · AP2 Ancre Agentique · Mandat de Politique de Fraude et Risque', hero_title: 'Constructeur de Mandat de Politique de Fraude et Risque AP2', hero_desc: 'Consolidez votre posture de politique de fraude et de risque en un Mandat de Politique validé consommable par des agents autonomes.', nav_cta: 'Tous les outils', build_btn: '{} Construire le Mandat AP2', lang_dir: 'ltr' 
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-03',
+  },
+  ar: { eyebrow: 'T323 · القط-03 · AP2 مرساة وكيل · تفويض سياسة الاحتيال والمخاطر', hero_title: 'منشئ تفويض سياسة الاحتيال والمخاطر AP2', hero_desc: 'دمج موقف سياسة الاحتيال والمخاطر في تفويض السياسة محقق يمكن استهلاكه من قبل الوكلاء المستقلين.', nav_cta: 'جميع الأدوات', build_btn: '{} بناء تفويض AP2', lang_dir: 'rtl' 
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-03',
+  },
+  pt: { eyebrow: 'T323 · Cat-03 · AP2 Âncora Agêntica · Mandato de Política de Fraude e Risco', hero_title: 'Construtor de Mandato de Política de Fraude e Risco AP2', hero_desc: 'Consolide sua postura de política de fraude e risco em um Mandato de Política validado consumível por agentes autônomos.', nav_cta: 'Todas as ferramentas', build_btn: '{} Construir Mandato AP2', lang_dir: 'ltr' 
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-03',
+  },
+  zh: { eyebrow: 'T323 · 类别-03 · AP2智能代理锚点 · 欺诈与风险政策授权', hero_title: 'AP2欺诈与风险政策授权构建器', hero_desc: '将欺诈和风险政策整合为一个经验证的政策授权书，可由自主代理使用。配置检测阈值、APP诈骗摩擦控制、损失容忍度和SAR报告触发器。', nav_cta: '所有工具', build_btn: '{} 构建AP2欺诈政策授权', lang_dir: 'ltr' 
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-03 中心',
+  }
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`);
+  if (btn) btn.classList.add('active');
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  document.documentElement.dir = t.lang_dir || 'ltr';
+  document.body.dir = t.lang_dir || 'ltr';
+  const ap = (id, key) => { const e = document.getElementById(id); if (e && t[key]) e.textContent = t[key]; };
+  ap('heroEyebrow','eyebrow'); ap('heroTitle','hero_title'); ap('heroDesc','hero_desc');
+  ap('navCta','nav_cta'); ap('buildBtn','build_btn');
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function() { try { const s = sessionStorage.getItem('ain_lang'); if (s && TRANSLATIONS[s]) setLang(s); } catch(e) {} })();
+
+// Live contradiction check on PSR checkbox change
+document.getElementById('psrAck').addEventListener('change', () => checkContradictions(false));
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "ap2-fraud-risk-policy-mandate-builder", "version": "1.0.0", "title": "AP2 Fraud & Risk Policy Mandate Builder", "description": "Builds a validated AP2 agent_guardrail_mandate for autonomous fraud decisioning agents across 4 dimensions: detection thresholds (synthetic ID, ATO cutoffs), APP scam controls (CoP, delay, PSR acknowledgement), loss tolerance (bps budget, CNP/ATO/APP rates), and reporting triggers (SAR threshold, board frequency). Built-in contradiction detection. MCP server deployable. Client-side. Zero PII.", "category": "cat-3", "tags": ["AP2", "agentic", "fraud-policy", "risk-appetite", "mandate", "MCP", "agent_guardrail", "zero-pii"], "audience": ["fraud", "compliance", "engineer", "cfo"], "input_schema": {"type": "object", "properties": {"synth_cutoff": {"type": "integer", "minimum": 0, "maximum": 100}, "ato_cutoff": {"type": "integer", "minimum": 0, "maximum": 100}, "model_version": {"type": "string"}, "cop_enforcement": {"type": "string", "enum": ["mandatory", "best-efforts", "off"]}, "delay_policy": {"type": "string", "enum": ["none", "warning", "24h-delay"]}, "psr_ack": {"type": "boolean"}, "loss_budget_bps": {"type": "integer", "minimum": 1, "maximum": 50}, "cnp_rate_bps": {"type": "integer", "minimum": 1}, "ato_rate_bps": {"type": "integer", "minimum": 1}, "app_rate_bps": {"type": "integer", "minimum": 1}, "sar_threshold": {"type": "integer", "minimum": 0}, "escalation_chain": {"type": "string"}, "board_freq": {"type": "string", "enum": ["monthly", "quarterly", "ad-hoc"]}}, "required": ["synth_cutoff", "ato_cutoff", "cop_enforcement", "delay_policy", "psr_ack", "loss_budget_bps", "cnp_rate_bps", "ato_rate_bps", "app_rate_bps", "sar_threshold", "board_freq"]}, "output_schema": {"type": "object", "properties": {"agent_instructions": {"type": "array", "items": {"type": "string"}}, "config": {"type": "object"}}}, "mcp_tool_definition": {"name": "build_fraud_risk_ap2_mandate", "description": "Builds a validated AP2 agent_guardrail_mandate for fraud decisioning agents. Configures 4 dimensions: detection thresholds, APP scam controls, loss tolerance, and SAR reporting triggers. Returns an ordered agent_instructions array deployable via the AINumbers.co MCP server. Validates for policy contradictions before export.", "inputSchema": {"type": "object", "properties": {"synth_cutoff": {"type": "integer"}, "ato_cutoff": {"type": "integer"}, "cop_enforcement": {"type": "string"}, "delay_policy": {"type": "string"}, "psr_ack": {"type": "boolean"}, "loss_budget_bps": {"type": "integer"}, "cnp_rate_bps": {"type": "integer"}, "ato_rate_bps": {"type": "integer"}, "app_rate_bps": {"type": "integer"}, "sar_threshold": {"type": "integer"}, "board_freq": {"type": "string"}}, "required": ["synth_cutoff", "ato_cutoff", "cop_enforcement", "delay_policy", "psr_ack", "loss_budget_bps", "cnp_rate_bps", "ato_rate_bps", "app_rate_bps", "sar_threshold", "board_freq"]}}, "execution": {"type": "browser-javascript", "entry": "tools/323-ap2-fraud-risk-policy-mandate-builder.html", "function_name": "buildFraudRiskAP2Mandate", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

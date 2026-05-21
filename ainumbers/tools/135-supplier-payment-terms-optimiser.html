@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Supplier Payment Terms Optimiser · T135 · AINumbers.co</title>
+<meta name="description" content="Model NPV of early payment discounts vs. cost of capital across supplier tiers. Greedy DPO selection algorithm. Working capital crossover analysis. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/135-supplier-payment-terms-optimiser.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Supplier Payment Terms Optimiser","url":"https://ainumbers.co/tools/135-supplier-payment-terms-optimiser.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "supplier-payment-terms-optimiser",
+  "version": "1.0.0",
+  "title": "Supplier Payment Terms Optimiser",
+  "description": "Models NPV of early payment discounts vs. cost of capital using greedy DPO selection algorithm. Dynamic discount vs. working capital crossover analysis.",
+  "category": "cat-13",
+  "tags": ["DPO","early payment","supplier","discount","NPV","working capital","B2B","treasury"],
+  "audience": ["treasury","analyst","CFO"],
+  "input_schema": {"type":"object","properties":{"suppliers":{"type":"array"},"cost_of_capital":{"type":"number"},"liquidity_budget":{"type":"number"}},"required":["cost_of_capital"]},
+  "output_schema": {"type":"object","properties":{"optimal_terms":{"type":"array"},"total_npv_benefit":{"type":"number"},"dpo_weighted_avg":{"type":"number"}}},
+  "mcp_tool_definition": {"name":"optimise_supplier_payment_terms","description":"Optimises supplier payment terms using greedy DPO selection across supplier tiers against cost of capital.","inputSchema":{"type":"object","properties":{"cost_of_capital":{"type":"number","description":"Annual cost of capital as decimal (e.g. 0.08 = 8%)"},"liquidity_budget":{"type":"number","description":"Monthly liquidity budget for early payments in USD"}},"required":["cost_of_capital"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/135-supplier-payment-terms-optimiser.html","function_name":"runOptimiser","timeout_ms":2000},
+  "ap2_export": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px;--accent:var(--teal);--accent-dim:var(--teal-dim);--accent-lt:var(--teal-lt)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+[dir=rtl] .lang-inner{justify-content:flex-start}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;z-index:101;position:relative}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--accent);color:var(--accent)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--accent)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--accent)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--accent)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1.25rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+/* Global params */
+.params-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.params-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem}
+.field-group{display:flex;flex-direction:column;gap:.35rem}
+.field-group label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.field-group input,.field-group select{background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);padding:.5rem .75rem;border-radius:var(--radius);font-size:.82rem;font-family:'Sora',sans-serif;outline:none;transition:border-color .2s;width:100%}
+.field-group input:focus,.field-group select:focus{border-color:var(--accent)}
+.field-hint{font-size:.68rem;color:var(--muted);margin-top:.2rem}
+/* Supplier table */
+.sup-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.25rem}
+.sup-table-wrap{overflow-x:auto}
+.sup-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.sup-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.6rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;background:var(--bg-3);white-space:nowrap}
+.sup-table td{padding:.45rem .75rem;border-bottom:1px solid var(--border);vertical-align:middle}
+.sup-table tr:last-child td{border-bottom:none}
+.sup-table input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.25rem .4rem;border-radius:3px;outline:none;transition:border-color .2s}
+.sup-table input:focus{border-color:var(--accent)}
+.del-btn{background:transparent;border:none;color:var(--muted);font-size:.85rem;padding:.15rem .35rem;transition:color .2s}
+.del-btn:hover{color:var(--red)}
+.add-row-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.3rem .75rem;border-radius:3px;transition:all .2s;margin:.75rem}
+.add-row-btn:hover{border-color:var(--accent);color:var(--accent)}
+.run-btn{background:var(--accent);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:opacity .2s;margin-bottom:1.5rem}
+.run-btn:hover{opacity:.85}
+/* Results */
+.results-section{display:none;flex-direction:column;gap:1.25rem}
+.results-section.show{display:flex}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1rem;margin-bottom:.5rem}
+.stat-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem}
+.stat-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:1.2rem;color:var(--bright)}
+.stat-sub{font-size:.68rem;color:var(--body);margin-top:.2rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.out-body{padding:1.25rem}
+.result-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.result-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.result-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.result-table tr:last-child td{border-bottom:none}
+.result-table tr:hover td{background:var(--bg-3)}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.72rem;color:var(--body);line-height:1.8;white-space:pre-wrap;font-family:'JetBrains Mono',monospace}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+.pill-pos{display:inline-block;background:var(--green-dim);color:var(--green);border-radius:3px;padding:.1rem .45rem;font-family:'JetBrains Mono',monospace;font-size:.6rem}
+.pill-neg{display:inline-block;background:var(--red-dim);color:var(--red);border-radius:3px;padding:.1rem .45rem;font-family:'JetBrains Mono',monospace;font-size:.6rem}
+.pill-skip{display:inline-block;background:var(--bg-3);color:var(--muted);border-radius:3px;padding:.1rem .45rem;font-family:'JetBrains Mono',monospace;font-size:.6rem}
+/* Footer */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}.params-grid{grid-template-columns:1fr}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/b2b-payments-hub.html">B2B Hub</a><span class="nav-sep">/</span><span>T-135</span></div>
+  <a href="../guides/b2b-payments-hub.html" class="nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-13 · T135 · B2B Payments &amp; Working Capital</div>
+  <h1>Supplier Payment Terms <em>Optimiser</em></h1>
+  <p class="hero-desc">Model the NPV of early payment discounts against your cost of capital across supplier tiers. Greedy-selection algorithm identifies the optimal subset of suppliers to pay early given a liquidity budget. Outputs DPO crossover analysis and working capital memo.</p>
+  <div class="hero-badges">
+    <span class="badge badge-teal">DPO Optimisation</span>
+    <span class="badge badge-gold">NPV Analysis</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <!-- Global parameters -->
+  <div class="params-panel">
+    <div class="panel-title">Global Parameters</div>
+    <div class="params-grid">
+      <div class="field-group">
+        <label for="cocInput">Annual Cost of Capital (%)</label>
+        <input type="number" id="cocInput" value="8.0" min="0" max="50" step="0.1">
+        <div class="field-hint">WACC or hurdle rate (e.g. 8.0 = 8%)</div>
+      </div>
+      <div class="field-group">
+        <label for="budgetInput">Monthly Early Pay Budget ($)</label>
+        <input type="number" id="budgetInput" value="500000" min="0" step="10000">
+        <div class="field-hint">Max cash available for early payments per month</div>
+      </div>
+      <div class="field-group">
+        <label for="taxInput">Corporate Tax Rate (%)</label>
+        <input type="number" id="taxInput" value="21" min="0" max="60" step="1">
+        <div class="field-hint">Used for after-tax NPV calculation</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supplier table -->
+  <div class="sup-panel">
+    <div style="padding:.75rem 1rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between">
+      <span class="panel-title" style="margin:0;padding:0;border:none">Supplier Tiers &amp; Payment Terms</span>
+      <button class="add-row-btn" style="margin:0" onclick="addSupplier()">+ Add Supplier</button>
+    </div>
+    <div class="sup-table-wrap">
+      <table class="sup-table">
+        <thead>
+          <tr>
+            <th style="min-width:140px">Supplier Name</th>
+            <th style="min-width:90px">Monthly Spend ($)</th>
+            <th style="min-width:70px">Standard DPO</th>
+            <th style="min-width:70px">Early Pay Days</th>
+            <th style="min-width:90px">Discount Rate (%)</th>
+            <th style="min-width:80px">Tier</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="supBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <button class="run-btn" onclick="runOptimiser()">▶ Run Optimiser</button>
+
+  <!-- Results -->
+  <div class="results-section" id="resultsSection">
+    <div class="stat-grid" id="statGrid"></div>
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Optimisation Results — Supplier Breakdown</span></div>
+      <div class="out-body" style="padding:0;overflow-x:auto"><table class="result-table" id="resultTable"><thead></thead><tbody></tbody></table></div>
+    </div>
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Working Capital Memo</span><button class="copy-btn" onclick="copyMemo()">Copy</button></div>
+      <div class="out-body" style="padding:.75rem"><div class="memo-block" id="memoBlock"></div></div>
+    </div>
+  </div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </div></div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html" data-i18n="footer.alltools">All Tools</a>
+      <a href="../guides/b2b-payments-hub.html" data-i18n="footer.hub">B2B Hub</a>
+      <a href="../sitemap.html" data-i18n="footer.sitemap">Sitemap</a>
+      <a href="../contact.html" data-i18n="footer.contact">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span>
+      <span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ── DEFAULT DATA ─────────────────────────────────────── */
+const DEFAULT_SUPPLIERS = [
+  {name:'Acme Manufacturing',    spend:150000, dpo:60, earlyDays:10, disc:2.0, tier:'Strategic'},
+  {name:'Delta Logistics',       spend:80000,  dpo:45, earlyDays:10, disc:1.5, tier:'Preferred'},
+  {name:'Orbis Components',      spend:200000, dpo:90, earlyDays:15, disc:2.5, tier:'Strategic'},
+  {name:'Vantage Tech Supply',   spend:45000,  dpo:30, earlyDays:7,  disc:1.0, tier:'Standard'},
+  {name:'Meridian Packaging',    spend:30000,  dpo:60, earlyDays:10, disc:1.8, tier:'Standard'},
+  {name:'Global Freight Co.',    spend:120000, dpo:45, earlyDays:10, disc:1.2, tier:'Preferred'},
+  {name:'Apex Raw Materials',    spend:95000,  dpo:90, earlyDays:20, disc:3.0, tier:'Strategic'},
+];
+const TIERS = ['Strategic','Preferred','Standard','Spot'];
+
+function buildTable() {
+  const tb = document.getElementById('supBody');
+  tb.innerHTML = '';
+  DEFAULT_SUPPLIERS.forEach(s => addSupplier(s));
+}
+
+function addSupplier(s={}) {
+  const tb = document.getElementById('supBody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" value="${s.name||'New Supplier'}" style="width:130px"></td>
+    <td><input type="number" value="${s.spend||50000}" min="0" step="1000" style="width:90px"></td>
+    <td><input type="number" value="${s.dpo||60}" min="1" max="365" style="width:55px"></td>
+    <td><input type="number" value="${s.earlyDays||10}" min="1" max="180" style="width:55px"></td>
+    <td><input type="number" value="${s.disc||1.5}" min="0" max="10" step="0.1" style="width:70px"></td>
+    <td><select style="width:90px;font-size:.68rem">${TIERS.map(t=>`<option${t===s.tier?' selected':''}>${t}</option>`).join('')}</select></td>
+    <td><button class="del-btn" onclick="this.closest('tr').remove()">✕</button></td>`;
+  tb.appendChild(tr);
+}
+
+function getSuppliers() {
+  return Array.from(document.querySelectorAll('#supBody tr')).map(tr => {
+    const inp = tr.querySelectorAll('input,select');
+    return {
+      name: inp[0].value,
+      spend: parseFloat(inp[1].value)||0,
+      dpo: parseInt(inp[2].value)||60,
+      earlyDays: parseInt(inp[3].value)||10,
+      disc: parseFloat(inp[4].value)||1.5,
+      tier: inp[5].value
+    };
+  });
+}
+
+/* ── CORE ALGORITHM ────────────────────────────────────── */
+/*
+ * For each supplier, the annualised cost of the discount is:
+ *   cost_discount_annual = disc% / (dpo - earlyDays) * 365
+ * If cost_discount_annual < cost_of_capital => early payment is NPV-positive.
+ *
+ * Greedy selection: sort by NPV benefit (benefit - opportunity cost) descending,
+ * pick suppliers until budget is exhausted.
+ *
+ * NPV benefit per month = spend * (disc/100) - spend * (coc/100) * (dpo-earlyDays)/365
+ */
+function runOptimiser() {
+  const coc = parseFloat(document.getElementById('cocInput').value)/100 || 0.08;
+  const budget = parseFloat(document.getElementById('budgetInput').value) || 500000;
+  const tax = parseFloat(document.getElementById('taxInput').value)/100 || 0.21;
+  const suppliers = getSuppliers();
+
+  const enriched = suppliers.map(s => {
+    const daysSaved = s.dpo - s.earlyDays;
+    if (daysSaved <= 0) return {...s, annDisc: 0, npvPerMonth: 0, decision: 'Skip — no days saved'};
+    // Annualised discount rate
+    const annDisc = (s.disc/100) / daysSaved * 365;
+    // Monthly NPV: gross discount saving minus opportunity cost of capital tied up
+    const grossSaving = s.spend * (s.disc/100);
+    const opCost = s.spend * coc * daysSaved/365;
+    const npvPerMonth = (grossSaving - opCost) * (1 - tax);
+    return {...s, annDisc, npvPerMonth, grossSaving, opCost, daysSaved};
+  });
+
+  // Greedy: sort by NPV per $ spent (ratio) descending
+  const sorted = [...enriched].sort((a,b) => (b.npvPerMonth/b.spend||0) - (a.npvPerMonth/a.spend||0));
+  let remaining = budget;
+  const results = sorted.map(s => {
+    if (s.npvPerMonth <= 0) return {...s, decision:'Skip — NPV negative', allocated: 0};
+    if (remaining <= 0) return {...s, decision:'Defer — budget exhausted', allocated: 0};
+    const alloc = Math.min(s.spend, remaining);
+    remaining -= alloc;
+    const scale = alloc / s.spend;
+    return {...s, decision:'Pay Early ✓', allocated: alloc, scaledNpv: s.npvPerMonth * scale};
+  });
+
+  const totalNpvMonthly = results.reduce((a,r) => a + (r.scaledNpv||0), 0);
+  const totalNpvAnnual = totalNpvMonthly * 12;
+  const earlyPaySuppliers = results.filter(r => r.decision === 'Pay Early ✓');
+  const dpoAvg = earlyPaySuppliers.length
+    ? earlyPaySuppliers.reduce((a,s)=>a+s.earlyDays*(s.allocated/earlyPaySuppliers.reduce((x,y)=>x+y.allocated,0)),0)
+    : suppliers.reduce((a,s)=>a+s.dpo,0)/suppliers.length;
+
+  // Stat grid
+  document.getElementById('statGrid').innerHTML = [
+    {l:'Annual NPV Benefit', v:'$'+fmtK(totalNpvAnnual), s:'After-tax, optimised allocation'},
+    {l:'Monthly NPV', v:'$'+fmtK(totalNpvMonthly), s:'On current supplier mix'},
+    {l:'Early Pay Budget Used', v:'$'+fmtK(budget-remaining), s:`of $${fmtK(budget)} available`},
+    {l:'Suppliers Accelerated', v:earlyPaySuppliers.length+' / '+suppliers.length, s:'Within budget constraint'},
+    {l:'Effective DPO (Early)', v:Math.round(dpoAvg)+' days', s:'Weighted avg for early-pay cohort'},
+  ].map(s=>`<div class="stat-card"><div class="stat-label">${s.l}</div><div class="stat-val">${s.v}</div><div class="stat-sub">${s.s}</div></div>`).join('');
+
+  // Result table
+  const rt = document.getElementById('resultTable');
+  rt.querySelector('thead').innerHTML = `<tr>
+    <th>Supplier</th><th>Tier</th><th>Monthly Spend</th>
+    <th>Ann. Disc%</th><th>Vs. CoC</th>
+    <th>Monthly NPV</th><th>Decision</th>
+  </tr>`;
+  rt.querySelector('tbody').innerHTML = results.map(s => {
+    const vs = s.annDisc - coc;
+    const vsStr = vs > 0 ? `<span class="pill-pos">+${(vs*100).toFixed(2)}%</span>` : `<span class="pill-neg">${(vs*100).toFixed(2)}%</span>`;
+    const dec = s.decision === 'Pay Early ✓' ? `<span class="pill-pos">${s.decision}</span>`
+               : s.decision.startsWith('Skip') ? `<span class="pill-skip">${s.decision}</span>`
+               : `<span class="pill-neg">${s.decision}</span>`;
+    return `<tr>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--bright)">${s.name}</td>
+      <td style="font-size:.65rem">${s.tier}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.65rem">$${fmtK(s.spend)}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text)">${s.annDisc?(s.annDisc*100).toFixed(2)+'%':'—'}</td>
+      <td>${s.annDisc?vsStr:'—'}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:${(s.scaledNpv||0)>0?'var(--green)':'var(--muted)'}">${s.scaledNpv?'$'+fmtK(s.scaledNpv):'—'}</td>
+      <td style="font-size:.65rem">${dec}</td>
+    </tr>`;
+  }).join('');
+
+  // Memo
+  const memo = `SUPPLIER PAYMENT TERMS OPTIMISATION REPORT
+Generated: ${new Date().toLocaleDateString()} | Tool: T135 · AINumbers.co
+====================================================
+
+INPUTS
+  Annual Cost of Capital: ${(coc*100).toFixed(2)}%
+  Corporate Tax Rate:     ${(tax*100).toFixed(0)}%
+  Monthly Early Pay Budget: $${fmtK(budget)}
+
+RESULTS SUMMARY
+  Annual NPV Benefit (after-tax): $${fmtK(totalNpvAnnual)}
+  Monthly NPV Benefit:            $${fmtK(totalNpvMonthly)}
+  Budget Utilised:                $${fmtK(budget-remaining)} / $${fmtK(budget)}
+  Suppliers Accelerated:          ${earlyPaySuppliers.length} of ${suppliers.length}
+
+SUPPLIER DECISIONS
+${results.map(s=>`  ${s.name.padEnd(28)} | ${s.decision.padEnd(20)} | Ann.Disc: ${s.annDisc?(s.annDisc*100).toFixed(2)+'%':'N/A'.padStart(6)} | NPV/mo: ${s.scaledNpv?'$'+fmtK(s.scaledNpv):'—'}`).join('\n')}
+
+METHODOLOGY
+  Annual discount rate = (disc%) / (standard_DPO − early_pay_days) × 365
+  NPV benefit/month = spend × disc% − spend × CoC × days_saved/365, after tax
+  Greedy selection: rank by NPV per $ of spend; allocate budget until exhausted.
+  Negative-NPV suppliers are not selected regardless of budget availability.
+
+NOTE: This model assumes flat monthly spend and deterministic discount terms.
+Adjust for seasonal spend patterns and renegotiation risk as appropriate.`;
+
+  document.getElementById('memoBlock').textContent = memo;
+  window._memo135 = memo;
+  document.getElementById('resultsSection').classList.add('show');
+  document.getElementById('resultsSection').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function copyMemo() {
+  if (window._memo135) {
+    navigator.clipboard.writeText(window._memo135).then(()=>{
+      const b = document.querySelector('.copy-btn'); if(b){b.textContent='Copied ✓';setTimeout(()=>b.textContent='Copy',2000);}
+    });
+  }
+}
+
+function fmtK(n) {
+  if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(2)+'M';
+  if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(1)+'K';
+  return n.toFixed(0);
+}
+
+/* ── i18n ──────────────────────────────────────────────── */
+const TRANSLATIONS = {
+  en:{'footer.alltools':'All Tools','footer.hub':'B2B Hub','footer.sitemap':'Sitemap','footer.contact':'Contact','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Zero PII   📡 No server calls   💻 Client-side'},
+  es:{'footer.alltools':'Todas las Herramientas','footer.hub':'Centro B2B','footer.sitemap':'Mapa del Sitio','footer.contact':'Contacto','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Cero PII   📡 Sin llamadas   💻 Cliente'},
+  fr:{'footer.alltools':'Tous les Outils','footer.hub':'Hub B2B','footer.sitemap':'Plan du Site','footer.contact':'Contact','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Zéro PII   📡 Aucun appel   💻 Client'},
+  ar:{'footer.alltools':'جميع الأدوات','footer.hub':'مركز B2B','footer.sitemap':'خريطة الموقع','footer.contact':'تواصل','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 بدون PII   📡 بلا طلبات   💻 محلي'},
+  pt:{'footer.alltools':'Todas as Ferramentas','footer.hub':'Hub B2B','footer.sitemap':'Mapa do Site','footer.contact':'Contato','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Sem PII   📡 Sem chamadas   💻 Cliente'},
+  zh:{'footer.alltools':'所有工具','footer.hub':'B2B中心','footer.sitemap':'网站地图','footer.contact':'联系我们','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 零PII   📡 无服务器调用   💻 本地运行'}
+};
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const d = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n');if(d[k])el.textContent=d[k];});
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+  const ab=document.querySelector('.lang-btn[data-lang="'+lang+'"]');if(ab)ab.classList.add('active');
+  document.documentElement.setAttribute('dir',lang==='ar'?'rtl':'ltr');
+  document.documentElement.setAttribute('lang',lang);
+  try{sessionStorage.setItem('ain_lang',lang);}catch(e){}
+}
+(function(){try{const s

@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>T226 · PCI DSS v4.0 Scope Assessment Wizard · AINumbers.co</title>
+<meta name="description" content="PCI DSS v4.0 scope assessment: CDE boundary, SAQ type (A/A-EP/B/B-IP/C/C-VT/D), compensating controls, implementation roadmap, Policy Mandate JSON. Client-side. Zero PII.">
+<link rel="canonical" href="https://ainumbers.co/tools/226-pci-dss-v4-scope-wizard">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"PCI DSS v4.0 Scope Assessment Wizard","url":"https://ainumbers.co/tools/226-pci-dss-v4-scope-wizard","description":"PCI DSS v4.0 scope assessment: CDE boundary, SAQ type (A/A-EP/B/B-IP/C/C-VT/D), compensating controls, implementation roadmap, Policy Mandate JSON. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* PolicyMandate — full validator (Phase 14); AP2Schema internal name retained */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+};
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%239B72F5'>AI</text></svg>">
+<style>
+/* Edu disclaimer (canonical §9.3) */
+.edu-disclaimer {
+  border: 1px solid var(--warn);
+  border-left: 3px solid var(--warn);
+  background: rgba(245, 158, 11, 0.06);
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  font-size: 0.76rem;
+  color: var(--body);
+  line-height: 1.7;
+  border-radius: var(--radius);
+}
+.edu-disclaimer-label {
+  display: block;
+  color: var(--warn);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px;--accent:var(--purple);--accent-dim:var(--purple-dim)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+.content{max-width:1100px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+[dir="rtl"] .nav-inner,[dir="rtl"] .hero-eyebrow,[dir="rtl"] .wizard-nav,[dir="rtl"] .step-bar,[dir="rtl"] [dir="rtl"] .lang-inner{justify-content:flex-start}
+[dir="rtl"] .panel-label,[dir="rtl"] .req-table th,[dir="rtl"] .req-table td{text-align:right}
+[dir="rtl"] .run-btn{letter-spacing:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--accent);color:var(--accent)}
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--accent)}.logo-co{color:var(--muted);font-size:.8rem}
+
+.hero{padding:3rem 0 1.5rem;position:relative;z-index:1}
+.hero-eyebrow{display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem}
+.tool-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+.hero h1{font-size:clamp(1.75rem,3vw,2.5rem);color:var(--bright);max-width:700px;margin-bottom:.75rem}
+.hero-desc{font-size:.93rem;color:var(--body);max-width:660px;line-height:1.75;margin-bottom:1.25rem}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.step-bar{display:flex;margin-bottom:2rem;position:relative;z-index:1}
+.step-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:.3rem;position:relative}
+.step-item:not(:last-child)::after{content:'';position:absolute;top:14px;left:50%;width:100%;height:1px;background:var(--border-2);z-index:0}
+.step-num{width:28px;height:28px;border-radius:50%;border:1px solid var(--border-2);background:var(--bg-2);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.7rem;display:flex;align-items:center;justify-content:center;position:relative;z-index:1;transition:all .25s}
+.step-num.active{border-color:var(--accent);background:var(--accent);color:var(--bg)}
+.step-num.done{border-color:var(--green);background:var(--green-dim);color:var(--green)}
+.step-label{font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-family:'JetBrains Mono',monospace;text-align:center}
+.step-item.active .step-label{color:var(--accent)}.step-item.done .step-label{color:var(--green)}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;position:relative;z-index:1;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border)}
+.wizard-step{display:none}.wizard-step.active{display:block}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem 1.25rem}
+.form-group{display:flex;flex-direction:column;gap:.4rem}.form-group.full{grid-column:1/-1}
+label{font-size:.78rem;letter-spacing:.04em;color:var(--text);font-family:'JetBrains Mono',monospace}
+select,input[type=number]{background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);padding:.55rem .75rem;border-radius:var(--radius);font-size:.88rem;font-family:'Sora',sans-serif;width:100%;transition:border-color .2s;-webkit-appearance:none;appearance:none}
+select:focus,input:focus{outline:none;border-color:var(--accent)}
+select option{background:var(--bg-3)}.field-hint{font-size:.7rem;color:var(--muted);margin-top:.15rem}
+.wizard-nav{display:flex;justify-content:space-between;align-items:center;margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)}
+.btn-back{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid var(--border-2);padding:.45rem 1.1rem;border-radius:var(--radius);transition:all .2s}
+.btn-back:hover{border-color:var(--accent);color:var(--accent)}
+.btn-next,.run-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bg);background:var(--accent);border:1px solid var(--accent);padding:.45rem 1.25rem;border-radius:var(--radius);transition:all .2s}
+.run-btn{font-size:.65rem;padding:.5rem 1.5rem}.btn-next:hover,.run-btn:hover{opacity:.88}
+.results-panel{display:none;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;position:relative;z-index:1;margin-bottom:1.25rem}
+.results-panel.show{display:block}
+.results-title{font-family:'DM Serif Display',serif;font-size:1.35rem;color:var(--bright);margin-bottom:1.25rem}
+.saq-badge-row{display:flex;align-items:flex-start;gap:1.25rem;flex-wrap:wrap;margin-bottom:1.25rem}
+.saq-badge{display:inline-flex;align-items:center;gap:.6rem;background:var(--accent-dim);border:1px solid var(--accent);padding:.5rem 1.1rem;border-radius:var(--radius)}
+.saq-badge-label{font-family:'JetBrains Mono',monospace;font-size:.95rem;color:var(--accent);font-weight:500;letter-spacing:.04em}
+.saq-badge-title{font-size:.8rem;color:var(--text)}
+.effort-cell{display:flex;flex-direction:column;gap:.2rem}
+.effort-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.effort-value{font-family:'JetBrains Mono',monospace;font-size:.82rem;font-weight:500}
+.result-section{margin-bottom:1.5rem}
+.result-section-title{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:.65rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+.result-desc{font-size:.85rem;color:var(--body);line-height:1.75}
+.check-list{list-style:none;display:flex;flex-direction:column;gap:.35rem}
+.check-list li{font-size:.82rem;color:var(--text);display:flex;align-items:flex-start;gap:.6rem;line-height:1.55}
+.check-list li::before{content:'✓';color:var(--green);flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:.75rem;margin-top:.15rem}
+.scope-tags{display:flex;flex-wrap:wrap;gap:.4rem}
+.scope-tag{font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.25rem .6rem;border-radius:var(--radius);background:var(--bg-3);border:1px solid var(--border-2);color:var(--text)}
+.req-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.req-table th{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.45rem .65rem;text-align:left;border-bottom:1px solid var(--border)}
+.req-table td{padding:.5rem .65rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.req-table tr:last-child td{border-bottom:none}
+.req-table tr.in-scope td:first-child{border-left:2px solid var(--green)}
+.req-num{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--accent);white-space:nowrap}
+.req-note{font-size:.73rem;color:var(--body);margin-top:.2rem}
+.status-in{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--green)}
+.status-out{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted)}
+.roadmap{display:flex;flex-direction:column;gap:.85rem}
+.roadmap-row{display:flex;gap:.85rem;align-items:flex-start}
+.phase-pill{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;color:var(--bg);padding:.2rem .55rem;border-radius:var(--radius);flex-shrink:0;margin-top:.25rem;white-space:nowrap}
+.phase-1{background:var(--accent)}.phase-2{background:var(--gold)}.phase-3{background:var(--green)}
+.roadmap-body{font-size:.82rem;color:var(--text);line-height:1.65}
+.roadmap-body strong{color:var(--bright);font-weight:500}
+.roadmap-time{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);margin-bottom:.2rem}
+.alert{padding:.7rem 1rem;border-radius:var(--radius);font-size:.8rem;color:var(--text);margin-bottom:.75rem;line-height:1.65}
+.alert-warn{background:var(--warn-dim);border:1px solid var(--warn);border-left:3px solid var(--warn)}
+.alert-info{background:var(--accent-dim);border:1px solid var(--accent);border-left:3px solid var(--accent)}
+.alert-red{background:var(--red-dim);border:1px solid var(--red);border-left:3px solid var(--red)}
+.alert strong{color:var(--bright);font-weight:500}
+.v4-note{background:var(--bg-3);border:1px solid var(--border-2);padding:.75rem 1rem;border-radius:var(--radius);font-size:.8rem;color:var(--body);line-height:1.65}
+.v4-note strong{color:var(--text)}
+.citations{margin-top:1.25rem;padding-top:.85rem;border-top:1px solid var(--border)}
+.cite-head{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.cite-list{list-style:none;display:flex;flex-direction:column;gap:.22rem}
+.cite-list li{font-size:.73rem;color:var(--muted)}.cite-list span{color:var(--body)}
+.about-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;position:relative;z-index:1;margin-bottom:1.25rem}
+.about-body{font-size:.82rem;color:var(--body);line-height:1.75}
+.about-body+.about-body{margin-top:.6rem}
+.about-disclaimer{font-size:.76rem;color:var(--muted);border-top:1px solid var(--border);padding-top:.65rem;margin-top:.75rem}
+.ap2-btn-inner{display:flex;flex-direction:column;gap:.05rem;text-align:left}
+.ap2-btn-label{font-size:.5rem;letter-spacing:.09em;text-transform:uppercase}
+.ap2-btn-sub{font-size:.42rem;color:rgba(34,197,94,.55);text-transform:none;letter-spacing:0;font-weight:300;line-height:1}
+.ap2-icon{font-size:.72rem;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-weight:700}
+.export-toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--green);padding:.7rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--green);z-index:9999;pointer-events:none;display:flex;align-items:center;gap:.5rem;border-radius:var(--radius);box-shadow:0 4px 24px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s}
+.export-toast.show{opacity:1;transform:translateY(0)}
+}
+@media(max-width:680px){.form-grid{grid-template-columns:1fr}.hero h1{font-size:1.6rem}.step-label{display:none}.saq-badge-row{flex-direction:column}.req-table{font-size:.75rem}}
+@media(max-width:480px){.container{padding:0 1rem}}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo"><svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--purple)" opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".7"/></svg>
+      <div class="logo-text">
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </div></a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/payment-scheme-network-hub.html">Payment Scheme Hub</a><span class="nav-sep">/</span><span>T-226</span></div>
+
+    <a href="../guides/payment-scheme-network-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+<div class="content">
+<section class="hero">
+  <div class="hero-eyebrow"><span class="tool-eyebrow">T226 · Cat-19 · Payment Schemes · PCI DSS</span></div>
+  <h1 class="tool-title">PCI DSS v4.0 Scope Assessment Wizard</h1>
+  <p class="hero-desc">Step-by-step CDE boundary scoping, SAQ type determination (A / A-EP / B / B-IP / C / C-VT / D), compensating controls assessment, v4.0 customised approach guidance, and a compliance Policy Mandate JSON. Client-side. Zero PII.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-privacy"><span data-i18n="hero.badge.privacy">Zero PII · Client-side</span></span>
+    <span class="hero-badge badge-warn"><span data-i18n="hero.badge.warn">Compliant scope reduces PCI fines ($5K–$100K/month) and breach-event remediation cost.</span></span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+  <!-- Edu disclaimer (canonical §9.3) -->
+  <div class="edu-disclaimer">
+    <strong class="edu-disclaimer-label" data-i18n="disclaimer.label">Educational Use Only</strong>
+    <span data-i18n="disclaimer.body">This tool provides a self-assessment / educational framework for internal planning purposes only. It is not a regulatory audit, legal advice, or a substitute for a formal compliance review by a qualified advisor. Verify all interpretations against the official source text and applicable RTS/ITS/guidance published by the relevant authority.</span>
+  </div>
+
+</section>
+<div class="step-bar" id="stepBar">
+  <div class="step-item active" id="si1"><div class="step-num active" id="sn1">1</div><div class="step-label">Organisation</div></div>
+  <div class="step-item" id="si2"><div class="step-num" id="sn2">2</div><div class="step-label">Channels</div></div>
+  <div class="step-item" id="si3"><div class="step-num" id="sn3">3</div><div class="step-label">Card Data</div></div>
+  <div class="step-item" id="si4"><div class="step-num" id="sn4">4</div><div class="step-label">Architecture</div></div>
+</div>
+<!-- STEP 1 -->
+<div class="panel wizard-step active" id="step1">
+  <div class="panel-label" data-i18n="panel_step1">Step 1 — Organisation Profile</div>
+  <div class="form-grid">
+    <div class="form-group"><label data-i18n="label_org_type" for="orgType">Organisation Type</label>
+      <select id="orgType"><option value="merchant">Merchant</option><option value="service-provider">Service Provider</option></select></div>
+    <div class="form-group"><label data-i18n="label_merchant_level" for="merchantLevel">Merchant Level</label>
+      <select id="merchantLevel">
+        <option value="level-4">Level 4 — &lt;20K e-comm or &lt;1M other/yr</option>
+        <option value="level-3">Level 3 — 20K–1M e-commerce/yr</option>
+        <option value="level-2">Level 2 — 1M–6M transactions/yr</option>
+        <option value="level-1">Level 1 — &gt;6M transactions/yr (ROC required)</option>
+        <option value="sp">Service Provider (not merchant classification)</option>
+      </select><span class="field-hint">Visa / Mastercard transaction volume thresholds</span></div>
+    <div class="form-group"><label data-i18n="label_region" for="region">Primary Region</label>
+      <select id="region"><option value="us">United States</option><option value="eu">European Union</option><option value="uk">United Kingdom</option><option value="apac">Asia-Pacific</option><option value="global">Global / Multi-region</option></select></div>
+    <div class="form-group"><label data-i18n="label_annual_volume" for="annualVolume">Estimated Annual Card Transactions</label>
+      <input type="number" id="annualVolume" placeholder="e.g. 250000" min="0"></div>
+  </div>
+  <div class="wizard-nav"><span></span><button class="btn-next" onclick="goStep(2)">Next: Payment Channels →</button></div>
+</div>
+<!-- STEP 2 -->
+<div class="panel wizard-step" id="step2">
+  <div class="panel-label" data-i18n="panel_step2">Step 2 — Payment Channels</div>
+  <div class="form-grid">
+    <div class="form-group full"><label data-i18n="label_channel_type" for="channelType">How do you accept card payments?</label>
+      <select id="channelType">
+        <option value="card-present">Card-Present only — in-person / face-to-face</option>
+        <option value="ecommerce">E-Commerce only — website or mobile app</option>
+        <option value="moto">Mail Order / Telephone Order (MOTO) only</option>
+        <option value="mixed">Mixed — card-present and card-not-present</option>
+      </select></div>
+    <div class="form-group full"><label data-i18n="label_terminal_type" for="terminalType">Payment Terminal / Acceptance Method</label>
+      <select id="terminalType">
+        <option value="imprint">Imprint machine — manual paper imprint only</option>
+        <option value="dialout">Standalone dial-out terminal — analogue/ISDN, not IP-connected</option>
+        <option value="ip-terminal">Standalone IP-connected terminal — e.g. Ingenico, Verifone, PAX</option>
+        <option value="integrated-pos">Integrated POS — software on networked hardware (EPOS)</option>
+        <option value="payment-app">Software payment application — e.g. Stripe SDK, Braintree</option>
+        <option value="virtual-terminal">Web-based virtual terminal — keyboard entry via browser</option>
+        <option value="fully-outsourced">Fully outsourced — customer redirected to hosted payment page</option>
+      </select></div>
+    <div class="form-group full"><label data-i18n="label_ecomm_type" for="ecommType">If E-Commerce: Integration Architecture</label>
+      <select id="ecommType">
+        <option value="na">Not applicable — not e-commerce</option>
+        <option value="redirect">Full redirect — customer sent to third-party hosted page</option>
+        <option value="iframe">iFrame or embedded widget on own page</option>
+        <option value="js-library">JavaScript library loaded from PSP on own checkout page</option>
+        <option value="api">Direct API / self-hosted payment form — own page collects PAN</option>
+      </select></div>
+  </div>
+  <div class="wizard-nav"><button class="btn-back" onclick="goStep(1)">← Back</button><button class="btn-next" onclick="goStep(3)">Next: Card Data →</button></div>
+</div>
+<!-- STEP 3 -->
+<div class="panel wizard-step" id="step3">
+  <div class="panel-label" data-i18n="panel_step3">Step 3 — Card Data Handling</div>
+  <div class="form-grid">
+    <div class="form-group full"><label data-i18n="label_card_data_storage" for="cdeStorage">Cardholder Data (CHD) Storage</label>
+      <select id="cdeStorage">
+        <option value="no-storage">No CHD stored electronically — authorisation only</option>
+        <option value="tokenized">Tokens only stored — no PAN, CVV, or full track data</option>
+        <option value="encrypted">CHD stored encrypted — PCI DSS-compliant key management</option>
+        <option value="plaintext">CHD stored in plaintext or reversible format — or unsure</option>
+      </select><span class="field-hint">CHD = PAN, expiry date, cardholder name</span></div>
+    <div class="form-group full"><label data-i18n="label_data_handling" for="dataHandling">Who processes or transmits CHD in your environment?</label>
+      <select id="dataHandling">
+        <option value="fully-outsourced">Fully outsourced — compliant third party handles all CHD</option>
+        <option value="partially-outsourced">Partially outsourced — own systems interact with CHD flow</option>
+        <option value="in-house">In-house — own systems directly process or transmit CHD</option>
+      </select></div>
+    <div class="form-group"><label data-i18n="label_sensitive_auth" for="sensitiveAuth">Sensitive Authentication Data (SAD) Retention</label>
+      <select id="sensitiveAuth">
+        <option value="no">SAD not retained after authorisation</option>
+        <option value="pre-auth">SAD retained pre-authorisation only (in-memory)</option>
+        <option value="yes">SAD may be retained / policy unclear</option>
+      </select><span class="field-hint">SAD = CVV/CVV2, full magnetic stripe, PIN block</span></div>
+    <div class="form-group"><label data-i18n="label_third_party_compliance" for="thirdPartyCompliance">Third-Party Service Provider Compliance</label>
+      <select id="thirdPartyCompliance">
+        <option value="confirmed">AoC obtained from all payment service providers</option>
+        <option value="partial">AoC obtained from some providers</option>
+        <option value="none">No AoC obtained / not verified</option>
+      </select><span class="field-hint">AoC = Attestation of Compliance. Req 12.8.4</span></div>
+  </div>
+  <div class="wizard-nav"><button class="btn-back" onclick="goStep(2)">← Back</button><button class="btn-next" onclick="goStep(4)">Next: Architecture →</button></div>
+</div>
+<!-- STEP 4 -->
+<div class="panel wizard-step" id="step4">
+  <div class="panel-label" data-i18n="panel_step4">Step 4 — Network Architecture &amp; Assessment Approach</div>
+  <div class="form-grid">
+    <div class="form-group"><label data-i18n="label_segmentation" for="segmentation">Network Segmentation</label>
+      <select id="segmentation">
+        <option value="fully-segmented">Fully segmented — CDE isolated from all other networks</option>
+        <option value="cloud-isolated">Cloud-hosted with logical isolation (AWS VPC, Azure NSG)</option>
+        <option value="partially-segmented">Partially segmented — some isolation, not validated</option>
+        <option value="flat">Flat / no segmentation — all systems on same network</option>
+      </select><span class="field-hint">Validated segmentation significantly reduces PCI DSS scope</span></div>
+    <div class="form-group"><label data-i18n="label_saq_type" for="approachType">PCI DSS v4.0 Assessment Approach</label>
+      <select id="approachType">
+        <option value="defined">Defined approach — implement standard requirements</option>
+        <option value="customised">Customised approach — alternative controls (TRA required)</option>
+      </select><span class="field-hint">Customised approach requires QSA validation of Targeted Risk Analysis</span></div>
+    <div class="form-group"><label data-i18n="label_compensating" for="compensating">Compensating Controls</label>
+      <select id="compensating">
+        <option value="no">No compensating controls</option>
+        <option value="yes">Yes — documented and reviewed</option>
+        <option value="partial">Partial / under development</option>
+      </select></div>
+    <div class="form-group"><label data-i18n="label_tls_version" for="tlsVersion">TLS Version for CHD Transmission</label>
+      <select id="tlsVersion">
+        <option value="tls13">TLS 1.3 — fully compliant</option>
+        <option value="tls12">TLS 1.2 — compliant</option>
+        <option value="tls11">TLS 1.1 or earlier — NON-COMPLIANT</option>
+        <option value="unknown">Unknown / not assessed</option>
+      </select><span class="field-hint">PCI DSS v4.0 Req 4.2.1: TLS 1.1 and below prohibited</span></div>
+  </div>
+  <div class="wizard-nav"><button class="btn-back" onclick="goStep(3)">← Back</button><button class="run-btn" onclick="runAssessment()" data-i18n="run_btn">Run Assessment →</button></div>
+</div>
+<!-- RESULTS -->
+<div class="results-panel" id="resultsPanel">
+  <div class="results-title" data-i18n="results_title">Scope Assessment Results</div>
+  <div id="resultsContent"></div>
+  <div class="citations"><div class="cite-head">Regulatory Citations</div>
+  <ul class="cite-list">
+    <li><span>[1]</span> PCI Security Standards Council, <em>PCI DSS v4.0</em>, March 2022 — pcisecuritystandards.org</li>
+    <li><span>[2]</span> PCI SSC, <em>SAQ Instructions and Guidelines v4.0</em>, March 2022</li>
+    <li><span>[3]</span> PCI SSC, <em>Guidance for PCI DSS Scoping and Network Segmentation</em>, v1.1</li>
+    <li><span>[4]</span> PCI SSC, <em>Summary of Changes: PCI DSS v3.2.1 to v4.0</em>, March 2022</li>
+    <li><span>[5]</span> Visa, <em>Global Merchant Compliance Programme</em></li>
+    <li><span>[6]</span> Mastercard, <em>Site Data Protection (SDP) Programme</em></li>
+  </ul></div>
+</div>
+<div class="about-panel">
+  <div class="panel-label" data-i18n="panel_about">About This Tool</div>
+  <p class="about-body">This wizard applies PCI SSC scoping guidance and SAQ eligibility criteria from PCI DSS v4.0 to determine the applicable Self-Assessment Questionnaire type. It covers all seven SAQ types (A, A-EP, B, B-IP, C, C-VT, D) and flags when a QSA-led Report on Compliance is required for Level 1 merchants.</p>
+  <p class="about-body"><strong style="color:var(--text)">PCI DSS v4.0 (March 2022) key changes covered:</strong> Customised approach with Targeted Risk Analysis (Req 12.3.2), expanded MFA (Req 8.4.2), e-commerce script management (Req 6.4.3), payment page change-detection (Req 11.6.1), and TLS 1.1 prohibition (Req 4.2.1).</p>
+  <p class="about-disclaimer">⚠ This tool provides scoping guidance only and is not a substitute for a formal QSA assessment or legal advice. Verify with your QSA and acquiring bank before completing an SAQ or ROC. Last Reviewed: 2026-05-09</p>
+</div>
+</div><!-- /container -->
+
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/payment-scheme-network-hub.html"><span data-i18n="footer.hub_payment_scheme_network">Scheme Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+<div class="export-toast" id="exportToast"><span style="font-size:.85rem">✓</span><span id="toastMsg"></span></div>
+<script>
+/* ═══════════════════════════════════════════════════════
+   i18n Stage 2 — EN/ES/FR/AR/PT/ZH
+   Do NOT translate: PCI DSS SAQ CDE CHD SAD PAN CVV
+   MOTO TLS QSA ROC AoC ASV PTS EPOS iFrame
+═══════════════════════════════════════════════════════ */
+const T={
+en:{ey:"T226 · Cat-19 · Payment Schemes · PCI DSS",ht:"PCI DSS v4.0 Scope Assessment Wizard",hd:"Step-by-step CDE boundary scoping, SAQ type determination (A / A-EP / B / B-IP / C / C-VT / D), compensating controls, v4.0 customised approach guidance, and compliance Policy Mandate JSON.",s1:"Step 1 — Organisation Profile",s2:"Step 2 — Payment Channels",s3:"Step 3 — Card Data Handling",s4:"Step 4 — Network Architecture & Assessment Approach",ab:"About This Tool",ot:"Organisation Type",ml:"Merchant Level",rg:"Primary Region",av:"Estimated Annual Card Transactions",ct:"How do you accept card payments?",tt:"Payment Terminal / Acceptance Method",et:"If E-Commerce: Integration Architecture",cs:"Cardholder Data (CHD) Storage",dh:"Who processes or transmits CHD?",sa:"Sensitive Authentication Data (SAD) Retention",tp:"Third-Party Service Provider Compliance",sg:"Network Segmentation",at:"PCI DSS v4.0 Assessment Approach",cc:"Compensating Controls",tv:"TLS Version for CHD Transmission",rb:"Run Assessment →",rt:"Scope Assessment Results",ea:"Export Policy Mandate",em:"MD",pn:"🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.",na:"All Tools",fb:"🔒 Zero PII \u00a0 📡 No server calls \u00a0 💻 Client-side",dir:"ltr"},
+es:{ey:"T226 · Cat-19 · Esquemas de Pago · PCI DSS",ht:"Asistente de Evaluación de Alcance PCI DSS v4.0",hd:"Delimitación paso a paso del CDE, determinación del tipo SAQ (A / A-EP / B / B-IP / C / C-VT / D), controles compensatorios y mandato de cumplimiento de política.",s1:"Paso 1 — Perfil de la Organización",s2:"Paso 2 — Canales de Pago",s3:"Paso 3 — Manejo de Datos de Tarjeta",s4:"Paso 4 — Arquitectura de Red y Enfoque",ab:"Acerca de Esta Herramienta",ot:"Tipo de Organización",ml:"Nivel de Comerciante",rg:"Región Principal",av:"Transacciones Anuales Estimadas",ct:"¿Cómo acepta pagos con tarjeta?",tt:"Terminal de Pago / Método de Aceptación",et:"Si es E-Commerce: Arquitectura de Integración",cs:"Almacenamiento de Datos del Titular (CHD)",dh:"¿Quién procesa o transmite CHD?",sa:"Retención de Datos de Autenticación Sensibles (SAD)",tp:"Cumplimiento de Proveedores Externos",sg:"Segmentación de Red",at:"Enfoque de Evaluación PCI DSS v4.0",cc:"Controles Compensatorios",tv:"Versión TLS para Transmisión CHD",rb:"Ejecutar Evaluación →",rt:"Resultados de Evaluación de Alcance",ea:"Exportar Mandato de Política",em:"MD",pn:"🔒 Todas las entradas se procesan localmente. No se transmiten datos.",na:"Todas las herramientas",fb:"🔒 Sin PII \u00a0 📡 Sin llamadas al servidor \u00a0 💻 Del lado del cliente",dir:"ltr"},
+fr:{ey:"T226 · Cat-19 · Schémas de Paiement · PCI DSS",ht:"Assistant d'Évaluation de Périmètre PCI DSS v4.0",hd:"Délimitation étape par étape du périmètre CDE, détermination du type SAQ (A / A-EP / B / B-IP / C / C-VT / D), contrôles compensatoires et mandat de conformité de politique.",s1:"Étape 1 — Profil de l'Organisation",s2:"Étape 2 — Canaux de Paiement",s3:"Étape 3 — Traitement des Données de Carte",s4:"Étape 4 — Architecture Réseau et Approche",ab:"À Propos de Cet Outil",ot:"Type d'Organisation",ml:"Niveau de Commerçant",rg:"Région Principale",av:"Transactions Annuelles Estimées",ct:"Comment acceptez-vous les paiements par carte ?",tt:"Terminal de Paiement / Méthode d'Acceptation",et:"Si E-Commerce : Architecture d'Intégration",cs:"Stockage des Données du Titulaire (CHD)",dh:"Qui traite ou transmet les CHD ?",sa:"Rétention des Données d'Authentification Sensibles (SAD)",tp:"Conformité des Prestataires Tiers",sg:"Segmentation Réseau",at:"Approche d'Évaluation PCI DSS v4.0",cc:"Contrôles Compensatoires",tv:"Version TLS pour la Transmission CHD",rb:"Lancer l'Évaluation →",rt:"Résultats de l'Évaluation de Périmètre",ea:"Exporter Mandat de Politique",em:"MD",pn:"🔒 Toutes les entrées sont traitées localement. Aucune donnée n'est transmise.",na:"Tous les outils",fb:"🔒 Zéro PII \u00a0 📡 Aucun appel serveur \u00a0 💻 Côté client",dir:"ltr"},
+ar:{ey:"T226 · Cat-19 · أنظمة الدفع · PCI DSS",ht:"معالج تقييم نطاق PCI DSS الإصدار 4.0",hd:"تحديد حدود CDE خطوة بخطوة، تحديد نوع SAQ، والضوابط التعويضية، ومأمورية الامتثال تفويض السياسة.",s1:"الخطوة 1 — ملف المنظمة",s2:"الخطوة 2 — قنوات الدفع",s3:"الخطوة 3 — التعامل مع بيانات البطاقة",s4:"الخطوة 4 — البنية التحتية للشبكة والنهج",ab:"حول هذه الأداة",ot:"نوع المنظمة",ml:"مستوى التاجر",rg:"المنطقة الرئيسية",av:"المعاملات السنوية التقديرية",ct:"كيف تقبل مدفوعات البطاقة؟",tt:"طرفية الدفع / طريقة القبول",et:"هيكل التكامل (التجارة الإلكترونية)",cs:"تخزين بيانات حامل البطاقة (CHD)",dh:"من يعالج أو ينقل CHD؟",sa:"الاحتفاظ ببيانات المصادقة الحساسة (SAD)",tp:"امتثال مزودي الخدمة الخارجيين",sg:"تجزئة الشبكة",at:"نهج التقييم PCI DSS v4.0",cc:"الضوابط التعويضية",tv:"إصدار TLS لنقل CHD",rb:"← تشغيل التقييم",rt:"نتائج تقييم النطاق",ea:"تصدير تفويض السياسة",em:"MD",pn:"🔒 تتم معالجة جميع المدخلات محلياً. لا يتم نقل أي بيانات.",na:"جميع الأدوات",fb:"🔒 صفر PII \u00a0 📡 لا اتصالات \u00a0 💻 من جانب العميل",dir:"rtl"},
+pt:{ey:"T226 · Cat-19 · Esquemas de Pagamento · PCI DSS",ht:"Assistente de Avaliação de Escopo PCI DSS v4.0",hd:"Delimitação passo a passo do CDE, determinação do tipo SAQ (A / A-EP / B / B-IP / C / C-VT / D), controles compensatórios e mandato de conformidade de política.",s1:"Passo 1 — Perfil da Organização",s2:"Passo 2 — Canais de Pagamento",s3:"Passo 3 — Tratamento de Dados do Cartão",s4:"Passo 4 — Arquitetura de Rede e Abordagem",ab:"Sobre Esta Ferramenta",ot:"Tipo de Organização",ml:"Nível do Comerciante",rg:"Região Principal",av:"Transações Anuais Estimadas",ct:"Como você aceita pagamentos com cartão?",tt:"Terminal de Pagamento / Método de Aceitação",et:"Se E-Commerce: Arquitetura de Integração",cs:"Armazenamento de Dados do Titular (CHD)",dh:"Quem processa ou transmite CHD?",sa:"Retenção de Dados de Autenticação Sensíveis (SAD)",tp:"Conformidade de Prestadores de Serviço Terceiros",sg:"Segmentação de Rede",at:"Abordagem de Avaliação PCI DSS v4.0",cc:"Controles Compensatórios",tv:"Versão TLS para Transmissão de CHD",rb:"Executar Avaliação →",rt:"Resultados da Avaliação de Escopo",ea:"Exportar Mandato de Política",em:"MD",pn:"🔒 Todas as entradas são processadas localmente. Nenhum dado é transmitido.",na:"Todas as ferramentas",fb:"🔒 Zero PII \u00a0 📡 Sem chamadas ao servidor \u00a0 💻 Do lado do cliente",dir:"ltr"},
+zh:{ey:"T226 · Cat-19 · 支付方案 · PCI DSS",ht:"PCI DSS v4.0 范围评估向导",hd:"逐步划定持卡人数据环境边界，确定SAQ类型（A/A-EP/B/B-IP/C/C-VT/D），评估补偿控制措施，并输出政策授权书合规授权。",s1:"第1步 — 组织概况",s2:"第2步 — 支付渠道",s3:"第3步 — 持卡人数据处理",s4:"第4步 — 网络架构与评估方式",ab:"关于本工具",ot:"组织类型",ml:"商户级别",rg:"主要地区",av:"预计年度卡交易量",ct:"您如何接受卡片支付？",tt:"支付终端 / 受理方式",et:"如为电商：集成架构",cs:"持卡人数据（CHD）存储",dh:"谁在您的环境中处理或传输CHD？",sa:"敏感认证数据（SAD）保留",tp:"第三方服务提供商合规性",sg:"网络分段",at:"PCI DSS v4.0评估方式",cc:"补偿控制措施",tv:"CHD传输所用TLS版本",rb:"运行评估 →",rt:"范围评估结果",ea:"导出政策授权书",em:"MD",pn:"🔒 所有输入均在您的浏览器本地处理。不传输任何数据。",na:"所有工具",fb:"🔒 零PII \u00a0 📡 无服务器调用 \u00a0 💻 纯客户端",dir:"ltr"}
+};
+
+/* i18n key map: data-i18n attr → T key */
+const I18N_MAP={nav_all_tools:'na',panel_step1:'s1',panel_step2:'s2',panel_step3:'s3',panel_step4:'s4',panel_about:'ab',label_org_type:'ot',label_merchant_level:'ml',label_region:'rg',label_annual_volume:'av',label_channel_type:'ct',label_terminal_type:'tt',label_ecomm_type:'et',label_card_data_storage:'cs',label_data_handling:'dh',label_sensitive_auth:'sa',label_third_party_compliance:'tp',label_segmentation:'sg',label_saq_type:'at',label_compensating:'cc',label_tls_version:'tv',run_btn:'rb',results_title:'rt',export_ap2:'ea',export_md:'em',pii_notice:'pn',footer_badge:'fb'};
+
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-19 Hub',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-19',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-19',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-19',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-19',
+  }, zh:{
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-19 中心',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{const s=sessionStorage.getItem('ain_lang');if(s&&T[s])setLang(s);}catch(e){}})();
+
+function goStep(n){
+  document.querySelectorAll('.wizard-step').forEach(s=>s.classList.remove('active'));
+  document.getElementById('step'+n).classList.add('active');
+  for(let i=1;i<=4;i++){
+    const num=document.getElementById('sn'+i),item=document.getElementById('si'+i);
+    num.classList.remove('active','done');item.classList.remove('active','done');
+    if(i<n){num.classList.add('done');item.classList.add('done');}
+    else if(i===n){num.classList.add('active');item.classList.add('active');}
+  }
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+/* ═══════════════════════════════════════════════════════
+   PCI DSS v4.0 STATIC REFERENCE DATA
+   Source: PCI SSC PCI DSS v4.0 + SAQ Instructions v4.0
+   Last Reviewed: 2026-05-09
+═══════════════════════════════════════════════════════ */
+const PCI_REQS={'1':'Install and maintain network security controls','2':'Apply secure configurations to all system components','3':'Protect stored account data','4':'Protect CHD with strong cryptography during open-network transmission','5':'Protect all systems and networks from malicious software','6':'Develop and maintain secure systems and software','7':'Restrict access to system components and CHD by business need to know','8':'Identify users and authenticate access to system components','9':'Restrict physical access to cardholder data','10':'Log and monitor all access to system components and CHD','11':'Test security of systems and networks regularly','12':'Support information security with organizational policies and programs'};
+
+const SAQ={
+'A':{label:'SAQ A',ft:'Card-Not-Present — Fully Outsourced',desc:'All CHD functions fully outsourced to a PCI DSS compliant third party. The merchant does not electronically store, process, or transmit CHD.',reqs:['2','6','8','9','12'],rn:{'2':'Secure config of systems directing customers to payment page','6':'v4.0 Req 6.4.3: Script inventory for pages in redirect path; Req 11.6.1: Payment page change-detection','8':'Auth controls for systems used in payment process','9':'Physical security of any systems used in payments','12':'Security policies; annual service provider AoC (Req 12.8.4)'},cond:['Card-not-present (e-commerce or MOTO) transactions only','All CHD functions outsourced to a PCI DSS compliant third party','No electronic storage, processing, or transmission of CHD on merchant systems','Annual service provider PCI DSS compliance confirmation (AoC)'],cde:['Third-party payment processor (compliant under their own PCI DSS)','Paper receipts / records only (if retained)'],ef:'Very Low',ec:'var(--green)',v4:'<strong>PCI DSS v4.0 for SAQ A:</strong> Req 6.4.3 requires an authorised script inventory for pages in the redirect path. Req 11.6.1 mandates a change-detection mechanism for payment pages. Confirm with your QSA whether these apply to your specific implementation.'},
+'A-EP':{label:'SAQ A-EP',ft:'E-Commerce — Partially Outsourced (Script/Widget on Own Page)',desc:'Merchant website controls how consumers access the payment form (loads scripts, hosts iFrame, controls redirects) but does not receive CHD directly. All CHD processing outsourced to a compliant third party.',reqs:['2','4','6','7','8','9','10','11','12'],rn:{'2':'Secure web server and hosting configuration','4':'Enforced TLS 1.2+ on all payment-flow pages','6':'v4.0 Req 6.4.3: Authorised script inventory + SRI/CSP; Req 6.4.2: WAF in place','7':'Least-privilege access to web systems','8':'MFA for all non-console admin access (Req 8.4.2)','9':'Physical access controls for web servers','10':'Logging and alerting for web server access and changes','11':'v4.0 Req 11.6.1: Payment page tamper-detection; quarterly ASV external scans','12':'Security policies; service provider management programme'},cond:['E-commerce only','Merchant website controls payment page access but does not receive CHD directly','CHD processing fully outsourced to a PCI DSS compliant third party','Merchant website not hosted on the same server as the payment processor'],cde:['Web server and hosting environment','Third-party payment processor (compliant)','Scripts on pages interacting with the payment flow','Network segment containing the web server'],ef:'Medium',ec:'var(--gold)',v4:'<strong>PCI DSS v4.0 for SAQ A-EP:</strong> Req 6.4.3 (script authorisation + SRI integrity inventory) and 11.6.1 (payment page change-detection) are the most significant v4.0 additions. A WAF (Req 6.4.2) is now expected.'},
+'B':{label:'SAQ B',ft:'Card-Present — Imprint or Standalone Dial-Out Terminals',desc:'Merchants using only imprint machines or standalone dial-out (analogue/ISDN) payment terminals not connected to any other system or the internet. No electronic CHD storage.',reqs:['2','3','9','12'],rn:{'2':'Secure terminal configuration','3':'No SAD storage post-auth; secure destruction of paper imprints','9':'Physical security; terminal tamper inspection programme (Req 9.9)','12':'Terminal management policies; incident response'},cond:['Card-present only','Imprint machines or standalone dial-out (analogue/ISDN) terminals only','Terminals not connected to any other systems or the internet','No electronic CHD storage'],cde:['Physical imprint machines (if applicable)','Standalone dial-out payment terminals','Paper imprint records (if retained)'],ef:'Very Low',ec:'var(--green)',v4:'<strong>PCI DSS v4.0 for SAQ B:</strong> Scope remains narrow. Verify all terminals are on the current PCI SSC Approved PTS Devices list. Implement a formal terminal tamper-inspection programme (Req 9.9.1).'},
+'B-IP':{label:'SAQ B-IP',ft:'Card-Present — Standalone IP-Connected PTS-Certified Terminals',desc:'Merchants using standalone IP-connected PTS-certified terminals that do not store CHD, with the terminal network segment isolated from all other business systems.',reqs:['1','2','3','4','5','6','8','9','10','11','12'],rn:{'1':'Firewall/NSG protecting terminal network segment','2':'Secure terminal and network device config','3':'No CHD retained after authorisation','4':'Encrypted transmission from terminal to acquirer/processor','5':'Anti-malware on terminal network management systems','6':'Secure config and patching for terminal management software','8':'MFA for remote terminal management (Req 8.4.2)','9':'Physical terminal security; tamper inspection; terminal inventory','10':'Logging of terminal access and suspicious activity alerts','11':'Quarterly ASV external scans; annual penetration test; segmentation validation','12':'Security policies; service provider management'},cond:['Card-present only','PTS-certified standalone IP-connected terminals','CDE network fully segmented from all other business systems','Segmentation validated by a qualified assessor','No CHD stored after authorisation'],cde:['IP-connected PTS/POI-certified payment terminals','Network segment containing terminals','Firewall / NSG for CDE segment','Terminal management systems'],ef:'Medium',ec:'var(--gold)',v4:'<strong>PCI DSS v4.0 for SAQ B-IP:</strong> MFA (Req 8.4.2) mandated for all remote terminal management. Targeted Risk Analysis (Req 12.3.2) required for some frequency-based controls. Expired PTS certification removes SAQ B-IP eligibility.'},
+'C':{label:'SAQ C',ft:'Payment Application Connected to Internet',desc:'Merchants with a payment application on an internet-connected system that does not store CHD after authorisation, where the payment application is isolated from other internal business systems.',reqs:['1','2','4','5','6','7','8','9','10','11','12'],rn:{'1':'Network security controls protecting the payment application','2':'Secure system config and hardening','4':'TLS 1.2+ enforced for all CHD transmission','5':'Anti-malware on all in-scope systems','6':'Secure software dev and patching; WAF if applicable (Req 6.4.2)','7':'Least-privilege access to payment application','8':'MFA for all non-console admin access (Req 8.4.2)','9':'Physical access controls','10':'Audit logging; real-time intrusion detection','11':'Quarterly ASV external vulnerability scans; annual penetration test','12':'Security policies; incident response plan'},cond:['Payment application installed on an internet-connected system','No electronic CHD storage after authorisation','Payment application not connected to other business systems in the facility','Single location; only one internet connection'],cde:['Payment application and host system','Internet connection and perimeter controls','Systems in the same network segment as the payment application'],ef:'Medium-High',ec:'var(--warn)',v4:'<strong>PCI DSS v4.0 for SAQ C:</strong> MFA (Req 8.4.2) now required for all non-console CDE access. Req 5.3.3 adds anti-malware scan controls for removable electronic media.'},
+'C-VT':{label:'SAQ C-VT',ft:'Web-Based Virtual Terminal',desc:'Merchants that process CHD by manually entering it via keyboard into a web-based virtual terminal on a dedicated isolated system. No CHD is stored electronically.',reqs:['2','4','5','6','8','9','12'],rn:{'2':'Hardened OS and browser on virtual terminal workstation; only necessary software','4':'TLS 1.2+ enforced to virtual terminal provider','5':'Anti-malware on workstation with auto-update enabled','6':'OS and browser kept fully patched; no end-of-life software','8':'MFA for virtual terminal login (Req 8.4.2); individual user accounts','9':'Physical security and access control for the workstation','12':'Security policies; service provider AoC annually (Req 12.8.4)'},cond:['CHD entered manually via keyboard into a web-based virtual terminal','Virtual terminal accessed via internet browser only','Dedicated system used exclusively for virtual terminal access — not shared','System not connected to other CHD-storing systems in the facility','Virtual terminal provider is PCI DSS compliant — AoC obtained annually'],cde:['Dedicated workstation for virtual terminal access','Browser and OS on that workstation','Network connection to the virtual terminal provider'],ef:'Low',ec:'var(--teal)',v4:'<strong>PCI DSS v4.0 for SAQ C-VT:</strong> MFA (Req 8.4.2) now required for all virtual terminal access — not just admin accounts. Obtain updated AoC from virtual terminal provider annually (Req 12.8.4).'},
+'D-Merchant':{label:'SAQ D (Merchant)',ft:'All Other Merchants — Full Scope Assessment',desc:'All merchants not eligible for a reduced SAQ type. Full PCI DSS assessment across all 12 requirement areas.',reqs:['1','2','3','4','5','6','7','8','9','10','11','12'],rn:{},cond:['Does not qualify for any reduced SAQ type','May store CHD electronically (encrypted or tokenized)','Integrated POS or complex payment architecture','Mixed card-present and card-not-present channels','In-house CHD processing or transmission'],cde:['All systems storing, processing, or transmitting CHD','All systems connected to the CDE','All systems in the same network segment as CHD','All network infrastructure connecting CDE systems','Security management systems (SIEM, AV consoles, etc.)'],ef:'High',ec:'var(--red)',v4:'<strong>PCI DSS v4.0 key additions for SAQ D Merchants:</strong> (1) Expanded MFA — all non-console CDE access (Req 8.4.2); (2) Customised approach for Req 3–12 via Targeted Risk Analysis (Req 12.3.2); (3) E-commerce script management (Req 6.4.3); (4) Payment page change-detection (Req 11.6.1); (5) Disk-level encryption clarification — not sufficient alone for CHD protection (Req 3.5.1).'},
+'D-SP':{label:'SAQ D (Service Provider)',ft:'Service Provider — Full Scope Assessment',desc:'Service providers storing, processing, or transmitting CHD on behalf of merchants, or providing services that could impact CHD security. Full 12-requirement scope plus SP-specific controls.',reqs:['1','2','3','4','5','6','7','8','9','10','11','12'],rn:{},cond:['Classified as service provider by card brand or acquirer','Stores, processes, or transmits CHD on behalf of merchants','Or provides services that could impact CHD security','Must meet SP-specific requirements (Appendix A3 — designated compliance programme)'],cde:['All systems storing, processing, or transmitting CHD','Multi-tenant infrastructure (if applicable)','Customer-facing APIs and interfaces','All connected and supporting systems across all customer environments'],ef:'Very High',ec:'var(--red)',v4:'<strong>PCI DSS v4.0 for Service Providers:</strong> (1) Req 12.4.1: Designated PCI DSS compliance programme; (2) Req 12.4.2: Quarterly executive-level compliance reports; (3) Req 11.4.7: Segmentation penetration test every 6 months between all multi-tenant environments.'},
+'QSA':{label:'QSA Assessment Required',ft:'Level 1 Merchant — On-Site QSA Audit Mandatory',desc:'Level 1 merchants (>6M Visa or Mastercard transactions/year, or any post-compromise merchant) must undergo an annual on-site audit by a PCI SSC-approved QSA, producing a Report on Compliance (ROC). SAQs are not applicable.',reqs:['1','2','3','4','5','6','7','8','9','10','11','12'],rn:{},cond:['Visa Level 1: >6M Visa transactions per year','Mastercard Level 1: >6M Mastercard transactions per year','Any merchant that has experienced a cardholder data compromise','Any merchant a card brand designates as Level 1'],cde:['Full enterprise scope defined by QSA during pre-assessment scoping'],ef:'Very High — QSA engagement mandatory',ec:'var(--red)',v4:'<strong>Level 1 / QSA:</strong> Annual on-site QSA audit → Report on Compliance (ROC) + AoC co-signed by QSA and company officer + quarterly ASV scans. Find a QSA at pcisecuritystandards.org/assessors_and_solutions/qualified_security_assessors.'}
+};
+/* ── SAQ determination logic ── */
+function determineSAQ(i){
+  if(i.orgType==='service-provider'||i.merchantLevel==='sp')return'D-SP';
+  if(i.merchantLevel==='level-1')return'QSA';
+  if(i.cdeStorage==='plaintext')return'D-Merchant';
+  if(i.sensitiveAuth==='yes')return'D-Merchant';
+  if(i.channelType==='card-present'){
+    if(i.terminalType==='imprint'||i.terminalType==='dialout')return'B';
+    if(i.terminalType==='ip-terminal'&&(i.segmentation==='fully-segmented'||i.segmentation==='cloud-isolated'))return'B-IP';
+    return'D-Merchant';
+  }
+  if(i.channelType==='ecommerce'){
+    if(i.dataHandling==='fully-outsourced'&&i.cdeStorage==='no-storage'&&i.ecommType==='redirect')return'A';
+    if(i.dataHandling==='fully-outsourced'&&i.cdeStorage==='no-storage'&&(i.ecommType==='iframe'||i.ecommType==='js-library'))return'A-EP';
+    if(i.dataHandling==='partially-outsourced'&&i.cdeStorage==='no-storage')return'A-EP';
+    if(i.ecommType==='api'||i.dataHandling==='in-house')return'D-Merchant';
+    if(i.terminalType==='payment-app'&&i.cdeStorage==='no-storage')return'C';
+    return'D-Merchant';
+  }
+  if(i.channelType==='moto'){
+    if(i.dataHandling==='fully-outsourced'&&i.cdeStorage==='no-storage')return'A';
+    if(i.terminalType==='virtual-terminal'&&i.cdeStorage==='no-storage')return'C-VT';
+    return'D-Merchant';
+  }
+  if(i.channelType==='mixed')return'D-Merchant';
+  if(i.terminalType==='payment-app'&&i.cdeStorage==='no-storage')return'C';
+  return'D-Merchant';
+}
+
+/* ── Roadmaps ── */
+function buildRoadmap(k){
+  const R={
+'A':[{ph:1,t:'30 days',b:'<strong>Service provider due diligence:</strong> Obtain current AoC from your payment processor. Verify certification currency and scope coverage. Document in service provider register (Req 12.8).'},{ph:2,t:'30–60 days',b:'<strong>Script and configuration review (Req 6.4.3):</strong> Inventory all scripts on pages in your payment redirect path. Implement SRI hashes or Content Security Policy. Document approved scripts.'},{ph:3,t:'60–90 days',b:'<strong>SAQ A completion:</strong> Complete SAQ A, sign Attestation of Compliance, submit to acquiring bank. Establish annual re-validation and service provider AoC review calendar.'}],
+'A-EP':[{ph:1,t:'30 days',b:'<strong>Script inventory (Req 6.4.3):</strong> Enumerate all JavaScript on checkout pages. Deploy SRI hashes or strict CSP. Implement approval mechanism for each script. Alert on unauthorised changes.'},{ph:2,t:'30–75 days',b:'<strong>Payment page tamper-detection (Req 11.6.1):</strong> Implement change-detection for payment page content and scripts. Engage ASV for quarterly external scans. Deploy WAF per Req 6.4.2.'},{ph:3,t:'75–120 days',b:'<strong>SAQ A-EP completion:</strong> Conduct annual web environment penetration test. Implement MFA for non-console admin access (Req 8.4.2). Complete SAQ A-EP. Submit to acquirer.'}],
+'B':[{ph:1,t:'14 days',b:'<strong>Terminal inventory and PTS verification:</strong> List all imprint machines and dial-out terminals. Cross-check each against the PCI SSC Approved PTS Devices list. Replace any with expired PTS listings.'},{ph:2,t:'14–30 days',b:'<strong>Physical security and tamper programme (Req 9.9):</strong> Implement formal tamper-inspection procedures and staff training. Secure storage and destruction for paper imprints. Document terminal serial numbers and locations.'},{ph:3,t:'30–45 days',b:'<strong>SAQ B completion:</strong> Complete SAQ B, sign AoC, submit to acquiring bank. Establish annual re-validation and terminal review cycle.'}],
+'B-IP':[{ph:1,t:'30 days',b:'<strong>Segmentation validation:</strong> Document CDE segment boundaries and all firewall rules. Engage a qualified assessor to validate segmentation is effective per PCI SSC Scoping Guidance v1.1. Unsigned segmentation is a common audit finding.'},{ph:2,t:'30–60 days',b:'<strong>Terminal hardening and monitoring:</strong> Harden network devices in CDE segment. Enable access logging. Implement MFA for remote terminal management (Req 8.4.2). Verify current PTS certification. Engage ASV for quarterly external scans.'},{ph:3,t:'60–90 days',b:'<strong>SAQ B-IP completion:</strong> Conduct annual penetration test of terminal network segment. Complete SAQ B-IP. Submit AoC to acquiring bank. Establish quarterly ASV and annual penetration test schedule.'}],
+'C':[{ph:1,t:'30 days',b:'<strong>CDE isolation and inventory:</strong> Confirm payment application is on an isolated system with no connections to other internal systems. Document all in-scope components. Apply hardening baseline to payment server.'},{ph:2,t:'30–75 days',b:'<strong>Security controls deployment:</strong> Deploy anti-malware and file integrity monitoring. Implement MFA for all non-console admin access (Req 8.4.2). Establish patch management. Engage ASV for quarterly external vulnerability scanning.'},{ph:3,t:'90–120 days',b:'<strong>SAQ C completion:</strong> Conduct annual penetration test of payment application environment. Complete SAQ C. Submit AoC to acquiring bank.'}],
+'C-VT':[{ph:1,t:'14 days',b:'<strong>Workstation isolation and hardening:</strong> Designate a dedicated computer for virtual terminal access only. Remove unnecessary software. Apply OS hardening baseline. Enable automatic security updates. Verify TLS 1.2+ enforced.'},{ph:2,t:'14–30 days',b:'<strong>MFA and access control (Req 8.4.2):</strong> Implement MFA for all virtual terminal logins. Enable full-disk encryption on workstation. Restrict physical access. Deploy anti-malware with auto-update.'},{ph:3,t:'30–45 days',b:'<strong>SAQ C-VT completion:</strong> Obtain current AoC from virtual terminal provider. Complete SAQ C-VT. Submit to acquiring bank. Establish annual re-validation and workstation security review cycle.'}],
+'D-Merchant':[{ph:1,t:'60–90 days',b:'<strong>Scope and gap assessment:</strong> Define CDE boundaries and enumerate all in-scope components. Conduct PCI DSS v4.0 gap assessment across all 12 requirements. Consider network segmentation to reduce scope.'},{ph:2,t:'90–180 days',b:'<strong>Remediation programme:</strong> Implement network segmentation (strongly recommended to reduce SAQ D scope). Deploy priority security controls. Expand MFA (Req 8.4.2). Engage ASV for quarterly external scans. Establish SIEM/logging and incident response.'},{ph:3,t:'6–12 months',b:'<strong>Full SAQ D completion:</strong> Implement all 12 requirement areas including customised approach if applicable (Req 12.3.2), script management (Req 6.4.3), and payment page tamper-detection (Req 11.6.1). Annual penetration test. Complete SAQ D-Merchant. Submit AoC.'}],
+'D-SP':[{ph:1,t:'60–90 days',b:'<strong>Scope and programme establishment:</strong> Define CDE scope across all customer environments. Appoint PCI DSS compliance programme owner (Req 12.4.1). Conduct enterprise-wide gap assessment. Establish executive-level compliance oversight (Req 12.4.2).'},{ph:2,t:'90–180 days',b:'<strong>Multi-tenant remediation:</strong> Implement and validate segmentation between all customer environments. Establish segmentation penetration testing every 6 months (Req 11.4.7). Build sub-processor compliance monitoring programme.'},{ph:3,t:'12–18 months',b:'<strong>ROC or SAQ D-SP completion:</strong> Engage PCI SSC-approved QSA. Large SPs produce ROC rather than SAQ. Provide current AoC to all merchant clients. Establish annual re-assessment cycle.'}],
+'QSA':[{ph:1,t:'30 days',b:'<strong>QSA engagement:</strong> Select a PCI SSC-approved QSA from pcisecuritystandards.org/assessors_and_solutions/qualified_security_assessors. Define assessment scope, timeline, and engagement contract. Establish internal PCI DSS project team.'},{ph:2,t:'90–180 days',b:'<strong>Pre-assessment readiness:</strong> Conduct internal gap assessment or QSA readiness review. Remediate critical findings in Req 1, 3, 6, 8, and 10. Engage ASV for quarterly external scanning. Conduct staff security awareness training.'},{ph:3,t:'6–12 months',b:'<strong>ROC completion:</strong> QSA conducts on-site assessment, interviews, and evidence review. Produce Report on Compliance (ROC). QSA and company officer co-sign AoC. Submit ROC and AoC to acquiring bank and card brands. Establish quarterly ASV scan programme.'}]
+  };
+  return R[k]||R['D-Merchant'];
+}
+/* ── State ── */
+let lastInputs=null,lastSAQ=null;
+
+/* ═══════════════════════════════════════════════════════
+   MAIN ASSESSMENT RUNNER
+═══════════════════════════════════════════════════════ */
+function runAssessment(){
+  const inp={
+    orgType:document.getElementById('orgType').value,
+    merchantLevel:document.getElementById('merchantLevel').value,
+    region:document.getElementById('region').value,
+    annualVolume:parseInt(document.getElementById('annualVolume').value)||0,
+    channelType:document.getElementById('channelType').value,
+    terminalType:document.getElementById('terminalType').value,
+    ecommType:document.getElementById('ecommType').value,
+    cdeStorage:document.getElementById('cdeStorage').value,
+    dataHandling:document.getElementById('dataHandling').value,
+    sensitiveAuth:document.getElementById('sensitiveAuth').value,
+    thirdPartyCompliance:document.getElementById('thirdPartyCompliance').value,
+    segmentation:document.getElementById('segmentation').value,
+    approachType:document.getElementById('approachType').value,
+    compensating:document.getElementById('compensating').value,
+    tlsVersion:document.getElementById('tlsVersion').value
+  };
+  lastInputs=inp;
+  const key=determineSAQ(inp);lastSAQ=key;
+  const saq=SAQ[key],roadmap=buildRoadmap(key),inScope=new Set(saq.reqs);
+
+  /* Alerts */
+  let alerts='';
+  if(key==='QSA')alerts+=`<div class="alert alert-red">🔴 <strong>Level 1 Merchant — QSA assessment mandatory.</strong> SAQs do not apply at this transaction volume. An annual on-site audit by a PCI SSC-approved QSA is required, producing a Report on Compliance (ROC).</div>`;
+  if(inp.tlsVersion==='tls11')alerts+=`<div class="alert alert-warn">⚠ <strong>TLS non-compliance detected.</strong> TLS 1.1 and earlier are prohibited under PCI DSS v4.0 Req 4.2.1. Immediate remediation required — all CHD transmission must use TLS 1.2 or higher.</div>`;
+  if(inp.sensitiveAuth==='yes')alerts+=`<div class="alert alert-warn">⚠ <strong>SAD retention risk.</strong> Sensitive Authentication Data (CVV/CVV2, track data, PIN) must never be stored after authorisation under any circumstances (Req 3.3). Immediate remediation required.</div>`;
+  if(inp.thirdPartyCompliance==='none')alerts+=`<div class="alert alert-warn">⚠ <strong>Service provider compliance not confirmed.</strong> PCI DSS v4.0 Req 12.8.4 requires annual AoC from all payment service providers that could affect CHD security.</div>`;
+  if(inp.approachType==='customised')alerts+=`<div class="alert alert-info">ℹ <strong>Customised Approach selected.</strong> Alternative controls must meet PCI DSS security objectives via a Targeted Risk Analysis (TRA). QSA validation and annual review are mandatory. Available for Req 3–12 only.</div>`;
+  if(inp.compensating==='yes')alerts+=`<div class="alert alert-info">ℹ <strong>Compensating Controls in use.</strong> Must be documented in a Compensating Controls Worksheet (Appendix B), reviewed annually by a QSA, and must exceed the intent of the original requirement.</div>`;
+
+  /* Requirements table */
+  const reqRows=Object.keys(PCI_REQS).map(r=>{
+    const isIn=inScope.has(r);
+    const note=saq.rn&&saq.rn[r]?`<div class="req-note">${saq.rn[r]}</div>`:'';
+    return`<tr class="${isIn?'in-scope':''}"><td><span class="req-num">Req ${r}</span></td><td>${PCI_REQS[r]}${note}</td><td>${isIn?'<span class="status-in">✓ In scope</span>':'<span class="status-out">— N/A</span>'}</td></tr>`;
+  }).join('');
+
+  /* Roadmap */
+  const ph=['phase-1','phase-2','phase-3'];
+  const roadHTML=roadmap.map((r,i)=>`<div class="roadmap-row"><span class="phase-pill ${ph[i]}">Phase ${r.ph}</span><div class="roadmap-body"><div class="roadmap-time">${r.t}</div>${r.b}</div></div>`).join('');
+
+  document.getElementById('resultsContent').innerHTML=`
+    <div class="saq-badge-row">
+      <div class="saq-badge"><span class="saq-badge-label">${saq.label}</span><span class="saq-badge-title">${saq.ft}</span></div>
+      <div class="effort-cell"><span class="effort-label">Compliance Effort</span><span class="effort-value" style="color:${saq.ec}">${saq.ef}</span></div>
+      <div class="effort-cell"><span class="effort-label">Requirements in Scope</span><span class="effort-value" style="color:var(--accent)">${saq.reqs.length} / 12</span></div>
+    </div>
+    <p class="result-desc" style="margin-bottom:1.25rem">${saq.desc}</p>
+    ${alerts}
+    <div class="result-section"><div class="result-section-title">Eligibility Conditions</div><ul class="check-list">${saq.cond.map(c=>`<li>${c}</li>`).join('')}</ul></div>
+    <div class="result-section"><div class="result-section-title">CDE — In-Scope Components</div><div class="scope-tags">${saq.cde.map(c=>`<span class="scope-tag">${c}</span>`).join('')}</div></div>
+    <div class="result-section"><div class="result-section-title">PCI DSS v4.0 Requirements — Applicability</div><div style="overflow-x:auto"><table class="req-table"><thead><tr><th>Req</th><th>Description</th><th>Status</th></tr></thead><tbody>${reqRows}</tbody></table></div></div>
+    <div class="result-section"><div class="result-section-title">PCI DSS v4.0 Key Changes — ${saq.label} Notes</div><div class="v4-note">${saq.v4}</div></div>
+    <div class="result-section"><div class="result-section-title">Implementation Roadmap</div><div class="roadmap">${roadHTML}</div></div>`;
+
+  const panel=document.getElementById('resultsPanel');
+  panel.classList.add('show');
+  for(let i=1;i<=4;i++){
+    document.getElementById('sn'+i).className='step-num done';
+    document.getElementById('si'+i).className='step-item done';
+  }
+  /* Unlock export buttons — Cat-18 AP2 pattern */
+  const ap2=document.getElementById('ap2ExportBtn');if(ap2){ap2.classList.add('ready');ap2.title='For API integration · audit trail';}
+  const md=document.getElementById('mdExportBtn');
+  md.classList.add('ready');md.title='Download Markdown compliance roadmap';
+  /* Also update ap2-btn-label selector for i18n compat */
+  const ap2Lbl=document.querySelector('.footer-ap2-btn .ap2-btn-label');
+  if(ap2Lbl)ap2Lbl.setAttribute('data-i18n','export_ap2');
+  setTimeout(()=>panel.scrollIntoView({behavior:'smooth',block:'start'}),120);
+}
+/* ═══════════════════════════════════════════════════════
+   AP2 JSON EXPORT — mandate_type: "compliance_control"
+   Schema: AP2Mandate v1.0 per Master Rules §1.3
+   Last Reviewed: 2026-05-09
+═══════════════════════════════════════════════════════ */
+function generateAP2(){
+  if(!lastInputs||!lastSAQ)return null;
+  const saq=SAQ[lastSAQ];
+  const uuid='xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);});
+  const regMap={us:'US',eu:'EU',uk:'GB',apac:'APAC',global:'GLOBAL'};
+  return{
+    ap2_version:"1.0",mandate_id:uuid,
+    issued_at:new Date().toISOString(),issued_by:"ainumbers.co",
+    tool_id:"pci-dss-v4-scope-wizard",tool_version:"1.0.0",
+    mandate_type:"compliance_control",
+    jurisdiction:[regMap[lastInputs.region]||'US'],
+    regulatory_frameworks:["PCI DSS v4.0","PCI SSC SAQ Instructions v4.0","Visa Global Merchant Compliance","Mastercard Site Data Protection (SDP) Programme"],
+    payload:{
+      organisation_type:lastInputs.orgType,merchant_level:lastInputs.merchantLevel,
+      annual_volume_estimate:lastInputs.annualVolume,saq_type:saq.label,
+      saq_full_title:saq.ft,payment_channel:lastInputs.channelType,
+      terminal_type:lastInputs.terminalType,ecomm_integration:lastInputs.ecommType,
+      cardholder_data_storage:lastInputs.cdeStorage,data_handling_model:lastInputs.dataHandling,
+      sad_retention:lastInputs.sensitiveAuth,third_party_compliance:lastInputs.thirdPartyCompliance,
+      network_segmentation:lastInputs.segmentation,assessment_approach:lastInputs.approachType,
+      compensating_controls:lastInputs.compensating,tls_version:lastInputs.tlsVersion,
+      tls_compliant:lastInputs.tlsVersion!=='tls11',
+      requirements_in_scope:saq.reqs,requirement_count_in_scope:saq.reqs.length,
+      requirement_count_total:12,compliance_effort:saq.ef,
+      customised_approach_elected:lastInputs.approachType==='customised',
+      qsa_required:lastSAQ==='QSA'
+    },
+    summary:`${lastInputs.orgType==='service-provider'?'Service provider':'Merchant'} PCI DSS v4.0 scope assessment completed. SAQ type: ${saq.label} — ${saq.ft}. ${saq.reqs.length} of 12 requirements in scope. Compliance effort: ${saq.ef}.`,
+    agent_instructions:[
+      `Verify that the organisation meets all eligibility conditions for ${saq.label} before proceeding with self-assessment.`,
+      lastSAQ==='QSA'?'Engage a PCI SSC-approved QSA for annual on-site ROC. SAQ is not applicable at this merchant level.':`Complete and sign the ${saq.label} SAQ and submit Attestation of Compliance (AoC) to the acquiring bank.`,
+      'Obtain and retain current AoC from all third-party payment service providers annually (Req 12.8.4).',
+      'Engage a PCI SSC Approved Scanning Vendor (ASV) for quarterly external vulnerability scans of all internet-facing in-scope systems.',
+      lastInputs.tlsVersion==='tls11'?'URGENT: Upgrade TLS from 1.1 to 1.2 or 1.3 immediately — non-compliant under PCI DSS v4.0 Req 4.2.1.':'Confirm TLS 1.2 or 1.3 is enforced on all CHD transmission paths.',
+      'Re-validate PCI DSS scope annually and after any significant changes to the cardholder data environment.'
+    ],
+    valid_from:new Date().toISOString().split('T')[0],
+    valid_until:new Date(Date.now()+365*24*60*60*1000).toISOString().split('T')[0],
+    last_reviewed:"2026-05-09",
+    source_tool_inputs:lastInputs,
+    regulatory_citations:[
+      "PCI Security Standards Council, PCI DSS v4.0, March 2022",
+      "PCI SSC, SAQ Instructions and Guidelines v4.0, March 2022",
+      "PCI SSC, Guidance for PCI DSS Scoping and Network Segmentation, v1.1",
+      "PCI SSC, Summary of Changes: PCI DSS v3.2.1 to v4.0, March 2022",
+      "Visa, Global Merchant Compliance Programme",
+      "Mastercard, Site Data Protection (SDP) Programme"
+    ]
+  };
+}
+
+function exportAP2(){
+  const m=generateAP2();if(!m)return;
+  const fn=`ap2-pci-dss-scope-${m.mandate_id.substring(0,8)}.policy.json`;
+  AP2Schema.validate(m);
+  const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([JSON.stringify(m,null,2)],{type:'application/json'})),download:fn});
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
+  showToast(`{} ${fn} downloaded`);
+}
+
+/* ── Markdown export ── */
+function exportMarkdown(){
+  if(!lastInputs||!lastSAQ)return;
+  const saq=SAQ[lastSAQ],rdm=buildRoadmap(lastSAQ);
+  const today=new Date().toISOString().split('T')[0];
+  const strip=s=>s.replace(/<[^>]+>/g,'');
+  const lines=[
+    `# PCI DSS v4.0 Scope Assessment Report`,``,
+    `> **Generated:** AINumbers.co · T226 · ${today}`,
+    `> **⚠ Disclaimer:** Scoping guidance only. Not a substitute for QSA assessment or legal advice. Verify with your QSA and acquiring bank before completing an SAQ or ROC.`,
+    ``,`---`,``,`## Executive Summary`,``,
+    `| Field | Value |`,`|---|---|`,
+    `| **SAQ Type** | **${saq.label} — ${saq.ft}** |`,
+    `| Organisation Type | ${lastInputs.orgType} |`,`| Merchant Level | ${lastInputs.merchantLevel} |`,
+    `| Region | ${lastInputs.region} |`,`| Payment Channel | ${lastInputs.channelType} |`,
+    `| CHD Storage | ${lastInputs.cdeStorage} |`,`| Network Segmentation | ${lastInputs.segmentation} |`,
+    `| Assessment Approach | ${lastInputs.approachType} |`,`| TLS Version | ${lastInputs.tlsVersion} |`,
+    `| Requirements In Scope | **${saq.reqs.length} of 12** |`,`| Compliance Effort | **${saq.ef}** |`,
+    ``,`---`,``,`## ${saq.label} — ${saq.ft}`,``,saq.desc,
+    ``,`## Eligibility Conditions`,``,...saq.cond.map(c=>`- ✓ ${c}`),
+    ``,`## CDE — In-Scope Components`,``,...saq.cde.map(c=>`- ${c}`),
+    ``,`## PCI DSS v4.0 Requirements`,``,`| Req | Description | Status |`,`|---|---|---|`,
+    ...Object.keys(PCI_REQS).map(r=>`| Req ${r} | ${PCI_REQS[r]} | ${saq.reqs.includes(r)?'✓ In scope':'— N/A'} |`),
+    ``,`## PCI DSS v4.0 Key Changes`,``,strip(saq.v4),
+    ``,`## Implementation Roadmap`,``,
+    ...rdm.flatMap((r,i)=>[`### Phase ${r.ph} (${r.t})`,``,strip(r.b),``]),
+    `---`,``,`## Regulatory Citations`,``,
+    `1. PCI Security Standards Council, *PCI DSS v4.0*, March 2022`,
+    `2. PCI SSC, *SAQ Instructions and Guidelines v4.0*, March 2022`,
+    `3. PCI SSC, *Guidance for PCI DSS Scoping and Network Segmentation*, v1.1`,
+    `4. Visa, *Global Merchant Compliance Programme*`,
+    `5. Mastercard, *Site Data Protection (SDP) Programme*`,
+    ``,`---`,`*Client-side. Zero PII. AINumbers.co · Post Oak Labs · T226 · Cat-19*`
+  ].join('\n');
+  const fn=`pci-dss-v4-scope-assessment-${today}.md`;
+  const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([lines],{type:'text/markdown'})),download:fn});
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
+  showToast(`MD ${fn} downloaded`);
+}
+
+/* ── Toast — bottom-right, {} green icon, 2.2s (T211 pattern) ── */
+function showToast(msg){
+  const t=document.getElementById('exportToast');
+  document.getElementById('toastMsg').textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "pci-dss-v4-scope-wizard", "version": "1.0.0", "title": "PCI DSS v4.0 Scope Assessment Wizard", "description": "Step-by-step PCI DSS v4.0 scope assessment covering organisation type, payment channels, cardholder data environment, and architecture. Determines applicable SAQ form (A through D-SP), 12-requirement applicability table, and produces a compliance roadmap Markdown memo and Policy Mandate JSON.", "category": "cat-19", "tags": ["PCI DSS", "v4.0", "SAQ", "CDE", "scope", "compliance", "audit", "Policy Mandate"], "audience": ["compliance", "security engineer", "QSA", "merchant", "acquirer"], "input_schema": {"type": "object", "properties": {"org_type": {"type": "string"}, "channels": {"type": "array", "items": {"type": "string"}}, "card_data_stored": {"type": "boolean"}, "network_segmentation": {"type": "string"}, "service_provider_used": {"type": "boolean"}}, "required": ["org_type", "channels"]}, "output_schema": {"type": "object", "properties": {"saq_determination": {"type": "string"}, "applicable_requirements": {"type": "array"}, "compliance_gaps": {"type": "array"}, "ap2_mandate": {"type": "object"}}}, "mcp_tool_definition": {"name": "assess_pci_dss_scope", "description": "Runs a PCI DSS v4.0 scope assessment wizard for merchants and service providers. Determines applicable SAQ form, CDE boundary, and 12-requirement applicability. Use when an agent needs to assess PCI DSS scope, determine SAQ type, or generate a compliance mandate for a payment card data environment.", "inputSchema": {"type": "object", "properties": {"org_type": {"type": "string"}, "channels": {"type": "array", "items": {"type": "string"}}, "card_data_stored": {"type": "boolean"}}, "required": ["org_type", "channels"]}}, "execution": {"type": "browser-javascript", "entry": "tools/226-pci-dss-v4-scope-wizard.html", "function_name": "runAssessment", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

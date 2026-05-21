@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Tool 87 — Startup Survival · Runway & Trajectory Simulator · AINumbers.co</title>
+<meta name="description" content="Real-time startup runway calculator. Input monthly revenue, burn, cash balance, and growth rate. Get an instant SVG trajectory chart showing current vs optimised cash runway, death date, and scenario comparisons. Client-side. Zero PII.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Startup Survival · Runway & Trajectory Simulator","url":"https://ainumbers.co/tools/87-runway-simulator.html","description":"Real-time startup runway calculator. Input monthly revenue, burn, cash balance, and growth rate. Get an instant SVG trajectory chart showing current vs optimised cash runway, death date, and scenario comparisons. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-glow:rgba(20,184,166,.06);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;
+  --radius:6px;--radius-lg:10px;--shadow:0 4px 24px rgba(0,0,0,.4);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.15}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1200px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* ── Lang bar ── */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:0 2rem;height:34px;display:flex;align-items:center}
+.lang-inner{max-width:1200px;margin:0 auto;width:100%;display:flex;gap:.5rem;justify-content:flex-end}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid transparent;padding:.2rem .5rem;cursor:pointer;line-height:1;transition:color .15s}
+.lang-btn.active{color:var(--teal-lt);border-bottom:1px solid var(--teal)}
+
+/* ── Nav ── */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1200px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-mark-grid{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:32px;height:32px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+@media(max-width:600px){}
+/* ── Hero ── */
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.7rem,3vw,2.6rem);color:var(--white);max-width:720px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.2rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.badge-privacy{color:var(--muted);border-color:var(--border)}.badge-privacy::before{content:'·';color:var(--green)}
+.badge-spec{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+
+/* ── Tool section ── */
+.tool-section{padding:2.5rem 0 4rem;position:relative;z-index:1}
+
+/* ── 2-panel layout ── */
+.tool-grid{display:grid;grid-template-columns:340px 1fr;gap:2px;background:var(--border);border:1px solid var(--border)}
+@media(max-width:960px){.tool-grid{grid-template-columns:1fr}}
+
+/* ── Left input panel ── */
+.config-panel{background:var(--bg-2);padding:1.75rem;position:sticky;top:54px;max-height:calc(100vh - 54px);overflow-y:auto}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
+.sec-head{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-lt);margin:1.2rem 0 .7rem;display:flex;align-items:center;gap:.6rem}
+.sec-head::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── Inputs ── */
+.input-row{margin-bottom:1rem}
+.flbl{font-size:.74rem;color:var(--bright);display:block;margin-bottom:.3rem}
+.fhint{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);display:block;margin-top:.2rem}
+input[type=number],input[type=range]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.74rem;padding:.42rem .65rem;outline:none;transition:border-color .2s;-webkit-appearance:none}
+input[type=number]:focus{border-color:var(--teal)}
+input[type=range]{-webkit-appearance:none;appearance:none;height:4px;background:var(--border);border:none;padding:0;cursor:pointer;border-radius:2px;margin-top:.4rem}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:var(--teal);border-radius:50%;cursor:pointer;border:2px solid var(--bg-2)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;background:var(--teal);border-radius:50%;cursor:pointer;border:2px solid var(--bg-2)}
+.range-row{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted);margin-top:.25rem}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--teal-lt);float:right}
+
+/* ── Scenario cards ── */
+.scenario-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.4rem;margin-bottom:1.2rem}
+.sc-card{background:var(--bg-3);border:1px solid var(--border);padding:.65rem .75rem;cursor:pointer;transition:all .15s;text-align:left}
+.sc-card:hover{border-color:var(--teal)}
+.sc-card.selected{border-color:var(--teal);background:var(--teal-dim)}
+.sc-name{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:.2rem}
+.sc-card.selected .sc-name{color:var(--teal-lt)}
+.sc-label{font-size:.72rem;color:var(--bright)}
+
+/* ── Buttons ── */
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.55rem 1rem;cursor:pointer;transition:all .2s;border:1px solid}
+.btn-primary{background:var(--teal);border-color:var(--teal);color:var(--bg)}
+.btn-primary:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--muted);color:var(--text)}
+.btn-red{background:var(--red-dim);border-color:var(--red);color:var(--red)}
+.arow{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.divider{border:none;border-top:1px solid var(--border);margin:1.25rem 0}
+
+/* ── Right output panel ── */
+.output-panel{background:var(--bg-3);display:flex;flex-direction:column;min-height:600px}
+.output-toolbar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.75rem 1.5rem;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.output-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+.output-body{flex:1;padding:1.5rem}
+
+/* ── Death date display ── */
+.death-row{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:1.5rem}
+.death-cell{background:var(--bg-2);padding:1.1rem 1.25rem}
+.death-cell.critical{background:rgba(239,68,68,.06)}
+.death-cell.safe{background:rgba(34,197,94,.06)}
+.dc-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.dc-val{font-family:'DM Serif Display',serif;font-size:2rem;line-height:1;margin-bottom:.2rem}
+.dc-val.red{color:var(--red)}
+.dc-val.warn{color:var(--warn)}
+.dc-val.green{color:var(--green)}
+.dc-val.teal{color:var(--teal)}
+.dc-sub{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--body)}
+
+/* ── KPI bar ── */
+.kpi-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:1px;background:var(--border);margin-bottom:1.5rem}
+.kc{background:var(--bg-2);padding:.8rem 1rem}
+.kl{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.kv{font-family:'DM Serif Display',serif;font-size:1.15rem;color:var(--bright);line-height:1}
+.kv.g{color:var(--green)}.kv.r{color:var(--red)}.kv.w{color:var(--warn)}.kv.t{color:var(--teal)}.kv.gold{color:var(--gold)}
+
+/* ── SVG Chart ── */
+.chart-wrap{background:var(--bg-2);border:1px solid var(--border);padding:1.25rem;margin-bottom:1.5rem;position:relative}
+.chart-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.chart-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+.chart-legend{display:flex;gap:1rem}
+.leg-item{display:flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--body)}
+.leg-dot{width:8px;height:3px;border-radius:1px}
+.leg-dot.red{background:var(--red)}
+.leg-dot.teal{background:var(--teal)}
+#trajectoryChart{width:100%;display:block}
+
+/* ── Scenario summary table ── */
+.sec-title{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin:1.5rem 0 .75rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:.74rem;margin-bottom:1.5rem}
+th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.6rem .85rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-2);white-space:nowrap}
+td{padding:.6rem .85rem;border-bottom:1px solid rgba(30,47,74,.4);vertical-align:top}
+tr:hover td{background:rgba(20,184,166,.02)}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .4rem;border-radius:2px;white-space:nowrap;display:inline-block}
+.tag-green{background:var(--green-dim);color:var(--green)}
+.tag-warn{background:rgba(245,158,11,.1);color:var(--warn)}
+.tag-red{background:var(--red-dim);color:var(--red)}
+.tag-teal{background:var(--teal-dim);color:var(--teal)}
+
+/* ── Insight cards ── */
+.insight-grid{display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.5rem}
+.insight{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);padding:.85rem 1rem;font-size:.76rem;color:var(--body);line-height:1.6}
+.insight.warn{border-left-color:var(--warn)}
+.insight.danger{border-left-color:var(--red)}
+.insight strong{color:var(--text)}
+
+/* ── AP2 Export Button (.ap2-export-btn .ap2-btn-icon {
+  font-size: .82rem;
+  font-weight: 700;
+  color: var(--muted);
+  transition: color .2s;
+}
+.ap2-export-btn .ap2-btn-sub {
+  font-size: .44rem;
+  letter-spacing: .1em;
+  color: var(--muted);
+  transition: color .2s;
+}
+.ap2-export-btn.ready {
+  cursor: pointer;
+  opacity: 1;
+  border-color: var(--border-2);
+}
+.ap2-export-btn.ready:hover {
+  border-color: var(--teal);
+  color: var(--teal-lt);
+  background: var(--teal-dim);
+}
+.ap2-export-btn.ready .ap2-btn-icon,
+.ap2-export-btn.ready:hover .ap2-btn-icon { color: var(--teal-lt); }
+.ap2-export-btn.ready .ap2-btn-sub,
+.ap2-export-btn.ready:hover .ap2-btn-sub { color: var(--teal); }
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <div class="logo-mark-grid">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+    </div>
+    <div class="logo-text">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/open-banking-integration-hub.html">Open Banking Hub</a><span class="nav-sep">/</span><span>T-87</span></div>
+
+    <a href="../guides/open-banking-integration-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Tool 87 · Personal Finance</div>
+  <h1 class="tool-title">Startup Survival —<br><em>Runway &amp; Trajectory Simulator</em></h1>
+  <p class="hero-desc">Input your monthly revenue, burn rate, cash balance, and growth assumptions. Get a real-time SVG trajectory chart showing your current cash curve vs. an optimised scenario — plus your death date, survival probability, and a Markdown runway report you can share with your board or investors.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-privacy">Zero PII · Client-Side Only</span>
+    <span class="hero-badge badge-spec">Real-Time SVG Chart</span>
+    <span class="hero-badge badge-teal">📊 36-Month Forecast</span>
+    <span class="hero-badge badge-red">☠ Death Date Tracker</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+</div></div>
+
+<section class="tool-section"><div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+
+<div class="tool-grid">
+
+  <!-- ════════════════════════════════════════ LEFT: INPUTS ════════════════════════════════════════ -->
+  <div class="config-panel">
+    <div class="panel-label">Inputs — Financial Model</div>
+
+    <div class="sec-head">Preset Scenario</div>
+    <div class="scenario-grid">
+      <div class="sc-card" id="sc-conservative" onclick="applyScenario('conservative')">
+        <div class="sc-name">Conservative</div>
+        <div class="sc-label">5% growth</div>
+      </div>
+      <div class="sc-card selected" id="sc-base" onclick="applyScenario('base')">
+        <div class="sc-name">Base</div>
+        <div class="sc-label">15% growth</div>
+      </div>
+      <div class="sc-card" id="sc-optimistic" onclick="applyScenario('optimistic')">
+        <div class="sc-name">Optimistic</div>
+        <div class="sc-label">30% growth</div>
+      </div>
+    </div>
+
+    <div class="sec-head">Cash Position</div>
+
+    <div class="input-row">
+      <label class="flbl">Cash Balance ($)</label>
+      <input type="number" id="cashBalance" value="500000" min="0" step="10000" oninput="recalc()">
+      <span class="fhint">Current cash in bank today</span>
+    </div>
+
+    <div class="input-row">
+      <label class="flbl">Monthly Revenue ($)</label>
+      <input type="number" id="monthlyRevenue" value="40000" min="0" step="1000" oninput="recalc()">
+      <span class="fhint">Recurring monthly revenue (MRR)</span>
+    </div>
+
+    <div class="input-row">
+      <label class="flbl">Monthly Burn Rate ($)</label>
+      <input type="number" id="monthlyBurn" value="90000" min="1" step="1000" oninput="recalc()">
+      <span class="fhint">Total monthly outgoing spend</span>
+    </div>
+
+    <div class="sec-head">Growth Assumptions</div>
+
+    <div class="input-row">
+      <label class="flbl">Monthly Revenue Growth Rate
+        <span class="slider-val" id="growthVal">15%</span>
+      </label>
+      <input type="range" id="growthRate" min="0" max="50" step="1" value="15" oninput="syncSlider('growthRate','growthVal','%');recalc()">
+      <div class="range-row"><span>0%</span><span>50%</span></div>
+      <span class="fhint">Month-over-month revenue growth</span>
+    </div>
+
+    <div class="input-row">
+      <label class="flbl">Burn Reduction Lever (Optimised)
+        <span class="slider-val" id="burnRedVal">10%</span>
+      </label>
+      <input type="range" id="burnReduction" min="0" max="40" step="1" value="10" oninput="syncSlider('burnReduction','burnRedVal','%');recalc()">
+      <div class="range-row"><span>0%</span><span>40%</span></div>
+      <span class="fhint">Cost reduction applied to optimised scenario</span>
+    </div>
+
+    <div class="input-row">
+      <label class="flbl">Revenue Acceleration (Optimised)
+        <span class="slider-val" id="revBoostVal">+5%</span>
+      </label>
+      <input type="range" id="revBoost" min="0" max="20" step="1" value="5" oninput="syncSlider('revBoost','revBoostVal','+%');recalc()">
+      <div class="range-row"><span>0%</span><span>+20%</span></div>
+      <span class="fhint">Additional monthly growth in optimised scenario</span>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="sec-head">Export</div>
+    <div class="results-export-row arow">
+      <button class="btn btn-ghost" onclick="exportMarkdown()">↓ Runway Report (MD)</button>
+      <button class="btn btn-ghost" id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the analysis above to generate a Policy Mandate">{} Export Policy Mandate<span style="font-family:'JetBrains Mono',monospace;font-size:.44rem;opacity:.65;display:block;letter-spacing:.08em;margin-top:1px">API · audit trail</span></button>
+
+      <button class="btn btn-ghost" id="copyBtn" onclick="copyToClipboard()">⎘ Copy</button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════ RIGHT: OUTPUT ════════════════════════════════════════ -->
+  <div class="output-panel">
+    <div class="output-toolbar">
+      <span class="output-title">Runway Analysis — Real-Time</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted)" id="lastUpdated">Updating…</span>
+    </div>
+    <div class="output-body">
+
+      <!-- Death date / survival row -->
+      <div class="death-row">
+        <div class="death-cell critical" id="deathCell">
+          <div class="dc-label">☠ Current Trajectory — Zero Date</div>
+          <div class="dc-val red" id="deathMonths">—</div>
+          <div class="dc-sub" id="deathDate">calculating…</div>
+        </div>
+        <div class="death-cell safe" id="optCell">
+          <div class="dc-label">✦ Optimised Scenario — Runway</div>
+          <div class="dc-val teal" id="optMonths">—</div>
+          <div class="dc-sub" id="optDate">calculating…</div>
+        </div>
+      </div>
+
+      <!-- KPI bar -->
+      <div class="kpi-bar">
+        <div class="kc"><div class="kl">Net Burn / Mo</div><div class="kv r" id="kNetBurn">—</div></div>
+        <div class="kc"><div class="kl">Break-Even Mo</div><div class="kv gold" id="kBreakEven">—</div></div>
+        <div class="kc"><div class="kl">LTM Rev (12mo)</div><div class="kv t" id="kLtmRev">—</div></div>
+        <div class="kc"><div class="kl">Burn Multiple</div><div class="kv w" id="kBurnMult">—</div></div>
+        <div class="kc"><div class="kl">Survival Prob.</div><div class="kv g" id="kSurvival">—</div></div>
+        <div class="kc"><div class="kl">Gain vs Current</div><div class="kv t" id="kGain">—</div></div>
+      </div>
+
+      <!-- SVG Chart -->
+      <div class="chart-wrap">
+        <div class="chart-title-row">
+          <span class="chart-title">Cash Balance Trajectory — 36 Months</span>
+          <div class="chart-legend">
+            <div class="leg-item"><div class="leg-dot red"></div>Current</div>
+            <div class="leg-item"><div class="leg-dot teal"></div>Optimised</div>
+          </div>
+        </div>
+        <svg id="trajectoryChart" viewBox="0 0 780 320" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+
+      <!-- Scenario comparison table -->
+      <div class="sec-title">Three-Scenario Comparison</div>
+      <table id="scenarioTable">
+        <thead>
+          <tr>
+            <th>Scenario</th>
+            <th>Growth / Mo</th>
+            <th>Burn Red.</th>
+            <th>Runway</th>
+            <th>Break-Even</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="scenarioTbody"></tbody>
+      </table>
+
+      <!-- Insights -->
+      <div class="sec-title">Key Insights & Recommendations</div>
+      <div class="insight-grid" id="insightGrid"></div>
+
+    </div>
+  </div>
+
+</div>
+
+</div></section>
+
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+// ════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════
+const MONTHS = 36;
+const SESSION_KEY = 'ap2-runway-simulator-v1';
+
+const state = {
+  cashBalance: 500000,
+  monthlyRevenue: 40000,
+  monthlyBurn: 90000,
+  growthRate: 15,
+  burnReduction: 10,
+  revBoost: 5,
+  scenario: 'base'
+};
+
+const SCENARIOS = {
+  conservative: { growthRate: 5,  burnReduction: 5,  revBoost: 2  },
+  base:         { growthRate: 15, burnReduction: 10, revBoost: 5  },
+  optimistic:   { growthRate: 30, burnReduction: 20, revBoost: 10 }
+};
+
+// ════════════════════════════════════════
+// SESSION RESTORE
+// ════════════════════════════════════════
+(function restoreSession(){
+  try {
+    const saved = sessionStorage.getItem(SESSION_KEY);
+    if(saved){
+      Object.assign(state, JSON.parse(saved));
+      setInputs();
+    }
+  } catch(e){}
+})();
+
+function setInputs(){
+  document.getElementById('cashBalance').value    = state.cashBalance;
+  document.getElementById('monthlyRevenue').value = state.monthlyRevenue;
+  document.getElementById('monthlyBurn').value    = state.monthlyBurn;
+  document.getElementById('growthRate').value     = state.growthRate;
+  document.getElementById('burnReduction').value  = state.burnReduction;
+  document.getElementById('revBoost').value       = state.revBoost;
+  document.getElementById('growthVal').textContent  = state.growthRate + '%';
+  document.getElementById('burnRedVal').textContent = state.burnReduction + '%';
+  document.getElementById('revBoostVal').textContent= '+' + state.revBoost + '%';
+  highlightScenario(state.scenario);
+}
+
+// ════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════
+function syncSlider(sliderId, valId, suffix){
+  const val = document.getElementById(sliderId).value;
+  document.getElementById(valId).textContent = (suffix.startsWith('+') ? '+' : '') + val + (suffix.endsWith('%') ? '%' : suffix);
+}
+
+function fmt(n){
+  if(Math.abs(n)>=1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+  if(Math.abs(n)>=1e3) return '$' + (n/1e3).toFixed(0) + 'K';
+  return '$' + n.toFixed(0);
+}
+
+function fmtShort(n){ return Math.abs(n)>=1e6 ? '$'+(n/1e6).toFixed(1)+'M' : '$'+(n/1e3).toFixed(0)+'K'; }
+
+function getDeathDate(monthsFromNow){
+  if(monthsFromNow === null) return 'Beyond 36 months';
+  const d = new Date();
+  d.setMonth(d.getMonth() + Math.round(monthsFromNow));
+  return d.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+}
+
+// ════════════════════════════════════════
+// CORE MODEL — simulate cash curve
+// growthRate: monthly % growth of revenue
+// burnAdjust: multiplier on burn (1 = no change, 0.9 = 10% reduction)
+// revAdjust: additional monthly growth multiplier on top of base
+// ════════════════════════════════════════
+function simulate(cash, rev, burn, growthPct, burnReductionPct, revBoostPct){
+  const pts = [];
+  let c = cash;
+  let r = rev;
+  let b = burn * (1 - burnReductionPct/100);
+  const gBase   = 1 + growthRate()/100;
+  const gBoost  = 1 + revBoostPct/100;
+  const gMonthly = gBase * (revBoostPct > 0 ? gBoost : 1);
+
+  pts.push(c);
+  let deathMonth = null;
+  for(let m = 1; m <= MONTHS; m++){
+    const net = r - b;
+    c += net;
+    r *= gMonthly;
+    if(c <= 0 && deathMonth === null){
+      // interpolate for precision
+      const prevNet = pts[m-1];
+      const frac = prevNet / (prevNet - c + net); // fraction into month
+      deathMonth = (m - 1) + frac;
+      c = 0;
+    }
+    pts.push(Math.max(0, c));
+    if(c <= 0) { for(let i=m+1;i<=MONTHS;i++) pts.push(0); break; }
+  }
+  return { pts, deathMonth };
+}
+
+function growthRate(){ return parseFloat(document.getElementById('growthRate').value)||0; }
+
+// break-even month (when revenue covers burn)
+function breakEvenMonth(rev, burn, growthPct, burnRedPct){
+  let r = rev;
+  let b = burn * (1 - burnRedPct/100);
+  const g = 1 + growthPct/100;
+  for(let m=1;m<=MONTHS;m++){
+    r *= g;
+    if(r >= b) return m;
+  }
+  return null;
+}
+
+// ════════════════════════════════════════
+// MAIN RECALC
+// ════════════════════════════════════════
+function recalc(){
+  // Read inputs
+  state.cashBalance    = parseFloat(document.getElementById('cashBalance').value)    || 0;
+  state.monthlyRevenue = parseFloat(document.getElementById('monthlyRevenue').value) || 0;
+  state.monthlyBurn    = parseFloat(document.getElementById('monthlyBurn').value)    || 1;
+  state.growthRate     = parseFloat(document.getElementById('growthRate').value)     || 0;
+  state.burnReduction  = parseFloat(document.getElementById('burnReduction').value)  || 0;
+  state.revBoost       = parseFloat(document.getElementById('revBoost').value)       || 0;
+
+  // Save session
+  try{ sessionStorage.setItem(SESSION_KEY, JSON.stringify(state)); } catch(e){}
+
+  const { cashBalance: cash, monthlyRevenue: rev, monthlyBurn: burn,
+          growthRate: gr, burnReduction: br, revBoost: rb } = state;
+
+  // Simulate current trajectory (no adjustments beyond base growth)
+  const current   = simulate(cash, rev, burn, gr, 0,  0);
+  // Simulate optimised (burn reduction + rev boost)
+  const optimised = simulate(cash, rev, burn, gr, br, rb);
+
+  // ── Death date display
+  const deathMo = current.deathMonth;
+  const optMo   = optimised.deathMonth;
+
+  const deathEl    = document.getElementById('deathMonths');
+  const optEl      = document.getElementById('optMonths');
+  const deathDateEl= document.getElementById('deathDate');
+  const optDateEl  = document.getElementById('optDate');
+
+  if(deathMo === null){
+    deathEl.textContent = '36+ mo';
+    deathEl.className = 'dc-val green';
+    deathDateEl.textContent = 'Solvent through forecast window';
+    document.getElementById('deathCell').className = 'death-cell safe';
+  } else {
+    const dm = Math.floor(deathMo);
+    deathEl.textContent = dm + ' mo';
+    deathEl.className   = dm < 6 ? 'dc-val red' : dm < 12 ? 'dc-val warn' : 'dc-val gold';
+    deathDateEl.textContent = getDeathDate(dm);
+    document.getElementById('deathCell').className = 'death-cell critical';
+  }
+
+  if(optMo === null){
+    optEl.textContent = '36+ mo';
+    optEl.className = 'dc-val teal';
+    optDateEl.textContent = 'Solvent through forecast window';
+  } else {
+    const om = Math.floor(optMo);
+    optEl.textContent = om + ' mo';
+    optEl.className   = om < 6 ? 'dc-val red' : om < 12 ? 'dc-val warn' : 'dc-val teal';
+    optDateEl.textContent = getDeathDate(om);
+  }
+
+  // ── KPIs
+  const netBurn     = burn - rev;
+  const be          = breakEvenMonth(rev, burn, gr, 0);
+  const ltmRev      = Array.from({length:12}).reduce((sum,_,i)=> sum + rev * Math.pow(1+gr/100, i), 0);
+  const burnMult    = netBurn > 0 && rev > 0 ? (netBurn / rev).toFixed(2) : '∞';
+  const gain        = deathMo !== null && optMo !== null ? Math.floor(optMo - deathMo) : (optMo === null && deathMo !== null ? '36+' : '—');
+  const survProb    = deathMo === null ? '> 95%' : deathMo < 3 ? '< 10%' : deathMo < 6 ? '~20%' : deathMo < 12 ? '~45%' : '~70%';
+
+  document.getElementById('kNetBurn').textContent   = fmtShort(netBurn) + '/mo';
+  document.getElementById('kNetBurn').className     = 'kv ' + (netBurn > 0 ? 'r' : 'g');
+  document.getElementById('kBreakEven').textContent = be ? 'Mo ' + be : 'Never';
+  document.getElementById('kLtmRev').textContent    = fmtShort(ltmRev);
+  document.getElementById('kBurnMult').textContent  = burnMult + 'x';
+  document.getElementById('kSurvival').textContent  = survProb;
+  document.getElementById('kGain').textContent      = typeof gain === 'number' ? '+' + gain + ' mo' : (gain === '—' ? '—' : '+' + gain + ' mo');
+
+  // ── Chart
+  drawChart(current.pts, optimised.pts, deathMo, optMo);
+  enableAP2Btn();
+
+  // ── Scenario table
+  renderScenarioTable(cash, rev, burn, gr);
+
+  // ── Insights
+  renderInsights(deathMo, optMo, netBurn, be, burnMult, gr, br, rb);
+
+  // timestamp
+  document.getElementById('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+// ════════════════════════════════════════
+// SVG CHART
+// ════════════════════════════════════════
+function drawChart(currentPts, optPts, deathMo, optMo){
+  const svg = document.getElementById('trajectoryChart');
+  const W = 780, H = 320;
+  const PAD = { top: 20, right: 24, bottom: 40, left: 72 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top  - PAD.bottom;
+
+  const allVals = [...currentPts, ...optPts].filter(v => v >= 0);
+  const maxVal  = Math.max(...allVals, 1);
+
+  const xScale = i => PAD.left + (i / MONTHS) * cW;
+  const yScale = v => PAD.top  + cH - (v / maxVal) * cH;
+
+  const pathD = (pts) => pts.map((v,i)=>`${i===0?'M':'L'}${xScale(i).toFixed(1)},${yScale(v).toFixed(1)}`).join(' ');
+
+  // Grid lines
+  const gridLines = [0, 0.25, 0.5, 0.75, 1].map(frac => {
+    const y = PAD.top + cH * (1 - frac);
+    const val = maxVal * frac;
+    return `<line x1="${PAD.left}" y1="${y.toFixed(1)}" x2="${W - PAD.right}" y2="${y.toFixed(1)}" stroke="rgba(30,47,74,.5)" stroke-width="1" stroke-dasharray="3,3"/>
+            <text x="${(PAD.left - 6).toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="9" fill="#3A5270">${fmtShort(val)}</text>`;
+  }).join('');
+
+  // X-axis labels
+  const xLabels = [0, 6, 12, 18, 24, 30, 36].map(m => {
+    const x = xScale(m);
+    return `<text x="${x.toFixed(1)}" y="${(H - 8).toFixed(1)}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#3A5270">Mo ${m}</text>`;
+  }).join('');
+
+  // Zero-crossing death date line (current)
+  const deathLine = deathMo !== null ? `
+    <line x1="${xScale(deathMo).toFixed(1)}" y1="${PAD.top}" x2="${xScale(deathMo).toFixed(1)}" y2="${(PAD.top + cH).toFixed(1)}" stroke="rgba(239,68,68,.55)" stroke-width="1" stroke-dasharray="4,3"/>
+    <text x="${(xScale(deathMo)+4).toFixed(1)}" y="${(PAD.top + 13).toFixed(1)}" font-family="JetBrains Mono,monospace" font-size="8.5" fill="#EF4444">☠ Mo ${Math.floor(deathMo)}</text>
+  ` : '';
+
+  // Zero-crossing optimised line
+  const optLine = (optMo !== null && optMo !== deathMo) ? `
+    <line x1="${xScale(optMo).toFixed(1)}" y1="${PAD.top}" x2="${xScale(optMo).toFixed(1)}" y2="${(PAD.top + cH).toFixed(1)}" stroke="rgba(20,184,166,.45)" stroke-width="1" stroke-dasharray="4,3"/>
+    <text x="${(xScale(optMo)+4).toFixed(1)}" y="${(PAD.top + 26).toFixed(1)}" font-family="JetBrains Mono,monospace" font-size="8.5" fill="#14B8A6">✦ Mo ${Math.floor(optMo)}</text>
+  ` : '';
+
+  // Area fill for current trajectory
+  const areaD = `${pathD(currentPts)} L${xScale(MONTHS).toFixed(1)},${(PAD.top + cH).toFixed(1)} L${xScale(0).toFixed(1)},${(PAD.top + cH).toFixed(1)} Z`;
+
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="rgba(239,68,68,.12)"/>
+        <stop offset="100%" stop-color="rgba(239,68,68,.01)"/>
+      </linearGradient>
+      <linearGradient id="optGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="rgba(20,184,166,.10)"/>
+        <stop offset="100%" stop-color="rgba(20,184,166,.01)"/>
+      </linearGradient>
+    </defs>
+    <!-- bg -->
+    <rect x="${PAD.left}" y="${PAD.top}" width="${cW}" height="${cH}" fill="rgba(8,14,26,.6)"/>
+    <!-- grid -->
+    ${gridLines}
+    ${xLabels}
+    <!-- zero line -->
+    <line x1="${PAD.left}" y1="${(PAD.top + cH).toFixed(1)}" x2="${(W-PAD.right).toFixed(1)}" y2="${(PAD.top + cH).toFixed(1)}" stroke="rgba(239,68,68,.3)" stroke-width="1"/>
+    <!-- area fills -->
+    <path d="${areaD}" fill="url(#areaGrad)"/>
+    <!-- optimised area -->
+    <path d="${(() => {
+      const optAreaD = `${pathD(optPts)} L${xScale(MONTHS).toFixed(1)},${(PAD.top + cH).toFixed(1)} L${xScale(0).toFixed(1)},${(PAD.top + cH).toFixed(1)} Z`;
+      return optAreaD;
+    })()}" fill="url(#optGrad)"/>
+    <!-- current line -->
+    <path d="${pathD(currentPts)}" fill="none" stroke="#EF4444" stroke-width="2" stroke-linejoin="round"/>
+    <!-- optimised line -->
+    <path d="${pathD(optPts)}" fill="none" stroke="#14B8A6" stroke-width="2" stroke-linejoin="round" stroke-dasharray="6,3"/>
+    <!-- death lines -->
+    ${deathLine}
+    ${optLine}
+    <!-- start dot -->
+    <circle cx="${xScale(0).toFixed(1)}" cy="${yScale(currentPts[0]).toFixed(1)}" r="4" fill="#EF4444"/>
+    <circle cx="${xScale(0).toFixed(1)}" cy="${yScale(optPts[0]).toFixed(1)}" r="4" fill="#14B8A6"/>
+    <!-- Y-axis label -->
+    <text x="12" y="${(PAD.top + cH/2).toFixed(1)}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#3A5270" transform="rotate(-90,12,${(PAD.top + cH/2).toFixed(1)})">Cash Balance</text>
+  `;
+}
+
+// ════════════════════════════════════════
+// SCENARIO TABLE
+// ════════════════════════════════════════
+function renderScenarioTable(cash, rev, burn, gr){
+  const rows = [
+    { name: 'Conservative', gr: 5,  br: 5,  rb: 2  },
+    { name: 'Base',         gr: 15, br: 10, rb: 5  },
+    { name: 'Optimistic',   gr: 30, br: 20, rb: 10 },
+    { name: 'Custom',       gr: gr, br: state.burnReduction, rb: state.revBoost },
+  ];
+  const tbody = document.getElementById('scenarioTbody');
+  tbody.innerHTML = rows.map(r => {
+    const sim = simulate(cash, rev, burn, r.gr, r.br, r.rb);
+    const dm  = sim.deathMonth;
+    const be  = breakEvenMonth(rev, burn, r.gr + r.rb, r.br);
+    const status = dm === null ? `<span class="tag tag-green">Solvent</span>` :
+                   Math.floor(dm) < 6 ? `<span class="tag tag-red">Critical</span>` :
+                   Math.floor(dm) < 12 ? `<span class="tag tag-warn">At Risk</span>` :
+                   `<span class="tag tag-teal">Stable</span>`;
+    return `<tr>
+      <td style="color:var(--bright)">${r.name}</td>
+      <td style="font-family:'JetBrains Mono',monospace;color:var(--teal-lt)">${r.gr}%</td>
+      <td style="font-family:'JetBrains Mono',monospace;color:var(--gold)">${r.br}%</td>
+      <td style="font-family:'JetBrains Mono',monospace;color:var(--text)">${dm === null ? '36+ mo' : Math.floor(dm) + ' mo'}</td>
+      <td style="font-family:'JetBrains Mono',monospace;color:var(--body)">${be ? 'Mo ' + be : 'Beyond 36mo'}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════
+// INSIGHTS
+// ════════════════════════════════════════
+function renderInsights(deathMo, optMo, netBurn, be, burnMult, gr, br, rb){
+  const ig = document.getElementById('insightGrid');
+  const insights = [];
+
+  if(deathMo !== null && deathMo < 6){
+    insights.push({ type:'danger', text:`<strong>Critical:</strong> Current runway is under 6 months. Immediate action required. Consider an emergency bridge raise, aggressive cost cuts, or a revenue sprint before the cash zero date.` });
+  } else if(deathMo !== null && deathMo < 12){
+    insights.push({ type:'warn', text:`<strong>At Risk:</strong> Runway under 12 months. Begin fundraising conversations now — typical Series A processes take 4–6 months from first contact to wire.` });
+  }
+
+  if(optMo !== null && deathMo !== null && optMo - deathMo >= 6){
+    insights.push({ type:'teal', text:`<strong>Optimisation Lever:</strong> Applying ${br}% burn reduction and +${rb}% revenue acceleration extends runway by approximately ${Math.floor(optMo - deathMo)} months. The single highest-leverage action is usually headcount/contractor spend reduction.` });
+  } else if(optMo === null && deathMo !== null){
+    insights.push({ type:'teal', text:`<strong>Optimised path is solvent</strong> through the 36-month window. Implement cost controls and the revenue growth plan to escape the current trajectory.` });
+  }
+
+  if(parseFloat(burnMult) > 3){
+    insights.push({ type:'warn', text:`<strong>High Burn Multiple:</strong> You are spending ${burnMult}x revenue per month. Investors typically flag burn multiples above 2× as a risk signal. Focus on improving revenue efficiency before your next round.` });
+  }
+
+  if(gr < 5 && netBurn > 0){
+    insights.push({ type:'warn', text:`<strong>Low Growth + Negative Net Burn:</strong> With less than 5% monthly revenue growth, the business will not grow into its cost structure quickly enough. Evaluate whether CAC and sales cycles support a faster growth investment.` });
+  }
+
+  if(be && be > 24){
+    insights.push({ type:'warn', text:`<strong>Break-Even is ${be} months away</strong> at current growth. This is likely beyond your current cash runway. Consider whether your pricing model supports a break-even path within 18–24 months.` });
+  }
+
+  if(insights.length === 0){
+    insights.push({ type:'teal', text:`<strong>Model looks healthy.</strong> Runway exceeds 12 months on both trajectories. Focus on maintaining growth rate and monitoring burn multiple quarter over quarter.` });
+  }
+
+  insights.push({ type:'', text:`<strong>Note:</strong> This simulator assumes linear growth on a monthly compound basis. Real startups face lumpy revenue, step-changes in burn (new hires), and capital events. Use this as a directional planning tool, not a financial forecast.` });
+
+  ig.innerHTML = insights.map(i =>
+    `<div class="insight${i.type==='danger'?' danger':i.type==='warn'?' warn':''}">${i.text}</div>`
+  ).join('');
+}
+
+// ════════════════════════════════════════
+// SCENARIO PRESETS
+// ════════════════════════════════════════
+function applyScenario(name){
+  const sc = SCENARIOS[name];
+  state.scenario = name;
+  document.getElementById('growthRate').value    = sc.growthRate;
+  document.getElementById('burnReduction').value = sc.burnReduction;
+  document.getElementById('revBoost').value      = sc.revBoost;
+  document.getElementById('growthVal').textContent   = sc.growthRate + '%';
+  document.getElementById('burnRedVal').textContent  = sc.burnReduction + '%';
+  document.getElementById('revBoostVal').textContent = '+' + sc.revBoost + '%';
+  highlightScenario(name);
+  recalc();
+}
+
+function highlightScenario(name){
+  ['conservative','base','optimistic'].forEach(s => {
+    document.getElementById('sc-' + s).classList.toggle('selected', s === name);
+  });
+}
+
+// ════════════════════════════════════════
+// EXPORT HELPERS
+// ════════════════════════════════════════
+function buildReport(){
+  const { cashBalance: cash, monthlyRevenue: rev, monthlyBurn: burn,
+          growthRate: gr, burnReduction: br, revBoost: rb } = state;
+  const current   = simulate(cash, rev, burn, gr, 0,  0);
+  const optimised = simulate(cash, rev, burn, gr, br, rb);
+  const dm = current.deathMonth;
+  const om = optimised.deathMonth;
+
+  return `# Startup Runway Report
+${'═'.repeat(60)}
+Generated: ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}
+Tool: AINumbers.co Tool 87 · Startup Survival Runway & Trajectory Simulator
+
+## Inputs
+
+| Parameter              | Value            |
+|------------------------|-----------------|
+| Cash Balance           | ${fmt(cash)}    |
+| Monthly Revenue        | ${fmt(rev)}     |
+| Monthly Burn           | ${fmt(burn)}    |
+| Net Burn / Month       | ${fmt(burn - rev)} |
+| Revenue Growth (Mo)    | ${gr}%          |
+| Burn Reduction (Opt.)  | ${br}%          |
+| Revenue Boost (Opt.)   | +${rb}%         |
+
+## Results
+
+| Metric                    | Current Trajectory   | Optimised Scenario    |
+|---------------------------|----------------------|-----------------------|
+| Runway (months)           | ${dm === null ? '36+ months' : Math.floor(dm) + ' months'} | ${om === null ? '36+ months' : Math.floor(om) + ' months'} |
+| Zero-Cash Date            | ${dm === null ? 'Solvent' : getDeathDate(dm)} | ${om === null ? 'Solvent' : getDeathDate(om)} |
+| Gain vs. Current          | —                    | ${dm !== null && om !== null ? '+' + Math.floor(om - dm) + ' months' : om === null && dm !== null ? 'Solvent' : '—'} |
+
+## Scenario Comparison
+
+| Scenario     | Growth | Burn Red. | Runway  |
+|--------------|--------|-----------|---------|
+| Conservative | 5%     | 5%        | ${(() => { const s = simulate(cash,rev,burn,5,5,2); return s.deathMonth === null ? '36+ mo' : Math.floor(s.deathMonth) + ' mo'; })()} |
+| Base         | 15%    | 10%       | ${(() => { const s = simulate(cash,rev,burn,15,10,5); return s.deathMonth === null ? '36+ mo' : Math.floor(s.deathMonth) + ' mo'; })()} |
+| Optimistic   | 30%    | 20%       | ${(() => { const s = simulate(cash,rev,burn,30,20,10); return s.deathMonth === null ? '36+ mo' : Math.floor(s.deathMonth) + ' mo'; })()} |
+
+---
+Generated by AINumbers.co Tool 87 · Startup Survival Runway & Trajectory Simulator
+Client-side computation · Zero PII · Post Oak Labs · CC BY 4.0`;
+}
+
+function exportMarkdown(){
+  const text = buildReport();
+  const a = document.createElement('a');
+  a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(text);
+  a.download = 'startup-runway-report.md';
+  a.click();
+}
+
+/* ═══════════════════════════════════════════════════════
+   AP2 SCHEMA HELPER
+═══════════════════════════════════════════════════════ */
+const AP2Schema = {
+  version: '1.0',
+  type: '@ainumbers.co/mandate-v1',
+  build(toolId, toolSlug, payload, inputs) {
+    return {
+      '@type':      AP2Schema.type,
+      '@version':   AP2Schema.version,
+      '@generated': new Date().toISOString(),
+      tool_id:      toolId,
+      tool_slug:    toolSlug,
+      mandate_id:   (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2)),
+      issued_by:    'ainumbers.co',
+      ap2_export:   true,
+      payload,
+      source_tool_inputs: inputs,
+      last_reviewed: '2025-01-15'
+    };
+  },
+  download(manifest, filename) {
+    const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename || `ainumbers-${manifest.mandate_id}.policy.json`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(a.href);
+  }
+,
+  validate: function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+}};
+
+function exportAP2(){
+  const { cashBalance: cash, monthlyRevenue: rev, monthlyBurn: burn,
+          growthRate: gr, burnReduction: br, revBoost: rb } = state;
+  const current   = simulate(cash, rev, burn, gr, 0,  0);
+  const optimised = simulate(cash, rev, burn, gr, br, rb);
+  const currentRunway   = current.deathMonth   === null ? '36+' : Math.floor(current.deathMonth);
+  const optimisedRunway = optimised.deathMonth === null ? '36+' : Math.floor(optimised.deathMonth);
+
+  const payload = {
+    mandate_type:             'startup_runway_assessment',
+    current_runway_months:    currentRunway,
+    current_zero_date:        current.deathMonth === null ? 'Solvent (36+ months)' : getDeathDate(current.deathMonth),
+    optimised_runway_months:  optimisedRunway,
+    optimised_zero_date:      optimised.deathMonth === null ? 'Solvent (36+ months)' : getDeathDate(optimised.deathMonth),
+    net_burn_per_month:       burn - rev,
+    runway_extension_months:  typeof currentRunway === 'number' && typeof optimisedRunway === 'number' ? optimisedRunway - currentRunway : null,
+    inputs: {
+      cash_balance:       cash,
+      monthly_revenue:    rev,
+      monthly_burn:       burn,
+      growth_rate_pct:    gr,
+      burn_reduction_pct: br,
+      rev_boost_pct:      rb,
+      scenario:           state.scenario
+    },
+    trajectory: {
+      current:   current.pts,
+      optimised: optimised.pts
+    }
+  };
+  const inputs = { cashBalance: cash, monthlyRevenue: rev, monthlyBurn: burn, growthRatePct: gr };
+  const isCritical = typeof currentRunway === 'number' && currentRunway < 6;
+  const summary = `Runway Simulator: current runway ${currentRunway} months (zero-cash: ${payload.current_zero_date}). Optimised runway ${optimisedRunway} months. Net burn $${Number(burn - rev).toLocaleString()}/month. ${isCritical ? 'CRITICAL — runway below 6 months.' : ''}`;
+  const agent_instructions = [
+    isCritical
+      ? `CRITICAL: Only ${currentRunway} months of runway remaining. Initiate fundraising or bridge financing immediately. Consider emergency burn reduction.`
+      : `Current runway is ${currentRunway} months. ${typeof currentRunway === 'number' && currentRunway < 12 ? 'Begin fundraising within 60 days to allow 6-month process.' : 'Runway is healthy — monitor monthly.'}`,
+    br || rb ? `Optimised scenario (${br}% burn cut + ${rb}% revenue boost) extends runway to ${optimisedRunway} months — a ${typeof payload.runway_extension_months === 'number' ? payload.runway_extension_months + '-month' : ''} extension.` : '',
+    `Net burn is $${Number(burn - rev).toLocaleString()}/month. To reach break-even, revenue must grow by $${Number(burn - rev).toLocaleString()}/month (${((burn - rev) / rev * 100).toFixed(1)}% increase from current).`,
+    `Re-run this tool monthly with updated actuals. Share with board alongside MRR and cash position updates.`
+  ].filter(Boolean);
+  const mandate = {
+    ...AP2Schema.build('T87', 'startup-runway-simulator', payload, inputs),
+    summary,
+    agent_instructions,
+    regulatory_citations: [
+      'ASC 205-40 — Going Concern (FASB)',
+      'IAS 1 — Presentation of Financial Statements (going concern disclosure)',
+      'PCAOB AS 2415 — Consideration of an Entity\'s Ability to Continue as a Going Concern'
+    ]
+  };
+  AP2Schema.validate(mandate);
+  AP2Schema.download(mandate, 'runway-simulator.policy.json');
+  showAP2Toast();
+}
+
+
+function enableAP2Btn() {
+  const btn = document.getElementById('ap2ExportBtn');
+  if (!btn) return;
+  btn.classList.add('ready');
+  btn.disabled = false;
+  btn.title = 'For API integration · audit trail';
+}
+function showAP2Toast() {
+  let el = document.getElementById('ap2Toast87');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'ap2Toast87';
+    el.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--green);padding:.7rem 1.25rem;font-family:"JetBrains Mono",monospace;font-size:.58rem;color:var(--green);z-index:9999;display:flex;align-items:center;gap:.5rem;border-radius:var(--radius);box-shadow:0 4px 24px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s';
+    el.innerHTML = '<strong>{}</strong>&nbsp;Policy Mandate JSON downloaded';
+    document.body.appendChild(el);
+  }
+  el.style.opacity = '1'; el.style.transform = 'translateY(0)';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateY(8px)'; }, 2200);
+}
+
+function copyToClipboard(){
+  const text = buildReport();
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '✓ Copied';
+    setTimeout(() => { btn.textContent = '⎘ Copy'; }, 2000);
+  }).catch(() => {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '✓ Copied';
+    setTimeout(() => { btn.textContent = '⎘ Copy'; }, 2000);
+  });
+}
+
+// ════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════
+recalc();
+</script>
+<script>
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+  }, zh:{
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+</script>
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "runway-simulator", "version": "1.0.0", "title": "Tool 87 — Startup Survival · Runway & Trajectory Simulator", "description": "Real-time startup runway calculator. Input monthly revenue, burn, cash balance, and growth rate. Get an instant SVG trajectory chart showing current vs optimised cash runway, death date, and scenario comparisons. Client-side. Zero PII.", "category": "open-banking-integration", "tags": ["Solvent", "Critical", "At Risk", "Stable"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"cashBalance": {"type": "string"}, "monthlyRevenue": {"type": "string"}, "monthlyBurn": {"type": "string"}, "growthRate": {"type": "string"}, "burnReduction": {"type": "string"}, "revBoost": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "runway_simulator", "description": "Run Tool 87 — Startup Survival · Runway & Trajectory Simulator. Real-time startup runway calculator. Input monthly revenue, burn, cash balance, and growth rate. Get an instant SVG trajectory chart showing current vs optimised cash runway, death date, and scenario ", "inputSchema": {"type": "object", "properties": {"cashBalance": {"type": "string"}, "monthlyRevenue": {"type": "string"}, "monthlyBurn": {"type": "string"}, "growthRate": {"type": "string"}, "burnReduction": {"type": "string"}, "revBoost": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/87-runway-simulator.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(s); }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

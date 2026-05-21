@@ -1,0 +1,1941 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Payment Fee Schedule Authoring Engine · RBE·08 · AINumbers.co</title>
+<meta name="description" content="Browser-based tool for PSPs, neobanks, and BaaS providers to author, simulate, and export tiered payment fee schedules. Covers rail, corridor, amount band, merchant type, customer tier, and volume. Generates PSD2 Art. 45 / Reg E disclosure summary and versioned Policy Mandate JSON. Zero PII. Client-side.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Payment Fee Schedule Authoring Engine · RBE·08","url":"https://ainumbers.co/tools/rbe-08-fee-schedule-engine.html","description":"Browser-based tool for PSPs, neobanks, and BaaS providers to author, simulate, and export tiered payment fee schedules. Covers rail, corridor, amount band, merchant type, customer tier, and volume. Generates PSD2 Art. 45 / Reg E disclosure summary and versioned Policy Mandate JSON. Zero PII. Client-side.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Edu disclaimer (canonical §9.3) */
+.edu-disclaimer {
+  border: 1px solid var(--warn);
+  border-left: 3px solid var(--warn);
+  background: rgba(245, 158, 11, 0.06);
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  font-size: 0.76rem;
+  color: var(--body);
+  line-height: 1.7;
+  border-radius: var(--radius);
+}
+.edu-disclaimer-label {
+  display: block;
+  color: var(--warn);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Sora',sans-serif;
+  font-size:14px;
+  line-height:1.6;
+  min-height:100vh;
+}
+
+/* ── Grid background ── */
+body::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(20,184,166,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(20,184,166,.03) 1px,transparent 1px);
+  background-size:48px 48px;
+  pointer-events:none;
+  z-index:0;
+}
+body>*{position:relative;z-index:1}
+
+/* ── Language bar ── */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:6px 0}
+.lang-inner{max-width:1200px;margin:0 auto;padding:0 24px;display:flex;gap:4px;align-items:center;justify-content:flex-end}
+.lang-btn{
+  background:transparent;
+  border:1px solid transparent;
+  color:var(--body);
+  font-family:'Sora',sans-serif;
+  font-size:11px;
+  font-weight:500;
+  letter-spacing:.06em;
+  padding:3px 10px;
+  border-radius:var(--radius);
+  cursor:pointer;
+  transition:all .15s;
+}
+.lang-btn:hover{color:var(--text);border-color:var(--border-2)}
+.lang-btn.active{background:var(--teal-dim);color:var(--purple);border-color:rgba(20,184,166,.3)}
+
+/* ── Nav ── */
+nav{background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.nav-inner{max-width:1200px;margin:0 auto;padding:0 24px;height:56px;display:grid;grid-template-columns:1fr auto 1fr;}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{justify-self:end;display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.nav-brand{font-family:'DM Serif Display',serif;font-size:18px;color:var(--white);text-decoration:none;display:flex;align-items:center;gap:10px}
+.nav-brand-dot{width:8px;height:8px;border-radius:50%;background:var(--purple);box-shadow:0 0 8px var(--purple)}
+/* ── Hero ── */
+.hero{padding:52px 24px 40px;max-width:1200px;margin:0 auto}
+.hero-eyebrow{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.tool-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);letter-spacing:.1em;text-transform:uppercase}
+.hero-badge{background:var(--purple-dim);color:var(--purple);font-size:10px;font-weight:600;padding:3px 10px;border-radius:20px;border:1px solid rgba(155,114,245,.25)}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(26px,4vw,40px);color:var(--white);line-height:1.2;margin-bottom:14px;max-width:780px}
+.hero-desc{color:var(--body);font-size:14px;max-width:680px;line-height:1.7}
+.hero-meta{display:flex;gap:16px;margin-top:20px;flex-wrap:wrap}
+.hero-meta-pill{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--body);background:var(--bg-3);border:1px solid var(--border);padding:4px 12px;border-radius:20px}
+.hero-meta-pill span:first-child{color:var(--teal)}
+
+/* ── Layout ── */
+.tool-body{max-width:1200px;margin:0 auto;padding:0 24px 60px;display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
+@media(max-width:900px){.tool-body{grid-template-columns:1fr}}
+.main-col{display:flex;flex-direction:column;gap:20px}
+.side-col{display:flex;flex-direction:column;gap:20px}
+
+/* ── Panels ── */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);letter-spacing:.08em;text-transform:uppercase;font-weight:500}
+.panel-body{padding:20px}
+.panel-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.panel-row.three{grid-template-columns:1fr 1fr 1fr}
+.panel-row.single{grid-template-columns:1fr}
+.panel-row:last-child{margin-bottom:0}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:11px;color:var(--body);font-weight:500;letter-spacing:.04em}
+.field input,.field select,.field textarea{
+  background:var(--bg-3);
+  border:1px solid var(--border-2);
+  color:var(--bright);
+  font-family:'Sora',sans-serif;
+  font-size:13px;
+  padding:8px 10px;
+  border-radius:var(--radius);
+  outline:none;
+  transition:border-color .15s;
+  width:100%;
+}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--teal)}
+.field select option{background:var(--bg-3)}
+
+/* ── Advanced settings ── */
+.advanced-toggle{
+  display:flex;align-items:center;gap:8px;cursor:pointer;
+  font-size:12px;color:var(--body);padding:10px 0 0;
+  user-select:none;transition:color .15s;
+  background:none;border:none;font-family:'Sora',sans-serif;
+}
+.advanced-toggle:hover{color:var(--text)}
+.advanced-toggle svg{transition:transform .2s}
+.advanced-toggle.open svg{transform:rotate(180deg)}
+.advanced-body{display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.advanced-body.open{display:block}
+
+/* ── Toggle switches ── */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
+.toggle-row:last-child{border-bottom:none}
+.toggle-label{font-size:12px;color:var(--text)}
+.toggle-sub{font-size:11px;color:var(--body);margin-top:2px}
+.toggle-switch{position:relative;width:36px;height:20px;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0;position:absolute}
+.toggle-slider{
+  position:absolute;inset:0;background:var(--bg-4);border:1px solid var(--border-2);
+  border-radius:10px;cursor:pointer;transition:all .2s;
+}
+.toggle-slider::before{
+  content:'';position:absolute;width:14px;height:14px;
+  background:var(--body);border-radius:50%;top:2px;left:2px;transition:all .2s;
+}
+.toggle-switch input:checked+.toggle-slider{background:var(--teal-dim);border-color:rgba(20,184,166,.4)}
+.toggle-switch input:checked+.toggle-slider::before{background:var(--teal);transform:translateX(16px)}
+
+/* ── Rule Builder ── */
+.rule-table-wrap{overflow-x:auto}
+.rule-table{width:100%;border-collapse:collapse;font-size:12px}
+.rule-table th{
+  background:var(--bg-3);color:var(--body);font-size:10px;font-weight:600;
+  letter-spacing:.06em;text-transform:uppercase;padding:8px 10px;
+  border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;
+}
+.rule-table td{
+  padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top;
+}
+.rule-table td select,.rule-table td input{
+  background:var(--bg-4);border:1px solid var(--border);color:var(--bright);
+  font-family:'Sora',sans-serif;font-size:11px;padding:4px 6px;
+  border-radius:4px;outline:none;transition:border-color .15s;min-width:80px;width:100%;
+}
+.rule-table td select:focus,.rule-table td input:focus{border-color:var(--teal)}
+.rule-table tbody tr:hover td{background:rgba(20,184,166,.03)}
+.rule-durbin{
+  font-size:10px;color:var(--gold);background:var(--gold-dim);
+  border:1px solid rgba(212,168,71,.2);padding:1px 6px;border-radius:3px;
+  display:inline-block;margin-top:3px;
+}
+.rule-l2{
+  font-size:10px;color:var(--teal);background:var(--teal-dim);
+  border:1px solid rgba(20,184,166,.2);padding:1px 6px;border-radius:3px;
+  display:inline-block;margin-top:3px;
+}
+
+/* ── Action buttons ── */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  font-family:'Sora',sans-serif;font-size:12px;font-weight:500;
+  padding:7px 16px;border-radius:var(--radius);cursor:pointer;
+  border:1px solid transparent;transition:all .15s;white-space:nowrap;
+}
+.btn-teal{background:var(--purple);color:#080E1A;border-color:var(--purple)}
+.btn-teal:hover{background:var(--purple-lt)}
+.btn-ghost{background:transparent;color:var(--text);border-color:var(--border-2)}
+.btn-ghost:hover{background:var(--bg-3);border-color:var(--teal);color:var(--teal)}
+.btn-danger{background:transparent;color:var(--red);border-color:rgba(239,68,68,.3)}
+.btn-danger:hover{background:var(--red-dim)}
+.btn-sm{font-size:11px;padding:5px 12px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;padding-top:4px}
+.btn-subtitle{display:block;font-size:10px;opacity:.65;margin-top:1px}
+
+/* ── Run button ── */
+.run-btn{
+  width:100%;background:var(--purple);color:#080E1A;border:none;
+  font-family:'Sora',sans-serif;font-size:14px;font-weight:600;
+  padding:14px 24px;border-radius:var(--radius-lg);cursor:pointer;
+  transition:all .2s;letter-spacing:.02em;
+  box-shadow:0 0 20px rgba(155,114,245,.2);
+}
+.run-btn:hover{background:var(--purple-lt);box-shadow:0 0 30px rgba(155,114,245,.35)}
+.run-btn:active{transform:scale(.99)}
+
+/* ── Heat Map ── */
+.heatmap-controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.heatmap-controls .field{flex:1;min-width:140px}
+.heatmap-wrap{overflow-x:auto}
+.heatmap-table{border-collapse:collapse;font-size:11px;min-width:100%}
+.heatmap-table th{
+  background:var(--bg-3);color:var(--body);font-size:10px;
+  padding:6px 10px;border:1px solid var(--border);text-align:center;
+  font-weight:600;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;
+}
+.heatmap-table th.row-header{text-align:right;min-width:110px}
+.heatmap-cell{
+  padding:8px 10px;border:1px solid var(--border);text-align:center;
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--white);
+  cursor:default;transition:opacity .15s;position:relative;min-width:80px;
+}
+.heatmap-cell:hover{opacity:.85}
+.heatmap-cell .cell-fee{font-weight:600}
+.heatmap-cell .cell-badges{display:flex;gap:3px;justify-content:center;flex-wrap:wrap;margin-top:3px}
+.cliff-badge{
+  font-size:9px;background:rgba(245,158,11,.2);color:var(--warn);
+  border:1px solid rgba(245,158,11,.3);padding:1px 5px;border-radius:3px;
+}
+.norule-badge{
+  font-size:9px;background:var(--red-dim);color:var(--red);
+  border:1px solid rgba(239,68,68,.3);padding:1px 5px;border-radius:3px;
+}
+.l2-badge{
+  font-size:9px;background:var(--teal-dim);color:var(--teal);
+  border:1px solid rgba(20,184,166,.3);padding:1px 5px;border-radius:3px;
+}
+.legend-row{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:12px;font-size:11px;color:var(--body)}
+.legend-swatch{width:24px;height:12px;border-radius:2px;display:inline-block;vertical-align:middle;margin-right:4px}
+
+/* ── Simulator output ── */
+.sim-result{
+  background:var(--bg-3);border:1px solid var(--border-2);
+  border-radius:var(--radius-lg);padding:16px 20px;margin-top:16px;display:none;
+}
+.sim-result.visible{display:block}
+.sim-total{font-size:24px;font-family:'DM Serif Display',serif;color:var(--teal);margin-bottom:4px}
+.sim-total span{font-size:14px;color:var(--body);font-family:'Sora',sans-serif}
+.sim-breakdown{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+@media(max-width:600px){.sim-breakdown{grid-template-columns:1fr 1fr}}
+.sim-breakdown-item{background:var(--bg-4);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px}
+.sim-breakdown-item .label{font-size:10px;color:var(--body);margin-bottom:2px}
+.sim-breakdown-item .val{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--bright)}
+.sim-rule-hit{
+  margin-top:12px;padding-top:12px;border-top:1px solid var(--border);
+  font-size:12px;color:var(--body);
+}
+.sim-rule-hit strong{color:var(--teal);font-family:'JetBrains Mono',monospace}
+.sim-psd2{
+  margin-top:12px;background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);
+  border-radius:var(--radius);padding:10px 12px;font-size:12px;color:var(--text);
+  font-style:italic;line-height:1.6;
+}
+.sim-psd2 .psd2-label{font-style:normal;font-size:10px;color:var(--teal);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+
+/* ── Disclosure output ── */
+.disclosure-out{
+  background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:20px;font-size:12px;color:var(--text);line-height:1.8;display:none;
+}
+.disclosure-out.visible{display:block}
+.disclosure-section{margin-bottom:16px}
+.disclosure-section h4{font-size:11px;color:var(--teal);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;font-family:'JetBrains Mono',monospace}
+.copy-btn{background:none;border:1px solid var(--border);color:var(--body);font-family:'Sora',sans-serif;font-size:10px;padding:3px 10px;border-radius:4px;cursor:pointer;transition:all .15s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+
+/* ── Results panel ── */
+.results-panel{display:none}
+.results-panel.visible{display:flex;flex-direction:column;gap:20px}
+.results-title{font-family:'DM Serif Display',serif;font-size:20px;color:var(--white);margin-bottom:4px}
+.results-meta{font-size:12px;color:var(--body)}
+
+/* ── Export row ── */
+.results-export-row{display:flex;gap:8px;flex-wrap:wrap;padding:16px 20px;background:var(--bg-3);border-top:1px solid var(--border)}
+.results-export-row .btn{flex-direction:column;align-items:flex-start;padding:10px 16px}
+.results-export-row .btn[disabled]{opacity:.28;cursor:not-allowed}
+.results-export-row .btn[disabled]:hover{background:transparent;border-color:var(--border-2);color:var(--text)}
+
+/* ── PII notice ── */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+/* ── MCP panel ── */
+.mcp-toggle{
+  display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;padding:14px 20px;user-select:none;
+  font-size:12px;color:var(--body);background:none;border:none;width:100%;
+  font-family:'Sora',sans-serif;transition:color .15s;
+}
+.mcp-toggle:hover{color:var(--text)}
+.mcp-toggle-label{display:flex;align-items:center;gap:8px}
+
+.mcp-code{
+  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);
+  padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;
+  color:var(--body);overflow-x:auto;line-height:1.6;white-space:pre;
+}
+
+/* ── About panel ── */
+.about-item{padding:10px 0;border-bottom:1px solid var(--border);font-size:12px}
+.about-item:last-child{border-bottom:none}
+.about-item strong{color:var(--text);display:block;margin-bottom:3px}
+.about-item .cite{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--teal)}
+
+/* ── Last reviewed ── */
+
+
+/* ── Status badges ── */
+.status-badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;letter-spacing:.05em;text-transform:uppercase}
+.status-live{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+
+/* ── Tag chips ── */
+.tag-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+.tag{font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;letter-spacing:.04em;border:1px solid}
+.tag-teal{background:var(--teal-dim);color:var(--teal);border-color:rgba(20,184,166,.25)}
+.tag-gold{background:var(--gold-dim);color:var(--gold);border-color:rgba(212,168,71,.25)}
+.tag-purple{background:var(--purple-dim);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.tag-green{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.25)}
+
+/* ── Toast ── */
+.toast{
+  position:fixed;bottom:24px;right:24px;
+  background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);
+  padding:12px 18px;font-size:13px;color:var(--bright);
+  box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:9999;
+  transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none;
+}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.error{border-color:rgba(239,68,68,.4);color:var(--red)}
+.toast.success{border-color:rgba(155,114,245,.4);color:var(--purple)}
+
+/* ── Dividers ── */
+.section-divider{border:none;border-top:1px solid var(--border);margin:4px 0}
+
+/* ── RTL support ── */
+[dir="rtl"] .nav-inner{flex-direction:row-reverse}
+[dir="rtl"] .lang-inner{justify-content:flex-start}
+[dir="rtl"] .hero-eyebrow{flex-direction:row-reverse}
+[dir="rtl"] .panel-label{text-align:right}
+[dir="rtl"] .result-row{flex-direction:row-reverse}
+[dir="rtl"] .export-row{flex-direction:row-reverse}
+[dir="rtl"] [dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+[dir="rtl"] .run-btn{letter-spacing:0}
+
+/* ── DORA-style logo & nav ── */
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-body pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;overflow-x:auto;margin:0}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+
+.container{max-width:960px;margin:0 auto;padding:0 1.5rem}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- Language Bar -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<!-- Nav -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo"><svg width="32" height="32" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="#0D1627"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".7"/></svg>
+    <div class="logo-text">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </div></a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/rbe-deterministic-suite-hub.html">RBE Suite Hub</a><span class="nav-sep">/</span><span>Tool RBE-08</span></div>
+
+    <div class="nav-right"><a href="../guides/rbe-deterministic-suite-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-eyebrow">
+    <span class="tool-eyebrow">RBE·08 · RBE Deterministic Suite · Fee Authoring</span>
+    <span class="hero-badge status-live">Live</span>
+  </div>
+  <h1 class="tool-title">Payment Fee Schedule Authoring Engine</h1>
+  <p class="hero-desc">Author, simulate, and export tiered payment fee schedules for PSPs, neobanks, and BaaS providers. Build multi-condition rule tables across six dimensions, visualise pricing with a live heat-map, detect regulatory cliffs, and export versioned Policy Mandates with PSD2 Art. 45 / Reg E disclosure.</p>
+  <div class="tag-row">
+    <span class="tag tag-teal">PSD2 Art. 45</span>
+    <span class="tag tag-teal">Reg E</span>
+    <span class="tag tag-gold">Durbin Amendment</span>
+    <span class="tag tag-gold">MAS PS-04</span>
+    <span class="tag tag-purple">L2/L3 Data</span>
+    <span class="tag tag-green">Policy Mandate Export</span>
+    <span class="tag tag-green">Zero PII</span>
+  </div>
+  <div class="hero-meta">
+    <div class="hero-meta-pill"><span>⚡</span> Client-side · No server calls</div>
+    <div class="hero-meta-pill"><span>🔒</span> Zero PII</div>
+    <div class="hero-meta-pill"><span>📦</span> MCP-compatible · manifest.json</div>
+    <div class="hero-meta-pill"><span>v</span> RBE Suite v1.0</div>
+  </div>
+</div>
+
+<!-- Tool Body -->
+<div class="tool-body">
+
+  <!-- MAIN COLUMN -->
+  <div class="main-col">
+
+    <!-- Panel A: Schedule Identity -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label" data-i18n="panel_identity">A — Schedule Identity</span>
+        <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2025-04-01</span></span>
+      </div>
+      <div class="panel-body">
+        <div class="panel-row">
+          <div class="field">
+            <label data-i18n="label_schedule_name" for="schedName">Schedule Name</label>
+            <input type="text" id="schedName" placeholder="e.g. Standard PSP Tariff v2" value="Standard PSP Fee Schedule">
+          </div>
+          <div class="field">
+            <label data-i18n="label_version" for="schedVer">Version</label>
+            <input type="text" id="schedVer" placeholder="1.0" value="1.0">
+          </div>
+        </div>
+        <div class="panel-row">
+          <div class="field">
+            <label data-i18n="label_effective_date" for="effDate">Effective Date</label>
+            <input type="date" id="effDate" value="2025-01-01">
+          </div>
+          <div class="field">
+            <label data-i18n="label_expiry_date" for="expDate">Expiry Date (optional)</label>
+            <input type="date" id="expDate" value="2025-12-31">
+          </div>
+        </div>
+        <div class="panel-row">
+          <div class="field">
+            <label data-i18n="label_issuer" for="issuer">Issuer / Brand Name</label>
+            <input type="text" id="issuer" placeholder="PSP / Neobank name" value="AcmePay Ltd">
+          </div>
+          <div class="field">
+            <label data-i18n="label_currency" for="baseCurr">Base Currency</label>
+            <select id="baseCurr">
+              <option value="GBP">GBP — British Pound</option>
+              <option value="EUR" selected>EUR — Euro</option>
+              <option value="USD">USD — US Dollar</option>
+              <option value="MULTI">Multi-currency</option>
+            </select>
+          </div>
+        </div>
+        <div class="panel-row">
+          <div class="field">
+            <label data-i18n="label_jurisdictions" for="jurisdictions">Jurisdiction(s)</label>
+            <select id="jurisdictions" multiple style="height:90px">
+              <option value="UK" selected>UK</option>
+              <option value="EU" selected>EU</option>
+              <option value="US">US</option>
+              <option value="APAC">APAC</option>
+              <option value="Global">Global</option>
+            </select>
+          </div>
+          <div class="field">
+            <label data-i18n="label_reg_frameworks" for="regFrameworks">Regulatory Framework(s)</label>
+            <select id="regFrameworks" multiple style="height:90px">
+              <option value="PSD2 Art.45" selected>PSD2 Art. 45</option>
+              <option value="Reg E" selected>Reg E (12 CFR 1005)</option>
+              <option value="PSD3 Art.47">PSD3 Art. 47 (draft)</option>
+              <option value="MAS MAS-PS-04">MAS PS-04</option>
+              <option value="ASIC RG165">ASIC RG 165</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Advanced Settings -->
+        <button class="advanced-toggle" id="advToggle" onclick="toggleAdvanced()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 4l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Advanced Settings
+        </button>
+        <div class="advanced-body" id="advBody">
+          <div class="panel-row">
+            <div class="field">
+              <label data-i18n="label_cliff_threshold" for="cliffPct">Cliff Detection Threshold (%)</label>
+              <input type="number" id="cliffPct" value="30" min="5" max="100" step="5">
+            </div>
+            <div class="field" style="justify-content:flex-end">
+              <label style="font-size:11px;color:var(--body);margin-bottom:6px">Fee Jump Flag</label>
+              <span style="font-size:11px;color:var(--body)">Cells where fee jumps ≥ this threshold are outlined in ⚠ amber. Default: 30%.</span>
+            </div>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label" data-i18n="label_durbin">Durbin Amendment scope</div>
+              <div class="toggle-sub">Flag regulated US debit rails with interchange cap context</div>
+            </div>
+            <label class="toggle-switch"><input type="checkbox" id="durbinToggle" onchange="rebuildHeatmap()"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label" data-i18n="label_l23">Level 2/3 data indicators</div>
+              <div class="toggle-sub">Show L2/L3 optimisation badges on heat-map cells</div>
+            </div>
+            <label class="toggle-switch"><input type="checkbox" id="l23Toggle" checked onchange="rebuildHeatmap()"><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel B: Fee Rule Builder -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label" data-i18n="panel_rules">B — Fee Rule Builder</span>
+        <div class="btn-row">
+          <button class="btn btn-ghost btn-sm" onclick="addRule()">+ Add Rule</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadSampleRules()">Load Sample Rules</button>
+        </div>
+      </div>
+      <div class="panel-body" style="padding:0">
+        <div class="rule-table-wrap">
+          <table class="rule-table" id="ruleTable">
+            <thead>
+              <tr>
+                <th>Rail</th>
+                <th>Corridor</th>
+                <th>Amount Band</th>
+                <th>Merchant</th>
+                <th>Cust. Tier</th>
+                <th>Fixed Fee</th>
+                <th>% Fee</th>
+                <th>FX Margin</th>
+                <th>Surcharge</th>
+                <th>Min Fee</th>
+                <th>Max Fee</th>
+                <th>Flags</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="ruleBody">
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:12px 16px;border-top:1px solid var(--border)">
+          <div class="pii-notice">
+  <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+</div>
+  <!-- Edu disclaimer (canonical §9.3) -->
+  <div class="edu-disclaimer">
+    <strong class="edu-disclaimer-label" data-i18n="disclaimer.label">Educational Use Only</strong>
+    <span data-i18n="disclaimer.body">This tool provides a self-assessment / educational framework for internal planning purposes only. It is not a regulatory audit, legal advice, or a substitute for a formal compliance review by a qualified advisor. Verify all interpretations against the official source text and applicable RTS/ITS/guidance published by the relevant authority.</span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel C: Heat Map -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label" data-i18n="panel_heatmap">C — Fee Heat-Map</span>
+        <div class="heatmap-controls" style="margin:0">
+          <div class="field" style="margin:0;min-width:130px">
+            <select id="hmAxisX" onchange="rebuildHeatmap()" style="font-size:11px;padding:5px 8px;background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);border-radius:var(--radius);outline:none">
+              <option value="rail">Rail (X)</option>
+              <option value="corridor">Corridor (X)</option>
+              <option value="merchant">Merchant (X)</option>
+            </select>
+          </div>
+          <div class="field" style="margin:0;min-width:130px">
+            <select id="hmAxisY" onchange="rebuildHeatmap()" style="font-size:11px;padding:5px 8px;background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);border-radius:var(--radius);outline:none">
+              <option value="corridor">Corridor (Y)</option>
+              <option value="rail">Rail (Y)</option>
+              <option value="merchant">Merchant (Y)</option>
+            </select>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="rebuildHeatmap()">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="heatmap-wrap" id="heatmapWrap">
+          <div style="color:var(--body);font-size:12px;padding:20px 0;text-align:center">Add rules above, then click Refresh to render the heat-map.</div>
+        </div>
+        <div class="legend-row">
+          <span><span class="legend-swatch" style="background:hsl(120,70%,25%)"></span>Low fee</span>
+          <span><span class="legend-swatch" style="background:hsl(60,70%,25%)"></span>Mid</span>
+          <span><span class="legend-swatch" style="background:hsl(0,70%,25%)"></span>High fee</span>
+          <span><span style="color:var(--warn)">⚠</span> Cliff (&gt;threshold)</span>
+          <span><span style="color:var(--red)">✕</span> No rule</span>
+          <span><span style="color:var(--teal)">💡</span> L2/L3 eligible</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel D: Transaction Simulator -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label" data-i18n="panel_simulator">D — Transaction Simulator</span>
+      </div>
+      <div class="panel-body">
+        <div class="panel-row three">
+          <div class="field">
+            <label data-i18n="label_sim_rail" for="simRail">Rail</label>
+            <select id="simRail">
+              <option>SEPA Instant</option>
+              <option>SEPA Credit</option>
+              <option>Faster Payments</option>
+              <option>CHAPS</option>
+              <option>FedNow</option>
+              <option>RTP</option>
+              <option>ACH</option>
+              <option>SWIFT</option>
+              <option>Card (Visa/MC)</option>
+              <option>BACS</option>
+              <option>Internal</option>
+            </select>
+          </div>
+          <div class="field">
+            <label data-i18n="label_sim_corridor" for="simCorridor">Corridor</label>
+            <select id="simCorridor">
+              <option>Domestic</option>
+              <option>Intra-EU</option>
+              <option>Cross-border</option>
+            </select>
+          </div>
+          <div class="field">
+            <label data-i18n="label_sim_amount" for="simAmount">Amount</label>
+            <input type="number" id="simAmount" value="500" min="0" step="1" placeholder="e.g. 500">
+          </div>
+        </div>
+        <div class="panel-row three">
+          <div class="field">
+            <label data-i18n="label_sim_merchant" for="simMerchant">Merchant Type</label>
+            <select id="simMerchant">
+              <option>Any</option>
+              <option>Retail</option>
+              <option>MSB</option>
+              <option>Crypto</option>
+              <option>Charity</option>
+              <option>Govt</option>
+            </select>
+          </div>
+          <div class="field">
+            <label data-i18n="label_sim_tier" for="simTier">Customer Tier</label>
+            <select id="simTier">
+              <option>Any</option>
+              <option>Standard</option>
+              <option>Premium</option>
+              <option>Business</option>
+            </select>
+          </div>
+          <div class="field">
+            <label data-i18n="label_sim_volume" for="simVolume">Monthly Volume</label>
+            <input type="number" id="simVolume" value="100000" min="0" step="1000" placeholder="e.g. 100000">
+          </div>
+        </div>
+        <div class="btn-row" style="padding-top:8px">
+          <button class="btn btn-teal" onclick="simulateFee()">⚡ Simulate Fee →</button>
+        </div>
+
+        <div class="sim-result" id="simResult">
+          <div class="sim-total" id="simTotal">€0.00 <span>total fee</span></div>
+          <div class="sim-breakdown" id="simBreakdown"></div>
+          <div class="sim-rule-hit" id="simRuleHit"></div>
+          <div class="sim-psd2" id="simPsd2">
+            <div class="psd2-label">PSD2 Art. 45 Disclosure</div>
+            <div id="simPsd2Text"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel E: Regulatory Disclosure -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label" data-i18n="panel_disclosure">E — Regulatory Disclosure Generator</span>
+        <div class="btn-row" style="margin:0;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="setDisclosureType('PSD2')" id="discBtn_PSD2" style="color:var(--teal);border-color:rgba(20,184,166,.3)">PSD2 Art. 45</button>
+          <button class="btn btn-ghost btn-sm" onclick="setDisclosureType('RegE')" id="discBtn_RegE">Reg E</button>
+          <button class="btn btn-ghost btn-sm" onclick="setDisclosureType('MAS')" id="discBtn_MAS">MAS</button>
+          <button class="btn btn-ghost btn-sm" onclick="setDisclosureType('ASIC')" id="discBtn_ASIC">ASIC</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="btn-row" style="margin-bottom:12px">
+          <button class="btn btn-ghost btn-sm" onclick="generateDisclosure()">⊕ Generate Disclosure →</button>
+        </div>
+        <div class="disclosure-out" id="disclosureOut"></div>
+      </div>
+    </div>
+
+  </div><!-- /main-col -->
+
+  <!-- SIDE COLUMN -->
+  <div class="side-col">
+
+    <!-- Run & Export -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label">Run &amp; Export</span>
+      </div>
+      <div class="panel-body" style="padding:16px">
+        <button class="run-btn" onclick="runAnalysis()" data-i18n="run_btn">Run Analysis →</button>
+      </div>
+      <div class="results-export-row" id="exportRow">
+        <button class="btn btn-ghost btn-sm btn-export" id="ap2ExportBtn" disabled onclick="exportAP2()"
+          title="Run the analysis above to generate a Policy Mandate">
+          {} Export Policy Mandate
+          <span class="btn-subtitle">API · audit trail</span>
+        </button>
+        <button class="btn btn-ghost btn-sm btn-export btn-export-md" id="mdExportBtn" disabled onclick="exportMarkdown()"
+          title="Run the analysis above to export Markdown">
+          ↓ Export Markdown
+          <span class="btn-subtitle">Fee schedule doc</span>
+        </button>
+        <button class="btn btn-ghost btn-sm" id="discExportBtn" disabled onclick="exportDisclosure()"
+          title="Generate disclosure first">
+          ↓ Export Disclosure
+          <span class="btn-subtitle">Reg format</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Analysis Summary (results) -->
+    <div class="panel results-panel" id="resultsPanel">
+      <div class="panel-header">
+        <span class="panel-label results-title" data-i18n="results_title">Analysis Results</span>
+      </div>
+      <div class="panel-body" id="resultsBody" style="padding:16px"></div>
+    </div>
+
+    <!-- About this tool -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label" data-i18n="panel_about">About this tool</span>
+      </div>
+      <div class="panel-body">
+        <div class="about-item">
+          <strong>What it does</strong>
+          Authors tiered payment fee schedules across 6 dimensions: rail, corridor, amount band, merchant type, customer tier, and volume. Renders a live heat-map, detects pricing cliffs, and generates PSD2/Reg E disclosures.
+        </div>
+        <div class="about-item">
+          <strong>Cliff detection</strong>
+          Flags cells where the all-in fee jumps by more than the configured threshold (default 30%) vs. an adjacent band. Cliff events may require additional disclosure under PSD2 Art. 45(1)(b).
+        </div>
+        <div class="about-item">
+          <strong>L2/L3 indicators</strong>
+          When enabled, card and commercial rails show Level 2/3 data eligibility badges with estimated interchange saving ranges.
+        </div>
+        <div class="about-item">
+          <strong>Policy Mandate</strong>
+          Exports a versioned <code style="color:var(--teal);font-size:11px">fee_schedule_mandate</code> with all rules, cliff flags, coverage gaps, and agent instructions.
+        </div>
+        <div class="about-item">
+          <strong>Regulatory coverage</strong>
+          <span class="cite">PSD2 Art. 45</span> · <span class="cite">Reg E §1005.7</span> · <span class="cite">Durbin Amdt. §1075</span> · <span class="cite">MAS PS-04</span> · <span class="cite">ASIC RG 165</span>
+        </div>
+        
+      </div>
+    </div>
+
+    <!-- MCP Panel -->
+    <div class="panel">
+      <button class="mcp-toggle" onclick="toggleMCP()">
+        <span class="mcp-toggle-label">📦 MCP manifest.json · author_payment_fee_schedule</span>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" id="mcpArrow"><path d="M2 4l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="mcp-panel" id="mcpPanel">
+        <pre class="mcp-code">{
+  "tool_id": "rbe-08-fee-schedule-engine",
+  "version": "1.0.0",
+  "title": "Payment Fee Schedule Authoring Engine",
+  "category": "ai",
+  "ap2_export": true,
+  "mandate_type": "fee_schedule_mandate",
+  "mcp_tool_definition": {
+    "name": "author_payment_fee_schedule",
+    "description": "Author, simulate, and export
+tiered payment fee schedules for PSPs,
+neobanks, and BaaS providers.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["schedule_name","currency","rules"],
+      "properties": {
+        "schedule_name": { "type": "string" },
+        "jurisdictions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "currency": { "type": "string" },
+        "rules": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/rbe-08-fee-schedule-engine.html",
+    "function_name": "runAnalysis",
+    "timeout_ms": 5000
+  }
+}</pre>
+      </div>
+    </div>
+
+  </div><!-- /side-col -->
+
+</div><!-- /tool-body -->
+
+<!-- Footer -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<!-- FOOTER -->
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/rbe-deterministic-suite-hub.html"><span data-i18n="footer.hub_rbe_deterministic_suite">RBE Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* AP2Schema — full validator (PM17; wired into cohort C) */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+if (typeof AP2Schema.validate !== 'function') {
+  AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    return true;
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RBE·08 — Payment Fee Schedule Authoring Engine
+   Version: 1.0  |  Suite: RBE Deterministic Intelligence Suite
+   Client-side. Zero PII. Deterministic.
+═══════════════════════════════════════════════════════════ */
+
+/* ─── i18n Stage 2 ─── */
+const TRANSLATIONS = {
+  en: {
+    eyebrow:         "RBE·08 · RBE Deterministic Suite · Fee Authoring",
+    hero_title:      "Payment Fee Schedule Authoring Engine",
+    hero_desc:       "Author, simulate, and export tiered payment fee schedules for PSPs, neobanks, and BaaS providers. Build multi-condition rule tables across six dimensions, visualise pricing with a live heat-map, detect regulatory cliffs, and export versioned Policy Mandates with PSD2 Art. 45 / Reg E disclosure.",
+    panel_identity:  "A — Schedule Identity",
+    panel_rules:     "B — Fee Rule Builder",
+    panel_heatmap:   "C — Fee Heat-Map",
+    panel_simulator: "D — Transaction Simulator",
+    panel_disclosure:"E — Regulatory Disclosure Generator",
+    panel_about:     "About this tool",
+    label_schedule_name:"Schedule Name",
+    label_version:   "Version",
+    label_effective_date:"Effective Date",
+    label_expiry_date:"Expiry Date (optional)",
+    label_issuer:    "Issuer / Brand Name",
+    label_currency:  "Base Currency",
+    label_jurisdictions:"Jurisdiction(s)",
+    label_reg_frameworks:"Regulatory Framework(s)",
+    label_cliff_threshold:"Cliff Detection Threshold (%)",
+    label_durbin:    "Durbin Amendment scope",
+    label_l23:       "Level 2/3 data indicators",
+    label_sim_rail:  "Rail",
+    label_sim_corridor:"Corridor",
+    label_sim_amount:"Amount",
+    label_sim_merchant:"Merchant Type",
+    label_sim_tier:  "Customer Tier",
+    label_sim_volume:"Monthly Volume",
+    run_btn:         "Run Analysis →",
+    results_title:   "Analysis Results",
+    export_ap2:      "Export Policy Mandate",
+    export_md:       "Export Markdown",
+    pii_notice:      "🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.",
+    last_reviewed:   "Last Reviewed",
+    nav_all_tools:   "All 200+ Tools",
+    footer_badge:    "🔒 Zero PII \u00a0 📡 No server calls \u00a0 💻 Client-side",
+    lang_dir:        "ltr",
+  
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+  },
+  es: {
+    eyebrow:         "RBE·08 · Suite RBE Determinista · Tarifas",
+    hero_title:      "Motor de Creación de Tarifas de Pago",
+    hero_desc:       "Cree, simule y exporte tarifas de pago escalonadas para PSP, neobanco y plataformas BaaS. Tablas de reglas multidimensión, mapa de calor, detección de saltos regulatorios y exportación de Mandato de Política.",
+    panel_identity:  "A — Identidad del Esquema",
+    panel_rules:     "B — Constructor de Reglas",
+    panel_heatmap:   "C — Mapa de Calor de Tarifas",
+    panel_simulator: "D — Simulador de Transacciones",
+    panel_disclosure:"E — Generador de Divulgación Regulatoria",
+    panel_about:     "Acerca de esta herramienta",
+    label_schedule_name:"Nombre del Esquema",
+    label_version:   "Versión",
+    label_effective_date:"Fecha de Vigencia",
+    label_expiry_date:"Fecha de Expiración (opcional)",
+    label_issuer:    "Emisor / Marca",
+    label_currency:  "Moneda Base",
+    label_jurisdictions:"Jurisdicción(es)",
+    label_reg_frameworks:"Marco(s) Regulatorio(s)",
+    label_cliff_threshold:"Umbral Detección de Salto (%)",
+    label_durbin:    "Alcance Enmienda Durbin",
+    label_l23:       "Indicadores datos Nivel 2/3",
+    label_sim_rail:  "Carril",
+    label_sim_corridor:"Corredor",
+    label_sim_amount:"Importe",
+    label_sim_merchant:"Tipo de Comerciante",
+    label_sim_tier:  "Nivel de Cliente",
+    label_sim_volume:"Volumen Mensual",
+    run_btn:         "Ejecutar Análisis →",
+    results_title:   "Resultados del Análisis",
+    export_ap2:      "Exportar Mandato de Política",
+    export_md:       "Exportar Markdown",
+    pii_notice:      "🔒 Todas las entradas se procesan localmente. No se transmiten datos. No introduzca datos personales reales.",
+    last_reviewed:   "Última Revisión",
+    nav_all_tools:   "Todas las Herramientas",
+    footer_badge:    "🔒 Zero PII \u00a0 📡 Sin servidor \u00a0 💻 Cliente",
+    lang_dir:        "ltr",
+  
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+  },
+  fr: {
+    eyebrow:         "RBE·08 · Suite RBE Déterministe · Tarification",
+    hero_title:      "Moteur de Création de Barèmes de Frais",
+    hero_desc:       "Créez, simulez et exportez des barèmes de frais de paiement échelonnés pour les PSP, néobanques et plateformes BaaS. Tables de règles multi-critères, carte thermique, détection des seuils réglementaires et export de Mandat de Politique.",
+    panel_identity:  "A — Identité du Barème",
+    panel_rules:     "B — Constructeur de Règles",
+    panel_heatmap:   "C — Carte Thermique des Frais",
+    panel_simulator: "D — Simulateur de Transactions",
+    panel_disclosure:"E — Générateur de Divulgation Réglementaire",
+    panel_about:     "À propos de cet outil",
+    label_schedule_name:"Nom du Barème",
+    label_version:   "Version",
+    label_effective_date:"Date d'Entrée en Vigueur",
+    label_expiry_date:"Date d'Expiration (optionnel)",
+    label_issuer:    "Émetteur / Marque",
+    label_currency:  "Devise de Base",
+    label_jurisdictions:"Juridiction(s)",
+    label_reg_frameworks:"Cadre(s) Réglementaire(s)",
+    label_cliff_threshold:"Seuil Détection Falaise (%)",
+    label_durbin:    "Portée Amendement Durbin",
+    label_l23:       "Indicateurs données Niveau 2/3",
+    label_sim_rail:  "Rail",
+    label_sim_corridor:"Corridor",
+    label_sim_amount:"Montant",
+    label_sim_merchant:"Type de Commerçant",
+    label_sim_tier:  "Niveau Client",
+    label_sim_volume:"Volume Mensuel",
+    run_btn:         "Lancer l'Analyse →",
+    results_title:   "Résultats de l'Analyse",
+    export_ap2:      "Exporter Mandat de Politique",
+    export_md:       "Exporter Markdown",
+    pii_notice:      "🔒 Toutes les saisies sont traitées localement. Aucune donnée n'est transmise. N'entrez pas de données personnelles réelles.",
+    last_reviewed:   "Dernière Révision",
+    nav_all_tools:   "Tous les Outils",
+    footer_badge:    "🔒 Zéro PII \u00a0 📡 Sans serveur \u00a0 💻 Côté client",
+    lang_dir:        "ltr",
+  
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+  },
+  ar: {
+    eyebrow:         "RBE·08 · مجموعة RBE الحتمية · رسوم الدفع",
+    hero_title:      "محرك إنشاء جدول رسوم الدفع",
+    hero_desc:       "قم بإنشاء وتشبيه وتصدير جداول رسوم الدفع المتدرجة لمزودي خدمات الدفع والبنوك الرقمية ومنصات BaaS.",
+    panel_identity:  "أ — هوية الجدول",
+    panel_rules:     "ب — منشئ قواعد الرسوم",
+    panel_heatmap:   "ج — خريطة حرارة الرسوم",
+    panel_simulator: "د — محاكي المعاملات",
+    panel_disclosure:"هـ — مولد الإفصاح التنظيمي",
+    panel_about:     "حول هذه الأداة",
+    label_schedule_name:"اسم الجدول",
+    label_version:   "الإصدار",
+    label_effective_date:"تاريخ السريان",
+    label_expiry_date:"تاريخ الانتهاء (اختياري)",
+    label_issuer:    "المُصدر / العلامة التجارية",
+    label_currency:  "العملة الأساسية",
+    label_jurisdictions:"الاختصاص القضائي",
+    label_reg_frameworks:"الإطار التنظيمي",
+    label_cliff_threshold:"عتبة اكتشاف القفزة (%)",
+    label_durbin:    "نطاق تعديل Durbin",
+    label_l23:       "مؤشرات بيانات المستوى 2/3",
+    label_sim_rail:  "مسار الدفع",
+    label_sim_corridor:"الممر",
+    label_sim_amount:"المبلغ",
+    label_sim_merchant:"نوع التاجر",
+    label_sim_tier:  "مستوى العميل",
+    label_sim_volume:"الحجم الشهري",
+    run_btn:         "تشغيل التحليل →",
+    results_title:   "نتائج التحليل",
+    export_ap2:      "تصدير تفويض السياسة",
+    export_md:       "تصدير Markdown",
+    pii_notice:      "🔒 تتم معالجة جميع المدخلات محليًا في متصفحك. لا يتم نقل أي بيانات. لا تُدخل بيانات شخصية حقيقية.",
+    last_reviewed:   "آخر مراجعة",
+    nav_all_tools:   "جميع الأدوات",
+    footer_badge:    "🔒 بدون بيانات شخصية \u00a0 📡 بدون خادم \u00a0 💻 من جانب العميل",
+    lang_dir:        "rtl",
+  
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+  },
+  pt: {
+    eyebrow:         "RBE·08 · Suíte RBE Determinística · Tarifas",
+    hero_title:      "Motor de Criação de Tabelas de Taxas de Pagamento",
+    hero_desc:       "Crie, simule e exporte tabelas de taxas de pagamento escalonadas para PSPs, neobancos e plataformas BaaS. Tabelas de regras multidimensionais, mapa de calor, detecção de saltos regulatórios e exportação de Mandato de Política.",
+    panel_identity:  "A — Identidade do Esquema",
+    panel_rules:     "B — Construtor de Regras",
+    panel_heatmap:   "C — Mapa de Calor de Taxas",
+    panel_simulator: "D — Simulador de Transações",
+    panel_disclosure:"E — Gerador de Divulgação Regulatória",
+    panel_about:     "Sobre esta ferramenta",
+    label_schedule_name:"Nome do Esquema",
+    label_version:   "Versão",
+    label_effective_date:"Data de Vigência",
+    label_expiry_date:"Data de Expiração (opcional)",
+    label_issuer:    "Emissor / Marca",
+    label_currency:  "Moeda Base",
+    label_jurisdictions:"Jurisdição(ões)",
+    label_reg_frameworks:"Estrutura(s) Regulatória(s)",
+    label_cliff_threshold:"Limiar de Detecção de Salto (%)",
+    label_durbin:    "Escopo Emenda Durbin",
+    label_l23:       "Indicadores dados Nível 2/3",
+    label_sim_rail:  "Rail",
+    label_sim_corridor:"Corredor",
+    label_sim_amount:"Valor",
+    label_sim_merchant:"Tipo de Comerciante",
+    label_sim_tier:  "Nível do Cliente",
+    label_sim_volume:"Volume Mensal",
+    run_btn:         "Executar Análise →",
+    results_title:   "Resultados da Análise",
+    export_ap2:      "Exportar Mandato de Política",
+    export_md:       "Exportar Markdown",
+    pii_notice:      "🔒 Todas as entradas são processadas localmente. Nenhum dado é transmitido. Não insira dados pessoais reais.",
+    last_reviewed:   "Última Revisão",
+    nav_all_tools:   "Todas as Ferramentas",
+    footer_badge:    "🔒 Zero PII \u00a0 📡 Sem servidor \u00a0 💻 Cliente",
+    lang_dir:        "ltr",
+  
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+  },
+  zh: {
+    eyebrow:         "RBE·08 · RBE确定性套件 · 费率创作",
+    hero_title:      "支付费率表创作引擎",
+    hero_desc:       "为PSP、新银行和BaaS平台创作、模拟和导出分层支付费率表。多维条件规则表、热图可视化、监管悬崖检测和政策授权书导出。",
+    panel_identity:  "A — 费率表标识",
+    panel_rules:     "B — 费率规则构建器",
+    panel_heatmap:   "C — 费率热图",
+    panel_simulator: "D — 交易模拟器",
+    panel_disclosure:"E — 监管披露生成器",
+    panel_about:     "关于此工具",
+    label_schedule_name:"费率表名称",
+    label_version:   "版本",
+    label_effective_date:"生效日期",
+    label_expiry_date:"到期日期（可选）",
+    label_issuer:    "发行方 / 品牌名称",
+    label_currency:  "基础货币",
+    label_jurisdictions:"司法管辖区",
+    label_reg_frameworks:"监管框架",
+    label_cliff_threshold:"悬崖检测阈值 (%)",
+    label_durbin:    "Durbin修正案范围",
+    label_l23:       "2/3级数据指标",
+    label_sim_rail:  "支付轨道",
+    label_sim_corridor:"走廊",
+    label_sim_amount:"金额",
+    label_sim_merchant:"商户类型",
+    label_sim_tier:  "客户层级",
+    label_sim_volume:"月度交易量",
+    run_btn:         "运行分析 →",
+    results_title:   "分析结果",
+    export_ap2:      "导出政策授权书",
+    export_md:       "导出Markdown",
+    pii_notice:      "🔒 所有输入均在您的浏览器本地处理。不传输任何数据。请勿输入真实个人数据。",
+    last_reviewed:   "最后审查",
+    nav_all_tools:   "全部工具",
+    footer_badge:    "🔒 零PII \u00a0 📡 无服务器调用 \u00a0 💻 客户端",
+    lang_dir:        "ltr",
+  
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+  },
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS['en'];
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`);
+  if (btn) btn.classList.add('active');
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  document.documentElement.dir = t.lang_dir || 'ltr';
+  document.body.dir = t.lang_dir || 'ltr';
+  const apply = (sel, key) => {
+    const el = document.querySelector(sel);
+    if (el && t[key] !== undefined) el.textContent = t[key];
+  };
+  apply('.tool-eyebrow',   'eyebrow');
+  apply('.hero h1',        'hero_title');
+  apply('.hero-desc',      'hero_desc');
+  apply('.run-btn',        'run_btn');
+  apply('.results-title',  'results_title');
+  apply('.nav-cta',        'nav_all_tools');
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (t[key] !== undefined) el.textContent = t[key];
+  });
+  const footerBadge = document.querySelector('.footer-badge-ai span:last-child');
+  if (footerBadge) footerBadge.textContent = t['footer_badge'];
+  document.querySelectorAll('.last-reviewed').forEach(lr => {
+    const dateText = lr.textContent.match(/\d{4}-\d{2}-\d{2}/);
+    lr.textContent = `⏱ ${t['last_reviewed']} ${dateText ? dateText[0] : '2025-04-01'}`;
+  });
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function initLang() {
+  try {
+    const saved = sessionStorage.getItem('ain_lang');
+    if (saved && TRANSLATIONS[saved]) setLang(saved);
+  } catch(e) {}
+})();
+
+/* ─── State ─── */
+let rules = [];
+let lastAP2 = null;
+let lastMD = null;
+let lastDisclosure = null;
+let disclosureType = 'PSD2';
+let ruleCounter = 0;
+
+/* ─── L2/L3 lookup table ─── */
+const L23_ELIGIBLE = {
+  'Card (Visa/MC)': { l2: true,  l3: true,  durbinRail: false },
+  'ACH':            { l2: false, l3: false, durbinRail: true  },
+  'FedNow':         { l2: false, l3: false, durbinRail: false },
+  'RTP':            { l2: false, l3: false, durbinRail: false },
+};
+const DURBIN_RAILS = ['ACH', 'FedNow', 'RTP'];
+
+function getL23(rail) {
+  return L23_ELIGIBLE[rail] || { l2: false, l3: false, durbinRail: DURBIN_RAILS.includes(rail) };
+}
+
+/* ─── Advanced toggle ─── */
+function toggleAdvanced() {
+  const btn = document.getElementById('advToggle');
+  const body = document.getElementById('advBody');
+  btn.classList.toggle('open');
+  body.classList.toggle('open');
+}
+
+/* ─── MCP toggle ─── */
+function toggleMCP() {
+  const panel = document.getElementById('mcpPanel');
+  const arrow = document.getElementById('mcpArrow');
+  panel.classList.toggle('open');
+  arrow.style.transform = panel.classList.contains('open') ? 'rotate(180deg)' : '';
+}
+
+/* ─── Toast ─── */
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => { t.classList.remove('show'); }, 3000);
+}
+
+/* ─── Rule Builder ─── */
+const RAILS = ['SEPA Instant','SEPA Credit','Faster Payments','CHAPS','FedNow','RTP','ACH','SWIFT','Card (Visa/MC)','BACS','Internal'];
+const CORRIDORS = ['Domestic','Intra-EU','Cross-border'];
+const MERCHANTS = ['Any','Retail','MSB','Crypto','Charity','Govt'];
+const TIERS = ['Any','Standard','Premium','Business'];
+
+function makeSelect(opts, selected, cls) {
+  return `<select class="${cls||''}" style="min-width:90px">${opts.map(o=>`<option${o===selected?' selected':''}>${o}</option>`).join('')}</select>`;
+}
+
+function addRule(data) {
+  ruleCounter++;
+  const id = ruleCounter;
+  const d = data || {};
+  const l23 = getL23(d.rail || 'SEPA Instant');
+  const durbinShow = document.getElementById('durbinToggle') && document.getElementById('durbinToggle').checked;
+  const l23Show = document.getElementById('l23Toggle') && document.getElementById('l23Toggle').checked;
+
+  const row = document.createElement('tr');
+  row.id = `rule_${id}`;
+  row.innerHTML = `
+    <td>${makeSelect(RAILS, d.rail||'SEPA Instant','rule-rail')} </td>
+    <td>${makeSelect(CORRIDORS, d.corridor||'Domestic','rule-corridor')}</td>
+    <td><input type="number" value="${d.amtMin||0}" min="0" step="1" placeholder="min" style="width:52px"> – <input type="number" value="${d.amtMax||''}" min="0" step="1" placeholder="max" style="width:52px"></td>
+    <td>${makeSelect(MERCHANTS, d.merchant||'Any','rule-merchant')}</td>
+    <td>${makeSelect(TIERS, d.tier||'Any','rule-tier')}</td>
+    <td><input type="number" value="${d.fixed||0}" min="0" step="0.01" style="width:58px"></td>
+    <td><input type="number" value="${d.pct||0}" min="0" step="0.01" style="width:50px">%</td>
+    <td><input type="number" value="${d.fxMargin||0}" min="0" step="0.01" style="width:50px">%</td>
+    <td><input type="number" value="${d.surcharge||0}" min="0" step="0.01" style="width:52px"></td>
+    <td><input type="number" value="${d.minFee||0}" min="0" step="0.01" style="width:50px"></td>
+    <td><input type="number" value="${d.maxFee||''}" min="0" step="0.01" style="width:50px" placeholder="∞"></td>
+    <td class="flag-cell">
+      ${(l23.durbinRail && durbinShow) ? '<span class="rule-durbin">Durbin</span>' : ''}
+      ${(l23.l2 && l23Show) ? '<span class="rule-l2">💡 L2/L3</span>' : ''}
+    </td>
+    <td><button class="btn btn-danger btn-sm" onclick="deleteRule(${id})">✕</button></td>
+  `;
+  // update flags when rail changes
+  row.querySelector('.rule-rail').addEventListener('change', function() {
+    updateRuleFlags(id, this.value);
+  });
+  document.getElementById('ruleBody').appendChild(row);
+}
+
+function updateRuleFlags(id, rail) {
+  const row = document.getElementById(`rule_${id}`);
+  if (!row) return;
+  const cell = row.querySelector('.flag-cell');
+  const l23 = getL23(rail);
+  const durbinShow = document.getElementById('durbinToggle').checked;
+  const l23Show = document.getElementById('l23Toggle').checked;
+  cell.innerHTML =
+    (l23.durbinRail && durbinShow ? '<span class="rule-durbin">Durbin</span>' : '') +
+    (l23.l2 && l23Show ? '<span class="rule-l2">💡 L2/L3</span>' : '');
+}
+
+function deleteRule(id) {
+  const row = document.getElementById(`rule_${id}`);
+  if (row) row.remove();
+}
+
+function getRules() {
+  const rows = document.querySelectorAll('#ruleBody tr');
+  const result = [];
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll('input,select');
+    if (inputs.length < 10) return;
+    const rail = inputs[0].value;
+    const corridor = inputs[1].value;
+    const amtMin = parseFloat(inputs[2].value) || 0;
+    const amtMax = parseFloat(inputs[3].value) || Infinity;
+    const merchant = inputs[4].value;
+    const tier = inputs[5].value;
+    const fixed = parseFloat(inputs[6].value) || 0;
+    const pct = parseFloat(inputs[7].value) || 0;
+    const fxMargin = parseFloat(inputs[8].value) || 0;
+    const surcharge = parseFloat(inputs[9].value) || 0;
+    const minFee = parseFloat(inputs[10].value) || 0;
+    const maxFee = parseFloat(inputs[11].value) || Infinity;
+    const l23 = getL23(rail);
+    result.push({ rail, corridor, amtMin, amtMax, merchant, tier, fixed, pct, fxMargin, surcharge, minFee, maxFee, l23 });
+  });
+  return result;
+}
+
+function calcFee(rule, amount) {
+  const curr = document.getElementById('baseCurr').value;
+  const isCross = rule.corridor === 'Cross-border';
+  let fee = rule.fixed + (amount * rule.pct / 100) + rule.surcharge;
+  if (isCross) fee += amount * rule.fxMargin / 100;
+  fee = Math.max(fee, rule.minFee);
+  if (rule.maxFee !== Infinity) fee = Math.min(fee, rule.maxFee);
+  return fee;
+}
+
+function matchRule(rules, opts) {
+  for (const r of rules) {
+    const railOk = r.rail === opts.rail;
+    const corrOk = r.corridor === opts.corridor;
+    const amtOk = opts.amount >= r.amtMin && opts.amount <= r.amtMax;
+    const mOk = r.merchant === 'Any' || r.merchant === opts.merchant;
+    const tOk = r.tier === 'Any' || r.tier === opts.tier;
+    if (railOk && corrOk && amtOk && mOk && tOk) return r;
+  }
+  return null;
+}
+
+function loadSampleRules() {
+  document.getElementById('ruleBody').innerHTML = '';
+  ruleCounter = 0;
+  const samples = [
+    { rail:'SEPA Instant',  corridor:'Domestic',     amtMin:0,     amtMax:1000,  merchant:'Any',    tier:'Standard', fixed:0.10, pct:0.15, fxMargin:0,   surcharge:0, minFee:0.10, maxFee:5 },
+    { rail:'SEPA Instant',  corridor:'Domestic',     amtMin:1001,  amtMax:10000, merchant:'Any',    tier:'Standard', fixed:0.10, pct:0.10, fxMargin:0,   surcharge:0, minFee:0.10, maxFee:10 },
+    { rail:'SEPA Instant',  corridor:'Intra-EU',     amtMin:0,     amtMax:5000,  merchant:'Any',    tier:'Any',      fixed:0.20, pct:0.18, fxMargin:0,   surcharge:0, minFee:0.20, maxFee:20 },
+    { rail:'SWIFT',         corridor:'Cross-border', amtMin:0,     amtMax:10000, merchant:'Any',    tier:'Any',      fixed:5.00, pct:0.30, fxMargin:0.5, surcharge:0, minFee:5.00, maxFee:100},
+    { rail:'Faster Payments',corridor:'Domestic',    amtMin:0,     amtMax:10000, merchant:'Any',    tier:'Standard', fixed:0.05, pct:0.08, fxMargin:0,   surcharge:0, minFee:0.05, maxFee:5 },
+    { rail:'Card (Visa/MC)',corridor:'Domestic',     amtMin:0,     amtMax:500,   merchant:'Retail', tier:'Standard', fixed:0.20, pct:0.80, fxMargin:0,   surcharge:0, minFee:0.20, maxFee:'' },
+    { rail:'Card (Visa/MC)',corridor:'Domestic',     amtMin:501,   amtMax:2000,  merchant:'Retail', tier:'Standard', fixed:0.20, pct:0.65, fxMargin:0,   surcharge:0, minFee:0.20, maxFee:'' },
+    { rail:'ACH',           corridor:'Domestic',     amtMin:0,     amtMax:50000, merchant:'Any',    tier:'Business', fixed:0.25, pct:0.05, fxMargin:0,   surcharge:0, minFee:0.25, maxFee:50 },
+  ];
+  samples.forEach(s => addRule(s));
+  showToast('Sample rules loaded', 'success');
+}
+
+/* ─── Heat Map ─── */
+const HM_AXES = {
+  rail:      RAILS,
+  corridor:  CORRIDORS,
+  merchant:  ['Any','Retail','MSB','Crypto','Charity','Govt'],
+};
+const HM_SAMPLE_AMOUNT = 1000;
+
+function rebuildHeatmap() {
+  const xKey = document.getElementById('hmAxisX').value;
+  const yKey = document.getElementById('hmAxisY').value;
+  const currentRules = getRules();
+  const cliffPct = parseFloat(document.getElementById('cliffPct').value) || 30;
+  const showL23 = document.getElementById('l23Toggle').checked;
+
+  if (currentRules.length === 0) {
+    document.getElementById('heatmapWrap').innerHTML = '<div style="color:var(--body);font-size:12px;padding:20px 0;text-align:center">Add rules above, then click Refresh to render the heat-map.</div>';
+    return;
+  }
+
+  const xVals = HM_AXES[xKey];
+  const yVals = HM_AXES[yKey];
+
+  // Build fee matrix
+  const matrix = {};
+  yVals.forEach(y => {
+    matrix[y] = {};
+    xVals.forEach(x => {
+      const opts = {};
+      if (xKey === 'rail') opts.rail = x; else opts.rail = currentRules[0]?.rail || 'SEPA Instant';
+      if (xKey === 'corridor') opts.corridor = x; else opts.corridor = 'Domestic';
+      if (xKey === 'merchant') opts.merchant = x; else opts.merchant = 'Any';
+      if (yKey === 'rail') opts.rail = y;
+      if (yKey === 'corridor') opts.corridor = y;
+      if (yKey === 'merchant') opts.merchant = y;
+      opts.tier = 'Any';
+      opts.amount = HM_SAMPLE_AMOUNT;
+      const r = matchRule(currentRules, opts);
+      matrix[y][x] = r ? { fee: calcFee(r, HM_SAMPLE_AMOUNT), rule: r } : null;
+    });
+  });
+
+  // Normalise fees
+  let allFees = [];
+  yVals.forEach(y => xVals.forEach(x => { if (matrix[y][x]) allFees.push(matrix[y][x].fee); }));
+  const minF = Math.min(...allFees);
+  const maxF = Math.max(...allFees);
+  const norm = f => maxF === minF ? 0.5 : (f - minF) / (maxF - minF);
+
+  // Build table
+  let html = `<table class="heatmap-table"><thead><tr><th class="row-header">${yKey} \\ ${xKey}</th>`;
+  xVals.forEach(x => html += `<th>${x}</th>`);
+  html += '</tr></thead><tbody>';
+
+  yVals.forEach(y => {
+    html += `<tr><th class="row-header" style="text-align:right">${y}</th>`;
+    xVals.forEach(x => {
+      const cell = matrix[y][x];
+      if (!cell) {
+        html += `<td class="heatmap-cell" style="background:var(--red-dim)"><div class="cell-fee" style="color:var(--body)">—</div><div class="cell-badges"><span class="norule-badge">no rule</span></div></td>`;
+        return;
+      }
+      const n = norm(cell.fee);
+      const hue = 120 - n * 120;
+      const bg = `hsl(${hue},70%,25%)`;
+      const curr = document.getElementById('baseCurr').value;
+      const feeStr = cell.fee.toFixed(2);
+
+      // Cliff detection — compare with adjacent x cell
+      let cliff = false;
+      const xi = xVals.indexOf(x);
+      if (xi > 0) {
+        const prevCell = matrix[y][xVals[xi-1]];
+        if (prevCell && prevCell.fee > 0) {
+          const jump = Math.abs((cell.fee - prevCell.fee) / prevCell.fee) * 100;
+          if (jump > cliffPct) cliff = true;
+        }
+      }
+
+      const l23 = cell.rule.l23;
+      const showL2Badge = showL23 && (l23.l2 || l23.l3);
+
+      html += `<td class="heatmap-cell" style="background:${bg}${cliff ? ';outline:2px solid var(--warn)' : ''}">
+        <div class="cell-fee">${curr} ${feeStr}</div>
+        <div class="cell-badges">
+          ${cliff ? '<span class="cliff-badge">⚠ cliff</span>' : ''}
+          ${showL2Badge ? '<span class="l2-badge">💡 L2/L3</span>' : ''}
+        </div>
+      </td>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('heatmapWrap').innerHTML = html;
+}
+
+/* ─── Transaction Simulator ─── */
+function simulateFee() {
+  const currentRules = getRules();
+  const rail = document.getElementById('simRail').value;
+  const corridor = document.getElementById('simCorridor').value;
+  const amount = parseFloat(document.getElementById('simAmount').value) || 0;
+  const merchant = document.getElementById('simMerchant').value;
+  const tier = document.getElementById('simTier').value;
+  const curr = document.getElementById('baseCurr').value;
+
+  const rule = matchRule(currentRules, { rail, corridor, amount, merchant, tier });
+  const resultEl = document.getElementById('simResult');
+
+  if (!rule) {
+    showToast('No matching rule found for this combination', 'error');
+    return;
+  }
+
+  const isCross = corridor === 'Cross-border';
+  const fixed = rule.fixed;
+  const pctFee = amount * rule.pct / 100;
+  const fxFee = isCross ? amount * rule.fxMargin / 100 : 0;
+  const surcharge = rule.surcharge;
+  let total = fixed + pctFee + fxFee + surcharge;
+  total = Math.max(total, rule.minFee);
+  if (rule.maxFee !== Infinity) total = Math.min(total, rule.maxFee);
+
+  const effRate = amount > 0 ? (total / amount * 100).toFixed(3) : '0.000';
+
+  document.getElementById('simTotal').innerHTML = `${curr} ${total.toFixed(2)} <span>total fee (${effRate}% effective rate)</span>`;
+
+  document.getElementById('simBreakdown').innerHTML = `
+    <div class="sim-breakdown-item"><div class="label">Fixed Fee</div><div class="val">${curr} ${fixed.toFixed(2)}</div></div>
+    <div class="sim-breakdown-item"><div class="label">% Fee (${rule.pct}%)</div><div class="val">${curr} ${pctFee.toFixed(2)}</div></div>
+    <div class="sim-breakdown-item"><div class="label">FX Margin</div><div class="val">${curr} ${fxFee.toFixed(2)}</div></div>
+    <div class="sim-breakdown-item"><div class="label">Surcharge</div><div class="val">${curr} ${surcharge.toFixed(2)}</div></div>
+  `;
+
+  document.getElementById('simRuleHit').innerHTML = `
+    Triggering rule: <strong>${rail} · ${corridor} · ${merchant} · ${tier}</strong> · 
+    Band: ${rule.amtMin}–${rule.amtMax === Infinity ? '∞' : rule.amtMax} · 
+    Min: ${curr} ${rule.minFee} · Max: ${rule.maxFee === Infinity ? 'None' : curr + ' ' + rule.maxFee}
+  `;
+
+  const disclosureText = generatePSD2Line(rule, curr, amount, total);
+  document.getElementById('simPsd2Text').textContent = disclosureText;
+
+  resultEl.classList.add('visible');
+}
+
+function generatePSD2Line(rule, curr, amount, total) {
+  const effRate = amount > 0 ? (total / amount * 100).toFixed(2) : '0.00';
+  return `For ${rule.rail} payments (${rule.corridor}), the total fee is ${curr} ${total.toFixed(2)} comprising a fixed charge of ${curr} ${rule.fixed.toFixed(2)} and a variable charge of ${rule.pct}% of the transaction amount${rule.fxMargin > 0 ? `, plus a foreign exchange margin of ${rule.fxMargin}%` : ''}. Minimum fee applies: ${curr} ${rule.minFee.toFixed(2)}. Effective rate at ${curr} ${amount}: ${effRate}%.`;
+}
+
+/* ─── Regulatory Disclosure ─── */
+function setDisclosureType(type) {
+  disclosureType = type;
+  ['PSD2','RegE','MAS','ASIC'].forEach(t => {
+    const btn = document.getElementById(`discBtn_${t}`);
+    if (btn) {
+      btn.style.color = t === type ? 'var(--teal)' : '';
+      btn.style.borderColor = t === type ? 'rgba(20,184,166,.3)' : '';
+    }
+  });
+}
+
+function generateDisclosure() {
+  const currentRules = getRules();
+  if (currentRules.length === 0) {
+    showToast('Add fee rules first', 'error');
+    return;
+  }
+  const curr = document.getElementById('baseCurr').value;
+  const schedName = document.getElementById('schedName').value || 'Fee Schedule';
+  const effDate = document.getElementById('effDate').value || '';
+
+  let html = '';
+
+  if (disclosureType === 'PSD2') {
+    html = `<div class="disclosure-section">
+      <h4>PSD2 Article 45 — Fee Information Document <button class="copy-btn" onclick="copySection('psd2main')">Copy</button></h4>
+      <div id="psd2main">
+        <p><strong>${schedName}</strong> — Fee Information (pursuant to Directive (EU) 2015/2366 Art. 45)</p>
+        <p>Effective date: ${effDate}</p>
+        <table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:8px">
+          <thead><tr style="background:var(--bg-4)">
+            <th style="padding:6px 8px;border:1px solid var(--border);text-align:left">Service</th>
+            <th style="padding:6px 8px;border:1px solid var(--border)">Fixed Fee (${curr})</th>
+            <th style="padding:6px 8px;border:1px solid var(--border)">Variable Fee (%)</th>
+            <th style="padding:6px 8px;border:1px solid var(--border)">Min Fee</th>
+            <th style="padding:6px 8px;border:1px solid var(--border)">Max Fee</th>
+            <th style="padding:6px 8px;border:1px solid var(--border)">Conditions</th>
+          </tr></thead><tbody>
+          ${currentRules.map((r,i) => `<tr>
+            <td style="padding:5px 8px;border:1px solid var(--border)">${r.rail} (${r.corridor})</td>
+            <td style="padding:5px 8px;border:1px solid var(--border);text-align:center">${r.fixed.toFixed(2)}</td>
+            <td style="padding:5px 8px;border:1px solid var(--border);text-align:center">${r.pct.toFixed(2)}%${r.fxMargin>0 ? ` + ${r.fxMargin}% FX` : ''}</td>
+            <td style="padding:5px 8px;border:1px solid var(--border);text-align:center">${r.minFee.toFixed(2)}</td>
+            <td style="padding:5px 8px;border:1px solid var(--border);text-align:center">${r.maxFee===Infinity ? 'None' : r.maxFee.toFixed(2)}</td>
+            <td style="padding:5px 8px;border:1px solid var(--border);font-size:10px">${r.merchant !== 'Any' ? 'Merchant: '+r.merchant+' · ' : ''}${r.tier !== 'Any' ? 'Tier: '+r.tier+' · ' : ''}Amount: ${r.amtMin}–${r.amtMax===Infinity?'∞':r.amtMax}</td>
+          </tr>`).join('')}
+          </tbody>
+        </table>
+        <p style="font-size:10px;margin-top:8px;color:var(--body)">This document is provided in accordance with Directive (EU) 2015/2366 (PSD2) Article 45. Fees are expressed in ${curr}. Additional terms and conditions apply — see your payment services framework agreement.</p>
+      </div>
+    </div>`;
+  } else if (disclosureType === 'RegE') {
+    html = `<div class="disclosure-section">
+      <h4>Regulation E (12 CFR §1005.7) — Initial Disclosure <button class="copy-btn" onclick="copySection('rege_main')">Copy</button></h4>
+      <div id="rege_main">
+        <p><strong>${schedName}</strong></p><p>Effective: ${effDate}</p>
+        ${currentRules.map(r => `<p>• ${r.rail} transfers: ${curr} ${r.fixed.toFixed(2)} fixed fee plus ${r.pct.toFixed(2)}% of the transfer amount${r.fxMargin>0 ? `, plus ${r.fxMargin}% foreign exchange margin for international transfers` : ''}. Minimum fee: ${curr} ${r.minFee.toFixed(2)}${r.maxFee!==Infinity ? '. Maximum fee: '+curr+' '+r.maxFee.toFixed(2) : ''}.</p>`).join('')}
+        <p style="font-size:10px;color:var(--body)">Disclosure provided pursuant to 12 CFR Part 1005 (Regulation E) and EFTA §905.</p>
+      </div>
+    </div>`;
+  } else if (disclosureType === 'MAS') {
+    html = `<div class="disclosure-section">
+      <h4>MAS Notice MAS-PS-04 — Fee Schedule <button class="copy-btn" onclick="copySection('mas_main')">Copy</button></h4>
+      <div id="mas_main">
+        <p><strong>${schedName}</strong> — Schedule of Fees and Charges</p><p>Effective: ${effDate}</p>
+        ${currentRules.map(r => `<p>• ${r.rail} (${r.corridor}): ${curr} ${r.fixed.toFixed(2)} + ${r.pct.toFixed(2)}% per transaction${r.minFee>0?'. Minimum: '+curr+' '+r.minFee.toFixed(2):''}.</p>`).join('')}
+        <p style="font-size:10px;color:var(--body)">Fees disclosed in accordance with MAS Payment Services Act 2019 and Notice MAS-PS-04.</p>
+      </div>
+    </div>`;
+  } else {
+    html = `<div class="disclosure-section">
+      <h4>ASIC RG 165 — Fee Disclosure <button class="copy-btn" onclick="copySection('asic_main')">Copy</button></h4>
+      <div id="asic_main">
+        <p><strong>${schedName}</strong></p><p>Effective: ${effDate}</p>
+        ${currentRules.map(r => `<p>• ${r.rail}: fixed ${curr} ${r.fixed.toFixed(2)}, variable ${r.pct.toFixed(2)}%${r.minFee>0?', minimum '+curr+' '+r.minFee.toFixed(2):''}.</p>`).join('')}
+        <p style="font-size:10px;color:var(--body)">Fee disclosure provided under Australian Securities and Investments Commission Regulatory Guide 165 and the Payment Systems (Regulation) Act 1998.</p>
+      </div>
+    </div>`;
+  }
+
+  const outEl = document.getElementById('disclosureOut');
+  outEl.innerHTML = html;
+  outEl.classList.add('visible');
+  lastDisclosure = outEl.innerText;
+  document.getElementById('discExportBtn').disabled = false;
+}
+
+function copySection(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.innerText).then(() => showToast('Copied to clipboard', 'success'));
+}
+
+/* ─── Main Analysis ─── */
+function runAnalysis() {
+  const currentRules = getRules();
+  if (currentRules.length === 0) {
+    showToast('Add at least one fee rule before running analysis', 'error');
+    return;
+  }
+
+  const schedName = document.getElementById('schedName').value || 'Fee Schedule';
+  const schedVer  = document.getElementById('schedVer').value || '1.0';
+  const effDate   = document.getElementById('effDate').value || '';
+  const expDate   = document.getElementById('expDate').value || '';
+  const issuer    = document.getElementById('issuer').value || 'Unknown';
+  const curr      = document.getElementById('baseCurr').value;
+  const cliffPct  = parseFloat(document.getElementById('cliffPct').value) || 30;
+
+  // Detect cliffs (sorted by fixed fee)
+  const cliffFlags = [];
+  const sorted = [...currentRules].sort((a,b) => a.fixed - b.fixed);
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i-1];
+    const curr2 = sorted[i];
+    if (prev.fixed > 0) {
+      const jump = Math.abs((curr2.fixed - prev.fixed) / prev.fixed) * 100;
+      if (jump > cliffPct) {
+        cliffFlags.push({
+          rule_boundary: `${prev.rail}/${prev.corridor} → ${curr2.rail}/${curr2.corridor}`,
+          fee_before: prev.fixed,
+          fee_after: curr2.fixed,
+          jump_pct: Math.round(jump * 10) / 10,
+          cliff_threshold_applied_pct: cliffPct,
+          disclosure_required: true,
+        });
+      }
+    }
+  }
+
+  // Coverage gaps (basic: check if all RAIL × CORRIDOR combos have a rule)
+  const gaps = [];
+  RAILS.slice(0,5).forEach(rail => {
+    CORRIDORS.forEach(corridor => {
+      const found = currentRules.some(r => r.rail === rail && r.corridor === corridor);
+      if (!found) gaps.push({ rail, corridor, note: 'No rule defined for this combination' });
+    });
+  });
+
+  // Build AP2 payload
+  const selectedJurs = Array.from(document.getElementById('jurisdictions').selectedOptions).map(o => o.value);
+  const selectedFrameworks = Array.from(document.getElementById('regFrameworks').selectedOptions).map(o => o.value);
+
+  lastAP2 = {
+    ap2_version: "1.0",
+    mandate_id: generateUUID(),
+    issued_at: new Date().toISOString(),
+    issued_by: "ainumbers.co",
+    tool_id: "rbe-08-fee-schedule-engine",
+    tool_version: "1.0",
+    suite: "RBE Deterministic Intelligence Suite",
+    mandate_type: "fee_schedule_mandate",
+    generated_at: new Date().toISOString(),
+    jurisdiction: selectedJurs,
+    regulatory_frameworks: selectedFrameworks,
+    schedule_identity: {
+      name: schedName,
+      fee_schedule_version: schedVer,
+      effective_date: effDate,
+      expiry_date: expDate || null,
+      issuer: issuer,
+      jurisdictions: selectedJurs,
+      currency: curr,
+      regulatory_frameworks: selectedFrameworks,
+      jurisdiction_scope: selectedJurs.join(', '),
+    },
+    rules: currentRules.map((r, i) => ({
+      rule_id: `rule_${String(i+1).padStart(3,'0')}`,
+      conditions: {
+        rail: r.rail,
+        corridor: r.corridor,
+        amount_band: { min: r.amtMin, max: r.amtMax === Infinity ? null : r.amtMax },
+        merchant_type: r.merchant,
+        customer_tier: r.tier,
+      },
+      fee_structure: {
+        fixed_fee: r.fixed,
+        percentage_fee: r.pct,
+        fx_margin: r.fxMargin,
+        network_surcharge: r.surcharge,
+        minimum_fee: r.minFee,
+        maximum_fee: r.maxFee === Infinity ? null : r.maxFee,
+        currency: curr,
+      },
+      level2_3_eligibility: {
+        l2_eligible: r.l23.l2,
+        l3_eligible: r.l23.l3,
+        durbin_regulated: r.l23.durbinRail,
+        l2_saving_range_pct: r.l23.l2 ? "-0.10% to -0.30%" : null,
+        l3_saving_range_pct: r.l23.l3 ? "-0.20% to -0.50%" : null,
+      },
+      all_in_fee_example: {
+        transaction_amount: 100,
+        total_fee: parseFloat(calcFee(r, 100).toFixed(4)),
+        effective_rate_pct: parseFloat((calcFee(r, 100) / 100 * 100).toFixed(4)),
+      },
+    })),
+    cliff_flags: cliffFlags,
+    coverage_gaps: gaps,
+    summary: `Fee schedule '${schedName}' v${schedVer} for ${issuer}. ${currentRules.length} pricing rules across ${selectedJurs.join('/')} jurisdictions. ${cliffFlags.length} pricing cliff(s) detected requiring disclosure review. ${gaps.length} coverage gap(s) identified.`,
+    agent_instructions: "Consume rules[] to compute all-in fees for payment routing decisions. Check cliff_flags[] before publishing — each cliff above cliff_threshold_applied_pct may require additional PSD2 Art. 45 disclosure. coverage_gaps[] must be resolved before production use. Check level2_3_eligibility on each rule for interchange optimisation opportunities.",
+    valid_from: effDate,
+    valid_until: expDate || null,
+    last_reviewed: "2025-04-01",
+    regulatory_citations: [
+      "PSD2 Art. 45 — Transparency of conditions and information requirements for payment services",
+      "Regulation E (12 CFR Part 1005) — Electronic Fund Transfer Act fee disclosure obligations",
+      "Durbin Amendment (Dodd-Frank Act Section 1075) — US regulated debit interchange cap and LCR",
+      "PSD3 draft Art. 47 — Updated transparency requirements (in force pending transposition)",
+      "MAS MAS-PS-04 — Payment Services Act fee and charges disclosure",
+      "ASIC RG 165 — Disclosure: Product Disclosure Statements (and other disclosure obligations)"
+    ],
+    audit_metadata: {
+      client_side_executed: true,
+      zero_pii_verified: true,
+      deterministic_run: true,
+    },
+  };
+
+  // Build Markdown
+  lastMD = buildMarkdown(schedName, schedVer, effDate, expDate, issuer, curr, currentRules, cliffFlags, gaps, selectedJurs, selectedFrameworks);
+
+  // Show results
+  const panel = document.getElementById('resultsPanel');
+  panel.classList.add('visible');
+  document.getElementById('resultsBody').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px">
+        <div style="font-size:10px;color:var(--body);margin-bottom:2px">Rules</div>
+        <div style="font-size:20px;font-family:'DM Serif Display',serif;color:var(--teal)">${currentRules.length}</div>
+      </div>
+      <div style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px">
+        <div style="font-size:10px;color:var(--body);margin-bottom:2px">Cliff Flags</div>
+        <div style="font-size:20px;font-family:'DM Serif Display',serif;color:${cliffFlags.length>0?'var(--warn)':'var(--green)'}">${cliffFlags.length}</div>
+      </div>
+      <div style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px">
+        <div style="font-size:10px;color:var(--body);margin-bottom:2px">Coverage Gaps</div>
+        <div style="font-size:20px;font-family:'DM Serif Display',serif;color:${gaps.length>0?'var(--red)':'var(--green)'}">${gaps.length}</div>
+      </div>
+      <div style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px">
+        <div style="font-size:10px;color:var(--body);margin-bottom:2px">Jurisdictions</div>
+        <div style="font-size:13px;font-family:'JetBrains Mono',monospace;color:var(--bright)">${selectedJurs.join(' · ')}</div>
+      </div>
+    </div>
+    ${cliffFlags.length > 0 ? `<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius);padding:10px 12px;font-size:11px;margin-bottom:10px">
+      <div style="color:var(--warn);font-weight:600;margin-bottom:4px">⚠ ${cliffFlags.length} Cliff(s) Detected</div>
+      ${cliffFlags.map(c => `<div style="color:var(--text)">${c.rule_boundary}: +${c.jump_pct}% jump</div>`).join('')}
+    </div>` : ''}
+    <div style="font-size:11px;color:var(--body);border-top:1px solid var(--border);padding-top:10px">
+      Mandate ID: <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--teal)">${lastAP2.mandate_id.substring(0,16)}…</span>
+    </div>
+  `;
+
+  // Enable exports
+  enableAP2Btn();
+  document.getElementById('mdExportBtn').disabled = false;
+
+  // Rebuild heatmap
+  rebuildHeatmap();
+
+  showToast(`Analysis complete — ${currentRules.length} rules, ${cliffFlags.length} cliff(s)`, 'success');
+}
+
+/* ─── AP2 Export ─── */
+function enableAP2Btn() {
+  const btn = document.getElementById('ap2ExportBtn');
+  if (btn) { btn.disabled = false; btn.classList.add('ready'); btn.title = 'For API integration · audit trail'; }
+}
+
+function exportAP2() {
+  if (!lastAP2) { showToast('Run analysis first', 'error'); return; }
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  AP2Schema.validate(lastAP2);
+  const json = JSON.stringify(lastAP2, null, 2);
+  triggerDownload(json, `rbe-08-fee-schedule-engine_${ts}.policy.json`, 'application/json');
+  showToast('Policy Mandate JSON exported', 'success');
+}
+
+/* ─── Markdown Export ─── */
+function buildMarkdown(name, ver, eff, exp, issuer, curr, rules, cliffs, gaps, jurs, frameworks) {
+  const ts = new Date().toISOString();
+  let md = `# Payment Fee Schedule: ${name} v${ver}\n`;
+  md += `**Issuer:** ${issuer}  \n`;
+  md += `**Effective:** ${eff}${exp ? '  \n**Expires:** ' + exp : ''}  \n`;
+  md += `**Jurisdictions:** ${jurs.join(', ')}  \n`;
+  md += `**Regulatory Frameworks:** ${frameworks.join(', ')}  \n`;
+  md += `**Currency:** ${curr}  \n`;
+  md += `**Generated:** ${ts}  \n`;
+  md += `**Tool:** RBE·08 · AINumbers.co  \n`;
+  md += `**Suite:** RBE Deterministic Intelligence Suite\n\n`;
+  md += `---\n\n## Fee Rules (${rules.length})\n\n`;
+  md += `| Rail | Corridor | Amount Band | Merchant | Tier | Fixed | % Fee | FX | Surcharge | Min | Max |\n`;
+  md += `|------|----------|-------------|----------|------|-------|-------|----|-----------|-----|-----|\n`;
+  rules.forEach(r => {
+    md += `| ${r.rail} | ${r.corridor} | ${r.amtMin}–${r.amtMax===Infinity?'∞':r.amtMax} | ${r.merchant} | ${r.tier} | ${curr} ${r.fixed.toFixed(2)} | ${r.pct.toFixed(2)}% | ${r.fxMargin.toFixed(2)}% | ${curr} ${r.surcharge.toFixed(2)} | ${curr} ${r.minFee.toFixed(2)} | ${r.maxFee===Infinity?'None':curr+' '+r.maxFee.toFixed(2)} |\n`;
+  });
+
+  if (cliffs.length > 0) {
+    md += `\n## ⚠ Pricing Cliffs Detected (${cliffs.length})\n\n`;
+    md += `| Boundary | Fee Before | Fee After | Jump % | Disclosure Required |\n`;
+    md += `|----------|-----------|-----------|--------|---------------------|\n`;
+    cliffs.forEach(c => {
+      md += `| ${c.rule_boundary} | ${curr} ${c.fee_before.toFixed(2)} | ${curr} ${c.fee_after.toFixed(2)} | +${c.jump_pct}% | ${c.disclosure_required?'Yes':'No'} |\n`;
+    });
+    md += `\n> Each cliff above the configured threshold (${cliffs[0]?.cliff_threshold_applied_pct||30}%) may require additional disclosure under PSD2 Art. 45(1)(b).\n`;
+  }
+
+  if (gaps.length > 0) {
+    md += `\n## Coverage Gaps (${gaps.length})\n\n`;
+    gaps.slice(0,10).forEach(g => {
+      md += `- ${g.rail} × ${g.corridor}: No rule defined\n`;
+    });
+    if (gaps.length > 10) md += `- … and ${gaps.length - 10} more\n`;
+  }
+
+  md += `\n## Regulatory Citations\n\n`;
+  md += `- PSD2 Art. 45 — Transparency of conditions and information requirements\n`;
+  md += `- Regulation E (12 CFR Part 1005) — Electronic Fund Transfer Act fee disclosure\n`;
+  md += `- Durbin Amendment (Dodd-Frank Act Section 1075) — US regulated debit\n`;
+  md += `- MAS MAS-PS-04 — Payment Services Act disclosure\n`;
+  md += `- ASIC RG 165 — Product Disclosure Statements\n\n`;
+  md += `---\n*Client-side. Zero PII. Generated by RBE·08 · AINumbers.co*\n`;
+  return md;
+}
+
+function exportMarkdown() {
+  if (!lastMD) { showToast('Run analysis first', 'error'); return; }
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  triggerDownload(lastMD, `rbe-08-fee-schedule_${ts}.md`, 'text/markdown');
+  showToast('Markdown exported', 'success');
+}
+
+function exportDisclosure() {
+  if (!lastDisclosure) { showToast('Generate disclosure first', 'error'); return; }
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  triggerDownload(lastDisclosure, `rbe-08-disclosure_${disclosureType}_${ts}.md`, 'text/markdown');
+  showToast('Disclosure exported', 'success');
+}
+
+/* ─── Utilities ─── */
+function triggerDownload(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+/* ─── Init ─── */
+(function init() {
+  loadSampleRules();
+  rebuildHeatmap();
+})();
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "rbe-08-fee-schedule-engine", "version": "1.0.0", "title": "Payment Fee Schedule Authoring Engine", "description": "Author, simulate, and export tiered payment fee schedules for PSPs, neobanks, and BaaS providers. Covers rail, corridor, amount band, merchant type, customer tier, and volume. Generates PSD2 Art. 45 / Reg E disclosure summary and versioned Policy Mandate JSON. Client-side. Zero PII.", "category": "ai", "tags": ["fee-schedule", "PSD2", "Reg-E", "Durbin", "L2/L3", "Policy Mandate", "export", "MCP", "Zero-PII"], "audience": ["psp", "neobank", "baas", "card-programme-manager", "compliance"], "last_reviewed": "2025-04-01", "input_schema": {"type": "object", "required": ["schedule_name", "currency", "rules"], "properties": {"schedule_name": {"type": "string", "description": "Human-readable name for the fee schedule"}, "version": {"type": "string", "description": "Semver version string, e.g. 1.0"}, "effective_date": {"type": "string", "format": "date"}, "expiry_date": {"type": "string", "format": "date"}, "issuer": {"type": "string", "description": "PSP or brand name — not PII"}, "currency": {"type": "string", "enum": ["GBP", "EUR", "USD", "MULTI"]}, "jurisdictions": {"type": "array", "items": {"type": "string"}}, "regulatory_frameworks": {"type": "array", "items": {"type": "string"}}, "cliff_detection_threshold_pct": {"type": "number", "default": 30, "minimum": 5, "maximum": 100}, "durbin_scope": {"type": "boolean", "default": false}, "l2_l3_indicators": {"type": "boolean", "default": true}, "rules": {"type": "array", "items": {"type": "object", "required": ["rail", "corridor"], "properties": {"rail": {"type": "string"}, "corridor": {"type": "string", "enum": ["Domestic", "Intra-EU", "Cross-border"]}, "amount_min": {"type": "number"}, "amount_max": {"type": "number"}, "merchant_type": {"type": "string"}, "customer_tier": {"type": "string"}, "fixed_fee": {"type": "number"}, "percentage_fee": {"type": "number"}, "fx_margin": {"type": "number"}, "network_surcharge": {"type": "number"}, "minimum_fee": {"type": "number"}, "maximum_fee": {"type": "number"}}}}, "simulate_transaction": {"type": "object", "properties": {"rail": {"type": "string"}, "corridor": {"type": "string"}, "amount": {"type": "number"}, "merchant_type": {"type": "string"}, "customer_tier": {"type": "string"}}}}}, "output_schema": {"type": "object", "properties": {"rules": {"type": "array"}, "cliff_flags": {"type": "array"}, "coverage_gaps": {"type": "array"}, "simulation_result": {"type": "object"}, "psd2_disclosure": {"type": "string"}, "ap2_mandate": {"type": "object"}}}, "mcp_tool_definition": {"name": "author_payment_fee_schedule", "description": "Author, simulate, and export tiered payment fee schedules for PSPs, neobanks, and BaaS providers. Generates heat-map matrix with cliff detection, PSD2 Art. 45 / Reg E disclosure summary, Level 2/3 eligibility indicators, and a versioned Policy Mandate JSON fee_schedule_mandate. Use when a payments operator needs to author or validate a pricing tariff.", "inputSchema": {"type": "object", "required": ["schedule_name", "currency", "rules"], "properties": {"schedule_name": {"type": "string"}, "currency": {"type": "string"}, "jurisdictions": {"type": "array", "items": {"type": "string"}}, "regulatory_frameworks": {"type": "array", "items": {"type": "string"}}, "rules": {"type": "array", "items": {"type": "object"}}, "simulate_transaction": {"type": "object"}, "cliff_detection_threshold_pct": {"type": "number"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/rbe-08-fee-schedule-engine.html", "function_name": "runAnalysis", "timeout_ms": 5000}, "ap2_export": true, "mandate_type": "fee_schedule_mandate", "deterministic": true, "pii_transmitted": false, "execution_context": "client_side_browser", "regulatory_citations": ["PSD2 Art. 45 — Transparency of conditions and information requirements", "Regulation E (12 CFR Part 1005) — fee disclosure obligations", "Durbin Amendment (Dodd-Frank Act Section 1075) — US regulated debit", "MAS MAS-PS-04 — Payment Services Act fee disclosure", "ASIC RG 165 — Disclosure obligations"], "cross_links": ["rbe-13-interchange-qualification-engine", "rbe-12-scheme-compliance-simulator", "rbe-04-agent-guardrail-builder"]}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

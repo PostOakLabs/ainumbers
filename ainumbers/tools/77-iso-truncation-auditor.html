@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Tool 77 — ISO 20022 Data Truncation & Address Auditor · AINumbers.co</title>
+<meta name="description" content="Detect silent data loss in ISO 20022 MX payment payloads. Identify XML fields exceeding legacy MT character limits and audit postal addresses against the November 2026 SWIFT/EPC structured address mandate. Client-side. Zero PII.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"ISO 20022 Data Truncation & Address Auditor","url":"https://ainumbers.co/tools/77-iso-truncation-auditor.html","description":"Detect silent data loss in ISO 20022 MX payment payloads. Identify XML fields exceeding legacy MT character limits and audit postal addresses against the November 2026 SWIFT/EPC structured address mandate. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-glow:rgba(20,184,166,.06); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --warn:#F59E0B;
+  --radius:6px; --radius-lg:10px; --shadow:0 4px 24px rgba(0,0,0,.4);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.15}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* Lang bar */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:0 2rem;height:34px;display:flex;align-items:center}
+.lang-inner{max-width:1100px;margin:0 auto;width:100%;display:flex;gap:.5rem;justify-content:flex-end}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid transparent;padding:.2rem .5rem;cursor:pointer;line-height:1;transition:color .15s}
+.lang-btn.active{color:var(--teal-lt);border-bottom:1px solid var(--teal)}
+
+/* Nav */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-mark-grid{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:32px;height:32px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+@media(max-width:600px){}
+/* Hero */
+.hero{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.7rem,3vw,2.5rem);color:var(--white);max-width:720px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.2rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.badge-privacy{color:var(--muted);border-color:var(--border)}.badge-privacy::before{content:'·';color:var(--green)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+
+/* Deadline banner */
+.deadline-banner{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.3);border-left:4px solid var(--warn);padding:1rem 1.25rem;margin:2rem 0 0;position:relative;z-index:1}
+.deadline-banner strong{color:var(--warn)}
+.deadline-banner a{color:var(--warn);text-decoration:underline}
+
+/* Tool section */
+.tool-section{padding:2rem 0 4rem;position:relative;z-index:1}
+
+/* Tab bar */
+.tab-bar{display:flex;gap:2px;background:var(--border);margin-bottom:2rem;border:1px solid var(--border)}
+.tab-btn{flex:1;background:var(--bg-2);padding:.75rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);border:none;cursor:pointer;transition:all .15s;text-align:center}
+.tab-btn.active{background:var(--bg-4);color:var(--teal-lt);border-bottom:2px solid var(--teal)}
+.tab-btn:hover:not(.active){background:var(--bg-3);color:var(--text)}
+
+/* Input area */
+.input-block{margin-bottom:1.5rem}
+.input-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);display:block;margin-bottom:.5rem}
+.input-hint{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);display:block;margin-top:.25rem}
+textarea.xml-input{width:100%;background:var(--bg-2);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.75rem 1rem;outline:none;resize:vertical;min-height:220px;line-height:1.65;transition:border-color .2s}
+textarea.xml-input:focus{border-color:var(--teal)}
+textarea.xml-input::placeholder{color:var(--muted)}
+
+/* Button row */
+.btn-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.5rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.5rem 1rem;cursor:pointer;transition:all .2s;border:1px solid}
+.btn-primary{background:var(--teal);border-color:var(--teal);color:var(--bg)}
+.btn-primary:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--muted);color:var(--text)}
+.btn-warn{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3);color:var(--warn)}
+.btn-warn:hover{background:rgba(245,158,11,.18)}
+.btn-purple{background:var(--purple-dim);border-color:var(--purple);color:var(--purple)}
+.btn-purple:hover{background:rgba(155,114,245,.22)}
+
+/* Section head */
+.sec-head{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-lt);margin:0 0 .75rem;display:flex;align-items:center;gap:.6rem}
+.sec-head::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* Summary banner */
+.summary-banner{padding:.85rem 1.25rem;margin-bottom:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.7rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;border:1px solid;border-left:4px solid}
+.banner-ok{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.banner-warn{background:rgba(245,158,11,.08);border-color:var(--warn);color:var(--warn)}
+.banner-red{background:rgba(239,68,68,.08);border-color:var(--red);color:var(--red)}
+.banner-muted{background:var(--bg-2);border-color:var(--border);color:var(--muted)}
+.banner-pill{display:inline-flex;padding:.15rem .5rem;border-radius:2px;font-size:.58rem;letter-spacing:.06em}
+.pill-high{background:rgba(239,68,68,.2);color:var(--red)}
+.pill-med{background:rgba(245,158,11,.2);color:var(--warn)}
+.pill-low{background:rgba(168,196,222,.1);color:var(--text)}
+
+/* Tables */
+.result-table{width:100%;border-collapse:collapse;font-size:.72rem;margin-bottom:1.5rem}
+.result-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.6rem .85rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-2);white-space:nowrap}
+.result-table td{padding:.6rem .85rem;border-bottom:1px solid rgba(30,47,74,.4);vertical-align:top;color:var(--text)}
+.result-table tr:hover td{background:rgba(20,184,166,.02)}
+.result-table td.mono{font-family:'JetBrains Mono',monospace;font-size:.64rem}
+.result-table td.bright{color:var(--bright)}
+
+/* Risk / status badges */
+.badge{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.18rem .5rem;border-radius:2px;white-space:nowrap;display:inline-block}
+.badge-high{background:rgba(239,68,68,.18);color:var(--red)}
+.badge-med{background:rgba(245,158,11,.18);color:var(--warn)}
+.badge-low{background:rgba(168,196,222,.1);color:var(--body)}
+.badge-pass{background:var(--green-dim);color:var(--green)}
+.badge-reject{background:rgba(239,68,68,.18);color:var(--red)}
+.badge-hybrid{background:rgba(245,158,11,.15);color:var(--warn)}
+.badge-yn-y{color:var(--green)}
+.badge-yn-n{color:var(--red)}
+.badge-yn-na{color:var(--muted)}
+
+/* Element path */
+.el-path{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal-lt)}
+.el-preview{font-family:'JetBrains Mono',monospace;font-size:.60rem;color:var(--body);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.overflow-count{color:var(--red);font-weight:500}
+
+/* Empty / placeholder */
+.placeholder{padding:3rem 2rem;text-align:center;border:1px dashed var(--border);background:var(--bg-2);margin-bottom:1.5rem}
+.placeholder-icon{font-size:2rem;opacity:.3;margin-bottom:.75rem}
+.placeholder-txt{font-size:.78rem;color:var(--muted);line-height:1.7}
+
+/* Export area */
+.export-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border)}
+.export-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:.5rem;width:100%;margin-bottom:.25rem}
+
+}
+
+/* Responsive */
+@media(max-width:700px){
+  .btn-row{flex-direction:column}
+  .tab-btn{font-size:.46rem;padding:.6rem .5rem}
+  .result-table{font-size:.65rem}
+  .result-table th,.result-table td{padding:.5rem .5rem}
+}
+
+/* Address recommended fields grid */
+.rec-grid{display:flex;gap:.4rem;flex-wrap:wrap}
+.rec-chip{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.06em;padding:.15rem .4rem;border-radius:2px;white-space:nowrap}
+.rec-present{background:var(--green-dim);color:var(--green)}
+.rec-absent{background:var(--bg-3);color:var(--muted)}
+
+/* Info callout */
+.info-box{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);padding:.85rem 1rem;font-size:.72rem;color:var(--body);line-height:1.65;margin-bottom:1.25rem}
+.info-box strong{color:var(--text)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <div class="logo-mark-grid">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+    </div>
+    <div class="logo-text">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/b2b-payments-hub.html">B2B Payments Hub</a><span class="nav-sep">/</span><span>T-77</span></div>
+
+    <a href="../guides/b2b-payments-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+  <div class="hero-eyebrow"><span data-i18n="t77.hero_eyebrow">Tool 77 · Core Infrastructure</span></div>
+  <h1 class="tool-title"><span data-i18n="t77.h1">ISO 20022 Data Truncation<br><em>&amp; Address Auditor</em></span></h1>
+  <p class="hero-desc"><span data-i18n="t77.hero_sub">Detect "silent data loss" in MX payment payloads before they hit legacy systems. Paste any pacs.008 or ISO 20022 MX message to identify XML fields exceeding MT character limits and audit postal addresses against the mandatory November 2026 SWIFT/EPC structured address standard. All parsing runs in your browser.</span></p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-privacy"><span data-i18n="badge.zeropii">Zero PII · Client-Side Only</span></span>
+    <span class="hero-badge badge-warn">⚠ Nov 2026 Mandate</span>
+    <span class="hero-badge badge-teal">Truncation Check</span>
+    <span class="hero-badge badge-gold">Address Audit</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+</div></div>
+
+<section class="tool-section"><div class="container">
+
+  <!-- Deadline Banner -->
+  <div class="deadline-banner">
+    ⚠️ <strong>SWIFT CBPR+ Deadline: 15 November 2026</strong> — Unstructured postal addresses will be rejected by SWIFT CBPR+ and the EPC. Hybrid (TwnNm + Ctry present) is the minimum. Fully structured is preferred. <a href="https://www.swift.com" target="_blank" rel="noopener">Source: swift.com</a>
+  </div>
+
+  <!-- XML Input -->
+  <div style="margin-top:2rem">
+    <div class="input-block">
+      <label class="input-label">XML Input — Paste ISO 20022 MX Message</label>
+      <textarea class="xml-input" id="xmlInput" placeholder="Paste your ISO 20022 MX XML here (e.g. pacs.008, pain.001, pacs.004)..."></textarea>
+      <span class="input-hint">Supports any MX message type. The tool will scan all recognised element names and every PstlAdr block.</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="loadSample()">↓ Load Sample pacs.008</button>
+      <button class="btn btn-primary" onclick="runAll()"><span data-i18n="t77.btn_run">▶ Run Both Checks</span></button>
+      <button class="btn btn-ghost" onclick="clearAll()">✕ Clear</button>
+    </div>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-trunc" onclick="switchTab('trunc')">① Truncation Check</button>
+    <button class="tab-btn" id="tab-addr" onclick="switchTab('addr')">② Address Audit</button>
+  </div>
+
+  <!-- ── TRUNCATION PANEL ── -->
+  <div id="panel-trunc">
+    <div class="sec-head">Truncation Risk Findings</div>
+    <div class="info-box">
+      Compares every matched element's text length against legacy MT field limits (35 chars for names/IDs, 140 chars for remittance). Fields that overflow will be silently truncated during MX→MT translation — potentially causing compliance screening failures, STP breaks, or sanctions screening mismatches.
+    </div>
+    <div id="truncSummary"></div>
+    <div id="truncResults"><div class="placeholder"><div class="placeholder-icon">📋</div><div class="placeholder-txt">Paste an MX XML message above and click <strong>Run Both Checks</strong> (or <strong>Run Both Checks</strong>) to see truncation findings here.</div></div></div>
+    <div class="export-row" id="truncExport" style="display:none">
+      <span class="export-label">Export</span>
+      <button class="btn btn-ghost" onclick="exportTruncJSON()">↓ JSON Risk Report</button>
+      <button class="btn btn-ghost" onclick="exportRemedMD()">↓ Remediation Checklist (MD)</button>
+    </div>
+  </div>
+
+  <!-- ── ADDRESS PANEL ── -->
+  <div id="panel-addr" style="display:none">
+    <div class="sec-head">Address Compliance — Nov 2026 Mandate</div>
+    <div class="info-box">
+      Checks every <strong>&lt;PstlAdr&gt;</strong> element in the message against the SWIFT CBPR+ / EPC November 2026 structured address requirement. <strong>TwnNm</strong> and <strong>Ctry</strong> are mandatory. <strong>StrtNm</strong>, <strong>BldgNb</strong>, and <strong>PstCd</strong> are strongly recommended. Addresses still using only <strong>AdrLine</strong> without TwnNm/Ctry will be rejected after the deadline.
+    </div>
+    <div class="info-box" style="border-left-color:var(--warn);background:rgba(245,158,11,.04)">
+      <strong style="color:var(--warn)">CBUAE note:</strong> CBUAE compliance depends on issuer bank-ownership status. Results shown for conservative (non-bank) interpretation where 100% cash escrow is required.
+    </div>
+    <div id="addrSummary"></div>
+    <div id="addrResults"><div class="placeholder"><div class="placeholder-icon">🏛️</div><div class="placeholder-txt">Paste an MX XML message above and click <strong>Run Both Checks</strong> to see address audit results here.</div></div></div>
+    <div class="export-row" id="addrExport" style="display:none">
+      <span class="export-label">Export</span>
+      <button class="btn btn-ghost" onclick="exportTruncJSON()">↓ JSON Risk Report (combined)</button>
+      <button class="btn btn-ghost" onclick="exportRemedMD()">↓ Remediation Checklist (MD)</button>
+    </div>
+  </div>
+
+</div></section>
+
+<!-- ══ FOOTER ══ -->
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+// ── STATIC DATA ────────────────────────────────────────────────────────────
+
+const MT_LIMITS = {
+  'Nm':         { limit: 35,  mt: 'Field 50/59 Name',      desc: 'Debtor/Creditor name' },
+  'AdrLine':    { limit: 35,  mt: 'Field 50/59 Address',   desc: 'Address line (each)' },
+  'StrtNm':     { limit: 35,  mt: 'Street Name',           desc: 'Street name field' },
+  'Ustrd':      { limit: 140, mt: 'Field 70 Remittance',   desc: 'Unstructured remittance info' },
+  'MsgId':      { limit: 35,  mt: 'Field 20',              desc: 'Message ID' },
+  'EndToEndId': { limit: 35,  mt: 'Field 21',              desc: 'End-to-end ID' },
+  'InstrId':    { limit: 35,  mt: 'Instruction ID',        desc: 'Instruction identifier' },
+  'TxId':       { limit: 35,  mt: 'Transaction ID',        desc: 'Transaction identifier' },
+  'PmtInfId':   { limit: 35,  mt: 'Payment Info ID',       desc: 'Payment information ID' }
+};
+
+const RISK_MAP = {
+  'AdrLine': 'High',
+  'Nm':      'High',
+  'Ustrd':   'Medium'
+};
+
+const SAMPLE_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08">
+  <FIToFICstmrCdtTrf>
+    <GrpHdr>
+      <MsgId>MSGID20260504001</MsgId>
+      <CreDtTm>2026-05-04T10:00:00</CreDtTm>
+      <NbOfTxs>1</NbOfTxs>
+    </GrpHdr>
+    <CdtTrfTxInf>
+      <PmtId><EndToEndId>E2E-TEST-001</EndToEndId></PmtId>
+      <IntrBkSttlmAmt Ccy="USD">250000.00</IntrBkSttlmAmt>
+      <Dbtr>
+        <Nm>ACME International Consolidated Trading Corporation Ltd</Nm>
+        <PstlAdr>
+          <AdrLine>123 Main Street Suite 4000 New York NY 10001 United States of America</AdrLine>
+          <AdrLine>Attn: Treasury Operations Department Global Payments Division</AdrLine>
+        </PstlAdr>
+      </Dbtr>
+      <DbtrAcct><Id><IBAN>GB29NWBK60161331926819</IBAN></Id></DbtrAcct>
+      <Cdtr>
+        <Nm>Beneficiary Corp</Nm>
+        <PstlAdr>
+          <TwnNm>Frankfurt</TwnNm>
+          <Ctry>DE</Ctry>
+        </PstlAdr>
+      </Cdtr>
+      <CdtrAcct><Id><IBAN>DE89370400440532013000</IBAN></Id></CdtrAcct>
+      <RmtInf><Ustrd>Invoice payment ref INV-2026-0042 for consulting services rendered Q1 2026 under Master Services Agreement dated January 15 2025</Ustrd></RmtInf>
+    </CdtTrfTxInf>
+  </FIToFICstmrCdtTrf>
+</Document>`;
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+let lastTruncFindings = [];
+let lastAddrFindings  = [];
+let lastMsgType       = '';
+
+// ── UI HELPERS ─────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  ['trunc','addr'].forEach(t => {
+    document.getElementById('panel-' + t).style.display = t === tab ? '' : 'none';
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+  });
+}
+
+function loadSample() {
+  document.getElementById('xmlInput').value = SAMPLE_XML;
+}
+
+function clearAll() {
+  document.getElementById('xmlInput').value = '';
+  document.getElementById('truncResults').innerHTML = placeholderHTML('📋','Paste an MX XML message above and click <strong>Run Both Checks</strong> to see truncation findings here.');
+  document.getElementById('addrResults').innerHTML  = placeholderHTML('🏛️','Paste an MX XML message above and click <strong>Run Both Checks</strong> to see address audit results here.');
+  document.getElementById('truncSummary').innerHTML = '';
+  document.getElementById('addrSummary').innerHTML  = '';
+  document.getElementById('truncExport').style.display = 'none';
+  document.getElementById('addrExport').style.display  = 'none';
+  lastTruncFindings = []; lastAddrFindings = []; lastMsgType = '';
+}
+
+function placeholderHTML(icon, txt) {
+  return `<div class="placeholder"><div class="placeholder-icon">${icon}</div><div class="placeholder-txt">${txt}</div></div>`;
+}
+
+// ── ELEMENT PATH HELPER ────────────────────────────────────────────────────
+function getElementPath(el) {
+  const parts = [];
+  let cur = el;
+  while (cur && cur.nodeType === 1 && cur.localName !== 'Document') {
+    parts.unshift(cur.localName);
+    cur = cur.parentElement;
+  }
+  return parts.join(' › ');
+}
+
+function getPartyLabel(pstlAdrEl) {
+  const parent = pstlAdrEl.parentElement;
+  if (!parent) return 'Unknown';
+  const name = parent.localName;
+  const labelMap = {
+    'Dbtr': 'Debtor', 'Cdtr': 'Creditor',
+    'DbtrAgt': 'Debtor Agent', 'CdtrAgt': 'Creditor Agent',
+    'InstgAgt': 'Instructing Agent', 'InstdAgt': 'Instructed Agent',
+    'IntrmyAgt1': 'Intermediary Agent 1', 'IntrmyAgt2': 'Intermediary Agent 2',
+    'PrvsInstgAgt1': 'Previous Instructing Agent'
+  };
+  return labelMap[name] || name;
+}
+
+// ── DETECT MESSAGE TYPE ────────────────────────────────────────────────────
+function detectMsgType(xmlDoc) {
+  const ns = xmlDoc.documentElement.getAttribute('xmlns') || '';
+  const m = ns.match(/xsd:([\w.]+)/);
+  return m ? m[1] : 'Unknown MX';
+}
+
+// ── TRUNCATION AUDIT ────────────────────────────────────────────────────────
+function runTruncation(xmlDoc) {
+  const findings = [];
+  Object.keys(MT_LIMITS).forEach(localName => {
+    const { limit, mt, desc } = MT_LIMITS[localName];
+    const elements = xmlDoc.getElementsByTagNameNS('*', localName);
+    Array.from(elements).forEach(el => {
+      // Only check direct text (not aggregate)
+      const text = Array.from(el.childNodes)
+        .filter(n => n.nodeType === 3)
+        .map(n => n.textContent)
+        .join('').trim();
+      if (!text) return;
+      if (text.length > limit) {
+        const risk = RISK_MAP[localName] || 'Low';
+        findings.push({
+          localName,
+          path: getElementPath(el),
+          preview: text.substring(0, 50) + (text.length > 50 ? '…' : ''),
+          length: text.length,
+          limit,
+          overflow: text.length - limit,
+          mt,
+          desc,
+          risk
+        });
+      }
+    });
+  });
+  return findings;
+}
+
+function renderTruncation(findings) {
+  const high   = findings.filter(f => f.risk === 'High').length;
+  const medium = findings.filter(f => f.risk === 'Medium').length;
+  const low    = findings.filter(f => f.risk === 'Low').length;
+
+  // Summary banner
+  let bannerClass = 'banner-ok';
+  let bannerIcon = '✅';
+  if (findings.length > 0) {
+    bannerClass = high > 0 ? 'banner-red' : 'banner-warn';
+    bannerIcon  = high > 0 ? '❌' : '⚠️';
+  }
+  const summaryEl = document.getElementById('truncSummary');
+  if (findings.length === 0) {
+    summaryEl.innerHTML = `<div class="summary-banner banner-ok">✅ No truncation risks found — all scanned fields are within MT character limits.</div>`;
+  } else {
+    summaryEl.innerHTML = `<div class="summary-banner ${bannerClass}">
+      ${bannerIcon} <strong>${findings.length} truncation risk${findings.length !== 1 ? 's' : ''} found</strong>
+      <span class="banner-pill pill-high">${high} High</span>
+      <span class="banner-pill pill-med">${medium} Medium</span>
+      <span class="banner-pill pill-low">${low} Low</span>
+      <span style="color:var(--body);font-size:.62rem;margin-left:auto">High = will cause silent data loss in MT translation</span>
+    </div>`;
+  }
+
+  // Results table
+  if (findings.length === 0) {
+    document.getElementById('truncResults').innerHTML = `<div class="placeholder"><div class="placeholder-icon">✅</div><div class="placeholder-txt">No truncation risks detected. All matched elements are within legacy MT character limits.</div></div>`;
+    return;
+  }
+
+  let html = `<table class="result-table">
+    <thead><tr>
+      <th>Element Path</th>
+      <th>Content Preview</th>
+      <th>Length</th>
+      <th>MT Limit</th>
+      <th>Overflow</th>
+      <th>MT Equivalent</th>
+      <th>Risk</th>
+    </tr></thead><tbody>`;
+
+  findings.forEach(f => {
+    const riskBadge = f.risk === 'High'   ? `<span class="badge badge-high">High</span>`
+                    : f.risk === 'Medium' ? `<span class="badge badge-med">Medium</span>`
+                    :                       `<span class="badge badge-low">Low</span>`;
+    html += `<tr>
+      <td><span class="el-path">${escHtml(f.path)}</span></td>
+      <td><span class="el-preview" title="${escHtml(f.preview)}">${escHtml(f.preview)}</span></td>
+      <td class="mono bright">${f.length}</td>
+      <td class="mono">${f.limit}</td>
+      <td class="mono overflow-count">+${f.overflow}</td>
+      <td class="mono" style="color:var(--body)">${escHtml(f.mt)}</td>
+      <td>${riskBadge}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('truncResults').innerHTML = html;
+  document.getElementById('truncExport').style.display = 'flex';
+}
+
+// ── ADDRESS AUDIT ──────────────────────────────────────────────────────────
+function auditAddress(pstlAdrElement) {
+  const q = (tag) => pstlAdrElement.getElementsByTagNameNS('*', tag)[0];
+  const hasTwnNm   = !!(q('TwnNm')  && q('TwnNm').textContent.trim());
+  const hasCtry    = !!(q('Ctry')   && q('Ctry').textContent.trim());
+  const hasAdrLine = !!pstlAdrElement.getElementsByTagNameNS('*', 'AdrLine')[0];
+  const hasStrtNm  = !!(q('StrtNm') && q('StrtNm').textContent.trim());
+  const hasBldgNb  = !!(q('BldgNb') && q('BldgNb').textContent.trim());
+  const hasPstCd   = !!(q('PstCd')  && q('PstCd').textContent.trim());
+
+  const isStructured   = !hasAdrLine && hasTwnNm && hasCtry;
+  const isHybrid       = hasAdrLine && hasTwnNm && hasCtry;
+  const isUnstructured = hasAdrLine && !hasTwnNm;
+  const isMandatoryMet = hasTwnNm && hasCtry;
+
+  let format = 'Unstructured';
+  if (isStructured) format = 'Fully Structured';
+  else if (isHybrid) format = 'Hybrid';
+
+  return {
+    format,
+    mandatory: isMandatoryMet,
+    nov2026Compliant: isMandatoryMet,
+    hasTwnNm, hasCtry, hasStrtNm, hasBldgNb, hasPstCd, hasAdrLine,
+    willBeRejected: !isMandatoryMet
+  };
+}
+
+function runAddressAudit(xmlDoc) {
+  const findings = [];
+  const pstlAdrs = xmlDoc.getElementsByTagNameNS('*', 'PstlAdr');
+  Array.from(pstlAdrs).forEach(el => {
+    const result = auditAddress(el);
+    findings.push({
+      party: getPartyLabel(el),
+      path:  getElementPath(el),
+      ...result
+    });
+  });
+  return findings;
+}
+
+function renderAddressAudit(findings) {
+  const rejected = findings.filter(f => f.willBeRejected).length;
+  const hybrid   = findings.filter(f => f.format === 'Hybrid').length;
+  const total    = findings.length;
+
+  const summaryEl = document.getElementById('addrSummary');
+  if (total === 0) {
+    summaryEl.innerHTML = `<div class="summary-banner banner-muted">ℹ No &lt;PstlAdr&gt; elements found in this message.</div>`;
+    document.getElementById('addrResults').innerHTML = `<div class="placeholder"><div class="placeholder-icon">ℹ️</div><div class="placeholder-txt">No postal address elements (PstlAdr) were found in the parsed XML.</div></div>`;
+    return;
+  }
+
+  if (rejected === 0) {
+    summaryEl.innerHTML = `<div class="summary-banner banner-ok">✅ All ${total} address${total !== 1 ? 'es' : ''} meet the November 2026 mandate — TwnNm and Ctry present in every PstlAdr.${hybrid > 0 ? ` <span class="banner-pill pill-med">${hybrid} Hybrid — AdrLine still present, clean up by Nov 2027</span>` : ''}</div>`;
+  } else {
+    summaryEl.innerHTML = `<div class="summary-banner banner-red">❌ ${rejected} of ${total} address${total !== 1 ? 'es' : ''} will be <strong>REJECTED</strong> after 15 November 2026 — TwnNm or Ctry missing.${hybrid > 0 ? ` <span class="banner-pill pill-med">${hybrid} Hybrid</span>` : ''}</div>`;
+  }
+
+  let html = `<table class="result-table">
+    <thead><tr>
+      <th>Party</th>
+      <th>Format</th>
+      <th>TwnNm</th>
+      <th>Ctry</th>
+      <th>StrtNm</th>
+      <th>BldgNb</th>
+      <th>PstCd</th>
+      <th>Nov 2026 Status</th>
+    </tr></thead><tbody>`;
+
+  findings.forEach(f => {
+    const yn = (v, label) => `<span class="${v ? 'badge-yn-y' : 'badge-yn-n'}" style="font-family:var(--font-mono,'JetBrains Mono');font-size:.7rem">${v ? '✓' : '✗'}</span>`;
+    const recChip = (present, label) => `<span class="rec-chip ${present ? 'rec-present' : 'rec-absent'}">${label}: ${present ? '✓' : '–'}</span>`;
+
+    let statusBadge;
+    if (f.format === 'Fully Structured' && f.nov2026Compliant) {
+      statusBadge = `<span class="badge badge-pass">✅ Compliant</span>`;
+    } else if (f.format === 'Hybrid' && f.nov2026Compliant) {
+      statusBadge = `<span class="badge badge-hybrid">⚠️ Hybrid</span>`;
+    } else {
+      statusBadge = `<span class="badge badge-reject">❌ Will Be Rejected</span>`;
+    }
+
+    html += `<tr style="${f.willBeRejected ? 'background:rgba(239,68,68,.04)' : f.format === 'Hybrid' ? 'background:rgba(245,158,11,.03)' : ''}">
+      <td class="bright">${escHtml(f.party)}</td>
+      <td><span class="badge ${f.format === 'Fully Structured' ? 'badge-pass' : f.format === 'Hybrid' ? 'badge-hybrid' : 'badge-reject'}">${f.format}</span></td>
+      <td style="text-align:center">${yn(f.hasTwnNm)}</td>
+      <td style="text-align:center">${yn(f.hasCtry)}</td>
+      <td style="text-align:center;color:var(--muted)">${yn(f.hasStrtNm)}</td>
+      <td style="text-align:center;color:var(--muted)">${yn(f.hasBldgNb)}</td>
+      <td style="text-align:center;color:var(--muted)">${yn(f.hasPstCd)}</td>
+      <td>${statusBadge}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+
+  // Recommended fields legend
+  html += `<div class="info-box" style="font-size:.66rem">
+    <strong>Mandatory (Nov 2026):</strong> TwnNm, Ctry &nbsp;|&nbsp;
+    <strong>Strongly recommended:</strong> StrtNm, BldgNb, PstCd &nbsp;|&nbsp;
+    <strong>Hybrid</strong> = mandatory fields present but AdrLine still used — compliant after Nov 2026, should be cleaned before Nov 2027 deadline.
+  </div>`;
+
+  document.getElementById('addrResults').innerHTML = html;
+  document.getElementById('addrExport').style.display = 'flex';
+}
+
+// ── RUN ALL ────────────────────────────────────────────────────────────────
+function runAll() {
+  const raw = document.getElementById('xmlInput').value.trim();
+  if (!raw) {
+    alert('Please paste an ISO 20022 MX XML message first, or click "Load Sample pacs.008".');
+    return;
+  }
+
+  let xmlDoc;
+  try {
+    const parser = new DOMParser();
+    xmlDoc = parser.parseFromString(raw, 'application/xml');
+    const parseErr = xmlDoc.querySelector('parsererror');
+    if (parseErr) throw new Error('XML parse error: ' + parseErr.textContent.substring(0, 100));
+  } catch (e) {
+    document.getElementById('truncSummary').innerHTML = `<div class="summary-banner banner-red">❌ XML Parse Error — ${escHtml(e.message)}</div>`;
+    document.getElementById('addrSummary').innerHTML  = '';
+    return;
+  }
+
+  lastMsgType = detectMsgType(xmlDoc);
+
+  // Truncation
+  lastTruncFindings = runTruncation(xmlDoc);
+  renderTruncation(lastTruncFindings);
+
+  // Address
+  lastAddrFindings = runAddressAudit(xmlDoc);
+  renderAddressAudit(lastAddrFindings);
+}
+
+// ── EXPORT: JSON RISK REPORT ────────────────────────────────────────────────
+function exportTruncJSON() {
+  const high   = lastTruncFindings.filter(f => f.risk === 'High').length;
+  const medium = lastTruncFindings.filter(f => f.risk === 'Medium').length;
+  const low    = lastTruncFindings.filter(f => f.risk === 'Low').length;
+  const rejected = lastAddrFindings.filter(f => f.willBeRejected).length;
+
+  const report = {
+    tool: 'iso-truncation-auditor',
+    version: '1.0',
+    timestamp: new Date().toISOString(),
+    messageType: lastMsgType,
+    truncationFindings: lastTruncFindings.map(f => ({
+      element: f.localName,
+      path: f.path,
+      contentPreview: f.preview,
+      length: f.length,
+      limit: f.limit,
+      overflow: f.overflow,
+      mtEquivalent: f.mt,
+      risk: f.risk
+    })),
+    addressFindings: lastAddrFindings.map(f => ({
+      party: f.party,
+      format: f.format,
+      hasTwnNm: f.hasTwnNm,
+      hasCtry: f.hasCtry,
+      hasStrtNm: f.hasStrtNm,
+      hasBldgNb: f.hasBldgNb,
+      hasPstCd: f.hasPstCd,
+      nov2026Compliant: f.nov2026Compliant,
+      willBeRejected: f.willBeRejected
+    })),
+    summary: {
+      totalTruncationRisks: lastTruncFindings.length,
+      high, medium, low,
+      totalAddresses: lastAddrFindings.length,
+      addressesWillBeRejected: rejected,
+      addressesCompliant: lastAddrFindings.length - rejected
+    }
+  };
+
+  const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `iso-truncation-audit-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+
+// ── EXPORT: REMEDIATION CHECKLIST (MD) ─────────────────────────────────────
+function exportRemedMD() {
+  const now = new Date().toISOString().slice(0, 10);
+  const high   = lastTruncFindings.filter(f => f.risk === 'High').length;
+  const medium = lastTruncFindings.filter(f => f.risk === 'Medium').length;
+  const low    = lastTruncFindings.filter(f => f.risk === 'Low').length;
+  const rejected = lastAddrFindings.filter(f => f.willBeRejected).length;
+
+  let md = `# ISO 20022 Audit — Remediation Checklist
+**Generated:** ${now}  |  **Message Type:** ${lastMsgType}  |  **Tool:** AINumbers.co Tool 77
+
+---
+
+## Summary
+
+| Check | Count |
+|---|---|
+| Truncation Risks (High) | ${high} |
+| Truncation Risks (Medium) | ${medium} |
+| Truncation Risks (Low) | ${low} |
+| Addresses WILL BE REJECTED (Nov 2026) | ${rejected} |
+| Addresses Compliant | ${lastAddrFindings.length - rejected} |
+
+---
+
+## Truncation Risk Remediation
+
+`;
+
+  if (lastTruncFindings.length === 0) {
+    md += '_No truncation risks found. All scanned fields are within MT character limits._\n';
+  } else {
+    md += `| # | Element | Path | Length | MT Limit | Overflow | Risk | Action Required |\n`;
+    md += `|---|---|---|---|---|---|---|---|\n`;
+    lastTruncFindings.forEach((f, i) => {
+      const action = f.risk === 'High'
+        ? 'URGENT: Truncate or restructure field before MT translation'
+        : f.risk === 'Medium'
+        ? 'Review: May cause remittance info loss; consider splitting'
+        : 'Monitor: Low-impact but review before MT conversion';
+      md += `| ${i+1} | \`${f.localName}\` | ${f.path} | ${f.length} | ${f.limit} | +${f.overflow} | ${f.risk} | ${action} |\n`;
+    });
+  }
+
+  md += `\n---\n\n## Address Remediation (SWIFT CBPR+ Nov 2026 Deadline)\n\n`;
+
+  if (lastAddrFindings.length === 0) {
+    md += '_No PstlAdr elements found in this message._\n';
+  } else {
+    md += `| Party | Current Format | TwnNm | Ctry | Status | Required Action |\n`;
+    md += `|---|---|---|---|---|---|\n`;
+    lastAddrFindings.forEach(f => {
+      const status = f.willBeRejected ? '❌ WILL BE REJECTED' : f.format === 'Hybrid' ? '⚠️ Hybrid — OK but clean up' : '✅ Compliant';
+      const action = f.willBeRejected
+        ? 'URGENT: Add TwnNm and Ctry structured fields. Remove AdrLine-only address.'
+        : f.format === 'Hybrid'
+        ? 'Recommended: Remove AdrLine and complete structured fields (StrtNm, BldgNb, PstCd) before Nov 2027.'
+        : 'No action required. Consider adding StrtNm, BldgNb, PstCd for full structured compliance.';
+      md += `| ${f.party} | ${f.format} | ${f.hasTwnNm ? '✓' : '✗'} | ${f.hasCtry ? '✓' : '✗'} | ${status} | ${action} |\n`;
+    });
+  }
+
+  md += `\n---\n\n## Deadline Reference\n\n`;
+  md += `- **15 November 2026** — SWIFT CBPR+ and EPC reject messages with unstructured postal addresses (no TwnNm/Ctry)\n`;
+  md += `- **15 November 2027** — Hybrid addresses (AdrLine + structured fields) must be fully migrated to structured-only\n`;
+  md += `\n_Generated by AINumbers.co Tool 77 — ISO 20022 Data Truncation & Address Auditor. Client-side. Zero PII._\n`;
+
+  const blob = new Blob([md], { type: 'text/markdown' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `iso-remediation-checklist-${new Date().toISOString().slice(0,10)}.md`;
+  a.click();
+}
+
+// ── UTIL ───────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+const TRANSLATIONS = {
+  'en': {
+    'nav.alltools': 'All Tools',
+    'nav.home': 'Home',
+    'nav.a2a': 'A2A Payments',
+    'nav.glossary': 'Glossary',
+    'nav.tools': 'Tools',
+    'nav.contact': 'Contact',
+    'footer.alltools': 'All Tools',
+    'footer.sitemap': 'Sitemap',
+    'footer.contact': 'Contact',
+    'footer.a2a': 'A2A Payments',
+    'footer.glossary': 'Glossary',
+    'footer.home': 'Home',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy': '🔒 Zero PII   📡 No server calls   💻 Client-side',
+    'badge.zeropii': 'Zero PII · Client-Side Only',
+    'badge.zeropii2': 'Zero PII · 100% Client-Side',
+    'about.trigger': 'About This Tool',
+    'about.trigger2': 'About This Tool ▾',
+    'about.privacy': 'Privacy Statement',
+    'priv.body': 'All processing happens in your browser. No data is transmitted to any server. No analytics, no cookies, no telemetry. Your inputs never leave your device.',
+    'btn.reset': '↺ Reset',
+    'btn.clear': '↺ Clear',
+    'btn.exportcsv': '↓ CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Print',
+    'btn.copy': 'Copy',
+    'btn.alltools': '← All Tools',
+    'lbl.selectopt': '— Select —',
+    'lbl.jurisdiction': 'Jurisdiction',
+    'lbl.currency': 'Currency',
+    'lbl.amount': 'Amount',
+    't77.hero_eyebrow': 'Tool 77 · Core Infrastructure',
+    't77.h1': 'ISO 20022 Data Truncation & Address Auditor',
+    't77.hero_sub': 'Detect "silent data loss" in MX payment payloads before they hit legacy systems. Paste any pacs.008 or ISO 20022 MX message to check field lengths, character set compliance, and structured address completeness.',
+    't77.btn_run': '▶ Run Both Checks',
+  },
+  'es': {
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.home': 'Inicio',
+    'nav.a2a': 'Pagos A2A',
+    'nav.glossary': 'Glosario',
+    'nav.tools': 'Herramientas',
+    'nav.contact': 'Contacto',
+    'footer.alltools': 'Todas las Herramientas',
+    'footer.sitemap': 'Mapa del Sitio',
+    'footer.contact': 'Contacto',
+    'footer.a2a': 'Pagos A2A',
+    'footer.glossary': 'Glosario',
+    'footer.home': 'Inicio',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy': '🔒 Sin PII   📡 Sin llamadas al servidor   💻 Del lado del cliente',
+    'badge.zeropii': 'Sin PII · Solo del Lado del Cliente',
+    'badge.zeropii2': 'Sin PII · 100% del Lado del Cliente',
+    'about.trigger': 'Acerca de Esta Herramienta',
+    'about.trigger2': 'Acerca de Esta Herramienta ▾',
+    'about.privacy': 'Declaración de Privacidad',
+    'priv.body': 'Todo el procesamiento ocurre en su navegador. No se transmiten datos a ningún servidor. Sin análisis, sin cookies, sin telemetría. Sus datos nunca salen de su dispositivo.',
+    'btn.reset': '↺ Restablecer',
+    'btn.clear': '↺ Limpiar',
+    'btn.exportcsv': '↓ CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimir',
+    'btn.copy': 'Copiar',
+    'btn.alltools': '← Todas las Herramientas',
+    'lbl.selectopt': '— Seleccionar —',
+    'lbl.jurisdiction': 'Jurisdicción',
+    'lbl.currency': 'Moneda',
+    'lbl.amount': 'Monto',
+    't77.hero_eyebrow': 'Herramienta 77 · Infraestructura Central',
+    't77.h1': 'Auditor de Truncamiento de Datos ISO 20022 y Direcciones',
+    't77.hero_sub': 'Detecte "pérdida silenciosa de datos" en cargas útiles de pago MX antes de llegar a sistemas legados. Pegue cualquier mensaje pacs.008 o ISO 20022 MX para verificar longitudes de campo y cumplimiento.',
+    't77.btn_run': '▶ Ejecutar Ambas Verificaciones',
+  },
+  'fr': {
+    'nav.alltools': 'Tous les Outils',
+    'nav.home': 'Accueil',
+    'nav.a2a': 'Paiements A2A',
+    'nav.glossary': 'Glossaire',
+    'nav.tools': 'Outils',
+    'nav.contact': 'Contact',
+    'footer.alltools': 'Tous les Outils',
+    'footer.sitemap': 'Plan du Site',
+    'footer.contact': 'Contact',
+    'footer.a2a': 'Paiements A2A',
+    'footer.glossary': 'Glossaire',
+    'footer.home': 'Accueil',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy': '🔒 Zéro PII   📡 Aucun appel serveur   💻 Côté client',
+    'badge.zeropii': 'Zéro PII · Côté Client Uniquement',
+    'badge.zeropii2': 'Zéro PII · 100% Côté Client',
+    'about.trigger': 'À Propos de Cet Outil',
+    'about.trigger2': 'À Propos de Cet Outil ▾',
+    'about.privacy': 'Déclaration de Confidentialité',
+    'priv.body': 'Tout le traitement s\'effectue dans votre navigateur. Aucune donnée n\'est transmise à un serveur. Pas d\'analyse, pas de cookies, pas de télémétrie. Vos entrées ne quittent jamais votre appareil.',
+    'btn.reset': '↺ Réinitialiser',
+    'btn.clear': '↺ Effacer',
+    'btn.exportcsv': '↓ CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimer',
+    'btn.copy': 'Copier',
+    'btn.alltools': '← Tous les Outils',
+    'lbl.selectopt': '— Sélectionner —',
+    'lbl.jurisdiction': 'Juridiction',
+    'lbl.currency': 'Devise',
+    'lbl.amount': 'Montant',
+    't77.hero_eyebrow': 'Outil 77 · Infrastructure de Base',
+    't77.h1': 'Auditeur de Troncature de Données ISO 20022 et d\'Adresses',
+    't77.hero_sub': 'Détectez la "perte silencieuse de données" dans les charges utiles de paiement MX avant qu\'elles n\'atteignent les systèmes hérités. Collez n\'importe quel message pacs.008 ou ISO 20022 MX.',
+    't77.btn_run': '▶ Lancer les Deux Vérifications',
+  },
+  'ar': {
+    'nav.alltools': 'جميع الأدوات',
+    'nav.home': 'الرئيسية',
+    'nav.a2a': 'مدفوعات A2A',
+    'nav.glossary': 'المصطلحات',
+    'nav.tools': 'الأدوات',
+    'nav.contact': 'اتصل بنا',
+    'footer.alltools': 'جميع الأدوات',
+    'footer.sitemap': 'خريطة الموقع',
+    'footer.contact': 'اتصل بنا',
+    'footer.a2a': 'مدفوعات A2A',
+    'footer.glossary': 'المصطلحات',
+    'footer.home': 'الرئيسية',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy': '🔒 بدون PII   📡 بدون اتصال بالخادم   💻 من جانب العميل',
+    'badge.zeropii': 'بدون بيانات شخصية · من جانب العميل فقط',
+    'badge.zeropii2': 'بدون PII · 100% من جانب العميل',
+    'about.trigger': 'حول هذه الأداة',
+    'about.trigger2': 'حول هذه الأداة ▾',
+    'about.privacy': 'بيان الخصوصية',
+    'priv.body': 'تتم جميع المعالجة في متصفحك. لا يتم إرسال أي بيانات إلى أي خادم. بدون تحليلات، بدون ملفات تعريف الارتباط، بدون بيانات استخدام. مدخلاتك لا تغادر جهازك أبدًا.',
+    'btn.reset': '↺ إعادة تعيين',
+    'btn.clear': '↺ مسح',
+    'btn.exportcsv': '↓ CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ طباعة',
+    'btn.copy': 'نسخ',
+    'btn.alltools': '← جميع الأدوات',
+    'lbl.selectopt': '— اختر —',
+    'lbl.jurisdiction': 'الاختصاص القضائي',
+    'lbl.currency': 'العملة',
+    'lbl.amount': 'المبلغ',
+    't77.hero_eyebrow': 'الأداة 77 · البنية التحتية الأساسية',
+    't77.h1': 'مدقق اقتطاع بيانات ISO 20022 والعناوين',
+    't77.hero_sub': 'اكتشف "فقدان البيانات الصامت" في حمولات دفع MX قبل وصولها إلى الأنظمة القديمة. الصق أي رسالة pacs.008 أو ISO 20022 MX.',
+    't77.btn_run': '▶ تشغيل كلا الفحصين',
+  },
+  'pt': {
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.home': 'Início',
+    'nav.a2a': 'Pagamentos A2A',
+    'nav.glossary': 'Glossário',
+    'nav.tools': 'Ferramentas',
+    'nav.contact': 'Contato',
+    'footer.alltools': 'Todas as Ferramentas',
+    'footer.sitemap': 'Mapa do Site',
+    'footer.contact': 'Contato',
+    'footer.a2a': 'Pagamentos A2A',
+    'footer.glossary': 'Glossário',
+    'footer.home': 'Início',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy': '🔒 Zero PII   📡 Sem chamadas ao servidor   💻 Lado do cliente',
+    'badge.zeropii': 'Zero PII · Somente Lado do Cliente',
+    'badge.zeropii2': 'Zero PII · 100% Lado do Cliente',
+    'about.trigger': 'Sobre Esta Ferramenta',
+    'about.trigger2': 'Sobre Esta Ferramenta ▾',
+    'about.privacy': 'Declaração de Privacidade',
+    'priv.body': 'Todo o processamento ocorre no seu navegador. Nenhum dado é transmitido a qualquer servidor. Sem análises, sem cookies, sem telemetria. Suas entradas nunca saem do seu dispositivo.',
+    'btn.reset': '↺ Redefinir',
+    'btn.clear': '↺ Limpar',
+    'btn.exportcsv': '↓ CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimir',
+    'btn.copy': 'Copiar',
+    'btn.alltools': '← Todas as Ferramentas',
+    'lbl.selectopt': '— Selecionar —',
+    'lbl.jurisdiction': 'Jurisdição',
+    'lbl.currency': 'Moeda',
+    'lbl.amount': 'Valor',
+    't77.hero_eyebrow': 'Ferramenta 77 · Infraestrutura Central',
+    't77.h1': 'Auditor de Truncamento de Dados ISO 20022 e Endereços',
+    't77.hero_sub': 'Detecte "perda silenciosa de dados" em cargas de pagamento MX antes de chegarem a sistemas legados. Cole qualquer mensagem pacs.008 ou ISO 20022 MX.',
+    't77.btn_run': '▶ Executar Ambas as Verificações',
+  },
+  'zh': {
+    'nav.alltools': '所有工具',
+    'nav.home': '首页',
+    'nav.a2a': 'A2A 支付',
+    'nav.glossary': '术语表',
+    'nav.tools': '工具',
+    'nav.contact': '联系我们',
+    'footer.alltools': '所有工具',
+    'footer.sitemap': '网站地图',
+    'footer.contact': '联系我们',
+    'footer.a2a': 'A2A 支付',
+    'footer.glossary': '术语表',
+    'footer.home': '首页',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy': '🔒 零隐私数据   📡 无服务器调用   💻 客户端运行',
+    'badge.zeropii': '零隐私数据 · 仅限客户端',
+    'badge.zeropii2': '零PII · 100% 客户端',
+    'about.trigger': '关于此工具',
+    'about.trigger2': '关于此工具 ▾',
+    'about.privacy': '隐私声明',
+    'priv.body': '所有处理均在您的浏览器中完成。不向任何服务器传输数据。无分析、无Cookie、无遥测。您的输入永远不会离开您的设备。',
+    'btn.reset': '↺ 重置',
+    'btn.clear': '↺ 清除',
+    'btn.exportcsv': '↓ CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ 打印',
+    'btn.copy': '复制',
+    'btn.alltools': '← 所有工具',
+    'lbl.selectopt': '— 请选择 —',
+    'lbl.jurisdiction': '司法管辖区',
+    'lbl.currency': '货币',
+    'lbl.amount': '金额',
+    't77.hero_eyebrow': '工具 77 · 核心基础设施',
+    't77.h1': 'ISO 20022数据截断与地址审计器',
+    't77.hero_sub': '在MX支付负载到达遗留系统之前检测"静默数据丢失"。粘贴任何pacs.008或ISO 20022 MX消息，检查字段长度、字符集合规性和结构化地址完整性。',
+    't77.btn_run': '▶ 运行两项检查',
+  },
+};
+
+function setLang(lang) {
+  document.querySelectorAll('.lang-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.lang-btn').forEach(function(b){
+    if(b.getAttribute('data-lang')===lang) b.classList.add('active');
+  });
+  document.documentElement.lang = lang==='zh'?'zh-Hans':lang;
+  document.documentElement.dir  = lang==='ar'?'rtl':'ltr';
+  var s = TRANSLATIONS[lang]||TRANSLATIONS['en'];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var k=el.getAttribute('data-i18n');
+    if(s[k]!==undefined) el.innerHTML=s[k];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el){
+    var k=el.getAttribute('data-i18n-placeholder');
+    if(s[k]!==undefined) el.placeholder=s[k];
+  });
+  window._lang=lang;
+
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+</script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "iso-truncation-auditor", "version": "1.0.0", "title": "Tool 77 — ISO 20022 Data Truncation & Address Auditor", "description": "Detect silent data loss in ISO 20022 MX payment payloads. Identify XML fields exceeding legacy MT character limits and audit postal addresses against the November 2026 SWIFT/EPC structured address mandate. Client-side. Zero PII.", "category": "b2b-payments", "tags": ["High", "Medium", "Low", "✅ Compliant", "⚠️ Hybrid", "❌ Will Be Rejected", "${f.format}"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"xmlInput": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "iso_truncation_auditor", "description": "Run Tool 77 — ISO 20022 Data Truncation & Address Auditor. Detect silent data loss in ISO 20022 MX payment payloads. Identify XML fields exceeding legacy MT character limits and audit postal addresses against the November 2026 SWIFT/EPC structured address man", "inputSchema": {"type": "object", "properties": {"xmlInput": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/77-iso-truncation-auditor.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(s); }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

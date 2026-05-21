@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Roth vs Traditional IRA Estimator · pf-136 · AINumbers.co</title>
+<meta name="description" content="Compare Roth vs Traditional IRA using 2024 tax brackets, projected retirement wealth, RMD impact, and break-even tax rate analysis. Accounts for current vs retirement marginal rates. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/pf-136-roth-vs-traditional-estimator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Roth vs Traditional IRA Estimator","url":"https://ainumbers.co/tools/pf-136-roth-vs-traditional-estimator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "roth-vs-traditional-estimator",
+  "version": "1.0.0",
+  "title": "Roth vs Traditional IRA Estimator",
+  "description": "Compares Roth vs Traditional IRA/401k using 2024 federal tax brackets, projected retirement wealth, RMD impact, and break-even tax rate analysis.",
+  "category": "cat-13",
+  "tags": ["Roth IRA","Traditional IRA","401k","tax","retirement","FIRE","RMD","Roth conversion"],
+  "audience": ["investor","FIRE","retail","advisor"],
+  "input_schema": {"type":"object","properties":{"current_income":{"type":"number"},"filing_status":{"type":"string"},"annual_contribution":{"type":"number"},"years_to_retirement":{"type":"number"}},"required":["current_income","annual_contribution"]},
+  "output_schema": {"type":"object","properties":{"roth_value":{"type":"number"},"trad_value":{"type":"number"},"winner":{"type":"string"},"memo":{"type":"string"}}},
+  "mcp_tool_definition": {"name":"estimate_roth_vs_traditional","description":"Compares Roth vs Traditional IRA projected after-tax wealth using 2024 tax brackets.","inputSchema":{"type":"object","properties":{"current_income":{"type":"number"},"filing_status":{"type":"string","enum":["single","mfj","mfs","hoh"]},"annual_contribution":{"type":"number"},"years_to_retirement":{"type":"number"}},"required":["current_income","annual_contribution"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/pf-136-roth-vs-traditional-estimator.html","function_name":"runComparison","timeout_ms":2000},
+  "ap2_export": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px;--accent:var(--teal);--accent-dim:var(--teal-dim);--accent-lt:var(--teal-lt);--roth:var(--teal);--trad:var(--purple);--surface:var(--bg-2);--card:var(--bg-3)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+[dir=rtl] .lang-inner{justify-content:flex-start}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;z-index:101;position:relative}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--accent);color:var(--accent)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--accent)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--accent)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--accent)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.badge-plain{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1.25rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+/* tool-specific CSS */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:600px){.grid-2{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px}
+.card-title{font-family:'DM Serif Display',serif;font-size:17px;color:var(--white);margin-bottom:18px}
+label{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px}
+input[type=number],input[type=text],select{width:100%;background:var(--bg-2);border:1px solid var(--border);color:var(--text);font-family:'Sora',sans-serif;font-size:14px;padding:9px 12px;border-radius:8px;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--accent)}
+.form-group{margin-bottom:14px}
+.field-hint{font-size:11px;color:var(--muted);margin-top:4px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 24px;border-radius:8px;font-family:'Sora',sans-serif;font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{filter:brightness(1.1)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+#results{display:none}
+.compare-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+@media(max-width:560px){.compare-row{grid-template-columns:1fr}}
+.compare-card{border-radius:14px;padding:22px}
+.compare-card.roth{background:linear-gradient(135deg,rgba(20,184,166,.15),rgba(20,184,166,.05));border:2px solid rgba(20,184,166,.35)}
+.compare-card.trad{background:linear-gradient(135deg,rgba(155,114,245,.15),rgba(155,114,245,.05));border:2px solid rgba(155,114,245,.35)}
+.compare-card.winner{box-shadow:0 0 20px rgba(34,197,94,.2)}
+.compare-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px}
+.roth .compare-label{color:var(--roth)}.trad .compare-label{color:var(--trad)}
+.compare-val{font-family:'DM Serif Display',serif;font-size:30px;color:var(--white)}
+.compare-sub{font-size:12px;color:var(--muted);margin-top:4px}
+.winner-badge{display:inline-block;background:rgba(34,197,94,.2);color:var(--green);font-size:11px;font-weight:700;padding:2px 10px;border-radius:4px;margin-top:6px}
+.metric-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
+.metric-card{background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+.metric-val{font-family:'DM Serif Display',serif;font-size:20px;color:var(--accent)}
+.metric-val.green{color:var(--green)}.metric-val.gold{color:var(--gold)}.metric-val.trad{color:var(--trad)}
+.metric-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-top:4px}
+.proj-table{width:100%;border-collapse:collapse;font-size:12px}
+.proj-table th{background:var(--bg-2);color:var(--muted);text-transform:uppercase;font-size:10px;letter-spacing:.6px;padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
+.proj-table td{padding:7px 10px;border-bottom:1px solid rgba(30,48,72,.4);font-family:'JetBrains Mono',monospace}
+.proj-table tr:hover td{background:rgba(20,184,166,.03)}
+.bk-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(30,48,72,.4);font-size:13px}
+.bk-row:last-child{border-bottom:none}
+.bk-label{color:var(--muted)}
+.bk-roth{color:var(--roth);font-family:'JetBrains Mono',monospace}
+.bk-trad{color:var(--trad);font-family:'JetBrains Mono',monospace}
+.verdict-box{border-radius:10px;padding:16px 20px;margin-bottom:20px}
+.verdict-box.roth-wins{background:rgba(20,184,166,.10);border:1px solid rgba(20,184,166,.3)}
+.verdict-box.trad-wins{background:rgba(155,114,245,.10);border:1px solid rgba(155,114,245,.3)}
+.verdict-box.tie{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25)}
+.disclaimer{background:rgba(212,168,71,.07);border:1px solid rgba(212,168,71,.2);border-radius:8px;padding:12px 16px;font-size:12px;color:#94a3b8;margin-bottom:20px}
+.cite-list li{font-size:12px;color:var(--muted);margin-bottom:4px;list-style:none;padding-left:22px;position:relative}
+.cite-list li::before{content:attr(data-n);position:absolute;left:0;color:var(--accent);font-weight:700}
+.results-export-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px;padding-top:20px;border-top:1px solid var(--border)}
+#memo-out{display:none;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#94a3b8;white-space:pre-wrap;word-break:break-word;max-height:440px;overflow-y:auto;margin-top:16px}
+/* AIN-canon-2026-05-17 -->
+</style>
+</head>
+<body>
+
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/pf-hub.html">Personal Finance Hub</a><span class="nav-sep">/</span><span>pf-136</span></div>
+  <a href="../guides/pf-hub.html" class="nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-13 · pf-136 · Personal Finance &amp; FIRE</div>
+  <h1>Roth vs Traditional IRA <em>Estimator</em></h1>
+  <p class="hero-desc">Compare Roth vs Traditional IRA using 2024 federal tax brackets. Projects after-tax retirement wealth, calculates RMD impact, identifies break-even tax rate, and shows qualitative factors that tilt the decision. Client-side. Zero PII.</p>
+  <div class="hero-badges">
+    <span class="badge badge-plain badge-teal">Roth vs Traditional</span>
+    <span class="badge badge-plain badge-purple">RMD Impact</span>
+    <span class="badge badge-plain badge-green">Zero PII</span>
+    <span class="badge badge-plain badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+<div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="disclaimer">
+    ⚠️ <strong>Educational only.</strong> Tax laws change frequently. This tool uses 2024 US tax brackets and IRS contribution limits as defaults. Consult a CPA or CFP for personalised advice.
+  </div>
+
+  <!-- Personal & Income -->
+  <div class="card">
+    <div class="card-title">👤 <span data-i18n="income_title">Income &amp; Personal Details</span></div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label data-i18n="lbl_age">Current Age</label>
+        <input type="number" id="age" value="35" min="18" max="70"/>
+      </div>
+      <div class="form-group">
+        <label data-i18n="lbl_retire">Target Retirement Age</label>
+        <input type="number" id="retireAge" value="65" min="30" max="80"/>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label data-i18n="lbl_income">Annual Gross Income ($)</label>
+        <input type="number" id="grossIncome" value="95000" min="0"/>
+        <div class="field-hint" data-i18n="hint_income">Used to determine current marginal tax bracket</div>
+      </div>
+      <div class="form-group">
+        <label data-i18n="lbl_filing">Filing Status</label>
+        <select id="filing">
+          <option value="single">Single</option>
+          <option value="mfj" selected>Married Filing Jointly</option>
+          <option value="mfs">Married Filing Separately</option>
+          <option value="hoh">Head of Household</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label data-i18n="lbl_retire_income">Expected Retirement Income ($)</label>
+        <input type="number" id="retireIncome" value="60000" min="0"/>
+        <div class="field-hint" data-i18n="hint_retire_income">Social Security + pension + other income in retirement (before IRA withdrawals)</div>
+      </div>
+      <div class="form-group">
+        <label data-i18n="lbl_state_tax">State Income Tax Rate (%)</label>
+        <input type="number" id="stateTax" value="5" min="0" max="15" step="0.1"/>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contribution & Growth -->
+  <div class="card">
+    <div class="card-title">💰 <span data-i18n="contrib_title">Contributions &amp; Growth</span></div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label data-i18n="lbl_annual_contrib">Annual Contribution ($)</label>
+        <input type="number" id="annualContrib" value="7000" min="0"/>
+        <div class="field-hint" data-i18n="hint_contrib">2024 IRA limit: $7,000 ($8,000 if ≥50). 401(k): $23,000 ($30,500 if ≥50)</div>
+      </div>
+      <div class="form-group">
+        <label data-i18n="lbl_existing">Existing Account Balance ($)</label>
+        <input type="number" id="existing" value="25000" min="0"/>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label data-i18n="lbl_return">Expected Annual Return (%)</label>
+        <input type="number" id="annualReturn" value="7.0" min="0" max="30" step="0.1"/>
+        <div class="field-hint" data-i18n="hint_return">Long-run diversified portfolio real return ~5-7% nominal</div>
+      </div>
+      <div class="form-group">
+        <label data-i18n="lbl_inflation">Inflation Rate (%)</label>
+        <input type="number" id="inflation" value="3.0" min="0" max="15" step="0.1"/>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label data-i18n="lbl_withdrawal_yrs">Withdrawal Period (years in retirement)</label>
+        <input type="number" id="withdrawalYrs" value="30" min="5" max="50"/>
+      </div>
+      <div class="form-group">
+        <label data-i18n="lbl_rmd">Include RMD Impact (Traditional only)</label>
+        <select id="rmd">
+          <option value="yes" selected>Yes — model RMD from age 73</option>
+          <option value="no">No — ignore RMDs</option>
+        </select>
+        <div class="field-hint" data-i18n="hint_rmd">SECURE 2.0 Act: RMD age raised to 73 (75 from 2033). Roth IRAs have no RMDs.</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-bottom:28px">
+    <button class="btn btn-primary" onclick="runComparison()" data-i18n="run_btn">⚡ Compare Roth vs Traditional</button>
+  </div>
+
+  <!-- Results -->
+  <div id="results">
+
+    <!-- Comparison Cards -->
+    <div class="compare-row" id="compareCards"></div>
+
+    <!-- Verdict -->
+    <div id="verdictBox"></div>
+
+    <!-- Metrics -->
+    <div class="card">
+      <div class="card-title">📊 <span data-i18n="metrics_title">Key Comparison Metrics</span></div>
+      <div class="metric-row" id="metricsRow"></div>
+      <div id="breakdownList"></div>
+    </div>
+
+    <!-- Year-by-year table -->
+    <div class="card">
+      <div class="card-title">📅 <span data-i18n="table_title">Year-by-Year Growth</span></div>
+      <div style="overflow-x:auto">
+        <table class="proj-table">
+          <thead>
+            <tr>
+              <th data-i18n="th_age">Age</th>
+              <th data-i18n="th_roth_bal">Roth Balance ($)</th>
+              <th data-i18n="th_trad_bal">Trad Balance ($)</th>
+              <th data-i18n="th_roth_after">Roth After-Tax ($)</th>
+              <th data-i18n="th_trad_after">Trad After-Tax ($)</th>
+              <th data-i18n="th_adv">Advantage</th>
+            </tr>
+          </thead>
+          <tbody id="projBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Qualitative Factors -->
+    <div class="card">
+      <div class="card-title">🔍 <span data-i18n="factors_title">Qualitative Decision Factors</span></div>
+      <div id="factorsOut"></div>
+    </div>
+
+    <!-- References -->
+    <div class="card">
+      <div class="card-title">📚 <span data-i18n="ref_title">References</span></div>
+      <ul class="cite-list">
+        <li data-n="[1]">IRS Publication 590-A, "Contributions to Individual Retirement Arrangements (IRAs)," 2024.</li>
+        <li data-n="[2]">IRS Publication 590-B, "Distributions from Individual Retirement Arrangements (IRAs)," 2024.</li>
+        <li data-n="[3]">SECURE 2.0 Act of 2022 (H.R. 2954) — RMD age raised to 73; Roth 401(k) RMD elimination.</li>
+        <li data-n="[4]">IRS Rev. Proc. 2023-34 — 2024 tax bracket inflation adjustments.</li>
+        <li data-n="[5]">Kitces, M. "Roth vs Traditional: When Does Roth Win?" Nerd's Eye View, 2023.</li>
+      </ul>
+    </div>
+
+    <div class="results-export-row">
+      <button class="btn btn-ghost" onclick="copyMemo()" data-i18n="export_md">📋 Copy Memo</button>
+    </div>
+    <div id="memo-out"></div>
+  </div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+  <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+</section>
+
+</div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html" data-i18n="footer.alltools">All Tools</a>
+      <a href="../guides/pf-hub.html" data-i18n="footer.hub">Personal Finance Hub</a>
+      <a href="../sitemap.html" data-i18n="footer.sitemap">Sitemap</a>
+      <a href="../contact.html" data-i18n="footer.contact">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span>
+      <span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+var TRANSLATIONS={
+  en:{tag:"Personal Finance · Tax · pf-136",h1:"Roth vs Traditional IRA Estimator",sub:"Compare Roth and Traditional IRA / 401(k) side-by-side — model tax savings, after-tax withdrawals, and RMD impact.",income_title:"Income & Personal Details",lbl_age:"Current Age",lbl_retire:"Target Retirement Age",lbl_income:"Annual Gross Income ($)",hint_income:"Determines current marginal tax bracket",lbl_filing:"Filing Status",lbl_retire_income:"Expected Retirement Income ($)",hint_retire_income:"Social Security + pension + other before IRA withdrawals",lbl_state_tax:"State Income Tax Rate (%)",contrib_title:"Contributions & Growth",lbl_annual_contrib:"Annual Contribution ($)",hint_contrib:"2024 IRA limit: $7,000 ($8,000 if ≥50)",lbl_existing:"Existing Account Balance ($)",lbl_return:"Expected Annual Return (%)",hint_return:"Long-run diversified portfolio: ~5-7% nominal",lbl_inflation:"Inflation Rate (%)",lbl_withdrawal_yrs:"Withdrawal Period (years)",lbl_rmd:"Include RMD Impact",hint_rmd:"SECURE 2.0: RMD age 73. Roth IRAs have no RMDs.",run_btn:"⚡ Compare Roth vs Traditional",metrics_title:"Key Comparison Metrics",table_title:"Year-by-Year Growth",th_age:"Age",th_roth_bal:"Roth Balance",th_trad_bal:"Trad Balance",th_roth_after:"Roth After-Tax",th_trad_after:"Trad After-Tax",th_adv:"Advantage",factors_title:"Qualitative Decision Factors",ref_title:"References",export_md:"📋 Copy Memo",nav_home:"Home",nav_hub:"Personal Finance Hub"},
+  es:{tag:"Finanzas · Impuestos · pf-136",h1:"Estimador Roth vs IRA Tradicional",sub:"Compare cuentas Roth y IRA Tradicional / 401(k) lado a lado.",run_btn:"⚡ Comparar Roth vs Tradicional",export_md:"📋 Copiar Memo"},
+  fr:{tag:"Finance · Impôt · pf-136",h1:"Estimateur Roth vs IRA Traditionnel",sub:"Comparez les comptes Roth et IRA Traditionnel / 401(k) côte à côte.",run_btn:"⚡ Comparer Roth vs Traditionnel",export_md:"📋 Copier le Mémo"},
+  ar:{tag:"مالية · ضرائب · pf-136",h1:"مقدّر Roth مقابل IRA التقليدي",sub:"قارن حسابات Roth وIRA التقليدي / 401(k) جنبًا إلى جنب.",run_btn:"⚡ مقارنة Roth مقابل التقليدي",export_md:"📋 نسخ المذكرة"},
+  pt:{tag:"Finanças · Impostos · pf-136",h1:"Estimador Roth vs IRA Tradicional",sub:"Compare contas Roth e IRA Tradicional / 401(k) lado a lado.",run_btn:"⚡ Comparar Roth vs Tradicional",export_md:"📋 Copiar Memo"},
+  zh:{tag:"个人理财 · 税务 · pf-136",h1:"Roth vs 传统IRA估算器",sub:"并排比较Roth和传统IRA/401(k)账户——模拟税务节省、税后提款和RMD影响。",run_btn:"⚡ 比较 Roth vs 传统",export_md:"📋 复制备忘录"}
+};
+var currentLang='en';
+function setLang(l){
+  currentLang=l;sessionStorage.setItem('ain_lang',l);
+  document.documentElement.lang=l;document.documentElement.dir=(l==='ar')?'rtl':'ltr';
+  var d=TRANSLATIONS[l]||TRANSLATIONS['en'];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var k=el.getAttribute('data-i18n');
+    if(d[k])el.textContent=d[k];else if(TRANSLATIONS['en'][k])el.textContent=TRANSLATIONS['en'][k];
+  });
+  document.querySelectorAll('.lang-btn').forEach(function(b){
+    b.classList.toggle('active',b.getAttribute('data-lang')===l);
+  });
+}
+(function(){setLang(sessionStorage.getItem('ain_lang')||'en');})();
+
+/* ── 2024 US marginal tax brackets (federal) ── */
+var BRACKETS={
+  single:[{limit:11600,rate:0.10},{limit:47150,rate:0.12},{limit:100525,rate:0.22},{limit:191950,rate:0.24},{limit:243725,rate:0.32},{limit:609350,rate:0.35},{limit:Infinity,rate:0.37}],
+  mfj:[{limit:23200,rate:0.10},{limit:94300,rate:0.12},{limit:201050,rate:0.22},{limit:383900,rate:0.24},{limit:487450,rate:0.32},{limit:731200,rate:0.35},{limit:Infinity,rate:0.37}],
+  mfs:[{limit:11600,rate:0.10},{limit:47150,rate:0.12},{limit:100525,rate:0.22},{limit:191950,rate:0.24},{limit:243725,rate:0.32},{limit:365600,rate:0.35},{limit:Infinity,rate:0.37}],
+  hoh:[{limit:16550,rate:0.10},{limit:63100,rate:0.12},{limit:100500,rate:0.22},{limit:191950,rate:0.24},{limit:243700,rate:0.32},{limit:609350,rate:0.35},{limit:Infinity,rate:0.37}]
+};
+
+function getMarginalRate(income,filing){
+  var b=BRACKETS[filing]||BRACKETS['single'];
+  var prev=0;
+  for(var i=0;i<b.length;i++){
+    if(income<=b[i].limit)return b[i].rate;
+  }
+  return b[b.length-1].rate;
+}
+function getEffectiveRate(income,filing){
+  var b=BRACKETS[filing]||BRACKETS['single'];
+  var tax=0,prev=0;
+  for(var i=0;i<b.length;i++){
+    if(income<=b[i].limit){tax+=(income-prev)*b[i].rate;break;}
+    tax+=(b[i].limit-prev)*b[i].rate;prev=b[i].limit;
+  }
+  return income>0?tax/income:0;
+}
+
+function fmtK(n){
+  if(Math.abs(n)>=1e6)return '$'+(n/1e6).toFixed(2)+'M';
+  if(Math.abs(n)>=1e3)return '$'+(n/1e3).toFixed(0)+'K';
+  return '$'+n.toFixed(0);
+}
+function fmt(n){return '$'+Math.round(n).toLocaleString();}
+
+/* RMD Uniform Lifetime Table (simplified — age: divisor) */
+var RMD_TABLE={73:26.5,74:25.5,75:24.6,76:23.7,77:22.9,78:22.0,79:21.1,80:20.2,81:19.4,82:18.5,83:17.7,84:16.8,85:16.0,86:15.2,87:14.4,88:13.7,89:12.9,90:12.2,91:11.5,92:10.8,93:10.1,94:9.5,95:8.9,96:8.4,97:7.8,98:7.3,99:6.8,100:6.4};
+
+function runComparison(){
+  var age=parseInt(document.getElementById('age').value)||35;
+  var retireAge=parseInt(document.getElementById('retireAge').value)||65;
+  var grossIncome=parseFloat(document.getElementById('grossIncome').value)||0;
+  var filing=document.getElementById('filing').value;
+  var retireIncome=parseFloat(document.getElementById('retireIncome').value)||0;
+  var stateTax=parseFloat(document.getElementById('stateTax').value)||0;
+  var annualContrib=parseFloat(document.getElementById('annualContrib').value)||7000;
+  var existing=parseFloat(document.getElementById('existing').value)||0;
+  var annualReturn=parseFloat(document.getElementById('annualReturn').value)/100||0.07;
+  var inflRate=parseFloat(document.getElementById('inflation').value)/100||0.03;
+  var withdrawalYrs=parseInt(document.getElementById('withdrawalYrs').value)||30;
+  var includeRmd=document.getElementById('rmd').value==='yes';
+
+  var horizon=retireAge-age;
+  if(horizon<1){alert('Retirement age must be greater than current age.');return;}
+
+  var currentMarginal=getMarginalRate(grossIncome,filing);
+  var tradSavings=annualContrib*currentMarginal; /* tax deduction value each year */
+
+  /* ── accumulation phase ── */
+  var rothBal=existing;
+  var tradBal=existing;
+  var rothContribTotal=0;
+  var tradContribTotal=0;
+
+  /* Roth: contribute after-tax; Traditional: contribute pre-tax (deduct from taxable income) */
+  /* Both grow at same rate — the difference is WHEN tax is paid */
+  for(var y=0;y<horizon;y++){
+    rothBal=(rothBal+annualContrib)*(1+annualReturn);
+    tradBal=(tradBal+annualContrib)*(1+annualReturn);
+    rothContribTotal+=annualContrib;
+    tradContribTotal+=annualContrib;
+  }
+
+  /* ── retirement tax rates ── */
+  var retireMarginal=getMarginalRate(retireIncome,filing);
+  var totalStateAndFed=retireMarginal+stateTax/100;
+
+  /* ── after-tax values at retirement ── */
+  /* Roth: fully tax-free withdrawal */
+  var rothAfterTax=rothBal;
+  /* Traditional: taxed at retirement marginal rate (state+fed) */
+  var tradAfterTax=tradBal*(1-totalStateAndFed);
+
+  /* Tax saved in accumulation (Traditional advantage during working years) */
+  var tradTaxSaved=tradContribTotal*currentMarginal;
+  /* Tax paid on withdrawal (Traditional disadvantage in retirement) */
+  var tradTaxOnWithdraw=tradBal*totalStateAndFed;
+  /* Net tax impact of Traditional vs Roth */
+  var tradNetTaxImpact=tradTaxOnWithdraw-tradTaxSaved; /* >0 means Trad costs more in tax total */
+
+  /* Break-even: at what retirement tax rate does Trad = Roth after tax? */
+  /* rothBal = tradBal*(1-rBreakEven) => rBreakEven = 1 - rothBal/tradBal */
+  /* Since rothBal==tradBal here (same contributions, sam

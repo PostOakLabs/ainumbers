@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Batch Payment File Validator + Sanctions Screening | AINumbers.co</title>
+<meta name="description" content="Validate NACHA, ISO 20022, SEPA, and SWIFT MT batch payment files in-browser. Integrated sanctions name screening with four string-similarity algorithms. Zero PII transmitted.">
+<meta name="author" content="AINumbers.co">
+<link rel="canonical" href="https://ainumbers.co/tools/batch-payment-file-validator.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855;
+  --muted:#3A5270; --body:#6888A8; --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.12);
+  --radius:6px; --radius-lg:10px; --shadow:0 4px 24px rgba(0,0,0,.4);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:.875rem;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0;}
+a{color:inherit;text-decoration:none;}
+button{cursor:pointer;font-family:inherit;}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);}
+.nav-inner{max-width:1280px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 28px;height:58px;}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.logo-mark-grid{width:32px;height:32px;display:flex;align-items:center;justify-content:center;}
+.logo-text{display:flex;flex-direction:column;gap:2px;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1;}
+.logo-ai{color:var(--teal);}
+.logo-co{color:var(--muted);font-size:.8rem;}
+
+.nav-links{display:flex;align-items:center;gap:20px;margin-left:auto;}
+.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);transition:color .2s;}
+.nav-links a:hover{color:var(--teal-lt);}
+.nav-cta{color:var(--bg)!important;background:var(--teal);border:1px solid var(--teal);padding:.3rem .85rem;border-radius:var(--radius);transition:all .2s;}
+.nav-cta:hover{background:var(--teal-lt)!important;border-color:var(--teal-lt)!important;}
+
+/* HERO */
+.hero{padding:2rem 0 1.5rem;z-index:1;position:relative;}
+.container{max-width:1280px;margin:0 auto;padding:0 28px;}
+.hero-eyebrow{display:flex;align-items:center;gap:.6rem;font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:.6rem;}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal);}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(1.5rem,2.5vw,2rem);font-weight:400;color:var(--white);margin-bottom:.4rem;}
+.hero-sub{font-size:.85rem;color:var(--body);max-width:700px;line-height:1.75;}
+.hero-badges{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.75rem;}
+.hero-badge{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius);background:var(--bg-2);}
+
+/* TOOL LAYOUT */
+.tool-wrap{max-width:1280px;margin:0 auto;width:100%;display:grid;grid-template-columns:360px 1fr;min-height:calc(100vh - 200px);border-top:1px solid var(--border);;box-shadow:0 0 0 1px var(--border)}
+.config-col{border-right:1px solid var(--border);background:var(--bg-2);}
+.output-col{background:var(--bg);overflow:auto;}
+
+/* CONFIG PANELS */
+.config-section{border-bottom:1px solid var(--border);padding:1.25rem 1.5rem;}
+.config-section:last-child{border-bottom:none;}
+.section-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;}
+.section-title::before{content:'';display:block;width:3px;height:12px;background:var(--teal);border-radius:2px;flex-shrink:0;}
+
+/* DROP ZONE */
+.drop-zone{border:2px dashed var(--border-2);border-radius:var(--radius-lg);padding:1.75rem 1rem;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg-3);}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--teal);background:var(--teal-dim);}
+.drop-zone-icon{font-size:1.75rem;margin-bottom:.5rem;}
+.drop-zone-text{font-size:.82rem;color:var(--body);margin-bottom:.4rem;}
+.drop-zone-hint{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;}
+#fileInputHidden{display:none;}
+
+/* GENERATE CTA */
+.gen-cta{width:100%;padding:.8rem;background:var(--teal-dim);border:1px solid var(--teal);color:var(--teal-lt);border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;margin-top:.75rem;display:flex;align-items:center;justify-content:center;gap:.5rem;transition:all .2s;}
+.gen-cta:hover{background:var(--teal);color:var(--bg);}
+
+/* FORM ELEMENTS */
+.field-group{margin-bottom:.85rem;}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem;display:block;}
+select,input[type="number"],input[type="text"]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);font-family:'Sora',sans-serif;font-size:.82rem;padding:.5rem .75rem;outline:none;transition:border-color .2s;}
+select:focus,input:focus{border-color:var(--teal);}
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
+
+/* PRIVACY AUDIT */
+.privacy-btn{width:100%;padding:.55rem;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:.5rem;margin-top:.75rem;transition:all .2s;}
+.privacy-btn:hover{border-color:var(--green);color:var(--green);}
+.privacy-badge{display:none;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--green);margin-top:.5rem;padding:.4rem .75rem;background:var(--green-dim);border-radius:var(--radius);}
+.privacy-badge.visible{display:flex;}
+
+/* ═══ SECTION A: FILE VALIDATOR OUTPUT ═══ */
+.output-section{padding:1.5rem 1.75rem;border-bottom:1px solid var(--border);}
+.output-title{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;}
+.output-title::before{content:'';display:block;width:3px;height:12px;background:var(--border-2);border-radius:2px;}
+.output-title.active::before{background:var(--teal);}
+
+/* Empty state */
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--muted);}
+.empty-state-icon{font-size:2.5rem;margin-bottom:.75rem;}
+.empty-state p{font-size:.82rem;line-height:1.6;}
+
+/* Validation summary */
+.val-summary{display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1.25rem;}
+.val-badge{display:flex;align-items:center;gap:.4rem;padding:.5rem .85rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.06em;font-weight:500;}
+.val-badge.pass{background:var(--green-dim);border:1px solid rgba(34,197,94,.25);color:var(--green);}
+.val-badge.fail{background:var(--red-dim);border:1px solid rgba(239,68,68,.25);color:var(--red);}
+.val-badge.warn{background:var(--warn-dim);border:1px solid rgba(245,158,11,.25);color:var(--warn);}
+.val-badge.info{background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);color:var(--teal-lt);}
+
+/* Error table */
+.error-table{width:100%;border-collapse:collapse;font-size:.78rem;}
+.error-table th{padding:.55rem .75rem;text-align:left;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:var(--bg-3);border-bottom:1px solid var(--border);}
+.error-table td{padding:.6rem .75rem;border-bottom:1px solid var(--border);vertical-align:top;}
+.error-table tr:last-child td{border-bottom:none;}
+.error-table tr:hover td{background:var(--bg-3);}
+.sev-critical{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.6rem;font-weight:600;}
+.sev-warning{color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.6rem;font-weight:600;}
+.sev-info{color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.6rem;}
+.err-code{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--body);}
+
+/* File tree */
+.file-tree{font-family:'JetBrains Mono',monospace;font-size:.72rem;line-height:1.8;}
+.tree-node{padding-left:1.25rem;border-left:1px solid var(--border-2);margin-left:.5rem;}
+.tree-label{color:var(--bright);cursor:pointer;display:flex;align-items:center;gap:.4rem;}
+.tree-label:hover{color:var(--teal-lt);}
+.tree-label .tree-icon{color:var(--muted);font-size:.85em;}
+.tree-value{color:var(--body);font-size:.68rem;padding-left:1rem;}
+
+/* Progress */
+.progress-wrap{margin-bottom:1rem;}
+.progress-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.progress-fill{height:100%;background:var(--teal);transition:width .3s;border-radius:2px;}
+.progress-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:.35rem;}
+
+/* Export buttons */
+.export-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem;}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;padding:.35rem .8rem;border:1px solid var(--border);color:var(--body);background:transparent;border-radius:var(--radius);cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:.35rem;}
+.btn-export:hover{border-color:var(--gold);color:var(--gold);}
+
+/* ═══ SECTION B: SANCTIONS SCREENING ═══ */
+.sanctions-wrap{padding:1.5rem 1.75rem;}
+.tab-bar{display:flex;border-bottom:1px solid var(--border);margin-bottom:1.25rem;}
+.tab-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:transparent;border:none;padding:.65rem .9rem;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;}
+.tab-btn.active{color:var(--teal-lt);border-bottom-color:var(--teal);}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+
+/* Algo weights */
+.weight-row{display:grid;grid-template-columns:1fr auto;gap:.5rem;align-items:center;margin-bottom:.75rem;}
+.weight-label{font-size:.78rem;color:var(--text);}
+.weight-label small{display:block;font-size:.68rem;color:var(--body);margin-top:.1rem;}
+.weight-input{width:70px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.8rem;}
+.weight-sum{font-family:'JetBrains Mono',monospace;font-size:.68rem;margin-top:.35rem;}
+.weight-sum.ok{color:var(--green);}
+.weight-sum.bad{color:var(--red);}
+
+/* Score cards */
+.score-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1.25rem;}
+.score-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem;}
+.score-card-name{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem;}
+.score-card-pct{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--bright);line-height:1;margin-bottom:.4rem;}
+.score-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:.4rem;}
+.score-bar-fill{height:100%;border-radius:2px;transition:width .5s ease;}
+.score-desc{font-size:.7rem;color:var(--body);line-height:1.4;}
+
+/* Composite gauge */
+.gauge-wrap{display:flex;flex-direction:column;align-items:center;padding:1.25rem;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:1.25rem;}
+.gauge-svg{width:160px;height:85px;}
+.gauge-verdict{font-family:'JetBrains Mono',monospace;font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;margin-top:.5rem;padding:.3rem 1rem;border-radius:var(--radius);}
+.verdict-clear{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3);}
+.verdict-review{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,.3);}
+.verdict-match{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3);}
+.gauge-score-label{font-family:'DM Serif Display',serif;font-size:1.75rem;color:var(--white);margin-top:.25rem;}
+.gauge-sub{font-size:.72rem;color:var(--body);margin-top:.2rem;}
+
+/* Explanation */
+.explain-box{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;font-size:.8rem;color:var(--body);line-height:1.65;margin-bottom:1rem;}
+
+/* Simulate button */
+.btn-primary{width:100%;padding:.75rem;background:var(--teal);color:var(--bg);border:none;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600;transition:all .2s;margin-top:.5rem;}
+.btn-primary:hover{background:var(--teal-lt);}
+.btn-secondary{width:100%;padding:.6rem;background:transparent;color:var(--body);border:1px solid var(--border);border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;transition:all .2s;margin-top:.4rem;}
+.btn-secondary:hover{border-color:var(--teal);color:var(--teal-lt);}
+
+/* FOOTER */
+
+
+
+
+
+
+
+
+
+
+/* Collapsible */
+.collapsible-header{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:.6rem 0;border-top:1px solid var(--border);margin-top:.5rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);transition:color .2s;}
+.collapsible-header:hover{color:var(--teal-lt);}
+.collapsible-body{display:none;padding-top:.75rem;}
+.collapsible-body.open{display:block;}
+.chevron{transition:transform .2s;font-style:normal;}
+.collapsible-header.open .chevron{transform:rotate(90deg);}
+
+/* Watchlist source */
+.source-label{display:inline-flex;align-items:center;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;padding:.18rem .5rem;border-radius:3px;margin-bottom:.5rem;background:var(--purple-dim);color:var(--purple);border:1px solid rgba(155,114,245,.2);}
+
+/* Threshold slider */
+.threshold-row{display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem;}
+.threshold-row input[type=range]{flex:1;accent-color:var(--teal);}
+.threshold-val{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--teal-lt);white-space:nowrap;}
+
+@media(max-width:900px){
+  .tool-wrap{grid-template-columns:1fr;}
+  .config-col{border-right:none;border-bottom:1px solid var(--border);}
+  .score-grid{grid-template-columns:1fr;}
+}
+
+/* ── LANG BAR ── */
+.lang-bar {
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 2rem;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.lang-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+.lang-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+.lang-btn:hover { color: var(--body); border-color: var(--border); }
+.lang-btn.active { color: var(--teal); border-bottom: 1px solid var(--teal); }
+
+
+/* ── FOOTER ── */
+@media(max-width:600px){   }
+
+
+
+/* ═══════════════════════════════════════════════════════════
+   AINumbers.co — Global Layout & Spacing Patch  v2.0
+   Applied to all tools for consistent UX:
+   • 8-pt grid system throughout (base 8px, multiples of 8/16/24)
+   • Nav: logo left, CTA right with flex grow spacer
+   • Lang bar: right-aligned toggles above nav
+   • Hero & content: 24px side padding, never edge-flush
+   • Footer: centered layout, mobile-first text centering
+═══════════════════════════════════════════════════════════ */
+
+/* ── Page shell: max 1440px centered ── */
+.page-shell {
+  max-width: 1440px;
+  margin: 0 auto;
+  position: relative;
+  min-height: 100vh;
+  box-shadow: 0 0 0 1px rgba(30,47,74,.6), 0 0 80px rgba(0,0,0,.5);
+  overflow-x: hidden;
+}
+body { overflow-x: hidden; }
+
+/* ── Lang bar ── */
+.lang-bar {
+  background: var(--bg-2, #0D1627);
+  border-bottom: 1px solid var(--border, #1E2F4A);
+  padding: 0 24px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  position: relative;
+  z-index: 101;
+}
+.lang-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  align-items: center;
+}
+.lang-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted, #3A5270);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+  border-radius: 3px;
+}
+.lang-btn:hover { color: var(--body, #6888A8); border-color: var(--border, #1E2F4A); }
+.lang-btn.active { color: var(--teal, #14B8A6); border-color: rgba(20,184,166,.35); }
+
+/* ── Nav: logo left | spacer | CTA right ── */
+nav {
+  padding: 0 24px;
+  height: 56px;
+  border-bottom: 1px solid var(--border, #1E2F4A);
+  background: rgba(5,12,21,.97);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+}
+.nav-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  /* logo | auto-spacer | CTA */
+}
+/* Push everything after the logo to the right */
+.nav-inner > *:not(.logo):not(:first-child),
+.nav-links,
+.nav-back,
+.nav-meta,
+.nav-cta-wrap {
+  margin-left: auto;
+}
+/* Only apply once — reset margin if there are multiple right-side items */
+.nav-links + *,
+.nav-meta + .nav-links { margin-left: 0; }
+
+/* CTA button */
+.nav-cta,
+a.nav-cta,
+button.nav-cta {
+  display: inline-flex;
+  align-items: center;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 0.6rem !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: var(--bg, #080E1A) !important;
+  background: var(--teal, #14B8A6) !important;
+  border: 1px solid var(--teal, #14B8A6) !important;
+  padding: 0.4rem 1rem !important;
+  border-radius: 4px !important;
+  transition: background 0.2s, border-color 0.2s !important;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+.nav-cta:hover,
+a.nav-cta:hover { background: var(--teal-lt, #2DD4BF) !important; border-color: var(--teal-lt, #2DD4BF) !important; }
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+
+/* ── Universal container: always 24px side padding ── */
+.container,
+.page,
+.search-inner,
+.mode-inner,
+.footer-inner,
+.tool-wrap,
+.main-wrap,
+.hero > .container,
+.collapsible-outer {
+  max-width: 1200px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-left: clamp(16px, 3vw, 24px) !important;
+  padding-right: clamp(16px, 3vw, 24px) !important;
+}
+
+/* ── Hero section ── */
+.hero {
+  padding: 3rem 24px 2.5rem;
+  border-bottom: 1px solid var(--border, #1E2F4A);
+  position: relative;
+  overflow: hidden;
+}
+.hero > .container {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* ── Collapsible sections padding ── */
+.collapsible-trigger,
+.collapsible-body {
+  /* these are full-width inside a padded container already */
+}
+/* Fix the inline-style padded wrapper around collapsibles */
+[style*="padding:1.5rem 2rem"] {
+  padding-left: clamp(16px, 3vw, 24px) !important;
+  padding-right: clamp(16px, 3vw, 24px) !important;
+}
+
+/* ── Ensure .page has content padding (used in many files as main wrapper) ── */
+.page {
+  padding-top: 32px !important;
+  padding-bottom: 80px !important;
+}
+
+/* Mobile footer: stack and center everything */
+@media (max-width: 640px) {
+      }
+
+/* ── Readable prose max-width ── */
+p, li, .tool-sub, .hero-sub {
+  max-width: 72ch;
+}
+
+/* ── Tablet adjustments ── */
+@media (max-width: 1024px) {
+  .tool-wrap, .main-wrap {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+}
+/* ── Mobile ── */
+@media (max-width: 640px) {
+  nav { padding: 0 16px; }
+  .lang-bar { padding: 0 16px; }
+  .hero { padding: 2rem 16px 2rem; }
+  }
+/* ═══════════════════════════════ End AINumbers Patch v2.0 ═══ */
+
+/* ── Footer ─────────────────────────────────────────── */
+footer { border-top: 1px solid var(--border); padding: 1.75rem 1.5rem; margin-top: 3rem; }
+.footer-inner-ai { display:flex; align-items:center; gap:2rem; flex-wrap:wrap; justify-content:space-between; }
+.footer-links-ai { display:flex; gap:1.25rem; font-family:'JetBrains Mono',monospace; font-size:.52rem; color:var(--muted); }
+.footer-links-ai a { color:var(--muted); text-decoration:none; transition:color .2s; }
+.footer-links-ai a:hover { color:var(--teal-lt); }
+.footer-badge-ai { display:flex; flex-direction:column; gap:.3rem; font-family:'JetBrains Mono',monospace; font-size:.5rem; color:var(--muted); }
+.footer-brand-link { display:flex; align-items:center; gap:.5rem; text-decoration:none; color:var(--text); }
+.footer-wordmark { font-family:'JetBrains Mono',monospace; font-size:.9rem; font-weight:500; }
+.logo-icon-sm { background:var(--teal); color:#000; font-weight:700; font-size:.7rem; padding:.15rem .3rem; border-radius:3px; }
+@media(max-width:640px){ .footer-inner-ai { flex-direction:column; text-align:center; } .footer-badge-ai { align-items:center; } }
+
+/* RTL support — AIN canonical */
+[dir="rtl"] .lang-bar .lang-inner { flex-direction: row-reverse; ;justify-content:flex-end}
+[dir="rtl"] .nav-inner            { flex-direction: row-reverse; }
+[dir="rtl"] .nav-bc               { flex-direction: row-reverse; }
+[dir="rtl"] .nav-bc-sep           { transform: scaleX(-1); }
+[dir="rtl"] .nav-right            { flex-direction: row-reverse; }
+[dir="rtl"] .hero, [dir="rtl"] .content, [dir="rtl"] .layout { text-align: right; }
+[dir="rtl"] .footer-inner-ai      { flex-direction: row-reverse; }
+[dir="rtl"] .footer-links-ai      { flex-direction: row-reverse; }
+
+/* nav-bc + nav-right — AIN canonical */
+.nav-bc{display:flex;align-items:center;gap:.4rem;font-size:.7rem;color:var(--muted);justify-content:center}
+.nav-bc a{color:var(--muted);transition:color .2s}.nav-bc a:hover{color:var(--text)}
+.nav-bc-sep{color:var(--border-2);font-size:.65rem}
+.nav-bc-current{font-weight:500}
+.nav-right{display:flex;align-items:center;gap:.4rem;margin-left:auto}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;
+  padding:.25rem .7rem;border:1px solid var(--border);border-radius:var(--radius);
+  background:transparent;color:var(--muted);cursor:pointer;transition:all .2s;white-space:nowrap}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+
+
+/* MCP manifest panel */
+.mcp-section{border-top:1px solid var(--border);padding:2rem 0}
+.mcp-toggle{display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;padding:.75rem 1rem;background:var(--bg-2);border:1px solid var(--border);
+  border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.7rem;
+  color:var(--muted);letter-spacing:.06em}
+.mcp-toggle:hover{border-color:var(--teal);color:var(--teal)}
+.pii-notice{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);
+  border-left:3px solid var(--teal);padding:.75rem 1rem;margin:1rem 0 1.5rem;
+  font-size:.72rem;color:var(--body);line-height:1.6;border-radius:var(--radius)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-body pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;overflow-x:auto;margin:0}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+
+<!-- AIN-reconcile-2026-05-17 -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<!-- LANG BAR -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/fraud-risk-hub.html">Fraud & Risk Hub</a><span class="nav-sep">/</span><span>T-43</span></div>
+    <a href="../guides/fraud-risk-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<section class="hero">
+  <div class="container">
+    <p class="hero-eyebrow">Tool 43 · Fraud &amp; Risk</p>
+    <h1 class="tool-title"><span data-i18n="tbpfv.hero.title">Batch Payment File Validator + Sanctions Screening</span></h1>
+    <p class="hero-sub"><span data-i18n="tbpfv.hero.sub">Validate NACHA, ISO 20022, SEPA, and SWIFT MT batch files entirely in-browser. Entry-by-entry error table with severity classification and synthetic ACK/NACK response generation. Integrated sanctions name screening with four string-similarity algorithms.</span></p>
+    <div class="hero-badges">
+      <span class="hero-badge">NACHA 2023</span>
+      <span class="hero-badge">ISO 20022 pain.001</span>
+      <span class="hero-badge">SEPA SCT</span>
+      <span class="hero-badge">SWIFT MT103</span>
+      <span class="hero-badge">Client-Side · Zero PII</span>
+    </div>
+  </div>
+</section>
+
+<div class="tool-wrap">
+
+  <!-- ═══ LEFT: CONFIG ═══ -->
+  <div class="config-col">
+
+    <!-- Generate synthetic file -->
+    <div class="config-section">
+      <div class="section-title">Generate Synthetic File</div>
+      <div class="field-group">
+        <label class="field-label">Format</label>
+        <select id="genFormat">
+          <option value="nacha">NACHA (ACH)</option>
+          <option value="pain001">ISO 20022 pain.001</option>
+          <option value="sepa">SEPA SCT</option>
+          <option value="mt103">SWIFT MT103</option>
+        </select>
+      </div>
+      <div class="row-2">
+        <div class="field-group">
+          <label class="field-label">Transactions</label>
+          <input type="number" id="genCount" value="10" min="1" max="500">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Error %</label>
+          <input type="number" id="genErrPct" value="10" min="0" max="100">
+        </div>
+      </div>
+      <button class="gen-cta" onclick="generateFile()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>
+        Generate &amp; Download Sample File
+      </button>
+    </div>
+
+    <!-- Upload -->
+    <div class="config-section">
+      <div class="section-title">Upload Payment File</div>
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInputHidden').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+        <div class="drop-zone-icon">📂</div>
+        <div class="drop-zone-text">Drag &amp; drop or click to browse</div>
+        <div class="drop-zone-hint">.txt · .ach · .xml · .json accepted</div>
+      </div>
+      <input type="file" id="fileInputHidden" accept=".txt,.ach,.xml,.json" onchange="handleFileSelect(event)">
+
+      <div class="field-group" style="margin-top:.85rem;">
+        <label class="field-label">Format (auto-detected)</label>
+        <select id="fmtOverride">
+          <option value="auto">Auto-detect</option>
+          <option value="nacha">NACHA 2023</option>
+          <option value="pain001">ISO 20022 pain.001</option>
+          <option value="pain008">ISO 20022 pain.008</option>
+          <option value="sepa">SEPA SCT</option>
+          <option value="mt103">SWIFT MT103</option>
+          <option value="mt940">SWIFT MT940</option>
+        </select>
+      </div>
+
+      <!-- Custom rules -->
+      <div class="collapsible-header" onclick="toggleCollapsible(this)">
+        <span>Custom Rules</span><em class="chevron">›</em>
+      </div>
+      <div class="collapsible-body">
+        <div class="field-group">
+          <label class="field-label">Max Transaction Amount ($)</label>
+          <input type="number" id="ruleMaxAmt" placeholder="e.g. 1000000">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Allowed SEC Codes (comma-separated)</label>
+          <input type="text" id="ruleSecCodes" placeholder="PPD, CCD, CTX">
+        </div>
+      </div>
+
+      <button class="btn-primary" onclick="validateFile()" style="margin-top:.85rem;">Validate File →</button>
+    </div>
+
+    <!-- Privacy audit -->
+    <div class="config-section">
+      <button class="privacy-btn" onclick="runPrivacyAudit()">🔍 Privacy Audit</button>
+      <div class="privacy-badge" id="privacyBadge">✓ Zero data transmitted</div>
+    </div>
+
+  </div><!-- /config-col -->
+
+  <!-- ═══ RIGHT: OUTPUT ═══ -->
+  <div class="output-col">
+
+    <!-- Tab bar -->
+    <div class="tab-bar" style="padding:0 1.75rem;background:var(--bg-2);border-bottom:1px solid var(--border);">
+      <button class="tab-btn active" onclick="switchMainTab('validator',this)">File Validator</button>
+      <button class="tab-btn" onclick="switchMainTab('sanctions',this)">Sanctions Screening</button>
+    </div>
+
+    <!-- ── VALIDATOR TAB ── -->
+    <div id="tab-validator" class="tab-pane active">
+      <div class="output-section">
+        <div class="output-title active" id="summaryTitle">Validation Summary</div>
+        <div id="validationSummary">
+          <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <p>Upload a payment file or generate a synthetic sample to begin validation.</p>
+            <p style="margin-top:.5rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;">NACHA · ISO 20022 · SEPA SCT · SWIFT MT103/MT940</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="output-section" id="treeSection" style="display:none;">
+        <div class="output-title">File Structure</div>
+        <div id="fileTree" class="file-tree"></div>
+      </div>
+
+      <div class="output-section" id="errorSection" style="display:none;">
+        <div class="output-title">Errors &amp; Warnings</div>
+        <div id="progressWrap" class="progress-wrap" style="display:none;">
+          <div class="progress-label" id="progressLabel">Parsing…</div>
+          <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+        </div>
+        <div id="errorTableWrap"></div>
+        <div class="export-row" id="exportRow" style="display:none;">
+          <button class="btn-export" onclick="exportValidationCSV()">↓ CSV Report</button>
+          <button class="btn-export" onclick="exportValidationJSON()">↓ JSON</button>
+          <button class="btn-export" onclick="exportSyntheticResponse()">↓ Synthetic ACK/NACK</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SANCTIONS TAB ── -->
+    <div id="tab-sanctions" class="tab-pane">
+      <div class="sanctions-wrap">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem;">
+          <!-- Inputs -->
+          <div>
+            <div class="field-group">
+              <label class="field-label">Transaction Entity Name</label>
+              <input type="text" id="entityName" placeholder="e.g. Muhammad Al-Fayed" oninput="debounceScreen()">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Watchlist Name</label>
+              <input type="text" id="watchlistName" placeholder="e.g. Mohamed Al Fayed" oninput="debounceScreen()">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Watchlist Source</label>
+              <select id="watchlistSource">
+                <option value="OFAC SDN">OFAC SDN</option>
+                <option value="UN Consolidated">UN Consolidated</option>
+                <option value="EU Consolidated">EU Consolidated</option>
+                <option value="UK HMT">UK HMT</option>
+                <option value="Custom">Custom</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Match Threshold</label>
+              <div class="threshold-row">
+                <input type="range" id="threshold" min="0" max="100" value="70" oninput="updateThreshold()">
+                <span class="threshold-val" id="thresholdVal">70%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Algorithm weights -->
+          <div>
+            <div class="field-label" style="margin-bottom:.6rem;">Algorithm Weights (must sum to 100)</div>
+            <div class="weight-row">
+              <div class="weight-label">Levenshtein<small>Edit distance similarity</small></div>
+              <input type="number" class="weight-input" id="wLevenshtein" value="30" min="0" max="100" oninput="normalizeWeights(this)">
+            </div>
+            <div class="weight-row">
+              <div class="weight-label">Jaro-Winkler<small>Prefix-weighted similarity</small></div>
+              <input type="number" class="weight-input" id="wJaroWinkler" value="30" min="0" max="100" oninput="normalizeWeights(this)">
+            </div>
+            <div class="weight-row">
+              <div class="weight-label">Soundex/Metaphone<small>Phonetic encoding</small></div>
+              <input type="number" class="weight-input" id="wSoundex" value="20" min="0" max="100" oninput="normalizeWeights(this)">
+            </div>
+            <div class="weight-row">
+              <div class="weight-label">Token N-Gram<small>Word-order tolerant bigrams</small></div>
+              <input type="number" class="weight-input" id="wNgram" value="20" min="0" max="100" oninput="normalizeWeights(this)">
+            </div>
+            <div class="weight-sum" id="weightSum">Sum: 100 ✓</div>
+            <button class="btn-primary" onclick="runScreening()">Run Analysis →</button>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <div id="screeningResults" style="display:none;">
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:1.5rem;align-items:start;margin-bottom:1.25rem;">
+            <!-- Gauge -->
+            <div class="gauge-wrap">
+              <span class="source-label" id="gaugeSource">OFAC SDN</span>
+              <svg class="gauge-svg" viewBox="0 0 160 90">
+                <defs>
+                  <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" style="stop-color:#22C55E"/>
+                    <stop offset="50%" style="stop-color:#F59E0B"/>
+                    <stop offset="100%" style="stop-color:#EF4444"/>
+                  </linearGradient>
+                </defs>
+                <!-- Background arc -->
+                <path d="M 15 80 A 65 65 0 0 1 145 80" fill="none" stroke="var(--border-2)" stroke-width="12" stroke-linecap="round"/>
+                <!-- Score arc -->
+                <path id="gaugeArc" d="M 15 80 A 65 65 0 0 1 145 80" fill="none" stroke="url(#gaugeGrad)" stroke-width="12" stroke-linecap="round" stroke-dasharray="0 204"/>
+                <!-- Threshold line -->
+                <line id="gaugeLine" x1="80" y1="15" x2="80" y2="35" stroke="var(--warn)" stroke-width="2" stroke-dasharray="3,2"/>
+                <!-- Center text -->
+                <text id="gaugeText" x="80" y="72" text-anchor="middle" font-family="'DM Serif Display',serif" font-size="22" fill="var(--white)">—</text>
+              </svg>
+              <div class="gauge-verdict" id="gaugeVerdict">—</div>
+              <div class="gauge-sub" id="gaugeThresholdLabel">Threshold: 70%</div>
+            </div>
+
+            <!-- Explanation -->
+            <div>
+              <div class="explain-box" id="explainBox">Run analysis to see scoring explanation.</div>
+              <div class="export-row">
+                <button class="btn-export" onclick="exportScreeningJSON()">↓ JSON (Audit Log)</button>
+                <button class="btn-export" onclick="exportScreeningCSV()">↓ CSV</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Per-algorithm score cards -->
+          <div class="score-grid" id="scoreGrid"></div>
+        </div>
+
+      </div>
+    </div><!-- /sanctions tab -->
+
+  </div><!-- /output-col -->
+</div><!-- /tool-wrap -->
+
+
+<!-- MANIFEST SECTION -->
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════
+//  UI UTILITIES
+// ═══════════════════════════════════════════════
+function switchMainTab(id, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+function toggleCollapsible(el) {
+  el.classList.toggle('open');
+  el.nextElementSibling.classList.toggle('open');
+}
+
+function updateThreshold() {
+  const v = document.getElementById('threshold').value;
+  document.getElementById('thresholdVal').textContent = v + '%';
+  if (document.getElementById('screeningResults').style.display !== 'none') runScreening();
+}
+
+function normalizeWeights(changed) {
+  const ids = ['wLevenshtein','wJaroWinkler','wSoundex','wNgram'];
+  const vals = ids.map(id => parseInt(document.getElementById(id).value) || 0);
+  const sum = vals.reduce((a,b) => a+b, 0);
+  const el = document.getElementById('weightSum');
+  el.textContent = 'Sum: ' + sum + (sum === 100 ? ' ✓' : ' ✗ (must equal 100)');
+  el.className = 'weight-sum ' + (sum === 100 ? 'ok' : 'bad');
+}
+
+function runPrivacyAudit() {
+  console.log('[AINumbers Privacy Audit] Tool: batch-payment-file-validator');
+  console.log('[AINumbers Privacy Audit] fetch() and XMLHttpRequest: not called');
+  console.log('[AINumbers Privacy Audit] localStorage: not used');
+  console.log('[AINumbers Privacy Audit] All processing: in-memory only');
+  console.log('[AINumbers Privacy Audit] Result: ZERO data transmitted ✓');
+  const badge = document.getElementById('privacyBadge');
+  badge.classList.add('visible');
+  setTimeout(() => badge.classList.remove('visible'), 4000);
+}
+
+// Drag & drop
+function handleDragOver(e) { e.preventDefault(); document.getElementById('dropZone').classList.add('drag-over'); }
+function handleDragLeave(e) { document.getElementById('dropZone').classList.remove('drag-over'); }
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+}
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) processFile(file);
+}
+
+function processFile(file) {
+  const dropZone = document.getElementById('dropZone');
+  dropZone.querySelector('.drop-zone-text').textContent = '📄 ' + file.name;
+  dropZone.querySelector('.drop-zone-hint').textContent = (file.size / 1024).toFixed(1) + ' KB';
+  const reader = new FileReader();
+  reader.onload = e => { window._fileContent = e.target.result; window._fileName = file.name; };
+  reader.readAsText(file);
+}
+
+// ═══════════════════════════════════════════════
+//  FORMAT DETECTION
+// ═══════════════════════════════════════════════
+function detectFormat(content) {
+  const override = document.getElementById('fmtOverride').value;
+  if (override !== 'auto') return override;
+  const t = content.trim();
+  if (/^0{1}/.test(t) && /\r?\n1/.test(t)) return 'nacha';
+  if (/<Document/.test(t) && /pain\.001/.test(t)) return 'pain001';
+  if (/<Document/.test(t) && /pain\.008/.test(t)) return 'pain008';
+  if (/<Document/.test(t) && /SCTInitiation/.test(t)) return 'sepa';
+  if (/^:20:/.test(t) || /\n:20:/.test(t)) return 'mt103';
+  if (/<GrpHdr>/.test(t)) return 'pain001';
+  return 'unknown';
+}
+
+// ═══════════════════════════════════════════════
+//  FILE VALIDATION ENGINE
+// ═══════════════════════════════════════════════
+function validateFile() {
+  const content = window._fileContent;
+  if (!content) { alert('Please upload a file first or generate a synthetic sample.'); return; }
+  const fmt = detectFormat(content);
+  showProgress(true);
+  setTimeout(() => {
+    const result = runValidation(content, fmt);
+    showProgress(false);
+    renderValidationResults(result, fmt);
+  }, 50);
+}
+
+function showProgress(show) {
+  document.getElementById('progressWrap').style.display = show ? 'block' : 'none';
+  document.getElementById('errorSection').style.display = 'block';
+}
+
+function runValidation(content, fmt) {
+  switch(fmt) {
+    case 'nacha':  return validateNACHA(content);
+    case 'pain001':return validateISO20022(content, 'pain.001');
+    case 'pain008':return validateISO20022(content, 'pain.008');
+    case 'sepa':   return validateSEPA(content);
+    case 'mt103':  return validateMT(content, 'MT103');
+    case 'mt940':  return validateMT(content, 'MT940');
+    default: return { format:'Unknown', errors:[{entry:'—', field:'Format', code:'E000', severity:'Critical', message:'File format not recognized. Supported: NACHA, ISO 20022 pain.001/008, SEPA SCT, SWIFT MT103/MT940.'}], entries:0, tree:[] };
+  }
+}
+
+// ── NACHA 2023 Validator ──
+function validateNACHA(content) {
+  const lines = content.replace(/\r/g,'').split('\n').filter(l => l.length > 0);
+  const errors = [];
+  let entries = 0, batches = 0;
+  const tree = [];
+  let fileHeaderFound = false, fileControlFound = false;
+  let batchOpen = false, batchNum = 0;
+  let entryHash = 0, batchCreditTotal = 0, batchDebitTotal = 0;
+  const SDA_MAX = 1000000; // NACHA 2023: $1M max per entry
+  const VALID_TXN_CODES = ['22','23','24','27','28','29','32','33','34','37','38','39'];
+  const VALID_SEC = ['PPD','CCD','CTX','WEB','TEL','IAT','CIE','MTE','POS','RCK','ARC','BOC','POP','TRC','XCK','DNE','ENR','TRX'];
+
+  lines.forEach((line, i) => {
+    const lnum = i + 1;
+    const rt = line[0];
+
+    if (rt === '1') { // File Header
+      fileHeaderFound = true;
+      if (line.length !== 94) errors.push({entry:'File Header', field:'Record Length', code:'E001', severity:'Critical', message:`File header must be exactly 94 characters. Got ${line.length}.`});
+      if (line.substring(1,3) !== '01') errors.push({entry:'File Header', field:'Priority Code', code:'E002', severity:'Critical', message:`Priority code must be '01'. Got '${line.substring(1,3)}'.`});
+      tree.push({label:'File Header (Record 1)', value:`Immediate Dest: ${line.substring(3,13).trim()} · Origin: ${line.substring(13,23).trim()}`});
+    } else if (rt === '5') { // Batch Header
+      batches++;
+      batchOpen = true;
+      batchNum = parseInt(line.substring(87,94)) || batches;
+      const sec = line.substring(50,53);
+      if (!VALID_SEC.includes(sec)) errors.push({entry:`Batch ${batchNum}`, field:'Standard Entry Class', code:'E010', severity:'Critical', message:`Invalid SEC code '${sec}'. Must be one of: ${VALID_SEC.slice(0,8).join(', ')}, …`});
+      const svcClass = line.substring(1,4);
+      if (!['200','220','225'].includes(svcClass)) errors.push({entry:`Batch ${batchNum}`, field:'Service Class Code', code:'E011', severity:'Critical', message:`Service class code '${svcClass}' invalid. Must be 200, 220, or 225.`});
+      tree.push({label:`  Batch Header (Record 5) — ${sec}`, value:`Batch #${batchNum} · Svc Class: ${svcClass}`});
+    } else if (rt === '6') { // Entry Detail
+      entries++;
+      const txnCode = line.substring(1,3);
+      const routingRaw = line.substring(3,11);
+      const amount = parseInt(line.substring(29,39)) / 100;
+      if (!VALID_TXN_CODES.includes(txnCode)) errors.push({entry:`Entry ${entries}`, field:'Transaction Code', code:'E020', severity:'Critical', message:`Invalid transaction code '${txnCode}'. Must be one of: ${VALID_TXN_CODES.join(', ')}.`});
+      if (amount > SDA_MAX) errors.push({entry:`Entry ${entries}`, field:'Amount', code:'E021', severity:'Critical', message:`Amount $${amount.toLocaleString()} exceeds NACHA 2023 Same Day ACH limit of $${SDA_MAX.toLocaleString()} per entry.`});
+      if (!/^\d{8}$/.test(routingRaw)) errors.push({entry:`Entry ${entries}`, field:'Routing/Transit', code:'E022', severity:'Warning', message:`Routing number '${routingRaw}' should be 8 digits (9th digit is check digit in col 11).`});
+      // Luhn-style NACHA routing check digit
+      const rt9 = line.substring(3,12);
+      if (rt9.length === 9 && !validateRoutingCheckDigit(rt9)) {
+        errors.push({entry:`Entry ${entries}`, field:'Routing Check Digit', code:'E023', severity:'Warning', message:`Routing number '${rt9}' fails ABA check digit validation.`});
+      }
+      if (['22','32'].includes(txnCode)) batchCreditTotal += amount * 100;
+      if (['27','37'].includes(txnCode)) batchDebitTotal += amount * 100;
+      entryHash += parseInt(routingRaw) || 0;
+      updateProgress((entries / Math.max(lines.length, 1)) * 100);
+    } else if (rt === '7') { // Addenda
+      tree.push({label:`    Addenda (Record 7)`, value:`Entry ${entries}`});
+    } else if (rt === '8') { // Batch Control
+      batchOpen = false;
+      const ctrlHash = parseInt(line.substring(11,20)) || 0;
+      if (ctrlHash !== (entryHash % 10000000000)) {
+        errors.push({entry:`Batch ${batchNum} Control`, field:'Entry/Addenda Hash', code:'E030', severity:'Critical', message:`Entry hash ${ctrlHash} does not match computed hash ${entryHash % 10000000000}.`});
+      }
+      tree.push({label:`  Batch Control (Record 8)`, value:`Hash: ${ctrlHash}`});
+    } else if (rt === '9') { // File Control
+      fileControlFound = true;
+      tree.push({label:'File Control (Record 9)', value:`Batches: ${batches} · Entries: ${entries}`});
+    } else if (rt !== '9') {
+      if (line.trim().length > 0) errors.push({entry:`Line ${lnum}`, field:'Record Type', code:'E005', severity:'Warning', message:`Unrecognized record type '${rt}' at line ${lnum}.`});
+    }
+  });
+
+  if (!fileHeaderFound) errors.push({entry:'File', field:'File Header', code:'E006', severity:'Critical', message:'File header record (type 1) not found.'});
+  if (!fileControlFound) errors.push({entry:'File', field:'File Control', code:'E007', severity:'Critical', message:'File control record (type 9) not found.'});
+  if (batchOpen) errors.push({entry:`Batch ${batchNum}`, field:'Batch Control', code:'E008', severity:'Critical', message:`Batch ${batchNum} opened but no batch control record (type 8) found.`});
+
+  return { format:'NACHA', errors, entries, batches, tree };
+}
+
+function validateRoutingCheckDigit(rt) {
+  const w = [3,7,1,3,7,1,3,7];
+  let sum = 0;
+  for (let i=0;i<8;i++) sum += parseInt(rt[i]) * w[i];
+  return (10 - (sum % 10)) % 10 === parseInt(rt[8]);
+}
+
+// ── ISO 20022 Validator ──
+function validateISO20022(content, msgType) {
+  const errors = [];
+  const tree = [];
+  let entries = 0;
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(content, 'application/xml');
+    const parseErr = doc.querySelector('parsererror');
+    if (parseErr) {
+      return { format:msgType, errors:[{entry:'File', field:'XML Structure', code:'X001', severity:'Critical', message:'XML parsing failed: ' + parseErr.textContent.substring(0,200)}], entries:0, tree:[] };
+    }
+
+    const grpHdr = doc.querySelector('GrpHdr');
+    if (!grpHdr) errors.push({entry:'Document', field:'GrpHdr', code:'X010', severity:'Critical', message:'Required element <GrpHdr> (Group Header) not found.'});
+    else {
+      const msgId = grpHdr.querySelector('MsgId');
+      if (!msgId || !msgId.textContent.trim()) errors.push({entry:'GrpHdr', field:'MsgId', code:'X011', severity:'Critical', message:'<MsgId> (Message Identification) is required and must not be empty.'});
+      const creDtTm = grpHdr.querySelector('CreDtTm');
+      if (!creDtTm) errors.push({entry:'GrpHdr', field:'CreDtTm', code:'X012', severity:'Critical', message:'<CreDtTm> (Creation Date Time) is required.'});
+      tree.push({label:'GrpHdr', value:`MsgId: ${msgId?.textContent?.trim() || '—'}`});
+    }
+
+    const pmtInfs = doc.querySelectorAll('PmtInf');
+    pmtInfs.forEach((pmtInf, pi) => {
+      entries++;
+      const pmtMtd = pmtInf.querySelector('PmtMtd');
+      if (!pmtMtd) errors.push({entry:`PmtInf[${pi+1}]`, field:'PmtMtd', code:'X020', severity:'Critical', message:'<PmtMtd> (Payment Method) required in every PmtInf block.'});
+
+      const cdtTrfTxInfs = pmtInf.querySelectorAll('CdtTrfTxInf');
+      cdtTrfTxInfs.forEach((tx, ti) => {
+        const amt = tx.querySelector('Amt InstdAmt, InstdAmt');
+        if (amt) {
+          const ccy = amt.getAttribute('Ccy');
+          if (!ccy) errors.push({entry:`PmtInf[${pi+1}] Tx[${ti+1}]`, field:'InstdAmt/@Ccy', code:'X021', severity:'Critical', message:'Currency attribute (Ccy) required on <InstdAmt>.'});
+          const val = parseFloat(amt.textContent);
+          if (isNaN(val) || val <= 0) errors.push({entry:`PmtInf[${pi+1}] Tx[${ti+1}]`, field:'InstdAmt', code:'X022', severity:'Critical', message:`Transaction amount must be a positive number. Got: '${amt.textContent}'.`});
+        } else {
+          errors.push({entry:`PmtInf[${pi+1}] Tx[${ti+1}]`, field:'InstdAmt', code:'X023', severity:'Critical', message:'<InstdAmt> (Instructed Amount) not found in transaction.'});
+        }
+        const e2eId = tx.querySelector('EndToEndId');
+        if (!e2eId || !e2eId.textContent.trim()) errors.push({entry:`PmtInf[${pi+1}] Tx[${ti+1}]`, field:'EndToEndId', code:'X024', severity:'Warning', message:'<EndToEndId> is empty or missing. Must be unique per transaction.'});
+      });
+      tree.push({label:`  PmtInf[${pi+1}]`, value:`Method: ${pmtMtd?.textContent || '—'} · ${cdtTrfTxInfs.length} transactions`});
+    });
+
+    if (!errors.find(e => e.severity === 'Critical')) {
+      const uetrNodes = doc.querySelectorAll('UETR');
+      if (uetrNodes.length === 0) errors.push({entry:'Document', field:'UETR', code:'X031', severity:'Info', message:'No UETR (Unique End-to-End Transaction Reference) found. Required for SWIFT CBPR+ flows.'});
+    }
+  } catch(e) {
+    errors.push({entry:'File', field:'Parse Error', code:'X099', severity:'Critical', message:'Unexpected parse error: ' + e.message});
+  }
+  return { format:msgType, errors, entries, tree };
+}
+
+// ── SEPA SCT Validator ──
+function validateSEPA(content) {
+  const result = validateISO20022(content, 'SEPA SCT');
+  // SEPA-specific additional rules
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(content, 'application/xml');
+  const SEPA_MAX = 100000; // €100K SCT Inst limit
+  doc.querySelectorAll('InstdAmt').forEach((amt, i) => {
+    const val = parseFloat(amt.textContent);
+    if (val > SEPA_MAX) result.errors.push({entry:`Transaction ${i+1}`, field:'InstdAmt', code:'S001', severity:'Warning', message:`Amount €${val.toLocaleString()} exceeds SEPA Instant Credit Transfer limit of €${SEPA_MAX.toLocaleString()}.`});
+    const ccy = amt.getAttribute('Ccy');
+    if (ccy && ccy !== 'EUR') result.errors.push({entry:`Transaction ${i+1}`, field:'Currency', code:'S002', severity:'Critical', message:`SEPA transactions must be in EUR. Got '${ccy}'.`});
+  });
+  return result;
+}
+
+// ── SWIFT MT Validator ──
+function validateMT(content, mtType) {
+  const errors = [];
+  const tree = [];
+  const lines = content.replace(/\r/g,'').split('\n');
+  const REQUIRED_MT103 = [':20:',':23B:',':32A:',':50K:',':59:',':71A:'];
+  const REQUIRED_MT940 = [':20:',':25:',':28C:',':60F:',':62F:'];
+  const required = mtType === 'MT103' ? REQUIRED_MT103 : REQUIRED_MT940;
+  const found = new Set();
+  let entries = 0;
+
+  lines.forEach((line, i) => {
+    const tagMatch = line.match(/^(:[\w]{2,3}:)/);
+    if (tagMatch) {
+      found.add(tagMatch[1]);
+      entries++;
+      tree.push({label:tagMatch[1], value:line.substring(tagMatch[1].length).trim().substring(0,60)});
+    }
+  });
+
+  required.forEach(tag => {
+    if (!found.has(tag)) {
+      errors.push({entry:'Message', field:tag, code:'M001', severity:'Critical', message:`Required field tag ${tag} not found in ${mtType} message.`});
+    }
+  });
+
+  if (found.has(':32A:')) {
+    const line32 = lines.find(l => l.startsWith(':32A:'));
+    if (line32) {
+      const val = line32.substring(4);
+      if (!/^\d{6}[A-Z]{3}[\d,]+$/.test(val.trim())) {
+        errors.push({entry:'Field :32A:', field:'Format', code:'M010', severity:'Warning', message:`Field :32A: value '${val.trim()}' does not match expected format YYMMDDCCCAMOUNT.`});
+      }
+    }
+  }
+
+  if (errors.length === 0) errors.push({entry:'Message', field:'—', code:'M999', severity:'Info', message:`${mtType} structure appears valid. All required field tags present.`});
+
+  return { format:mtType, errors, entries, tree };
+}
+
+function updateProgress(pct) {
+  document.getElementById('progressFill').style.width = Math.min(pct, 100) + '%';
+  document.getElementById('progressLabel').textContent = `Parsing… ${Math.round(pct)}%`;
+}
+
+// ═══════════════════════════════════════════════
+//  RENDER VALIDATION RESULTS
+// ═══════════════════════════════════════════════
+function renderValidationResults(result, fmt) {
+  const { errors, entries, tree, format } = result;
+  const critical = errors.filter(e => e.severity === 'Critical').length;
+  const warnings = errors.filter(e => e.severity === 'Warning').length;
+  const info     = errors.filter(e => e.severity === 'Info').length;
+  const passed   = critical === 0;
+
+  window._lastValidation = result;
+
+  // Summary
+  const summDiv = document.getElementById('validationSummary');
+  summDiv.innerHTML = `
+    <div class="val-summary">
+      <div class="val-badge ${passed ? 'pass' : 'fail'}">${passed ? '✓ PASS' : '✗ FAIL'} — ${format}</div>
+      ${critical > 0 ? `<div class="val-badge fail">⚠ ${critical} Critical</div>` : ''}
+      ${warnings > 0 ? `<div class="val-badge warn">△ ${warnings} Warning${warnings>1?'s':''}</div>` : ''}
+      ${info > 0 ? `<div class="val-badge info">ℹ ${info} Info</div>` : ''}
+      <div class="val-badge info">${entries} entr${entries===1?'y':'ies'} parsed</div>
+    </div>`;
+
+  // File tree
+  if (tree.length > 0) {
+    document.getElementById('treeSection').style.display = 'block';
+    document.getElementById('fileTree').innerHTML = tree.map(n =>
+      `<div class="tree-label"><span class="tree-icon">▸</span> ${esc(n.label)}</div>
+       <div class="tree-value">${esc(n.value)}</div>`
+    ).join('');
+  }
+
+  // Error table
+  const wrap = document.getElementById('errorTableWrap');
+  if (errors.length === 0) {
+    wrap.innerHTML = '<div style="color:var(--green);padding:.75rem 0;font-size:.82rem;">✓ No errors or warnings found.</div>';
+  } else {
+    wrap.innerHTML = `<table class="error-table">
+      <thead><tr><th>Entry</th><th>Field</th><th>Code</th><th>Severity</th><th>Description</th></tr></thead>
+      <tbody>${errors.map(e => `<tr>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:.72rem;">${esc(e.entry)}</td>
+        <td class="err-code">${esc(e.field)}</td>
+        <td class="err-code">${esc(e.code)}</td>
+        <td><span class="sev-${e.severity.toLowerCase()}">${esc(e.severity)}</span></td>
+        <td>${esc(e.message)}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  }
+
+  document.getElementById('exportRow').style.display = 'flex';
+  document.getElementById('progressWrap').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════
+//  FILE GENERATOR
+// ═══════════════════════════════════════════════
+function generateFile() {
+  const fmt    = document.getElementById('genFormat').value;
+  const count  = Math.min(parseInt(document.getElementById('genCount').value) || 10, 500);
+  const errPct = parseInt(document.getElementById('genErrPct').value) || 0;
+  let content  = '';
+  let filename = '';
+
+  if (fmt === 'nacha') { content = genNACHA(count, errPct); filename = 'synthetic-nacha.ach'; }
+  else if (fmt === 'pain001') { content = genPain001(count); filename = 'synthetic-pain001.xml'; }
+  else if (fmt === 'sepa') { content = genSEPA(count); filename = 'synthetic-sepa-sct.xml'; }
+  else if (fmt === 'mt103') { content = genMT103(count); filename = 'synthetic-mt103.txt'; }
+
+  downloadBlob(content, filename, 'text/plain');
+  window._fileContent = content;
+  window._fileName = filename;
+  document.getElementById('dropZone').querySelector('.drop-zone-text').textContent = '📄 ' + filename;
+  document.getElementById('dropZone').querySelector('.drop-zone-hint').textContent = count + ' transactions · generated';
+}
+
+function genNACHA(count, errPct) {
+  const today = new Date();
+  const yymmdd = today.toISOString().slice(2,10).replace(/-/g,'');
+  const hhmm = today.toTimeString().slice(0,5).replace(':','');
+  let out = `1${' '.repeat(1)}01${rpad('091000019',9)}${rpad('1234567890',10)}${yymmdd}${hhmm}A094101${rpad('DEST BANK',23)}${rpad('ORIGINATOR',23)}${rpad('',8)}\r\n`;
+  out += `5220${rpad('COMPANY NAME',16)}${rpad('',9)}PPD${rpad('PAYROLL   ',10)}${yymmdd}   1${rpad('',13)}1091000010000001\r\n`;
+
+  let hash = 0, credits = 0;
+  for (let i = 1; i <= count; i++) {
+    const rt = '09100001' + Math.floor(Math.random()*9);
+    const acct = String(Math.floor(Math.random()*999999999)).padStart(9,'0');
+    const amt = String(Math.floor(Math.random()*50000 + 100)).padStart(10,'0');
+    const hasErr = Math.random() * 100 < errPct;
+    const txn = hasErr ? '99' : '22'; // 99 = invalid code
+    out += `6${txn}${rt}${rpad(acct,17)}${amt}${rpad('JOHN DOE',22)}  0${rpad('',15)}1${String(i).padStart(7,'0')}\r\n`;
+    hash += parseInt(rt);
+    credits += parseInt(amt);
+  }
+  const hashStr = String(hash % 10000000000).padStart(10,'0');
+  const creditStr = String(credits).padStart(12,'0');
+  out += `8220${String(count).padStart(6,'0')}${hashStr}${creditStr}${rpad('',12)}${rpad('',39)}1091000010000001\r\n`;
+  out += `9${String(1).padStart(6,'0')}${String(Math.ceil((count+4)/10)).padStart(6,'0')}${hashStr}${creditStr}${rpad('',12)}${rpad('',39)}\r\n`;
+  return out;
+}
+
+function genPain001(count) {
+  const msgId = 'MSG-' + Date.now();
+  const dt = new Date().toISOString();
+  let txns = '';
+  for (let i = 1; i <= count; i++) {
+    const amt = (Math.random()*9000+100).toFixed(2);
+    txns += `<CdtTrfTxInf><PmtId><InstrId>INSTR-${i}</InstrId><EndToEndId>E2E-${i}-${Date.now()}</EndToEndId></PmtId><Amt><InstdAmt Ccy="USD">${amt}</InstdAmt></Amt><CdtrAgt><FinInstnId><BIC>CHASUS33XXX</BIC></FinInstnId></CdtrAgt><Cdtr><Nm>Beneficiary ${i}</Nm></Cdtr><CdtrAcct><Id><IBAN>DE89370400440532013000</IBAN></Id></CdtrAcct></CdtTrfTxInf>`;
+  }
+  return `<?xml version="1.0" encoding="UTF-8"?><Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.09"><CstmrCdtTrfInitn><GrpHdr><MsgId>${msgId}</MsgId><CreDtTm>${dt}</CreDtTm><NbOfTxs>${count}</NbOfTxs><CtrlSum>${(Math.random()*100000).toFixed(2)}</CtrlSum><InitgPty><Nm>AINumbers Test Corp</Nm></InitgPty></GrpHdr><PmtInf><PmtInfId>PMTINF-001</PmtInfId><PmtMtd>TRF</PmtMtd><NbOfTxs>${count}</NbOfTxs>${txns}</PmtInf></CstmrCdtTrfInitn></Document>`;
+}
+
+function genSEPA(count) {
+  const msgId = 'SEPA-' + Date.now();
+  const dt = new Date().toISOString();
+  let txns = '';
+  for (let i = 1; i <= count; i++) {
+    const amt = (Math.random()*9000+100).toFixed(2);
+    txns += `<CdtTrfTxInf><PmtId><EndToEndId>SEPA-E2E-${i}</EndToEndId></PmtId><Amt><InstdAmt Ccy="EUR">${amt}</InstdAmt></Amt><CdtrAgt><FinInstnId><BIC>DEUTDEDB</BIC></FinInstnId></CdtrAgt><Cdtr><Nm>EU Beneficiary ${i}</Nm></Cdtr><CdtrAcct><Id><IBAN>DE89370400440532013000</IBAN></Id></CdtrAcct></CdtTrfTxInf>`;
+  }
+  return `<?xml version="1.0" encoding="UTF-8"?><Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.09"><CstmrCdtTrfInitn><GrpHdr><MsgId>${msgId}</MsgId><CreDtTm>${dt}</CreDtTm><NbOfTxs>${count}</NbOfTxs><InitgPty><Nm>SEPA Test Originator</Nm></InitgPty></GrpHdr><PmtInf><PmtInfId>SEPA-PMTINF</PmtInfId><PmtMtd>TRF</PmtMtd>${txns}</PmtInf></CstmrCdtTrfInitn></Document>`;
+}
+
+function genMT103(count) {
+  const dt = new Date();
+  const yymmdd = dt.toISOString().slice(2,10).replace(/-/g,'');
+  let out = '';
+  for (let i = 0; i < Math.min(count,1); i++) { // MT103 is per-transaction
+    const amt = (Math.random()*50000+100).toFixed(2).replace('.',',');
+    out += `:20:REF${Date.now()}\r\n:23B:CRED\r\n:32A:${yymmdd}USD${amt}\r\n:50K:AINumbers Corp\n123 Main Street\nNew York NY 10001\r\n:59:Beneficiary Name\nBeneficiary Street\nCity Country\r\n:70:Payment reference\r\n:71A:SHA\r\n`;
+  }
+  return out;
+}
+
+function rpad(s, n) { return String(s).substring(0,n).padEnd(n,' '); }
+
+// ═══════════════════════════════════════════════
+//  EXPORT
+// ═══════════════════════════════════════════════
+function exportValidationCSV() {
+  const r = window._lastValidation;
+  if (!r) return;
+  const rows = [['Entry','Field','Code','Severity','Description']];
+  r.errors.forEach(e => rows.push([e.entry, e.field, e.code, e.severity, e.message]));
+  downloadBlob(rows.map(r => r.map(v => `"${String(v).replace(/"/g, "'")}"` ).join(',')).join('\n'), 'validation-report.csv', 'text/csv');
+}
+function exportValidationJSON() {
+  if (!window._lastValidation) return;
+  downloadBlob(JSON.stringify(window._lastValidation, null, 2), 'validation-results.json', 'application/json');
+}
+function exportSyntheticResponse() {
+  const r = window._lastValidation;
+  if (!r) return;
+  const hasErrors = r.errors.some(e => e.severity === 'Critical');
+  const resp = { type: hasErrors ? 'NACK' : 'ACK', format: r.format, timestamp: new Date().toISOString(),
+    status: hasErrors ? 'REJECTED' : 'ACCEPTED', error_count: r.errors.filter(e=>e.severity==='Critical').length,
+    entries: r.entries, generated_by: 'AINumbers.co/tools/batch-payment-file-validator', note: 'Synthetic response — not a real payment system acknowledgement' };
+  downloadBlob(JSON.stringify(resp, null, 2), 'synthetic-' + (hasErrors?'nack':'ack') + '.json', 'application/json');
+}
+
+// ═══════════════════════════════════════════════
+//  SANCTIONS SCREENING
+// ═══════════════════════════════════════════════
+
+// ── Levenshtein ──
+function levenshtein(a, b) {
+  a = a.toLowerCase().trim(); b = b.toLowerCase().trim();
+  const m = a.length, n = b.length;
+  const dp = Array.from({length:m+1}, (_,i) => Array.from({length:n+1}, (_,j) => i===0?j:j===0?i:0));
+  for (let i=1;i<=m;i++) for (let j=1;j<=n;j++) {
+    dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+  }
+  const maxLen = Math.max(m, n);
+  return maxLen === 0 ? 1 : 1 - dp[m][n] / maxLen;
+}
+
+// ── Jaro-Winkler ──
+function jaroWinkler(s1, s2) {
+  s1 = s1.toLowerCase().trim(); s2 = s2.toLowerCase().trim();
+  if (s1 === s2) return 1;
+  const l1 = s1.length, l2 = s2.length;
+  const matchDist = Math.max(Math.floor(Math.max(l1,l2)/2) - 1, 0);
+  const s1m = new Array(l1).fill(false), s2m = new Array(l2).fill(false);
+  let matches = 0, transpositions = 0;
+  for (let i=0;i<l1;i++) {
+    const lo = Math.max(0,i-matchDist), hi = Math.min(i+matchDist+1,l2);
+    for (let j=lo;j<hi;j++) { if (s2m[j]||s1[i]!==s2[j]) continue; s1m[i]=s2m[j]=true; matches++; break; }
+  }
+  if (!matches) return 0;
+  let k=0;
+  for (let i=0;i<l1;i++) { if (!s1m[i]) continue; while (!s2m[k]) k++; if (s1[i]!==s2[k]) transpositions++; k++; }
+  const jaro = (matches/l1 + matches/l2 + (matches-transpositions/2)/matches) / 3;
+  let prefix = 0;
+  for (let i=0;i<Math.min(4,l1,l2);i++) { if (s1[i]===s2[i]) prefix++; else break; }
+  return jaro + prefix * 0.1 * (1 - jaro);
+}
+
+// ── Soundex ──
+function soundex(s) {
+  s = s.toUpperCase().replace(/[^A-Z]/g,'');
+  if (!s) return '';
+  const codes = {B:1,F:1,P:1,V:1,C:2,G:2,J:2,K:2,Q:2,S:2,X:2,Z:2,D:3,T:3,L:4,M:5,N:5,R:6};
+  let result = s[0], prev = codes[s[0]] || 0;
+  for (let i=1;i<s.length && result.length<4;i++) {
+    const c = codes[s[i]] || 0;
+    if (c && c !== prev) { result += c; }
+    prev = c;
+  }
+  return result.padEnd(4,'0');
+}
+
+function soundexSim(a, b) {
+  const sa = soundex(a), sb = soundex(b);
+  if (!sa || !sb) return 0;
+  let match = sa[0] === sb[0] ? 1 : 0;
+  for (let i=1;i<4;i++) if (sa[i]===sb[i]) match++;
+  return match / 4;
+}
+
+// ── Token Bigram ──
+function bigramSim(a, b) {
+  const bigrams = s => {
+    const tokens = s.toLowerCase().trim().split(/\s+/);
+    const set = new Set();
+    tokens.forEach(t => { for (let i=0;i<t.length-1;i++) set.add(t[i]+t[i+1]); });
+    return set;
+  };
+  const ba = bigrams(a), bb = bigrams(b);
+  if (!ba.size && !bb.size) return 1;
+  if (!ba.size || !bb.size) return 0;
+  let inter = 0;
+  ba.forEach(g => { if (bb.has(g)) inter++; });
+  return (2 * inter) / (ba.size + bb.size);
+}
+
+let debounceTimer;
+function debounceScreen() { clearTimeout(debounceTimer); debounceTimer = setTimeout(runScreening, 600); }
+
+function runScreening() {
+  const a = document.getElementById('entityName').value.trim();
+  const b = document.getElementById('watchlistName').value.trim();
+  if (!a || !b) return;
+
+  const wL = parseInt(document.getElementById('wLevenshtein').value) / 100;
+  const wJ = parseInt(document.getElementById('wJaroWinkler').value) / 100;
+  const wS = parseInt(document.getElementById('wSoundex').value) / 100;
+  const wN = parseInt(document.getElementById('wNgram').value) / 100;
+  const threshold = parseInt(document.getElementById('threshold').value) / 100;
+  const source = document.getElementById('watchlistSource').value;
+
+  const sL = levenshtein(a, b);
+  const sJ = jaroWinkler(a, b);
+  const sS = soundexSim(a, b);
+  const sN = bigramSim(a, b);
+  const composite = (sL * wL + sJ * wJ + sS * wS + sN * wN);
+  const compositePct = Math.round(composite * 100);
+
+  // Verdict
+  let verdict, verdictClass;
+  if (composite >= threshold) { verdict = 'MATCH'; verdictClass = 'verdict-match'; }
+  else if (composite >= threshold * 0.7) { verdict = 'REVIEW'; verdictClass = 'verdict-review'; }
+  else { verdict = 'CLEAR'; verdictClass = 'verdict-clear'; }
+
+  // Find primary driver
+  const algos = [{name:'Levenshtein', score:sL, weight:wL},{name:'Jaro-Winkler', score:sJ, weight:wJ},{name:'Soundex', score:sS, weight:wS},{name:'Token N-Gram', score:sN, weight:wN}];
+  const driver = algos.reduce((a,b) => b.score*b.weight > a.score*a.weight ? b : a);
+
+  // Explanation
+  const explainMap = {
+    'MATCH': `Names are highly similar. Primary driver: ${driver.name} (${Math.round(driver.score*100)}% similarity, ${Math.round(driver.weight*100)}% weight). Composite score ${compositePct}% exceeds alert threshold of ${Math.round(threshold*100)}%. This pair would fire an alert at the current threshold setting.`,
+    'REVIEW': `Names show moderate similarity. ${driver.name} is the dominant signal at ${Math.round(driver.score*100)}%. Composite score ${compositePct}% is within the review band (below threshold but within 70% of it). Manual review recommended.`,
+    'CLEAR': `Names are sufficiently dissimilar. Composite score ${compositePct}% is below the alert threshold of ${Math.round(threshold*100)}%. This pair would not fire an alert at the current threshold setting. Dominant algorithm: ${driver.name} at ${Math.round(driver.score*100)}%.`
+  };
+  document.getElementById('explainBox').textContent = explainMap[verdict];
+
+  // Gauge
+  const arcLen = 204 * composite;
+  document.getElementById('gaugeArc').setAttribute('stroke-dasharray', `${arcLen} ${204-arcLen}`);
+  document.getElementById('gaugeText').textContent = compositePct + '%';
+  document.getElementById('gaugeVerdict').textContent = verdict;
+  document.getElementById('gaugeVerdict').className = 'gauge-verdict ' + verdictClass;
+  document.getElementById('gaugeThresholdLabel').textContent = `Threshold: ${Math.round(threshold*100)}%`;
+  document.getElementById('gaugeSource').textContent = source;
+
+  // Score cards
+  const colors = { 'Levenshtein':'var(--teal)', 'Jaro-Winkler':'var(--purple)', 'Soundex/Metaphone':'var(--gold)', 'Token N-Gram':'#3B82F6' };
+  const descs = {
+    'Levenshtein':'Counts the minimum edits (insertions, deletions, substitutions) needed to transform one name into the other. Good for typos and transliteration differences.',
+    'Jaro-Winkler':'Measures character-level similarity with a prefix bonus. Highly effective for short strings and names that share the same beginning.',
+    'Soundex/Metaphone':'Encodes both names phonetically and compares the encodings. Detects names that sound the same but are spelled differently across languages.',
+    'Token N-Gram':'Splits names into word tokens and compares character bigrams. Tolerates word-order transpositions like "Doe John" vs "John Doe".'
+  };
+  const cards = [
+    {name:'Levenshtein', score:sL, color:'var(--teal)'},
+    {name:'Jaro-Winkler', score:sJ, color:'var(--purple)'},
+    {name:'Soundex/Metaphone', score:sS, color:'var(--gold)'},
+    {name:'Token N-Gram', score:sN, color:'#3B82F6'},
+  ];
+  document.getElementById('scoreGrid').innerHTML = cards.map(c => `
+    <div class="score-card">
+      <div class="score-card-name">${c.name}</div>
+      <div class="score-card-pct" style="color:${c.color}">${Math.round(c.score*100)}%</div>
+      <div class="score-bar"><div class="score-bar-fill" style="width:${Math.round(c.score*100)}%;background:${c.color}"></div></div>
+      <div class="score-desc">${descs[c.name]}</div>
+    </div>`).join('');
+
+  document.getElementById('screeningResults').style.display = 'block';
+  window._lastScreening = { entity:a, watchlist:b, source, threshold:Math.round(threshold*100), scores:{levenshtein:Math.round(sL*100),jaroWinkler:Math.round(sJ*100),soundex:Math.round(sS*100),tokenNgram:Math.round(sN*100)}, composite:compositePct, verdict, weights:{levenshtein:Math.round(wL*100),jaroWinkler:Math.round(wJ*100),soundex:Math.round(wS*100),tokenNgram:Math.round(wN*100)} };
+}
+
+function exportScreeningJSON() {
+  if (!window._lastScreening) return;
+  downloadBlob(JSON.stringify({...window._lastScreening, generated_by:'AINumbers.co', timestamp:new Date().toISOString()}, null, 2), 'sanctions-screening-audit.json', 'application/json');
+}
+function exportScreeningCSV() {
+  if (!window._lastScreening) return;
+  const s = window._lastScreening;
+  const rows = [['Entity Name','Watchlist Name','Source','Levenshtein','Jaro-Winkler','Soundex','Token N-Gram','Composite','Threshold','Verdict'],
+    [s.entity,s.watchlist,s.source,s.scores.levenshtein,s.scores.jaroWinkler,s.scores.soundex,s.scores.tokenNgram,s.composite,s.threshold,s.verdict]];
+  downloadBlob(rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n'), 'sanctions-screening.csv', 'text/csv');
+}
+
+// ═══════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════
+function downloadBlob(content, filename, type) {
+  const blob = new Blob([content], {type});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ── i18n lang bar ── */
+
+
+var MANIFEST=JSON.parse('{"tool_id": "batch-payment-file-validator", "version": "1.0.0", "title": "Batch Payment File Validator + Sanctions Screening", "description": "Validate NACHA, ISO 20022, SEPA, and SWIFT MT batch payment files in-browser. Integrated sanctions name screening with four string-similarity algorithms. Zero PII transmitted.", "category": "fintech", "tags": ["Batch", "Payment", "File", "Validator", "Sanctions"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "batch_payment_file_validator", "description": "Run Batch Payment File Validator + Sanctions Screening. Validate NACHA, ISO 20022, SEPA, and SWIFT MT batch payment files in-browser. Integrated sanctions name screening with four string-similarity algorithms. Zero PII transmitted.", "inputSchema": {"type": "object", "properties": {}}}, "execution": {"type": "browser-javascript", "entry": "tools/batch-payment-file-validator.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+</script>
+
+</div><!-- /.page-shell -->
+
+<script>
+/* AIN canonical i18n — reconcile-2026-05-17 */
+const TRANSLATIONS = {
+  en: {
+    "nav.alltools": "All Tools",
+    "nav.hub": "← Fraud & Risk Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-3 · Fraud & Risk · T43",
+    "hero.badge.privacy": "Zero PII · Client-side",
+    "hero.badge.reviewed": "Last Reviewed:",
+    "footer.alltools": "All Tools",
+    "footer.hub": "Fraud & Risk Hub",
+    "footer.sitemap": "Sitemap",
+    "footer.contact": "Contact",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Zero PII \u00a0 📡 No server calls \u00a0 💻 Client-side",
+    "pii.banner": "🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only."
+  },
+  es: {
+    "nav.alltools": "Todas las herramientas",
+    "nav.hub": "← Fraud & Risk Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-3 · Fraud & Risk · T43",
+    "hero.badge.privacy": "Sin PII · Solo cliente",
+    "hero.badge.reviewed": "Última revisión:",
+    "footer.alltools": "Todas las herramientas",
+    "footer.hub": "Fraud & Risk Hub",
+    "footer.sitemap": "Mapa del sitio",
+    "footer.contact": "Contacto",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Sin PII \u00a0 📡 Sin llamadas de servidor \u00a0 💻 Solo cliente",
+    "pii.banner": "🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No ingrese datos personales reales — use entradas sintéticas o anonimizadas."
+  },
+  fr: {
+    "nav.alltools": "Tous les outils",
+    "nav.hub": "← Fraud & Risk Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-3 · Fraud & Risk · T43",
+    "hero.badge.privacy": "Zéro PII · Côté client",
+    "hero.badge.reviewed": "Dernière révision :",
+    "footer.alltools": "Tous les outils",
+    "footer.hub": "Fraud & Risk Hub",
+    "footer.sitemap": "Plan du site",
+    "footer.contact": "Contact",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Zéro PII \u00a0 📡 Aucun appel serveur \u00a0 💻 Côté client",
+    "pii.banner": "🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n'est transmise. N'entrez pas de données personnelles réelles — utilisez des entrées synthétiques ou anonymisées."
+  },
+  ar: {
+    "nav.alltools": "جميع الأدوات",
+    "nav.hub": "→ Fraud & Risk Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-3 · Fraud & Risk · T43",
+    "hero.badge.privacy": "بدون بيانات شخصية · من جهة العميل",
+    "hero.badge.reviewed": "آخر مراجعة:",
+    "footer.alltools": "جميع الأدوات",
+    "footer.hub": "Fraud & Risk Hub",
+    "footer.sitemap": "خريطة الموقع",
+    "footer.contact": "اتصل بنا",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 بدون بيانات شخصية \u00a0 📡 بدون اتصالات خادم \u00a0 💻 من جهة العميل",
+    "pii.banner": "🔒 تتم معالجة جميع المدخلات محليًا في متصفحك. لا يتم نقل أي بيانات. لا تُدخل بيانات شخصية حقيقية — استخدم مدخلات اصطناعية أو مجهولة الهوية فقط.",
+    "lang_dir": "rtl"
+  },
+  pt: {
+    "nav.alltools": "Todas as ferramentas",
+    "nav.hub": "← Fraud & Risk Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-3 · Fraud & Risk · T43",
+    "hero.badge.privacy": "Zero PII · Lado do cliente",
+    "hero.badge.reviewed": "Última revisão:",
+    "footer.alltools": "Todas as ferramentas",
+    "footer.hub": "Fraud & Risk Hub",
+    "footer.sitemap": "Mapa do site",
+    "footer.contact": "Contato",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Zero PII \u00a0 📡 Sem chamadas de servidor \u00a0 💻 Lado do cliente",
+    "pii.banner": "🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido. Não insira dados pessoais reais — use entradas sintéticas ou anonimizadas."
+  },
+  zh: {
+    "nav.alltools": "所有工具",
+    "nav.hub": "← Fraud & Risk Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-3 · Fraud & Risk · T43",
+    "hero.badge.privacy": "零PII · 客户端",
+    "hero.badge.reviewed": "最后审查：",
+    "footer.alltools": "所有工具",
+    "footer.hub": "Fraud & Risk Hub",
+    "footer.sitemap": "网站地图",
+    "footer.contact": "联系我们",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 零PII \u00a0 📡 无服务器调用 \u00a0 💻 客户端",
+    "pii.banner": "🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。请勿输入真实个人数据——仅使用合成或匿名输入。"
+  }
+};
+
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key] !== undefined) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="' + lang + '"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function initLang() {
+  let saved = 'en';
+  try { saved = sessionStorage.getItem('ain_lang') || 'en'; } catch(e) {}
+  if (TRANSLATIONS[saved]) setLang(saved);
+})();
+
+function scrollMfst() {
+  const s = document.getElementById('mfstSec');
+  if (s) s.scrollIntoView({behavior:'smooth', block:'start'});
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>T225 · Visa/MC Interchange Qualification Tester · AINumbers.co</title>
+<meta name="description" content="Simulate interchange category qualification for Visa and Mastercard. Covers Visa CPS/Qualified/Standard/Non-Qualified; MC Merit I/III/Enhanced Best. Optimisation recommendations and Policy Mandate JSON policy. Client-side. Zero PII.">
+<link rel="canonical" href="https://ainumbers.co/tools/225-visa-mc-interchange-qualification-tester">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Visa/MC Interchange Qualification Tester","url":"https://ainumbers.co/tools/225-visa-mc-interchange-qualification-tester","description":"Simulate interchange category qualification for Visa and Mastercard. Covers Visa CPS/Qualified/Standard/Non-Qualified; MC Merit I/III/Enhanced Best. Optimisation recommendations and Policy Mandate JSON policy. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<script>
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* PolicyMandate — full validator (Phase 14); AP2Schema internal name retained */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+};
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%239B72F5'>AI</text></svg>">
+<style>
+/* Edu disclaimer (canonical §9.3) */
+.edu-disclaimer {
+  border: 1px solid var(--warn);
+  border-left: 3px solid var(--warn);
+  background: rgba(245, 158, 11, 0.06);
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  font-size: 0.76rem;
+  color: var(--body);
+  line-height: 1.7;
+  border-radius: var(--radius);
+}
+.edu-disclaimer-label {
+  display: block;
+  color: var(--warn);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px;--accent:var(--purple);--accent-dim:var(--purple-dim)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+.content{max-width:1100px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+[dir="rtl"] .nav-inner,[dir="rtl"] .hero-eyebrow,[dir="rtl"] [dir="rtl"] .lang-inner{justify-content:flex-start}
+[dir="rtl"] .panel-label,[dir="rtl"] .iq-table th,[dir="rtl"] .iq-table td{text-align:right}
+[dir="rtl"] .run-btn{letter-spacing:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--accent);color:var(--accent)}
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--accent)}.logo-co{color:var(--muted);font-size:.8rem}
+
+.hero{padding:3rem 0 1.5rem;position:relative;z-index:1}
+.hero-eyebrow{display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem}
+.tool-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+.hero h1{font-size:clamp(1.75rem,3vw,2.5rem);color:var(--bright);max-width:700px;margin-bottom:.75rem}
+.hero-desc{font-size:.93rem;color:var(--body);max-width:660px;line-height:1.75;margin-bottom:1.25rem}
+
+.lr-dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;position:relative;z-index:1;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem 1.25rem}
+.form-group{display:flex;flex-direction:column;gap:.4rem}.form-group.full{grid-column:1/-1}
+label{font-size:.78rem;letter-spacing:.04em;color:var(--text);font-family:'JetBrains Mono',monospace}
+select,input[type=number]{background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);padding:.55rem .75rem;border-radius:var(--radius);font-size:.88rem;font-family:'Sora',sans-serif;width:100%;transition:border-color .2s;-webkit-appearance:none;appearance:none}
+select:focus,input:focus{outline:none;border-color:var(--accent)}select option{background:var(--bg-3)}
+.field-hint{font-size:.7rem;color:var(--muted);margin-top:.15rem}
+.run-btn{font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bg);background:var(--accent);border:1px solid var(--accent);padding:.55rem 2rem;border-radius:var(--radius);transition:all .2s;margin-top:1.25rem}.run-btn:hover{opacity:.88}
+/* Results */
+.results-panel{display:none;position:relative;z-index:1;margin-bottom:1.25rem}.results-panel.show{display:block}
+.results-title{font-family:'DM Serif Display',serif;font-size:1.35rem;color:var(--bright);margin-bottom:1.25rem}
+.tier-badge{display:inline-flex;align-items:center;gap:.6rem;padding:.5rem 1.1rem;border-radius:var(--radius);border:1px solid;margin-bottom:1rem}
+.tier-label{font-family:'JetBrains Mono',monospace;font-size:.82rem;font-weight:500;letter-spacing:.04em}
+.tier-best{background:var(--green-dim);border-color:var(--green)}.tier-best .tier-label{color:var(--green)}
+.tier-mid{background:var(--gold-dim);border-color:var(--gold)}.tier-mid .tier-label{color:var(--gold)}
+.tier-low{background:var(--warn-dim);border-color:var(--warn)}.tier-low .tier-label{color:var(--warn)}
+.tier-nonq{background:var(--red-dim);border-color:var(--red)}.tier-nonq .tier-label{color:var(--red)}
+.rate-row{display:flex;align-items:flex-start;gap:1.5rem;flex-wrap:wrap;margin-bottom:1.25rem;padding:1rem;background:var(--bg-3);border-radius:var(--radius);border:1px solid var(--border-2)}
+.rate-cell{display:flex;flex-direction:column;gap:.2rem}
+.rate-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.rate-value{font-family:'JetBrains Mono',monospace;font-size:1.05rem;font-weight:500;color:var(--bright)}
+.rate-sub{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body)}
+.result-section{margin-bottom:1.5rem}
+.result-section-title{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:.65rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+.check-list{list-style:none;display:flex;flex-direction:column;gap:.35rem}
+.check-list li{font-size:.82rem;color:var(--text);display:flex;align-items:flex-start;gap:.55rem;line-height:1.55}
+.ci{flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:.72rem;margin-top:.12rem}
+.ci-pass{color:var(--green)}.ci-fail{color:var(--red)}.ci-warn{color:var(--warn)}.ci-info{color:var(--body)}
+/* Comparison table */
+.iq-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.iq-table th{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.4rem .65rem;text-align:left;border-bottom:1px solid var(--border)}
+.iq-table td{padding:.5rem .65rem;border-bottom:1px solid var(--border);vertical-align:top}
+.iq-table tr:last-child td{border-bottom:none}
+.iq-table tr.iq-current td{background:rgba(155,114,245,.07)}
+.iq-tier{font-family:'JetBrains Mono',monospace;font-size:.68rem;white-space:nowrap}
+.alert{padding:.7rem 1rem;border-radius:var(--radius);font-size:.8rem;color:var(--text);margin-bottom:.75rem;line-height:1.65}
+.alert-info{background:var(--accent-dim);border:1px solid var(--accent);border-left:3px solid var(--accent)}
+.alert-gold{background:var(--gold-dim);border:1px solid var(--gold);border-left:3px solid var(--gold)}
+.alert strong{color:var(--bright);font-weight:500}
+.cite-list{list-style:none;display:flex;flex-direction:column;gap:.22rem}.cite-list li{font-size:.73rem;color:var(--muted)}.cite-list span{color:var(--body)}
+.about-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;position:relative;z-index:1;margin-bottom:1.25rem}
+.about-body{font-size:.82rem;color:var(--body);line-height:1.75}.about-body+.about-body{margin-top:.6rem}
+.about-disclaimer{font-size:.76rem;color:var(--muted);border-top:1px solid var(--border);padding-top:.65rem;margin-top:.75rem}
+/* Footer T211 pattern */
+.ap2-btn-inner{display:flex;flex-direction:column;gap:.05rem;text-align:left}
+.ap2-btn-label{font-size:.5rem;letter-spacing:.09em;text-transform:uppercase}
+.ap2-btn-sub{font-size:.42rem;color:rgba(34,197,94,.55);text-transform:none;letter-spacing:0;font-weight:300;line-height:1}
+.ap2-icon{font-size:.72rem;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-weight:700}
+.export-toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--green);padding:.7rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--green);z-index:9999;pointer-events:none;display:flex;align-items:center;gap:.5rem;border-radius:var(--radius);box-shadow:0 4px 24px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s}
+.export-toast.show{opacity:1;transform:translateY(0)}
+}
+@media(max-width:680px){.form-grid{grid-template-columns:1fr}.hero h1{font-size:1.6rem}.rate-row{flex-direction:column;gap:.85rem}.iq-table{font-size:.72rem}}
+@media(max-width:480px){.container{padding:0 1rem}}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo"><svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--purple)" opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".7"/></svg>
+      <div class="logo-text">
+    <div class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></div>
+  </div></a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/payment-scheme-network-hub.html">Payment Scheme Hub</a><span class="nav-sep">/</span><span>T-225</span></div>
+
+    <a href="../guides/payment-scheme-network-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+<div class="content">
+<section class="hero">
+  <div class="hero-eyebrow"><span class="tool-eyebrow">T225 · Cat-19 · Payment Schemes · Visa / Mastercard</span></div>
+  <h1 class="tool-title">Visa/MC Interchange Qualification Tester</h1>
+  <p class="hero-desc">Simulate interchange category qualification for a transaction profile. Covers Visa CPS Qualified / Standard / Non-Qualified and Mastercard Merit I / Merit III / Enhanced Best / Standard. Outputs qualification tier, estimated rate, optimisation recommendations, and Policy Mandate JSON interchange policy. Client-side. Zero PII.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-privacy"><span data-i18n="hero.badge.privacy">Zero PII · Client-side</span></span>
+    <span class="hero-badge badge-warn"><span data-i18n="hero.badge.warn">Misqualification penalties average 0.10–0.25% per transaction in misrouted interchange.</span></span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+  
+  <p class="pii-notice">
+  <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+</p>
+  <!-- Edu disclaimer (canonical §9.3) -->
+  <div class="edu-disclaimer">
+    <strong class="edu-disclaimer-label" data-i18n="disclaimer.label">Educational Use Only</strong>
+    <span data-i18n="disclaimer.body">This tool provides a self-assessment / educational framework for internal planning purposes only. It is not a regulatory audit, legal advice, or a substitute for a formal compliance review by a qualified advisor. Verify all interpretations against the official source text and applicable RTS/ITS/guidance published by the relevant authority.</span>
+  </div>
+
+</section>
+<div class="panel">
+  <div class="panel-label">Transaction Profile</div>
+  <div class="form-grid">
+    <div class="form-group">
+      <label for="cardBrand">Card Scheme</label>
+      <select id="cardBrand">
+        <option value="visa">Visa</option>
+        <option value="mc">Mastercard</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="cardType">Card Type</label>
+      <select id="cardType">
+        <option value="consumer-credit">Consumer Credit (standard)</option>
+        <option value="consumer-rewards">Consumer Rewards / Signature</option>
+        <option value="consumer-debit">Consumer Debit (PIN or signature)</option>
+        <option value="prepaid">Prepaid</option>
+        <option value="commercial-credit">Commercial / Corporate Credit</option>
+        <option value="purchasing">Purchasing / Fleet Card</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="merchantCat">Merchant Category</label>
+      <select id="merchantCat">
+        <option value="retail">Retail (general card-present)</option>
+        <option value="supermarket">Supermarket / Grocery</option>
+        <option value="restaurant">Restaurant / Fast Food</option>
+        <option value="hotel">Hotel / Lodging</option>
+        <option value="ecommerce">E-Commerce / MOTO</option>
+        <option value="fuel">Automated Fuel Dispenser</option>
+        <option value="utilities">Utilities / Bill Payment</option>
+        <option value="healthcare">Healthcare / Medical</option>
+        <option value="charity">Charity / Non-Profit</option>
+        <option value="government">Government / Education</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="txAmount">Transaction Amount (USD)</label>
+      <input type="number" id="txAmount" placeholder="e.g. 85.00" min="0.01" step="0.01">
+    </div>
+    <div class="form-group">
+      <label for="channel">Acceptance Channel</label>
+      <select id="channel">
+        <option value="cp-swipe">Card-Present — magstripe swipe</option>
+        <option value="cp-chip">Card-Present — EMV chip insert</option>
+        <option value="cp-tap">Card-Present — contactless / NFC tap</option>
+        <option value="cp-keyed">Card-Present — manually keyed (card present)</option>
+        <option value="cnp-ecomm">Card-Not-Present — e-commerce</option>
+        <option value="cnp-moto">Card-Not-Present — MOTO</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="avsPerformed">AVS (Address Verification) Performed</label>
+      <select id="avsPerformed">
+        <option value="full-match">Full match — street + ZIP matched</option>
+        <option value="partial-match">Partial match — ZIP only or street only</option>
+        <option value="no-match">No match / AVS failure</option>
+        <option value="not-performed">Not performed</option>
+        <option value="na">Not applicable (card-present)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="cvvProvided">CVV / CVC Provided</label>
+      <select id="cvvProvided">
+        <option value="yes">Yes — CVV2/CVC2 submitted and matched</option>
+        <option value="no">No — CVV not submitted or did not match</option>
+        <option value="na">Not applicable (card-present)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="sameDayBatch">Same-Day Batch Settlement</label>
+      <select id="sameDayBatch">
+        <option value="yes">Yes — settled same day as authorisation</option>
+        <option value="no">No — settled more than 1 day after auth</option>
+      </select>
+      <span class="field-hint">Delayed settlement triggers a downgrade on most card types</span>
+    </div>
+    <div class="form-group">
+      <label for="authMatch">Auth Amount Matches Settlement Amount</label>
+      <select id="authMatch">
+        <option value="yes">Yes — amounts match exactly</option>
+        <option value="tip">No — tip or incremental auth added (restaurant/hotel)</option>
+        <option value="no">No — amounts differ for other reason</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="tdsUsed">3D Secure / 3DS Authentication</label>
+      <select id="tdsUsed">
+        <option value="na">Not applicable (card-present)</option>
+        <option value="yes">Yes — 3DS 2.x authenticated (liability shifted)</option>
+        <option value="attempt">Attempt only — authentication attempted, not completed</option>
+        <option value="no">No — 3DS not used</option>
+      </select>
+    </div>
+  </div>
+  <button class="run-btn" onclick="runTest()">Run Qualification Test →</button>
+</div>
+
+<div class="results-panel" id="resultsPanel">
+  <div class="panel"><div class="results-title">Interchange Qualification Result</div><div id="resultsContent"></div></div>
+  <div class="panel">
+    <div class="panel-label">Full Rate Schedule — All Tiers</div>
+    <div style="overflow-x:auto"><table class="iq-table" id="scheduleTable">
+      <thead><tr><th>Tier</th><th>Programme</th><th>Rate (% + ¢)</th><th>Est. Cost</th><th>Key Requirements</th></tr></thead>
+      <tbody id="scheduleBody"></tbody>
+    </table></div>
+  </div>
+  <div class="panel">
+    <div class="panel-label">Regulatory Citations</div>
+    <ul class="cite-list">
+      <li><span>[1]</span> Visa, <em>Visa USA Interchange Reimbursement Fees</em>, effective April 2026</li>
+      <li><span>[2]</span> Mastercard, <em>Mastercard Interchange Rates &amp; Qualification Guide</em>, effective April 2026</li>
+      <li><span>[3]</span> Visa, <em>Visa Core Rules and Visa Product and Service Rules</em>, v15 April 2026</li>
+      <li><span>[4]</span> Mastercard, <em>Mastercard Rules</em>, v15 April 2026</li>
+      <li><span>[5]</span> EMVCo, <em>EMV 3-D Secure Specification v2.3</em></li>
+    </ul>
+  </div>
+</div>
+
+<div class="about-panel">
+  <div class="panel-label">About This Tool</div>
+  <p class="about-body">This tool simulates interchange qualification for Visa and Mastercard US domestic consumer and commercial transactions. It applies published qualification criteria to determine the applicable interchange tier and indicative rate, and highlights the optimisation steps required to achieve the best available rate.</p>
+  <p class="about-body"><strong style="color:var(--text)">Interchange rates shown are indicative US domestic rates as of the last review date.</strong> Actual interchange varies by card type, issuing bank, merchant category code (MCC), specific product programme, and acquirer agreement. Rates change periodically — always verify against the current Visa and Mastercard published interchange schedules.</p>
+  <p class="about-disclaimer">⚠ This tool provides indicative interchange qualification guidance only. It does not constitute financial or legal advice. Actual interchange costs are set by the card schemes and vary by merchant agreement. Consult your acquirer or payment facilitator for your actual effective interchange rate. Last Reviewed: 2026-05-09.</p>
+</div>
+</div>
+
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/payment-scheme-network-hub.html"><span data-i18n="footer.hub_payment_scheme_network">Scheme Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+<div class="export-toast" id="exportToast"><span style="font-size:.85rem">✓</span><span id="toastMsg"></span></div>
+<script>
+/* ═══════════════════════════════════════════════════════
+   i18n Stage 2 — compact form
+═══════════════════════════════════════════════════════ */
+const T={
+en:{ey:"T225 · Cat-19 · Payment Schemes · Visa / Mastercard",ht:"Visa/MC Interchange Qualification Tester",hd:"Simulate interchange category qualification. Covers Visa CPS Qualified / Standard / Non-Qualified and MC Merit I / Merit III / Enhanced Best. Policy Mandate JSON interchange policy output.",na:"All Tools",fb:"🔒 Zero PII \u00a0 📡 No server calls \u00a0 💻 Client-side",dir:"ltr"},
+es:{ey:"T225 · Cat-19 · Esquemas de Pago · Visa / Mastercard",ht:"Simulador de Calificación de Intercambio Visa/MC",hd:"Simule la calificación de categoría de intercambio. Cubre Visa CPS Calificado/Estándar/No Calificado y MC Merit I/III/Enhanced Best.",na:"Todas las herramientas",fb:"🔒 Sin PII \u00a0 📡 Sin servidor \u00a0 💻 Cliente",dir:"ltr"},
+fr:{ey:"T225 · Cat-19 · Schémas de Paiement · Visa / Mastercard",ht:"Testeur de Qualification d'Interchange Visa/MC",hd:"Simulez la qualification de catégorie d'interchange. Couvre Visa CPS Qualifié/Standard/Non-Qualifié et MC Merit I/III/Enhanced Best.",na:"Tous les outils",fb:"🔒 Zéro PII \u00a0 📡 Pas de serveur \u00a0 💻 Client",dir:"ltr"},
+ar:{ey:"T225 · Cat-19 · أنظمة الدفع · Visa / Mastercard",ht:"اختبار تأهيل الاستبدال Visa/MC",hd:"محاكاة تأهيل فئة الاستبدال لـ Visa وMastercard.",na:"جميع الأدوات",fb:"🔒 صفر PII \u00a0 📡 لا اتصالات \u00a0 💻 العميل",dir:"rtl"},
+pt:{ey:"T225 · Cat-19 · Esquemas de Pagamento · Visa / Mastercard",ht:"Testador de Qualificação de Intercâmbio Visa/MC",hd:"Simule a qualificação de categoria de intercâmbio. Cobre Visa CPS Qualificado/Padrão/Não Qualificado e MC Merit I/III/Enhanced Best.",na:"Todas as ferramentas",fb:"🔒 Zero PII \u00a0 📡 Sem servidor \u00a0 💻 Cliente",dir:"ltr"},
+zh:{ey:"T225 · Cat-19 · 支付方案 · Visa / Mastercard",ht:"Visa/MC交换费资格测试器",hd:"模拟交换费类别资格认定，涵盖Visa CPS合格/标准/不合格及MC Merit I/III/Enhanced Best。",na:"所有工具",fb:"🔒 零PII \u00a0 📡 无服务器 \u00a0 💻 客户端",dir:"ltr"}
+};
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-19 Hub',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-19',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-19',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-19',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-19',
+  }, zh:{
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-19 中心',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{const s=sessionStorage.getItem('ain_lang');if(s&&T[s])setLang(s);}catch(e){}})();
+
+/* ═══════════════════════════════════════════════════════
+   INTERCHANGE RATE TABLES
+   Source: Visa USA Interchange Reimbursement Fees +
+   Mastercard Interchange Rates & Qualification Guide
+   Indicative US domestic rates — Last Reviewed 2026-05-09
+   Format: [tier_key, tier_label, pct, cents, css_class,
+            card_types[], channels[], requirements_summary]
+═══════════════════════════════════════════════════════ */
+const VISA_TIERS=[
+  /* key, label, pct, cents, cssClass, cardTypes, channels, reqSummary */
+  ['cps-retail',    'CPS/Retail',           1.51,10,'tier-best',  ['consumer-credit','consumer-rewards'],['cp-chip','cp-tap','cp-swipe'],'Card-present EMV/NFC; same-day batch; auth amount matches settlement; no manual key entry'],
+  ['cps-super',     'CPS/Supermarket',      1.22, 5,'tier-best',  ['consumer-credit','consumer-rewards'],['cp-chip','cp-tap','cp-swipe'],'Card-present; MCC 5411/5412; same-day batch; EMV preferred'],
+  ['cps-restaurant','CPS/Restaurant',       1.19, 5,'tier-best',  ['consumer-credit','consumer-rewards'],['cp-chip','cp-tap','cp-swipe'],'Card-present; MCC 5812/5814; tip adjustment allowed ≤20% of auth'],
+  ['cps-hotel',     'CPS/Hotel',            1.43,10,'tier-best',  ['consumer-credit','consumer-rewards'],['cp-chip','cp-tap','cp-swipe','cp-keyed'],'Card-present or guaranteed reservation; MCC 3500-3999/7011; estimated auth OK'],
+  ['cps-ecomm',     'CPS/E-Commerce Preferred',1.80,10,'tier-mid',['consumer-credit','consumer-rewards'],['cnp-ecomm'],'E-commerce; AVS full match; CVV2 match; 3DS authenticated preferred; same-day batch'],
+  ['cps-rewards1',  'CPS/Rewards 1',        1.65,10,'tier-mid',  ['consumer-rewards'],['cp-chip','cp-tap','cp-swipe'],'Rewards card; card-present; EMV/NFC; same-day batch'],
+  ['cps-rewards2',  'CPS/Rewards 2',        1.95,10,'tier-mid',  ['consumer-rewards'],['cnp-ecomm','cnp-moto'],'Rewards card; card-not-present; AVS required'],
+  ['sig-preferred', 'Visa Signature Preferred',2.10,10,'tier-low',['consumer-rewards'],['cp-chip','cp-tap','cp-swipe','cnp-ecomm'],'Visa Signature card; card-present or AVS/CVV CNP'],
+  ['debit-reg',     'Regulated Debit',      0.05,21,'tier-best',  ['consumer-debit'],['cp-chip','cp-tap','cp-swipe'],'Regulated debit (Durbin); issuer assets ≥$10B; card-present'],
+  ['debit-unreg',   'Unregulated Debit',    1.15,15,'tier-best',  ['consumer-debit'],['cp-chip','cp-tap','cp-swipe'],'Unregulated debit; issuer assets <$10B; card-present; EMV preferred'],
+  ['prepaid',       'Prepaid',              1.15,15,'tier-mid',  ['prepaid'],['cp-chip','cp-tap','cp-swipe','cnp-ecomm'],'Prepaid card; card-present or CNP with AVS'],
+  ['commercial',    'Commercial',           2.20,10,'tier-low',  ['commercial-credit'],['cp-chip','cp-tap','cp-swipe','cnp-ecomm'],'Commercial credit; Level 2 data improves rate on CCD/B2B'],
+  ['purchasing',    'Purchasing',           2.65,10,'tier-low',  ['purchasing'],['cp-chip','cp-tap','cp-swipe','cnp-ecomm'],'Fleet/Purchasing card; Level 3 data required for best rate'],
+  ['standard',      'Visa Standard',        1.89,10,'tier-nonq', ['consumer-credit','consumer-rewards','consumer-debit','prepaid','commercial-credit','purchasing'],['cp-keyed','cnp-ecomm','cnp-moto'],'Downgrade: manual key entry; late settlement; auth mismatch; AVS failure on CNP'],
+  ['eirf',          'EIRF (Electronic)',     2.30,10,'tier-nonq', ['consumer-credit','consumer-rewards'],['cnp-ecomm','cnp-moto'],'Downgrade: CNP without AVS or CVV; late batch; auth not settled same entity'],
+];
+
+const MC_TIERS=[
+  ['merit1-retail',  'Merit I (Retail)',      1.55,10,'tier-best', ['consumer-credit','consumer-rewards'],['cp-chip','cp-tap','cp-swipe'],'Card-present EMV chip or NFC; real-time auth; same-day batch; single auth matches settlement'],
+  ['merit1-super',   'Merit I (Supermarket)', 1.22, 5,'tier-best', ['consumer-credit','consumer-rewards'],['cp-chip','cp-tap','cp-swipe'],'Card-present; MCC 5411/5412; same-day batch'],
+  ['merit1-rest',    'Merit I (Restaurant)',  1.19, 5,'tier-best', ['consumer-credit','consumer-rewards'],['cp-chip','cp-tap','cp-swipe'],'Card-present; MCC 5812/5814; tip allowed'],
+  ['merit3',         'Merit III',             1.58,10,'tier-mid',  ['consumer-credit','consumer-rewards'],['cp-chip','cp-tap','cp-swipe','cp-keyed'],'Card-present; authorised; same-day settlement; any acceptance method'],
+  ['eb-ecomm',       'Enhanced Best — E-Comm',1.85,10,'tier-mid',  ['consumer-credit','consumer-rewards'],['cnp-ecomm'],'E-commerce; full AVS match; CVV2; SecureCode/3DS strongly preferred'],
+  ['rewards-high',   'World/World Elite',     2.00,10,'tier-mid',  ['consumer-rewards'],['cp-chip','cp-tap','cp-swipe'],'World or World Elite card; card-present; EMV preferred'],
+  ['debit-reg',      'Regulated Debit',       0.05,21,'tier-best', ['consumer-debit'],['cp-chip','cp-tap','cp-swipe'],'Regulated debit (Durbin); issuer assets ≥$10B; card-present'],
+  ['debit-unreg',    'Unregulated Debit',     1.10,15,'tier-best', ['consumer-debit'],['cp-chip','cp-tap','cp-swipe'],'Unregulated debit; card-present; EMV preferred'],
+  ['commercial',     'Commercial Payments',   2.20,10,'tier-low',  ['commercial-credit'],['cp-chip','cp-tap','cp-swipe','cnp-ecomm'],'Commercial card; Level 2 data (purchase order, tax amount) for best rate'],
+  ['purchasing',     'Purchasing (Level 3)',  2.65,10,'tier-low',  ['purchasing'],['cp-chip','cp-tap','cp-swipe','cnp-ecomm'],'Purchasing/fleet card; Level 3 line-item data required'],
+  ['standard',       'MC Standard',           1.89,10,'tier-nonq', ['consumer-credit','consumer-rewards','consumer-debit','prepaid','commercial-credit','purchasing'],['cp-keyed','cnp-ecomm','cnp-moto'],'Downgrade: manual key; late settlement; auth mismatch; AVS failure CNP'],
+  ['merit1-fail',    'Merit I Failure',       2.35,10,'tier-nonq', ['consumer-credit','consumer-rewards'],['cnp-ecomm','cnp-moto'],'CNP without SecureCode/3DS; no AVS; transactions submitted after 1 day'],
+];
+
+/* ── Determine applicable tier ── */
+function determineTier(inp,tiers){
+  const {cardType,merchantCat,channel,avs,cvv,sameDayBatch,authMatch,tds}=inp;
+  const isCNP=channel.startsWith('cnp');
+  const isCP=channel.startsWith('cp');
+  const isEMV=channel==='cp-chip'||channel==='cp-tap';
+  const isKeyed=channel==='cp-keyed';
+  const avsOk=avs==='full-match';
+  const cvvOk=cvv==='yes'||cvv==='na';
+  const sameDay=sameDayBatch==='yes';
+  const amountOk=authMatch==='yes'||authMatch==='tip';
+  const tdsOk=tds==='yes';
+
+  /* Downgrade conditions — checked first */
+  const isDowngrade=(!sameDay)||(!amountOk&&authMatch!=='tip')||(isKeyed&&!isCNP)||(isCNP&&!avsOk&&!tdsOk);
+
+  if(isDowngrade){
+    if(inp.brand==='visa') return tiers.find(t=>t[0]==='eirf')||tiers.find(t=>t[0]==='standard');
+    else return tiers.find(t=>t[0]==='merit1-fail')||tiers.find(t=>t[0]==='standard');
+  }
+
+  /* Special card types */
+  if(cardType==='purchasing') return tiers.find(t=>t[0]==='purchasing');
+  if(cardType==='commercial-credit') return tiers.find(t=>t[0]==='commercial');
+  if(cardType==='consumer-debit'){
+    return tiers.find(t=>t[0]==='debit-reg')||tiers.find(t=>t[0]==='debit-unreg');
+  }
+  if(cardType==='prepaid') return tiers.find(t=>t[0]==='prepaid')||tiers.find(t=>t[0]==='standard');
+
+  /* CNP path */
+  if(isCNP){
+    if(inp.brand==='visa'){
+      if(merchantCat==='ecommerce'&&avsOk&&cvvOk) return tiers.find(t=>t[0]==='cps-ecomm');
+      if(cardType==='consumer-rewards') return tiers.find(t=>t[0]==='cps-rewards2');
+      return tiers.find(t=>t[0]==='eirf');
+    } else {
+      if(avsOk&&cvvOk) return tiers.find(t=>t[0]==='eb-ecomm');
+      return tiers.find(t=>t[0]==='merit1-fail');
+    }
+  }
+
+  /* Card-present path */
+  if(inp.brand==='visa'){
+    if(merchantCat==='supermarket') return tiers.find(t=>t[0]==='cps-super');
+    if(merchantCat==='restaurant') return tiers.find(t=>t[0]==='cps-restaurant');
+    if(merchantCat==='hotel') return tiers.find(t=>t[0]==='cps-hotel');
+    if(cardType==='consumer-rewards'&&isEMV) return tiers.find(t=>t[0]==='cps-rewards1');
+    if(cardType==='consumer-rewards') return tiers.find(t=>t[0]==='sig-preferred');
+    if(isEMV) return tiers.find(t=>t[0]==='cps-retail');
+    return tiers.find(t=>t[0]==='cps-retail');
+  } else {
+    if(merchantCat==='supermarket') return tiers.find(t=>t[0]==='merit1-super');
+    if(merchantCat==='restaurant') return tiers.find(t=>t[0]==='merit1-rest');
+    if(cardType==='consumer-rewards') return tiers.find(t=>t[0]==='rewards-high');
+    if(isEMV) return tiers.find(t=>t[0]==='merit1-retail');
+    return tiers.find(t=>t[0]==='merit3');
+  }
+}
+
+/* State */
+let lastInputs=null,lastResult=null;
+
+function runTest(){
+  const amt=parseFloat(document.getElementById('txAmount').value)||0;
+  if(amt<=0){alert('Please enter a transaction amount.');return;}
+  const inp={
+    brand:document.getElementById('cardBrand').value,
+    cardType:document.getElementById('cardType').value,
+    merchantCat:document.getElementById('merchantCat').value,
+    amount:amt,
+    channel:document.getElementById('channel').value,
+    avs:document.getElementById('avsPerformed').value,
+    cvv:document.getElementById('cvvProvided').value,
+    sameDayBatch:document.getElementById('sameDayBatch').value,
+    authMatch:document.getElementById('authMatch').value,
+    tds:document.getElementById('tdsUsed').value,
+  };
+  lastInputs=inp;
+  const tiers=inp.brand==='visa'?VISA_TIERS:MC_TIERS;
+  const tier=determineTier(inp,tiers)||tiers[tiers.length-2];
+  const [key,label,pct,cents,cssClass,,,,reqSummary]=tier;
+  const cost=(amt*pct/100)+cents/100;
+  lastResult={tier,cost,pct,cents,label,cssClass};
+
+  /* Qualification checks */
+  const isCNP=inp.channel.startsWith('cnp');
+  const isEMV=inp.channel==='cp-chip'||inp.channel==='cp-tap';
+  const isDowngrade=cssClass==='tier-nonq';
+  const checks=[];
+  if(!isCNP){
+    checks.push({s:isEMV?'pass':'warn',t:isEMV?'EMV chip or contactless accepted — qualifies for best card-present tier':'Magstripe or keyed entry detected — upgrade to EMV chip/contactless to access best CP rates'});
+  }
+  checks.push({s:inp.sameDayBatch==='yes'?'pass':'fail',t:inp.sameDayBatch==='yes'?'Same-day batch settlement — no downgrade for late settlement':'Late settlement detected — batch within same banking day as authorisation to avoid downgrade'});
+  checks.push({s:inp.authMatch==='yes'||inp.authMatch==='tip'?'pass':'fail',t:inp.authMatch==='yes'?'Auth and settlement amounts match':'Auth/settlement amount mismatch — resolve discrepancy to avoid downgrade (tip adjustment excepted for restaurants/hotels)'});
+  if(isCNP){
+    checks.push({s:inp.avs==='full-match'?'pass':inp.avs==='partial-match'?'warn':'fail',t:inp.avs==='full-match'?'AVS full match — qualifies for CNP preferred tier':inp.avs==='partial-match'?'AVS partial match — full street + ZIP match required for best CNP tier':'No AVS or AVS failure — implement AVS to access CNP qualified rates'});
+    checks.push({s:inp.cvv==='yes'?'pass':'fail',t:inp.cvv==='yes'?'CVV2/CVC2 matched — CNP CVV requirement met':'CVV2/CVC2 not submitted or failed — CVV matching required for CNP qualification'});
+    checks.push({s:inp.tds==='yes'?'pass':'warn',t:inp.tds==='yes'?'3DS 2.x authentication — liability shifted; optimal CNP qualification':'3DS not used — implement 3DS 2.x for liability shift and optimal CNP interchange (especially for Visa/MC e-commerce preferred tiers)'});
+  }
+
+  /* Best possible tier */
+  const bestTier=inp.brand==='visa'
+    ? (inp.merchantCat==='supermarket'?tiers.find(t=>t[0]==='cps-super'):tiers.find(t=>t[0]==='cps-retail'))
+    : (inp.merchantCat==='supermarket'?tiers.find(t=>t[0]==='merit1-super'):tiers.find(t=>t[0]==='merit1-retail'));
+  const bestCost=bestTier?((amt*bestTier[2]/100)+bestTier[3]/100):null;
+  const saving=bestCost&&bestCost<cost?cost-bestCost:null;
+
+  const ciCls={pass:'ci-pass',fail:'ci-fail',warn:'ci-warn',info:'ci-info'};
+  const ciSym={pass:'✓',fail:'✗',warn:'⚠',info:'ℹ'};
+  const brandName=inp.brand==='visa'?'Visa':'Mastercard';
+
+  document.getElementById('resultsContent').innerHTML=`
+    <div class="tier-badge ${cssClass}"><span class="tier-label">${brandName} — ${label}</span></div>
+    <div class="rate-row">
+      <div class="rate-cell"><span class="rate-label">Interchange Rate</span><span class="rate-value">${pct.toFixed(2)}% + ${cents}¢</span></div>
+      <div class="rate-cell"><span class="rate-label">Est. Interchange Cost</span><span class="rate-value">$${cost.toFixed(4)}</span><span class="rate-sub">on $${amt.toFixed(2)} transaction</span></div>
+      <div class="rate-cell"><span class="rate-label">Effective Rate</span><span class="rate-value">${((cost/amt)*100).toFixed(3)}%</span></div>
+      ${saving?`<div class="rate-cell"><span class="rate-label">Potential Saving</span><span class="rate-value" style="color:var(--green)">$${saving.toFixed(4)}</span><span class="rate-sub">vs. best available tier</span></div>`:''}
+    </div>
+    ${isDowngrade?`<div class="alert alert-gold">⚠ <strong>Downgrade detected.</strong> This transaction has been placed in a lower interchange tier. See qualification checks below for remediation steps.</div>`:''}
+    <div class="result-section">
+      <div class="result-section-title">Qualification Checks</div>
+      <ul class="check-list">${checks.map(c=>`<li><span class="ci ${ciCls[c.s]}">${ciSym[c.s]}</span><span>${c.t}</span></li>`).join('')}</ul>
+    </div>
+    <div class="result-section">
+      <div class="result-section-title">Tier Requirements — ${label}</div>
+      <p style="font-size:.82rem;color:var(--body);line-height:1.65">${reqSummary||tier[7]||'See full rate schedule below.'}</p>
+    </div>`;
+
+  /* Build full rate schedule table */
+  const schedBody=document.getElementById('scheduleBody');
+  schedBody.innerHTML=tiers.map(t=>{
+    const tc=(amt*t[2]/100)+t[3]/100;
+    const isCurrent=t[0]===key;
+    return`<tr class="${isCurrent?'iq-current':''}">
+      <td><span class="iq-tier" style="color:${t[4]==='tier-best'?'var(--green)':t[4]==='tier-mid'?'var(--gold)':t[4]==='tier-low'?'var(--warn)':'var(--red)'}">${t[4]==='tier-best'?'BEST':t[4]==='tier-mid'?'GOOD':t[4]==='tier-low'?'STANDARD':'DOWNGRADE'}${isCurrent?' ◀':''}</span></td>
+      <td style="color:var(--text);font-size:.8rem">${t[1]}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--accent)">${t[2].toFixed(2)}% + ${t[3]}¢</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:${isCurrent?'var(--bright)':'var(--body)'}">${isCurrent?'<strong>':''}$${tc.toFixed(4)}${isCurrent?'</strong>':''}</td>
+      <td style="font-size:.73rem;color:var(--body);line-height:1.5">${t[7]||''}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  var _ab=document.getElementById('ap2ExportBtn');if(_ab)_ab.classList.add('ready');
+  document.getElementById('ap2ExportBtn').title='For API integration · audit trail';
+  document.getElementById('mdExportBtn').classList.add('ready');
+  setTimeout(()=>document.getElementById('resultsPanel').scrollIntoView({behavior:'smooth',block:'start'}),120);
+}
+
+/* ── AP2 Export ── */
+function exportAP2(){
+  if(!lastInputs||!lastResult)return;
+  const uuid='xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);});
+  const m={
+    ap2_version:"1.0",mandate_id:uuid,issued_at:new Date().toISOString(),issued_by:"ainumbers.co",
+    tool_id:"visa-mc-interchange-qualification-tester",tool_version:"1.0.0",
+    mandate_type:"scheme_rule",jurisdiction:["US"],
+    regulatory_frameworks:["Visa USA Interchange Reimbursement Fees 2026","Mastercard Interchange Rates & Qualification Guide 2026"],
+    payload:{
+      card_brand:lastInputs.brand,card_type:lastInputs.cardType,merchant_category:lastInputs.merchantCat,
+      transaction_amount_usd:lastInputs.amount,channel:lastInputs.channel,
+      avs_result:lastInputs.avs,cvv_provided:lastInputs.cvv,same_day_batch:lastInputs.sameDayBatch,
+      auth_amount_match:lastInputs.authMatch,tds_used:lastInputs.tds,
+      qualified_tier:lastResult.label,interchange_rate_pct:lastResult.pct,
+      interchange_cents:lastResult.cents,estimated_interchange_cost_usd:parseFloat(lastResult.cost.toFixed(4)),
+      effective_rate_pct:parseFloat(((lastResult.cost/lastInputs.amount)*100).toFixed(3))
+    },
+    summary:`${lastInputs.brand==='visa'?'Visa':'Mastercard'} interchange qualification for $${lastInputs.amount} ${lastInputs.channel} ${lastInputs.cardType} transaction. Qualified tier: ${lastResult.label} at ${lastResult.pct}% + ${lastResult.cents}¢. Estimated cost: $${lastResult.cost.toFixed(4)}.`,
+    agent_instructions:[
+      `Ensure all card-present transactions use EMV chip or contactless acceptance to qualify for CPS/Merit I rates.`,
+      `Batch and settle transactions within same banking day as authorisation to avoid late settlement downgrade.`,
+      lastInputs.channel.startsWith('cnp')?`For card-not-present transactions, implement full AVS (street + ZIP), CVV2/CVC2, and 3DS 2.x to qualify for CNP preferred interchange tier.`:'N/A — card-present transaction.',
+      `For commercial cards, include Level 2 (purchase order, tax amount) or Level 3 (line-item) data to access best commercial interchange rates.`,
+      `Re-assess interchange optimisation whenever card scheme rate schedules are updated (typically April and October annually).`
+    ],
+    valid_from:new Date().toISOString().split('T')[0],
+    valid_until:new Date(Date.now()+365*24*60*60*1000).toISOString().split('T')[0],
+    last_reviewed:"2026-05-09",
+    source_tool_inputs:lastInputs,
+    regulatory_citations:["Visa USA Interchange Reimbursement Fees, effective April 2026","Mastercard Interchange Rates & Qualification Guide, effective April 2026"]
+  };
+  const fn=`ap2-interchange-${m.mandate_id.substring(0,8)}.policy.json`;
+  AP2Schema.validate(m);
+  const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([JSON.stringify(m,null,2)],{type:'application/json'})),download:fn});
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
+  showToast(`{} ${fn} downloaded`);
+}
+
+function exportMarkdown(){
+  if(!lastInputs||!lastResult)return;
+  const today=new Date().toISOString().split('T')[0];
+  const brandName=lastInputs.brand==='visa'?'Visa':'Mastercard';
+  const lines=[
+    `# ${brandName} Interchange Qualification Report`,``,
+    `> **Generated:** AINumbers.co · T225 · ${today} · Last Reviewed: 2026-05-09`,
+    `> ⚠ Indicative rates only. Verify against current ${brandName} published interchange schedules.`,
+    ``,`---`,``,`## Result`,``,
+    `| Field | Value |`,`|---|---|`,
+    `| **Qualified Tier** | **${lastResult.label}** |`,
+    `| Interchange Rate | ${lastResult.pct.toFixed(2)}% + ${lastResult.cents}¢ |`,
+    `| Estimated Cost | $${lastResult.cost.toFixed(4)} on $${lastInputs.amount.toFixed(2)} |`,
+    `| Effective Rate | ${((lastResult.cost/lastInputs.amount)*100).toFixed(3)}% |`,
+    `| Card Brand | ${brandName} |`,`| Card Type | ${lastInputs.cardType} |`,
+    `| Channel | ${lastInputs.channel} |`,`| AVS | ${lastInputs.avs} |`,
+    `| CVV | ${lastInputs.cvv} |`,`| Same-Day Batch | ${lastInputs.sameDayBatch} |`,
+    `| 3DS | ${lastInputs.tds} |`,
+    ``,`---`,``,`## Regulatory Citations`,``,
+    `1. Visa USA Interchange Reimbursement Fees, effective April 2026`,
+    `2. Mastercard Interchange Rates & Qualification Guide, effective April 2026`,
+    ``,`---`,`*Client-side. Zero PII. AINumbers.co · T225 · Cat-19*`
+  ].join('\n');
+  const fn=`interchange-qualification-${today}.md`;
+  const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([lines],{type:'text/markdown'})),download:fn});
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
+  showToast(`MD ${fn} downloaded`);
+}
+
+function showToast(msg){
+  const t=document.getElementById('exportToast');
+  document.getElementById('toastMsg').textContent=msg;
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);
+}
+</script>
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "visa-mc-interchange-qualification-tester", "version": "1.0.0", "title": "Visa/MC Interchange Qualification Tester", "description": "Simulates interchange category qualification for Visa and Mastercard US domestic transactions. Covers Visa CPS/Standard/EIRF and MC Merit I/III/Enhanced Best. Outputs qualified tier, estimated rate, optimisation checks, and Policy Mandate JSON interchange policy.", "category": "cat-19", "tags": ["interchange", "Visa", "Mastercard", "qualification", "CPS", "Merit I", "downgrade", "CNP", "EMV", "Policy Mandate"], "audience": ["payments engineer", "acquirer", "merchant", "treasury analyst"], "input_schema": {"type": "object", "properties": {"card_brand": {"type": "string", "enum": ["visa", "mc"]}, "card_type": {"type": "string", "enum": ["consumer-credit", "consumer-rewards", "consumer-debit", "prepaid", "commercial-credit", "purchasing"]}, "merchant_category": {"type": "string"}, "transaction_amount_usd": {"type": "number", "minimum": 0.01}, "channel": {"type": "string", "enum": ["cp-swipe", "cp-chip", "cp-tap", "cp-keyed", "cnp-ecomm", "cnp-moto"]}, "avs_result": {"type": "string", "enum": ["full-match", "partial-match", "no-match", "not-performed", "na"]}, "cvv_provided": {"type": "string", "enum": ["yes", "no", "na"]}, "same_day_batch": {"type": "string", "enum": ["yes", "no"]}, "auth_amount_match": {"type": "string", "enum": ["yes", "tip", "no"]}, "tds_used": {"type": "string", "enum": ["na", "yes", "attempt", "no"]}}, "required": ["card_brand", "transaction_amount_usd", "channel"]}, "output_schema": {"type": "object", "properties": {"qualified_tier": {"type": "string"}, "interchange_rate_pct": {"type": "number"}, "interchange_cents": {"type": "number"}, "estimated_interchange_cost_usd": {"type": "number"}, "effective_rate_pct": {"type": "number"}, "ap2_mandate": {"type": "object"}}}, "mcp_tool_definition": {"name": "test_interchange_qualification", "description": "Determines the Visa or Mastercard interchange qualification tier for a transaction based on card type, channel, AVS/CVV results, settlement timing, and 3DS status. Returns estimated interchange cost and optimisation recommendations. Use when an agent needs to model interchange costs, identify downgrades, or generate an interchange policy mandate.", "inputSchema": {"type": "object", "properties": {"card_brand": {"type": "string"}, "card_type": {"type": "string"}, "transaction_amount_usd": {"type": "number"}, "channel": {"type": "string"}, "avs_result": {"type": "string"}, "same_day_batch": {"type": "string"}}, "required": ["card_brand", "transaction_amount_usd", "channel"]}}, "execution": {"type": "browser-javascript", "entry": "tools/225-visa-mc-interchange-qualification-tester.html", "function_name": "runTest", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body></html>

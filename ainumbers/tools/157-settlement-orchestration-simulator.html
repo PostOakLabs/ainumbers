@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Settlement Orchestration Simulator · T157 · AINumbers.co</title>
+<meta name="description" content="Model multi-leg payment settlement flows — configure batch timing, netting ratios, cut-off windows, and fail/retry logic to quantify liquidity requirements and settlement efficiency. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/157-settlement-orchestration-simulator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Settlement Orchestration Simulator","url":"https://ainumbers.co/tools/157-settlement-orchestration-simulator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "settlement-orchestration-simulator",
+  "version": "1.0.0",
+  "title": "Settlement Orchestration Simulator",
+  "description": "Models multi-leg payment settlement flows with batch timing, netting, cut-off windows, and fail/retry logic. Quantifies liquidity requirements and settlement efficiency.",
+  "category": "cat-14",
+  "tags": ["settlement","orchestration","payments","netting","RTGS","DNS","batch","liquidity"],
+  "audience": ["treasury","payments","ops","risk"],
+  "input_schema": {"type":"object","properties":{"legs":{"type":"number"},"settlement_method":{"type":"string"},"netting_ratio":{"type":"number"}},"required":["legs"]},
+  "output_schema": {"type":"object","properties":{"efficiency":{"type":"number"},"liquidity_required":{"type":"number"},"memo":{"type":"string"}}},
+  "mcp_tool_definition": {"name":"simulate_settlement_orchestration","description":"Simulates multi-leg payment settlement flows across RTGS, DNS, CLS, and Hybrid methods.","inputSchema":{"type":"object","properties":{"legs":{"type":"number","description":"Number of payment legs"},"settlement_method":{"type":"string","enum":["RTGS","DNS","CLS","Hybrid"]},"netting_ratio":{"type":"number","description":"Netting ratio as decimal (e.g. 0.7)"}},"required":["legs"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/157-settlement-orchestration-simulator.html","function_name":"runSim","timeout_ms":2000},
+  "ap2_export": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px;--accent:var(--purple);--accent-dim:var(--purple-dim);--accent-lt:var(--purple-lt);--surface:var(--bg-2);--card:var(--bg-3)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+[dir=rtl] .lang-inner{justify-content:flex-start}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;z-index:101;position:relative}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--accent);color:var(--accent)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--accent)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--accent)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--purple);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--purple-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--accent)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--purple-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1.25rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}.footer-links-ai a:hover{color:var(--purple-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+/* tool-specific CSS */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:600px){.grid-2{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px}
+.card-title{font-family:'DM Serif Display',serif;font-size:17px;color:#fff;margin-bottom:18px}
+label{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px}
+input[type=number],input[type=text],select{width:100%;background:#0d1928;border:1px solid var(--border);color:var(--text);font-family:'Sora',sans-serif;font-size:14px;padding:9px 12px;border-radius:8px;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--accent)}
+.form-group{margin-bottom:14px}
+.field-hint{font-size:11px;color:var(--muted);margin-top:4px}
+.pill-group{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.pill-group label{display:flex;align-items:center;gap:6px;background:#0d1928;border:1px solid var(--border);border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;font-weight:400;color:var(--text);text-transform:none;letter-spacing:0;transition:all .2s;white-space:nowrap}
+.pill-group input[type=radio]{accent-color:var(--accent)}
+.pill-group label:has(input:checked){border-color:var(--accent);background:rgba(155,114,245,.12);color:var(--accent)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 24px;border-radius:8px;font-family:'Sora',sans-serif;font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#8a5ef0}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+#results{display:none}
+.metric-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
+.metric-card{background:#0d1928;border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+.metric-val{font-family:'DM Serif Display',serif;font-size:24px;color:var(--accent)}
+.metric-val.green{color:var(--green)}.metric-val.red{color:var(--red)}.metric-val.gold{color:var(--gold)}
+.metric-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-top:4px}
+.timeline{margin:20px 0}
+.tl-row{display:flex;align-items:stretch;gap:0;margin-bottom:2px;font-size:12px}
+.tl-time{width:80px;flex-shrink:0;color:var(--muted);font-family:'JetBrains Mono',monospace;padding:6px 8px 6px 0;text-align:right;border-right:2px solid var(--border)}
+.tl-dot{width:20px;flex-shrink:0;display:flex;flex-direction:column;align-items:center}
+.tl-dot::before{content:'';width:10px;height:10px;border-radius:50%;margin-top:8px;flex-shrink:0}
+.tl-dot.ok::before{background:var(--green)}.tl-dot.warn::before{background:var(--gold)}.tl-dot.fail::before{background:var(--red)}.tl-dot.info::before{background:var(--accent)}
+.tl-dot::after{content:'';width:2px;background:var(--border);flex:1;margin-top:2px}
+.tl-row:last-child .tl-dot::after{display:none}
+.tl-body{flex:1;padding:5px 0 5px 12px;color:var(--text)}
+.tl-body strong{color:#fff}.tl-sub{color:var(--muted);font-size:11px}
+.leg-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+.leg-table th{background:#0d1928;color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.7px;padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
+.leg-table td{padding:8px 10px;border-bottom:1px solid rgba(30,48,72,.5);font-family:'JetBrains Mono',monospace}
+.leg-table tr:hover td{background:rgba(155,114,245,.04)}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.badge-green{background:rgba(34,197,94,.15);color:var(--green)}.badge-red{background:rgba(239,68,68,.15);color:var(--red)}
+.badge-gold{background:rgba(212,168,71,.15);color:var(--gold)}.badge-purple{background:rgba(155,114,245,.15);color:var(--accent)}
+.eff-bar-wrap{background:#0d1928;border-radius:8px;overflow:hidden;height:18px;margin:8px 0}
+.eff-bar-fill{height:100%;border-radius:8px;transition:width .4s;display:flex;align-items:center;padding-left:8px;font-size:11px;font-weight:700;color:#fff}
+.results-export-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px;padding-top:20px;border-top:1px solid var(--border)}
+#memo-out{display:none;background:#0a1220;border:1px solid var(--border);border-radius:8px;padding:16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#94a3b8;white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto;margin-top:16px}
+.cite-list li{font-size:12px;color:var(--muted);margin-bottom:4px;list-style:none;padding-left:22px;position:relative}
+.cite-list li::before{content:attr(data-n);position:absolute;left:0;color:var(--accent);font-weight:700}
+#mcp-panel{display:none;background:#0a1220;border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#94a3b8;white-space:pre}
+.mcp-toggle{background:none;border:1px solid var(--border);color:var(--muted);font-size:11px;padding:4px 12px;border-radius:4px;cursor:pointer;font-family:'Sora',sans-serif}
+.mcp-toggle:hover{border-color:var(--accent);color:var(--accent)}
+<!-- AIN-canon-2026-05-17 -->
+</style>
+</head>
+<body>
+
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/baas-hub.html">BaaS Hub</a><span class="nav-sep">/</span><span>T-157</span></div>
+  <a href="../guides/baas-hub.html" class="nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-14 · T157 · BaaS &amp; Settlement</div>
+  <h1>Settlement Orchestration <em>Simulator</em></h1>
+  <p class="hero-desc">Model multi-leg payment settlement flows — configure batch timing, netting ratios, cut-off windows, and fail/retry logic to quantify liquidity requirements and settlement efficiency. Client-side. Zero PII.</p>
+  <div class="hero-badges">
+    <span class="badge badge-purple">Multi-Leg Settlement</span>
+    <span class="badge badge-gold">Liquidity Analysis</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+<div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="card">
+    <div class="card-title">⚙️ <span data-i18n="cfg_title">Scenario Configuration</span></div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label data-i18n="lbl_scenario">Scenario Name</label>
+        <input type="text" id="scenarioName" value="Cross-Border Batch Settlement"/>
+      </div>
+      <div class="form-group">
+        <label data-i18n="lbl_currency">Settlement Currency</label>
+        <select id="currency">
+          <option value="USD">USD — US Dollar</option>
+          <option value="EUR">EUR — Euro</option>
+          <option value="GBP">GBP — British Pound</option>
+          <option value="SGD">SGD — Singapore Dollar</option>
+          <option value="HKD">HKD — Hong Kong Dollar</option>
+          <option value="JPY">JPY — Japanese Yen</option>
+          <option value="AUD">AUD — Australian Dollar</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label data-i18n="lbl_legs">Number of Payment Legs</label>
+        <input type="number" id="legs" value="8" min="2" max="50"/>
+        <div class="field-hint" data-i18n="hint_legs">Distinct counterparty payment legs in the cycle</div>
+      </div>
+      <div class="form-group">
+        <label data-i18n="lbl_avg_val">Avg Transaction Value ($)</label>
+        <input type="number" id="avgVal" value="250000" min="1000"/>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label data-i18n="lbl_daily_vol">Daily Settlement Volume ($M)</label>
+        <input type="number" id="dailyVol" value="50" min="0.1" step="0.1"/>
+      </div>
+      <div class="form-group">
+        <label data-i18n="lbl_fail_rate">Transaction Fail Rate (%)</label>
+        <input type="number" id="failRate" value="2.5" min="0" max="30" step="0.1"/>
+        <div class="field-hint" data-i18n="hint_fail">% requiring retry or manual intervention</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🏦 <span data-i18n="method_title">Settlement Method</span></div>
+    <div class="pill-group">
+      <label><input type="radio" name="method" value="RTGS" checked/> <span data-i18n="rtgs">RTGS — Real-Time Gross</span></label>
+      <label><input type="radio" name="method" value="DNS"/> <span data-i18n="dns">DNS — Deferred Net Settlement</span></label>
+      <label><input type="radio" name="method" value="Hybrid"/> <span data-i18n="hybrid">Hybrid RTGS + DNS</span></label>
+      <label><input type="radio" name="method" value="CLS"/> <span data-i18n="cls">CLS — Continuous Linked</span></label>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label data-i18n="lbl_batch">Batch Frequency</label>
+        <select id="batchFreq">
+          <option value="realtime">Real-time (continuous)</option>
+          <option value="5min">Every 5 minutes</option>
+          <option value="hourly" selected>Hourly</option>
+          <option value="3x">3× Daily (08, 12, 16h)</option>
+          <option value="eod">End-of-day (single batch)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label data-i18n="lbl_window">Settlement Window (hours)</label>
+        <input type="number" id="settlWindow" value="4" min="0.5" max="24" step="0.5"/>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🔀 <span data-i18n="net_title">Netting Configuration</span></div>
+    <div class="pill-group">
+      <label><input type="radio" name="netting" value="none" checked/> <span data-i18n="no_net">No Netting (gross)</span></label>
+      <label><input type="radio" name="netting" value="bilateral"/> <span data-i18n="bi_net">Bilateral Netting</span></label>
+      <label><input type="radio" name="netting" value="multilateral"/> <span data-i18n="ml_net">Multilateral Netting</span></label>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label data-i18n="lbl_net_ratio">Estimated Netting Ratio (%)</label>
+        <input type="number" id="netRatio" value="65" min="0" max="99" step="1"/>
+        <div class="field-hint" data-i18n="hint_net_ratio">% reduction in gross settlement obligations</div>
+      </div>
+      <div class="form-group">
+        <label data-i18n="lbl_liq_buf">Liquidity Buffer (%)</label>
+        <input type="number" id="liqBuf" value="10" min="0" max="50" step="1"/>
+        <div class="field-hint" data-i18n="hint_liq">Pre-funded buffer above minimum obligation</div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label data-i18n="lbl_retry">Max Retry Attempts</label>
+        <input type="number" id="retryAttempts" value="3" min="0" max="10"/>
+      </div>
+      <div class="form-group">
+        <label data-i18n="lbl_retry_delay">Retry Interval (minutes)</label>
+        <input type="number" id="retryDelay" value="15" min="1" max="120"/>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-bottom:28px">
+    <button class="btn btn-primary" onclick="runSim()" data-i18n="run_btn">▶ Run Simulation</button>
+  </div>
+
+  <div id="results">
+
+    <div class="card">
+      <div class="card-title">📊 <span data-i18n="metrics_title">Settlement Metrics</span></div>
+      <div class="metric-row" id="metricsRow"></div>
+      <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px" data-i18n="eff_label">Settlement Efficiency Score</div>
+      <div class="eff-bar-wrap"><div class="eff-bar-fill" id="effBar"></div></div>
+      <div id="methodNote" style="font-size:13px;color:var(--muted);background:#0d1928;border-radius:8px;padding:12px 14px;margin-top:12px"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⏱️ <span data-i18n="tl_title">Settlement Timeline</span></div>
+      <div class="timeline" id="tlContainer"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📋 <span data-i18n="leg_title">Payment Leg Analysis</span></div>
+      <div style="overflow-x:auto">
+        <table class="leg-table" id="legTable">
+          <thead>
+            <tr>
+              <th data-i18n="th_leg">Leg</th>
+              <th data-i18n="th_gross">Gross ($)</th>
+              <th data-i18n="th_net">Net ($)</th>
+              <th data-i18n="th_saving">Saving</th>
+              <th data-i18n="th_status">Status</th>
+              <th data-i18n="th_retry">Retry</th>
+            </tr>
+          </thead>
+          <tbody id="legBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💧 <span data-i18n="liq_title">Liquidity Requirement Analysis</span></div>
+      <div id="liqAnalysis"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📚 <span data-i18n="ref_title">References</span></div>
+      <ul class="cite-list">
+        <li data-n="[1]">CPMI, "Principles for Financial Market Infrastructures" (PFMI), BIS, April 2012 — Principles 7, 8, 9 on settlement finality and liquidity.</li>
+        <li data-n="[2]">CPMI, "CLS and settlement risk in foreign exchange markets," BIS, November 2019.</li>
+        <li data-n="[3]">FSB, "Enhancing Cross-border Payments — Stage 3 Roadmap," October 2020.</li>
+        <li data-n="[4]">ECB, "TARGET2 — the Eurosystem's RTGS system," ECB, 2022 — netting and batch design guidance.</li>
+        <li data-n="[5]">CPMI, "Wholesale digital currencies: CBDCs and stablecoins for settlement," BIS, March 2021.</li>
+      </ul>
+    </div>
+
+    <div class="results-export-row">
+      <button class="btn btn-primary" onclick="exportPolicyMandate()" data-i18n="export_pm">⬇ Policy Mandate JSON</button>
+      <button class="btn btn-ghost" onclick="toggleMemo()" data-i18n="export_md">📄 Markdown Memo</button>
+    </div>
+    <div id="memo-out"></div>
+  </div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+  <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+</section>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--purple)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html" data-i18n="footer.alltools">All Tools</a>
+      <a href="../guides/baas-hub.html" data-i18n="footer.hub">BaaS Hub</a>
+      <a href="../sitemap.html" data-i18n="footer.sitemap">Sitemap</a>
+      <a href="../contact.html" data-i18n="footer.contact">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span>
+      <span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+var TRANSLATIONS = {
+  en:{tag:"BaaS · Settlement · T157",h1:"Settlement Orchestration Simulator",sub:"Model multi-leg payment settlement flows — configure batch timing, netting ratios, cut-off windows, and fail/retry logic.",cfg_title:"Scenario Configuration",lbl_scenario:"Scenario Name",lbl_currency:"Settlement Currency",lbl_legs:"Number of Payment Legs",hint_legs:"Distinct counterparty payment legs in the cycle",lbl_avg_val:"Avg Transaction Value ($)",lbl_daily_vol:"Daily Settlement Volume ($M)",lbl_fail_rate:"Transaction Fail Rate (%)",hint_fail:"% requiring retry or manual intervention",method_title:"Settlement Method",rtgs:"RTGS — Real-Time Gross",dns:"DNS — Deferred Net Settlement",hybrid:"Hybrid RTGS + DNS",cls:"CLS — Continuous Linked",lbl_batch:"Batch Frequency",lbl_window:"Settlement Window (hours)",net_title:"Netting Configuration",no_net:"No Netting (gross)",bi_net:"Bilateral Netting",ml_net:"Multilateral Netting",lbl_net_ratio:"Estimated Netting Ratio (%)",hint_net_ratio:"% reduction in gross settlement obligations",lbl_liq_buf:"Liquidity Buffer (%)",hint_liq:"Pre-funded buffer above minimum obligation",lbl_retry:"Max Retry Attempts",lbl_retry_delay:"Retry Interval (minutes)",run_btn:"▶ Run Simulation",metrics_title:"Settlement Metrics",eff_label:"Settlement Efficiency Score",tl_title:"Settlement Timeline",leg_title:"Payment Leg Analysis",th_leg:"Leg",th_gross:"Gross ($)",th_net:"Net ($)",th_saving:"Saving",th_status:"Status",th_retry:"Retry",liq_title:"Liquidity Requirement Analysis",ref_title:"References",export_pm:"⬇ Policy Mandate JSON",export_md:"📄 Markdown Memo",nav_home:"Home",nav_hub:"BaaS Hub"},
+  es:{tag:"BaaS · Liquidación · T157",h1:"Simulador de Orquestación de Liquidación",sub:"Modele flujos de liquidación de pagos de múltiples tramos.",run_btn:"▶ Ejecutar Simulación",export_pm:"⬇ Mandato de Política JSON",export_md:"📄 Memo Markdown"},
+  fr:{tag:"BaaS · Règlement · T157",h1:"Simulateur d'Orchestration de Règlement",sub:"Modélisez les flux de règlement de paiements multi-jambes.",run_btn:"▶ Lancer la Simulation",export_pm:"⬇ Mandat Politique JSON",export_md:"📄 Mémo Markdown"},
+  ar:{tag:"BaaS · تسوية · T157",h1:"محاكي تنسيق التسوية",sub:"نمذجة تدفقات تسوية المدفوعات متعددة الأرجل.",run_btn:"▶ تشغيل المحاكاة",export_pm:"⬇ تفويض السياسة JSON",export_md:"📄 مذكرة Markdown"},
+  pt:{tag:"BaaS · Liquidação · T157",h1:"Simulador de Orquestração de Liquidação",sub:"Modele fluxos de liquidação de pagamentos multi-tramos.",run_btn:"▶ Executar Simulação",export_pm:"⬇ Mandato de Política JSON",export_md:"📄 Memo Markdown"},
+  zh:{tag:"BaaS · 结算 · T157",h1:"结算编排模拟器",sub:"建模多腿支付结算流程——配置批次时序、轧差比率和失败重试逻辑。",run_btn:"▶ 运行模拟",export_pm:"⬇ 政策授权 JSON",export_md:"📄 Markdown 备忘录"}
+};
+var currentLang='en';
+function setLang(l){
+  currentLang=l;
+  sessionStorage.setItem('ain_lang',l);
+  document.documentElement.lang=l;
+  document.documentElement.dir=(l==='ar')?'rtl':'ltr';
+  var d=TRANSLATIONS[l]||TRANSLATIONS['en'];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var k=el.getAttribute('data-i18n');
+    if(d[k])el.textContent=d[k];
+    else if(TRANSLATIONS['en'][k])el.textContent=TRANSLATIONS['en'][k];
+  });
+  document.querySelectorAll('.lang-btn').forEach(function(b){
+    b.classList.toggle('active',b.getAttribute('data-lang')===l);
+  });
+}
+(function(){setLang(sessionStorage.getItem('ain_lang')||'en');})();
+
+function fmt(n){
+  if(Math.abs(n)>=1e9)return '$'+(n/1e9).toFixed(2)+'B';
+  if(Math.abs(n)>=1e6)return '$'+(n/1e6).toFixed(2)+'M';
+  if(Math.abs(n)>=1e3)return '$'+(n/1e3).toFixed(0)+'K';
+  return '$'+n.toFixed(0);
+}
+function pct(n){return n.toFixed(1)+'%';}
+
+function runSim(){
+  var scenario=document.getElementById('scenarioName').value||'Settlement Scenario';
+  var ccy=document.getElementById('currency').value;
+  var legs=Math.max(2,parseInt(document.getElementById('legs').value)||8);
+  var avgVal=parseFloat(document.getElementById('avgVal').value)||250000;
+  var dailyVolM=parseFloat(document.getElementById('dailyVol').value)||50;
+  var failRate=parseFloat(document.getElementById('failRate').value)||2.5;
+  var method=document.querySelector('input[name=method]:checked').value;
+  var batchFreq=document.getElementById('batchFreq').value;
+  var settlWindow=parseFloat(document.getElementById('settlWindow').value)||4;
+  var netting=document.querySelector('input[name=netting]:checked').value;
+  var netRatio=parseFloat(document.getElementById('netRatio').value)||0;
+  var liqBuf=parseFloat(document.getElementById('liqBuf').value)||10;
+  var retryAttempts=parseInt(document.getElementById('retryAttempts').value)||3;
+  var retryDelay=parseInt(document.getElementById('retryDelay').value)||15;
+
+  var grossObligation=dailyVolM*1e6;
+  var effectiveNetRatio=(netting==='none')?0:(netting==='bilateral')?Math.min(netRatio,60):Math.min(netRatio,97);
+  if(method==='CLS')effectiveNetRatio=Math.max(effectiveNetRatio,96);
+  var netObligation=grossObligation*(1-effectiveNetRatio/100);
+  var netSaving=grossObligation-netObligation;
+  var liqRequired=netObligation*(1+liqBuf/100);
+  var totalTxns=Math.round(grossObligation/avgVal);
+  var failedTxns=Math.round(totalTxns*failRate/100);
+  var failedValue=failedTxns*avgVal;
+  var retryCost=failedTxns*retryAttempts*5;
+
+  var effScore=100;
+  effScore-=(failRate*2);
+  effScore-=(settlWindow>8?15:settlWindow>4?8:0);
+  if(method==='RTGS')effScore+=5;
+  if(method==='CLS')effScore+=10;
+  if(netting!=='none')effScore+=8;
+  if(batchFreq==='realtime')effScore+=5;
+  if(batchFreq==='eod')effScore-=10;
+  effScore=Math.max(0,Math.min(100,effScore));
+
+  /* per-leg simulation (deterministic PRNG) */
+  var seed=12345;
+  function rand(){seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;}
+  var legData=[];
+  for(var i=0;i<legs;i++){
+    var lg=avgVal*(0.5+rand()*1.5);
+    var ln=lg*(1-effectiveNetRatio/100);
+    var fail=rand()<failRate/100;
+    legData.push({id:'L'+(String(i+1).padStart(2,'0')),gross:lg,net:ln,fail:fail,retries:fail?Math.ceil(rand()*retryAttempts):0,saving:lg-ln});
+  }
+
+  /* metrics */
+  var metrics=[
+    {val:fmt(grossObligation),label:'Gross Obligation',cls:''},
+    {val:fmt(netObligation),label:'Net Settlement',cls:'green

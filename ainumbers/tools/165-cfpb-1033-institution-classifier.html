@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>CFPB §1033 Institution Classifier · AINumbers.co</title>
+<meta name="description" content="Classify your institution under CFPB §1033 Personal Financial Data Rights. Determines Tier 1–4 or TPPP status, compliance deadline, and full obligations checklist. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/165-cfpb-1033-institution-classifier.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"CFPB §1033 Institution Classifier","url":"https://ainumbers.co/tools/165-cfpb-1033-institution-classifier.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "cfpb-1033-institution-classifier",
+  "version": "1.0.0",
+  "title": "CFPB §1033 Institution Classifier",
+  "description": "Classifies a depository institution or TPPP under the CFPB §1033 Personal Financial Data Rights rule into Tier 1–4 or TPPP, surfaces the applicable compliance deadline, and generates a full obligations checklist.",
+  "category": "cat-05",
+  "tags": ["CFPB","1033","open banking","financial data rights","FDX","RegTech","compliance","PSD2"],
+  "audience": ["compliance","product","legal","engineer"],
+  "input_schema": {"type":"object","properties":{"total_assets_usd_bn":{"type":"number"},"institution_type":{"type":"string","enum":["depository_bank","credit_union","nondepository_fintech","data_aggregator"]},"state":{"type":"string"}},"required":["total_assets_usd_bn","institution_type"]},
+  "output_schema": {"type":"object","properties":{"tier":{"type":"string"},"compliance_deadline":{"type":"string"},"obligations":{"type":"array"},"mandate":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"classify_cfpb_1033_institution","description":"Classifies an institution under CFPB §1033 into Tier 1–4 or TPPP and returns compliance deadline and obligations checklist.","inputSchema":{"type":"object","properties":{"total_assets_usd_bn":{"type":"number","description":"Total assets in USD billions"},"institution_type":{"type":"string","enum":["depository_bank","credit_union","nondepository_fintech","data_aggregator"],"description":"Institution type"}},"required":["total_assets_usd_bn","institution_type"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/165-cfpb-1033-institution-classifier.html","function_name":"runClassifier","timeout_ms":2000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* === DESIGN TOKENS === */
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.15}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.02) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* LANG BAR */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+
+/* NAV */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.logo{display:flex;align-items:center;gap:9px;flex-shrink:0;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+
+/* HERO */
+.hero{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:.85rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.4rem);color:var(--white);max-width:700px;margin-bottom:.65rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.86rem;color:var(--body);max-width:660px;line-height:1.85;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.last-reviewed{font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--muted);padding:.22rem .6rem;border:1px solid var(--border);border-radius:3px}
+
+/* PII NOTICE */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1.25rem}
+
+/* DISCLAIMER */
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1.25rem}
+
+/* TOOL BODY */
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+
+/* PANEL */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:1.1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border)}
+.panel-row{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1rem}
+@media(max-width:640px){.panel-row{grid-template-columns:1fr}}
+.panel-row.single{grid-template-columns:1fr}
+.form-group{display:flex;flex-direction:column;gap:.35rem}
+label{font-size:.78rem;color:var(--text)}
+.fhint{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);line-height:1.5}
+select,input[type=number],input[type=text]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.76rem;padding:.45rem .7rem;outline:none;transition:border-color .2s;-webkit-appearance:none;border-radius:3px}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a6a8a'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .7rem center;padding-right:2rem;cursor:pointer}
+select:focus,input:focus{border-color:var(--teal)}
+.asset-row{display:flex;align-items:center;gap:.75rem}
+.asset-unit{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--muted);white-space:nowrap}
+
+/* BUTTONS */
+.btn{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.12em;text-transform:uppercase;padding:.6rem 1.4rem;cursor:pointer;transition:all .2s;border:1px solid;border-radius:var(--radius)}
+.btn-primary{background:var(--teal);border-color:var(--teal);color:var(--bg)}
+.btn-primary:hover{background:var(--teal-lt)}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-ghost[disabled]{opacity:.28;cursor:not-allowed}
+.btn-ghost[disabled]:hover{border-color:var(--border);color:var(--muted)}
+.btn-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.25rem}
+.btn-subtitle{display:block;font-size:.42rem;letter-spacing:.06em;opacity:.7;text-transform:none;margin-top:.1rem}
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)}
+
+/* RESULTS */
+.results-panel{display:none}
+.results-panel.visible{display:block}
+.tier-card{border:1px solid;border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.25rem;position:relative;overflow:hidden}
+.tier-card.tier1{border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.04)}
+.tier-card.tier2{border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.04)}
+.tier-card.tier3{border-color:rgba(20,184,166,.3);background:var(--teal-dim)}
+.tier-card.tier4{border-color:rgba(34,197,94,.3);background:var(--green-dim)}
+.tier-card.tppp{border-color:rgba(155,114,245,.3);background:var(--purple-dim)}
+.tier-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.5rem}
+.tier1 .tier-eyebrow{color:var(--red)}
+.tier2 .tier-eyebrow{color:var(--warn)}
+.tier3 .tier-eyebrow{color:var(--teal)}
+.tier4 .tier-eyebrow{color:var(--green)}
+.tppp .tier-eyebrow{color:var(--purple)}
+.tier-name{font-family:'DM Serif Display',serif;font-size:1.6rem;color:var(--white);margin-bottom:.35rem}
+.tier-deadline{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--bright);margin-bottom:.75rem}
+.tier-deadline span{font-size:.85rem}
+.countdown-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.52rem;padding:.2rem .6rem;border:1px solid;border-radius:3px;margin-left:.75rem}
+.tier1 .countdown-badge{color:var(--red);border-color:rgba(239,68,68,.3)}
+.tier2 .countdown-badge,.tier3 .countdown-badge{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.tier4 .countdown-badge,.tppp .countdown-badge{color:var(--green);border-color:rgba(34,197,94,.3)}
+
+/* OBLIGATIONS */
+.section-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-lt);margin:1.5rem 0 .85rem;display:flex;align-items:center;gap:.6rem}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.obligations-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1.25rem}
+@media(max-width:640px){.obligations-grid{grid-template-columns:1fr}}
+.obligation-item{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;font-size:.76rem;line-height:1.6}
+.obligation-item.required{border-left:3px solid var(--teal)}
+.obligation-item.conditional{border-left:3px solid var(--gold)}
+.ob-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.35rem}
+.required .ob-label{color:var(--teal)}
+.conditional .ob-label{color:var(--gold)}
+.ob-text{color:var(--body)}
+
+/* TIMELINE */
+.timeline{display:flex;flex-direction:column;gap:0;margin-bottom:1.25rem}
+.timeline-row{display:flex;align-items:stretch;gap:0}
+.tl-marker{display:flex;flex-direction:column;align-items:center;width:32px;flex-shrink:0}
+.tl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:.65rem}
+.tl-line{flex:1;width:2px;background:var(--border);margin:4px 0}
+.timeline-row:last-child .tl-line{display:none}
+.tl-content{padding:.5rem 1rem .85rem;flex:1}
+.tl-date{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.2rem}
+.tl-label{font-size:.8rem;color:var(--text);font-weight:400}
+.tl-detail{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);margin-top:.2rem;line-height:1.55}
+.tl-active .tl-dot{background:var(--teal);box-shadow:0 0 0 3px var(--teal-dim)}
+.tl-active .tl-date{color:var(--teal)}
+.tl-active .tl-label{color:var(--white)}
+.tl-past .tl-dot{background:var(--muted)}
+.tl-past .tl-date,.tl-past .tl-label{color:var(--muted)}
+.tl-future .tl-dot{background:var(--border-2)}
+.tl-future .tl-date{color:var(--body)}
+
+/* CITATIONS */
+.citations{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.25rem}
+.citation-title{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem}
+.citation-list{list-style:none;display:flex;flex-direction:column;gap:.35rem}
+.citation-list li{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--body);line-height:1.5}
+.citation-list li::before{content:'[';color:var(--muted)}
+.citation-list li::after{content:']';color:var(--muted)}
+
+/* MCP PANEL */
+.mcp-toggle-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.3rem .75rem;border-radius:3px;cursor:pointer;transition:all .2s}
+.mcp-toggle-btn:hover{border-color:var(--teal);color:var(--teal)}
+#mfstSec{margin-top:2rem}
+.mfst-header{display:flex;align-items:center;justify-content:space-between;background:var(--bg-3);border:1px solid var(--border);border-bottom:none;padding:.6rem 1rem;border-radius:var(--radius) var(--radius) 0 0}
+.mfst-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.mfst-copy-btn{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.2rem .55rem;cursor:pointer;transition:all .2s}
+.mfst-copy-btn:hover{color:var(--teal);border-color:var(--teal)}
+.mfst-body{background:var(--bg-2);border:1px solid var(--border);border-radius:0 0 var(--radius) var(--radius);padding:1rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--body);line-height:1.7;white-space:pre-wrap;overflow-x:auto;max-height:380px;overflow-y:auto}
+
+/* FOOTER */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem;position:relative;z-index:1}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* 5D-nav-bc-v1 */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:3px;text-decoration:none;letter-spacing:.06em;transition:opacity .2s;white-space:nowrap}
+.nav-cta:hover{opacity:.85}
+</style>
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<!-- LANG BAR -->
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick='setLang("zh")'>中文</button>
+</div></div>
+
+<!-- NAV -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="logo-text">
+      <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+    </span>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/open-banking-integration-hub.html">Open Banking Hub</a><span class="nav-sep">/</span><span>T-91</span></div>
+    <a href="../guides/open-banking-integration-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<!-- HERO -->
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Tool 91 · Open Banking &amp; APIs · Cat-05</div>
+  <div class="hero-meta">
+    <span class="badge badge-teal">CFPB §1033</span>
+    <span class="badge badge-gold">Open Banking</span>
+    <span class="badge badge-green">Zero PII</span>
+  </div>
+  <span class="last-reviewed" data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-15</span>
+  <h1 class="tool-title">CFPB §1033 Institution <em>Classifier</em></h1>
+  <p class="hero-desc">Determine your institution's tier under the CFPB Personal Financial Data Rights rule (12 CFR Part 1033). Enter total assets and institution type to receive your Tier 1–4 or TPPP classification, exact compliance deadline, full obligations checklist, and a Policy Mandate for audit purposes.</p>
+</div></div>
+
+<!-- TOOL -->
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+  <div class="disclaimer">⚠ This tool reflects the CFPB §1033 final rule as published October 22, 2024 (89 FR 88638). Compliance dates are subject to regulatory and judicial developments. Consult qualified legal counsel before relying on this output for compliance planning.</div>
+
+  <!-- INPUT PANEL -->
+  <div class="panel">
+    <div class="panel-label" data-i18n="panel.inputs">Institution Inputs</div>
+    <div class="panel-row">
+      <div class="form-group">
+        <label for="assetInput" data-i18n="label.total_assets">Total Assets (USD)</label>
+        <div class="asset-row">
+          <input type="number" id="assetInput" min="0" step="0.1" placeholder="e.g. 25.5">
+          <span class="asset-unit">$ Billions</span>
+        </div>
+        <span class="fhint">Enter total consolidated assets in USD billions (e.g. 25.5 = $25.5 billion)</span>
+      </div>
+      <div class="form-group">
+        <label for="instType" data-i18n="label.institution_type">Institution Type</label>
+        <select id="instType">
+          <option value="">— Select type —</option>
+          <option value="depository_bank">Depository Bank (national, state, federal savings)</option>
+          <option value="credit_union">Credit Union (federal or state-chartered)</option>
+          <option value="nondepository_fintech">Non-Depository Fintech / Payment Company</option>
+          <option value="data_aggregator">Data Aggregator / TPPP (Plaid, MX, Finicity, etc.)</option>
+        </select>
+      </div>
+    </div>
+    <div class="panel-row">
+      <div class="form-group">
+        <label for="products" data-i18n="label.products">Products Offered (multi-select)</label>
+        <select id="products" multiple style="height:80px">
+          <option value="checking" selected>Checking / DDA Accounts</option>
+          <option value="savings">Savings Accounts</option>
+          <option value="credit_card">Credit Cards</option>
+          <option value="mortgage">Mortgage / Home Equity</option>
+          <option value="auto_loan">Auto / Personal Loans</option>
+          <option value="prepaid">Prepaid Card / Stored Value</option>
+          <option value="brokerage">Brokerage / Investment Accounts</option>
+        </select>
+        <span class="fhint">Hold Ctrl/Cmd to select multiple. Covered accounts include deposit, transaction, credit card, and digital wallet products.</span>
+      </div>
+      <div class="form-group">
+        <label for="stateSelect" data-i18n="label.state">Primary Charter State (optional)</label>
+        <select id="stateSelect">
+          <option value="">— Select state / charter —</option>
+          <option value="federal">Federally Chartered</option>
+          <option value="CA">California</option><option value="NY">New York</option><option value="TX">Texas</option><option value="FL">Florida</option><option value="IL">Illinois</option><option value="NC">North Carolina</option><option value="other">Other State</option>
+        </select>
+        <span class="fhint">State law may impose additional open banking requirements above CFPB §1033 minimums (e.g. California CPRA §1798.100).</span>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="runClassifier()" data-i18n="btn.run">▶ Classify Institution</button>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+    <div id="tierCard"></div>
+
+    <div class="section-title" data-i18n="section.obligations">Compliance Obligations</div>
+    <div class="obligations-grid" id="obligationsGrid"></div>
+
+    <div class="section-title" data-i18n="section.timeline">§1033 Phased Compliance Calendar</div>
+    <div class="timeline" id="timelineEl"></div>
+
+    <div class="section-title" data-i18n="section.citations">Regulatory Citations</div>
+    <div class="citations">
+      <div class="citation-title">Source References</div>
+      <ul class="citation-list" id="citationList"></ul>
+    </div>
+
+    <!-- EXPORT ROW -->
+    <div class="results-export-row">
+      <button class="btn btn-ghost" id="mdExportBtn" onclick="exportMarkdown()" data-i18n="btn.export_md">↓ Export Markdown</button>
+      <button class="btn btn-ghost" id="ap2ExportBtn" onclick="exportAP2()" disabled data-i18n="btn.export_mandate">
+        {} Export Policy Mandate
+        <span class="btn-subtitle">API · audit trail</span>
+      </button>
+      <button class="mcp-toggle-btn" onclick="toggleMfst()" data-i18n="btn.mcp">⚙ MCP Manifest</button>
+    </div>
+  </div>
+
+  <section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+</div></div>
+
+<!-- FOOTER -->
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/open-banking-integration-hub.html"><span data-i18n="footer.hub">Open Banking Hub</span></a>
+      <a href="166-cfpb-1033-data-rights-scoper.html"><span data-i18n="footer.t166">T166 Data Rights Scoper</span></a>
+      <a href="167-cfpb-1033-tppp-mapper.html"><span data-i18n="footer.t167">T167 TPPP Mapper</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ── TIER DEFINITIONS ───────────────────────────────────────── */
+// Per CFPB §1033 final rule (89 FR 88638, Oct 22 2024)
+// Dodd-Frank Act §1033; 12 CFR Part 1033
+const TIERS = {
+  tier1: {
+    label: 'Tier 1',
+    description: 'Largest Depository Institutions',
+    assetThreshold: 500,   // >$500B
+    deadline: '2026-04-01',
+    deadlineDisplay: 'April 1, 2026',
+    color: 'tier1',
+    eyebrow: 'TIER 1 — LARGEST INSTITUTIONS',
+    coverageNote: 'Covers depository institutions and credit unions with >$500 billion in total assets.',
+  },
+  tier2: {
+    label: 'Tier 2',
+    description: 'Large Depository Institutions',
+    assetThreshold: 10,    // $10B–$500B
+    deadline: '2027-04-01',
+    deadlineDisplay: 'April 1, 2027',
+    color: 'tier2',
+    eyebrow: 'TIER 2 — LARGE INSTITUTIONS',
+    coverageNote: 'Covers depository institutions and credit unions with $10 billion – $500 billion in total assets.',
+  },
+  tier3: {
+    label: 'Tier 3',
+    description: 'Mid-Size Depository Institutions',
+    assetThreshold: 1.5,   // $1.5B–$10B
+    deadline: '2028-04-01',
+    deadlineDisplay: 'April 1, 2028',
+    color: 'tier3',
+    eyebrow: 'TIER 3 — MID-SIZE INSTITUTIONS',
+    coverageNote: 'Covers depository institutions and credit unions with $1.5 billion – $10 billion in total assets.',
+  },
+  tier4: {
+    label: 'Tier 4',
+    description: 'Smaller Depository Institutions',
+    assetThreshold: 0,     // <$1.5B
+    deadline: '2030-04-01',
+    deadlineDisplay: 'April 1, 2030',
+    color: 'tier4',
+    eyebrow: 'TIER 4 — SMALLER INSTITUTIONS',
+    coverageNote: 'Covers depository institutions and credit unions with less than $1.5 billion in total assets.',
+  },
+  tppp: {
+    label: 'TPPP',
+    description: 'Third-Party Payment Provider / Data Aggregator',
+    assetThreshold: null,
+    deadline: '2027-04-01',
+    deadlineDisplay: 'April 1, 2027 (align with Tier 2)',
+    color: 'tppp',
+    eyebrow: 'TPPP — THIRD-PARTY PROVIDER',
+    coverageNote: 'Third-party payment providers and data aggregators are subject to separate CFPB rulemaking. Align compliance with data providers\' Tier 2 deadline (Apr 2027) as a working baseline.',
+  },
+};
+
+// CFPB §1033 compliance obligations by tier
+const OBLIGATIONS = [
+  { label: 'Developer Interface', text: 'Maintain a developer-facing interface (API) meeting FDX or equivalent technical standards for third-party data access.', required: ['tier1','tier2','tier3','tier4'] },
+  { label: 'OAuth 2.0 Authorization', text: 'Implement OAuth 2.0 or equivalent standard authorization flows for consumer-authorized third-party access. Screen-scraping access must be sunsetted.', required: ['tier1','tier2','tier3','tier4'] },
+  { label: '7 Data Categories', text: 'Provide machine-readable access to all seven covered data categories upon consumer authorization (see T92 Data Rights Scoper).', required: ['tier1','tier2','tier3','tier4'] },
+  { label: 'Consumer Authorization', text: 'Establish and maintain consumer authorization workflows including initial authorization, ongoing access management, and revocation mechanisms.', required: ['tier1','tier2','tier3','tier4'] },
+  { label: 'Revocation Interface', text: 'Provide consumers a clear, accessible interface to revoke third-party data access authorizations at any time.', required: ['tier1','tier2','tier3','tier4'] },
+  { label: 'Third-Party Agreements', text: 'Maintain contractual agreements with authorized third-party providers (TPPPs) specifying permissible data use and security standards.', required: ['tier1','tier2'], conditional: ['tier3','tier4'] },
+  { label: 'Response Time Standards', text: 'Meet CFPB-specified response time and availability standards for the developer interface. Performance monitoring and reporting required.', required: ['tier1','tier2'], conditional: ['tier3','tier4'] },
+  { label: 'FDX API Compliance', text: 'Adopt Financial Data Exchange (FDX) API standards or demonstrate equivalent technical standard compliance for data format and transport.', required: ['tier1','tier2'], conditional: ['tier3','tier4'] },
+  { label: 'Security Controls', text: 'Implement data security controls meeting CFPB standards, including encryption in transit and at rest, access logging, and breach notification protocols.', required: ['tier1','tier2','tier3','tier4'] },
+  { label: 'No Behavioral Data', text: 'Prohibition on collecting, using, or retaining behavioral/inferred data beyond what is necessary to provide the requested covered data service.', required: ['tppp'] },
+  { label: 'Purpose Limitation', text: 'For TPPPs: data collection limited to the stated purpose of the consumer\'s authorization. Secondary use restrictions apply.', required: ['tppp'] },
+];
+
+// Phased compliance timeline
+const TIMELINE = [
+  { date: 'April 1, 2026', tiers: 'Tier 1 (>$500B)', detail: '89 FR 88638 §1033.301(a)(1)', key: 'tier1' },
+  { date: 'October 1, 2026', tiers: 'Screen-Scraping Sunset (Tier 1)', detail: 'Covered data providers must disable credential-based aggregation access', key: 'scraping' },
+  { date: 'April 1, 2027', tiers: 'Tier 2 ($10B–$500B)', detail: '89 FR 88638 §1033.301(a)(2)', key: 'tier2' },
+  { date: 'April 1, 2028', tiers: 'Tier 3 ($1.5B–$10B)', detail: '89 FR 88638 §1033.301(a)(3)', key: 'tier3' },
+  { date: 'April 1, 2030', tiers: 'Tier 4 (<$1.5B)', detail: '89 FR 88638 §1033.301(a)(4)', key: 'tier4' },
+];
+
+const CITATIONS = [
+  '89 FR 88638 — CFPB Personal Financial Data Rights Final Rule (Oct. 22, 2024)',
+  'Dodd-Frank Wall Street Reform and Consumer Protection Act §1033, 12 U.S.C. §5533',
+  '12 CFR Part 1033 — Personal Financial Data Rights',
+  'CFPB Supervised Entities: Depository institutions, credit unions, and covered persons under Dodd-Frank §1024–§1026',
+  'FDX API Standard v5.1 — Financial Data Exchange (fdxapi.com)',
+];
+
+/* ── STATE ───────────────────────────────────────────────────── */
+let lastResult = null;
+
+/* ── CLASSIFIER ─────────────────────────────────────────────── */
+function runClassifier() {
+  const assets = parseFloat(document.getElementById('assetInput').value);
+  const instType = document.getElementById('instType').value;
+  const state = document.getElementById('stateSelect').value;
+  const productSel = Array.from(document.getElementById('products').selectedOptions).map(o => o.value);
+
+  // Validation
+  if (!instType) { alert('Please select an institution type.'); return; }
+  if (instType !== 'data_aggregator' && isNaN(assets)) { alert('Please enter total assets in USD billions.'); return; }
+
+  // Classify
+  let tierKey;
+  if (instType === 'data_aggregator') {
+    tierKey = 'tppp';
+  } else if (instType === 'nondepository_fintech') {
+    // Non-depository fintechs subject to separate CFPB guidance; treat as TPPP for now
+    tierKey = 'tppp';
+  } else {
+    // Depository bank or credit union → asset-based tiering
+    if (assets > 500) tierKey = 'tier1';
+    else if (assets > 10) tierKey = 'tier2';
+    else if (assets >= 1.5) tierKey = 'tier3';
+    else tierKey = 'tier4';
+  }
+
+  const tier = TIERS[tierKey];
+
+  // Countdown to deadline
+  const now = new Date();
+  const deadline = new Date(tier.deadline);
+  const daysLeft = Math.ceil((deadline - now) / 86400000);
+  const countdownText = daysLeft > 0 ? `${daysLeft} days remaining` : daysLeft === 0 ? 'Due today' : `${Math.abs(daysLeft)} days past deadline`;
+
+  // Render tier card
+  document.getElementById('tierCard').innerHTML = `
+    <div class="tier-card ${tier.color}">
+      <div class="tier-eyebrow">${tier.eyebrow}</div>
+      <div class="tier-name">${tier.label} — ${tier.description}</div>
+      <div class="tier-deadline">
+        <span>Compliance Deadline: <strong>${tier.deadlineDisplay}</strong></span>
+        <span class="countdown-badge">${countdownText}</span>
+      </div>
+      <div style="font-size:.78rem;color:var(--body);line-height:1.65;margin-top:.5rem">${tier.coverageNote}</div>
+      ${state ? `<div style="margin-top:.6rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted)">Note: State-level data rights laws may impose additional requirements above federal minimums.</div>` : ''}
+    </div>`;
+
+  // Render obligations
+  const obligGrid = document.getElementById('obligationsGrid');
+  const applicable = OBLIGATIONS.filter(ob =>
+    ob.required.includes(tierKey) || (ob.conditional && ob.conditional.includes(tierKey))
+  );
+  obligGrid.innerHTML = applicable.map(ob => {
+    const isRequired = ob.required.includes(tierKey);
+    return `<div class="obligation-item ${isRequired ? 'required' : 'conditional'}">
+      <div class="ob-label">${isRequired ? '✓ Required' : '◎ Conditional'} · ${ob.label}</div>
+      <div class="ob-text">${ob.text}</div>
+    </div>`;
+  }).join('');
+
+  // Render timeline
+  const tlEl = document.getElementById('timelineEl');
+  tlEl.innerHTML = TIMELINE.map(tl => {
+    const isPast = new Date(tl.key === 'tier1' ? '2026-04-01' : tl.key === 'tier2' ? '2027-04-01' : tl.key === 'tier3' ? '2028-04-01' : tl.key === 'tier4' ? '2030-04-01' : '2026-10-01') < now;
+    const isActive = tl.key === tierKey || (tierKey === 'tppp' && tl.key === 'tier2');
+    const cls = isActive ? 'tl-active' : isPast ? 'tl-past' : 'tl-future';
+    return `<div class="timeline-row ${cls}">
+      <div class="tl-marker"><div class="tl-dot"></div><div class="tl-line"></div></div>
+      <div class="tl-content">
+        <div class="tl-date">${tl.date}</div>
+        <div class="tl-label">${tl.tiers}${isActive ? ' ← Your deadline' : ''}</div>
+        <div class="tl-detail">${tl.detail}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Citations
+  document.getElementById('citationList').innerHTML = CITATIONS.map(c => `<li>${c}</li>`).join('');
+
+  // Store result for export
+  lastResult = {
+    tierKey, tier, assets, instType, state, productSel, daysLeft,
+    obligations: applicable.map(ob => ({ label: ob.label, text: ob.text, required: ob.required.includes(tierKey) })),
+    runAt: new Date().toISOString()
+  };
+
+  // Enable exports
+  document.getElementById('resultsPanel').classList.add('visible');
+  document.getElementById('ap2ExportBtn').disabled = false;
+  document.getElementById('ap2ExportBtn').classList.add('ready');
+  document.getElementById('mdExportBtn').disabled = false;
+
+}
+
+/* ── EXPORTS ─────────────────────────────────────────────────── */
+function exportMarkdown() {
+  if (!lastResult) return;
+  const r = lastResult;
+  const md = `# CFPB §1033 Institution Classification Report
+**Tool:** AINumbers.co T91 · CFPB §1033 Institution Classifier
+**Generated:** ${r.runAt}
+**Regulatory Basis:** 12 CFR Part 1033 · 89 FR 88638 (Oct. 22, 2024)
+
+---
+
+## Classification Result
+
+| Field | Value |
+|-------|-------|
+| **Tier** | ${r.tier.label} — ${r.tier.description} |
+| **Compliance Deadline** | ${r.tier.deadlineDisplay} |
+| **Days Remaining** | ${r.daysLeft > 0 ? r.daysLeft + ' days' : 'Past deadline / Due today'} |
+| **Institution Type** | ${r.instType} |
+${r.instType !== 'data_aggregator' ? `| **Total Assets** | $${r.assets}B |\n` : ''}${r.state ? `| **Charter State** | ${r.state} |\n` : ''}
+
+## Coverage Note
+
+${r.tier.coverageNote}
+
+## Compliance Obligations
+
+${r.obligations.map(ob => `### ${ob.required ? '✓' : '◎'} ${ob.label}\n${ob.text}`).join('\n\n')}
+
+## Phased §1033 Compliance Calendar
+
+| Date | Tier | Regulatory Citation |
+|------|------|---------------------|
+${TIMELINE.map(tl => `| ${tl.date} | ${tl.tiers} | ${tl.detail} |`).join('\n')}
+
+## Regulatory Citations
+
+${CITATIONS.map((c, i) => `${i + 1}. ${c}`).join('\n')}
+
+---
+*Output generated by AINumbers.co T91 · CFPB §1033 Institution Classifier. CC BY 4.0 · Post Oak Labs.*
+*This tool does not constitute legal advice. Consult qualified counsel for compliance decisions.*
+`;
+  download(`cfpb_1033_classifier_${ts()}.md`, md, 'text/markdown');
+}
+
+function exportAP2() {
+  if (!lastResult) return;
+  const r = lastResult;
+  const payload = {
+    ap2_version: '1.0',
+    mandate_id: uuidv4(),
+    issued_at: r.runAt,
+    issued_by: 'ainumbers.co',
+    tool_id: 'cfpb-1033-institution-classifier',
+    tool_version: '1.0.0',
+    mandate_type: 'compliance_control',
+    jurisdiction: ['US'],
+    regulatory_frameworks: ['CFPB §1033', '12 CFR Part 1033', 'Dodd-Frank §1033'],
+    payload: {
+      tier: r.tier.label,
+      tier_key: r.tierKey,
+      institution_type: r.instType,
+      total_assets_usd_bn: r.instType !== 'data_aggregator' ? r.assets : null,
+      compliance_deadline: r.tier.deadline,
+      days_to_deadline: r.daysLeft,
+      obligations_required: r.obligations.filter(o => o.required).map(o => o.label),
+      obligations_conditional: r.obligations.filter(o => !o.required).map(o => o.label),
+    },
+    summary: `Institution classified as ${r.tier.label} (${r.tier.description}) under CFPB §1033. Compliance deadline: ${r.tier.deadlineDisplay}. ${r.obligations.filter(o => o.required).length} required obligations identified.`,
+    agent_instructions: [
+      `Classify institution as ${r.tier.label} for §1033 planning purposes.`,
+      `Target compliance deadline: ${r.tier.deadlineDisplay}.`,
+      `Prioritize: developer interface, OAuth 2.0 authorization, consumer revocation mechanism.`,
+      `Cross-reference T92 (Data Rights Scoper) to scope the 7 covered data categories.`,
+      `Cross-reference T93 (TPPP Mapper) if third-party data provider relationships exist.`,
+    ],
+    valid_from: r.runAt,
+    valid_until: r.tier.deadline,
+    last_reviewed: '2026-05-15',
+    source_tool_inputs: { total_assets_usd_bn: r.assets, institution_type: r.instType, state: r.state },
+    regulatory_citations: CITATIONS,
+    audit_metadata: { execution_hash: null, client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+
+  // Validate required fields before download
+  const errors = AP2Schema.validate(payload);
+  if (errors.length) {
+    alert('Policy Mandate validation failed:\n' + errors.join('\n'));
+    return;
+  }
+  download(`cfpb_1033_classifier_${ts()}.policy.json`, JSON.stringify(payload, null, 2), 'application/json');
+}
+
+/* ── AP2 SCHEMA VALIDATOR ────────────────────────────────────── */
+const AP2Schema = {
+  validate(p) {
+    const errs = [];
+    if (!p.ap2_version) errs.push('Missing ap2_version');
+    if (!p.mandate_id) errs.push('Missing mandate_id');
+    if (!p.issued_at) errs.push('Missing issued_at');
+    if (!p.tool_id) errs.push('Missing tool_id');
+    if (!p.mandate_type) errs.push('Missing mandate_type');
+    if (!Array.isArray(p.jurisdiction) || !p.jurisdiction.length) errs.push('Missing jurisdiction');
+    if (!p.payload) errs.push('Missing payload');
+    if (!p.summary) errs.push('Missing summary');
+    return errs;
+  }
+};
+
+
+
+/* ── UTILITIES ──────────────────────────────────────────────── */
+function ts() { return new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14); }
+function uuidv4() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+function download(filename, content, mime) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type: mime }));
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+/* ── i18n ────────────────────────────────────────────────────── */
+const TRANSLATIONS = {
+  en: {
+    'pii.banner': '🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.',
+    'panel.inputs': 'Institution Inputs',
+    'label.total_assets': 'Total Assets (USD)',
+    'label.institution_type': 'Institution Type',
+    'label.products': 'Products Offered (multi-select)',
+    'label.state': 'Primary Charter State (optional)',
+    'btn.run': '▶ Classify Institution',
+    'section.obligations': 'Compliance Obligations',
+    'section.timeline': '§1033 Phased Compliance Calendar',
+    'section.citations': 'Regulatory Citations',
+    'btn.export_md': '↓ Export Markdown',
+    'btn.export_mandate': '{} Export Policy Mandate',
+    'btn.mcp': '⚙ MCP Manifest',
+    'footer.alltools': 'All Tools',
+    'footer.hub': 'Open Banking Hub',
+    'footer.t92': 'T92 Data Rights Scoper',
+    'footer.t93': 'T93 TPPP Mapper',
+    'footer.sitemap': 'Sitemap',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy': '🔒 Zero PII   📡 No server calls   💻 Client-side',
+    'hero.badge.last_reviewed': 'Last Reviewed · 2026-05-15',
+  },
+  es: {
+    'pii.banner': '🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No ingrese datos personales reales — use solo entradas sintéticas o anonimizadas.',
+    'panel.inputs': 'Datos de la Institución',
+    'label.total_assets': 'Activos Totales (USD)',
+    'label.institution_type': 'Tipo de Institución',
+    'label.products': 'Productos Ofrecidos',
+    'label.state': 'Estado de Licencia Principal',
+    'btn.run': '▶ Clasificar Institución',
+    'section.obligations': 'Obligaciones de Cumplimiento',
+    'section.timeline': 'Calendario de Cumplimiento §1033',
+    'section.citations': 'Citas Regulatorias',
+    'btn.export_md': '↓ Exportar Markdown',
+    'btn.export_mandate': '{} Exportar Mandato de Política',
+    'btn.mcp': '⚙ Manifiesto MCP',
+    'footer.alltools': 'Todas las Herramientas',
+    'footer.hub': 'Centro de Banca Abierta',
+    'footer.t92': 'T92 Alcance de Derechos',
+    'footer.t93': 'T93 Mapeador TPPP',
+    'footer.sitemap': 'Mapa del Sitio',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy': '🔒 Cero PII   📡 Sin llamadas al servidor   💻 Cliente',
+    'hero.badge.last_reviewed': 'Última Revisión · 2026-05-15',
+  },
+  fr: {
+    'pii.banner': '🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n\'est transmise. N\'entrez pas de données personnelles réelles — utilisez uniquement des données synthétiques ou anonymisées.',
+    'panel.inputs': 'Données de l\'Institution',
+    'label.total_assets': 'Actif Total (USD)',
+    'label.institution_type': 'Type d\'Institution',
+    'label.products': 'Produits Proposés',
+    'label.state': 'État d\'Agrément Principal',
+    'btn.run': '▶ Classer l\'Institution',
+    'section.obligations': 'Obligations de Conformité',
+    'section.timeline': 'Calendrier de Conformité §1033',
+    'section.citations': 'Citations Réglementaires',
+    'btn.export_md': '↓ Exporter Markdown',
+    'btn.export_mandate': '{} Exporter Mandat',
+    'btn.mcp': '⚙ Manifeste MCP',
+    'footer.alltools': 'Tous les Outils',
+    'footer.hub': 'Centre Open Banking',
+    'footer.t92': 'T92 Cadrage des Droits',
+    'footer.t93': 'T93 Cartographie TPPP',
+    'footer.sitemap': 'Plan du Site',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy': '🔒 Zéro PII   📡 Pas d\'appel serveur   💻 Client',
+    'hero.badge.last_reviewed': 'Dernière Révision · 2026-05-15',
+  },
+  ar: {
+    lang_dir: 'rtl',
+    'pii.banner': '🔒 تتم معالجة جميع المدخلات محليًا في متصفحك. لا يتم نقل أي بيانات. لا تدخل بيانات شخصية حقيقية — استخدم مدخلات اصطناعية أو مجهولة الهوية فقط.',
+    'panel.inputs': 'بيانات المؤسسة',
+    'label.total_assets': 'إجمالي الأصول (دولار أمريكي)',
+    'label.institution_type': 'نوع المؤسسة',
+    'label.products': 'المنتجات المقدمة',
+    'label.state': 'ولاية الترخيص الرئيسية',
+    'btn.run': '▶ تصنيف المؤسسة',
+    'section.obligations': 'التزامات الامتثال',
+    'section.timeline': 'جدول الامتثال §1033',
+    'section.citations': 'المراجع التنظيمية',
+    'btn.export_md': '↓ تصدير Markdown',
+    'btn.export_mandate': '{} تصدير تفويض السياسة',
+    'btn.mcp': '⚙ بيان MCP',
+    'footer.alltools': 'جميع الأدوات',
+    'footer.hub': 'مركز الخدمات المصرفية المفتوحة',
+    'footer.t92': 'T92 نطاق حقوق البيانات',
+    'footer.t93': 'T93 خريطة TPPP',
+    'footer.sitemap': 'خريطة الموقع',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy': '🔒 لا بيانات شخصية   📡 لا اتصالات خادم   💻 محلي',
+    'hero.badge.last_reviewed': 'آخر مراجعة · 2026-05-15',
+  },
+  pt: {
+    'pii.banner': '🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido. Não insira dados pessoais reais — use apenas entradas sintéticas ou anonimizadas.',
+    'panel.inputs': 'Dados da Instituição',
+    'label.total_assets': 'Ativos Totais (USD)',
+    'label.institution_type': 'Tipo de Instituição',
+    'label.products': 'Produtos Oferecidos',
+    'label.state': 'Estado de Licença Principal',
+    'btn.run': '▶ Classificar Instituição',
+    'section.obligations': 'Obrigações de Conformidade',
+    'section.timeline': 'Calendário de Conformidade §1033',
+    'section.citations': 'Citações Regulatórias',
+    'btn.export_md': '↓ Exportar Markdown',
+    'btn.export_mandate': '{} Exportar Mandato de Política',
+    'btn.mcp': '⚙ Manifesto MCP',
+    'footer.alltools': 'Todas as Ferramentas',
+    'footer.hub': 'Centro de Open Banking',
+    'footer.t92': 'T92 Escopo de Direitos',
+    'footer.t93': 'T93 Mapeador TPPP',
+    'footer.sitemap': 'Mapa do Site',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy': '🔒 Zero PII   📡 Sem chamadas servidor   💻 Cliente',
+    'hero.badge.last_reviewed': 'Última Revisão · 2026-05-15',
+  },
+  zh: {
+    'pii.banner': '🔒 所有输入均在您的浏览器本地处理。不传输任何数据。请勿输入真实个人数据 — 仅使用合成或匿名化输入。',
+    'panel.inputs': '机构信息',
+    'label.total_assets': '总资产（美元）',
+    'label.institution_type': '机构类型',
+    'label.products': '提供的产品',
+    'label.state': '主要特许状态',
+    'btn.run': '▶ 分类机构',
+    'section.obligations': '合规义务',
+    'section.timeline': '§1033 分阶段合规日历',
+    'section.citations': '监管引用',
+    'btn.export_md': '↓ 导出 Markdown',
+    'btn.export_mandate': '{} 导出政策授权',
+    'btn.mcp': '⚙ MCP 清单',
+    'footer.alltools': '所有工具',
+    'footer.hub': '开放银行中心',
+    'footer.t92': 'T92 数据权利范围',
+    'footer.t93': 'T93 TPPP 映射器',
+    'footer.sitemap': '网站地图',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy': '🔒 零个人数据   📡 无服务器调用   💻 客户端',
+    'hero.badge.last_reviewed': '最后审核 · 2026-05-15',
+  }
+};
+
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key] !== undefined) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick*="${lang}"]`);
+  if (btn) btn.classList.add('active');
+  document.documentElement.setAttribute('dir', dict.lang_dir === 'rtl' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){ try { const s = sessionStorage.getItem('ain_lang'); if (s) setLang(s); } catch(e) {} })();
+</script>
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "cfpb-1033-institution-classifier", "version": "1.0.0", "title": "CFPB §1033 Institution Classifier", "description": "Classify your institution under CFPB §1033 Personal Financial Data Rights. Determines Tier 1–4 or TPPP status, compliance deadline, and full obligations checklist. Client-side. Zero PII.", "category": "open-banking-integration", "tags": ["CFPB §1033", "Open Banking", "Zero PII"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"assetInput": {"type": "string"}, "instType": {"type": "string"}, "products": {"type": "string"}, "stateSelect": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "cfpb_1033_institution_classifier", "description": "Run CFPB §1033 Institution Classifier. Classify your institution under CFPB §1033 Personal Financial Data Rights. Determines Tier 1–4 or TPPP status, compliance deadline, and full obligations checklist. Client-side. Zero PII.", "inputSchema": {"type": "object", "properties": {"assetInput": {"type": "string"}, "instType": {"type": "string"}, "products": {"type": "string"}, "stateSelect": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/165-cfpb-1033-institution-classifier.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){
+    var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');
+    if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}
+    else{b.style.display='none';if(a)a.textContent='▼';}
+  }
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(s); }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

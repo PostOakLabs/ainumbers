@@ -1,0 +1,59 @@
+{
+  "tool_id": "realtime-rail-prefunding-scheduler",
+  "version": "1.0.0",
+  "title": "Real-Time Rail Prefunding Scheduler",
+  "description": "Prefunding schedule builder for FedNow, RTP, and SEPA Instant (prefunding-required rails only). Returns 24-row hourly net position table, minimum opening balance recommendation, predicted top-up windows, daily and annualised idle capital cost, and three-rail comparison. BCBS 248 facility sizing for credit-based rails is in T258 (Cat-21). Client-side. Zero PII.",
+  "category": "cat-4",
+  "tags": ["prefunding", "liquidity", "intraday", "FedNow", "RTP", "SEPA-Instant", "schedule", "idle-capital", "zero-pii"],
+  "audience": ["treasury", "ops", "engineer"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "rail": { "type": "string", "enum": ["FedNow", "RTP", "SEPA-Instant"] },
+      "daily_volume_value_m": { "type": "number", "exclusiveMinimum": 0 },
+      "outgoing_timing_profile": { "type": "string", "enum": ["even", "morning-heavy", "afternoon-heavy", "custom"] },
+      "custom_hourly_pct": { "type": "array", "items": { "type": "number" }, "minItems": 24, "maxItems": 24 },
+      "incoming_timing_profile": { "type": "string", "enum": ["even", "morning-heavy", "afternoon-heavy"] },
+      "opening_balance_m": { "type": "number", "minimum": 0 },
+      "opportunity_cost_rate_pct": { "type": "number", "minimum": 0 },
+      "intraday_topup_threshold_pct": { "type": "number", "minimum": 1, "maximum": 99 }
+    },
+    "required": ["rail", "daily_volume_value_m", "outgoing_timing_profile", "incoming_timing_profile", "opening_balance_m", "opportunity_cost_rate_pct", "intraday_topup_threshold_pct"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "rail": { "type": "string" },
+      "rows": { "type": "array", "description": "24 hourly schedule rows" },
+      "minOpeningBalance": { "type": "number" },
+      "topupWindows": { "type": "array" },
+      "dailyIdleCost": { "type": "number" },
+      "annualIdleCost": { "type": "number" },
+      "railComparison": { "type": "object" }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "schedule_realtime_rail_prefunding",
+    "description": "Builds a daily prefunding schedule for FedNow, RTP, or SEPA Instant. Returns a 24-row hourly net position table, minimum opening balance recommendation, predicted top-up windows with timestamps and amounts, idle capital cost (daily and annualised), and a three-rail comparison panel for the same inputs. BCBS 248 credit facility sizing is out of scope.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "rail": { "type": "string", "enum": ["FedNow", "RTP", "SEPA-Instant"] },
+        "daily_volume_value_m": { "type": "number" },
+        "outgoing_timing_profile": { "type": "string" },
+        "incoming_timing_profile": { "type": "string" },
+        "opening_balance_m": { "type": "number" },
+        "opportunity_cost_rate_pct": { "type": "number" },
+        "intraday_topup_threshold_pct": { "type": "number" }
+      },
+      "required": ["rail", "daily_volume_value_m", "outgoing_timing_profile", "incoming_timing_profile", "opening_balance_m", "opportunity_cost_rate_pct", "intraday_topup_threshold_pct"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/324-realtime-rail-prefunding-scheduler.html",
+    "function_name": "scheduleRealtimeRailPrefunding",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true
+}

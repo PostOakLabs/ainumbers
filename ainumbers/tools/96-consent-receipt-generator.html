@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Open Banking Consent Receipt Generator + Validator | AINumbers.co</title>
+<meta name="description" content="Generate and validate Open Banking consent receipts for UK OBIE, EU PSD2/PSD3, and US CFPB 1033. Export as JSON or human-readable audit memo. Zero PII, browser-only.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/96-consent-receipt-generator.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-glow:rgba(20,184,166,.06);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.08);
+  --warn:#F59E0B;
+  --radius:6px;--radius-lg:10px;--shadow:0 4px 24px rgba(0,0,0,.4);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.15}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1140px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);
+  background-size:40px 40px}
+
+/* ── NAV ── */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1140px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-mark{width:30px;height:30px;background:var(--bg-2);border:1px solid var(--border);border-radius:7px;display:flex;align-items:center;justify-content:center}
+.logo-mark svg{width:18px;height:18px}
+.logo-text{display:flex;flex-direction:column;gap:1px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.92rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.78rem}
+
+@media(max-width:600px){}
+.nav-links{display:flex;align-items:center;gap:1.5rem}
+.nav-link{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--body);transition:color .15s}
+.nav-link:hover{color:var(--teal-lt)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bg);background:var(--teal);border:1px solid var(--teal);padding:.3rem .85rem;border-radius:var(--radius);transition:all .2s}
+.nav-cta:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+
+/* ── HERO ── */
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.7rem,3vw,2.6rem);color:var(--white);max-width:780px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-sub{font-size:.88rem;color:var(--body);max-width:620px;line-height:1.85;margin-bottom:1.2rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}.badge-privacy::before{content:'·';color:var(--green)}
+.badge-spec{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+
+/* ── TOOL SECTION ── */
+.tool-section{padding:2rem 0 5rem;position:relative;z-index:1}
+
+/* ── TAB BAR ── */
+.tab-bar{display:flex;border-bottom:1px solid var(--border);margin-bottom:2rem;background:var(--bg-2);position:sticky;top:52px;z-index:100;overflow-x:auto}
+.tab-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;padding:.85rem 1.4rem;border:none;border-bottom:2px solid transparent;color:var(--muted);background:transparent;cursor:pointer;transition:all .2s;white-space:nowrap}
+.tab-btn:hover{color:var(--text);background:rgba(20,184,166,.02)}
+.tab-btn.active{color:var(--teal-lt);border-bottom:2px solid var(--teal);background:rgba(20,184,166,.04)}
+.tab-content{display:none}
+
+/* ── INNER OUTPUT TABS (within builder) ── */
+.inner-tab-bar{display:flex;gap:0;border:1px solid var(--border);border-bottom:none;margin-top:1.5rem}
+.inner-tab-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;padding:.6rem 1.1rem;border:none;border-right:1px solid var(--border);border-bottom:2px solid transparent;color:var(--muted);background:var(--bg-3);cursor:pointer;transition:all .2s;flex:1}
+.inner-tab-btn:last-child{border-right:none}
+.inner-tab-btn.active{color:var(--teal-lt);border-bottom:2px solid var(--teal);background:var(--bg-2)}
+.inner-tab-content{display:none;border:1px solid var(--border);border-top:none;background:var(--bg-2)}
+
+/* ── STATS BANNER ── */
+.stats-banner{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-top:2px solid var(--teal);margin-bottom:1.75rem}
+@media(max-width:600px){.stats-banner{grid-template-columns:repeat(2,1fr)}}
+.stat-block{background:var(--bg-2);padding:1.25rem 1.5rem;text-align:center}
+.stat-num{font-family:'DM Serif Display',serif;font-size:2rem;color:var(--white);line-height:1;display:block;margin-bottom:.3rem}
+.stat-num.accent{color:var(--teal-lt)}.stat-num.gold{color:var(--gold)}.stat-num.green{color:var(--green)}.stat-num.red{color:var(--red)}
+.stat-lbl{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+
+/* ── FORM ELEMENTS ── */
+.form-section{margin-bottom:0}
+.section-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:.75rem;margin-top:1.5rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.input-group{margin-bottom:1rem}
+.input-group label{display:block;font-size:.75rem;color:var(--text);margin-bottom:.35rem}
+.input-group input,.input-group select,.input-group textarea{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.6rem .85rem;font-family:'JetBrains Mono',monospace;font-size:.8rem;border-radius:var(--radius);outline:none;transition:border-color .2s;-webkit-appearance:none}
+.input-group select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a6a8a'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .7rem center;padding-right:2rem;cursor:pointer}
+.input-group input:focus,.input-group select:focus,.input-group textarea:focus{border-color:var(--teal)}
+.input-group textarea{resize:vertical;min-height:120px;line-height:1.6}
+.input-hint{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.3rem;display:block}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:768px){.form-row{grid-template-columns:1fr}}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem}
+@media(max-width:900px){.form-row-3{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.form-row-3{grid-template-columns:1fr}}
+
+/* ── RADIO PILLS ── */
+.radio-group{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}
+.radio-pill{display:flex;align-items:center;gap:.5rem;padding:.45rem .85rem;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .2s;font-size:.75rem;color:var(--body)}
+.radio-pill:hover{border-color:var(--border-2);color:var(--text)}
+.radio-pill input[type=radio]{display:none}
+.radio-pill.selected{border-color:var(--teal);color:var(--teal-lt);background:var(--teal-dim)}
+
+/* ── SCOPE CHECKBOXES ── */
+.scope-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.4rem;margin-bottom:1rem;max-height:240px;overflow-y:auto;border:1px solid var(--border);padding:.75rem;background:var(--bg-3);border-radius:var(--radius)}
+.scope-check{display:flex;align-items:center;gap:.6rem;padding:.35rem .5rem;cursor:pointer;border-radius:4px;transition:background .12s}
+.scope-check:hover{background:var(--bg-4)}
+.scope-check input[type=checkbox]{accent-color:var(--teal);flex-shrink:0}
+.scope-lbl{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.4}
+.scope-desc{font-size:.58rem;color:var(--muted);display:block;margin-top:1px}
+
+/* ── RISK BADGE ── */
+.risk-badge-wrap{display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);margin-top:.5rem}
+.risk-badge{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.3rem .8rem;border-radius:var(--radius)}
+.risk-badge.low{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.risk-badge.medium{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+.risk-badge.high{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.risk-reason{font-size:.72rem;color:var(--body)}
+
+/* ── BUTTONS ── */
+.btn-primary{background:var(--teal);color:#080E1A;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;padding:.65rem 1.5rem;border:1px solid var(--teal);border-radius:var(--radius);transition:all .2s;cursor:pointer}
+.btn-primary:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+.btn-secondary{background:transparent;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;padding:.55rem 1.2rem;border:1px solid var(--border-2);border-radius:var(--radius);transition:all .2s;cursor:pointer}
+.btn-secondary:hover{border-color:var(--text)}
+.btn-sm{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.35rem .75rem;border-radius:var(--radius);border:1px solid var(--border);color:var(--muted);background:transparent;cursor:pointer;transition:all .2s}
+.btn-sm:hover{border-color:var(--teal);color:var(--teal)}
+.btn-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:1rem}
+
+/* ── REGEN / ID ROW ── */
+.id-row{display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem}
+.id-display{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--teal-lt);background:var(--bg-3);border:1px solid var(--border);padding:.4rem .85rem;border-radius:var(--radius);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── STATUS BAR ── */
+.result-status-bar{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;margin-bottom:1.5rem;border-left:3px solid var(--teal);background:var(--bg-2);border-radius:0 var(--radius) var(--radius) 0}
+.result-status-bar.valid{border-left-color:var(--green)}
+.result-status-bar.invalid{border-left-color:var(--red)}
+.result-status-bar.warning{border-left-color:var(--warn)}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;animation:pulse 2s infinite}
+.status-dot.valid{background:var(--green)}.status-dot.invalid{background:var(--red)}.status-dot.warning{background:var(--warn)}
+.status-text{font-size:.8rem;color:var(--bright);flex:1}
+.status-sub{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ── ERROR / WARN ITEMS ── */
+.error-item{background:rgba(239,68,68,.06);border-left:3px solid var(--red);padding:.75rem 1rem;margin-bottom:.5rem;border-radius:0 var(--radius) var(--radius) 0}
+.warn-item{background:rgba(212,168,71,.06);border-left:3px solid var(--gold);padding:.75rem 1rem;margin-bottom:.5rem;border-radius:0 var(--radius) var(--radius) 0}
+.ok-item{background:var(--green-dim);border-left:3px solid var(--green);padding:.75rem 1rem;margin-bottom:.5rem;border-radius:0 var(--radius) var(--radius) 0}
+.item-label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--red);display:block;margin-bottom:.25rem}
+.item-label.gold{color:var(--gold)}.item-label.green{color:var(--green)}
+.item-path{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal);display:block;margin-bottom:.2rem}
+.item-text{font-size:.76rem;color:var(--body);line-height:1.6}
+.item-fix{font-size:.68rem;color:var(--muted);font-style:italic;margin-top:.25rem;display:block}
+
+/* ── FMT BLOCK ── */
+.fmt-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1rem 1rem;overflow-x:auto;position:relative;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text);line-height:1.75;white-space:pre;margin-top:.5rem}
+.fmt-block-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;display:block}
+.copy-btn{position:absolute;top:.75rem;right:.75rem;font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid var(--border);padding:.22rem .55rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.copy-btn:hover{color:var(--teal);border-color:var(--teal)}
+.copy-btn.copied{color:var(--teal-lt);border-color:var(--teal-lt)}
+
+/* ── AUDIT LOG ── */
+.audit-log{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem}
+.audit-entry{display:flex;gap:1rem;padding:.6rem 0;border-bottom:1px solid rgba(30,47,74,.4);align-items:flex-start}
+.audit-entry:last-child{border-bottom:none}
+.audit-ts{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);white-space:nowrap;flex-shrink:0;padding-top:.05rem}
+.audit-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:.35rem}
+.audit-event{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--bright);font-weight:500;display:block}
+.audit-detail{font-size:.68rem;color:var(--body);display:block;margin-top:.15rem}
+
+/* ── COMP GRID / INFO CARDS ── */
+.comp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:1rem 0}
+.info-card{background:var(--bg-3);border:1px solid var(--border);padding:.9rem 1rem;border-radius:var(--radius)}
+.info-card.link-card{border-left:3px solid var(--teal)}
+.info-card-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem;display:block}
+.info-card-val{font-size:.85rem;color:var(--bright);line-height:1.4}
+.info-card-sub{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--teal);margin-top:.3rem;display:block}
+
+/* ── REF TABLE ── */
+.ref-table{width:100%;border-collapse:collapse;font-size:.74rem}
+.ref-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;background:var(--bg-4);padding:.7rem .85rem;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;color:var(--muted)}
+.ref-table td{padding:.65rem .85rem;border-bottom:1px solid rgba(30,47,74,.4);vertical-align:top}
+.ref-table tr:hover td{background:rgba(20,184,166,.02)}
+.ref-table tr:nth-child(even) td{background:rgba(255,255,255,.01)}
+.check-req{color:var(--teal-lt);font-family:'JetBrains Mono',monospace}
+.check-opt{color:var(--warn);font-family:'JetBrains Mono',monospace}
+.check-no{color:var(--muted);font-family:'JetBrains Mono',monospace}
+
+/* ── COLLAPSIBLE ── */
+.collapsible-section{border:1px solid var(--border);margin-top:1.5rem;border-radius:var(--radius)}
+.coll-trigger{display:flex;align-items:center;gap:.75rem;cursor:pointer;padding:.85rem 1rem;background:transparent;border:none;width:100%;text-align:left;transition:background .15s;border-radius:var(--radius)}
+.coll-trigger:hover{background:var(--bg-3)}
+.coll-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.coll-icon{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--teal-lt);margin-left:auto;transition:transform .2s}
+.coll-trigger.open .coll-icon{transform:rotate(180deg)}
+.coll-body{display:none;padding:1rem;border-top:1px solid var(--border);background:var(--bg-2)}
+.coll-body.open{display:block}
+.coll-body p{font-size:.8rem;color:var(--body);line-height:1.8;margin-bottom:.75rem}
+
+/* ── PRIVACY NOTICE ── */
+.privacy-notice{display:flex;gap:.6rem;align-items:center;background:var(--teal-glow);border:1px solid rgba(20,184,166,.15);border-radius:var(--radius);padding:.65rem .9rem;font-size:.72rem;color:var(--body);margin-top:1rem}
+.priv-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;animation:pulse 2s infinite}
+
+/* ── EMPTY STATE ── */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem;text-align:center;color:var(--muted)}
+.empty-icon{font-size:2.5rem;margin-bottom:1rem;opacity:.35}
+.empty-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--muted);margin-bottom:.5rem}
+.empty-sub{font-size:.78rem;max-width:380px;line-height:1.7}
+
+/* ── FOOTER ── */
+footer{border-top:1px solid var(--border);padding:2.5rem 0;margin-top:4rem;position:relative;z-index:1}
+.footer-inner{max-width:1140px;margin:0 auto;padding:0 2rem;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:1rem}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:500;color:var(--bright)}
+.footer-brand span{color:var(--muted)}
+.footer-copy{font-size:.72rem;color:var(--muted);margin-top:.25rem}
+.footer-links{display:flex;gap:1.5rem;flex-wrap:wrap}
+.footer-links a{color:var(--body);font-size:.8rem;transition:color .15s}
+.footer-links a:hover{color:var(--teal-lt)}
+
+@media(max-width:768px){.container{padding:0 1rem}.tab-btn{padding:.7rem .9rem;font-size:.5rem}}
+
+/* ── Footer ─────────────────────────────────────────── */
+footer { border-top: 1px solid var(--border); padding: 1.75rem 1.5rem; margin-top: 3rem; }
+.footer-inner-ai { display:flex; align-items:center; gap:2rem; flex-wrap:wrap; justify-content:space-between; }
+.footer-links-ai { display:flex; gap:1.25rem; font-family:'JetBrains Mono',monospace; font-size:.52rem; color:var(--muted); }
+.footer-links-ai a { color:var(--muted); text-decoration:none; transition:color .2s; }
+.footer-links-ai a:hover { color:var(--teal-lt); }
+.footer-badge-ai { display:flex; flex-direction:column; gap:.3rem; font-family:'JetBrains Mono',monospace; font-size:.5rem; color:var(--muted); }
+.footer-brand-link { display:flex; align-items:center; gap:.5rem; text-decoration:none; color:var(--text); }
+.footer-wordmark { font-family:'JetBrains Mono',monospace; font-size:.9rem; font-weight:500; }
+.logo-icon-sm { background:var(--teal); color:#000; font-weight:700; font-size:.7rem; padding:.15rem .3rem; border-radius:3px; }
+@media(max-width:640px){ .footer-inner-ai { flex-direction:column; text-align:center; } .footer-badge-ai { align-items:center; } }
+
+/* RTL support — AIN canonical */
+[dir="rtl"] .lang-bar .lang-inner { flex-direction: row-reverse; ;justify-content:flex-end}
+[dir="rtl"] .nav-inner            { flex-direction: row-reverse; }
+[dir="rtl"] .nav-bc               { flex-direction: row-reverse; }
+[dir="rtl"] .nav-bc-sep           { transform: scaleX(-1); }
+[dir="rtl"] .nav-right            { flex-direction: row-reverse; }
+[dir="rtl"] .hero, [dir="rtl"] .content, [dir="rtl"] .layout { text-align: right; }
+[dir="rtl"] .footer-inner-ai      { flex-direction: row-reverse; }
+[dir="rtl"] .footer-links-ai      { flex-direction: row-reverse; }
+
+/* nav-bc + nav-right — AIN canonical */
+.lang-inner{display:flex;justify-content:flex-end;align-items:center;width:100%;gap:4px}
+.nav-bc{display:flex;align-items:center;gap:.4rem;font-size:.7rem;color:var(--muted);justify-content:center;flex:1}
+.nav-bc a{color:var(--muted);transition:color .2s}.nav-bc a:hover{color:var(--text)}
+.nav-bc-sep{color:var(--border-2);font-size:.65rem}
+.nav-bc-current{font-weight:500}
+.nav-right{display:flex;align-items:center;gap:.4rem;margin-left:auto}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;
+  padding:.25rem .7rem;border:1px solid var(--border);border-radius:var(--radius);
+  background:transparent;color:var(--muted);cursor:pointer;transition:all .2s;white-space:nowrap}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+
+
+/* MCP manifest panel */
+.mcp-section{border-top:1px solid var(--border);padding:2rem 0}
+.mcp-toggle{display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;padding:.75rem 1rem;background:var(--bg-2);border:1px solid var(--border);
+  border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.7rem;
+  color:var(--muted);letter-spacing:.06em}
+.mcp-toggle:hover{border-color:var(--teal);color:var(--teal)}
+.pii-notice{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);
+  border-left:3px solid var(--teal);padding:.75rem 1rem;margin:1rem 0 1.5rem;
+  font-size:.72rem;color:var(--body);line-height:1.6;border-radius:var(--radius)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-body pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;overflow-x:auto;margin:0}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+
+<!-- AIN-reconcile-2026-05-17 -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- NAV -->
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <div class="logo-mark">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    </div>
+    <div class="logo-text">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/open-banking-integration-hub.html">Open Banking Hub</a><span class="nav-sep">/</span><span>T-96</span></div>
+    <a href="../guides/open-banking-integration-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<!-- HERO -->
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Tool 96 · Open Banking &amp; APIs · cat-5</div>
+  <h1 class="tool-title">Open Banking<br><em>Consent Receipt Generator</em></h1>
+  <p class="hero-sub">Generate standardized, machine-readable consent receipt artifacts for UK OBIE v3.1, EU PSD2/PSD3 (Berlin Group), and US CFPB 1033 (FDX). Validate existing receipts against schema rules. Export as JSON, human-readable memo, or audit trail — entirely in your browser.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-privacy">Zero PII · Browser Only</span>
+    <span class="hero-badge badge-spec">UK OBIE · EU PSD3 · US CFPB 1033</span>
+    <span class="hero-badge badge-teal">Generator + Validator</span>
+    <span class="hero-badge badge-purple">Audit Trail Export</span>
+  </div>
+</div></div>
+
+<!-- TOOL -->
+<div class="tool-section"><div class="container">
+
+  <div class="tab-bar">
+    <button class="tab-btn active" id="btn-tab-builder" onclick="switchTab('tab-builder')">01 · Consent Builder</button>
+    <button class="tab-btn" id="btn-tab-validator" onclick="switchTab('tab-validator')">02 · Validator</button>
+    <button class="tab-btn" id="btn-tab-reference" onclick="switchTab('tab-reference')">03 · Standard Reference</button>
+  </div>
+
+  <!-- ══════════════════════════════════
+       TAB 1 — CONSENT BUILDER
+  ══════════════════════════════════ -->
+  <div id="tab-builder">
+    <div style="display:grid;grid-template-columns:360px 1fr;gap:2rem">
+    <!-- LEFT: FORM -->
+    <div>
+      <div class="section-label" style="margin-top:0">Consent Identity</div>
+
+      <div class="input-group">
+        <label>Consent ID</label>
+        <div class="id-row">
+          <div class="id-display" id="consentIdDisplay">aac-a1b2c3d4-e5f6-7890</div>
+          <button class="btn-sm" onclick="regenConsentId()">↻ Regen</button>
+        </div>
+        <span class="input-hint">Auto-generated synthetic UUID — format: aac-{8hex}-{4hex}-{4hex}</span>
+      </div>
+
+      <div class="input-group">
+        <label>Standard</label>
+        <div class="radio-group" id="rg-standard">
+          <label class="radio-pill selected"><input type="radio" name="ob-standard" value="UK_OBIE" checked> UK OBIE v3.1</label>
+          <label class="radio-pill"><input type="radio" name="ob-standard" value="EU_PSD3"> EU PSD3 / Berlin Group</label>
+          <label class="radio-pill"><input type="radio" name="ob-standard" value="US_FDX"> US CFPB 1033 / FDX</label>
+        </div>
+      </div>
+
+      <div class="section-label">Parties</div>
+      <div class="form-row">
+        <div class="input-group">
+          <label>TPP / AISP / PISP Name</label>
+          <input type="text" id="tppName" value="FinTechApp Ltd" placeholder="Third Party Provider">
+        </div>
+        <div class="input-group">
+          <label>ASPSP / Data Holder</label>
+          <input type="text" id="aspspName" value="Acme Bank" placeholder="Bank / ASPSP name">
+        </div>
+      </div>
+
+      <div class="section-label">Consent Parameters</div>
+      <div class="input-group">
+        <label>Consent Type</label>
+        <select id="consentType" onchange="updateScopeList()">
+          <option value="AIS">AIS — Account Information Services</option>
+          <option value="PIS">PIS — Payment Initiation Services</option>
+          <option value="CBPII">CBPII — Card-Based Payment Instrument Issuer</option>
+          <option value="VRP">VRP — Variable Recurring Payments</option>
+        </select>
+      </div>
+
+      <div class="input-group">
+        <label>Permissions / Scopes <span style="font-size:.65rem;color:var(--muted)">(select all that apply)</span></label>
+        <div class="scope-grid" id="scopeGrid"></div>
+      </div>
+
+      <div class="input-group">
+        <label>Status</label>
+        <select id="consentStatus">
+          <option value="AwaitingAuthorisation">AwaitingAuthorisation</option>
+          <option value="Authorised" selected>Authorised</option>
+          <option value="Consumed">Consumed</option>
+          <option value="Rejected">Rejected</option>
+          <option value="Revoked">Revoked</option>
+        </select>
+      </div>
+
+      <div class="section-label">Dates &amp; Duration</div>
+      <div class="form-row">
+        <div class="input-group">
+          <label>Creation DateTime</label>
+          <input type="datetime-local" id="creationDt">
+        </div>
+        <div class="input-group">
+          <label>Expiration DateTime</label>
+          <input type="datetime-local" id="expirationDt">
+        </div>
+      </div>
+
+      <div id="txnDateRow">
+        <div class="form-row">
+          <div class="input-group">
+            <label>Transaction From Date</label>
+            <input type="datetime-local" id="txnFromDt">
+          </div>
+          <div class="input-group">
+            <label>Transaction To Date</label>
+            <input type="datetime-local" id="txnToDt">
+          </div>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label>Risk Level (auto-calculated)</label>
+        <div class="risk-badge-wrap" id="riskBadgeWrap">
+          <span class="risk-badge low" id="riskBadge">LOW</span>
+          <span class="risk-reason" id="riskReason">AIS-only, standard duration, no PIS/VRP scopes</span>
+        </div>
+      </div>
+
+      <div class="privacy-notice">
+        <div class="priv-dot"></div>
+        No data leaves your browser. Tab close = data gone.
+      </div>
+
+      <div class="btn-row" style="margin-top:1.5rem">
+        <button class="btn-primary" onclick="generateReceipt()">▶ Generate Consent Receipt</button>
+        <button class="btn-secondary" onclick="loadSample()">Load Sample</button>
+      </div>
+    </div>
+
+    <!-- RIGHT: OUTPUT -->
+    <div id="builderOutput">
+      <div class="empty-state">
+        <div class="empty-icon">📋</div>
+        <div class="empty-title">No receipt generated yet</div>
+        <div class="empty-sub">Configure the consent parameters on the left and click <strong>Generate Consent Receipt</strong> to produce the machine-readable artifact.</div>
+      </div>
+    </div>
+    </div>
+  </div><!-- /tab-builder -->
+
+  <!-- ══════════════════════════════════
+       TAB 2 — VALIDATOR
+  ══════════════════════════════════ -->
+  <div id="tab-validator" style="display:none">
+    <div style="max-width:860px">
+      <div class="section-label" style="margin-top:0">Consent Receipt Validation</div>
+      <p style="font-size:.82rem;color:var(--body);margin-bottom:1.25rem;line-height:1.75">Paste any consent receipt JSON below and select the target standard to validate it against schema rules, required field checks, date format verification, and permission enum validation.</p>
+
+      <div class="input-group">
+        <label>Target Standard</label>
+        <div class="radio-group" id="rg-val-standard">
+          <label class="radio-pill selected"><input type="radio" name="val-standard" value="UK_OBIE" checked> UK OBIE v3.1</label>
+          <label class="radio-pill"><input type="radio" name="val-standard" value="EU_PSD3"> EU PSD3 / Berlin Group</label>
+          <label class="radio-pill"><input type="radio" name="val-standard" value="US_FDX"> US CFPB 1033 / FDX</label>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label>Paste Consent Receipt JSON</label>
+        <textarea id="validatorInput" rows="14" placeholder='Paste consent receipt JSON here, e.g.:
+{
+  "Data": {
+    "ConsentId": "aac-1a2b3c4d-5e6f-7890",
+    "CreationDateTime": "2026-01-12T10:30:00Z",
+    "Status": "Authorised",
+    "Permissions": ["ReadAccountsDetail","ReadBalances"],
+    "ExpirationDateTime": "2026-04-12T00:00:00Z"
+  },
+  "Risk": {},
+  "Links": { "Self": "https://api.example.com/open-banking/v3.1/aisp/account-access-consents/aac-1a2b3c4d-5e6f-7890" },
+  "Meta": {}
+}'></textarea>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-primary" onclick="validateReceipt()">▶ Validate Consent Receipt</button>
+        <button class="btn-secondary" onclick="loadValidatorSample()">Load Sample JSON</button>
+        <button class="btn-secondary" onclick="clearValidator()">Clear</button>
+      </div>
+
+      <div class="privacy-notice" style="margin-bottom:1.5rem">
+        <div class="priv-dot"></div>
+        Validation is entirely in-browser. No JSON is transmitted anywhere.
+      </div>
+
+      <div id="validatorOutput" style="margin-top:1.5rem"></div>
+    </div>
+  </div><!-- /tab-validator -->
+
+  <!-- ══════════════════════════════════
+       TAB 3 — STANDARD REFERENCE
+  ══════════════════════════════════ -->
+  <div id="tab-reference" style="display:none">
+    <div class="section-label" style="margin-top:0">Consent Object Schema Reference</div>
+    <p style="font-size:.82rem;color:var(--body);margin-bottom:1.5rem;line-height:1.75">Field-by-field reference for the consent receipt object across UK OBIE v3.1, EU PSD3 / Berlin Group NextGenPSD2, and US CFPB 1033 / FDX. R = Required, O = Optional, N/A = Not applicable in this standard.</p>
+
+    <div style="overflow-x:auto;margin-bottom:2rem">
+    <table class="ref-table">
+      <thead>
+        <tr>
+          <th>Field</th><th>JSON Path</th><th>Type</th>
+          <th>UK OBIE</th><th>EU PSD3</th><th>US FDX</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody id="refTableBody"></tbody>
+    </table>
+    </div>
+
+    <div class="section-label">Permissions / Scopes Cross-Reference</div>
+    <p style="font-size:.82rem;color:var(--body);margin-bottom:1.25rem;line-height:1.75">Mapping of data access permissions across the three standards. UK OBIE uses <code style="font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--teal)">Read*</code> codes; EU PSD3 uses functional categories; FDX uses colon-delimited resource paths.</p>
+    <div style="overflow-x:auto;margin-bottom:2rem">
+    <table class="ref-table">
+      <thead>
+        <tr><th>Data Category</th><th>UK OBIE Permission</th><th>EU PSD3 / Berlin Group</th><th>US FDX Scope</th><th>Max Duration</th></tr>
+      </thead>
+      <tbody id="scopeRefBody"></tbody>
+    </table>
+    </div>
+
+    <div class="section-label">Status State Machine</div>
+    <div class="comp-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">
+      <div class="info-card"><span class="info-card-label">AwaitingAuthorisation</span><div class="info-card-val" style="color:var(--warn)">Pending</div><span class="info-card-sub">Consent created, PSU not yet authenticated</span></div>
+      <div class="info-card"><span class="info-card-label">Authorised</span><div class="info-card-val" style="color:var(--green)">Active</div><span class="info-card-sub">SCA completed; TPP may access data</span></div>
+      <div class="info-card"><span class="info-card-label">Consumed</span><div class="info-card-val" style="color:var(--teal)">Used</div><span class="info-card-sub">PIS/CBPII single-use consent used</span></div>
+      <div class="info-card"><span class="info-card-label">Rejected</span><div class="info-card-val" style="color:var(--red)">Declined</div><span class="info-card-sub">PSU declined or ASPSP rejected</span></div>
+      <div class="info-card"><span class="info-card-label">Revoked</span><div class="info-card-val" style="color:var(--muted)">Revoked</div><span class="info-card-sub">PSU or ASPSP revoked after authorisation</span></div>
+    </div>
+
+    <div class="collapsible-section">
+      <button class="coll-trigger" onclick="toggleColl(this)">
+        <span class="coll-lbl">Related Tools</span>
+        <span class="coll-icon">▾</span>
+      </button>
+      <div class="coll-body">
+        <div class="comp-grid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">
+          <div class="info-card link-card"><span class="info-card-label">Tool 92</span><div class="info-card-val">SCA Exemption Mapper</div><span class="info-card-sub">Map SCA exemptions within consent flows</span></div>
+          <div class="info-card link-card"><span class="info-card-label">Tool 17</span><div class="info-card-val">ISO 20022 Validator</div><span class="info-card-sub">Validate payment messages in consent-initiated payments</span></div>
+          <div class="info-card link-card"><span class="info-card-label">Tool 20</span><div class="info-card-val">VRP Mandate Builder</div><span class="info-card-sub">Build VRP mandates that reference OBIE consent IDs</span></div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /tab-reference -->
+
+</div></div><!-- /container /tool-section -->
+
+<!-- FOOTER -->
+
+<!-- MANIFEST SECTION -->
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ════════════════════════════════════════════════════
+   DATA — SCOPES PER STANDARD & CONSENT TYPE
+════════════════════════════════════════════════════ */
+const SCOPES = {
+  UK_OBIE: {
+    AIS: [
+      { id:'ReadAccountsBasic',           label:'ReadAccountsBasic',           desc:'Basic account identifiers and names' },
+      { id:'ReadAccountsDetail',          label:'ReadAccountsDetail',           desc:'Full account detail including currency, servicer' },
+      { id:'ReadBalances',                label:'ReadBalances',                 desc:'Current and available balances' },
+      { id:'ReadTransactionsBasic',       label:'ReadTransactionsBasic',        desc:'Transaction list (basic fields only)' },
+      { id:'ReadTransactionsCredits',     label:'ReadTransactionsCredits',      desc:'Credit transactions' },
+      { id:'ReadTransactionsDebits',      label:'ReadTransactionsDebits',       desc:'Debit transactions' },
+      { id:'ReadTransactionsDetail',      label:'ReadTransactionsDetail ⚠',    desc:'Deprecated in v3.1.10 — use Credits+Debits' },
+      { id:'ReadStandingOrdersBasic',     label:'ReadStandingOrdersBasic',      desc:'Standing order list (basic)' },
+      { id:'ReadStandingOrdersDetail',    label:'ReadStandingOrdersDetail',     desc:'Standing order detail' },
+      { id:'ReadScheduledPaymentsBasic',  label:'ReadScheduledPaymentsBasic',   desc:'Scheduled payment list (basic)' },
+      { id:'ReadScheduledPaymentsDetail', label:'ReadScheduledPaymentsDetail',  desc:'Scheduled payment detail' },
+      { id:'ReadDirectDebits',            label:'ReadDirectDebits',             desc:'Active direct debit mandates' },
+      { id:'ReadBeneficiariesBasic',      label:'ReadBeneficiariesBasic',       desc:'Trusted payees (basic)' },
+      { id:'ReadBeneficiariesDetail',     label:'ReadBeneficiariesDetail',      desc:'Trusted payees (full)' },
+      { id:'ReadOffers',                  label:'ReadOffers',                   desc:'Product/promotional offers' },
+      { id:'ReadParty',                   label:'ReadParty',                    desc:'Account owner identity' },
+      { id:'ReadPartyPSU',                label:'ReadPartyPSU',                 desc:'PSU-level party information' },
+      { id:'ReadProducts',                label:'ReadProducts',                 desc:'Product and fee information' },
+      { id:'ReadStatements',              label:'ReadStatements',               desc:'Statement list' },
+      { id:'ReadStatementsDetail',        label:'ReadStatementsDetail',         desc:'Statement with transaction detail' },
+    ],
+    PIS: [
+      { id:'payments',                    label:'payments',                     desc:'Initiate domestic/international payments' },
+      { id:'fundsConfirmations',          label:'fundsConfirmations',           desc:'Confirm funds available before payment' },
+    ],
+    CBPII: [
+      { id:'ReadFundsConfirmation',       label:'ReadFundsConfirmation',        desc:'Card-based payment instrument funds check' },
+    ],
+    VRP: [
+      { id:'ReadAccountsBasic',           label:'ReadAccountsBasic',            desc:'Required for VRP mandate' },
+      { id:'ReadBalances',                label:'ReadBalances',                  desc:'Balance check for sweep logic' },
+      { id:'vrp:sweeping',                label:'vrp:sweeping',                  desc:'Me-to-me sweeping VRP' },
+      { id:'vrp:commercial',              label:'vrp:commercial',                desc:'Me-to-business commercial VRP' },
+    ],
+  },
+  EU_PSD3: {
+    AIS: [
+      { id:'payment_accounts',            label:'payment_accounts',              desc:'Account list and details' },
+      { id:'account_balance',             label:'account_balance',               desc:'Balance information' },
+      { id:'account_transactions',        label:'account_transactions',          desc:'Transaction history' },
+      { id:'account_statements',          label:'account_statements',            desc:'Account statements' },
+      { id:'payment_instruments',         label:'payment_instruments',           desc:'Standing orders and direct debits' },
+      { id:'payment_account_owner',       label:'payment_account_owner',         desc:'Account holder identity (KYC)' },
+    ],
+    PIS: [
+      { id:'payment_initiation',          label:'payment_initiation',            desc:'Single immediate payment' },
+      { id:'bulk_payment_initiation',     label:'bulk_payment_initiation',       desc:'Batch / bulk payment' },
+      { id:'periodic_payment_initiation', label:'periodic_payment_initiation',   desc:'Standing order initiation' },
+    ],
+    CBPII: [
+      { id:'confirmation_of_funds',       label:'confirmation_of_funds',         desc:'Funds availability check for CBPII' },
+    ],
+    VRP: [
+      { id:'variable_recurring_payments', label:'variable_recurring_payments',   desc:'VRP mandate (EU equivalent)' },
+    ],
+  },
+  US_FDX: {
+    AIS: [
+      { id:'accounts:read',                         label:'accounts:read',                       desc:'Account list and identifiers' },
+      { id:'accounts:balance:read',                 label:'accounts:balance:read',               desc:'Account balances' },
+      { id:'accounts:transactions:read',            label:'accounts:transactions:read',          desc:'Transaction history' },
+      { id:'accounts:statements:read',              label:'accounts:statements:read',            desc:'Account statements' },
+      { id:'accounts:payment-contacts:read',        label:'accounts:payment-contacts:read',      desc:'Trusted payees / beneficiaries' },
+      { id:'accounts:recurring-liabilities:read',   label:'accounts:recurring-liabilities:read', desc:'Direct debits and standing orders' },
+      { id:'customers:read',                        label:'customers:read',                      desc:'Customer identity data' },
+      { id:'products:read',                         label:'products:read',                       desc:'Account product information' },
+    ],
+    PIS: [
+      { id:'payments:write',                        label:'payments:write',                      desc:'Initiate payment transfers' },
+      { id:'payment-networks:read',                 label:'payment-networks:read',               desc:'Payment network information' },
+    ],
+    CBPII: [
+      { id:'accounts:balance:read',                 label:'accounts:balance:read',               desc:'Balance check for card-based instruments' },
+    ],
+    VRP: [
+      { id:'accounts:read',                         label:'accounts:read',                       desc:'Account access for VRP' },
+      { id:'payments:write',                        label:'payments:write',                      desc:'VRP payment initiation' },
+      { id:'payment-networks:read',                 label:'payment-networks:read',               desc:'VRP network routing' },
+    ],
+  },
+};
+
+/* ════════════════════════════════════════════════════
+   DATA — VALIDATION SCHEMAS
+════════════════════════════════════════════════════ */
+const SCHEMA = {
+  UK_OBIE: {
+    required: ['Data','Data.ConsentId','Data.CreationDateTime','Data.Status','Data.Permissions'],
+    recommended: ['Data.ExpirationDateTime','Risk','Links','Links.Self','Meta'],
+    validStatus: ['AwaitingAuthorisation','Authorised','Consumed','Rejected','Revoked'],
+    validPermissions: ['ReadAccountsBasic','ReadAccountsDetail','ReadBalances','ReadTransactionsBasic',
+      'ReadTransactionsCredits','ReadTransactionsDebits','ReadTransactionsDetail','ReadStandingOrdersBasic',
+      'ReadStandingOrdersDetail','ReadScheduledPaymentsBasic','ReadScheduledPaymentsDetail','ReadDirectDebits',
+      'ReadBeneficiariesBasic','ReadBeneficiariesDetail','ReadOffers','ReadParty','ReadPartyPSU',
+      'ReadProducts','ReadStatements','ReadStatementsBasic','ReadStatementsDetail','ReadFundsConfirmation',
+      'payments','fundsConfirmations','vrp:sweeping','vrp:commercial'],
+    deprecated: ['ReadTransactionsDetail'],
+    dateFields: ['Data.CreationDateTime','Data.StatusUpdateDateTime','Data.ExpirationDateTime','Data.TransactionFromDateTime','Data.TransactionToDateTime'],
+    maxDurationDays: 90,
+    label: 'UK Open Banking v3.1',
+  },
+  EU_PSD3: {
+    required: ['consentId','consentStatus','access','validUntil','frequencyPerDay'],
+    recommended: ['lastActionDate','links'],
+    validStatus: ['received','rejected','valid','expired','terminatedByTpp','revokedByPsu','partiallyAuthorised'],
+    validPermissions: ['payment_accounts','account_balance','account_transactions','account_statements','payment_instruments','payment_account_owner','payment_initiation','bulk_payment_initiation','periodic_payment_initiation','confirmation_of_funds','variable_recurring_payments'],
+    deprecated: [],
+    dateFields: ['validUntil','lastActionDate'],
+    maxDurationDays: 90,
+    label: 'EU PSD3 / Berlin Group NextGenPSD2',
+  },
+  US_FDX: {
+    required: ['consentId','status','resources','expirationDateTime','issuedAt'],
+    recommended: ['updatedAt','dataClusters','purposeStatement'],
+    validStatus: ['PENDING','ACTIVE','EXPIRED','REVOKED','REJECTED'],
+    validPermissions: ['accounts:read','accounts:balance:read','accounts:transactions:read','accounts:statements:read','accounts:payment-contacts:read','accounts:recurring-liabilities:read','customers:read','products:read','payments:write','payment-networks:read'],
+    deprecated: [],
+    dateFields: ['expirationDateTime','issuedAt','updatedAt'],
+    maxDurationDays: 365,
+    label: 'US CFPB 1033 / FDX',
+  },
+};
+
+/* ════════════════════════════════════════════════════
+   DATA — SCHEMA REFERENCE TABLE
+════════════════════════════════════════════════════ */
+const REF_FIELDS = [
+  { field:'Consent ID',             path:'Data.ConsentId / consentId',   type:'String',   obie:'R', psd3:'R', fdx:'R',   note:'System-generated; synthetic format: aac-{uuid}' },
+  { field:'Creation DateTime',      path:'Data.CreationDateTime / issuedAt', type:'ISO 8601', obie:'R', psd3:'R', fdx:'R', note:'UTC timestamp at moment of creation' },
+  { field:'Status',                 path:'Data.Status / consentStatus',  type:'Enum',     obie:'R', psd3:'R', fdx:'R',   note:'See state machine below' },
+  { field:'Status Update DateTime', path:'Data.StatusUpdateDateTime',    type:'ISO 8601', obie:'O', psd3:'O', fdx:'O',   note:'Last status change timestamp' },
+  { field:'Permissions / Access',   path:'Data.Permissions / access',   type:'Enum[]',   obie:'R', psd3:'R', fdx:'R',   note:'Array of permission codes' },
+  { field:'Expiration DateTime',    path:'Data.ExpirationDateTime / validUntil / expirationDateTime', type:'ISO 8601', obie:'R', psd3:'R', fdx:'R', note:'Max 90 days for AIS (OBIE/PSD3); 365 days (FDX)' },
+  { field:'Transaction From Date',  path:'Data.TransactionFromDateTime', type:'ISO 8601', obie:'O', psd3:'N/A', fdx:'O', note:'Start of accessible transaction history' },
+  { field:'Transaction To Date',    path:'Data.TransactionToDateTime',   type:'ISO 8601', obie:'O', psd3:'N/A', fdx:'O', note:'End of accessible transaction history' },
+  { field:'Risk Object',            path:'Risk',                          type:'Object',   obie:'R', psd3:'N/A', fdx:'N/A', note:'May be empty {}; required in OBIE schema' },
+  { field:'Self Link',              path:'Links.Self',                    type:'URI',      obie:'R', psd3:'O', fdx:'O',   note:'Canonical URL for this consent resource' },
+  { field:'Meta / TotalPages',      path:'Meta',                          type:'Object',   obie:'O', psd3:'N/A', fdx:'N/A', note:'Pagination metadata' },
+  { field:'TPP / Client ID',        path:'tppId / clientId',              type:'String',   obie:'O', psd3:'R', fdx:'R',   note:'PSD3 and FDX require TPP/client identification' },
+  { field:'Frequency Per Day',      path:'frequencyPerDay',               type:'Integer',  obie:'N/A', psd3:'R', fdx:'N/A', note:'Berlin Group: max API calls per day; min 4' },
+  { field:'Purpose Statement',      path:'purposeStatement / purposeDescription', type:'String', obie:'N/A', psd3:'O', fdx:'O', note:'FDX requires for enhanced consent transparency' },
+  { field:'Data Cluster Labels',    path:'dataClusters',                  type:'String[]', obie:'N/A', psd3:'N/A', fdx:'O', note:'FDX human-readable data cluster descriptions' },
+  { field:'Shared With',            path:'sharedWith',                    type:'Object',   obie:'N/A', psd3:'N/A', fdx:'O', note:'FDX: downstream data sharing disclosures' },
+];
+
+const SCOPE_REF = [
+  { cat:'Account Information',       obie:'ReadAccountsDetail',                psd3:'payment_accounts',      fdx:'accounts:read',                dur:'90 days (OBIE/PSD3) · 365 days (FDX)' },
+  { cat:'Account Balances',          obie:'ReadBalances',                       psd3:'account_balance',       fdx:'accounts:balance:read',        dur:'Same as AIS consent' },
+  { cat:'Transaction History',       obie:'ReadTransactionsCredits + Debits',   psd3:'account_transactions',  fdx:'accounts:transactions:read',   dur:'Up to 7 years (UK); 12 months default (FDX)' },
+  { cat:'Account Statements',        obie:'ReadStatementsDetail',               psd3:'account_statements',    fdx:'accounts:statements:read',     dur:'Same as AIS consent' },
+  { cat:'Standing Orders',           obie:'ReadStandingOrdersDetail',           psd3:'payment_instruments',   fdx:'payment-networks:read',        dur:'Same as AIS consent' },
+  { cat:'Direct Debits',             obie:'ReadDirectDebits',                   psd3:'payment_instruments',   fdx:'accounts:recurring-liabilities:read', dur:'Same as AIS consent' },
+  { cat:'Beneficiaries / Payees',    obie:'ReadBeneficiariesDetail',            psd3:'— (no equivalent)',     fdx:'accounts:payment-contacts:read', dur:'Same as AIS consent' },
+  { cat:'Account Holder Identity',   obie:'ReadParty',                          psd3:'payment_account_owner', fdx:'customers:read',               dur:'Same as AIS consent' },
+  { cat:'Funds Confirmation',        obie:'ReadFundsConfirmation',              psd3:'confirmation_of_funds', fdx:'accounts:balance:read',        dur:'Specific to CBPII; separate consent' },
+  { cat:'Payment Initiation',        obie:'payments',                           psd3:'payment_initiation',    fdx:'payments:write',               dur:'Single-use (PIS); or VRP mandate duration' },
+  { cat:'Variable Recurring Payments', obie:'vrp:sweeping / vrp:commercial',   psd3:'variable_recurring_payments', fdx:'payments:write',         dur:'Up to consent expiry; max 90 days (UK)' },
+  { cat:'Product Information',       obie:'ReadProducts',                       psd3:'— (optional extension)', fdx:'products:read',               dur:'Same as AIS consent' },
+];
+
+/* ════════════════════════════════════════════════════
+   TAB SWITCHING
+════════════════════════════════════════════════════ */
+function switchTab(id) {
+  document.querySelectorAll('.tab-content, #tab-builder, #tab-validator, #tab-reference').forEach(el => {
+    if (el.id && el.id.startsWith('tab-')) el.style.display = 'none';
+  });
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).style.display = 'block';
+  document.getElementById('btn-' + id).classList.add('active');
+}
+
+function switchInnerTab(id, context) {
+  document.querySelectorAll('.' + context + '-inner').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.' + context + '-inner-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).style.display = 'block';
+  document.getElementById('btn-' + id).classList.add('active');
+}
+
+/* ════════════════════════════════════════════════════
+   RADIO PILLS
+════════════════════════════════════════════════════ */
+document.querySelectorAll('.radio-group').forEach(grp => {
+  grp.querySelectorAll('.radio-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      const name = pill.querySelector('input').name;
+      document.querySelectorAll(`input[name="${name}"]`).forEach(inp => inp.closest('.radio-pill').classList.remove('selected'));
+      pill.classList.add('selected');
+      if (name === 'ob-standard') updateScopeList();
+    });
+  });
+});
+
+function getRadioVal(name) {
+  const el = document.querySelector(`input[name="${name}"]:checked`);
+  return el ? el.value : null;
+}
+
+/* ════════════════════════════════════════════════════
+   COLLAPSIBLE
+════════════════════════════════════════════════════ */
+function toggleColl(trigger) {
+  trigger.classList.toggle('open');
+  trigger.nextElementSibling.classList.toggle('open');
+}
+
+/* ════════════════════════════════════════════════════
+   CONSENT ID GENERATION
+════════════════════════════════════════════════════ */
+function genConsentId() {
+  const hex = () => Array.from(crypto.getRandomValues(new Uint8Array(4))).map(b => b.toString(16).padStart(2,'0')).join('');
+  const h2 = () => Array.from(crypto.getRandomValues(new Uint8Array(2))).map(b => b.toString(16).padStart(2,'0')).join('');
+  return `aac-${hex()}-${h2()}-${h2()}`;
+}
+let currentConsentId = genConsentId();
+function regenConsentId() {
+  currentConsentId = genConsentId();
+  document.getElementById('consentIdDisplay').textContent = currentConsentId;
+  calcRisk();
+}
+
+/* ════════════════════════════════════════════════════
+   SCOPE LIST
+════════════════════════════════════════════════════ */
+function updateScopeList() {
+  const std = getRadioVal('ob-standard') || 'UK_OBIE';
+  const type = document.getElementById('consentType').value;
+  const grid = document.getElementById('scopeGrid');
+  const scopes = (SCOPES[std] || {})[type] || [];
+  const txnRow = document.getElementById('txnDateRow');
+  txnRow.style.display = (type === 'AIS') ? '' : 'none';
+
+  grid.innerHTML = scopes.map(s => `
+    <label class="scope-check">
+      <input type="checkbox" class="scope-checkbox" value="${s.id}" ${['ReadAccountsDetail','ReadBalances','ReadTransactionsCredits','ReadTransactionsDebits','payment_accounts','account_balance','account_transactions','accounts:read','accounts:balance:read','accounts:transactions:read'].includes(s.id) ? 'checked' : ''} onchange="calcRisk()">
+      <span class="scope-lbl">${s.label}<span class="scope-desc">${s.desc}</span></span>
+    </label>`).join('');
+  calcRisk();
+}
+updateScopeList();
+
+/* ════════════════════════════════════════════════════
+   RISK CALCULATION
+════════════════════════════════════════════════════ */
+function calcRisk() {
+  const checked = [...document.querySelectorAll('.scope-checkbox:checked')].map(el => el.value);
+  const type = document.getElementById('consentType').value;
+  const expDt = document.getElementById('expirationDt').value;
+  const creDt = document.getElementById('creationDt').value;
+
+  let score = 0;
+  let reasons = [];
+
+  if (type === 'PIS') { score += 2; reasons.push('PIS — payment initiation capability'); }
+  if (type === 'VRP') { score += 2; reasons.push('VRP — recurring payment mandate'); }
+  if (type === 'CBPII') { score += 1; reasons.push('CBPII — payment instrument access'); }
+  if (checked.some(s => s.includes('party') || s.includes('Party') || s.includes('customer') || s.includes('owner'))) { score += 1; reasons.push('identity data access'); }
+  if (checked.some(s => s.includes('write') || s.includes('payments'))) { score += 1; reasons.push('write/payment scopes'); }
+
+  if (expDt && creDt) {
+    const days = (new Date(expDt) - new Date(creDt)) / 86400000;
+    if (days > 90) { score += 2; reasons.push(`long duration (${Math.round(days)} days)`); }
+    else if (days > 30) { score += 1; reasons.push(`extended duration (${Math.round(days)} days)`); }
+  }
+
+  let level = 'LOW', cls = 'low';
+  if (score >= 4) { level = 'HIGH'; cls = 'high'; }
+  else if (score >= 2) { level = 'MEDIUM'; cls = 'medium'; }
+
+  document.getElementById('riskBadge').textContent = level;
+  document.getElementById('riskBadge').className = `risk-badge ${cls}`;
+  document.getElementById('riskReason').textContent = reasons.length ? reasons.join('; ') : 'AIS-only, standard duration, no PIS/VRP scopes';
+}
+
+/* ════════════════════════════════════════════════════
+   DATE HELPERS
+════════════════════════════════════════════════════ */
+function isoNow(offsetDays = 0) {
+  const d = new Date(Date.now() + offsetDays * 86400000);
+  return d.toISOString().slice(0, 16);
+}
+function isoZ(dtLocal) {
+  if (!dtLocal) return null;
+  return new Date(dtLocal).toISOString();
+}
+function fmtReadable(dtLocal) {
+  if (!dtLocal) return '—';
+  return new Date(dtLocal).toLocaleString('en-GB', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', timeZone:'UTC' }) + ' UTC';
+}
+function daysBetween(a, b) {
+  return Math.round((new Date(b) - new Date(a)) / 86400000);
+}
+
+// Pre-fill dates
+document.getElementById('creationDt').value = isoNow(0);
+document.getElementById('expirationDt').value = isoNow(90);
+document.getElementById('txnFromDt').value = isoNow(-90);
+document.getElementById('txnToDt').value = isoNow(0);
+
+/* ════════════════════════════════════════════════════
+   GENERATE RECEIPT
+════════════════════════════════════════════════════ */
+function generateReceipt() {
+  const std = getRadioVal('ob-standard') || 'UK_OBIE';
+  const type = document.getElementById('consentType').value;
+  const status = document.getElementById('consentStatus').value;
+  const tpp = document.getElementById('tppName').value || 'FinTechApp Ltd';
+  const aspsp = document.getElementById('aspspName').value || 'Acme Bank';
+  const creationDt = document.getElementById('creationDt').value;
+  const expirationDt = document.getElementById('expirationDt').value;
+  const txnFrom = document.getElementById('txnFromDt').value;
+  const txnTo = document.getElementById('txnToDt').value;
+
+  const selectedScopes = [...document.querySelectorAll('.scope-checkbox:checked')].map(el => el.value);
+  if (!selectedScopes.length) { alert('Please select at least one permission / scope.'); return; }
+
+  const createdZ = isoZ(creationDt) || new Date().toISOString();
+  const expiredZ = isoZ(expirationDt);
+  const txnFromZ = isoZ(txnFrom);
+  const txnToZ = isoZ(txnTo);
+  const durationDays = expiredZ ? daysBetween(createdZ, expiredZ) : '—';
+
+  let json, humanReadable, auditTrail;
+
+  if (std === 'UK_OBIE') {
+    const obj = {
+      Data: {
+        ConsentId: currentConsentId,
+        CreationDateTime: createdZ,
+        Status: status,
+        StatusUpdateDateTime: createdZ,
+        Permissions: selectedScopes,
+        ...(expiredZ && { ExpirationDateTime: expiredZ }),
+        ...(type === 'AIS' && txnFromZ && { TransactionFromDateTime: txnFromZ }),
+        ...(type === 'AIS' && txnToZ && { TransactionToDateTime: txnToZ }),
+      },
+      Risk: {},
+      Links: { Self: `https://api.example-aspsp.com/open-banking/v3.1/aisp/account-access-consents/${currentConsentId}` },
+      Meta: { TotalPages: 1, FirstAvailableDateTime: txnFromZ || createdZ },
+      _meta: { tpp, aspsp, standard: 'UK OBIE v3.1', generatedBy: 'AINumbers.co Tool 96' },
+    };
+    json = JSON.stringify(obj, null, 2);
+  } else if (std === 'EU_PSD3') {
+    const obj = {
+      consentId: currentConsentId,
+      consentStatus: status === 'Authorised' ? 'valid' : status === 'Revoked' ? 'revokedByPsu' : status === 'Rejected' ? 'rejected' : 'received',
+      access: { permissions: selectedScopes },
+      validUntil: expiredZ ? expiredZ.slice(0,10) : null,
+      frequencyPerDay: 4,
+      recurringIndicator: type === 'AIS',
+      lastActionDate: new Date().toISOString().slice(0,10),
+      links: { self: { href: `https://api.example-aspsp.com/v1/consents/${currentConsentId}` } },
+      _meta: { tpp, aspsp, standard: 'EU PSD3 / Berlin Group NextGenPSD2', generatedBy: 'AINumbers.co Tool 96' },
+    };
+    json = JSON.stringify(obj, null, 2);
+  } else {
+    const obj = {
+      consentId: currentConsentId,
+      status: status === 'Authorised' ? 'ACTIVE' : status === 'Revoked' ? 'REVOKED' : status === 'Rejected' ? 'REJECTED' : 'PENDING',
+      resources: selectedScopes.map(s => ({ resourceType: s.split(':')[0], dataClusters: [s] })),
+      expirationDateTime: expiredZ,
+      issuedAt: createdZ,
+      updatedAt: createdZ,
+      purposeStatement: `${type} access granted to ${tpp} by ${aspsp} customer`,
+      dataClusters: [...new Set(selectedScopes.map(s => s.split(':')[0]))],
+      _meta: { tpp, aspsp, standard: 'US CFPB 1033 / FDX v5.2', generatedBy: 'AINumbers.co Tool 96' },
+    };
+    json = JSON.stringify(obj, null, 2);
+  }
+
+  // ── Human Readable ──
+  const riskLevel = document.getElementById('riskBadge').textContent;
+  const riskReason = document.getElementById('riskReason').textContent;
+  const stdLabels = { UK_OBIE: 'UK Open Banking v3.1 (OBIE)', EU_PSD3: 'EU PSD3 / Berlin Group NextGenPSD2', US_FDX: 'US CFPB 1033 / FDX v5.2' };
+  const statusIcon = { Authorised:'✓', AwaitingAuthorisation:'…', Consumed:'↪', Rejected:'✗', Revoked:'⊘' }[status] || '';
+  const scopeList = selectedScopes.map(s => `  ${s}`).join('\n');
+  const warn90 = durationDays > 90 ? `\n  ⚠ Duration (${durationDays} days) exceeds the standard 90-day AIS re-authentication window.` : '';
+  const warnDeprecated = selectedScopes.includes('ReadTransactionsDetail') ? '\n  ⚠ ReadTransactionsDetail is deprecated in OBIE v3.1.10. Use ReadTransactionsCredits + ReadTransactionsDebits.' : '';
+
+  humanReadable = `OPEN BANKING CONSENT RECEIPT
+${'═'.repeat(50)}
+Consent ID:    ${currentConsentId}
+Standard:      ${stdLabels[std]}
+Status:        ${status.toUpperCase()} ${statusIcon}
+
+PARTIES
+  Data Holder (ASPSP):  ${aspsp}
+  Third Party (TPP):    ${tpp}
+  Consent Type:         ${type}
+
+ACCESS GRANTED
+${scopeList}
+
+DURATION
+  Created:   ${fmtReadable(creationDt)}
+  Expires:   ${expiredZ ? fmtReadable(expirationDt) : '— (no expiry set)'}
+  Duration:  ${typeof durationDays === 'number' ? durationDays + ' days' : '—'}
+${type === 'AIS' && txnFromZ ? `
+TRANSACTIONS ACCESSIBLE
+  From:  ${fmtReadable(txnFrom)}
+  To:    ${fmtReadable(txnTo)}` : ''}
+
+RISK ASSESSMENT
+  Risk Level: ${riskLevel}
+  Reason: ${riskReason}
+
+COMPLIANCE NOTES${warn90}${warnDeprecated}
+  ${durationDays <= 90 ? '✓ Duration within 90-day SCA re-authentication window.' : ''}
+  ${selectedScopes.length > 10 ? '⚠ Large permission set — consider minimum necessary scopes (data minimisation).' : '✓ Permission scope appears proportionate.'}
+  ${type === 'PIS' || type === 'VRP' ? '⚠ Payment initiation consent — ensure ASPSP has verified SCA before activation.' : '✓ AIS/CBPII consent — read-only access.'}
+${'═'.repeat(50)}
+Generated by AINumbers.co Tool 96 — Zero PII
+${new Date().toISOString()}`;
+
+  // ── Audit Trail ──
+  const now = new Date().toISOString();
+  const authTime = new Date(Date.now() + 60000).toISOString();
+  auditTrail = [
+    { ts: now, event: 'RECEIPT GENERATED', detail: `via AINumbers.co Tool 96 (synthetic / illustrative)`, color: 'var(--teal)' },
+    { ts: new Date(creationDt).toISOString(), event: 'CONSENT CREATED', detail: `Status → ${status} · Standard: ${stdLabels[std]}`, color: status === 'Authorised' ? 'var(--green)' : status === 'Rejected' ? 'var(--red)' : 'var(--warn)' },
+    ...(status === 'Authorised' ? [{ ts: authTime, event: 'STATUS → Authorised', detail: 'SCA completed · PSU authenticated via redirect flow', color: 'var(--green)' }] : []),
+    { ts: createdZ, event: 'CONSENT REQUEST RECEIVED', detail: `${type} consent from ${tpp} → ${aspsp}`, color: 'var(--muted)' },
+    ...(expiredZ ? [{ ts: expiredZ, event: 'CONSENT EXPIRES', detail: `At expiry, TPP must re-authenticate PSU to continue access`, color: 'var(--gold)' }] : []),
+  ].sort((a, b) => new Date(b.ts) - new Date(a.ts));
+
+  // ── Render output ──
+  window._generatedJson = json;
+  window._generatedHuman = humanReadable;
+
+  document.getElementById('builderOutput').innerHTML = `
+    <div style="margin-bottom:1rem">
+      <div class="result-status-bar valid">
+        <div class="status-dot valid"></div>
+        <span class="status-text">Consent Receipt Generated — ${stdLabels[std]}</span>
+        <span class="status-sub">${currentConsentId} · ${type} · ${status}</span>
+      </div>
+    </div>
+
+    <div class="inner-tab-bar">
+      <button class="inner-tab-btn active" id="btn-it-json" onclick="switchInnerTab('it-json','it')">JSON</button>
+      <button class="inner-tab-btn" id="btn-it-human" onclick="switchInnerTab('it-human','it')">Human-Readable</button>
+      <button class="inner-tab-btn" id="btn-it-audit" onclick="switchInnerTab('it-audit','it')">Audit Trail</button>
+    </div>
+
+    <!-- JSON -->
+    <div class="inner-tab-content it-inner" id="it-json" style="display:block;padding:1rem">
+      <div class="fmt-block-label">Consent Receipt JSON — ${stdLabels[std]}</div>
+      <div style="position:relative">
+        <button class="copy-btn" id="copyJsonBtn" onclick="copyText('_generatedJson','copyJsonBtn')">Copy</button>
+        <div class="fmt-block" id="jsonBlock">${syntaxJSON(json)}</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-secondary" onclick="dlJSON()">↓ Download JSON</button>
+        <button class="btn-secondary" onclick="copyAndValidate()">→ Validate This Receipt</button>
+      </div>
+    </div>
+
+    <!-- Human Readable -->
+    <div class="inner-tab-content it-inner" id="it-human" style="display:none;padding:1rem">
+      <div class="fmt-block-label">Human-Readable Consent Memo</div>
+      <div style="position:relative">
+        <button class="copy-btn" id="copyHumanBtn" onclick="copyText('_generatedHuman','copyHumanBtn')">Copy</button>
+        <div class="fmt-block" style="white-space:pre;line-height:1.8">${escapeHtml(humanReadable)}</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-secondary" onclick="dlHuman()">↓ Download Memo (.txt)</button>
+      </div>
+    </div>
+
+    <!-- Audit Trail -->
+    <div class="inner-tab-content it-inner" id="it-audit" style="display:none;padding:1rem">
+      <div class="fmt-block-label" style="margin-bottom:1rem">Consent Lifecycle Audit Trail</div>
+      <div class="audit-log">
+        ${auditTrail.map(e => `
+          <div class="audit-entry">
+            <span class="audit-ts">${e.ts.replace('T',' ').slice(0,19)} UTC</span>
+            <div class="audit-dot" style="background:${e.color}"></div>
+            <div>
+              <span class="audit-event" style="color:${e.color}">${e.event}</span>
+              <span class="audit-detail">${e.detail}</span>
+            </div>
+          </div>`).join('')}
+      </div>
+      <div class="btn-row">
+        <button class="btn-secondary" onclick="dlAudit()">↓ Download Audit Trail (.txt)</button>
+      </div>
+    </div>
+  `;
+
+  window._auditTrail = auditTrail;
+  window._stdLabel = stdLabels[std];
+}
+
+function syntaxJSON(jsonStr) {
+  return escapeHtml(jsonStr)
+    .replace(/(&quot;[\w\-:\.]+&quot;)\s*:/g, '<span style="color:var(--gold)">$1</span>:')
+    .replace(/:\s*(&quot;[^&]*&quot;)/g, ': <span style="color:var(--teal-lt)">$1</span>')
+    .replace(/:\s*(true|false|null)/g, ': <span style="color:var(--purple)">$1</span>')
+    .replace(/:\s*(\d+\.?\d*)/g, ': <span style="color:var(--green)">$1</span>');
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function switchInnerTab(id, ctx) {
+  document.querySelectorAll(`.${ctx}-inner`).forEach(el => el.style.display = 'none');
+  document.querySelectorAll(`.${ctx}-inner-btn`).forEach(el => el.classList.remove('active'));
+  document.getElementById(id).style.display = 'block';
+  document.getElementById('btn-' + id).classList.add('active');
+}
+
+function copyText(varName, btnId) {
+  const text = window[varName];
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.textContent = 'Copied ✓';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+  });
+}
+
+function dlJSON() {
+  if (!window._generatedJson) return;
+  dl(`consent-receipt-${currentConsentId}.json`, 'application/json', window._generatedJson);
+}
+function dlHuman() {
+  if (!window._generatedHuman) return;
+  dl(`consent-receipt-${currentConsentId}.txt`, 'text/plain', window._generatedHuman);
+}
+function dlAudit() {
+  if (!window._auditTrail) return;
+  const lines = window._auditTrail.map(e => `${e.ts.replace('T',' ').slice(0,19)} UTC  ${e.event}  —  ${e.detail}`).join('\n');
+  dl(`consent-audit-${currentConsentId}.txt`, 'text/plain', `CONSENT AUDIT TRAIL\nID: ${currentConsentId}\n${'─'.repeat(60)}\n${lines}\n${'─'.repeat(60)}\nGenerated by AINumbers.co Tool 96`);
+}
+
+function copyAndValidate() {
+  if (!window._generatedJson) return;
+  switchTab('tab-validator');
+  document.getElementById('validatorInput').value = window._generatedJson;
+  const std = getRadioVal('ob-standard') || 'UK_OBIE';
+  const pills = document.querySelectorAll('input[name="val-standard"]');
+  pills.forEach(p => { p.closest('.radio-pill').classList.toggle('selected', p.value === std); p.checked = p.value === std; });
+  validateReceipt();
+}
+
+function dl(filename, type, content) {
+  const a = document.createElement('a');
+  a.href = 'data:' + type + ';charset=utf-8,' + encodeURIComponent(content);
+  a.download = filename;
+  a.click();
+}
+
+/* ════════════════════════════════════════════════════
+   SAMPLE LOAD
+════════════════════════════════════════════════════ */
+function loadSample() {
+  document.getElementById('tppName').value = 'FinTechApp Ltd';
+  document.getElementById('aspspName').value = 'Acme Bank';
+  document.getElementById('consentType').value = 'AIS';
+  document.getElementById('consentStatus').value = 'Authorised';
+  document.querySelector('input[name="ob-standard"][value="UK_OBIE"]').checked = true;
+  document.querySelectorAll('input[name="ob-standard"]').forEach(r => r.closest('.radio-pill').classList.toggle('selected', r.value === 'UK_OBIE'));
+  updateScopeList();
+  // Check default AIS scopes
+  setTimeout(() => {
+    ['ReadAccountsDetail','ReadBalances','ReadTransactionsCredits','ReadTransactionsDebits','ReadStandingOrdersDetail'].forEach(id => {
+      const el = document.querySelector(`.scope-checkbox[value="${id}"]`);
+      if (el) el.checked = true;
+    });
+    calcRisk();
+    generateReceipt();
+  }, 50);
+}
+
+/* ════════════════════════════════════════════════════
+   VALIDATOR
+════════════════════════════════════════════════════ */
+function loadValidatorSample() {
+  document.getElementById('validatorInput').value = JSON.stringify({
+    Data: {
+      ConsentId: 'aac-1a2b3c4d-5e6f-7890',
+      CreationDateTime: '2026-01-12T10:30:00Z',
+      Status: 'Authorised',
+      StatusUpdateDateTime: '2026-01-12T10:31:00Z',
+      Permissions: ['ReadAccountsDetail','ReadBalances','ReadTransactionsCredits','ReadTransactionsDebits'],
+      ExpirationDateTime: '2026-04-12T00:00:00Z',
+      TransactionFromDateTime: '2025-10-12T00:00:00Z',
+      TransactionToDateTime: '2026-01-12T23:59:59Z',
+    },
+    Risk: {},
+    Links: { Self: 'https://api.example-aspsp.com/open-banking/v3.1/aisp/account-access-consents/aac-1a2b3c4d-5e6f-7890' },
+    Meta: { TotalPages: 1 },
+  }, null, 2);
+}
+
+function clearValidator() {
+  document.getElementById('validatorInput').value = '';
+  document.getElementById('validatorOutput').innerHTML = '';
+}
+
+function validateReceipt() {
+  const raw = document.getElementById('validatorInput').value.trim();
+  if (!raw) { alert('Paste a consent receipt JSON first.'); return; }
+
+  let parsed;
+  try { parsed = JSON.parse(raw); }
+  catch (e) {
+    document.getElementById('validatorOutput').innerHTML = `
+      <div class="result-status-bar invalid">
+        <div class="status-dot invalid"></div>
+        <span class="status-text">Invalid JSON — cannot parse</span>
+      </div>
+      <div class="error-item"><span class="item-label">JSON Parse Error</span><span class="item-text">${e.message}</span><span class="item-fix">Ensure the input is valid JSON. Check for trailing commas, unclosed braces, or unquoted keys.</span></div>`;
+    return;
+  }
+
+  const std = getRadioVal('val-standard') || 'UK_OBIE';
+  const schema = SCHEMA[std];
+  const errors = [], warnings = [], passes = [];
+
+  // ── Required fields ──
+  schema.required.forEach(path => {
+    const val = getNestedVal(parsed, path);
+    if (val === undefined || val === null || val === '') {
+      errors.push({ path, rule: 'Required field missing', fix: `Add "${path}" to the consent receipt object per ${schema.label}.` });
+    } else {
+      passes.push({ path, note: 'Required field present' });
+    }
+  });
+
+  // ── Recommended fields ──
+  schema.recommended.forEach(path => {
+    const val = getNestedVal(parsed, path);
+    if (val === undefined || val === null) {
+      warnings.push({ path, rule: 'Recommended field absent', fix: `Consider adding "${path}" for full ${schema.label} compliance.` });
+    } else {
+      passes.push({ path, note: 'Recommended field present' });
+    }
+  });
+
+  // ── Status enum ──
+  const statusPath = std === 'UK_OBIE' ? 'Data.Status' : std === 'EU_PSD3' ? 'consentStatus' : 'status';
+  const statusVal = getNestedVal(parsed, statusPath);
+  if (statusVal && !schema.validStatus.includes(statusVal)) {
+    errors.push({ path: statusPath, rule: `Invalid status value: "${statusVal}"`, fix: `Valid values: ${schema.validStatus.join(', ')}` });
+  } else if (statusVal) {
+    passes.push({ path: statusPath, note: `Valid status: "${statusVal}"` });
+  }
+
+  // ── Permissions enum ──
+  const permPath = std === 'UK_OBIE' ? 'Data.Permissions' : std === 'EU_PSD3' ? 'access.permissions' : 'resources';
+  const perms = getNestedVal(parsed, permPath);
+  if (Array.isArray(perms) && std !== 'US_FDX') {
+    perms.forEach(p => {
+      if (schema.validPermissions.length && !schema.validPermissions.includes(p)) {
+        errors.push({ path: permPath, rule: `Unknown permission code: "${p}"`, fix: `Valid codes for ${schema.label}: ${schema.validPermissions.slice(0,5).join(', ')}…` });
+      } else {
+        passes.push({ path: `${permPath}["${p}"]`, note: 'Valid permission code' });
+        if (schema.deprecated.includes(p)) {
+          warnings.push({ path: permPath, rule: `Deprecated permission: "${p}"`, fix: `"${p}" is deprecated in ${schema.label}. See spec for replacement.` });
+        }
+      }
+    });
+    passes.push({ path: permPath, note: `${perms.length} permission(s) validated` });
+  }
+
+  // ── DateTime format ──
+  schema.dateFields.forEach(path => {
+    const val = getNestedVal(parsed, path);
+    if (!val) return;
+    if (typeof val !== 'string' || !isValidISO8601(val)) {
+      errors.push({ path, rule: `Invalid date format: "${val}"`, fix: 'DateTime must be ISO 8601 format: YYYY-MM-DDTHH:mm:ssZ' });
+    } else {
+      passes.push({ path, note: 'Valid ISO 8601 datetime' });
+    }
+  });
+
+  // ── 90-day AIS duration check ──
+  const creDt = getNestedVal(parsed, std === 'UK_OBIE' ? 'Data.CreationDateTime' : std === 'EU_PSD3' ? 'lastActionDate' : 'issuedAt');
+  const expDt = getNestedVal(parsed, std === 'UK_OBIE' ? 'Data.ExpirationDateTime' : std === 'EU_PSD3' ? 'validUntil' : 'expirationDateTime');
+  if (creDt && expDt) {
+    const days = daysBetween(creDt, expDt);
+    if (days > schema.maxDurationDays) {
+      warnings.push({ path: 'ExpirationDateTime', rule: `Duration of ${days} days exceeds recommended maximum of ${schema.maxDurationDays} days for AIS consent`, fix: `Set expiration within ${schema.maxDurationDays} days of creation per ${schema.label} SCA re-authentication rules.` });
+    } else {
+      passes.push({ path: 'Duration', note: `${days} days — within ${schema.maxDurationDays}-day limit` });
+    }
+  }
+
+  // ── Conflicting scopes (OBIE only) ──
+  if (std === 'UK_OBIE' && Array.isArray(perms)) {
+    if (perms.includes('ReadTransactionsDetail') && (perms.includes('ReadTransactionsCredits') || perms.includes('ReadTransactionsDebits'))) {
+      warnings.push({ path: 'Data.Permissions', rule: 'Redundant scope: ReadTransactionsDetail alongside ReadTransactionsCredits/Debits', fix: 'Remove ReadTransactionsDetail (deprecated). Use ReadTransactionsCredits + ReadTransactionsDebits.' });
+    }
+  }
+
+  // ── Render ──
+  const statsHtml = `<div class="stats-banner">
+    <div class="stat-block"><span class="stat-num green">${passes.length}</span><span class="stat-lbl">Checks Passed</span></div>
+    <div class="stat-block"><span class="stat-num ${errors.length > 0 ? 'red' : 'green'}">${errors.length}</span><span class="stat-lbl">Errors</span></div>
+    <div class="stat-block"><span class="stat-num ${warnings.length > 0 ? 'gold' : 'green'}">${warnings.length}</span><span class="stat-lbl">Warnings</span></div>
+    <div class="stat-block"><span class="stat-num accent">${schema.label.split(' ')[0]}</span><span class="stat-lbl">Standard</span></div>
+  </div>`;
+
+  const isValid = errors.length === 0;
+  const statusClass = errors.length > 0 ? 'invalid' : warnings.length > 0 ? 'warning' : 'valid';
+  const dotClass = statusClass;
+  const statusMsg = isValid ? (warnings.length ? `Valid with ${warnings.length} warning(s) — review recommended` : 'Valid — all required fields present and correct') : `${errors.length} error(s) found — receipt does not conform to ${schema.label}`;
+
+  let outputHtml = `
+    <div class="result-status-bar ${statusClass}">
+      <div class="status-dot ${dotClass}"></div>
+      <span class="status-text">${statusMsg}</span>
+      <span class="status-sub">${schema.label}</span>
+    </div>
+    ${statsHtml}`;
+
+  if (errors.length) {
+    outputHtml += `<div style="font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--red);margin:.75rem 0 .5rem">Errors (${errors.length})</div>`;
+    outputHtml += errors.map(e => `<div class="error-item">
+      <span class="item-path">${e.path}</span>
+      <span class="item-label">Error</span>
+      <span class="item-text">${e.rule}</span>
+      <span class="item-fix">Fix: ${e.fix}</span>
+    </div>`).join('');
+  }
+
+  if (warnings.length) {
+    outputHtml += `<div style="font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin:.75rem 0 .5rem">Warnings (${warnings.length})</div>`;
+    outputHtml += warnings.map(w => `<div class="warn-item">
+      <span class="item-path">${w.path}</span>
+      <span class="item-label gold">Warning</span>
+      <span class="item-text">${w.rule}</span>
+      <span class="item-fix">Fix: ${w.fix}</span>
+    </div>`).join('');
+  }
+
+  if (passes.length) {
+    outputHtml += `<div class="collapsible-section" style="margin-top:1rem">
+      <button class="coll-trigger" onclick="toggleColl(this)">
+        <span class="coll-lbl">Passed Checks (${passes.length})</span>
+        <span class="coll-icon">▾</span>
+      </button>
+      <div class="coll-body">
+        ${passes.map(p => `<div class="ok-item">
+          <span class="item-path">${p.path}</span>
+          <span class="item-label green">Pass</span>
+          <span class="item-text">${p.note}</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('validatorOutput').innerHTML = outputHtml;
+}
+
+function getNestedVal(obj, path) {
+  return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj);
+}
+
+function isValidISO8601(str) {
+  return /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)$/.test(str) || /^\d{4}-\d{2}-\d{2}$/.test(str);
+}
+
+/* ════════════════════════════════════════════════════
+   REFERENCE TABLE BUILD
+════════════════════════════════════════════════════ */
+document.getElementById('refTableBody').innerHTML = REF_FIELDS.map(f => `
+  <tr>
+    <td style="color:var(--bright);font-weight:500">${f.field}</td>
+    <td><code style="font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--teal)">${f.path}</code></td>
+    <td><span style="font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--muted)">${f.type}</span></td>
+    <td class="${f.obie==='R'?'check-req':f.obie==='O'?'check-opt':'check-no'}">${f.obie==='R'?'R ●':f.obie==='O'?'O ◌':'—'}</td>
+    <td class="${f.psd3==='R'?'check-req':f.psd3==='O'?'check-opt':'check-no'}">${f.psd3==='R'?'R ●':f.psd3==='O'?'O ◌':'—'}</td>
+    <td class="${f.fdx==='R'?'check-req':f.fdx==='O'?'check-opt':'check-no'}">${f.fdx==='R'?'R ●':f.fdx==='O'?'O ◌':'—'}</td>
+    <td style="font-size:.7rem;color:var(--body)">${f.note}</td>
+  </tr>`).join('');
+
+document.getElementById('scopeRefBody').innerHTML = SCOPE_REF.map(s => `
+  <tr>
+    <td style="color:var(--bright);font-weight:500">${s.cat}</td>
+    <td><code style="font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--teal)">${s.obie}</code></td>
+    <td><code style="font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--gold)">${s.psd3}</code></td>
+    <td><code style="font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--purple)">${s.fdx}</code></td>
+    <td style="font-size:.68rem;color:var(--body)">${s.dur}</td>
+  </tr>`).join('');
+
+/* ════════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════════ */
+// Show tab-builder on load
+document.getElementById('tab-builder').style.display = 'block';
+document.getElementById('tab-validator').style.display = 'none';
+document.getElementById('tab-reference').style.display = 'none';
+
+// Attach consentType change
+document.getElementById('consentType').addEventListener('change', updateScopeList);
+document.getElementById('expirationDt').addEventListener('change', calcRisk);
+var MANIFEST=JSON.parse('{"tool_id": "consent-receipt-generator", "version": "1.0.0", "title": "Open Banking Consent Receipt Generator + Validator", "description": "Generate and validate Open Banking consent receipts for UK OBIE, EU PSD2/PSD3, and US CFPB 1033. Export as JSON or human-readable audit memo. Zero PII, browser-only.", "category": "open-banking-integration", "tags": ["Open", "Banking", "Consent", "Receipt", "Generator"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"tppName": {"type": "string"}, "aspspName": {"type": "string"}, "consentType": {"type": "string"}, "consentStatus": {"type": "string"}, "creationDt": {"type": "string"}, "expirationDt": {"type": "string"}, "txnFromDt": {"type": "string"}, "txnToDt": {"type": "string"}, "validatorInput": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "consent_receipt_generator", "description": "Run Open Banking Consent Receipt Generator + Validator. Generate and validate Open Banking consent receipts for UK OBIE, EU PSD2/PSD3, and US CFPB 1033. Export as JSON or human-readable audit memo. Zero PII, browser-only.", "inputSchema": {"type": "object", "properties": {"tppName": {"type": "string"}, "aspspName": {"type": "string"}, "consentType": {"type": "string"}, "consentStatus": {"type": "string"}, "creationDt": {"type": "string"}, "expirationDt": {"type": "string"}, "txnFromDt": {"type": "string"}, "txnToDt": {"type": "string"}, "validatorInput": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/96-consent-receipt-generator.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+</script>
+
+<script>
+/* AIN canonical i18n — reconcile-2026-05-17 */
+const TRANSLATIONS = {
+  en: {
+    "nav.alltools": "All Tools",
+    "nav.hub": "← Open Banking Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-5 · Open Banking · T96",
+    "hero.badge.privacy": "Zero PII · Client-side",
+    "hero.badge.reviewed": "Last Reviewed:",
+    "footer.alltools": "All Tools",
+    "footer.hub": "Open Banking Hub",
+    "footer.sitemap": "Sitemap",
+    "footer.contact": "Contact",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Zero PII \u00a0 📡 No server calls \u00a0 💻 Client-side",
+    "pii.banner": "🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only."
+  },
+  es: {
+    "nav.alltools": "Todas las herramientas",
+    "nav.hub": "← Open Banking Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-5 · Open Banking · T96",
+    "hero.badge.privacy": "Sin PII · Solo cliente",
+    "hero.badge.reviewed": "Última revisión:",
+    "footer.alltools": "Todas las herramientas",
+    "footer.hub": "Open Banking Hub",
+    "footer.sitemap": "Mapa del sitio",
+    "footer.contact": "Contacto",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Sin PII \u00a0 📡 Sin llamadas de servidor \u00a0 💻 Solo cliente",
+    "pii.banner": "🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No ingrese datos personales reales — use entradas sintéticas o anonimizadas."
+  },
+  fr: {
+    "nav.alltools": "Tous les outils",
+    "nav.hub": "← Open Banking Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-5 · Open Banking · T96",
+    "hero.badge.privacy": "Zéro PII · Côté client",
+    "hero.badge.reviewed": "Dernière révision :",
+    "footer.alltools": "Tous les outils",
+    "footer.hub": "Open Banking Hub",
+    "footer.sitemap": "Plan du site",
+    "footer.contact": "Contact",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Zéro PII \u00a0 📡 Aucun appel serveur \u00a0 💻 Côté client",
+    "pii.banner": "🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n'est transmise. N'entrez pas de données personnelles réelles — utilisez des entrées synthétiques ou anonymisées."
+  },
+  ar: {
+    "nav.alltools": "جميع الأدوات",
+    "nav.hub": "→ Open Banking Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-5 · Open Banking · T96",
+    "hero.badge.privacy": "بدون بيانات شخصية · من جهة العميل",
+    "hero.badge.reviewed": "آخر مراجعة:",
+    "footer.alltools": "جميع الأدوات",
+    "footer.hub": "Open Banking Hub",
+    "footer.sitemap": "خريطة الموقع",
+    "footer.contact": "اتصل بنا",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 بدون بيانات شخصية \u00a0 📡 بدون اتصالات خادم \u00a0 💻 من جهة العميل",
+    "pii.banner": "🔒 تتم معالجة جميع المدخلات محليًا في متصفحك. لا يتم نقل أي بيانات. لا تُدخل بيانات شخصية حقيقية — استخدم مدخلات اصطناعية أو مجهولة الهوية فقط.",
+    "lang_dir": "rtl"
+  },
+  pt: {
+    "nav.alltools": "Todas as ferramentas",
+    "nav.hub": "← Open Banking Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-5 · Open Banking · T96",
+    "hero.badge.privacy": "Zero PII · Lado do cliente",
+    "hero.badge.reviewed": "Última revisão:",
+    "footer.alltools": "Todas as ferramentas",
+    "footer.hub": "Open Banking Hub",
+    "footer.sitemap": "Mapa do site",
+    "footer.contact": "Contato",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Zero PII \u00a0 📡 Sem chamadas de servidor \u00a0 💻 Lado do cliente",
+    "pii.banner": "🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido. Não insira dados pessoais reais — use entradas sintéticas ou anonimizadas."
+  },
+  zh: {
+    "nav.alltools": "所有工具",
+    "nav.hub": "← Open Banking Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-5 · Open Banking · T96",
+    "hero.badge.privacy": "零PII · 客户端",
+    "hero.badge.reviewed": "最后审查：",
+    "footer.alltools": "所有工具",
+    "footer.hub": "Open Banking Hub",
+    "footer.sitemap": "网站地图",
+    "footer.contact": "联系我们",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 零PII \u00a0 📡 无服务器调用 \u00a0 💻 客户端",
+    "pii.banner": "🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。请勿输入真实个人数据——仅使用合成或匿名输入。"
+  }
+};
+
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key] !== undefined) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="' + lang + '"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function initLang() {
+  let saved = 'en';
+  try { saved = sessionStorage.getItem('ain_lang') || 'en'; } catch(e) {}
+  if (TRANSLATIONS[saved]) setLang(saved);
+})();
+
+function scrollMfst() {
+  const s = document.getElementById('mfstSec');
+  if (s) s.scrollIntoView({behavior:'smooth', block:'start'});
+}
+</script>
+</body>
+</html>

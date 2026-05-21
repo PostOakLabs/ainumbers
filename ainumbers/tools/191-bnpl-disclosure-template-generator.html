@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>T191 · BNPL Disclosure Template Generator — AINumbers.co</title>
+<meta name="description" content="Generate compliant BNPL checkout disclosure language for UK (FCA CONC 4 / PCCI), US (TILA/Reg Z), and EU (CCD2 SECCI). Export Markdown templates and Policy Mandate JSON disclosure manifest.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="AINumbers.co — Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/191-bnpl-disclosure-template-generator.html">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"BNPL Disclosure Template Generator — AINumbers.co","url":"https://ainumbers.co/tools/191-bnpl-disclosure-template-generator.html","description":"Generate compliant BNPL checkout disclosure language for UK (FCA CONC 4 / PCCI), US (TILA/Reg Z), and EU (CCD2 SECCI). Export Markdown templates and Policy Mandate JSON disclosure manifest.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600;700&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!--
+  manifest.json (embedded reference)
+  {
+    "tool_id": "bnpl-disclosure-template-generator",
+    "version": "1.0.0",
+    "title": "BNPL Disclosure Template Generator",
+    "description": "Generate compliant BNPL checkout disclosure language for UK (FCA CONC 4 / PCCI), US (TILA/Reg Z §1026.18), and EU (CCD2 SECCI Annex II). Outputs per-jurisdiction long-form disclosures, checkout summary copy, and AP2 JSON disclosure manifest.",
+    "category": "cat-16",
+    "tags": ["BNPL","FCA CONC 4","PCCI","TILA","Reg Z","CCD2 SECCI","Disclosure","AP2"],
+    "audience": ["compliance","legal","product","engineer"],
+    "ap2_export": true,
+    "mcp_tool_definition": {
+      "name": "generate_bnpl_disclosure_templates",
+      "description": "Generate jurisdiction-specific BNPL disclosure templates for UK (FCA CONC 4 / PCCI), US (TILA Reg Z §1026.18), and EU (CCD2 SECCI). Returns structured disclosure text, checkout summary copy, and an AP2 JSON disclosure manifest. Use when a BNPL lender or merchant needs compliant disclosure language for checkout integration.",
+      "inputSchema": { "type": "object" }
+    },
+    "execution": {
+      "type": "browser-javascript",
+      "entry": "tools/191-bnpl-disclosure-template-generator.html",
+      "function_name": "generateTemplates",
+      "timeout_ms": 2000
+    }
+  }
+-->
+
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12); --gold-hover:#E8B952;
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12); --red-lt:#F87171;
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px; --radius-lg:10px; --radius-xl:14px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(239,68,68,.016) 1px,transparent 1px),linear-gradient(90deg,rgba(239,68,68,.016) 1px,transparent 1px);
+  background-size:56px 56px;pointer-events:none;z-index:0;}
+.ambient{position:fixed;pointer-events:none;z-index:0;}
+.ambient-1{top:-160px;right:-120px;width:600px;height:600px;background:radial-gradient(ellipse at center,rgba(239,68,68,.05) 0%,transparent 70%);}
+.ambient-2{bottom:-160px;left:-80px;width:520px;height:520px;background:radial-gradient(ellipse at center,rgba(20,184,166,.04) 0%,transparent 70%);}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem;position:relative;z-index:1;}
+
+.lang-bar{background:rgba(13,22,39,.95);border-bottom:1px solid var(--border);padding:.4rem 0;z-index:10;position:relative;}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;gap:.4rem;justify-content:flex-end;}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid transparent;color:var(--muted);padding:.2rem .55rem;border-radius:var(--radius);cursor:pointer;transition:all .15s;}
+.lang-btn:hover{color:var(--text);border-color:var(--border);}
+.lang-btn.active{color:var(--red-lt);border-color:rgba(239,68,68,.4);background:var(--red-dim);}
+
+nav{border-bottom:1px solid var(--border);background:rgba(8,14,26,.9);backdrop-filter:blur(16px);position:sticky;top:0;z-index:100;padding:.9rem 0;}
+.nav-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:.75rem;text-decoration:none;}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal);}.logo-co{color:var(--body);font-size:.8rem;}
+
+
+.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;color:var(--body);text-decoration:none;transition:color .15s;}
+.nav-links a:hover{color:var(--red-lt);}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;}
+.hero::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--red),transparent);}
+.hero-eyebrow{display:flex;align-items:center;gap:.65rem;margin-bottom:.85rem;flex-wrap:wrap;}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.09em;text-transform:uppercase;padding:.22rem .65rem;border-radius:var(--radius);border:1px solid;}
+.badge-cat{color:var(--red-lt);border-color:rgba(239,68,68,.4);background:var(--red-dim);}
+.badge-ap2{color:var(--green);border-color:rgba(34,197,94,.3);background:var(--green-dim);}
+.badge-neutral{color:var(--body);border-color:var(--border);background:var(--bg-3);}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(1.7rem,3.5vw,2.5rem);color:var(--white);line-height:1.15;margin-bottom:.6rem;}
+.hero h1 em{color:var(--red-lt);font-style:italic;}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:700px;line-height:1.72;margin-bottom:.85rem;}
+.meta-row{display:flex;flex-wrap:wrap;gap:.5rem;}
+.meta-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.18rem .55rem;border-radius:var(--radius);border:1px solid;}
+.tag-red{color:var(--red-lt);border-color:rgba(239,68,68,.3);background:var(--red-dim);}
+.tag-teal{color:var(--teal-lt);border-color:rgba(20,184,166,.3);background:var(--teal-dim);}
+.tag-gold{color:var(--gold);border-color:rgba(212,168,71,.3);background:var(--gold-dim);}
+.tag-green{color:var(--green);border-color:rgba(34,197,94,.3);background:var(--green-dim);}
+.tag-purple{color:var(--purple);border-color:rgba(155,114,245,.3);background:var(--purple-dim);}
+
+/* Legal notice */
+.legal-notice{background:var(--warn-dim);border:1px solid rgba(245,158,11,.35);border-left:4px solid var(--warn);border-radius:var(--radius-lg);padding:.9rem 1.2rem;margin:1.5rem 0;display:flex;gap:.75rem;align-items:flex-start;}
+.ln-icon{font-size:1rem;flex-shrink:0;}
+.ln-text{font-size:.75rem;color:var(--text);line-height:1.6;}
+.ln-text strong{color:var(--warn);}
+
+/* Form layout */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;}
+.form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1rem;}
+@media(max-width:760px){.form-grid,.form-grid-3{grid-template-columns:1fr;}}
+.field{display:flex;flex-direction:column;gap:.4rem;}
+.field label{font-family:'JetBrains Mono',monospace;font-size:.53rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+.field input,.field select{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.55rem .75rem;transition:border-color .15s;width:100%;}
+.field input:focus,.field select:focus{outline:none;border-color:rgba(239,68,68,.5);}
+.field select option{background:var(--bg-3);}
+.field-hint{font-size:.65rem;color:var(--body);line-height:1.5;}
+.placeholder-note{font-size:.65rem;color:var(--gold);font-style:italic;}
+
+/* Jurisdiction pills */
+.juris-row{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.25rem;}
+.jp{display:flex;align-items:center;gap:.5rem;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.45rem .85rem;cursor:pointer;transition:all .15s;user-select:none;}
+.jp:hover{border-color:rgba(239,68,68,.3);}
+.jp.sel{border-color:rgba(239,68,68,.55);background:var(--red-dim);}
+.jp input[type=checkbox]{accent-color:var(--red);}
+.jp-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.07em;text-transform:uppercase;color:var(--text);}
+
+/* Step section */
+.step-section{margin:2rem 0;}
+.step-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--red-lt);margin-bottom:.55rem;display:flex;align-items:center;gap:.5rem;}
+.step-label::before{content:attr(data-step);background:var(--red-dim);border:1px solid rgba(239,68,68,.4);color:var(--red-lt);font-size:.55rem;padding:.15rem .45rem;border-radius:3px;}
+.step-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white);margin-bottom:.35rem;}
+.step-desc{font-size:.78rem;color:var(--body);margin-bottom:1.1rem;line-height:1.65;}
+
+/* Generate button */
+.btn-gen{font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600;background:var(--red);color:#fff;border:none;padding:.78rem 2rem;border-radius:var(--radius);cursor:pointer;transition:background .15s;}
+.btn-gen:hover{background:var(--red-lt);color:#111;}
+.run-row{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:1.25rem;}
+.error-msg{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--red-lt);background:var(--red-dim);border:1px solid rgba(239,68,68,.3);padding:.5rem .75rem;border-radius:var(--radius);display:none;margin-top:.5rem;}
+.error-msg.vis{display:block;}
+
+/* Results */
+.results-panel{display:none;margin-top:.5rem;}
+.results-panel.visible{display:block;}
+.sec-divider{border:none;border-top:1px solid var(--border);margin:2rem 0;}
+
+/* Disclosure tabs */
+.disc-tabs{display:flex;gap:.4rem;margin-bottom:1rem;flex-wrap:wrap;}
+.disc-tab{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;padding:.48rem 1rem;border-radius:var(--radius);border:1px solid var(--border);background:transparent;color:var(--body);cursor:pointer;transition:all .15s;}
+.disc-tab:hover{border-color:var(--border-2);color:var(--text);}
+.disc-tab.active{border-color:rgba(239,68,68,.5);background:var(--red-dim);color:var(--red-lt);}
+
+.disc-pane{display:none;}
+.disc-pane.active{display:block;}
+
+/* Disclosure block */
+.disc-block{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-xl);margin-bottom:1.1rem;overflow:hidden;}
+.disc-block-header{padding:.7rem 1.2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;}
+.disc-block-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+.disc-copy-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.07em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--body);padding:.22rem .6rem;border-radius:3px;cursor:pointer;transition:all .15s;}
+.disc-copy-btn:hover{border-color:var(--teal-lt);color:var(--teal-lt);}
+.disc-copy-btn.copied{color:var(--green);border-color:rgba(34,197,94,.4);}
+.disc-content{padding:1.1rem 1.2rem;font-size:.76rem;color:var(--text);line-height:1.8;white-space:pre-wrap;font-family:'JetBrains Mono',monospace;}
+.disc-content .ph{color:var(--gold);font-style:italic;}/* placeholder highlights */
+.disc-table{width:100%;border-collapse:collapse;font-size:.74rem;}
+.disc-table td{padding:.45rem .85rem;border-bottom:1px solid var(--border);vertical-align:top;}
+.disc-table tr:last-child td{border-bottom:none;}
+.disc-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);width:40%;white-space:nowrap;}
+.disc-table td:last-child{color:var(--bright);}
+
+/* Input summary strip */
+.summary-strip{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.7rem 1.1rem;display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:1.25rem;align-items:center;}
+.ss-item{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--body);}
+.ss-item strong{color:var(--bright);}
+
+/* Export buttons */
+.export-row{display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1.5rem;}
+.btn-ap2{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;font-weight:600;background:var(--green-dim);border:1px solid rgba(34,197,94,.4);color:var(--green);padding:.65rem 1.4rem;border-radius:var(--radius);cursor:pointer;transition:all .15s;}
+.btn-ap2:hover{background:rgba(34,197,94,.2);}
+.btn-md{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;font-weight:600;background:var(--teal-dim);border:1px solid rgba(20,184,166,.4);color:var(--teal-lt);padding:.65rem 1.4rem;border-radius:var(--radius);cursor:pointer;transition:all .15s;}
+.btn-md:hover{background:rgba(20,184,166,.2);}
+
+/* Citations */
+.citations{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.4rem;margin-top:1.5rem;}
+.cit-title{font-family:'JetBrains Mono',monospace;font-size:.53rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.7rem;}
+.cit-list{list-style:none;display:flex;flex-direction:column;gap:.35rem;}
+.cit-list li{font-size:.72rem;color:var(--body);line-height:1.55;padding-left:1.4rem;position:relative;}
+.cit-list li::before{content:attr(data-n);position:absolute;left:0;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--red-lt);font-weight:600;}
+
+@media(max-width:640px){
+  .nav-links a:not(:last-child){display:none;}
+  }
+[dir="rtl"] body{text-align:right;}
+[dir="rtl"] .nav-inner,[dir="rtl"] [dir="rtl"] .cit-list li{padding-left:0;padding-right:1.4rem;}
+[dir="rtl"] .cit-list li::before{left:auto;right:0;}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-body pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;overflow-x:auto;margin:0}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-privacy::before{content:'\B7';color:var(--green)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<div class="ambient ambient-1"></div>
+<div class="ambient ambient-2"></div>
+
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+    <div class="logo-text">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/bnpl-consumer-credit-hub.html">BNPL Hub</a><span class="nav-sep">/</span><span>T-191</span></div>
+
+    <a href="../guides/bnpl-consumer-credit-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">
+    <span class="badge badge-cat">Cat-16 · BNPL</span>
+    <span class="badge badge-ap2">Policy Mandate Export</span>
+    <span class="badge badge-neutral">Client-Side · Zero PII</span>
+  </div>
+  <h1 class="tool-title" data-i18n="h1">BNPL Disclosure <em>Template</em> Generator</h1>
+  <p class="hero-desc" data-i18n="desc">Generate jurisdiction-specific BNPL checkout disclosure language. Enter your product parameters and receive a compliant long-form disclosure document, checkout summary, and right-of-withdrawal notice for each selected regime — ready to review with legal counsel and integrate into your checkout flow.</p>
+  <div class="hero-meta meta-row">
+    <span class="meta-tag tag-red">FCA CONC 4 / PCCI</span>
+    <span class="meta-tag tag-teal">EU CCD2 SECCI</span>
+    <span class="meta-tag tag-gold">TILA / Reg Z § 1026.18</span>
+    <span class="meta-tag tag-green">Policy Mandate JSON</span>
+    <span class="meta-tag tag-green">Markdown Export</span>
+      </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+  
+</div></div>
+
+<div class="container" style="padding-top:1.5rem;padding-bottom:3rem;">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+
+  <!-- Legal notice -->
+  <div class="legal-notice">
+    <div class="ln-icon">⚖️</div>
+    <div class="ln-text">
+      <strong>Template Output — Legal Review Required.</strong> Generated disclosures are structured templates based on published regulatory requirements. They must be reviewed and approved by qualified legal counsel before use in any live product or consumer-facing context. Placeholders marked <span style="color:var(--gold);font-style:italic;">[in brackets]</span> must be completed with your actual entity details, FCA authorization number, or jurisdiction-specific information before use.
+    </div>
+  </div>
+
+  <!-- STEP 1: Product parameters -->
+  <div class="step-section">
+    <div class="step-label" data-step="01" data-i18n="step1_label">Product Parameters</div>
+    <div class="step-title" data-i18n="step1_title">Enter your BNPL product details</div>
+    <p class="step-desc" data-i18n="step1_desc">All fields are used to populate disclosure templates. Leave optional fields blank to receive template language with placeholder brackets.</p>
+
+    <div class="form-grid">
+      <div class="field">
+        <label data-i18n="lbl_lender">Lender / creditor name</label>
+        <input type="text" id="lenderName" placeholder="e.g. Acme Financial Ltd">
+        <span class="field-hint" data-i18n="hint_lender">Legal entity name as it will appear in regulated disclosures.</span>
+      </div>
+      <div class="field">
+        <label data-i18n="lbl_product">Product name</label>
+        <input type="text" id="productName" placeholder="e.g. Pay in 4 · Split Pay">
+      </div>
+    </div>
+
+    <div class="form-grid-3">
+      <div class="field">
+        <label data-i18n="lbl_currency">Currency</label>
+        <select id="currency" onchange="onCurrencyChange()">
+          <option value="GBP">£ GBP</option>
+          <option value="EUR">€ EUR</option>
+          <option value="USD">$ USD</option>
+        </select>
+      </div>
+      <div class="field">
+        <label data-i18n="lbl_amount">Purchase / credit amount (<span id="amtCurrLabel">£</span>)</label>
+        <input type="number" id="purchaseAmount" min="1" step="0.01" placeholder="e.g. 200.00">
+      </div>
+      <div class="field">
+        <label data-i18n="lbl_instalments">Number of instalments</label>
+        <input type="number" id="numInstalments" min="2" max="36" step="1" placeholder="e.g. 4">
+      </div>
+    </div>
+
+    <div class="form-grid-3">
+      <div class="field">
+        <label data-i18n="lbl_first">First payment timing</label>
+        <select id="firstPayment">
+          <option value="immediate">Due immediately at checkout</option>
+          <option value="deferred">Deferred — X days after purchase</option>
+        </select>
+      </div>
+      <div class="field">
+        <label data-i18n="lbl_defer_days">Deferral period (days) <span style="font-family:'Sora',sans-serif;text-transform:none;letter-spacing:0;color:var(--body);">if deferred</span></label>
+        <input type="number" id="deferDays" min="1" max="90" step="1" placeholder="e.g. 30">
+      </div>
+      <div class="field">
+        <label data-i18n="lbl_interval">Payment interval</label>
+        <select id="payInterval">
+          <option value="2weeks">Every 2 weeks</option>
+          <option value="monthly">Monthly</option>
+          <option value="custom">Custom (state in schedule)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-grid-3">
+      <div class="field">
+        <label data-i18n="lbl_apr">Annual Percentage Rate (APR %)</label>
+        <input type="number" id="aprPct" min="0" max="999" step="0.01" value="0" placeholder="0 for interest-free">
+        <span class="field-hint" data-i18n="hint_apr">0% for interest-free BNPL. Must still be disclosed as "0% APR representative".</span>
+      </div>
+      <div class="field">
+        <label data-i18n="lbl_late_fee">Late fee per missed payment (<span id="feeCurrLabel">£</span>)</label>
+        <input type="number" id="lateFee" min="0" step="0.01" placeholder="e.g. 6.00 (optional)">
+      </div>
+      <div class="field">
+        <label data-i18n="lbl_fca_num">FCA authorisation number <span style="font-family:'Sora',sans-serif;text-transform:none;letter-spacing:0;color:var(--body);">UK only</span></label>
+        <input type="text" id="fcaNum" placeholder="e.g. 123456">
+        <span class="field-hint" data-i18n="hint_fca">Leave blank to insert placeholder. Required in all UK regulated disclosures.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2: Jurisdictions -->
+  <div class="step-section" style="margin-top:0;">
+    <div class="step-label" data-step="02" data-i18n="step2_label">Jurisdictions</div>
+    <div class="step-title" data-i18n="step2_title">Select disclosure regimes</div>
+    <div class="juris-row">
+      <div class="jp sel" id="jp-uk" onclick="toggleJuris('uk',this)">
+        <input type="checkbox" id="jchk-uk" checked onchange="void(0)">
+        <span class="jp-label">🇬🇧 UK — FCA CONC 4 / PCCI</span>
+      </div>
+      <div class="jp sel" id="jp-eu" onclick="toggleJuris('eu',this)">
+        <input type="checkbox" id="jchk-eu" checked onchange="void(0)">
+        <span class="jp-label">🇪🇺 EU — CCD2 SECCI</span>
+      </div>
+      <div class="jp sel" id="jp-us" onclick="toggleJuris('us',this)">
+        <input type="checkbox" id="jchk-us" checked onchange="void(0)">
+        <span class="jp-label">🇺🇸 US — TILA / Reg Z</span>
+      </div>
+    </div>
+    <div id="jurisErr" class="error-msg" data-i18n="err_juris">Select at least one jurisdiction.</div>
+
+    <div class="run-row">
+      <button class="btn-gen" onclick="generateTemplates()" data-i18n="gen_btn">Generate Disclosures →</button>
+      <span style="font-size:.72rem;color:var(--muted);" data-i18n="gen_hint">Templates are generated entirely in-browser. No data is transmitted.</span>
+    </div>
+    <div id="genErr" class="error-msg" data-i18n="err_gen">Please enter a purchase amount and number of instalments.</div>
+  </div>
+
+  <!-- STEP 3: Generated disclosures -->
+  <div class="results-panel" id="resultsPanel">
+    <hr class="sec-divider" style="margin-top:0;">
+    <div class="step-label" data-step="03" data-i18n="step3_label">Generated Disclosures</div>
+    <div class="step-title" data-i18n="step3_title">Jurisdiction-Specific Disclosure Templates</div>
+
+    <!-- Input summary -->
+    <div class="summary-strip" id="summaryStrip" style="margin-top:1rem;"></div>
+
+    <!-- Tabs -->
+    <div class="disc-tabs" id="discTabs"></div>
+
+    <!-- Pane container -->
+    <div id="discPanes"></div>
+
+    <!-- Export -->
+    <div class="results-export-row export-row">
+      <button id="ap2ExportBtn" class="btn-ap2" onclick="exportAP2()" data-i18n="btn_ap2">⬇ Export Policy Mandate Disclosure Manifest</button>
+      <button class="btn-md" onclick="exportMarkdown()" data-i18n="btn_md">⬇ Export All Templates Markdown</button>
+    </div>
+  </div>
+
+  <!-- Citations -->
+  <hr style="border:none;border-top:1px solid var(--border);margin:2rem 0;">
+  <div class="citations">
+    <div class="cit-title">Regulatory Source Notes</div>
+    <ul class="cit-list">
+      <li data-n="1">FCA Consumer Credit sourcebook (CONC) 4.2 — pre-contract disclosure requirements. FCA CONC 4.2.5R: firms must provide the consumer with Pre-Contract Credit Information (PCCI) form before the agreement is made, using the Standard European Consumer Credit Information (SECCI) format or equivalent. Applies to regulated consumer credit including BNPL under DPC regime from 15 July 2026 (FSMA 2023 Sch. 9). FCA must be cited by authorisation number in all regulated disclosures.</li>
+      <li data-n="2">FCA CONC 4.2.13R — right of withdrawal notice must accompany any regulated credit agreement. Consumer Credit Act 1974 s.66A: 14-calendar-day right of withdrawal from date agreement signed. Repayment within 30 days of withdrawal notice. FCA CONC 4.3 — adequate explanations obligation: firms must explain key features before agreement is made.</li>
+      <li data-n="3">Directive 2023/2225/EU (CCD2) Annex II — Standard European Consumer Credit Information (SECCI) form. Art. 10 requires SECCI to be provided in a durable medium before credit agreement. Mandatory SECCI fields: type of credit, creditor identity, total credit amount, duration, borrowing rate, APR with representative example, total amount payable, repayment schedule, right of withdrawal (14 days), early repayment right, ADR body. Transposition deadline: 20 November 2025.</li>
+      <li data-n="4">12 CFR 1026.18 (Regulation Z) — required disclosures for closed-end credit. Mandatory fields: (a) identity of creditor, (b) amount financed, (c) itemisation or good faith estimate, (d) finance charge, (e) APR, (f) variable rate information, (g) payment schedule, (h) total of payments, (i) demand feature, (j) total sale price, (k) prepayment penalties, (l) late payment charges, (m) security interest, (n) insurance and debt cancellation. CFPB May 2024 interpretive rule: 4-instalment BNPL is closed-end credit subject to these disclosures.</li>
+      <li data-n="5">APR calculation: for zero-interest BNPL, APR = 0%. Representative APR must still be disclosed explicitly as "0% APR representative (variable)" in UK marketing and PCCI. CCD2 Art. 31 actuarial method: for zero-interest equal instalments, APR = 0%. Finance charge for zero-interest BNPL = £0 / $0 / €0. Total of payments = purchase amount.</li>
+      <li data-n="6">Right of withdrawal: UK CCA 1974 s.66A — 14 calendar days; EU CCD2 Art. 26 — 14 calendar days; US TILA § 1026.23 — 3 business days for credit secured by principal dwelling (not typically applicable to BNPL). Placeholder brackets [BRACKETS] in generated templates must be replaced with actual entity details, addresses, and registration numbers before use.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/bnpl-consumer-credit-hub.html"><span data-i18n="footer.hub_bnpl_consumer_credit">BNPL Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* PolicyMandate — full validator (Phase 14); AP2Schema internal name retained */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+};
+
+/* =========================================================
+   T191 · BNPL Disclosure Template Generator
+   AINumbers.co · Post Oak Labs · CC BY 4.0
+   Client-side only. Zero PII. No external requests.
+   Templates require legal review before live use.
+   ========================================================= */
+
+/* ----------------------------------------------------------
+   i18n
+   ---------------------------------------------------------- */
+var LANG = {
+  en:{
+    nav_all:'All Tools',nav_hub:'BNPL Hub',nav_t187:'T187 DPC Checker',
+    h1:'BNPL Disclosure Template Generator',
+    desc:'Generate jurisdiction-specific BNPL checkout disclosure language for UK (FCA CONC 4 / PCCI), US (TILA/Reg Z), and EU (CCD2 SECCI).',
+    step1_label:'Step 1 — Product Parameters',step1_title:'Enter your BNPL product details',
+    step1_desc:'All fields populate disclosure templates. Blank fields become placeholder brackets.',
+    lbl_lender:'Lender / creditor name',hint_lender:'Legal entity name for regulated disclosures.',
+    lbl_product:'Product name',lbl_currency:'Currency',lbl_amount:'Purchase / credit amount',
+    lbl_instalments:'Number of instalments',lbl_first:'First payment timing',
+    lbl_defer_days:'Deferral period (days)',lbl_interval:'Payment interval',
+    lbl_apr:'Annual Percentage Rate (APR %)',hint_apr:'0% for interest-free BNPL.',
+    lbl_late_fee:'Late fee per missed payment',
+    lbl_fca_num:'FCA authorisation number',hint_fca:'Leave blank for placeholder.',
+    step2_label:'Step 2 — Jurisdictions',step2_title:'Select disclosure regimes',
+    err_juris:'Select at least one jurisdiction.',
+    gen_btn:'Generate Disclosures →',gen_hint:'All processing in-browser. No data transmitted.',
+    err_gen:'Enter a purchase amount and number of instalments.',
+    step3_label:'Step 3 — Disclosures',step3_title:'Jurisdiction-Specific Disclosure Templates',
+    btn_ap2:'⬇ Export Policy Mandate Disclosure Manifest',btn_md:'⬇ Export All Templates Markdown',
+    footer_all:'All Tools'
+  },
+  es:{nav_all:'Todas',nav_hub:'Hub BNPL',nav_t187:'T187',h1:'Generador de Plantillas de Divulgación BNPL',desc:'Genere lenguaje de divulgación conforme para UK, UE y EE.UU.',step1_label:'Paso 1',step1_title:'Parámetros del Producto',step1_desc:'Complete los campos para las plantillas.',lbl_lender:'Nombre del prestamista',hint_lender:'Nombre de la entidad legal.',lbl_product:'Nombre del producto',lbl_currency:'Moneda',lbl_amount:'Importe de la compra',lbl_instalments:'Número de cuotas',lbl_first:'Primer pago',lbl_defer_days:'Días de aplazamiento',lbl_interval:'Intervalo de pago',lbl_apr:'TAE (%)',hint_apr:'0% para BNPL sin intereses.',lbl_late_fee:'Cargo por pago tardío',lbl_fca_num:'Número FCA',hint_fca:'Dejar en blanco para marcador.',step2_label:'Paso 2',step2_title:'Regímenes de Divulgación',err_juris:'Seleccione al menos un régimen.',gen_btn:'Generar Divulgaciones →',gen_hint:'Todo en el navegador.',err_gen:'Ingrese importe y número de cuotas.',step3_label:'Paso 3',step3_title:'Plantillas de Divulgación',btn_ap2:'⬇ Exportar Mandato de Política',btn_md:'⬇ Exportar Markdown',footer_all:'Todas'},
+  fr:{nav_all:'Tous',nav_hub:'Hub BNPL',nav_t187:'T187',h1:'Générateur de Modèles de Divulgation BNPL',desc:'Générez des divulgations conformes pour UK, UE et US.',step1_label:'Étape 1',step1_title:'Paramètres du Produit',step1_desc:'Remplissez les champs pour les modèles.',lbl_lender:'Nom du prêteur',hint_lender:'Nom de l\'entité légale.',lbl_product:'Nom du produit',lbl_currency:'Devise',lbl_amount:'Montant du crédit',lbl_instalments:'Nombre de versements',lbl_first:'Premier paiement',lbl_defer_days:'Jours de report',lbl_interval:'Intervalle de paiement',lbl_apr:'TAEG (%)',hint_apr:'0% pour BNPL sans intérêts.',lbl_late_fee:'Frais de retard',lbl_fca_num:'Numéro FCA',hint_fca:'Laisser vide pour espace réservé.',step2_label:'Étape 2',step2_title:'Régimes de Divulgation',err_juris:'Sélectionnez au moins un régime.',gen_btn:'Générer les Divulgations →',gen_hint:'Tout dans le navigateur.',err_gen:'Entrez le montant et le nombre de versements.',step3_label:'Étape 3',step3_title:'Modèles de Divulgation',btn_ap2:'⬇ Exporter Mandat de Politique',btn_md:'⬇ Exporter Markdown',footer_all:'Tous'},
+  ar:{nav_all:'الكل',nav_hub:'مركز BNPL',nav_t187:'T187',h1:'منشئ قوالب الإفصاح عن BNPL',desc:'أنشئ لغة إفصاح متوافقة للمملكة المتحدة والاتحاد الأوروبي والولايات المتحدة.',step1_label:'الخطوة 1',step1_title:'معلمات المنتج',step1_desc:'أكمل الحقول للقوالب.',lbl_lender:'اسم المقرض',hint_lender:'الاسم القانوني للكيان.',lbl_product:'اسم المنتج',lbl_currency:'العملة',lbl_amount:'مبلغ الشراء',lbl_instalments:'عدد الأقساط',lbl_first:'توقيت الدفعة الأولى',lbl_defer_days:'أيام التأجيل',lbl_interval:'فترة الدفع',lbl_apr:'معدل الفائدة السنوي %',hint_apr:'0% لـ BNPL بدون فوائد.',lbl_late_fee:'رسوم التأخر',lbl_fca_num:'رقم ترخيص FCA',hint_fca:'اتركه فارغاً للعنصر النائب.',step2_label:'الخطوة 2',step2_title:'أنظمة الإفصاح',err_juris:'اختر نظاماً واحداً على الأقل.',gen_btn:'إنشاء الإفصاحات ←',gen_hint:'كل المعالجة في المتصفح.',err_gen:'أدخل المبلغ وعدد الأقساط.',step3_label:'الخطوة 3',step3_title:'قوالب الإفصاح',btn_ap2:'⬇ تصدير تفويض السياسة',btn_md:'⬇ تصدير Markdown',footer_all:'الكل'},
+  pt:{nav_all:'Todos',nav_hub:'Hub BNPL',nav_t187:'T187',h1:'Gerador de Modelos de Divulgação BNPL',desc:'Gere linguagem de divulgação conforme para UK, UE e EUA.',step1_label:'Passo 1',step1_title:'Parâmetros do Produto',step1_desc:'Preencha os campos para os modelos.',lbl_lender:'Nome do credor',hint_lender:'Nome da entidade legal.',lbl_product:'Nome do produto',lbl_currency:'Moeda',lbl_amount:'Montante de compra',lbl_instalments:'Número de prestações',lbl_first:'Primeiro pagamento',lbl_defer_days:'Dias de diferimento',lbl_interval:'Intervalo de pagamento',lbl_apr:'TPA (%)',hint_apr:'0% para BNPL sem juros.',lbl_late_fee:'Encargo por atraso',lbl_fca_num:'Número FCA',hint_fca:'Deixar em branco para marcador.',step2_label:'Passo 2',step2_title:'Regimes de Divulgação',err_juris:'Seleccione pelo menos um regime.',gen_btn:'Gerar Divulgações →',gen_hint:'Todo no navegador.',err_gen:'Insira o montante e o número de prestações.',step3_label:'Passo 3',step3_title:'Modelos de Divulgação',btn_ap2:'⬇ Exportar Mandato de Política',btn_md:'⬇ Exportar Markdown',footer_all:'Todos'},
+  zh:{nav_all:'所有',nav_hub:'BNPL中心',nav_t187:'T187',h1:'BNPL披露模板生成器',desc:'为英国（FCA CONC 4/PCCI）、欧盟（CCD2 SECCI）和美国（TILA/Reg Z）生成合规的BNPL结账披露语言。',step1_label:'第1步',step1_title:'输入产品参数',step1_desc:'所有字段用于填充披露模板。',lbl_lender:'贷款方/债权人名称',hint_lender:'受监管披露中的法人实体名称。',lbl_product:'产品名称',lbl_currency:'货币',lbl_amount:'购买/信贷金额',lbl_instalments:'分期数',lbl_first:'首次付款时间',lbl_defer_days:'延迟天数',lbl_interval:'付款间隔',lbl_apr:'年利率（APR %）',hint_apr:'免息BNPL填0%。',lbl_late_fee:'逾期费用',lbl_fca_num:'FCA授权号',hint_fca:'留空则插入占位符。',step2_label:'第2步',step2_title:'选择披露制度',err_juris:'请至少选择一个司法管辖区。',gen_btn:'生成披露内容 →',gen_hint:'所有处理在浏览器中完成，不传输数据。',err_gen:'请输入购买金额和分期数。',step3_label:'第3步',step3_title:'特定司法管辖区披露模板',btn_ap2:'⬇ 导出政策授权书披露授权',btn_md:'⬇ 导出所有模板Markdown',footer_all:'所有工具'}
+};
+
+/* ----------------------------------------------------------
+   State
+   ---------------------------------------------------------- */
+var state = { jurisdictions:['uk','eu','us'], generated:null };
+
+/* ----------------------------------------------------------
+   i18n
+   ---------------------------------------------------------- */
+var currentLang = 'en';
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-16 Hub',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-16',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-16',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-16',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-16',
+  }, zh:{
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-16 中心',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+
+/* ----------------------------------------------------------
+   UI helpers
+   ---------------------------------------------------------- */
+function toggleJuris(id, el) {
+  var chk = document.getElementById('jchk-' + id);
+  setTimeout(function() {
+    if (chk.checked) { el.classList.add('sel'); if (state.jurisdictions.indexOf(id) === -1) state.jurisdictions.push(id); }
+    else { el.classList.remove('sel'); state.jurisdictions = state.jurisdictions.filter(function(j){ return j !== id; }); }
+    document.getElementById('jurisErr').classList.remove('vis');
+  }, 0);
+}
+
+function onCurrencyChange() {
+  var sym = getCurrSym();
+  document.getElementById('amtCurrLabel').textContent = sym;
+  document.getElementById('feeCurrLabel').textContent = sym;
+}
+function getCurrSym() {
+  var c = document.getElementById('currency').value;
+  return c === 'GBP' ? '£' : c === 'EUR' ? '€' : '$';
+}
+
+/* ----------------------------------------------------------
+   Core calculations
+   ---------------------------------------------------------- */
+function calcFinancials(amount, instalments, aprPct) {
+  /* For zero-APR BNPL: instalments are equal, no finance charge */
+  var instAmt = Math.round((amount / instalments) * 100) / 100;
+  /* Adjust last instalment for rounding */
+  var lastInst = Math.round((amount - instAmt * (instalments - 1)) * 100) / 100;
+  var totalPayable = instAmt * (instalments - 1) + lastInst;
+  var financeCharge = Math.round((totalPayable - amount) * 100) / 100;
+  return { instAmt: instAmt, lastInst: lastInst, totalPayable: totalPayable, financeCharge: financeCharge };
+}
+
+function ph(val, fallback) {
+  /* Return val if truthy, else a styled placeholder */
+  return val && val.trim() ? val.trim() : '[' + (fallback || 'FILL IN') + ']';
+}
+
+function fmtAmt(num, sym) {
+  return sym + num.toFixed(2);
+}
+
+/* ----------------------------------------------------------
+   Generate payment schedule text
+   ---------------------------------------------------------- */
+function buildSchedule(instalments, instAmt, lastInst, firstTiming, deferDays, interval, sym) {
+  var lines = [];
+  var intervalLabel = interval === '2weeks' ? 'every 2 weeks' : 'monthly';
+  var firstDesc = firstTiming === 'immediate' ? 'at checkout' : 'deferred ' + (deferDays || '30') + ' days after purchase';
+
+  for (var i = 1; i <= instalments; i++) {
+    var amt = (i === instalments) ? lastInst : instAmt;
+    var timing = i === 1
+      ? 'Payment 1: ' + fmtAmt(amt, sym) + ' — due ' + firstDesc
+      : 'Payment ' + i + ': ' + fmtAmt(amt, sym) + ' — due ' + intervalLabel + ' after payment ' + (i-1);
+    lines.push(timing);
+  }
+  return lines.join('\n');
+}
+
+/* ----------------------------------------------------------
+   Template builders
+   ---------------------------------------------------------- */
+function buildUKTemplates(p) {
+  var sym = p.sym;
+
+  /* ── UK Checkout Summary (short form) ── */
+  var checkoutSummary =
+'CREDIT SUMMARY — ' + p.productName + '\n' +
+'──────────────────────────────────────────\n' +
+'Total credit amount:       ' + fmtAmt(p.amount, sym) + '\n' +
+'Number of payments:        ' + p.instalments + '\n' +
+'Payment amount:            ' + fmtAmt(p.instAmt, sym) + ' per payment\n' +
+(p.lastInst !== p.instAmt ? 'Final payment:             ' + fmtAmt(p.lastInst, sym) + '\n' : '') +
+'Total amount payable:      ' + fmtAmt(p.totalPayable, sym) + '\n' +
+'Representative APR:        ' + p.apr + '% APR representative (variable) [5]\n' +
+(p.lateFee > 0 ? 'Late payment charge:       ' + fmtAmt(p.lateFee, sym) + ' per missed payment\n' : '') +
+'Right of withdrawal:       14 days from agreement date\n\n' +
+'Credit provided by: ' + p.lender + '\n' +
+'Authorised and regulated by the Financial Conduct Authority.\n' +
+'FCA registration number: ' + p.fcaNum + ' [1]\n\n' +
+'⚠ Only take credit you can comfortably afford to repay.\n' +
+'Credit subject to eligibility and affordability assessment.';
+
+  /* ── UK PCCI / Pre-Contract Disclosure (long form) ── */
+  var pcci =
+'PRE-CONTRACT CREDIT INFORMATION\n' +
+'(Standard European Consumer Credit Information)\n' +
+'Under the Consumer Credit Act 1974 and FCA CONC 4.2 [1][2]\n' +
+'════════════════════════════════════════════════════\n\n' +
+'1. CREDITOR\n' +
+'   Name:            ' + p.lender + '\n' +
+'   Address:         [REGISTERED ADDRESS]\n' +
+'   Telephone:       [TELEPHONE NUMBER]\n' +
+'   Email:           [EMAIL ADDRESS]\n' +
+'   FCA Reg. No.:    ' + p.fcaNum + '\n\n' +
+'2. TYPE OF CREDIT\n' +
+'   ' + p.productName + ' — Deferred Payment Credit Agreement\n' +
+'   Fixed-term credit. Not revolving.\n\n' +
+'3. TOTAL AMOUNT OF CREDIT\n' +
+'   ' + fmtAmt(p.amount, sym) + '\n\n' +
+'4. DURATION OF CREDIT AGREEMENT\n' +
+'   From date of agreement until final payment. Approximately\n' +
+'   ' + p.durationDesc + '.\n\n' +
+'5. RATE OF INTEREST\n' +
+'   ' + p.apr + '% per annum (fixed)\n\n' +
+'6. ANNUAL PERCENTAGE RATE OF CHARGE (APR)\n' +
+'   ' + p.apr + '% APR representative (variable) [5]\n' +
+'   Based on a credit of ' + fmtAmt(p.amount, sym) + ' repaid in ' + p.instalments + ' equal\n' +
+'   payments of ' + fmtAmt(p.instAmt, sym) + ' over ' + p.durationDesc + '.\n\n' +
+'7. TOTAL AMOUNT PAYABLE\n' +
+'   ' + fmtAmt(p.totalPayable, sym) + '\n' +
+'   (comprising credit of ' + fmtAmt(p.amount, sym) + ' + finance charge of ' + fmtAmt(p.financeCharge, sym) + ')\n\n' +
+'8. REPAYMENT SCHEDULE\n' +
+p.scheduleLines.split('\n').map(function(l){ return '   ' + l; }).join('\n') + '\n\n' +
+'9. CHARGES PAYABLE FOR MISSED PAYMENTS\n' +
+'   ' + (p.lateFee > 0 ? 'A late payment charge of ' + fmtAmt(p.lateFee, sym) + ' applies to each missed payment.' : 'No late payment charge applies.') + '\n' +
+'   Missed payments may be reported to credit reference agencies\n' +
+'   and may affect your ability to obtain credit in the future.\n\n' +
+'10. RIGHT OF WITHDRAWAL [2][6]\n' +
+'    You have the right to withdraw from this credit agreement\n' +
+'    within 14 CALENDAR DAYS of the date it is entered into,\n' +
+'    without giving any reason. To withdraw, notify us in writing\n' +
+'    at the address above. You must repay the full amount of credit\n' +
+'    within 30 days of giving withdrawal notice. Early repayment\n' +
+'    interest may apply.\n\n' +
+'11. RIGHT OF EARLY REPAYMENT\n' +
+'    You have the right to repay some or all of the credit early\n' +
+'    at any time. Contact us for an early settlement figure.\n\n' +
+'12. COMPLAINTS\n' +
+'    If you are dissatisfied with any aspect of our service, please\n' +
+'    contact us at [COMPLAINTS ADDRESS/EMAIL]. If you remain\n' +
+'    dissatisfied, you may refer your complaint to the Financial\n' +
+'    Ombudsman Service (FOS): www.financial-ombudsman.org.uk\n' +
+'    Tel: 0800 023 4567. The FOS is free to use.\n\n' +
+'13. SUPERVISORY AUTHORITY\n' +
+'    ' + p.lender + ' is authorised and regulated by the Financial\n' +
+'    Conduct Authority (FCA), 12 Endeavour Square, London E20 1JN.\n' +
+'    FCA Registration No.: ' + p.fcaNum + '\n' +
+'    www.fca.org.uk · Financial Services Register\n\n' +
+'⚠ IMPORTANT: Only enter into this agreement if you can comfortably\n' +
+'afford the repayments. If you are in financial difficulty, seek\n' +
+'free debt advice at www.moneyhelper.org.uk.\n\n' +
+'[Template generated by AINumbers.co T191. Legal review required\n' +
+' before use. Placeholders in [BRACKETS] must be completed. [6]]';
+
+  return { checkoutSummary: checkoutSummary, longForm: pcci };
+}
+
+function buildEUTemplates(p) {
+  var sym = p.sym;
+
+  var checkoutSummary =
+'RÉSUMÉ DU CRÉDIT / CREDIT SUMMARY — ' + p.productName + '\n' +
+'──────────────────────────────────────────────────────────\n' +
+'Montant total du crédit / Total credit:  ' + fmtAmt(p.amount, sym) + '\n' +
+'Nombre de versements / Instalments:      ' + p.instalments + '\n' +
+'Montant par versement / Per payment:     ' + fmtAmt(p.instAmt, sym) + '\n' +
+'Montant total dû / Total payable:        ' + fmtAmt(p.totalPayable, sym) + '\n' +
+'TAEG / APR:                              ' + p.apr + '%\n' +
+(p.lateFee > 0 ? 'Frais de retard / Late fee:              ' + fmtAmt(p.lateFee, sym) + '\n' : '') +
+'Droit de rétractation / Withdrawal:      14 jours / days [3]\n\n' +
+'Prêteur / Creditor: ' + p.lender + '\n' +
+'[ADRESSE / ADDRESS · AUTORISATION RÉGLEMENTAIRE]\n\n' +
+'⚠ N\'empruntez que ce que vous êtes sûr de pouvoir rembourser.\n' +
+'Only borrow what you can comfortably repay.';
+
+  var secci =
+'INFORMATIONS EUROPÉENNES NORMALISÉES EN MATIÈRE DE CRÉDIT AUX\n' +
+'CONSOMMATEURS / STANDARD EUROPEAN CONSUMER CREDIT INFORMATION\n' +
+'(CCD2 Directive 2023/2225/EU, Annex II) [3]\n' +
+'════════════════════════════════════════════════════════════\n\n' +
+'1. IDENTITÉ ET COORDONNÉES DU PRÊTEUR / CREDITOR IDENTITY\n' +
+'   Nom / Name:        ' + p.lender + '\n' +
+'   Adresse / Address: [ADRESSE LÉGALE / REGISTERED ADDRESS]\n' +
+'   Tél / Tel:         [NUMÉRO / PHONE NUMBER]\n' +
+'   E-mail:            [EMAIL]\n' +
+'   Autorité comp.:    [AUTORITÉ DE RÉGULATION COMPÉTENTE / COMPETENT AUTHORITY]\n\n' +
+'2. TYPE DE CRÉDIT / TYPE OF CREDIT\n' +
+'   ' + p.productName + ' — Crédit différé / Deferred payment credit\n\n' +
+'3. MONTANT TOTAL DU CRÉDIT / TOTAL CREDIT AMOUNT\n' +
+'   ' + fmtAmt(p.amount, sym) + '\n\n' +
+'4. DURÉE DU CONTRAT / DURATION\n' +
+'   ' + p.durationDesc + '\n\n' +
+'5. TAUX DÉBITEUR / BORROWING RATE\n' +
+'   ' + p.apr + '% par an / per annum (fixe / fixed)\n\n' +
+'6. TAUX ANNUEL EFFECTIF GLOBAL (TAEG) / APR [5]\n' +
+'   ' + p.apr + '%\n' +
+'   Exemple représentatif: Crédit de ' + fmtAmt(p.amount, sym) + ' remboursé en\n' +
+'   ' + p.instalments + ' versements de ' + fmtAmt(p.instAmt, sym) + '.\n' +
+'   Montant total dû: ' + fmtAmt(p.totalPayable, sym) + '.\n\n' +
+'7. MONTANT TOTAL DÛ / TOTAL AMOUNT PAYABLE\n' +
+'   ' + fmtAmt(p.totalPayable, sym) + '\n\n' +
+'8. ÉCHÉANCIER DE REMBOURSEMENT / REPAYMENT SCHEDULE\n' +
+p.scheduleLines.split('\n').map(function(l){ return '   ' + l; }).join('\n') + '\n\n' +
+'9. FRAIS EN CAS DE RETARD / LATE PAYMENT CHARGES\n' +
+'   ' + (p.lateFee > 0 ? fmtAmt(p.lateFee, sym) + ' par versement manqué / per missed payment.' : 'Aucun frais de retard / No late charges.') + '\n\n' +
+'10. DROIT DE RÉTRACTATION / RIGHT OF WITHDRAWAL [3][6]\n' +
+'    Vous disposez d\'un délai de 14 JOURS CALENDAIRES pour vous\n' +
+'    rétracter du présent contrat de crédit sans motif.\n' +
+'    You have 14 CALENDAR DAYS to withdraw without giving reason.\n' +
+'    Pour exercer ce droit / To exercise: [MODALITÉS / CONTACT METHOD]\n\n' +
+'11. REMBOURSEMENT ANTICIPÉ / EARLY REPAYMENT (Art. 29 CCD2)\n' +
+'    Vous avez le droit de rembourser tout ou partie du crédit par\n' +
+'    anticipation. You may repay early at any time without penalty.\n\n' +
+'12. RÉCLAMATIONS / COMPLAINTS\n' +
+'    [NOM / CONTACT RÉCLAMATIONS] · [ADR BODY NAME AND CONTACT]\n\n' +
+'[Modèle généré par AINumbers.co T191. Révision juridique requise.\n' +
+' Les champs [EN CROCHETS] doivent être complétés. [6]]';
+
+  return { checkoutSummary: checkoutSummary, longForm: secci };
+}
+
+function buildUSTemplates(p) {
+  var sym = p.sym;
+
+  var checkoutSummary =
+'CREDIT SUMMARY — ' + p.productName + '\n' +
+'──────────────────────────────────────\n' +
+'Amount Financed:     ' + fmtAmt(p.amount, sym) + '\n' +
+'Finance Charge:      ' + fmtAmt(p.financeCharge, sym) + '\n' +
+'Annual % Rate (APR): ' + p.apr + '%\n' +
+'Number of Payments:  ' + p.instalments + '\n' +
+'Payment Amount:      ' + fmtAmt(p.instAmt, sym) + ' per payment\n' +
+'Total of Payments:   ' + fmtAmt(p.totalPayable, sym) + '\n' +
+(p.lateFee > 0 ? 'Late Payment Charge:  ' + fmtAmt(p.lateFee, sym) + ' per missed payment\n' : '') + '\n' +
+'Credit provided by: ' + p.lender + '\n' +
+'[STATE OF INCORPORATION · LICENSE NUMBER WHERE REQUIRED]\n\n' +
+'⚠ Federal law requires us to disclose the above terms to you\n' +
+'before you enter into this credit agreement (TILA / Reg Z). [4]';
+
+  var tilaBox =
+'FEDERAL TRUTH IN LENDING DISCLOSURE\n' +
+'(12 CFR 1026.18 — Regulation Z) [4]\n' +
+'════════════════════════════════════════════════════════════\n' +
+'Creditor: ' + p.lender + '\n' +
+'          [ADDRESS · CITY · STATE · ZIP]\n' +
+'          [NMLS ID: xxxxxxx] (if applicable)\n\n' +
+
+'┌────────────────────┬──────────────────────────────────────┐\n' +
+'│ ANNUAL PERCENTAGE  │ FINANCE         │ AMOUNT      │ TOTAL │\n' +
+'│ RATE               │ CHARGE          │ FINANCED    │ OF    │\n' +
+'│                    │                 │             │ PMTS  │\n' +
+'│ The cost of credit │ The dollar      │ The amount  │ The   │\n' +
+'│ as a yearly rate   │ amount the      │ of credit   │ amnt  │\n' +
+'│                    │ credit will     │ provided to │ you   │\n' +
+'│                    │ cost you        │ you or on   │ will  │\n' +
+'│                    │                 │ your behalf │ pay   │\n' +
+'│  ' + p.apr.toString().padEnd(17) + ' │  ' + fmtAmt(p.financeCharge, sym).padEnd(14) + ' │  ' + fmtAmt(p.amount, sym).padEnd(10) + ' │  ' + fmtAmt(p.totalPayable, sym).padEnd(4) + ' │\n' +
+'│  APR               │                 │             │       │\n' +
+'└────────────────────┴─────────────────┴─────────────┴───────┘\n\n' +
+'PAYMENT SCHEDULE:\n' +
+p.scheduleLines.split('\n').map(function(l){ return '  ' + l; }).join('\n') + '\n\n' +
+'SECURITY INTEREST:\n' +
+'  [ ] We will have a security interest in: [DESCRIBE / N/A]\n\n' +
+'LATE PAYMENT CHARGE:\n' +
+'  ' + (p.lateFee > 0 ? 'If payment is more than [X] days late, you will be charged ' + fmtAmt(p.lateFee, sym) + '.' : 'No late payment charge applies.') + ' [4]\n\n' +
+'PREPAYMENT:\n' +
+'  If you pay off early, you [will / will not] be charged a penalty.\n\n' +
+'See your contract documents for any additional information about\n' +
+'nonpayment, default, any required repayment in full before the\n' +
+'scheduled date, and prepayment refunds and penalties.\n\n' +
+'[Template generated by AINumbers.co T191. Legal review required.\n' +
+' Placeholders in [BRACKETS] must be completed. [6]]';
+
+  return { checkoutSummary: checkoutSummary, longForm: tilaBox };
+}
+
+/* ----------------------------------------------------------
+   generateTemplates — main function
+   ---------------------------------------------------------- */
+function generateTemplates() {
+  /* Validate */
+  if (state.jurisdictions.length === 0) { document.getElementById('jurisErr').classList.add('vis'); return; }
+  var amountRaw = parseFloat(document.getElementById('purchaseAmount').value);
+  var instRaw   = parseInt(document.getElementById('numInstalments').value);
+  if (isNaN(amountRaw) || amountRaw <= 0 || isNaN(instRaw) || instRaw < 2) {
+    document.getElementById('genErr').classList.add('vis');
+    setTimeout(function(){ document.getElementById('genErr').classList.remove('vis'); }, 4000);
+    return;
+  }
+
+  var sym          = getCurrSym();
+  var currency     = document.getElementById('currency').value;
+  var lender       = document.getElementById('lenderName').value.trim() || '[LENDER NAME]';
+  var productName  = document.getElementById('productName').value.trim() || 'BNPL Pay Later';
+  var apr          = parseFloat(document.getElementById('aprPct').value) || 0;
+  var lateFee      = parseFloat(document.getElementById('lateFee').value) || 0;
+  var fcaNum       = document.getElementById('fcaNum').value.trim() || '[FCA AUTHORISATION NUMBER]';
+  var firstTiming  = document.getElementById('firstPayment').value;
+  var deferDays    = document.getElementById('deferDays').value || '30';
+  var interval     = document.getElementById('payInterval').value;
+
+  /* Financial calculations */
+  var fin = calcFinancials(amountRaw, instRaw, apr);
+
+  /* Duration description */
+  var durationDesc;
+  if (interval === '2weeks') durationDesc = (instRaw - 1) * 2 + ' weeks';
+  else if (interval === 'monthly') durationDesc = instRaw + ' months';
+  else durationDesc = '[DURATION]';
+
+  /* Payment schedule */
+  var scheduleLines = buildSchedule(instRaw, fin.instAmt, fin.lastInst, firstTiming, deferDays, interval, sym);
+
+  /* Params bundle */
+  var p = {
+    sym: sym, currency: currency, lender: lender, productName: productName,
+    apr: apr, lateFee: lateFee, fcaNum: fcaNum,
+    amount: amountRaw, instalments: instRaw,
+    instAmt: fin.instAmt, lastInst: fin.lastInst,
+    totalPayable: fin.totalPayable, financeCharge: fin.financeCharge,
+    durationDesc: durationDesc, scheduleLines: scheduleLines,
+    firstTiming: firstTiming, deferDays: deferDays, interval: interval
+  };
+
+  /* Build templates */
+  var templates = {};
+  if (state.jurisdictions.indexOf('uk') !== -1) templates.uk = buildUKTemplates(p);
+  if (state.jurisdictions.indexOf('eu') !== -1) templates.eu = buildEUTemplates(p);
+  if (state.jurisdictions.indexOf('us') !== -1) templates.us = buildUSTemplates(p);
+
+  state.generated = { p: p, templates: templates };
+  renderResults(p, templates);
+
+  document.getElementById('resultsPanel').classList.add('visible');
+  setTimeout(function(){ document.getElementById('resultsPanel').scrollIntoView({behavior:'smooth',block:'start'}); }, 100);
+}
+
+/* ----------------------------------------------------------
+   Render results
+   ---------------------------------------------------------- */
+function renderResults(p, templates) {
+  var sym = p.sym;
+
+  /* Summary strip */
+  document.getElementById('summaryStrip').innerHTML =
+    '<span class="ss-item"><strong>' + p.lender + '</strong> · ' + p.productName + '</span>' +
+    '<span class="ss-item">Amount: <strong>' + fmtAmt(p.amount, sym) + '</strong></span>' +
+    '<span class="ss-item">Instalments: <strong>' + p.instalments + ' × ' + fmtAmt(p.instAmt, sym) + '</strong></span>' +
+    '<span class="ss-item">APR: <strong>' + p.apr + '%</strong></span>' +
+    '<span class="ss-item">Total: <strong>' + fmtAmt(p.totalPayable, sym) + '</strong></span>';
+
+  /* Tabs */
+  var jurisConfig = {
+    uk: { label:'🇬🇧 UK — FCA PCCI', shortLabel:'UK' },
+    eu: { label:'🇪🇺 EU — CCD2 SECCI', shortLabel:'EU' },
+    us: { label:'🇺🇸 US — TILA / Reg Z', shortLabel:'US' }
+  };
+  var tabsHtml = '', panesHtml = '';
+  var first = true;
+
+  state.jurisdictions.forEach(function(jid) {
+    var cfg = jurisConfig[jid];
+    var tmpl = templates[jid];
+    if (!cfg || !tmpl) return;
+    var activeClass = first ? ' active' : '';
+    tabsHtml += '<button class="disc-tab' + activeClass + '" onclick="switchTab(\'' + jid + '\')" id="tab-' + jid + '">' + cfg.label + '</button>';
+
+    panesHtml += '<div class="disc-pane' + activeClass + '" id="pane-' + jid + '">';
+    /* Short-form */
+    panesHtml += '<div class="disc-block">';
+    panesHtml += '<div class="disc-block-header"><span class="disc-block-title">📋 Checkout Summary — Short-Form Disclosure</span>' +
+      '<button class="disc-copy-btn" onclick="copyText(\'copy-' + jid + '-short\',this)">Copy</button></div>';
+    panesHtml += '<div class="disc-content" id="copy-' + jid + '-short">' + escHtml(tmpl.checkoutSummary) + '</div>';
+    panesHtml += '</div>';
+    /* Long-form */
+    panesHtml += '<div class="disc-block">';
+    panesHtml += '<div class="disc-block-header"><span class="disc-block-title">📄 Full Pre-Contract Disclosure Document</span>' +
+      '<button class="disc-copy-btn" onclick="copyText(\'copy-' + jid + '-long\',this)">Copy</button></div>';
+    panesHtml += '<div class="disc-content" id="copy-' + jid + '-long">' + escHtml(tmpl.longForm) + '</div>';
+    panesHtml += '</div>';
+    panesHtml += '</div>';
+    first = false;
+  });
+
+  document.getElementById('discTabs').innerHTML = tabsHtml;
+  document.getElementById('discPanes').innerHTML = panesHtml;
+}
+
+function switchTab(jid) {
+  document.querySelectorAll('.disc-tab').forEach(function(t){ t.classList.remove('active'); });
+  document.querySelectorAll('.disc-pane').forEach(function(p){ p.classList.remove('active'); });
+  document.getElementById('tab-' + jid).classList.add('active');
+  document.getElementById('pane-' + jid).classList.add('active');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function copyText(elementId, btn) {
+  var el = document.getElementById(elementId);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(function() {
+    btn.textContent = '✓ Copied';
+    btn.classList.add('copied');
+    setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  }).catch(function() {
+    /* Fallback for older browsers */
+    var ta = document.createElement('textarea');
+    ta.value = el.textContent;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = '✓ Copied';
+    setTimeout(function(){ btn.textContent = 'Copy'; }, 2000);
+  });
+}
+
+/* ----------------------------------------------------------
+   AP2 JSON export
+   ---------------------------------------------------------- */
+function exportAP2() {
+  if (!state.generated) return;
+  var p = state.generated.p;
+  var now = new Date();
+
+  /* Build per-jurisdiction metadata */
+  var jurisArr = [], fwArr = [], disclosures = {};
+  var jurisMap = { uk:['UK'], eu:['EU'], us:['US'] };
+  var fwMap    = { uk:['FCA CONC 4','PCCI','Consumer Credit Act 1974'], eu:['CCD2 2023/2225','SECCI Annex II'], us:['TILA','12 CFR 1026.18','Reg Z'] };
+  state.jurisdictions.forEach(function(jid) {
+    (jurisMap[jid]||[]).forEach(function(j){ if (jurisArr.indexOf(j)===-1) jurisArr.push(j); });
+    (fwMap[jid]||[]).forEach(function(f){ if (fwArr.indexOf(f)===-1) fwArr.push(f); });
+    disclosures[jid] = {
+      checkout_summary_generated: true,
+      long_form_disclosure_generated: true,
+      requires_legal_review: true,
+      placeholders_present: true
+    };
+  });
+
+  var mandate = {
+    ap2_version: '1.0',
+    mandate_id: 'disc-' + now.getTime().toString(16),
+    issued_at: now.toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: 'bnpl-disclosure-template-generator',
+    tool_version: '1.0.0',
+    mandate_type: 'disclosure_template',
+    jurisdiction: jurisArr,
+    regulatory_frameworks: fwArr,
+    payload: {
+      lender_name: p.lender,
+      product_name: p.productName,
+      currency: p.currency,
+      credit_amount: p.amount,
+      number_of_instalments: p.instalments,
+      instalment_amount: p.instAmt,
+      total_amount_payable: p.totalPayable,
+      finance_charge: p.financeCharge,
+      apr_pct: p.apr,
+      late_fee: p.lateFee,
+      first_payment_timing: p.firstTiming,
+      payment_interval: p.interval,
+      disclosures_generated: disclosures,
+      legal_review_required: true,
+      placeholders_to_complete: ['[REGISTERED ADDRESS]','[TELEPHONE NUMBER]','[EMAIL ADDRESS]','[COMPLAINTS ADDRESS]','[ADR BODY]','[STATE OF INCORPORATION]']
+    },
+    summary: 'BNPL disclosure templates generated for ' + p.lender + ' (' + p.productName + '). ' + state.jurisdictions.length + ' jurisdiction(s): ' + state.jurisdictions.join(', ').toUpperCase() + '. Credit amount: ' + p.sym + p.amount.toFixed(2) + ', ' + p.instalments + ' instalments, ' + p.apr + '% APR. Templates require legal review and completion of placeholder fields before use.',
+    agent_instructions: [
+      'Route generated disclosure templates to legal review queue before deployment',
+      'Complete all [PLACEHOLDER] fields with actual entity details',
+      'Verify FCA authorisation number against FCA Financial Services Register',
+      'Confirm APR calculation using CCD2 Art. 31 actuarial method (EU) or Reg Z Appendix J (US)',
+      'Ensure disclosure is presented to consumer before credit agreement is signed',
+      'Retain signed disclosure record for regulatory audit trail'
+    ],
+    last_reviewed: '2026-05-08',
+    source_tool_inputs: {
+      lender_name: p.lender, product_name: p.productName, currency: p.currency,
+      purchase_amount: p.amount, num_instalments: p.instalments,
+      apr: p.apr, late_fee: p.lateFee, first_payment: p.firstTiming,
+      jurisdictions: state.jurisdictions
+    },
+    regulatory_citations: [
+      'FCA CONC 4.2 — pre-contract disclosure requirements; PCCI / SECCI format',
+      'Consumer Credit Act 1974 s.66A — right of withdrawal (14 days)',
+      'Directive 2023/2225/EU (CCD2) Art. 10, Annex II — SECCI form',
+      '12 CFR 1026.18 (Regulation Z) — closed-end credit disclosures'
+    ]
+  };
+
+  AP2Schema.validate(mandate);
+  var blob = new Blob([JSON.stringify(mandate, null, 2)], {type:'application/json'});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href = url; a.download = 'bnpl-disclosure-ap2-' + now.toISOString().slice(0,10) + '.policy.json'; a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+
+/* ----------------------------------------------------------
+   Markdown export
+   ---------------------------------------------------------- */
+function exportMarkdown() {
+  if (!state.generated) return;
+  var p = state.generated.p;
+  var templates = state.generated.templates;
+  var now = new Date().toISOString().slice(0,10);
+
+  var md = '# BNPL Disclosure Templates\n\n';
+  md += '> Generated by AINumbers.co T191 — BNPL Disclosure Template Generator  \n';
+  md += '> Date: ' + now + ' · Tool version: 1.0.0 · CC BY 4.0 · Post Oak Labs  \n';
+  md += '> ⚠️ **Legal review required before use. Complete all [PLACEHOLDER] fields.**\n\n';
+  md += '---\n\n## Product Parameters\n\n';
+  md += '| Field | Value |\n|---|---|\n';
+  md += '| Lender | ' + p.lender + ' |\n';
+  md += '| Product | ' + p.productName + ' |\n';
+  md += '| Currency | ' + p.currency + ' |\n';
+  md += '| Credit amount | ' + fmtAmt(p.amount, p.sym) + ' |\n';
+  md += '| Instalments | ' + p.instalments + ' × ' + fmtAmt(p.instAmt, p.sym) + ' |\n';
+  md += '| Total payable | ' + fmtAmt(p.totalPayable, p.sym) + ' |\n';
+  md += '| Finance charge | ' + fmtAmt(p.financeCharge, p.sym) + ' |\n';
+  md += '| APR | ' + p.apr + '% |\n';
+  md += '| Late fee | ' + (p.lateFee > 0 ? fmtAmt(p.lateFee, p.sym) : 'None') + ' |\n\n---\n\n';
+
+  var names = { uk:'🇬🇧 UK — FCA CONC 4 / PCCI', eu:'🇪🇺 EU — CCD2 SECCI (Annex II)', us:'🇺🇸 US — TILA / Reg Z § 1026.18' };
+  state.jurisdictions.forEach(function(jid) {
+    var tmpl = templates[jid];
+    if (!tmpl) return;
+    md += '## ' + (names[jid]||jid) + '\n\n';
+    md += '### Checkout Summary (Short-Form)\n\n```\n' + tmpl.checkoutSummary + '\n```\n\n';
+    md += '### Full Pre-Contract Disclosure\n\n```\n' + tmpl.longForm + '\n```\n\n---\n\n';
+  });
+
+  md += '## Regulatory References\n\n';
+  md += '1. FCA CONC 4.2 — Pre-Contract Credit Information; FCA Registration required\n';
+  md += '2. Consumer Credit Act 1974 s.66A — right of withdrawal (14 days)\n';
+  md += '3. Directive 2023/2225/EU (CCD2) Art. 10 & Annex II — SECCI\n';
+  md += '4. 12 CFR 1026.18 (Regulation Z) — closed-end credit TILA disclosures\n\n';
+  md += '*Templates require legal review. Placeholders in [BRACKETS] must be completed.*\n';
+
+  var blob = new Blob([md], {type:'text/markdown;charset=utf-8'});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href = url; a.download = 'bnpl-disclosures-' + now + '.md'; a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "bnpl-disclosure-template-generator", "version": "1.0.0", "title": "BNPL Disclosure Template Generator", "description": "Generate jurisdiction-specific BNPL checkout disclosure language for UK (FCA CONC 4 / PCCI), US (TILA/Reg Z §1026.18), and EU (CCD2 SECCI Annex II). Calculates payment schedule, finance charge, and total payable from product parameters. Outputs per-jurisdiction long-form disclosure documents, checkout summary copy, and a Policy Mandate JSON disclosure manifest.", "category": "cat-16", "tags": ["BNPL", "FCA CONC 4", "PCCI", "TILA", "Reg Z", "CCD2 SECCI", "Disclosure", "Template", "Policy Mandate"], "audience": ["compliance", "legal", "product", "engineer"], "input_schema": {"type": "object", "required": ["jurisdictions", "purchase_amount", "num_instalments"], "properties": {"jurisdictions": {"type": "array", "minItems": 1, "items": {"type": "string", "enum": ["uk", "eu", "us"]}}, "lender_name": {"type": "string", "description": "Legal entity name of the lender/creditor. Used in all disclosure documents."}, "product_name": {"type": "string", "description": "BNPL product name (e.g. \'Pay in 4\', \'Split Pay\')."}, "currency": {"type": "string", "enum": ["GBP", "EUR", "USD"], "default": "GBP"}, "purchase_amount": {"type": "number", "description": "Total credit / purchase amount.", "minimum": 1}, "num_instalments": {"type": "integer", "description": "Number of repayment instalments.", "minimum": 2, "maximum": 36}, "first_payment_timing": {"type": "string", "enum": ["immediate", "deferred"], "description": "Whether first payment is due at checkout or deferred."}, "defer_days": {"type": "integer", "description": "Days before first payment when first_payment_timing is \'deferred\'."}, "payment_interval": {"type": "string", "enum": ["2weeks", "monthly", "custom"]}, "apr_pct": {"type": "number", "description": "Annual Percentage Rate as a percentage. 0 for interest-free BNPL.", "default": 0, "minimum": 0}, "late_fee": {"type": "number", "description": "Late fee per missed payment in reporting currency. Optional.", "minimum": 0}, "fca_authorisation_number": {"type": "string", "description": "FCA authorisation number for UK disclosures. Inserts placeholder if blank."}}}, "output_schema": {"type": "object", "properties": {"calculated_fields": {"type": "object", "properties": {"instalment_amount": {"type": "number"}, "last_instalment": {"type": "number"}, "total_payable": {"type": "number"}, "finance_charge": {"type": "number"}}}, "disclosures": {"type": "object", "description": "Per-jurisdiction disclosure text.", "properties": {"uk": {"type": "object", "properties": {"checkout_summary": {"type": "string"}, "pcci_long_form": {"type": "string"}}}, "eu": {"type": "object", "properties": {"checkout_summary": {"type": "string"}, "secci_long_form": {"type": "string"}}}, "us": {"type": "object", "properties": {"checkout_summary": {"type": "string"}, "tila_box_long_form": {"type": "string"}}}}}, "ap2_mandate": {"type": "object", "description": "Mandato de Política disclosure manifest with mandate_type: disclosure_template."}}}, "mcp_tool_definition": {"name": "generate_bnpl_disclosure_templates", "description": "Generate jurisdiction-specific BNPL disclosure templates. For UK: FCA CONC 4 / Pre-Contract Credit Information (PCCI) in SECCI format. For EU: CCD2 Standard European Consumer Credit Information (SECCI, Annex II). For US: TILA Reg Z § 1026.18 Federal Truth in Lending Disclosure. Returns checkout summary copy, full pre-contract disclosure documents, calculated financial figures, and a Policy Mandate JSON disclosure manifest. Output templates require legal review and placeholder completion before live use. Use when a BNPL lender or merchant needs compliant disclosure language for checkout integration.", "inputSchema": {"type": "object", "required": ["jurisdictions", "purchase_amount", "num_instalments"], "properties": {"jurisdictions": {"type": "array", "items": {"type": "string"}}, "lender_name": {"type": "string"}, "product_name": {"type": "string"}, "currency": {"type": "string"}, "purchase_amount": {"type": "number"}, "num_instalments": {"type": "integer"}, "first_payment_timing": {"type": "string"}, "defer_days": {"type": "integer"}, "payment_interval": {"type": "string"}, "apr_pct": {"type": "number"}, "late_fee": {"type": "number"}, "fca_authorisation_number": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/191-bnpl-disclosure-template-generator.html", "function_name": "generateTemplates", "timeout_ms": 2000}, "ap2_export": true, "disclosure_formats": {"uk": {"regulation": "FCA CONC 4.2 / Consumer Credit Act 1974", "format": "Pre-Contract Credit Information (PCCI) — SECCI equivalent", "right_of_withdrawal_days": 14, "mandatory_elements": ["Creditor identity and FCA number", "Type of credit", "Total amount of credit", "Duration", "Rate of interest and APR", "Total amount payable", "Repayment schedule", "Late payment charges", "Right of withdrawal (14 days)", "FOS complaint pathway"]}, "eu": {"regulation": "Directive 2023/2225/EU (CCD2) Art. 10, Annex II", "format": "Standard European Consumer Credit Information (SECCI)", "right_of_withdrawal_days": 14, "mandatory_elements": ["Creditor identity", "Type of credit", "Total credit amount", "Duration", "Borrowing rate", "APR with representative example", "Total amount payable", "Repayment schedule", "Late charges", "Right of withdrawal (14 days)", "Early repayment right", "ADR body"]}, "us": {"regulation": "12 CFR 1026.18 (Regulation Z / TILA)", "format": "Federal Truth in Lending Disclosure — Closed-End Credit", "right_of_withdrawal_days": null, "mandatory_elements": ["Creditor identity", "Amount financed", "Finance charge", "Annual percentage rate", "Payment schedule", "Total of payments", "Prepayment information", "Late payment charges", "Security interest"]}}, "legal_disclaimer": "Generated disclosures are structured templates. They must be reviewed and approved by qualified legal counsel before use. Placeholders in [BRACKETS] must be completed with actual entity details.", "last_reviewed": "2026-05-08", "notes": "Client-side. Zero PII. Policy Mandate: true (mandate_type: disclosure_template). Copy-to-clipboard enabled per pane."}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

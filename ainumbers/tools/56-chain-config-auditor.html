@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Tool 56 — Permissioned Chain Config Auditor · AINumbers.co</title>
+<meta name="description" content="Client-side audit of Hyperledger Fabric configtx.yaml and Besu genesis.json. Checks endorsement policy completeness, MSP cert windows, Raft/QBFT quorum, PDC scoping, and Tessera deprecation status. Air-gapped. Zero PII.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Permissioned Chain Config Auditor","url":"https://ainumbers.co/tools/56-chain-config-auditor.html","description":"Client-side audit of Hyperledger Fabric configtx.yaml and Besu genesis.json. Checks endorsement policy completeness, MSP cert windows, Raft/QBFT quorum, PDC scoping, and Tessera deprecation status. Air-gapped. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.15}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1200px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:0 2rem;height:34px;display:flex;align-items:center}
+.lang-inner{max-width:1200px;margin:0 auto;width:100%;display:flex;gap:.5rem;justify-content:flex-end}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid transparent;padding:.2rem .5rem;cursor:pointer;line-height:1;transition:color .15s}
+.lang-btn.active{color:var(--teal-lt);border-bottom:1px solid var(--teal)}
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1200px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-mark-grid{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:32px;height:32px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+@media(max-width:600px){}
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.7rem,3vw,2.6rem);color:var(--white);max-width:720px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.2rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.badge-privacy{color:var(--muted);border-color:var(--border)}.badge-privacy::before{content:'·';color:var(--green)}
+.badge-spec{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.tool-section{padding:2.5rem 0 4rem;position:relative;z-index:1}
+/* Common layout */
+.tool-grid{display:grid;grid-template-columns:300px 1fr;gap:2px;background:var(--border);border:1px solid var(--border)}
+@media(max-width:860px){.tool-grid{grid-template-columns:1fr}}
+.config-panel{background:var(--bg-2);padding:1.75rem;position:sticky;top:86px;max-height:calc(100vh - 86px);overflow-y:auto}
+.output-panel{background:var(--bg-3);display:flex;flex-direction:column;min-height:520px}
+.output-body{flex:1;padding:1.5rem;overflow-y:auto}
+.output-toolbar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.75rem 1.5rem;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.output-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+/* Panel components */
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
+.sec-head{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-lt);margin:1.2rem 0 .7rem;display:flex;align-items:center;gap:.6rem}
+.sec-head::after{content:'';flex:1;height:1px;background:var(--border)}
+.flbl{font-size:.74rem;color:var(--bright);display:block;margin-bottom:.3rem}
+.fhint{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);display:block;margin-top:.25rem}
+select,input[type=number],input[type=text]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.74rem;padding:.42rem .65rem;outline:none;transition:border-color .2s;-webkit-appearance:none;margin-bottom:.85rem}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a6a8a'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .7rem center;padding-right:2rem;cursor:pointer}
+select:focus,input:focus{border-color:var(--teal)}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.55rem .75rem;outline:none;resize:vertical;min-height:120px;line-height:1.65;transition:border-color .2s;margin-bottom:.85rem}
+textarea::placeholder{color:var(--muted)}
+textarea:focus{border-color:var(--teal)}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.55rem 1rem;cursor:pointer;transition:all .2s;border:1px solid}
+.btn-primary{background:var(--teal);border-color:var(--teal);color:var(--bg);width:100%}
+.btn-primary:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--muted);color:var(--text)}
+.arow{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.divider{border:none;border-top:1px solid var(--border);margin:1.25rem 0}
+/* KPI bar */
+.kpi-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:1px;background:var(--border);margin-bottom:1.5rem}
+.kc{background:var(--bg-2);padding:.8rem 1rem}
+.kl{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.kv{font-family:'DM Serif Display',serif;font-size:1.15rem;color:var(--bright);line-height:1}
+.kv.g{color:var(--green)}.kv.r{color:var(--red)}.kv.w{color:var(--warn)}.kv.t{color:var(--teal)}.kv.p{color:var(--purple)}.kv.gold{color:var(--gold)}
+/* Table */
+table{width:100%;border-collapse:collapse;font-size:.74rem;margin-bottom:1.5rem}
+th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.6rem .85rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-2);white-space:nowrap}
+td{padding:.6rem .85rem;border-bottom:1px solid rgba(30,47,74,.4);vertical-align:top}
+tr:hover td{background:rgba(20,184,166,.02)}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .4rem;border-radius:2px;white-space:nowrap;display:inline-block}
+.tag-green{background:var(--green-dim);color:var(--green)}.tag-warn{background:rgba(245,158,11,.1);color:var(--warn)}.tag-red{background:var(--red-dim);color:var(--red)}.tag-teal{background:var(--teal-dim);color:var(--teal)}.tag-purple{background:var(--purple-dim);color:var(--purple)}.tag-muted{background:var(--bg-3);color:var(--muted)}
+/* Cards */
+.card-list{display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.5rem}
+.card{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);padding:1rem 1.25rem}
+.card.pass{border-left-color:var(--green)}.card.warn{border-left-color:var(--warn)}.card.fail{border-left-color:var(--red)}.card.purple{border-left-color:var(--purple)}
+.card-title{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--bright);margin-bottom:.35rem}
+.card-meta{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--body);margin-bottom:.5rem}
+.card-body{font-size:.74rem;color:var(--body);line-height:1.6}
+/* Section title */
+.sec-title{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin:1.5rem 0 .75rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+/* Empty state */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem;text-align:center;flex:1}
+.empty-icon{font-size:2.5rem;margin-bottom:1rem;opacity:.4}
+.empty-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--muted);margin-bottom:.5rem}
+.empty-sub{font-size:.78rem;color:var(--muted);max-width:380px;line-height:1.7}
+/* Collapsible */
+.coll-trigger{display:flex;align-items:center;gap:.75rem;cursor:pointer;padding:1rem 0;border-top:1px solid var(--border);user-select:none}
+.coll-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.coll-icon{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--teal-lt);margin-left:auto;transition:transform .2s}
+.coll-trigger.open .coll-icon{transform:rotate(180deg)}
+.coll-body{display:none;padding:1.5rem;background:var(--bg-2);border:1px solid var(--border);border-top:none}
+.coll-body.open{display:block}
+.coll-body p{font-size:.82rem;color:var(--body);line-height:1.85;margin-bottom:.9rem}
+/* pre/code */
+pre{background:var(--bg);border:1px solid var(--border);border-left:3px solid var(--teal);padding:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.68rem;line-height:1.75;color:var(--text);white-space:pre-wrap;word-break:break-word;overflow-x:auto;margin-bottom:1rem}
+/* Wizard step */
+.step-bar{display:flex;gap:1px;background:var(--border);margin-bottom:1.5rem}
+.step{flex:1;background:var(--bg-2);padding:.65rem .85rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:background .15s}
+.step.active{background:var(--bg-4);color:var(--teal-lt)}
+.step.done{background:rgba(34,197,94,.06);color:var(--green)}
+}
+
+
+.risk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.5rem;margin-bottom:1.5rem}
+.risk-card{background:var(--bg-2);border:1px solid var(--border);padding:1rem 1.25rem;border-left:4px solid}
+.risk-card.pass{border-left-color:var(--green)}.risk-card.warn{border-left-color:var(--warn)}.risk-card.fail{border-left-color:var(--red)}
+.rc-rule{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.2rem}
+.rc-title{font-size:.8rem;color:var(--bright);margin-bottom:.3rem;font-weight:400}
+.rc-detail{font-size:.7rem;color:var(--body);line-height:1.55}
+.rc-icon{font-size:1rem;float:right;margin-left:.5rem}
+.heatmap{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);margin-bottom:1.5rem}
+.hm-cell{padding:.75rem 1rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase}
+.hm-pass{background:rgba(34,197,94,.12);color:var(--green)}.hm-warn{background:rgba(245,158,11,.1);color:var(--warn)}.hm-fail{background:rgba(239,68,68,.12);color:var(--red)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <div class="logo-mark-grid"><svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg></div>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/dlt-tokenization-hub.html">DLT Hub</a><span class="nav-sep">/</span><span>T-56</span></div>
+
+    <a href="../guides/dlt-tokenization-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+<div class="hero"><div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+  <div class="hero-eyebrow"><span data-i18n="t56.hero_eyebrow">Tool 56 · Core Infrastructure</span></div>
+  <h1 class="tool-title"><span data-i18n="t56.h1">Permissioned Chain<br><em>Config Auditor</em></span></h1>
+  <p class="hero-desc"><span data-i18n="t56.hero_sub">Air-gapped static analysis of Fabric configtx.yaml and Besu genesis.json. Validates endorsement policy completeness, MSP certificate expiry windows, Raft/QBFT quorum viability, PDC scoping, TLS/HSM flags, and chainId collision. Outputs a risk heatmap and permission topology summary.</span></p>
+  <div class="hero-meta"><span class="hero-badge badge-privacy">Zero PII · Air-Gapped</span><span class="hero-badge badge-teal">Fabric · Besu</span><span class="hero-badge badge-spec">Risk Heatmap · PDC Analysis</span><span class="hero-badge badge-spec">No Code Executed</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+</div></div>
+<section class="tool-section"><div class="container">
+
+<div class="tool-grid">
+<div class="config-panel">
+  <div class="panel-label"><span data-i18n="t56.panel_label">Auditor Configuration</span></div>
+  <div class="sec-head">Platform</div>
+  <span class="flbl">Network Type</span>
+  <select id="platform" onchange="updatePlaceholder()">
+    <option value="fabric">Hyperledger Fabric (configtx.yaml)</option>
+    <option value="besu">Hyperledger Besu (genesis.json)</option>
+  </select>
+  <div class="sec-head">Config Input</div>
+  <span class="flbl">Paste Config File Contents</span>
+  <textarea id="configInput" style="min-height:200px" placeholder="Paste configtx.yaml or genesis.json here..."></textarea>
+  <span class="fhint" id="inputHint">Air-gapped — your config never leaves this browser tab</span>
+  <div class="divider"></div>
+  <button class="btn btn-primary" onclick="runAudit()"><span data-i18n="t56.btn_run">▶ Run Config Audit</span></button>
+  <div class="results-export-row arow">
+    <button class="btn btn-ghost" style="flex:1" onclick="loadSample()">Sample Config</button>
+    <button id="ap2ExportBtn" class="btn btn-ghost" style="flex:1" onclick="exportAP2()">↓ Policy Mandate</button>
+  </div>
+  <div class="divider"></div>
+  <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);padding:.85rem;font-size:.68rem;color:var(--body);line-height:1.65">
+    <span style="color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.35rem">⚠ Besu Tessera Deprecation</span>
+    Tessera privacy plugin deprecated as of June 1 2026. All Besu deployments using Tessera for private transactions must migrate to a supported privacy solution. This auditor will flag Tessera endpoint references.
+  </div>
+</div>
+<div class="output-panel">
+  <div class="output-toolbar">
+    <span class="output-title"><span data-i18n="t56.output_title">Config Audit Report</span></span>
+    <button class="btn btn-ghost" onclick="window.print()">⎙ Print</button>
+  </div>
+  <div class="output-body">
+    <div id="emptyState" class="empty-state">
+      <div class="empty-icon">⚙️</div>
+      <div class="empty-title"><span data-i18n="t56.empty_title">No Config Loaded</span></div>
+      <div class="empty-sub"><span data-i18n="t56.empty_sub">Select platform, paste your config file, and click Run Config Audit. All analysis is air-gapped — no data leaves your browser.</span></div>
+    </div>
+    <div id="results" style="display:none">
+      <div class="kpi-bar" id="kpiBar"></div>
+      <div class="sec-title">Risk Heatmap</div>
+      <div class="heatmap" id="heatmap"></div>
+      <div class="sec-title">Finding Detail</div>
+      <div class="risk-grid" id="riskGrid"></div>
+    </div>
+  </div>
+</div>
+</div>
+<div style="margin-top:2rem">
+  <div class="coll-trigger" onclick="this.classList.toggle('open');document.getElementById('about').classList.toggle('open')"><span class="coll-lbl">About This Tool · Rule Reference</span><span class="coll-icon">▾</span></div>
+  <div class="coll-body" id="about">
+    <p><strong>Fabric rules (configtx.yaml):</strong> Endorsement policy completeness (at least 2 orgs referenced), MSP certificate path presence, Raft orderer detection, minimum 5-node quorum recommendation, PDC (Private Data Collection) scoping patterns, TLS enablement, FIPS HSM references, Travel Rule PDC presence (PDC_TR_ prefix).</p>
+    <p><strong>Besu rules (genesis.json):</strong> QBFT validator set size (minimum 4 recommended for f=1 BFT tolerance), chainId presence and common collision values (1, 1337), Tessera endpoint references (deprecated June 2026), account permissioning flag, IBFT2 vs QBFT detection, alloc block structure.</p>
+    <p><strong>Reference architecture:</strong> Fabric rules are derived from the 3-org MSP design documented in Post Oak Labs Fabric A2A (Org1MSP/Munich, Org2MSP/Paris, Org3MSP/Riyadh — 5-node Raft, PDC_TR_DE_SA for Travel Rule). Besu rules from the QBFT 3-validator design (BankFR/Paris, BankES/Madrid, BankSA/Riyadh).</p>
+  </div>
+</div>
+
+</div></section>
+<!-- ══ FOOTER ══ -->
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+<script>
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* AP2Schema — full validator (PM17; wired into cohort C) */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+if (typeof AP2Schema.validate !== 'function') {
+  AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    return true;
+  };
+}
+
+
+const FABRIC_RULES = [
+  {id:'EP-001',area:'Endorsement',sev:'fail',label:'Multi-Org Endorsement Policy',
+   check:c=>(c.match(/MSP/g)||[]).length>=2,
+   pass:'Multiple MSP references detected — multi-org endorsement policy likely present',
+   fail:'Fewer than 2 MSP references found. Endorsement policy may be incomplete.',
+   fix:'Ensure at least 2 organisations are referenced in endorsement policies: AND("Org1MSP.peer","Org2MSP.peer")'},
+  {id:'EP-002',area:'Endorsement',sev:'warn',label:'Explicit Endorsement Policy',
+   check:c=>/EndorsementPolicy|endorsement|SignaturePolicyEnvelope/i.test(c),
+   pass:'Explicit endorsement policy syntax detected',
+   fail:'No explicit endorsement policy found. Default may apply.',
+   fix:'Always specify explicit endorsement policies rather than relying on channel defaults.'},
+  {id:'RAFT-001',area:'Consensus',sev:'warn',label:'Raft Orderer Detection',
+   check:c=>/etcdraft|Raft|OrdererType.*etcd/i.test(c),
+   pass:'Raft orderer configuration detected',
+   fail:'No Raft orderer detected. Ensure consensus type is set to etcdraft.',
+   fix:'Set OrdererType: etcdraft and configure at least 5 Raft consenters for production.'},
+  {id:'RAFT-002',area:'Consensus',sev:'warn',label:'Minimum 5 Raft Consenters',
+   check:c=>{const m=c.match(/Host:/g);return m&&m.length>=5;},
+   pass:'5 or more hosts detected in consenter configuration',
+   fail:'Fewer than 5 consenters detected. Recommend ≥5 for fault tolerance (f=2).',
+   fix:'Add at least 5 Raft consenters across different regions for production-grade fault tolerance.'},
+  {id:'PDC-001',area:'Privacy',sev:'warn',label:'Private Data Collection (PDC) Scoping',
+   check:c=>/collections|CollectionConfig|policy.*OR|PDC/i.test(c),
+   pass:'PDC or collection configuration detected',
+   fail:'No PDC configuration found. Sensitive data may be written to public channel state.',
+   fix:'Define Private Data Collections for sensitive fields. Use bilateral PDCs for counterparty-level privacy.'},
+  {id:'PDC-002',area:'Privacy',sev:'warn',label:'Travel Rule PDC',
+   check:c=>/PDC_TR|travel.?rule|travelRule|trHash/i.test(c),
+   pass:'Travel Rule PDC reference detected (PDC_TR prefix pattern)',
+   fail:'No Travel Rule PDC reference found.',
+   fix:'Define a PDC named PDC_TR_<CORRIDOR> to isolate Travel Rule data (pacs.008 payload hash) from public ledger state.'},
+  {id:'TLS-001',area:'Security',sev:'fail',label:'TLS Enabled',
+   check:c=>/TLSEnabled.*true|tls.*enabled.*true|clientAuthRequired/i.test(c),
+   pass:'TLS enabled configuration detected',
+   fail:'No TLS configuration found. TLS must be enabled for all production channels.',
+   fix:'Set TLSEnabled: true in the peer and orderer sections. Enable mutual TLS (clientAuthRequired: true) for production.'},
+  {id:'HSM-001',area:'Security',sev:'warn',label:'HSM / FIPS Reference',
+   check:c=>/PKCS11|HSM|bccsp.*pkcs11|fips/i.test(c),
+   pass:'PKCS11/HSM configuration detected — FIPS compliance path present',
+   fail:'No HSM/PKCS11 configuration found.',
+   fix:'For regulated deployments, configure BCCSP with PKCS11 provider to use FIPS 140-2 HSM for key material.'},
+];
+
+const BESU_RULES = [
+  {id:'QBFT-001',area:'Consensus',sev:'fail',label:'QBFT Consensus Detection',
+   check:c=>/qbft|QBFT/i.test(c),
+   pass:'QBFT consensus configuration detected',
+   fail:'QBFT not detected. IBFT2 is deprecated. Migrate to QBFT for production.',
+   fix:'Set "ibft2":{} to "qbft":{} in the genesis extraData and configure QBFT validators.'},
+  {id:'QBFT-002',area:'Consensus',sev:'warn',label:'Validator Count ≥4 (BFT f=1)',
+   check:c=>{const m=c.match(/"0x[0-9a-fA-F]{40}"/g);return m&&m.length>=4;},
+   pass:'4 or more validator addresses detected — BFT tolerance f≥1',
+   fail:'Fewer than 4 validator addresses. QBFT requires 3f+1 validators; minimum 4 for f=1.',
+   fix:'Add at least 4 QBFT validator addresses. For f=1 BFT tolerance you need 4; for f=2 you need 7.'},
+  {id:'CHAIN-001',area:'Network',sev:'fail',label:'ChainId Present',
+   check:c=>/"chainId"|chainId/i.test(c),
+   pass:'chainId field detected',
+   fail:'No chainId detected in genesis configuration.',
+   fix:'Add chainId to genesis config. Choose a value not used by any public chain (avoid 1, 137, 56, 1337).'},
+  {id:'CHAIN-002',area:'Network',sev:'warn',label:'ChainId Collision Check',
+   check:c=>!/"chainId"\s*:\s*(1|137|56|1337|11155111)/.test(c),
+   pass:'chainId does not match known public chain IDs',
+   fail:'chainId matches a known public chain (1=mainnet, 137=Polygon, 56=BSC, 1337=Ganache). Use a private range.',
+   fix:'Use chainId in the range 4000–4999 or consult chainlist.org to find an unused ID.'},
+  {id:'TESSERA-001',area:'Privacy',sev:'fail',label:'Tessera Deprecation Check',
+   check:c=>!/tessera|orion|privateFor/i.test(c),
+   pass:'No Tessera/Orion references detected',
+   fail:'Tessera or Orion privacy plugin reference found. Tessera deprecated June 1 2026.',
+   fix:'Migrate to a supported privacy solution. Remove tessera.upstreamHttpProxyHost and related configuration. Contact ConsenSys for migration guidance.'},
+  {id:'PERM-001',area:'Security',sev:'warn',label:'Account Permissioning',
+   check:c=>/permissioning|allowlist|SmartContractPermissioning|NodePermissioning/i.test(c),
+   pass:'Account or node permissioning configuration detected',
+   fail:'No permissioning configuration found.',
+   fix:'Enable on-chain account permissioning for production networks: set permissions-config-file or use smart-contract-based permissioning.'},
+  {id:'ALLOC-001',area:'Network',sev:'warn',label:'Genesis Alloc Block',
+   check:c=>/"alloc"\s*:\s*\{/.test(c),
+   pass:'Genesis alloc block present',
+   fail:'No alloc block found in genesis. Token pre-allocation or system account funding may be missing.',
+   fix:'Add an alloc block to pre-fund system accounts or initial token balances required for chaincode operation.'},
+];
+
+const SAMPLES = {
+  fabric:`Organizations:
+  - &Org1MSP
+    Name: Org1MSP
+    ID: Org1MSP
+    MSPDir: crypto-config/peerOrganizations/org1.example.com/msp
+    Policies:
+      Readers:
+        Rule: OR('Org1MSP.member')
+      Endorsement:
+        Rule: AND('Org1MSP.peer', 'Org2MSP.peer', 'Org3MSP.peer')
+Orderer:
+  OrdererType: etcdraft
+  EtcdRaft:
+    Consenters:
+      - Host: orderer1.example.com
+      - Host: orderer2.example.com
+      - Host: orderer3.example.com
+      - Host: orderer4.example.com
+      - Host: orderer5.example.com
+  Organizations:
+  TLSEnabled: true
+  BCCSP:
+    Default: PKCS11
+    PKCS11:
+      Library: /usr/lib/softhsm/libsofthsm2.so
+Collections:
+  - name: PDC_TR_DE_SA
+    policy: OR('Org1MSP.member','Org2MSP.member')`,
+  besu:`{
+  "config": {
+    "chainId": 4321,
+    "berlinBlock": 0,
+    "qbft": {
+      "blockperiodseconds": 2,
+      "epochlength": 30000,
+      "requesttimeoutseconds": 4
+    }
+  },
+  "nonce": "0x0",
+  "timestamp": "0x58ee40ba",
+  "gasLimit": "0x1fffffffffffff",
+  "difficulty": "0x1",
+  "mixHash": "0x63746963616c2062797a616e74696e65206661756c7420746f6c6572616e6365",
+  "coinbase": "0x0000000000000000000000000000000000000000",
+  "alloc": {
+    "0xfe3b557e8fb62b89f4916b721be55ceb828dbd73": {
+      "privateKey": "8f2a55949038a9610f50fb23b5883af3b4ecb3c3bb792cbcefbd1542c692be63",
+      "balance": "0xad78ebc5ac6200000"
+    }
+  },
+  "extraData": "0xf869a00000000000000000000000000000000000000000000000000000000000000000f854942a813d7db3de19b07be9c43ca14e7f82ea03339496b18c1e9e718f27e4d099ea49f87571ea0c60694abf1a1bfc71a50f6e7e50bc95c7fb0b3bef8d2948ab405d3c7e80b7a87b5f7fdc1f81d30bda388c7c0c0"
+}`
+};
+
+function loadSample(){
+  const p=document.getElementById('platform').value;
+  document.getElementById('configInput').value=SAMPLES[p];
+}
+
+function updatePlaceholder(){
+  const p=document.getElementById('platform').value;
+  document.getElementById('configInput').placeholder=p==='fabric'?'Paste configtx.yaml here...':'Paste genesis.json here...';
+}
+
+let _res=null;
+
+function runAudit(){
+  const p=document.getElementById('platform').value;
+  const cfg=document.getElementById('configInput').value.trim();
+  if(!cfg){alert('Paste a config file first.');return;}
+  const rules=p==='fabric'?FABRIC_RULES:BESU_RULES;
+  const findings=rules.map(r=>({...r,result:r.check(cfg)?'pass':r.sev}));
+  const pass=findings.filter(f=>f.result==='pass').length;
+  const warn=findings.filter(f=>f.result==='warn').length;
+  const fail=findings.filter(f=>f.result==='fail').length;
+  _res={p,findings,pass,warn,fail};
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('results').style.display='block';
+
+  document.getElementById('kpiBar').innerHTML=[
+    {l:'Checks Run',v:findings.length,c:'t'},
+    {l:'Passed',v:pass,c:'g'},
+    {l:'Warnings',v:warn,c:'w'},
+    {l:'Failed',v:fail,c:fail>0?'r':'g'},
+  ].map(k=>`<div class="kc"><div class="kl">${k.l}</div><div class="kv ${k.c}">${k.v}</div></div>`).join('');
+
+  // Heatmap by area
+  const areas={};
+  findings.forEach(f=>{
+    if(!areas[f.area])areas[f.area]={pass:0,warn:0,fail:0};
+    areas[f.area][f.result==='pass'?'pass':f.result==='warn'?'warn':'fail']++;
+  });
+  document.getElementById('heatmap').innerHTML=Object.entries(areas).map(([area,counts])=>{
+    const cls=counts.fail>0?'hm-fail':counts.warn>0?'hm-warn':'hm-pass';
+    return `<div class="hm-cell ${cls}">${area}<br><span style="font-size:.55rem">${counts.fail>0?counts.fail+' fail':counts.warn>0?counts.warn+' warn':'All pass'}</span></div>`;
+  }).join('');
+
+  document.getElementById('riskGrid').innerHTML=findings.map(f=>`
+    <div class="risk-card ${f.result}">
+      <span class="rc-icon">${f.result==='pass'?'✓':f.result==='warn'?'⚠':'✗'}</span>
+      <div class="rc-rule">${f.id} · ${f.area}</div>
+      <div class="rc-title">${f.label}</div>
+      <div class="rc-detail">${f.result==='pass'?f.pass:f.fail}${f.result!=='pass'?'<br><strong style="color:var(--text)">Fix:</strong> '+f.fix:''}</div>
+    </div>`).join('');
+}
+
+function exportAP2(){
+  if(!_res){alert('Run audit first.');return;}
+  const ap2={ap2:'1.0',tool:'56-chain-config-auditor',timestamp:new Date().toISOString(),
+    inputs:{platform:_res.p},outputs:{pass:_res.pass,warn:_res.warn,fail:_res.fail},
+    findings:_res.findings.map(f=>({id:f.id,area:f.area,status:f.result,label:f.label,detail:f.result==='pass'?f.pass:f.fail,fix:f.result!=='pass'?f.fix:null}))};
+  AP2Schema.validate(ap2);
+  const a=document.createElement('a');a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(ap2,null,2));a.download='chain-config-audit.policy.json';a.click();
+}
+updatePlaceholder();
+
+
+const TRANSLATIONS = {
+  'en': {
+    'nav.alltools': 'All Tools',
+    'nav.home': 'Home',
+    'nav.a2a': 'A2A Payments',
+    'nav.glossary': 'Glossary',
+    'nav.tools': 'Tools',
+    'nav.contact': 'Contact',
+    'footer.alltools': 'All Tools',
+    'footer.sitemap': 'Sitemap',
+    'footer.contact': 'Contact',
+    'footer.a2a': 'A2A Payments',
+    'footer.glossary': 'Glossary',
+    'footer.home': 'Home',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy': '🔒 Zero PII   📡 No server calls   💻 Client-side',
+    'badge.zeropii': 'Zero PII · Client-Side Only',
+    'badge.zeropii2': 'Zero PII · 100% Client-Side',
+    'about.trigger': 'About This Tool',
+    'about.trigger2': 'About This Tool ▾',
+    'about.privacy': 'Privacy Statement',
+    'priv.body': 'All processing happens in your browser. No data is transmitted to any server. No analytics, no cookies, no telemetry. Your inputs never leave your device.',
+    'btn.reset': '↺ Reset',
+    'btn.clear': '↺ Clear',
+    'btn.exportcsv': '↓ CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Print',
+    'btn.copy': 'Copy',
+    'btn.alltools': '← All Tools',
+    'lbl.selectopt': '— Select —',
+    'lbl.jurisdiction': 'Jurisdiction',
+    'lbl.currency': 'Currency',
+    'lbl.amount': 'Amount',
+    't56.hero_eyebrow': 'Tool 56 · Core Infrastructure',
+    't56.h1': 'Permissioned Chain Config Auditor',
+    't56.hero_sub': 'Air-gapped static analysis of Fabric configtx.yaml and Besu genesis.json. Validates endorsement policy completeness, MSP configuration, channel access controls, and consensus parameter alignment.',
+    't56.panel_label': 'Auditor Configuration',
+    't56.btn_run': '▶ Run Config Audit',
+    't56.output_title': 'Config Audit Report',
+    't56.empty_title': 'No Config Loaded',
+    't56.empty_sub': 'Select platform, paste your config file, and click Run Config Audit. All analysis is air-gapped — no data leaves your browser.',
+  
+    'nav.hub': '← Cat-11 Hub',
+  },
+  'es': {
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.home': 'Inicio',
+    'nav.a2a': 'Pagos A2A',
+    'nav.glossary': 'Glosario',
+    'nav.tools': 'Herramientas',
+    'nav.contact': 'Contacto',
+    'footer.alltools': 'Todas las Herramientas',
+    'footer.sitemap': 'Mapa del Sitio',
+    'footer.contact': 'Contacto',
+    'footer.a2a': 'Pagos A2A',
+    'footer.glossary': 'Glosario',
+    'footer.home': 'Inicio',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy': '🔒 Sin PII   📡 Sin llamadas al servidor   💻 Del lado del cliente',
+    'badge.zeropii': 'Sin PII · Solo del Lado del Cliente',
+    'badge.zeropii2': 'Sin PII · 100% del Lado del Cliente',
+    'about.trigger': 'Acerca de Esta Herramienta',
+    'about.trigger2': 'Acerca de Esta Herramienta ▾',
+    'about.privacy': 'Declaración de Privacidad',
+    'priv.body': 'Todo el procesamiento ocurre en su navegador. No se transmiten datos a ningún servidor. Sin análisis, sin cookies, sin telemetría. Sus datos nunca salen de su dispositivo.',
+    'btn.reset': '↺ Restablecer',
+    'btn.clear': '↺ Limpiar',
+    'btn.exportcsv': '↓ CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimir',
+    'btn.copy': 'Copiar',
+    'btn.alltools': '← Todas las Herramientas',
+    'lbl.selectopt': '— Seleccionar —',
+    'lbl.jurisdiction': 'Jurisdicción',
+    'lbl.currency': 'Moneda',
+    'lbl.amount': 'Monto',
+    't56.hero_eyebrow': 'Herramienta 56 · Infraestructura Central',
+    't56.h1': 'Auditor de Configuración de Cadena con Permisos',
+    't56.hero_sub': 'Análisis estático de Fabric configtx.yaml y Besu genesis.json. Valida la integridad de la política de respaldo, configuración MSP y controles de acceso de canal.',
+    't56.panel_label': 'Configuración del Auditor',
+    't56.btn_run': '▶ Ejecutar Auditoría de Configuración',
+    't56.output_title': 'Informe de Auditoría de Configuración',
+    't56.empty_title': 'Sin Configuración Cargada',
+    't56.empty_sub': 'Seleccione plataforma, pegue su archivo de configuración y haga clic en Ejecutar Auditoría. Todo el análisis es local.',
+  
+    'nav.hub': '← Centro Cat-11',
+  },
+  'fr': {
+    'nav.alltools': 'Tous les Outils',
+    'nav.home': 'Accueil',
+    'nav.a2a': 'Paiements A2A',
+    'nav.glossary': 'Glossaire',
+    'nav.tools': 'Outils',
+    'nav.contact': 'Contact',
+    'footer.alltools': 'Tous les Outils',
+    'footer.sitemap': 'Plan du Site',
+    'footer.contact': 'Contact',
+    'footer.a2a': 'Paiements A2A',
+    'footer.glossary': 'Glossaire',
+    'footer.home': 'Accueil',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy': '🔒 Zéro PII   📡 Aucun appel serveur   💻 Côté client',
+    'badge.zeropii': 'Zéro PII · Côté Client Uniquement',
+    'badge.zeropii2': 'Zéro PII · 100% Côté Client',
+    'about.trigger': 'À Propos de Cet Outil',
+    'about.trigger2': 'À Propos de Cet Outil ▾',
+    'about.privacy': 'Déclaration de Confidentialité',
+    'priv.body': 'Tout le traitement s\'effectue dans votre navigateur. Aucune donnée n\'est transmise à un serveur. Pas d\'analyse, pas de cookies, pas de télémétrie. Vos entrées ne quittent jamais votre appareil.',
+    'btn.reset': '↺ Réinitialiser',
+    'btn.clear': '↺ Effacer',
+    'btn.exportcsv': '↓ CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimer',
+    'btn.copy': 'Copier',
+    'btn.alltools': '← Tous les Outils',
+    'lbl.selectopt': '— Sélectionner —',
+    'lbl.jurisdiction': 'Juridiction',
+    'lbl.currency': 'Devise',
+    'lbl.amount': 'Montant',
+    't56.hero_eyebrow': 'Outil 56 · Infrastructure de Base',
+    't56.h1': 'Auditeur de Configuration de Chaîne Permissionnée',
+    't56.hero_sub': 'Analyse statique de Fabric configtx.yaml et Besu genesis.json. Valide la complétude de la politique d\'approbation, la configuration MSP et les contrôles d\'accès aux canaux.',
+    't56.panel_label': 'Configuration de l\'Auditeur',
+    't56.btn_run': '▶ Lancer l\'Audit de Configuration',
+    't56.output_title': 'Rapport d\'Audit de Configuration',
+    't56.empty_title': 'Aucune Configuration Chargée',
+    't56.empty_sub': 'Sélectionnez la plateforme, collez votre fichier de configuration et cliquez sur Lancer l\'Audit. Toute l\'analyse est locale.',
+  
+    'nav.hub': '← Centre Cat-11',
+  },
+  'ar': {
+    'nav.alltools': 'جميع الأدوات',
+    'nav.home': 'الرئيسية',
+    'nav.a2a': 'مدفوعات A2A',
+    'nav.glossary': 'المصطلحات',
+    'nav.tools': 'الأدوات',
+    'nav.contact': 'اتصل بنا',
+    'footer.alltools': 'جميع الأدوات',
+    'footer.sitemap': 'خريطة الموقع',
+    'footer.contact': 'اتصل بنا',
+    'footer.a2a': 'مدفوعات A2A',
+    'footer.glossary': 'المصطلحات',
+    'footer.home': 'الرئيسية',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy': '🔒 بدون PII   📡 بدون اتصال بالخادم   💻 من جانب العميل',
+    'badge.zeropii': 'بدون بيانات شخصية · من جانب العميل فقط',
+    'badge.zeropii2': 'بدون PII · 100% من جانب العميل',
+    'about.trigger': 'حول هذه الأداة',
+    'about.trigger2': 'حول هذه الأداة ▾',
+    'about.privacy': 'بيان الخصوصية',
+    'priv.body': 'تتم جميع المعالجة في متصفحك. لا يتم إرسال أي بيانات إلى أي خادم. بدون تحليلات، بدون ملفات تعريف الارتباط، بدون بيانات استخدام. مدخلاتك لا تغادر جهازك أبدًا.',
+    'btn.reset': '↺ إعادة تعيين',
+    'btn.clear': '↺ مسح',
+    'btn.exportcsv': '↓ CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ طباعة',
+    'btn.copy': 'نسخ',
+    'btn.alltools': '← جميع الأدوات',
+    'lbl.selectopt': '— اختر —',
+    'lbl.jurisdiction': 'الاختصاص القضائي',
+    'lbl.currency': 'العملة',
+    'lbl.amount': 'المبلغ',
+    't56.hero_eyebrow': 'الأداة 56 · البنية التحتية الأساسية',
+    't56.h1': 'مدقق تكوين السلسلة المصرح بها',
+    't56.hero_sub': 'تحليل ثابت لـ Fabric configtx.yaml وBesu genesis.json. يتحقق من اكتمال سياسة المصادقة وتكوين MSP وضوابط وصول القناة.',
+    't56.panel_label': 'تكوين المدقق',
+    't56.btn_run': '▶ تشغيل تدقيق التكوين',
+    't56.output_title': 'تقرير تدقيق التكوين',
+    't56.empty_title': 'لم يتم تحميل أي تكوين',
+    't56.empty_sub': 'اختر المنصة، الصق ملف التكوين، وانقر على "تشغيل تدقيق التكوين". جميع التحليلات محلية.',
+  
+    'nav.hub': '← مركز Cat-11',
+  },
+  'pt': {
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.home': 'Início',
+    'nav.a2a': 'Pagamentos A2A',
+    'nav.glossary': 'Glossário',
+    'nav.tools': 'Ferramentas',
+    'nav.contact': 'Contato',
+    'footer.alltools': 'Todas as Ferramentas',
+    'footer.sitemap': 'Mapa do Site',
+    'footer.contact': 'Contato',
+    'footer.a2a': 'Pagamentos A2A',
+    'footer.glossary': 'Glossário',
+    'footer.home': 'Início',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy': '🔒 Zero PII   📡 Sem chamadas ao servidor   💻 Lado do cliente',
+    'badge.zeropii': 'Zero PII · Somente Lado do Cliente',
+    'badge.zeropii2': 'Zero PII · 100% Lado do Cliente',
+    'about.trigger': 'Sobre Esta Ferramenta',
+    'about.trigger2': 'Sobre Esta Ferramenta ▾',
+    'about.privacy': 'Declaração de Privacidade',
+    'priv.body': 'Todo o processamento ocorre no seu navegador. Nenhum dado é transmitido a qualquer servidor. Sem análises, sem cookies, sem telemetria. Suas entradas nunca saem do seu dispositivo.',
+    'btn.reset': '↺ Redefinir',
+    'btn.clear': '↺ Limpar',
+    'btn.exportcsv': '↓ CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimir',
+    'btn.copy': 'Copiar',
+    'btn.alltools': '← Todas as Ferramentas',
+    'lbl.selectopt': '— Selecionar —',
+    'lbl.jurisdiction': 'Jurisdição',
+    'lbl.currency': 'Moeda',
+    'lbl.amount': 'Valor',
+    't56.hero_eyebrow': 'Ferramenta 56 · Infraestrutura Central',
+    't56.h1': 'Auditor de Configuração de Cadeia Permissionada',
+    't56.hero_sub': 'Análise estática do Fabric configtx.yaml e Besu genesis.json. Valida integridade de política de endosso, configuração MSP e controles de acesso de canal.',
+    't56.panel_label': 'Configuração do Auditor',
+    't56.btn_run': '▶ Executar Auditoria de Configuração',
+    't56.output_title': 'Relatório de Auditoria de Configuração',
+    't56.empty_title': 'Nenhuma Configuração Carregada',
+    't56.empty_sub': 'Selecione a plataforma, cole seu arquivo de configuração e clique em Executar Auditoria. Toda análise é local.',
+  
+    'nav.hub': '← Central Cat-11',
+  },
+  'zh': {
+    'nav.alltools': '所有工具',
+    'nav.home': '首页',
+    'nav.a2a': 'A2A 支付',
+    'nav.glossary': '术语表',
+    'nav.tools': '工具',
+    'nav.contact': '联系我们',
+    'footer.alltools': '所有工具',
+    'footer.sitemap': '网站地图',
+    'footer.contact': '联系我们',
+    'footer.a2a': 'A2A 支付',
+    'footer.glossary': '术语表',
+    'footer.home': '首页',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy': '🔒 零隐私数据   📡 无服务器调用   💻 客户端运行',
+    'badge.zeropii': '零隐私数据 · 仅限客户端',
+    'badge.zeropii2': '零PII · 100% 客户端',
+    'about.trigger': '关于此工具',
+    'about.trigger2': '关于此工具 ▾',
+    'about.privacy': '隐私声明',
+    'priv.body': '所有处理均在您的浏览器中完成。不向任何服务器传输数据。无分析、无Cookie、无遥测。您的输入永远不会离开您的设备。',
+    'btn.reset': '↺ 重置',
+    'btn.clear': '↺ 清除',
+    'btn.exportcsv': '↓ CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ 打印',
+    'btn.copy': '复制',
+    'btn.alltools': '← 所有工具',
+    'lbl.selectopt': '— 请选择 —',
+    'lbl.jurisdiction': '司法管辖区',
+    'lbl.currency': '货币',
+    'lbl.amount': '金额',
+    't56.hero_eyebrow': '工具 56 · 核心基础设施',
+    't56.h1': '许可链配置审计器',
+    't56.hero_sub': '对Fabric configtx.yaml和Besu genesis.json进行隔离静态分析。验证背书策略完整性、MSP配置和通道访问控制。',
+    't56.panel_label': '审计器配置',
+    't56.btn_run': '▶ 运行配置审计',
+    't56.output_title': '配置审计报告',
+    't56.empty_title': '未加载配置',
+    't56.empty_sub': '选择平台，粘贴您的配置文件，然后点击"运行配置审计"。所有分析均在本地进行。',
+  
+    'nav.hub': '← Cat-11 中心',
+  },
+};
+
+function setLang(lang) {
+  document.querySelectorAll('.lang-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.lang-btn').forEach(function(b){
+    if(b.getAttribute('data-lang')===lang) b.classList.add('active');
+  });
+  document.documentElement.lang = lang==='zh'?'zh-Hans':lang;
+  document.documentElement.dir  = lang==='ar'?'rtl':'ltr';
+  var s = TRANSLATIONS[lang]||TRANSLATIONS['en'];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var k=el.getAttribute('data-i18n');
+    if(s[k]!==undefined) el.innerHTML=s[k];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el){
+    var k=el.getAttribute('data-i18n-placeholder');
+    if(s[k]!==undefined) el.placeholder=s[k];
+  });
+  window._lang=lang;
+
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+</script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "chain-config-auditor", "version": "1.0.0", "title": "Tool 56 — Permissioned Chain Config Auditor", "description": "Client-side audit of Hyperledger Fabric configtx.yaml and Besu genesis.json. Checks endorsement policy completeness, MSP cert windows, Raft/QBFT quorum, PDC scoping, and Tessera deprecation status. Air-gapped. Zero PII.", "category": "dlt-tokenization", "tags": ["Tool", "Permissioned", "Chain", "Config", "Auditor"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"platform": {"type": "string"}, "configInput": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "chain_config_auditor", "description": "Run Tool 56 — Permissioned Chain Config Auditor. Client-side audit of Hyperledger Fabric configtx.yaml and Besu genesis.json. Checks endorsement policy completeness, MSP cert windows, Raft/QBFT quorum, PDC scoping, and Tessera deprecation status. Ai", "inputSchema": {"type": "object", "properties": {"platform": {"type": "string"}, "configInput": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/56-chain-config-auditor.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

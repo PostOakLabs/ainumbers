@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>APP Scam Pre-Payment Risk Assessor · T322 · AINumbers.co</title>
+<meta name="description" content="APP scam pre-payment risk scoring and typology classification under PSR PS23/3. Scoped to pre-payment detection only — PSR liability split and reimbursement eligibility are handled by T257. UK FPS CoP v3.0 · EU Regulation 2024/886. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/322-app-scam-risk-assessor">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"APP Scam Pre-Payment Risk Assessor · T322","url":"https://ainumbers.co/tools/322-app-scam-risk-assessor","description":"APP scam pre-payment risk scoring and typology classification under PSR PS23/3. Scoped to pre-payment detection only — PSR liability split and reimbursement eligibility are handled by T257. UK FPS CoP v3.0 · EU Regulation 2024/886. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<script>
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* PolicyMandate — full validator (Phase 14); AP2Schema internal name retained */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+};
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(239,68,68,.010) 1px,transparent 1px),linear-gradient(90deg,rgba(239,68,68,.010) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner,[dir="rtl"] [dir="rtl"] .hero-eyebrow{flex-direction:row-reverse}
+[dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+
+/* Lang bar */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:201}
+.lang-inner{max-width:1060px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--red);color:var(--red)}
+
+/* Nav */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+/* Hero */
+.hero{padding:2.8rem 0 2.4rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--red),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(239,68,68,.05) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--red);margin-bottom:.85rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--red)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.5rem);color:var(--white);max-width:720px;margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--red)}
+.hero-desc{font-size:.84rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.3rem .7rem;border:1px solid}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+
+
+/* Layout */
+.main-content{position:relative;z-index:1;padding:2.5rem 0 4rem}
+.tool-layout{display:grid;grid-template-columns:380px 1fr;gap:1.5rem;align-items:start}
+@media(max-width:900px){.tool-layout{grid-template-columns:1fr}}
+
+/* Panel */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--red);margin-bottom:1rem;display:flex;align-items:center;gap:.6rem}
+.panel-label::before{content:'';display:block;width:14px;height:1px;background:var(--red)}
+.panel-row{margin-bottom:1.1rem}
+.panel-row:last-child{margin-bottom:0}
+.panel-row label{display:flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--body);margin-bottom:.4rem}
+.tip{width:14px;height:14px;border-radius:50%;background:var(--bg-3);border:1px solid var(--border);color:var(--muted);font-size:.55rem;display:inline-flex;align-items:center;justify-content:center;cursor:help;flex-shrink:0;font-family:'Sora',sans-serif;font-style:italic;position:relative}
+.tip:hover::after{content:attr(data-tip);position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);background:var(--bg-4);border:1px solid var(--border);border-radius:var(--radius);padding:.5rem .75rem;font-family:'Sora',sans-serif;font-style:normal;font-size:.68rem;color:var(--text);width:220px;z-index:50;line-height:1.5;letter-spacing:0;text-transform:none}
+
+/* Inputs */
+.num-input-wrap{display:flex;align-items:center;gap:.5rem}
+.num-input{width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.8rem;padding:.55rem .75rem;transition:border-color .2s}
+.num-input:focus{outline:none;border-color:var(--red)}
+.num-input::placeholder{color:var(--muted)}
+.num-unit{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);white-space:nowrap}
+
+select{width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.55rem .75rem;transition:border-color .2s;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%233A5270'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .75rem center}
+select:focus{outline:none;border-color:var(--red)}
+
+.bool-toggle{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.bool-btn{flex:1;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem;border:none;background:transparent;color:var(--muted);transition:all .2s}
+.bool-btn.y{background:var(--red-dim);color:var(--red)}
+.bool-btn.n{background:var(--green-dim);color:var(--green)}
+.bool-btn:hover:not(.y):not(.n){color:var(--text);background:var(--bg-3)}
+
+/* PII banner */
+.pii-banner{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--muted);border-radius:var(--radius);padding:.7rem 1rem;font-size:.7rem;color:var(--body);line-height:1.6}
+.pii-banner strong{color:var(--text)}
+
+/* Run button */
+.run-btn{width:100%;background:var(--red);color:var(--white);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;padding:.85rem 1.5rem;border:none;border-radius:var(--radius);font-weight:500;transition:opacity .2s;margin-bottom:1.25rem}
+.run-btn:hover{opacity:.88}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* Results */
+.results-panel{display:none}
+.results-panel.visible{display:block}
+
+/* Score + tier */
+.score-row{display:flex;align-items:center;gap:1.5rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.score-circle{width:90px;height:90px;border-radius:50%;border:6px solid;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;transition:border-color .3s}
+.score-num{font-family:'DM Serif Display',serif;font-size:1.75rem;line-height:1}
+.score-lbl{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted);margin-top:.1rem;letter-spacing:.08em;text-transform:uppercase}
+.tier-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:500;padding:.5rem 1.1rem;border:1px solid;border-radius:var(--radius)}
+.tier-low{color:var(--green);border-color:rgba(34,197,94,.35);background:var(--green-dim)}
+.tier-moderate{color:var(--warn);border-color:rgba(245,158,11,.35);background:var(--warn-dim)}
+.tier-high{color:var(--red);border-color:rgba(239,68,68,.35);background:var(--red-dim)}
+.tier-block{color:var(--white);border-color:var(--red);background:var(--red)}
+
+/* Typology card */
+.typology-card{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--red);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.25rem}
+.typology-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.typology-name{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--white);margin-bottom:.4rem}
+.typology-desc{font-size:.74rem;color:var(--body);line-height:1.65}
+.typology-signals{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.65rem}
+.signal-chip{font-family:'JetBrains Mono',monospace;font-size:.46rem;padding:.12rem .4rem;border-radius:2px;background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+
+/* Friction table */
+.friction-table{width:100%;border-collapse:collapse;font-size:.73rem;margin-bottom:1.25rem}
+.friction-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.45rem .75rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.friction-table td{padding:.6rem .75rem;border-bottom:1px solid rgba(30,47,74,.45);vertical-align:top;line-height:1.5;color:var(--body)}
+.friction-table tr:last-child td{border-bottom:none}
+.friction-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--text);white-space:nowrap}
+.pill-mandatory{font-family:'JetBrains Mono',monospace;font-size:.46rem;padding:.1rem .35rem;border-radius:2px;background:var(--red-dim);color:var(--red)}
+.pill-recommended{font-family:'JetBrains Mono',monospace;font-size:.46rem;padding:.1rem .35rem;border-radius:2px;background:var(--warn-dim);color:var(--warn)}
+.pill-none{font-family:'JetBrains Mono',monospace;font-size:.46rem;padding:.1rem .35rem;border-radius:2px;background:var(--bg-4);color:var(--muted)}
+
+/* T257 cross-link card */
+.crosslink-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;display:flex;gap:1rem;align-items:flex-start;text-decoration:none;transition:background .15s;margin-bottom:1.25rem}
+.crosslink-card:hover{background:var(--bg-3)}
+.crosslink-icon{font-size:1.4rem;flex-shrink:0;margin-top:.1rem}
+.crosslink-body{}
+.crosslink-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.crosslink-title{font-size:.85rem;color:var(--bright);font-weight:500;margin-bottom:.2rem}
+.crosslink-desc{font-size:.72rem;color:var(--body);line-height:1.6}
+
+/* Export row */
+.results-export-row{display:flex;gap:.65rem;flex-wrap:wrap;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;border-radius:var(--radius);border:1px solid;cursor:pointer;transition:all .2s;display:inline-flex;flex-direction:column;align-items:center;gap:.15rem;background:transparent}
+.btn-ghost{color:var(--text);border-color:var(--border)}
+.btn-ghost:hover:not(:disabled){border-color:var(--red);color:var(--red)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-ghost.ready{border-color:rgba(239,68,68,.4);color:var(--red)}
+.btn-subtitle{font-size:.42rem;color:var(--muted);text-transform:none}
+.btn-ghost.ready .btn-subtitle{color:rgba(239,68,68,.6)}
+
+/* Toast */
+#toast{position:fixed;bottom:1.75rem;right:1.75rem;background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--red);border-radius:var(--radius);padding:.85rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--text);z-index:999;transform:translateY(200%);opacity:0;transition:transform .3s,opacity .3s;max-width:320px}
+#toast.show{transform:translateY(0);opacity:1}
+#toast.ok{border-left-color:var(--teal)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-body pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;overflow-x:auto;margin:0}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- Lang bar -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="#0D1627"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".7"/></svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/fraud-risk-hub.html">Fraud & Risk Hub</a><span class="nav-sep">/</span><span>T-322</span></div>
+
+    <a href="../guides/fraud-risk-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">
+      <span id="heroEyebrow">T322 · Cat-03 · Fraud & Risk · APP Scam · Pre-Payment Detection · PSR PS23/3</span>
+    </div>
+    <h1 class="tool-title" id="heroTitle">APP Scam <em>Pre-Payment Risk Assessor</em></h1>
+    <p class="hero-desc" id="heroDesc">Scores APP scam risk and classifies scam typology at the point of payment initiation. Outputs risk tier, typology classification, and friction intervention recommendations per PSR PS23/3 and UK FPS CoP v3.0. Scoped to pre-payment detection only — PSR liability split and reimbursement are handled by T257.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-red">PSR PS23/3 · UK FPS CoP v3.0</span>
+      <span class="hero-badge badge-red">5 Scam Typologies</span>
+      <span class="hero-badge badge-gold">EU Regulation 2024/886</span>
+      <span class="hero-badge badge-teal">Friction Intervention Guidance</span>
+      <span class="hero-badge badge-muted">Client-Side · Zero PII</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+    
+  </div>
+</section>
+
+<!-- Main -->
+<main class="main-content">
+  <div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+    <div class="tool-layout">
+
+      <!-- LEFT: Inputs -->
+      <div class="col-left">
+        <div class="panel">
+          <div class="panel-label">Payment Context Signals</div>
+          <div style="font-size:.73rem;color:var(--body);margin-bottom:1.25rem;line-height:1.6">All inputs are observable, non-PII payment context attributes. No customer names or account numbers required.</div>
+
+          <!-- 1. Beneficiary account age -->
+          <div class="panel-row">
+            <label for="beneAge">
+              Beneficiary Account Age
+              <span class="tip" data-tip="How many days old is the beneficiary account? Newly opened accounts are a strong indicator of mule accounts used in APP scam networks.">i</span>
+            </label>
+            <div class="num-input-wrap">
+              <input type="number" class="num-input" id="beneAge" placeholder="e.g. 15" min="0" max="3650">
+              <span class="num-unit">days</span>
+            </div>
+          </div>
+
+          <!-- 2. First time payee -->
+          <div class="panel-row">
+            <label>
+              First Time Payee
+              <span class="tip" data-tip="Has the sender ever paid this beneficiary before? First-time payments to new payees carry significantly higher APP scam risk.">i</span>
+            </label>
+            <div class="bool-toggle" role="group">
+              <button class="bool-btn n" id="ftpNo" onclick="setBool('ftp',false)">Known Payee</button>
+              <button class="bool-btn" id="ftpYes" onclick="setBool('ftp',true)">First Time</button>
+            </div>
+          </div>
+
+          <!-- 3. Payment purpose -->
+          <div class="panel-row">
+            <label for="purposeSel">
+              Payment Purpose Category
+              <span class="tip" data-tip="What reason did the sender give for this payment? Purpose category is the strongest typology signal.">i</span>
+            </label>
+            <select id="purposeSel">
+              <option value="purchase">Purchase / Goods & Services</option>
+              <option value="invoice">Invoice / Business Payment</option>
+              <option value="investment">Investment / Cryptocurrency</option>
+              <option value="romance">Romance / Relationship</option>
+              <option value="impersonation">Urgent / Authority Request</option>
+              <option value="other">Other / Unknown</option>
+            </select>
+          </div>
+
+          <!-- 4. Instruction channel -->
+          <div class="panel-row">
+            <label for="channelSel">
+              Instruction Channel
+              <span class="tip" data-tip="How did the sender receive the payment instruction? Phone calls from 'bank fraud teams' and unsolicited emails with changed payment details are high-risk channels.">i</span>
+            </label>
+            <select id="channelSel">
+              <option value="online-portal">Online Banking / App</option>
+              <option value="in-person">In-Person</option>
+              <option value="text">Text / SMS / WhatsApp</option>
+              <option value="email">Email</option>
+              <option value="phone">Phone Call</option>
+            </select>
+          </div>
+
+          <!-- 5. Time pressure -->
+          <div class="panel-row">
+            <label>
+              Time Pressure / Urgency Reported
+              <span class="tip" data-tip="Did the sender report urgency or pressure to act immediately? Manufactured urgency is a hallmark of APP scams across all typologies.">i</span>
+            </label>
+            <div class="bool-toggle" role="group">
+              <button class="bool-btn n" id="tpNo" onclick="setBool('tp',false)">No Urgency</button>
+              <button class="bool-btn" id="tpYes" onclick="setBool('tp',true)">Urgency Reported</button>
+            </div>
+          </div>
+
+          <!-- 6. Amount vs median -->
+          <div class="panel-row">
+            <label for="amountPct">
+              Amount vs Sender Median Payment
+              <span class="tip" data-tip="What percentage above the sender's typical payment amount is this transaction? Large deviations from normal payment behaviour are a strong scam indicator.">i</span>
+            </label>
+            <div class="num-input-wrap">
+              <input type="number" class="num-input" id="amountPct" placeholder="e.g. 250" min="0" max="5000">
+              <span class="num-unit">% of median</span>
+            </div>
+          </div>
+
+          <!-- 7. Beneficiary account pattern -->
+          <div class="panel-row">
+            <label for="benePattern">
+              Beneficiary Account Pattern
+              <span class="tip" data-tip="What is the behavioural pattern of the beneficiary account? Dormant accounts that suddenly receive large payments, or newly opened accounts, are common mule account signatures.">i</span>
+            </label>
+            <select id="benePattern">
+              <option value="active-normal">Active — Normal Behaviour</option>
+              <option value="active-high-velocity">Active — High Velocity Inflows</option>
+              <option value="dormant">Dormant — Recently Reactivated</option>
+              <option value="new">New Account — Opened &lt;90 Days</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pii-banner" style="margin-bottom:1.25rem">
+          🔒 <strong>All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</strong>
+        </div>
+
+        <button class="run-btn" id="runBtn" onclick="runAssessor()">⟶ Assess APP Scam Risk</button>
+
+        <!-- Scope notice -->
+        <div class="panel" style="border-left:3px solid var(--muted)">
+          <div class="panel-label" style="color:var(--muted)">Scope Boundary</div>
+          <div style="font-size:.73rem;color:var(--body);line-height:1.7">T322 is scoped to <strong style="color:var(--text)">pre-payment APP scam detection</strong> and typology classification only. PSR PS23/3 sending/receiving PSP liability split and reimbursement eligibility are handled by <a href="../tools/257-psr-reimbursement-workflow-builder.html" style="color:var(--teal)">T257 PSR Reimbursement Workflow Builder</a>.</div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Results -->
+      <div class="col-right">
+
+        <div id="preRunPlaceholder" class="panel" style="text-align:center;padding:4rem 2rem">
+          <div style="font-size:2.5rem;margin-bottom:1rem;opacity:.2">⚠</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--bright);margin-bottom:.5rem" id="placeholderTitle">Enter the 7 payment context signals</div>
+          <div style="font-size:.76rem;color:var(--body);max-width:320px;margin:0 auto" id="placeholderDesc">Risk score, scam typology classification, and friction intervention guidance will appear here.</div>
+        </div>
+
+        <div id="resultsPanel" class="results-panel">
+
+          <!-- Score + tier -->
+          <div class="panel">
+            <div class="panel-label">APP Scam Risk Score</div>
+            <div class="score-row">
+              <div class="score-circle" id="scoreCircle">
+                <div class="score-num" id="scoreNum">—</div>
+                <div class="score-lbl">/ 100</div>
+              </div>
+              <div>
+                <div id="tierBadge" style="margin-bottom:.65rem"></div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);letter-spacing:.08em" id="scoreDesc"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Typology classification -->
+          <div id="typologyCard" class="typology-card">
+            <div class="typology-label">Most Probable Scam Typology</div>
+            <div class="typology-name" id="typologyName"></div>
+            <div class="typology-desc" id="typologyDesc"></div>
+            <div class="typology-signals" id="typologySignals"></div>
+          </div>
+
+          <!-- Friction interventions -->
+          <div class="panel" style="padding:0;overflow:hidden">
+            <div style="padding:.85rem 1.25rem;border-bottom:1px solid var(--border)">
+              <div class="panel-label" style="margin-bottom:0">Recommended Friction Interventions</div>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="friction-table">
+                <thead><tr><th>Intervention</th><th>Required Action</th><th>Rationale</th></tr></thead>
+                <tbody id="frictionTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- T257 cross-link — displayed in results, never as duplicate computation -->
+          <a href="../tools/257-psr-reimbursement-workflow-builder.html" class="crosslink-card">
+            <div class="crosslink-icon">→</div>
+            <div class="crosslink-body">
+              <div class="crosslink-eyebrow">PSR PS23/3 · Next Step · T257</div>
+              <div class="crosslink-title">PSR APP Fraud Reimbursement Workflow Builder</div>
+              <div class="crosslink-desc">For PSR PS23/3 sending/receiving PSP liability split and reimbursement eligibility after a scam has occurred, use T257. T322 covers pre-payment detection only.</div>
+            </div>
+          </a>
+
+          <!-- Export row -->
+          <div class="results-export-row">
+            <button class="btn btn-ghost" id="mdBtn" onclick="exportMarkdown()">
+              ⬇ Export Markdown
+              <span class="btn-subtitle">human-readable</span>
+            </button>
+            <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()">
+              {} Export Policy Mandate
+              <span class="btn-subtitle">API · audit trail</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<!-- Footer -->
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/fraud-risk-hub.html"><span data-i18n="footer.hub_fraud_risk">Fraud Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────
+   REGULATORY CONST BLOCK — T322 SCOPE BOUNDARY
+   T322 scope: pre-payment APP scam detection and typology classification ONLY.
+   PSR liability split modelling → T257 PSR Reimbursement Workflow Builder (Cat-21)
+   PSR reimbursement workflow → T257 PSR Reimbursement Workflow Builder (Cat-21)
+   Do NOT add PSR_LIABILITY_SPLIT or PSR_GROSS_NEGLIGENCE_CONDITIONS here.
+   Source: PSR PS23/3 · UK FPS CoP v3.0 · EU Regulation 2024/886 Art.5c
+───────────────────────────────────────────── */
+
+// Scam typology definitions — signals that activate each typology
+const APP_SCAM_TYPOLOGIES = {
+  invoice_redirection: {
+    name: 'Invoice Redirection / Business Email Compromise',
+    signals: ['instruction_channel_email', 'purpose_invoice', 'first_time_payee'],
+    weight: 1.4,
+    desc: 'Fraudster intercepts or impersonates a legitimate business email, redirecting payment to a mule account. Often targets supplier relationships and property transactions. New payee details are sent via email with urgency.',
+    icon: '📧'
+  },
+  romance: {
+    name: 'Romance Scam',
+    signals: ['purpose_romance', 'high_amount_vs_median', 'time_pressure'],
+    weight: 1.3,
+    desc: 'Victim is manipulated through a fabricated romantic relationship, eventually persuaded to send money for emergencies, investments, or travel. Payments escalate in size over time.',
+    icon: '💔'
+  },
+  investment: {
+    name: 'Investment / Cryptocurrency Fraud',
+    signals: ['purpose_investment', 'first_time_payee', 'high_amount_vs_median'],
+    weight: 1.3,
+    desc: 'Fraudster poses as investment advisor or crypto platform, promising high returns. Victims send funds to accounts that are inaccessible or fraudulent. Often involves cloned FCA-authorised firm details.',
+    icon: '📈'
+  },
+  impersonation: {
+    name: 'Impersonation — Bank / Authority / HMRC',
+    signals: ['instruction_channel_phone', 'time_pressure', 'purpose_impersonation'],
+    weight: 1.5,
+    desc: 'Fraudster impersonates a bank fraud team, police, HMRC, or government authority, convincing the victim their account is compromised and they must move funds urgently to a "safe account".',
+    icon: '🏛'
+  },
+  ceo_fraud: {
+    name: 'CEO Fraud / Invoice Mandate Scam',
+    signals: ['instruction_channel_email', 'time_pressure', 'high_amount_vs_median'],
+    weight: 1.4,
+    desc: 'Email appearing to be from a senior executive instructs staff to make an urgent, confidential payment. Often targets finance teams. High-value, time-pressured, and designed to bypass normal approval processes.',
+    icon: '👔'
+  }
+};
+
+// Friction interventions per risk tier
+// NOTE: No PSR liability split or reimbursement fields — those belong to T257
+const FRICTION_INTERVENTIONS = {
+  low:      { cop: 'recommended', delay: 'none',      warning: 'standard',    delay_hours: 0 },
+  moderate: { cop: 'mandatory',   delay: 'warning',   warning: 'enhanced',    delay_hours: 0 },
+  high:     { cop: 'mandatory',   delay: '24h',        warning: 'psr-script', delay_hours: 24 },
+  block:    { cop: 'mandatory',   delay: 'block',      warning: 'psr-script', delay_hours: null }
+};
+
+const CROSS_LINK_T257 = {
+  url: '../tools/257-psr-reimbursement-workflow-builder.html',
+  label: 'T257 PSR APP Fraud Reimbursement Workflow Builder',
+  prompt: 'For PSR PS23/3 sending/receiving PSP liability split and reimbursement eligibility →'
+};
+
+const REGULATORY_REFS = ['PSR PS23/3', 'UK FPS CoP v3.0', 'EU Regulation 2024/886 Art.5c'];
+
+/* ─── Signal raw score tables ─── */
+const BENE_AGE_SCORES = [
+  { max: 7,   score: 100 },
+  { max: 30,  score: 88  },
+  { max: 90,  score: 70  },
+  { max: 180, score: 40  },
+  { max: 365, score: 20  },
+  { max: Infinity, score: 5 }
+];
+
+const PURPOSE_SCORES = {
+  impersonation: 95, romance: 88, investment: 82,
+  invoice: 65, other: 40, purchase: 15
+};
+
+const CHANNEL_SCORES = {
+  phone: 85, email: 72, text: 58, 'online-portal': 18, 'in-person': 8
+};
+
+const AMOUNT_PCT_SCORES = [
+  { max: 50,   score: 5  },
+  { max: 150,  score: 20 },
+  { max: 300,  score: 55 },
+  { max: 500,  score: 78 },
+  { max: Infinity, score: 100 }
+];
+
+const BENE_PATTERN_SCORES = {
+  'new': 92, 'dormant': 80, 'active-high-velocity': 65, 'active-normal': 10
+};
+
+/* ─── Boolean state ─── */
+let flags = { ftp: false, tp: false };
+
+function setBool(key, val) {
+  flags[key] = val;
+  if (key === 'ftp') {
+    document.getElementById('ftpNo').className = 'bool-btn' + (!val ? ' n' : '');
+    document.getElementById('ftpYes').className = 'bool-btn' + (val ? ' y' : '');
+  } else {
+    document.getElementById('tpNo').className = 'bool-btn' + (!val ? ' n' : '');
+    document.getElementById('tpYes').className = 'bool-btn' + (val ? ' y' : '');
+  }
+}
+
+let lastResult = null;
+
+/* ─── Main scoring function (callable by MCP agent) ─── */
+function assessAppScamPrePaymentRisk(inputs) {
+  const { beneficiary_account_age_days, first_time_payee, payment_purpose_category,
+          instruction_channel, time_pressure_flag, amount_vs_sender_median_pct,
+          beneficiary_account_pattern } = inputs;
+
+  // Raw component scores (0–100)
+  const beneAgeScore = scoreStepTable(beneficiary_account_age_days, BENE_AGE_SCORES);
+  const purposeScore = PURPOSE_SCORES[payment_purpose_category] || 40;
+  const channelScore = CHANNEL_SCORES[instruction_channel] || 30;
+  const ftpScore = first_time_payee ? 72 : 0;
+  const tpScore = time_pressure_flag ? 80 : 0;
+  const amountScore = scoreStepTable(amount_vs_sender_median_pct, AMOUNT_PCT_SCORES);
+  const benePatternScore = BENE_PATTERN_SCORES[beneficiary_account_pattern] || 10;
+
+  // Weighted composite
+  const composite =
+    beneAgeScore     * 0.18 +
+    purposeScore     * 0.22 +
+    channelScore     * 0.16 +
+    ftpScore         * 0.14 +
+    tpScore          * 0.14 +
+    amountScore      * 0.10 +
+    benePatternScore * 0.06;
+
+  const score = Math.min(100, Math.round(composite));
+
+  // Tier
+  const tier = score >= 80 ? 'block' : score >= 55 ? 'high' : score >= 25 ? 'moderate' : 'low';
+  const tierLabel = { low: 'Low', moderate: 'Moderate', high: 'High', block: 'Block' }[tier];
+
+  // Typology classification — score each typology
+  const activeSignals = buildActiveSignals(inputs);
+  const typologyScores = {};
+  Object.entries(APP_SCAM_TYPOLOGIES).forEach(([key, typo]) => {
+    let hits = 0;
+    typo.signals.forEach(sig => { if (activeSignals.includes(sig)) hits++; });
+    typologyScores[key] = hits * typo.weight;
+  });
+  const topTypology = Object.entries(typologyScores).sort((a, b) => b[1] - a[1])[0][0];
+  const topTypologyData = APP_SCAM_TYPOLOGIES[topTypology];
+
+  // Friction
+  const friction = FRICTION_INTERVENTIONS[tier];
+
+  // Signal summary
+  const signalSummary = [
+    { label: 'Beneficiary Account Age', value: `${beneficiary_account_age_days} days`, raw: beneAgeScore },
+    { label: 'First Time Payee', value: first_time_payee ? 'Yes' : 'No', raw: ftpScore },
+    { label: 'Payment Purpose', value: payment_purpose_category, raw: purposeScore },
+    { label: 'Instruction Channel', value: instruction_channel, raw: channelScore },
+    { label: 'Time Pressure', value: time_pressure_flag ? 'Yes' : 'No', raw: tpScore },
+    { label: 'Amount vs Median', value: `${amount_vs_sender_median_pct}% of median`, raw: amountScore },
+    { label: 'Beneficiary Account Pattern', value: beneficiary_account_pattern, raw: benePatternScore }
+  ];
+
+  return { score, tier, tierLabel, topTypology, topTypologyData, friction, signalSummary, activeSignals, inputs };
+}
+
+function buildActiveSignals(inputs) {
+  const sigs = [];
+  if (inputs.instruction_channel === 'email') sigs.push('instruction_channel_email');
+  if (inputs.instruction_channel === 'phone') sigs.push('instruction_channel_phone');
+  if (inputs.payment_purpose_category === 'invoice') sigs.push('purpose_invoice');
+  if (inputs.payment_purpose_category === 'romance') sigs.push('purpose_romance');
+  if (inputs.payment_purpose_category === 'investment') sigs.push('purpose_investment');
+  if (inputs.payment_purpose_category === 'impersonation') sigs.push('purpose_impersonation');
+  if (inputs.first_time_payee) sigs.push('first_time_payee');
+  if (inputs.time_pressure_flag) sigs.push('time_pressure');
+  if (inputs.amount_vs_sender_median_pct > 200) sigs.push('high_amount_vs_median');
+  return sigs;
+}
+
+function scoreStepTable(val, table) {
+  for (const row of table) { if (val <= row.max) return row.score; }
+  return table[table.length - 1].score;
+}
+
+/* ─── Run assessor (UI) ─── */
+function runAssessor() {
+  const beneAge = parseInt(document.getElementById('beneAge').value);
+  const amountPct = parseInt(document.getElementById('amountPct').value);
+
+  if (isNaN(beneAge) || beneAge < 0) { showToast('Enter Beneficiary Account Age (≥0 days)'); return; }
+  if (isNaN(amountPct) || amountPct < 0) { showToast('Enter Amount vs Median % (≥0)'); return; }
+
+  const inputs = {
+    beneficiary_account_age_days: beneAge,
+    first_time_payee: flags.ftp,
+    payment_purpose_category: document.getElementById('purposeSel').value,
+    instruction_channel: document.getElementById('channelSel').value,
+    time_pressure_flag: flags.tp,
+    amount_vs_sender_median_pct: amountPct,
+    beneficiary_account_pattern: document.getElementById('benePattern').value
+  };
+
+  lastResult = assessAppScamPrePaymentRisk(inputs);
+  renderResults(lastResult);
+}
+
+/* ─── Render ─── */
+function renderResults(r) {
+  document.getElementById('preRunPlaceholder').style.display = 'none';
+  document.getElementById('resultsPanel').classList.add('visible');
+
+  // Score circle
+  const colors = { low: 'var(--green)', moderate: 'var(--warn)', high: 'var(--red)', block: 'var(--red)' };
+  const c = colors[r.tier];
+  const circle = document.getElementById('scoreCircle');
+  circle.style.borderColor = c;
+  document.getElementById('scoreNum').textContent = r.score;
+  document.getElementById('scoreNum').style.color = c;
+
+  // Tier badge
+  const tierClasses = { low: 'tier-low', moderate: 'tier-moderate', high: 'tier-high', block: 'tier-block' };
+  const tierIcons = { low: '✓', moderate: '⚠', high: '!', block: '✕ BLOCK' };
+  document.getElementById('tierBadge').innerHTML = `<div class="tier-badge ${tierClasses[r.tier]}">${tierIcons[r.tier]} ${r.tierLabel} Risk</div>`;
+  document.getElementById('scoreDesc').textContent = `Composite across 7 payment context signals`;
+
+  // Typology card
+  const activeChips = r.topTypologyData.signals.map(s => {
+    const matched = r.activeSignals.includes(s);
+    const label = s.replace(/_/g, ' ');
+    return `<span class="signal-chip" style="${matched ? '' : 'opacity:.4'}">${matched ? '✓ ' : ''}${label}</span>`;
+  }).join('');
+  document.getElementById('typologyName').textContent = `${r.topTypologyData.icon} ${r.topTypologyData.name}`;
+  document.getElementById('typologyDesc').textContent = r.topTypologyData.desc;
+  document.getElementById('typologySignals').innerHTML = activeChips;
+
+  // Friction table
+  const f = r.friction;
+  const frictionRows = [
+    {
+      label: 'Confirmation of Payee (CoP)',
+      action: f.cop === 'mandatory' ? `<span class="pill-mandatory">Mandatory</span>` : `<span class="pill-recommended">Recommended</span>`,
+      rationale: f.cop === 'mandatory'
+        ? 'PSR PS23/3 requires sending PSPs to perform CoP checks on all FPS payments. A failed or mismatched CoP check at this risk level must trigger a payment hold.'
+        : 'UK FPS CoP v3.0 recommends CoP for this risk level. Non-compliance increases PSR liability exposure.'
+    },
+    {
+      label: 'Payment Delay',
+      action: f.delay === 'block' ? `<span class="pill-mandatory">Block Payment</span>`
+             : f.delay === '24h' ? `<span class="pill-mandatory">24-Hour Hold</span>`
+             : f.delay === 'warning' ? `<span class="pill-recommended">Show Warning</span>`
+             : `<span class="pill-none">None Required</span>`,
+      rationale: f.delay === 'block' ? 'Risk score meets Block threshold. Do not release payment. Initiate enhanced verification immediately.'
+              : f.delay === '24h' ? 'PSR guidance permits a 24-hour delay for high-risk payments. Use this window for enhanced verification and customer contact.'
+              : f.delay === 'warning' ? 'Display enhanced payment warning screen — allow customer to confirm after viewing scam awareness information.'
+              : 'Standard payment flow. No additional delay required at this risk level.'
+    },
+    {
+      label: 'PSR Warning Script',
+      action: f.warning === 'psr-script' ? `<span class="pill-mandatory">PSR Script Required</span>`
+             : f.warning === 'enhanced' ? `<span class="pill-recommended">Enhanced Warning</span>`
+             : `<span class="pill-none">Standard Warning</span>`,
+      rationale: f.warning === 'psr-script'
+        ? 'Display the PSR-prescribed scam warning script verbatim. Log customer acknowledgement. This is a mandatory step for reimbursement claim eligibility under PS23/3.'
+        : f.warning === 'enhanced'
+        ? 'Display enhanced scam awareness content specific to the detected typology before allowing payment authorisation.'
+        : 'Display standard payment confirmation. No enhanced scripting required.'
+    }
+  ];
+
+  const tbody = document.getElementById('frictionTableBody');
+  tbody.innerHTML = frictionRows.map(row =>
+    `<tr><td>${row.label}</td><td>${row.action}</td><td style="font-size:.7rem">${row.rationale}</td></tr>`
+  ).join('');
+
+  // Enable exports
+  document.getElementById('ap2Btn').disabled = false;
+  document.getElementById('ap2Btn').classList.add('ready');
+
+  if (window.innerWidth < 900) {
+    document.getElementById('resultsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+/* ─── Exports ─── */
+function exportAP2() {
+  if (!lastResult) return;
+  const r = lastResult;
+  const now = new Date();
+
+  const payload = {
+    ap2_version: '1.0',
+    mandate_id: generateUUID(),
+    issued_at: now.toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: 'app-scam-risk-assessor',
+    tool_version: '1.0.0',
+    mandate_type: 'risk_parameter',
+    jurisdiction: ['GB'],
+    regulatory_frameworks: REGULATORY_REFS,
+    payload: {
+      // NOTE: No PSR_LIABILITY_SPLIT or PSR_GROSS_NEGLIGENCE_CONDITIONS — those belong to T257
+      composite_score: r.score,
+      risk_tier: r.tierLabel,
+      probable_typology: r.topTypology,
+      typology_name: r.topTypologyData.name,
+      friction_interventions: {
+        cop: r.friction.cop,
+        delay: r.friction.delay,
+        warning_script: r.friction.warning,
+        delay_hours: r.friction.delay_hours
+      },
+      signal_results: r.signalSummary.map(s => ({
+        signal: s.label,
+        value: s.value,
+        raw_score: s.raw
+      })),
+      active_signals: r.activeSignals,
+      psr_liability_note: 'PSR PS23/3 liability split and reimbursement eligibility are out of scope. Use T257 PSR Reimbursement Workflow Builder for liability modelling.'
+    },
+    summary: `APP scam risk score: ${r.score}/100 — tier: ${r.tierLabel}. Most probable typology: ${r.topTypologyData.name}. CoP: ${r.friction.cop}. Delay: ${r.friction.delay}.`,
+    agent_instructions: buildAgentInstructions(r),
+    valid_from: now.toISOString(),
+    valid_until: new Date(now.getTime() + 30 * 86400000).toISOString(),
+    last_reviewed: '2026-05-11',
+    source_tool_inputs: r.inputs,
+    regulatory_citations: [
+      'PSR PS23/3 — Mandatory Reimbursement for Authorised Push Payment Fraud',
+      'UK FPS Confirmation of Payee Rulebook v3.0',
+      'EU Regulation 2024/886 Art.5c — Instant Payment Verification Requirements'
+    ],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+
+  const required = ['ap2_version','mandate_id','issued_at','issued_by','tool_id','tool_version','mandate_type','jurisdiction','payload','audit_metadata'];
+  const missing = required.filter(f => !payload[f]);
+  if (missing.length > 0) { showToast('Policy Mandate error: ' + missing.join(', ')); return; }
+
+  const ts = now.toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  AP2Schema.validate(payload);
+  triggerDownload(JSON.stringify(payload, null, 2), `app-scam-risk-assessor_${ts}.policy.json`, 'application/json');
+  showToast('Policy Mandate JSON exported.', true);
+}
+
+function buildAgentInstructions(r) {
+  const instructions = [];
+  if (r.tier === 'block') {
+    instructions.push(`BLOCK payment immediately. Risk score ${r.score}/100 meets the Block threshold.`);
+    instructions.push('Do not release payment without enhanced fraud investigation and manager authorisation.');
+    instructions.push(`Probable typology is ${r.topTypologyData.name}. Apply ${r.topTypologyData.name} investigative protocol.`);
+  } else if (r.tier === 'high') {
+    instructions.push(`Apply 24-hour payment hold. Risk score ${r.score}/100.`);
+    instructions.push('Display PSR-prescribed warning script and log customer acknowledgement before any release.');
+    instructions.push('Perform Confirmation of Payee check. A CoP mismatch at this tier must result in a further hold.');
+  } else if (r.tier === 'moderate') {
+    instructions.push(`Apply enhanced warning screen. Risk score ${r.score}/100.`);
+    instructions.push('Confirmation of Payee is mandatory at this risk level per UK FPS CoP v3.0.');
+    instructions.push('Log risk score and typology classification in the payment record for PSR audit purposes.');
+  } else {
+    instructions.push(`Standard payment flow permitted. Risk score ${r.score}/100 — Low tier.`);
+    instructions.push('Display standard payment confirmation. Confirmation of Payee recommended.');
+  }
+  instructions.push('For PSR PS23/3 liability split and reimbursement eligibility, use T257 PSR Reimbursement Workflow Builder (Cat-21).');
+  return instructions;
+}
+
+function exportMarkdown() {
+  if (!lastResult) return;
+  const r = lastResult;
+  let md = `# APP Scam Pre-Payment Risk Assessment\n`;
+  md += `_Generated by AINumbers.co T322 · ${new Date().toISOString()}_\n\n`;
+  md += `## Risk Score: ${r.score}/100 — Tier: ${r.tierLabel}\n\n`;
+  md += `**Most probable typology:** ${r.topTypologyData.name}\n\n`;
+  md += `## Signal Summary\n\n| Signal | Value | Raw Score |\n|--------|-------|----------|\n`;
+  r.signalSummary.forEach(s => { md += `| ${s.label} | ${s.value} | ${s.raw} |\n`; });
+  md += `\n## Friction Interventions\n\n`;
+  md += `- **Confirmation of Payee:** ${r.friction.cop}\n`;
+  md += `- **Payment Delay:** ${r.friction.delay}\n`;
+  md += `- **Warning Script:** ${r.friction.warning}\n\n`;
+  md += `> PSR PS23/3 liability split and reimbursement eligibility: use T257 PSR Reimbursement Workflow Builder.\n\n`;
+  md += `---\n_PSR PS23/3 · UK FPS CoP v3.0 · EU 2024/886 · ainumbers.co T322_\n`;
+  const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  triggerDownload(md, `app-scam-risk-assessor_${ts}.md`, 'text/markdown');
+  showToast('Markdown exported.', true);
+}
+
+/* ─── Utilities ─── */
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+function triggerDownload(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+let toastTimer;
+function showToast(msg, isOk) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isOk ? ' ok' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 2800);
+}
+
+/* ─── i18n Stage 2 ─── */
+const TRANSLATIONS = {
+  en: { eyebrow: 'T322 · Cat-03 · Fraud & Risk · APP Scam · Pre-Payment Detection · PSR PS23/3', hero_title: 'APP Scam Pre-Payment Risk Assessor', hero_desc: 'Scores APP scam risk and classifies scam typology at the point of payment initiation. Outputs risk tier, typology classification, and friction intervention recommendations per PSR PS23/3 and UK FPS CoP v3.0. Scoped to pre-payment detection only — PSR liability split and reimbursement are handled by T257.', nav_cta: 'All Tools', run_btn: '⟶ Assess APP Scam Risk', lang_dir: 'ltr' 
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-03 Hub',
+  },
+  es: { eyebrow: 'T322 · Cat-03 · Fraude y Riesgo · Estafa APP · Detección Pre-Pago', hero_title: 'Evaluador de Riesgo de Estafa APP Pre-Pago', hero_desc: 'Puntúa el riesgo de estafa APP y clasifica la tipología en el momento de iniciación del pago.', nav_cta: 'Todas las herramientas', run_btn: '⟶ Evaluar Riesgo de Estafa APP', lang_dir: 'ltr' 
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-03',
+  },
+  fr: { eyebrow: 'T322 · Cat-03 · Fraude et Risque · Arnaque APP · Détection Pré-Paiement', hero_title: 'Évaluateur de Risque d\'Arnaque APP Pré-Paiement', hero_desc: 'Évalue le risque d\'arnaque APP et classe la typologie au moment de l\'initiation du paiement.', nav_cta: 'Tous les outils', run_btn: '⟶ Évaluer le Risque d\'Arnaque APP', lang_dir: 'ltr' 
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-03',
+  },
+  ar: { eyebrow: 'T322 · Cat-03 · الاحتيال والمخاطر · احتيال APP · الكشف قبل الدفع', hero_title: 'مقيِّم مخاطر احتيال APP قبل الدفع', hero_desc: 'تقييم مخاطر احتيال الدفع الفوري وتصنيف نوعية الاحتيال عند بدء الدفع.', nav_cta: 'جميع الأدوات', run_btn: '⟶ تقييم مخاطر احتيال APP', lang_dir: 'rtl' 
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-03',
+  },
+  pt: { eyebrow: 'T322 · Cat-03 · Fraude e Risco · Golpe APP · Detecção Pré-Pagamento', hero_title: 'Avaliador de Risco de Golpe APP Pré-Pagamento', hero_desc: 'Avalia o risco de golpe APP e classifica a tipologia no momento da iniciação do pagamento.', nav_cta: 'Todas as ferramentas', run_btn: '⟶ Avaliar Risco de Golpe APP', lang_dir: 'ltr' 
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-03',
+  },
+  zh: { eyebrow: 'T322 · 类别-03 · 欺诈与风险 · APP诈骗 · 支付前检测', hero_title: 'APP诈骗支付前风险评估器', hero_desc: '在支付发起时评估APP诈骗风险并分类诈骗类型，输出风险层级、类型分类和摩擦干预建议。', nav_cta: '所有工具', run_btn: '⟶ 评估APP诈骗风险', lang_dir: 'ltr' 
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-03 中心',
+  }
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`);
+  if (btn) btn.classList.add('active');
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  document.documentElement.dir = t.lang_dir || 'ltr';
+  document.body.dir = t.lang_dir || 'ltr';
+  const ap = (id, key) => { const e = document.getElementById(id); if (e && t[key]) e.textContent = t[key]; };
+  ap('heroEyebrow','eyebrow'); ap('heroTitle','hero_title'); ap('heroDesc','hero_desc');
+  ap('navCta','nav_cta'); ap('runBtn','run_btn');
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function() { try { const s = sessionStorage.getItem('ain_lang'); if (s && TRANSLATIONS[s]) setLang(s); } catch(e) {} })();
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "app-scam-risk-assessor", "version": "1.0.0", "title": "APP Scam Pre-Payment Risk Assessor", "description": "APP scam risk scoring and typology classification at the point of payment initiation. Scoped to pre-payment detection only — PSR liability split and reimbursement eligibility use T257 (Cat-21). PSR PS23/3 · UK FPS CoP v3.0 · EU Regulation 2024/886. Client-side. Zero PII.", "category": "cat-3", "tags": ["APP", "scam", "push-payment", "PSR", "CoP", "pre-payment", "typology", "zero-pii"], "audience": ["fraud", "compliance", "product", "ops"], "input_schema": {"type": "object", "properties": {"beneficiary_account_age_days": {"type": "integer", "minimum": 0}, "first_time_payee": {"type": "boolean"}, "payment_purpose_category": {"type": "string", "enum": ["purchase", "invoice", "investment", "romance", "impersonation", "other"]}, "instruction_channel": {"type": "string", "enum": ["phone", "email", "text", "in-person", "online-portal"]}, "time_pressure_flag": {"type": "boolean"}, "amount_vs_sender_median_pct": {"type": "integer", "minimum": 0}, "beneficiary_account_pattern": {"type": "string", "enum": ["active-normal", "active-high-velocity", "dormant", "new"]}}, "required": ["beneficiary_account_age_days", "first_time_payee", "payment_purpose_category", "instruction_channel", "time_pressure_flag", "amount_vs_sender_median_pct", "beneficiary_account_pattern"]}, "output_schema": {"type": "object", "properties": {"score": {"type": "integer", "minimum": 0, "maximum": 100}, "tier": {"type": "string", "enum": ["low", "moderate", "high", "block"]}, "tierLabel": {"type": "string"}, "topTypology": {"type": "string"}, "friction": {"type": "object"}, "signalSummary": {"type": "array"}}}, "mcp_tool_definition": {"name": "assess_app_scam_pre_payment_risk", "description": "Scores APP scam risk and classifies typology at payment initiation. Returns risk score (0-100), tier (Low/Moderate/High/Block), most probable scam typology from 5 types (Invoice Redirection, Romance, Investment, Impersonation, CEO Fraud), and CoP/delay/warning friction interventions per PSR PS23/3. Pre-payment detection only — no PSR liability split.", "inputSchema": {"type": "object", "properties": {"beneficiary_account_age_days": {"type": "integer"}, "first_time_payee": {"type": "boolean"}, "payment_purpose_category": {"type": "string"}, "instruction_channel": {"type": "string"}, "time_pressure_flag": {"type": "boolean"}, "amount_vs_sender_median_pct": {"type": "integer"}, "beneficiary_account_pattern": {"type": "string"}}, "required": ["beneficiary_account_age_days", "first_time_payee", "payment_purpose_category", "instruction_channel", "time_pressure_flag", "amount_vs_sender_median_pct", "beneficiary_account_pattern"]}}, "execution": {"type": "browser-javascript", "entry": "tools/322-app-scam-risk-assessor.html", "function_name": "assessAppScamPrePaymentRisk", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

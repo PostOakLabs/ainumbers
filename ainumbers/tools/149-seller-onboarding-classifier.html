@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Seller Onboarding Jurisdiction Classifier · AINumbers.co</title>
+<meta name="description" content="Determine W-8/W-9 form requirement by seller country and entity type. Classify FATCA/CRS status. Determine VAT treatment for marketplace services. Outputs onboarding checklist, decision tree, and Policy Mandate JSON seller profile stub. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/149-seller-onboarding-classifier.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Seller Onboarding Jurisdiction Classifier","url":"https://ainumbers.co/tools/157-seller-onboarding-classifier.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "seller-onboarding-classifier",
+  "version": "1.0.0",
+  "title": "Seller Onboarding Jurisdiction Classifier",
+  "description": "Classifies seller W-8/W-9 requirements, FATCA/CRS status, and VAT treatment for marketplace services by country and entity type. Exports AP2 JSON seller profile stub.",
+  "category": "cat-13",
+  "tags": ["FATCA","CRS","W-8","W-9","seller onboarding","VAT","marketplace","jurisdiction","AP2"],
+  "audience": ["compliance","product","engineer"],
+  "input_schema": {"type":"object","properties":{"seller_country":{"type":"string"},"entity_type":{"type":"string"},"service_type":{"type":"string"},"platform_country":{"type":"string"}},"required":["seller_country","entity_type","service_type","platform_country"]},
+  "output_schema": {"type":"object","properties":{"required_form":{"type":"string"},"fatca_status":{"type":"string"},"crs_reportable":{"type":"boolean"},"vat_treatment":{"type":"string"},"checklist":{"type":"array"},"ap2_seller_profile":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"classify_seller_onboarding_jurisdiction","description":"Classifies seller tax form requirements, FATCA/CRS status, and VAT treatment for marketplace onboarding. Returns AP2 JSON seller profile stub.","inputSchema":{"type":"object","properties":{"seller_country":{"type":"string","description":"ISO 3166-1 alpha-2 seller country"},"entity_type":{"type":"string","description":"Entity type: individual, corporation, partnership, nonprofit"},"service_type":{"type":"string","description":"Service type: physical_goods, digital_services, professional_services"},"platform_country":{"type":"string","description":"ISO 3166-1 alpha-2 platform operating country"}},"required":["seller_country","entity_type","service_type","platform_country"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/157-seller-onboarding-classifier.html","function_name":"classify","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:960px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.015) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:960px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:960px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}.nav-trail a:hover{color:var(--teal)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}.nav-sep{color:var(--border-2)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:620px;line-height:1.8;margin-bottom:1.25rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0;flex:1}
+.tool-grid{display:grid;grid-template-columns:300px 1fr;gap:1.5rem;align-items:start}
+@media(max-width:768px){.tool-grid{grid-template-columns:1fr}}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.panel-body{padding:1.25rem}
+.field{margin-bottom:1rem}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.field select{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.75rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none;transition:border-color .2s;-webkit-appearance:none}
+.field select:focus{border-color:var(--teal)}
+.run-btn{width:100%;background:var(--teal);color:var(--bg);border:none;padding:.65rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.85rem}
+.run-btn:hover{background:var(--teal-lt)}
+.output-panel{display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);margin-bottom:0}
+.result-cell{background:var(--bg-2);padding:1rem 1.1rem}
+.rc-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.rc-value{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--bright);line-height:1.2;margin-bottom:.2rem}
+.rc-detail{font-size:.66rem;color:var(--body)}
+.decision-tree{display:flex;flex-direction:column;gap:.5rem}
+.dt-step{display:flex;align-items:flex-start;gap:.75rem;padding:.6rem 0;border-bottom:1px solid var(--border)}
+.dt-step:last-child{border-bottom:none}
+.dt-num{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--teal);flex-shrink:0;width:20px;padding-top:.1rem}
+.dt-question{font-size:.73rem;color:var(--body)}
+.dt-answer{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--gold);margin-top:.15rem}
+.checklist-grid{display:flex;flex-direction:column;gap:.4rem}
+.cl-item{display:flex;align-items:flex-start;gap:.6rem;padding:.4rem 0;border-bottom:1px solid var(--border)}
+.cl-item:last-child{border-bottom:none}
+.cl-icon{font-size:.8rem;flex-shrink:0;margin-top:.05rem}
+.cl-text{font-size:.73rem;color:var(--body);line-height:1.55}
+.cl-text strong{color:var(--text)}
+.ap2-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--teal-lt);line-height:1.7;white-space:pre-wrap;word-break:break-all;max-height:280px;overflow-y:auto}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+/* 5D-nav-bc-v1 */
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-privacy::before{content:'·';color:var(--green)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick='setLang("zh")'>中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/b2b-payments-hub.html">B2B Payments Hub</a><span class="nav-sep">/</span><span>T-149</span></div>
+
+    <a href="../guides/b2b-payments-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-13 · T157 · B2B Payments &amp; Platform Operations</div>
+  <h1 class="tool-title">Seller Onboarding <em>Jurisdiction Classifier</em></h1>
+  <p class="hero-desc">Determine W-8/W-9 form requirement by seller country and entity type. Classify FATCA/CRS status (US person, foreign person, exempt payee, FATCA-exempt entity). Determine applicable VAT treatment for marketplace services. Outputs onboarding document checklist, tax classification decision tree, and Policy Mandate JSON seller profile stub.</p>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-gold">FATCA</span>
+    <span class="badge badge-teal">CRS</span>
+    <span class="badge badge-purple">W-8 / W-9</span>
+    <span class="badge badge-purple">Policy Mandate Export</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+        </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+<div class="tool-grid">
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Seller Configuration</span></div>
+    <div class="panel-body">
+      <div class="field">
+        <label>Seller Country</label>
+        <select id="sellerCtry">
+          <option value="US">United States</option>
+          <option value="GB">United Kingdom</option>
+          <option value="DE">Germany</option>
+          <option value="FR">France</option>
+          <option value="CA">Canada</option>
+          <option value="AU">Australia</option>
+          <option value="SG">Singapore</option>
+          <option value="IN">India</option>
+          <option value="CN">China</option>
+          <option value="JP">Japan</option>
+          <option value="BR">Brazil</option>
+          <option value="MX">Mexico</option>
+          <option value="Other_EU">Other EU Member State</option>
+          <option value="Other">Other Non-US</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Entity Type</label>
+        <select id="entityType">
+          <option value="individual">Individual / Sole Trader</option>
+          <option value="llc_single">Single-Member LLC</option>
+          <option value="llc_multi">Multi-Member LLC</option>
+          <option value="corp_us">US Corporation (C-Corp / S-Corp)</option>
+          <option value="corp_foreign">Foreign Corporation</option>
+          <option value="partnership">Partnership / LLP</option>
+          <option value="nonprofit">Non-Profit / NGO</option>
+          <option value="gov">Government Entity</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Service / Product Type</label>
+        <select id="serviceType">
+          <option value="physical_goods">Physical Goods (tangible)</option>
+          <option value="digital_services">Digital Services / Software</option>
+          <option value="professional_services">Professional / Consulting Services</option>
+          <option value="marketplace_goods">Marketplace Goods (3P seller)</option>
+          <option value="freelance">Freelance / Gig Work</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Platform Operating Country</label>
+        <select id="platCtry">
+          <option value="US">United States</option>
+          <option value="EU">European Union</option>
+          <option value="US_EU">US + EU (dual)</option>
+          <option value="GB">United Kingdom</option>
+          <option value="Global">Global</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Estimated Annual Earnings (USD)</label>
+        <select id="earningsLevel">
+          <option value="low">Under $600</option>
+          <option value="mid">$600 – $5,000</option>
+          <option value="high" selected>$5,001 – $50,000</option>
+          <option value="very_high">Over $50,000</option>
+        </select>
+      </div>
+      <button class="run-btn" onclick="classify()">▶ Classify Seller</button>
+    </div>
+  </div>
+
+  <div class="output-panel" id="outputPanel">
+    <div class="out-section"><div class="out-body" style="text-align:center;padding:3rem;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.62rem">Configure seller details and click Classify Seller</div></div>
+  </div>
+
+</div></div></div>
+
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/b2b-payments-hub.html"><span data-i18n="footer.hub_b2b_payments">B2B Payments Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+const EU_COUNTRIES = ['DE','FR','NL','PL','ES','IT','BE','AT','SE','DK','FI','PT','IE','Other_EU'];
+function genUUID(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0,v=c==='x'?r:(r&0x3|0x8);return v.toString(16);})}
+
+function classify() {
+  const ctry    = document.getElementById('sellerCtry').value;
+  const entity  = document.getElementById('entityType').value;
+  const svcType = document.getElementById('serviceType').value;
+  const platCtry= document.getElementById('platCtry').value;
+  const earnings= document.getElementById('earningsLevel').value;
+
+  const isUS    = ctry === 'US';
+  const isEU    = EU_COUNTRIES.includes(ctry);
+  const isGB    = ctry === 'GB';
+  const isCorp  = entity.startsWith('corp') || entity === 'nonprofit' || entity === 'gov';
+  const isExempt= entity === 'nonprofit' || entity === 'gov';
+  const platUS  = platCtry === 'US' || platCtry === 'US_EU' || platCtry === 'Global';
+  const platEU  = platCtry === 'EU' || platCtry === 'US_EU' || platCtry === 'Global';
+
+  // W-8/W-9 determination
+  let requiredForm, fatcaStatus, formDesc;
+  if (isUS) {
+    if (entity === 'individual' || entity === 'llc_single') {
+      requiredForm = 'W-9'; fatcaStatus = 'US Person — TIN Required';
+      formDesc = 'US person (individual or disregarded entity). Provide SSN or EIN. Required before first payment.';
+    } else if (entity === 'corp_us' || entity === 'llc_multi') {
+      requiredForm = 'W-9'; fatcaStatus = 'US Person — EIN Required';
+      formDesc = 'US corporation or partnership. Provide EIN. May qualify as exempt payee (code on W-9).';
+    } else {
+      requiredForm = 'W-9'; fatcaStatus = 'US Exempt Payee';
+      formDesc = 'US non-profit or government entity. Complete W-9 and enter applicable exempt payee code.';
+    }
+  } else {
+    if (entity === 'individual' || entity === 'llc_single') {
+      requiredForm = 'W-8BEN'; fatcaStatus = 'Foreign Person — FATCA Chapter 4';
+      formDesc = 'Foreign individual. W-8BEN certifies non-US status, claims treaty benefits where applicable. Valid 3 years.';
+    } else {
+      requiredForm = 'W-8BEN-E'; fatcaStatus = isExempt ? 'FATCA-Exempt Entity' : 'Foreign Entity — Chapter 4 Status Required';
+      formDesc = isExempt
+        ? 'Foreign non-profit / government. W-8BEN-E Part XXX (exempt beneficial owner).'
+        : 'Foreign entity. W-8BEN-E — determine FATCA Chapter 4 status: Passive NFFE, Active NFFE, or FFI. Provide GIIN if FFI.';
+    }
+  }
+
+  // CRS reportable
+  const crsReportable = !isUS && (platEU || platCtry === 'GB') && earnings !== 'low';
+
+  // VAT treatment
+  let vatTreatment, vatNote;
+  if (svcType === 'physical_goods') {
+    vatTreatment = 'Standard Import VAT';
+    vatNote = 'Physical goods: import VAT at destination. Platform may be deemed supplier under EU/UK marketplace rules if facilitating cross-border B2C.';
+  } else if (svcType === 'digital_services') {
+    if (platEU || isEU) {
+      vatTreatment = 'EU Digital Services — OSS / Reverse Charge';
+      vatNote = 'B2B digital services: reverse charge applies. B2C digital services: OSS registration may be required if annual EU sales > €10,000.';
+    } else if (platCtry === 'GB' || isGB) {
+      vatTreatment = 'UK Digital Services — Place of Supply';
+      vatNote = 'UK digital services: VAT reverse charge for B2B. Registration threshold for B2C: £85,000.';
+    } else {
+      vatTreatment = 'Varies by Jurisdiction';
+      vatNote = 'Digital services VAT treatment varies. Confirm nexus and registration obligations in each market.';
+    }
+  } else {
+    vatTreatment = isUS ? 'No US Federal Sales Tax' : 'Reverse Charge (B2B Services)';
+    vatNote = isUS
+      ? 'No federal VAT in US. State sales tax nexus rules apply for B2C. B2B generally exempt.'
+      : 'B2B professional services: reverse charge applies in EU/UK. Buyer accounts for VAT.';
+  }
+
+  // Decision tree steps
+  const steps = [
+    {q:'Is seller a US person?', a: isUS?'Yes — US Person':'No — Non-US Person'},
+    {q:'Entity type classification?', a: entity.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())},
+    {q:'Required tax form?', a: `${requiredForm} — ${fatcaStatus}`},
+    {q:'CRS reportable?', a: crsReportable?'Yes — collect CRS self-certification':'Not required for this configuration'},
+    {q:'VAT treatment for services?', a: vatTreatment},
+    {q:'Backup withholding risk?', a: isUS&&earnings!=='low'?'Possible — withhold 24% if no W-9 on file':'Not applicable (non-US) — no US backup withholding'},
+  ];
+
+  // Checklist
+  const checklist = [
+    {icon:'📄', text:`<strong>Collect ${requiredForm}</strong> — required before first payment. Certify under penalties of perjury.`},
+    {icon:'🔍', text:`<strong>Verify TIN/EIN/GIIN</strong> — validate format against IRS TIN matching program (US) or GLEIF (foreign entities).`},
+    {icon:crsReportable?'⚠':'✓', text:`<strong>CRS Self-Certification</strong> — ${crsReportable?'Required. Collect tax residency country and TIN(s) for OECD CRS reporting.':'Not required for this seller configuration.'}`},
+    {icon:'🏷', text:`<strong>VAT Registration Check</strong> — ${vatTreatment}. ${vatNote}`},
+    {icon:'📋', text:`<strong>Identity Verification</strong> — ${entity==='individual'?'Government-issued photo ID + proof of address':'Certificate of incorporation, beneficial ownership register, director list.'}`},
+    {icon:'🔄', text:`<strong>Form Validity Period</strong> — ${requiredForm==='W-9'?'W-9 does not expire but refresh on material change.':'W-8 forms expire 31 Dec of 3rd year after signing. Set renewal reminder.'}`},
+    {icon:'🏦', text:`<strong>Bank Account Verification</strong> — micro-deposit or Plaid/bank verification required before first payout.`},
+  ];
+
+  const ap2 = {
+    ap2_version: '1.0',
+    tool_id: 'seller-onboarding-classifier',
+    generated_at: new Date().toISOString(),
+    seller_profile: {
+      profile_id: `SELLER-${genUUID().substring(0,8).toUpperCase()}`,
+      seller_country: ctry,
+      entity_type: entity,
+      service_type: svcType,
+      platform_jurisdiction: platCtry,
+      required_tax_form: requiredForm,
+      fatca_crs_status: fatcaStatus,
+      crs_reportable: crsReportable,
+      vat_treatment: vatTreatment,
+      onboarding_status: 'PENDING_DOCUMENTATION'
+    },
+    required_documents: [requiredForm, 'Bank Account Verification', entity==='individual'?'Government ID':'Certificate of Incorporation', crsReportable?'CRS Self-Certification':null].filter(Boolean),
+    mandate_type: 'SELLER_ONBOARDING_TAX_CLASSIFICATION',
+    agent_instructions: [
+      `Request ${requiredForm} from seller before activating payout`,
+      crsReportable?'Collect CRS self-certification for OECD reporting':'CRS reporting not required',
+      `VAT treatment: ${vatTreatment}`,
+      isUS?'Match TIN against IRS e-Services TIN matching before first payment':'Validate W-8 expiry annually and on change of circumstance'
+    ]
+  };
+
+  document.getElementById('outputPanel').innerHTML = `
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Classification Result</span></div>
+      <div class="result-grid">
+        <div class="result-cell">
+          <div class="rc-label">Required Form</div>
+          <div class="rc-value" style="color:var(--gold)">${requiredForm}</div>
+          <div class="rc-detail">${fatcaStatus}</div>
+        </div>
+        <div class="result-cell">
+          <div class="rc-label">CRS Reportable</div>
+          <div class="rc-value" style="color:${crsReportable?'var(--warn)':'var(--green)'}">${crsReportable?'Yes':'No'}</div>
+          <div class="rc-detail">${crsReportable?'Collect CRS self-certification':'Not required'}</div>
+        </div>
+        <div class="result-cell">
+          <div class="rc-label">VAT Treatment</div>
+          <div class="rc-value" style="font-size:.88rem;color:var(--teal)">${vatTreatment}</div>
+          <div class="rc-detail">${svcType.replace(/_/g,' ')}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Tax Classification Decision Tree</span></div>
+      <div class="out-body">
+        <div class="decision-tree">
+          ${steps.map((s,i)=>`
+            <div class="dt-step">
+              <div class="dt-num">${String(i+1).padStart(2,'0')}</div>
+              <div>
+                <div class="dt-question">${s.q}</div>
+                <div class="dt-answer">→ ${s.a}</div>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Onboarding Document Checklist</span></div>
+      <div class="out-body">
+        <div class="checklist-grid">
+          ${checklist.map(c=>`<div class="cl-item"><div class="cl-icon">${c.icon}</div><div class="cl-text">${c.text}</div></div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header">
+        <span class="out-title">Policy Mandate JSON Seller Profile Stub</span>
+        <button class="copy-btn" onclick="copyAP2()">Copy JSON</button>
+      </div>
+      <div class="out-body" style="padding:.75rem">
+        <div class="ap2-block">${JSON.stringify(ap2,null,2)}</div>
+      </div>
+    </div>
+  `;
+  window._ap2 = JSON.stringify(ap2,null,2);
+}
+
+function copyAP2(){if(window._ap2){navigator.clipboard.writeText(window._ap2).then(()=>{const b=document.querySelector('.copy-btn');if(b){b.textContent='Copied ✓';setTimeout(()=>b.textContent='Copy JSON',2000)}})}}
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+    'nav.hub': '← Cat-13 Hub',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.hub': '← Centro Cat-13',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+    'nav.hub': '← Centre Cat-13',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+    'nav.hub': '← مركز Cat-13',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.hub': '← Central Cat-13',
+  }, zh:{
+    'nav.alltools': '所有工具',
+    'nav.hub': '← Cat-13 中心',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+classify();
+</script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "seller-onboarding-classifier", "version": "1.0.0", "title": "Seller Onboarding Jurisdiction Classifier", "description": "Determine W-8/W-9 form requirement by seller country and entity type. Classify FATCA/CRS status. Determine VAT treatment for marketplace services. Outputs onboarding checklist, decision tree, and Policy Mandate JSON seller profile stub. Client-side. Zero PII.", "category": "b2b-payments", "tags": ["FATCA", "CRS", "W-8 / W-9", "Policy Mandate Export", "Zero PII", "Client-Side"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"sellerCtry": {"type": "string"}, "entityType": {"type": "string"}, "serviceType": {"type": "string"}, "platCtry": {"type": "string"}, "earningsLevel": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "seller_onboarding_classifier", "description": "Run Seller Onboarding Jurisdiction Classifier. Determine W-8/W-9 form requirement by seller country and entity type. Classify FATCA/CRS status. Determine VAT treatment for marketplace services. Outputs onboarding checklist, decision tree, and Poli", "inputSchema": {"type": "object", "properties": {"sellerCtry": {"type": "string"}, "entityType": {"type": "string"}, "serviceType": {"type": "string"}, "platCtry": {"type": "string"}, "earningsLevel": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/149-seller-onboarding-classifier.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

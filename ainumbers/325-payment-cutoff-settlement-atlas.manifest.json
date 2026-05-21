@@ -1,0 +1,65 @@
+{
+  "tool_id": "payment-cutoff-settlement-atlas",
+  "version": "1.0.0",
+  "title": "Global Payment Cutoff & Settlement Atlas",
+  "description": "Operator-level cutoff precision across 16 global payment rails (Fedwire, FedNow, ACH Same-Day, ACH Next-Day, RTP, CHAPS, UK FPS, SEPA CT, SEPA Instant, TARGET2, SWIFT gpi, PIX, UPI, NPP, BACS, CIPS) with DST adjustment and bank holiday flags for a specific date and corridor. Returns next available window when cutoff is already passed. Distinct from T21 (corridor-level emerging market strategy). Client-side. Zero PII.",
+  "category": "cat-4",
+  "tags": ["cutoff", "settlement", "CHAPS", "Fedwire", "SEPA", "FedNow", "TARGET2", "PIX", "UPI", "NPP", "CIPS", "calendar", "DST", "holidays", "zero-pii"],
+  "audience": ["treasury", "ops", "engineer"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "dateStr": { "type": "string", "format": "date", "description": "Settlement date in YYYY-MM-DD format" },
+      "corridor": {
+        "type": "string",
+        "enum": ["US-DOM", "UK-DOM", "EU-DOM", "US-UK", "US-EU", "UK-EU", "GLOBAL", "BR-DOM", "IN-DOM", "AU-DOM", "CN-DOM"],
+        "description": "Payment corridor — determines which rails are shown as primary"
+      }
+    },
+    "required": ["dateStr", "corridor"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "results": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "rail": { "type": "string" },
+            "isRelevant": { "type": "boolean" },
+            "status": { "type": "string", "enum": ["open", "always-open", "past", "closed", "holiday", "na"] },
+            "cutoffDisplay": { "type": "string" },
+            "utcDisplay": { "type": "string" },
+            "nextWindow": { "type": ["string", "null"] },
+            "dstActive": { "type": "boolean" },
+            "holiday": { "type": ["string", "null"] }
+          }
+        }
+      },
+      "openCount": { "type": "integer" },
+      "closedCount": { "type": "integer" },
+      "dstCount": { "type": "integer" },
+      "calDays": { "type": "array" }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "lookup_payment_cutoff_windows",
+    "description": "Returns operator-level cutoff times for all payment rails relevant to a specific date and corridor. Applies DST adjustment, bank holiday flags for US/UK/EU/AU markets, and returns the next available window when a cutoff has already passed. Covers 16 rails including Fedwire, FedNow, ACH, RTP, CHAPS, FPS, SEPA, T2, PIX, UPI, NPP, BACS, CIPS, SWIFT gpi.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "dateStr": { "type": "string", "description": "YYYY-MM-DD" },
+        "corridor": { "type": "string", "description": "US-DOM | UK-DOM | EU-DOM | US-UK | US-EU | UK-EU | GLOBAL | BR-DOM | IN-DOM | AU-DOM | CN-DOM" }
+      },
+      "required": ["dateStr", "corridor"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/325-payment-cutoff-settlement-atlas.html",
+    "function_name": "lookupPaymentCutoffWindows",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false
+}

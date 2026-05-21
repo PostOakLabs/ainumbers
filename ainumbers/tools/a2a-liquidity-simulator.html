@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A2A Liquidity Simulator — Single & Multi-Rail | AINumbers.co</title>
+<meta name="description" content="Model intraday cash flow and prefunding requirements across FedNow, RTP, ACH, SEPA Instant, PIX, and UPI. Single and multi-rail simulation with overdraft risk, opportunity cost, and routing waterfall. Client-side, zero PII.">
+<meta name="author" content="AINumbers.co">
+<link rel="canonical" href="https://ainumbers.co/tools/a2a-liquidity-simulator.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js">var MANIFEST=JSON.parse('{"tool_id": "a2a-liquidity-simulator", "version": "1.0.0", "title": "A2A Liquidity Simulator — Single & Multi-Rail", "description": "Model intraday cash flow and prefunding requirements across FedNow, RTP, ACH, SEPA Instant, PIX, and UPI. Single and multi-rail simulation with overdraft risk, opportunity cost, and routing waterfall. Client-side, zero PII.", "category": "fintech", "tags": ["A2A", "Liquidity", "Simulator", "Single", "Multi"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "a2a_liquidity_simulator", "description": "Run A2A Liquidity Simulator — Single & Multi-Rail. Model intraday cash flow and prefunding requirements across FedNow, RTP, ACH, SEPA Instant, PIX, and UPI. Single and multi-rail simulation with overdraft risk, opportunity cost, and routing waterfall.", "inputSchema": {"type": "object", "properties": {}}}, "execution": {"type": "browser-javascript", "entry": "tools/a2a-liquidity-simulator.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+</script>
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--radius:6px;--radius-lg:10px;--shadow:0 4px 24px rgba(0,0,0,.4);}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:.875rem;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0;}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.15;}
+a{color:inherit;text-decoration:none;} button{cursor:pointer;font-family:inherit;}
+/* NAV */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);}
+.nav-inner{max-width:1280px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 28px;height:58px;}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.logo-mark-grid{width:32px;height:32px;display:flex;}
+.logo-text{display:flex;flex-direction:column;gap:2px;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1;}
+.logo-ai{color:var(--teal);} .logo-co{color:var(--muted);font-size:.8rem;}
+
+.nav-links{display:flex;align-items:center;gap:20px;margin-left:auto;}
+.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);transition:color .2s;}
+.nav-links a:hover{color:var(--teal-lt);}
+.nav-cta{color:var(--bg)!important;background:var(--teal);border:1px solid var(--teal);padding:.3rem .85rem;border-radius:var(--radius);}
+/* HERO */
+.hero{padding:2rem 0 1.5rem;position:relative;z-index:1;}
+.container{max-width:1280px;margin:0 auto;padding:0 28px;}
+.hero-eyebrow{display:flex;align-items:center;gap:.6rem;font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:.6rem;}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal);}
+.hero h1{font-size:clamp(1.5rem,2.5vw,2rem);color:var(--white);margin-bottom:.35rem;}
+.hero-sub{font-size:.85rem;color:var(--body);line-height:1.75;max-width:720px;}
+.hero-badges{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.75rem;}
+.hero-badge{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius);background:var(--bg-2);}
+/* MODE BAR */
+.mode-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.75rem 0;position:sticky;top:58px;z-index:90;backdrop-filter:blur(12px);}
+.mode-inner{max-width:1280px;margin:0 auto;padding:0 28px;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;}
+.mode-label{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);flex-shrink:0;}
+.mode-toggle{display:flex;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.mode-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1.25rem;border:none;color:var(--muted);background:transparent;transition:all .2s;cursor:pointer;}
+.mode-btn.active{color:var(--bg);background:var(--teal);}
+.scenario-chips{display:flex;gap:.35rem;flex-wrap:wrap;margin-left:auto;}
+.sc-chip{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.06em;padding:.28rem .65rem;border:1px solid var(--border);color:var(--body);background:transparent;border-radius:9999px;cursor:pointer;transition:all .15s;}
+.sc-chip.active{border-color:var(--teal);color:var(--teal-lt);background:var(--teal-dim);}
+/* LAYOUT */
+.tool-wrap{max-width:1280px;margin:0 auto;width:100%;display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 170px);;box-shadow:0 0 0 1px var(--border)}
+.config-col{background:var(--bg-2);border-right:1px solid var(--border);overflow-y:auto;}
+.output-col{background:var(--bg);overflow-y:auto;padding:1.5rem 1.75rem;}
+/* CONFIG */
+.cfg-s{padding:1.1rem 1.4rem;border-bottom:1px solid var(--border);}
+.cfg-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:.85rem;display:flex;align-items:center;gap:.5rem;}
+.cfg-title::before{content:'';display:block;width:3px;height:12px;background:var(--teal);border-radius:2px;flex-shrink:0;}
+.field{margin-bottom:.8rem;}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem;display:flex;justify-content:space-between;}
+.field-val{color:var(--teal-lt);}
+select,input[type=number]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);font-family:'Sora',sans-serif;font-size:.82rem;padding:.5rem .75rem;outline:none;transition:border-color .2s;}
+select:focus,input:focus{border-color:var(--teal);}
+input[type=range]{width:100%;accent-color:var(--teal);margin-top:.25rem;}
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:.55rem;}
+/* Rail toggle */
+.rail-toggles{display:flex;flex-direction:column;gap:.4rem;}
+.rail-toggle-row{display:flex;align-items:center;justify-content:space-between;padding:.45rem .6rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);}
+.rail-toggle-row.active{border-color:var(--teal);background:var(--teal-dim);}
+.rail-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.rail-name{font-size:.78rem;color:var(--bright);flex:1;margin-left:.5rem;}
+.rail-latency{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);}
+.rail-chk{accent-color:var(--teal);}
+/* callout */
+.callout-info{background:var(--teal-dim);border:1px solid rgba(20,184,166,.2);border-radius:var(--radius);padding:.55rem .8rem;font-size:.75rem;color:var(--teal-lt);line-height:1.55;margin-top:.5rem;}
+/* privacy */
+.privacy-btn{width:100%;padding:.5rem;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;transition:all .2s;}
+.privacy-btn:hover{border-color:var(--green);color:var(--green);}
+.privacy-ok{display:none;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--green);margin-top:.4rem;padding:.35rem .6rem;background:var(--green-dim);border-radius:var(--radius);}
+.privacy-ok.vis{display:flex;}
+/* OUTPUT */
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem;}
+.out-title::before{content:'';display:block;width:3px;height:12px;background:var(--teal);border-radius:2px;}
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.7rem;margin-bottom:1.25rem;}
+.kpi{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem;}
+.kpi-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem;}
+.kpi-val{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white);line-height:1;}
+.kpi-val.warn{color:var(--warn);} .kpi-val.bad{color:var(--red);} .kpi-val.good{color:var(--green);}
+.kpi-sub{font-size:.7rem;color:var(--body);margin-top:.15rem;}
+/* Chart */
+.chart-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem;}
+.chart-canvas{width:100%!important;}
+/* Rec box */
+.rec-box{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.25rem;margin-bottom:1.1rem;}
+.rec-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:.65rem;}
+.rec-item{display:flex;align-items:baseline;gap:.5rem;font-size:.82rem;color:var(--body);padding:.3rem 0;border-bottom:1px solid var(--border);}
+.rec-item:last-child{border-bottom:none;}
+.rec-item::before{content:'→';color:var(--teal);font-family:'JetBrains Mono',monospace;flex-shrink:0;}
+/* Multi-rail balance table */
+.rail-balance-table{width:100%;border-collapse:collapse;font-size:.8rem;margin-bottom:1.1rem;}
+.rail-balance-table th{padding:.55rem .85rem;text-align:left;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:var(--bg-3);border-bottom:1px solid var(--border);}
+.rail-balance-table td{padding:.6rem .85rem;border-bottom:1px solid var(--border);color:var(--text);}
+.rail-balance-table tr:last-child td{border-bottom:none;}
+td.mono{font-family:'JetBrains Mono',monospace;} td.status-ok{color:var(--green);} td.status-warn{color:var(--warn);} td.status-bad{color:var(--red);}
+/* export */
+.export-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem;}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;padding:.35rem .8rem;border:1px solid var(--border);color:var(--body);background:transparent;border-radius:var(--radius);cursor:pointer;transition:all .2s;}
+.btn-export:hover{border-color:var(--gold);color:var(--gold);}
+/* FOOTER */
+
+
+
+
+
+
+
+
+
+@media(max-width:900px){.tool-wrap{grid-template-columns:1fr;}.config-col{border-right:none;border-bottom:1px solid var(--border);}.nav-links a:not(.nav-cta){display:none;}}
+
+/* ── LANG BAR ── */
+.lang-bar {
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 2rem;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.lang-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+.lang-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+.lang-btn:hover { color: var(--body); border-color: var(--border); }
+.lang-btn.active { color: var(--teal); border-bottom: 1px solid var(--teal); }
+
+
+/* ── FOOTER ── */
+@media(max-width:600px){   }
+
+
+
+/* ═══════════════════════════════════════════════════════════
+   AINumbers.co — Global Layout & Spacing Patch  v2.0
+   Applied to all tools for consistent UX:
+   • 8-pt grid system throughout (base 8px, multiples of 8/16/24)
+   • Nav: logo left, CTA right with flex grow spacer
+   • Lang bar: right-aligned toggles above nav
+   • Hero & content: 24px side padding, never edge-flush
+   • Footer: centered layout, mobile-first text centering
+═══════════════════════════════════════════════════════════ */
+
+/* ── Page shell: max 1440px centered ── */
+.page-shell {
+  max-width: 1440px;
+  margin: 0 auto;
+  position: relative;
+  min-height: 100vh;
+  box-shadow: 0 0 0 1px rgba(30,47,74,.6), 0 0 80px rgba(0,0,0,.5);
+  overflow-x: hidden;
+}
+body { overflow-x: hidden; }
+
+/* ── Lang bar ── */
+.lang-bar {
+  background: var(--bg-2, #0D1627);
+  border-bottom: 1px solid var(--border, #1E2F4A);
+  padding: 0 24px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  position: relative;
+  z-index: 101;
+}
+.lang-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  align-items: center;
+}
+.lang-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted, #3A5270);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+  border-radius: 3px;
+}
+.lang-btn:hover { color: var(--body, #6888A8); border-color: var(--border, #1E2F4A); }
+.lang-btn.active { color: var(--teal, #14B8A6); border-color: rgba(20,184,166,.35); }
+
+/* ── Nav: logo left | spacer | CTA right ── */
+nav {
+  padding: 0 24px;
+  height: 56px;
+  border-bottom: 1px solid var(--border, #1E2F4A);
+  background: rgba(5,12,21,.97);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+}
+.nav-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  /* logo | auto-spacer | CTA */
+}
+/* Push everything after the logo to the right */
+.nav-inner > *:not(.logo):not(:first-child),
+.nav-links,
+.nav-back,
+.nav-meta,
+.nav-cta-wrap {
+  margin-left: auto;
+}
+/* Only apply once — reset margin if there are multiple right-side items */
+.nav-links + *,
+.nav-meta + .nav-links { margin-left: 0; }
+
+/* CTA button */
+.nav-cta,
+a.nav-cta,
+button.nav-cta {
+  display: inline-flex;
+  align-items: center;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 0.6rem !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: var(--bg, #080E1A) !important;
+  background: var(--teal, #14B8A6) !important;
+  border: 1px solid var(--teal, #14B8A6) !important;
+  padding: 0.4rem 1rem !important;
+  border-radius: 4px !important;
+  transition: background 0.2s, border-color 0.2s !important;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+.nav-cta:hover,
+a.nav-cta:hover { background: var(--teal-lt, #2DD4BF) !important; border-color: var(--teal-lt, #2DD4BF) !important; }
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+
+/* ── Universal container: always 24px side padding ── */
+.container,
+.page,
+.search-inner,
+.mode-inner,
+.footer-inner,
+.tool-wrap,
+.main-wrap,
+.hero > .container,
+.collapsible-outer {
+  max-width: 1200px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-left: clamp(16px, 3vw, 24px) !important;
+  padding-right: clamp(16px, 3vw, 24px) !important;
+}
+
+/* ── Hero section ── */
+.hero {
+  padding: 3rem 24px 2.5rem;
+  border-bottom: 1px solid var(--border, #1E2F4A);
+  position: relative;
+  overflow: hidden;
+}
+.hero > .container {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* ── Collapsible sections padding ── */
+.collapsible-trigger,
+.collapsible-body {
+  /* these are full-width inside a padded container already */
+}
+/* Fix the inline-style padded wrapper around collapsibles */
+[style*="padding:1.5rem 2rem"] {
+  padding-left: clamp(16px, 3vw, 24px) !important;
+  padding-right: clamp(16px, 3vw, 24px) !important;
+}
+
+/* ── Ensure .page has content padding (used in many files as main wrapper) ── */
+.page {
+  padding-top: 32px !important;
+  padding-bottom: 80px !important;
+}
+
+/* Mobile footer: stack and center everything */
+@media (max-width: 640px) {
+      }
+
+/* ── Readable prose max-width ── */
+p, li, .tool-sub, .hero-sub {
+  max-width: 72ch;
+}
+
+/* ── Tablet adjustments ── */
+@media (max-width: 1024px) {
+  .tool-wrap, .main-wrap {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+}
+/* ── Mobile ── */
+@media (max-width: 640px) {
+  nav { padding: 0 16px; }
+  .lang-bar { padding: 0 16px; }
+  .hero { padding: 2rem 16px 2rem; }
+  }
+/* ═══════════════════════════════ End AINumbers Patch v2.0 ═══ */
+
+/* ── Footer ─────────────────────────────────────────── */
+footer { border-top: 1px solid var(--border); padding: 1.75rem 1.5rem; margin-top: 3rem; }
+.footer-inner-ai { display:flex; align-items:center; gap:2rem; flex-wrap:wrap; justify-content:space-between; }
+.footer-links-ai { display:flex; gap:1.25rem; font-family:'JetBrains Mono',monospace; font-size:.52rem; color:var(--muted); }
+.footer-links-ai a { color:var(--muted); text-decoration:none; transition:color .2s; }
+.footer-links-ai a:hover { color:var(--teal-lt); }
+.footer-badge-ai { display:flex; flex-direction:column; gap:.3rem; font-family:'JetBrains Mono',monospace; font-size:.5rem; color:var(--muted); }
+.footer-brand-link { display:flex; align-items:center; gap:.5rem; text-decoration:none; color:var(--text); }
+.footer-wordmark { font-family:'JetBrains Mono',monospace; font-size:.9rem; font-weight:500; }
+.logo-icon-sm { background:var(--teal); color:#000; font-weight:700; font-size:.7rem; padding:.15rem .3rem; border-radius:3px; }
+@media(max-width:640px){ .footer-inner-ai { flex-direction:column; text-align:center; } .footer-badge-ai { align-items:center; } }
+
+/* RTL support — AIN canonical */
+[dir="rtl"] .lang-bar .lang-inner { flex-direction: row-reverse; ;justify-content:flex-end}
+[dir="rtl"] .nav-inner            { flex-direction: row-reverse; }
+[dir="rtl"] .nav-bc               { flex-direction: row-reverse; }
+[dir="rtl"] .nav-bc-sep           { transform: scaleX(-1); }
+[dir="rtl"] .nav-right            { flex-direction: row-reverse; }
+[dir="rtl"] .hero, [dir="rtl"] .content, [dir="rtl"] .layout { text-align: right; }
+[dir="rtl"] .footer-inner-ai      { flex-direction: row-reverse; }
+[dir="rtl"] .footer-links-ai      { flex-direction: row-reverse; }
+
+/* nav-bc + nav-right — AIN canonical */
+.nav-bc{display:flex;align-items:center;gap:.4rem;font-size:.7rem;color:var(--muted);justify-content:center}
+.nav-bc a{color:var(--muted);transition:color .2s}.nav-bc a:hover{color:var(--text)}
+.nav-bc-sep{color:var(--border-2);font-size:.65rem}
+.nav-bc-current{font-weight:500}
+.nav-right{display:flex;align-items:center;gap:.4rem;margin-left:auto}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;
+  padding:.25rem .7rem;border:1px solid var(--border);border-radius:var(--radius);
+  background:transparent;color:var(--muted);cursor:pointer;transition:all .2s;white-space:nowrap}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+
+
+/* MCP manifest panel */
+.mcp-section{border-top:1px solid var(--border);padding:2rem 0}
+.mcp-toggle{display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;padding:.75rem 1rem;background:var(--bg-2);border:1px solid var(--border);
+  border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.7rem;
+  color:var(--muted);letter-spacing:.06em}
+.mcp-toggle:hover{border-color:var(--teal);color:var(--teal)}
+.pii-notice{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);
+  border-left:3px solid var(--teal);padding:.75rem 1rem;margin:1rem 0 1.5rem;
+  font-size:.72rem;color:var(--body);line-height:1.6;border-radius:var(--radius)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-body pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;overflow-x:auto;margin:0}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+
+<!-- AIN-reconcile-2026-05-17 -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<!-- LANG BAR -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/payments-infrastructure-hub.html">Payments Hub</a><span class="nav-sep">/</span><span>T-39</span></div>
+    <a href="../guides/payments-infrastructure-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<section class="hero">
+  <div class="container">
+    <p class="hero-eyebrow">Tool 39 · Treasury &amp; Revenue</p>
+    <h1 class="tool-title"><span data-i18n="tals.hero.title">A2A Liquidity Simulator — Single &amp; Multi-Rail</span></h1>
+    <p class="hero-sub"><span data-i18n="tals.hero.sub">Model intraday cash flow and prefunding requirements across FedNow, RTP, ACH, SEPA Instant, PIX, and UPI. Single-rail shows overdraft risk and opportunity cost. Multi-rail optimizes prefunding allocation with cross-rail waterfall routing.</span></p>
+    <div class="hero-badges">
+      <span class="hero-badge">FedNow · RTP · ACH</span>
+      <span class="hero-badge">SEPA Instant · PIX · UPI</span>
+      <span class="hero-badge">Intraday Simulation</span>
+      <span class="hero-badge">Client-Side · Zero PII</span>
+    </div>
+  </div>
+</section>
+
+<!-- MODE / SCENARIO BAR -->
+<div class="mode-bar">
+  <div class="mode-inner">
+    <span class="mode-label">Mode:</span>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="btnSingle" onclick="setMode('single')">Single Rail</button>
+      <button class="mode-btn" id="btnMulti"  onclick="setMode('multi')">Multi-Rail</button>
+    </div>
+    <div class="scenario-chips">
+      <button class="sc-chip" onclick="setScenario('normal')">Normal Day</button>
+      <button class="sc-chip active" onclick="setScenario('blackfriday')">Black Friday</button>
+      <button class="sc-chip" onclick="setScenario('payroll')">Payroll Day</button>
+      <button class="sc-chip" onclick="setScenario('fraud')">Fraud Burst</button>
+      <button class="sc-chip" onclick="setScenario('downtime')">Rail Downtime</button>
+      <button class="sc-chip" onclick="setScenario('custom')">Custom</button>
+    </div>
+  </div>
+</div>
+
+<div class="tool-wrap">
+
+  <!-- ═══ CONFIG ═══ -->
+  <div class="config-col">
+
+    <!-- Rail selection (single) -->
+    <div class="cfg-s" id="singleRailSel">
+      <div class="cfg-title">Rail</div>
+      <div class="field">
+        <select id="singleRail" onchange="recalc()">
+          <option value="fednow">FedNow (≤20s · 24/7)</option>
+          <option value="rtp">RTP — The Clearing House (~10s · 24/7)</option>
+          <option value="sepa_inst">SEPA Instant (≤10s · 24/7)</option>
+          <option value="sameday">Same-Day ACH (same business day)</option>
+          <option value="nextday">Next-Day ACH (next business day)</option>
+          <option value="pix">PIX (<10s · 24/7/365)</option>
+          <option value="upi">UPI (<30s · 24/7/365)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Rail selection (multi) -->
+    <div class="cfg-s" id="multiRailSel" style="display:none;">
+      <div class="cfg-title">Active Rails</div>
+      <div class="rail-toggles" id="railToggles"></div>
+    </div>
+
+    <!-- Cash flow inputs -->
+    <div class="cfg-s">
+      <div class="cfg-title">Cash Flow Profile</div>
+      <div class="field">
+        <div class="field-label">Starting Balance <span class="field-val" id="balVal">$10,000,000</span></div>
+        <input type="range" id="startBal" min="100000" max="100000000" step="100000" value="10000000" oninput="fv('balVal',this,'$M',1e6);recalc()">
+      </div>
+      <div class="row-2">
+        <div class="field">
+          <div class="field-label">Daily Inflow ($M)</div>
+          <input type="number" id="dailyInflow" value="8.5" min="0.1" max="500" step="0.5" oninput="recalc()">
+        </div>
+        <div class="field">
+          <div class="field-label">Daily Outflow ($M)</div>
+          <input type="number" id="dailyOutflow" value="8.0" min="0.1" max="500" step="0.5" oninput="recalc()">
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label">Peak Multiplier <span class="field-val" id="peakVal">2.5×</span></div>
+        <input type="range" id="peakMult" min="10" max="100" step="5" value="25" oninput="fv('peakVal',this,'','×',10,1);recalc()">
+      </div>
+      <div class="field">
+        <div class="field-label">Inflow Timing</div>
+        <select id="inflowTiming" onchange="recalc()">
+          <option value="uniform">Uniform (24h)</option>
+          <option value="morning" selected>Morning-heavy (8–11am peak)</option>
+          <option value="eod">End-of-day (3–5pm peak)</option>
+        </select>
+      </div>
+      <div class="field">
+        <div class="field-label">Opportunity Cost APY <span class="field-val" id="apyVal">4.5%</span></div>
+        <input type="range" id="optyApy" min="0" max="100" step="5" value="45" oninput="fv('apyVal',this,'','%',10,1);recalc()">
+      </div>
+    </div>
+
+    <!-- Credit line -->
+    <div class="cfg-s">
+      <div class="cfg-title">Intraday Credit Line (optional)</div>
+      <div class="field">
+        <div class="field-label">Credit Limit ($M)</div>
+        <input type="number" id="creditLine" value="0" min="0" max="500" step="0.5" oninput="recalc()">
+      </div>
+    </div>
+
+    <!-- 24/7 note -->
+    <div class="cfg-s" id="always247Note" style="display:none;">
+      <div class="callout-info">PIX and UPI operate 24/7/365 — no cutoff windows apply. Business hour restrictions are not shown for these rails.</div>
+    </div>
+
+    <!-- Privacy -->
+    <div class="cfg-s">
+      <button class="privacy-btn" onclick="privacyAudit()">🔍 Privacy Audit</button>
+      <div class="privacy-ok" id="privacyOk">✓ Zero data transmitted</div>
+    </div>
+
+  </div><!-- /config-col -->
+
+  <!-- ═══ OUTPUT ═══ -->
+  <div class="output-col">
+
+    <!-- KPIs -->
+    <div class="out-title">Simulation Results</div>
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <!-- Chart -->
+    <div class="chart-wrap">
+      <div class="out-title" style="margin-bottom:.6rem;">Intraday Balance Timeline</div>
+      <canvas id="balanceChart" height="280" class="chart-canvas"></canvas>
+    </div>
+
+    <!-- Multi-rail table (hidden in single mode) -->
+    <div id="multiTableWrap" style="display:none;">
+      <div class="out-title">Rail Balance Summary</div>
+      <table class="rail-balance-table" id="railBalanceTable">
+        <thead><tr><th>Rail</th><th>Starting Balance</th><th>Min Balance</th><th>Failures</th><th>Status</th></tr></thead>
+        <tbody id="railTableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Recommendations -->
+    <div class="rec-box" id="recBox">
+      <div class="rec-title">Liquidity Recommendations</div>
+      <div id="recItems"></div>
+    </div>
+
+    <!-- Exports -->
+    <div class="export-row">
+      <button class="btn-export" onclick="exportCSV()">↓ CSV (Time Series)</button>
+      <button class="btn-export" onclick="exportJSON()">↓ JSON (AP2)</button>
+      <button class="btn-export" onclick="exportMarkdown()">↓ Markdown Memo</button>
+    </div>
+
+  </div><!-- /output-col -->
+</div>
+
+
+<!-- MANIFEST SECTION -->
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+'use strict';
+
+const RAILS = {
+  fednow:    {label:'FedNow',       color:'#14B8A6', latency:20,    is247:true,  cutoff:null},
+  rtp:       {label:'RTP',          color:'#9B72F5', latency:10,    is247:true,  cutoff:null},
+  sepa_inst: {label:'SEPA Instant', color:'#3B82F6', latency:10,    is247:true,  cutoff:null},
+  sameday:   {label:'Same-Day ACH', color:'#D4A847', latency:28800, is247:false, cutoff:17},
+  nextday:   {label:'Next-Day ACH', color:'#6888A8', latency:86400, is247:false, cutoff:17},
+  pix:       {label:'PIX',          color:'#22C55E', latency:10,    is247:true,  cutoff:null},
+  upi:       {label:'UPI',          color:'#F59E0B', latency:30,    is247:true,  cutoff:null},
+};
+
+const SCENARIOS = {
+  normal:     {label:'Normal Day',   peakMult:1.2, inflowTiming:'uniform',  note:'Standard business day pattern.'},
+  blackfriday:{label:'Black Friday', peakMult:10,  inflowTiming:'morning',  note:'10× normal TPS. Peak 10am–2pm.'},
+  payroll:    {label:'Payroll Day',  peakMult:4,   inflowTiming:'morning',  note:'Concentrated morning outflows.'},
+  fraud:      {label:'Fraud Burst',  peakMult:6,   inflowTiming:'eod',      note:'Sudden high-volume outflows 2–4pm.'},
+  downtime:   {label:'Rail Downtime',peakMult:3,   inflowTiming:'uniform',  note:'Primary rail offline 11am–1pm. Fallback routing active.'},
+  custom:     {label:'Custom',       peakMult:null, inflowTiming:null,      note:'Configure manually via sliders.'},
+};
+
+let mode = 'single', scenario = 'blackfriday';
+let balanceChartInst = null;
+let simData = null;
+
+// ── UI ──
+function setMode(m) {
+  mode = m;
+  document.getElementById('btnSingle').classList.toggle('active', m === 'single');
+  document.getElementById('btnMulti').classList.toggle('active', m === 'multi');
+  document.getElementById('singleRailSel').style.display = m === 'single' ? '' : 'none';
+  document.getElementById('multiRailSel').style.display  = m === 'multi'  ? '' : 'none';
+  document.getElementById('multiTableWrap').style.display = m === 'multi'  ? '' : 'none';
+  recalc();
+}
+
+function setScenario(sc) {
+  scenario = sc;
+  document.querySelectorAll('.sc-chip').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  const s = SCENARIOS[sc];
+  if (s.peakMult) {
+    document.getElementById('peakMult').value = s.peakMult * 10;
+    document.getElementById('peakVal').textContent = s.peakMult + '×';
+  }
+  if (s.inflowTiming) document.getElementById('inflowTiming').value = s.inflowTiming;
+  recalc();
+}
+
+function fv(id, el, prefix, suffix, divisor, decimals) {
+  const v = parseFloat(el.value) / (divisor||1);
+  document.getElementById(id).textContent = prefix + v.toFixed(decimals||0) + suffix;
+}
+
+function buildMultiRailToggles() {
+  const wrap = document.getElementById('railToggles');
+  wrap.innerHTML = Object.entries(RAILS).map(([key, r]) => `
+    <div class="rail-toggle-row ${['fednow','rtp','sameday'].includes(key) ? 'active' : ''}" id="railrow-${key}">
+      <div class="rail-dot" style="background:${r.color}"></div>
+      <span class="rail-name">${r.label}</span>
+      <span class="rail-latency">${r.is247 ? '24/7' : 'Business hrs'}</span>
+      <input type="checkbox" class="rail-chk" id="rail-${key}" ${['fednow','rtp','sameday'].includes(key) ? 'checked' : ''} onchange="toggleRailRow('${key}');recalc()">
+    </div>`).join('');
+}
+
+function toggleRailRow(key) {
+  const checked = document.getElementById('rail-'+key).checked;
+  document.getElementById('railrow-'+key).classList.toggle('active', checked);
+}
+
+// ── SIMULATION ENGINE ──
+function buildTimeSeries(railKey, startBal, dailyIn, dailyOut, peakMult, timing) {
+  const BUCKETS = 96; // 15-min intervals
+  const series = [];
+  let bal = startBal;
+  const rail = RAILS[railKey];
+
+  for (let i = 0; i < BUCKETS; i++) {
+    const hour = (i * 15) / 60;
+    // Inflow shape
+    let inflowShape = 1;
+    if (timing === 'morning') inflowShape = hour >= 8 && hour <= 11 ? 3 : 0.3;
+    else if (timing === 'eod') inflowShape = hour >= 15 && hour <= 17 ? 4 : 0.4;
+    // Outflow: apply peak multiplier during 10am-2pm
+    const isPeak = hour >= 10 && hour <= 14;
+    const outflowMult = isPeak ? peakMult : 1;
+    // Cutoff: batch rails settle at end of day
+    const isSettlement = !rail.is247 && hour >= (rail.cutoff || 17);
+    const inflowPerBucket = (dailyIn / BUCKETS) * inflowShape;
+    const outflowPerBucket = (dailyOut / BUCKETS) * outflowMult;
+    // Downtime scenario: no processing 11am–1pm
+    const isDowntime = scenario === 'downtime' && hour >= 11 && hour <= 13;
+    if (!isDowntime) {
+      bal += inflowPerBucket - outflowPerBucket;
+    }
+    series.push({ t: i, hour, bal: Math.max(bal, -5e7), raw: bal });
+  }
+  return series;
+}
+
+function simulate() {
+  const startBal   = parseInt(document.getElementById('startBal').value);
+  const dailyIn    = parseFloat(document.getElementById('dailyInflow').value) * 1e6;
+  const dailyOut   = parseFloat(document.getElementById('dailyOutflow').value) * 1e6;
+  const peakMult   = parseFloat(document.getElementById('peakMult').value) / 10;
+  const timing     = document.getElementById('inflowTiming').value;
+  const creditLine = parseFloat(document.getElementById('creditLine').value) * 1e6;
+  const apy        = parseFloat(document.getElementById('optyApy').value) / 10 / 100;
+
+  if (mode === 'single') {
+    const railKey = document.getElementById('singleRail').value;
+    const series = buildTimeSeries(railKey, startBal, dailyIn, dailyOut, peakMult, timing);
+    const minBal = Math.min(...series.map(s => s.bal));
+    const overdraftEvents = series.filter(s => s.raw < 0).length;
+    const nearZero = series.filter(s => s.raw >= 0 && s.raw < startBal * 0.05).length;
+    const idlePct = series.filter(s => s.raw > startBal * 2).length / series.length;
+    const idleCost = startBal * idlePct * apy / 365;
+    const effectiveMin = Math.max(minBal, -creditLine);
+    const failures = series.filter(s => s.raw < -creditLine).length;
+
+    // Baseline (batch ACH) for comparison
+    const baselineSeries = buildTimeSeries('nextday', startBal, dailyIn, dailyOut, 1, 'uniform');
+
+    return { mode:'single', railKey, series, baselineSeries, minBal, overdraftEvents, nearZero, idlePct, idleCost, failures, startBal, dailyIn, dailyOut, peakMult, apy, creditLine };
+  } else {
+    const activeRails = Object.keys(RAILS).filter(k => document.getElementById('rail-'+k)?.checked);
+    const railSeries = {};
+    const railStats = {};
+    activeRails.forEach(k => {
+      const s = buildTimeSeries(k, startBal / activeRails.length, dailyIn / activeRails.length, dailyOut / activeRails.length, peakMult, timing);
+      railSeries[k] = s;
+      const min = Math.min(...s.map(x => x.bal));
+      railStats[k] = {
+        min, failures: s.filter(x => x.raw < -creditLine / activeRails.length).length,
+        idlePct: s.filter(x => x.raw > startBal * 2 / activeRails.length).length / s.length
+      };
+    });
+    const totalFailures = Object.values(railStats).reduce((a,s) => a+s.failures, 0);
+    const minOverall = Math.min(...Object.values(railStats).map(s => s.min));
+    return { mode:'multi', activeRails, railSeries, railStats, totalFailures, minOverall, startBal, dailyIn, dailyOut, peakMult, apy, creditLine };
+  }
+}
+
+function recalc() {
+  // 247 note
+  const railKey = document.getElementById('singleRail').value;
+  const is247 = RAILS[railKey]?.is247;
+  document.getElementById('always247Note').style.display = (mode === 'single' && is247) ? '' : 'none';
+
+  simData = simulate();
+  renderKPIs();
+  renderChart();
+  if (mode === 'multi') renderMultiTable();
+  renderRecs();
+}
+
+// ── RENDER ──
+function renderKPIs() {
+  const d = simData;
+  let html = '';
+  if (d.mode === 'single') {
+    const minBal = d.minBal;
+    const minClass = minBal < 0 ? 'bad' : minBal < d.startBal * 0.05 ? 'warn' : 'good';
+    html = `
+      <div class="kpi"><div class="kpi-label">Min Intraday Balance</div><div class="kpi-val ${minClass}">$${fmtM(minBal)}</div><div class="kpi-sub">${minBal<0?'Overdraft event':''}</div></div>
+      <div class="kpi"><div class="kpi-label">Overdraft Periods</div><div class="kpi-val ${d.overdraftEvents>0?'bad':'good'}">${d.overdraftEvents}</div><div class="kpi-sub">×15-min buckets</div></div>
+      <div class="kpi"><div class="kpi-label">Near-Zero Periods</div><div class="kpi-val ${d.nearZero>4?'warn':'good'}">${d.nearZero}</div><div class="kpi-sub">&lt;5% of start bal</div></div>
+      <div class="kpi"><div class="kpi-label">Idle Capital %</div><div class="kpi-val">${(d.idlePct*100).toFixed(0)}%</div><div class="kpi-sub">Over 2× operating need</div></div>
+      <div class="kpi"><div class="kpi-label">Opportunity Cost</div><div class="kpi-val warn">$${fmtM(d.idleCost)}</div><div class="kpi-sub">Daily at ${(d.apy*365*100).toFixed(1)}% APY</div></div>
+      <div class="kpi"><div class="kpi-label">Payment Failures</div><div class="kpi-val ${d.failures>0?'bad':'good'}">${d.failures}</div><div class="kpi-sub">Beyond credit line</div></div>`;
+  } else {
+    html = `
+      <div class="kpi"><div class="kpi-label">Active Rails</div><div class="kpi-val">${d.activeRails.length}</div><div class="kpi-sub">${d.activeRails.map(k=>RAILS[k].label).join(', ')}</div></div>
+      <div class="kpi"><div class="kpi-label">Total Failures</div><div class="kpi-val ${d.totalFailures>0?'bad':'good'}">${d.totalFailures}</div><div class="kpi-sub">Across all rails</div></div>
+      <div class="kpi"><div class="kpi-label">Min Balance (any rail)</div><div class="kpi-val ${d.minOverall<0?'bad':'good'}">$${fmtM(d.minOverall)}</div></div>`;
+  }
+  document.getElementById('kpiGrid').innerHTML = html;
+}
+
+function renderChart() {
+  const d = simData;
+  const labels = Array.from({length:96},(_,i)=>{
+    const h=Math.floor(i*15/60), m=(i*15)%60;
+    return h+':'+(m<10?'0'+m:m);
+  }).filter((_,i)=>i%4===0);
+  const labeledIdx = Array.from({length:24},(_,i)=>i*4);
+
+  let datasets = [];
+  if (d.mode === 'single') {
+    datasets = [
+      { label:RAILS[d.railKey].label, data:d.series.map(s=>s.bal/1e6), borderColor:RAILS[d.railKey].color, backgroundColor:'transparent', tension:.3, borderWidth:2, pointRadius:0 },
+      { label:'Baseline (Next-Day ACH)', data:d.baselineSeries.map(s=>s.bal/1e6), borderColor:'#3A5270', backgroundColor:'transparent', tension:.3, borderWidth:1.5, borderDash:[6,4], pointRadius:0 },
+    ];
+    // Zero line fill
+    datasets.push({ label:'Overdraft Zone', data:Array(96).fill(0), borderColor:'rgba(239,68,68,.2)', backgroundColor:'rgba(239,68,68,.06)', fill:'-1', pointRadius:0, borderWidth:1 });
+  } else {
+    d.activeRails.forEach(k => {
+      datasets.push({ label:RAILS[k].label, data:d.railSeries[k].map(s=>s.bal/1e6), borderColor:RAILS[k].color, backgroundColor:'transparent', tension:.3, borderWidth:2, pointRadius:0 });
+    });
+  }
+
+  if (balanceChartInst) balanceChartInst.destroy();
+  const ctx = document.getElementById('balanceChart').getContext('2d');
+  balanceChartInst = new Chart(ctx, {
+    type:'line',
+    data:{ labels:Array.from({length:96},(_,i)=>{const h=Math.floor(i*15/60),m=(i*15)%60;return i%4===0?(h+':'+(m<10?'0'+m:m)):''}), datasets },
+    options:{
+      responsive:true, animation:{duration:400},
+      plugins:{ legend:{labels:{color:'#6888A8',font:{family:'JetBrains Mono',size:10}}}, tooltip:{mode:'index',intersect:false} },
+      scales:{
+        x:{ ticks:{color:'#3A5270',font:{family:'JetBrains Mono',size:9},maxTicksLimit:12}, grid:{color:'rgba(30,47,74,.5)'} },
+        y:{ ticks:{color:'#3A5270',font:{family:'JetBrains Mono',size:9},callback:v=>v>=0?'$'+v+'M':'($'+Math.abs(v)+'M)'}, grid:{color:'rgba(30,47,74,.5)'}, title:{display:true,text:'Balance ($M)',color:'#3A5270',font:{size:10}} }
+      }
+    }
+  });
+}
+
+function renderMultiTable() {
+  const d = simData;
+  document.getElementById('railTableBody').innerHTML = d.activeRails.map(k => {
+    const s = d.railStats[k];
+    const statusClass = s.failures > 0 ? 'status-bad' : s.min < 0 ? 'status-warn' : 'status-ok';
+    const statusLabel = s.failures > 0 ? 'Failures detected' : s.min < 0 ? 'Overdraft risk' : 'Healthy';
+    return `<tr>
+      <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${RAILS[k].color};margin-right:.4rem;"></span>${RAILS[k].label}</td>
+      <td class="mono">$${fmtM(d.startBal / d.activeRails.length)}</td>
+      <td class="mono ${s.min < 0 ? 'status-bad' : ''}">$${fmtM(s.min)}</td>
+      <td class="mono ${s.failures>0?'status-bad':''}">${s.failures}</td>
+      <td class="${statusClass}">${statusLabel}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderRecs() {
+  const d = simData;
+  const recs = [];
+  if (d.mode === 'single') {
+    if (d.overdraftEvents > 0) {
+      const addAmt = Math.abs(d.minBal) * 1.2;
+      recs.push(`Increase ${RAILS[d.railKey].label} prefunding by $${fmtM(addAmt)} to eliminate projected overdraft events`);
+    }
+    if (d.nearZero > 8) recs.push('Near-zero balance persists for ' + d.nearZero + ' periods — consider a $' + fmtM(d.startBal * 0.1) + ' intraday credit line');
+    if (d.idlePct > 0.3) recs.push('Capital is idle ' + (d.idlePct*100).toFixed(0) + '% of the day — reduce prefunding by $' + fmtM(d.startBal * d.idlePct * 0.5) + ' and invest in overnight repo');
+    if (scenario === 'blackfriday') recs.push('Black Friday: pre-position additional $' + fmtM(d.startBal * 0.5) + ' before market open; enable FedNow intraday credit if available');
+    if (scenario === 'downtime') recs.push('Rail downtime scenario: configure automatic failover to ' + (d.railKey === 'fednow' ? 'RTP' : 'FedNow') + ' within 60 seconds of outage detection');
+    if (recs.length === 0) recs.push('Liquidity profile looks healthy for this scenario. Consider reducing prefunding by 10% and measuring impact.');
+  } else {
+    d.activeRails.forEach(k => {
+      const s = d.railStats[k];
+      if (s.failures > 0) recs.push(`Increase ${RAILS[k].label} prefunding by $${fmtM(d.startBal / d.activeRails.length * 0.3)} to reduce failures by ~80%`);
+    });
+    if (d.activeRails.includes('fednow') && d.activeRails.includes('rtp')) recs.push('Route transactions >$25,000 after 6 PM to ACH to preserve FedNow and RTP liquidity for overnight settlement');
+    if (recs.length === 0) recs.push('All rails showing healthy balances. Current prefunding allocation appears well-optimized for this scenario.');
+  }
+  document.getElementById('recItems').innerHTML = recs.map(r => `<div class="rec-item">${r}</div>`).join('');
+}
+
+// ── EXPORTS ──
+function exportCSV() {
+  if (!simData) return;
+  let rows = [['Time (15-min bucket)','Hour','Balance ($)']];
+  const series = simData.mode === 'single' ? simData.series : Object.values(simData.railSeries)[0];
+  series.forEach(s => rows.push([s.t, s.hour.toFixed(2), s.bal.toFixed(0)]));
+  dlBlob(rows.map(r=>r.join(',')).join('\n'), 'a2a-liquidity-timeseries.csv','text/csv');
+}
+
+function exportJSON() {
+  if (!simData) return;
+  dlBlob(JSON.stringify({...simData, generated_by:'AINumbers.co/tools/a2a-liquidity-simulator', schema:'AP2-compatible', timestamp:new Date().toISOString()},null,2),'a2a-liquidity.json','application/json');
+}
+
+function exportMarkdown() {
+  if (!simData) return;
+  const d = simData;
+  const md = `# A2A Liquidity Strategy Recommendation
+*Generated: ${new Date().toLocaleString()} · AINumbers.co*
+
+## Simulation Parameters
+- Mode: ${d.mode === 'single' ? 'Single Rail — ' + RAILS[d.railKey]?.label : 'Multi-Rail — ' + d.activeRails?.map(k=>RAILS[k].label).join(', ')}
+- Scenario: ${SCENARIOS[scenario].label}
+- Starting Balance: $${fmtM(d.startBal)}
+- Daily Inflow: $${fmtM(d.dailyIn)} · Daily Outflow: $${fmtM(d.dailyOut)}
+- Peak Multiplier: ${d.peakMult}×
+
+## Key Findings
+${d.mode === 'single' ? `- Minimum intraday balance: $${fmtM(d.minBal)}
+- Overdraft periods: ${d.overdraftEvents}
+- Opportunity cost of over-prefunding: $${fmtM(d.idleCost)}/day` : `- Active rails: ${d.activeRails?.map(k=>RAILS[k].label).join(', ')}
+- Total payment failures: ${d.totalFailures}`}
+
+## Recommendations
+${document.getElementById('recItems').innerText.split('\n').filter(Boolean).map(r=>'- '+r.replace('→','')).join('\n')}
+
+*Source: AINumbers.co · CC BY 4.0*`;
+  dlBlob(md,'a2a-liquidity-memo.md','text/markdown');
+}
+
+function dlBlob(content, filename, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content],{type}));
+  a.download = filename; a.click(); URL.revokeObjectURL(a.href);
+}
+
+function fmtM(n) {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (abs >= 1e6) return sign + (abs/1e6).toFixed(1) + 'M';
+  if (abs >= 1e3) return sign + (abs/1e3).toFixed(0) + 'K';
+  return sign + abs.toFixed(0);
+}
+
+function privacyAudit() {
+  console.log('[AINumbers Privacy Audit] Tool: a2a-liquidity-simulator — ZERO data transmitted ✓');
+  const el = document.getElementById('privacyOk'); el.classList.add('vis');
+  setTimeout(() => el.classList.remove('vis'), 4000);
+}
+
+// ── INIT ──
+buildMultiRailToggles();
+recalc();
+
+/* ── i18n lang bar ── */
+
+
+</script>
+
+</div><!-- /.page-shell -->
+
+<script>
+/* AIN canonical i18n — reconcile-2026-05-17 */
+const TRANSLATIONS = {
+  en: {
+    "nav.alltools": "All Tools",
+    "nav.hub": "← All Tools",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-1 · A2A Routing · T39",
+    "hero.badge.privacy": "Zero PII · Client-side",
+    "hero.badge.reviewed": "Last Reviewed:",
+    "footer.alltools": "All Tools",
+    "footer.hub": "All Tools",
+    "footer.sitemap": "Sitemap",
+    "footer.contact": "Contact",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Zero PII \u00a0 📡 No server calls \u00a0 💻 Client-side",
+    "pii.banner": "🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only."
+  },
+  es: {
+    "nav.alltools": "Todas las herramientas",
+    "nav.hub": "← Inicio",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-1 · A2A Routing · T39",
+    "hero.badge.privacy": "Sin PII · Solo cliente",
+    "hero.badge.reviewed": "Última revisión:",
+    "footer.alltools": "Todas las herramientas",
+    "footer.hub": "All Tools",
+    "footer.sitemap": "Mapa del sitio",
+    "footer.contact": "Contacto",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Sin PII \u00a0 📡 Sin llamadas de servidor \u00a0 💻 Solo cliente",
+    "pii.banner": "🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No ingrese datos personales reales — use entradas sintéticas o anonimizadas."
+  },
+  fr: {
+    "nav.alltools": "Tous les outils",
+    "nav.hub": "← Accueil",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-1 · A2A Routing · T39",
+    "hero.badge.privacy": "Zéro PII · Côté client",
+    "hero.badge.reviewed": "Dernière révision :",
+    "footer.alltools": "Tous les outils",
+    "footer.hub": "All Tools",
+    "footer.sitemap": "Plan du site",
+    "footer.contact": "Contact",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Zéro PII \u00a0 📡 Aucun appel serveur \u00a0 💻 Côté client",
+    "pii.banner": "🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n'est transmise. N'entrez pas de données personnelles réelles — utilisez des entrées synthétiques ou anonymisées."
+  },
+  ar: {
+    "nav.alltools": "جميع الأدوات",
+    "nav.hub": "→ الرئيسية",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-1 · A2A Routing · T39",
+    "hero.badge.privacy": "بدون بيانات شخصية · من جهة العميل",
+    "hero.badge.reviewed": "آخر مراجعة:",
+    "footer.alltools": "جميع الأدوات",
+    "footer.hub": "All Tools",
+    "footer.sitemap": "خريطة الموقع",
+    "footer.contact": "اتصل بنا",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 بدون بيانات شخصية \u00a0 📡 بدون اتصالات خادم \u00a0 💻 من جهة العميل",
+    "pii.banner": "🔒 تتم معالجة جميع المدخلات محليًا في متصفحك. لا يتم نقل أي بيانات. لا تُدخل بيانات شخصية حقيقية — استخدم مدخلات اصطناعية أو مجهولة الهوية فقط.",
+    "lang_dir": "rtl"
+  },
+  pt: {
+    "nav.alltools": "Todas as ferramentas",
+    "nav.hub": "← Início",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-1 · A2A Routing · T39",
+    "hero.badge.privacy": "Zero PII · Lado do cliente",
+    "hero.badge.reviewed": "Última revisão:",
+    "footer.alltools": "Todas as ferramentas",
+    "footer.hub": "All Tools",
+    "footer.sitemap": "Mapa do site",
+    "footer.contact": "Contato",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Zero PII \u00a0 📡 Sem chamadas de servidor \u00a0 💻 Lado do cliente",
+    "pii.banner": "🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido. Não insira dados pessoais reais — use entradas sintéticas ou anonimizadas."
+  },
+  zh: {
+    "nav.alltools": "所有工具",
+    "nav.hub": "← 首页",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-1 · A2A Routing · T39",
+    "hero.badge.privacy": "零PII · 客户端",
+    "hero.badge.reviewed": "最后审查：",
+    "footer.alltools": "所有工具",
+    "footer.hub": "All Tools",
+    "footer.sitemap": "网站地图",
+    "footer.contact": "联系我们",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 零PII \u00a0 📡 无服务器调用 \u00a0 💻 客户端",
+    "pii.banner": "🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。请勿输入真实个人数据——仅使用合成或匿名输入。"
+  }
+};
+
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key] !== undefined) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="' + lang + '"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function initLang() {
+  let saved = 'en';
+  try { saved = sessionStorage.getItem('ain_lang') || 'en'; } catch(e) {}
+  if (TRANSLATIONS[saved]) setLang(saved);
+})();
+
+function scrollMfst() {
+  const s = document.getElementById('mfstSec');
+  if (s) s.scrollIntoView({behavior:'smooth', block:'start'});
+}
+</script>
+</body>
+</html>

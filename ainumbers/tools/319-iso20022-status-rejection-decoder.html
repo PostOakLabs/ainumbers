@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>ISO 20022 Status & Rejection Decoder · T319 · AINumbers.co</title>
+<meta name="description" content="Decode ISO 20022 pacs.002/008/009 TxSts and StsRsnInf rejection codes to plain English with severity classification, remediation guidance, and CBPR+ Nov 2026 structured address risk flags. Batch mode for up to 20 messages. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/319-iso20022-status-rejection-decoder">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"ISO 20022 Status & Rejection Decoder · T319","url":"https://ainumbers.co/tools/319-iso20022-status-rejection-decoder","description":"Decode ISO 20022 pacs.002/008/009 TxSts and StsRsnInf rejection codes to plain English with severity classification, remediation guidance, and CBPR+ Nov 2026 structured address risk flags. Batch mode for up to 20 messages. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<script>
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* PolicyMandate — full validator (Phase 14); AP2Schema internal name retained */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+};
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner,[dir="rtl"] [dir="rtl"] .hero-eyebrow{flex-direction:row-reverse}
+[dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+
+/* Lang bar */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:201}
+.lang-inner{max-width:1060px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+
+/* Nav */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+/* Hero */
+.hero{padding:2.8rem 0 2.4rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(20,184,166,.06) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.5rem);color:var(--white);max-width:720px;margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal)}
+.hero-desc{font-size:.84rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.3rem .7rem;border:1px solid}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+
+
+/* Main layout */
+.main-content{position:relative;z-index:1;padding:2.5rem 0 4rem}
+.tool-layout{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start}
+@media(max-width:860px){.tool-layout{grid-template-columns:1fr}}
+.col-left{}
+.col-right{}
+
+/* Panel */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.6rem}
+.panel-label::before{content:'';display:block;width:14px;height:1px;background:var(--teal)}
+.panel-title{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--white);margin-bottom:1rem}
+.panel-row{margin-bottom:1rem}
+.panel-row:last-child{margin-bottom:0}
+.panel-row label{display:block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--body);margin-bottom:.45rem}
+
+/* Mode toggle */
+.mode-toggle{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1rem}
+.mode-btn{flex:1;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem;border:none;background:transparent;color:var(--muted);transition:all .2s}
+.mode-btn.active{background:var(--teal-dim);color:var(--teal)}
+.mode-btn:hover:not(.active){color:var(--text);background:var(--bg-3)}
+
+/* Inputs */
+textarea,input[type="text"]{width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.75rem;resize:vertical;transition:border-color .2s;line-height:1.6}
+textarea:focus,input[type="text"]:focus{outline:none;border-color:var(--teal)}
+textarea::placeholder,input[type="text"]::placeholder{color:var(--muted)}
+textarea{min-height:160px}
+#singleCodeInput{height:44px;min-height:0;resize:none;font-size:.82rem}
+
+/* PII banner */
+.pii-banner{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--muted);border-radius:var(--radius);padding:.7rem 1rem;font-size:.7rem;color:var(--body);line-height:1.6;margin-top:.75rem}
+.pii-banner strong{color:var(--text)}
+
+/* Run button */
+.run-btn{width:100%;background:var(--teal);color:var(--bg);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;padding:.85rem 1.5rem;border:none;border-radius:var(--radius);font-weight:500;transition:opacity .2s;margin-bottom:1.25rem}
+.run-btn:hover{opacity:.88}
+.run-btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* Results panel */
+.results-panel{display:none}
+.results-panel.visible{display:block}
+
+/* Status badge */
+.status-badge{display:inline-flex;align-items:center;gap:.6rem;font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:500;padding:.55rem 1.1rem;border:1px solid;border-radius:var(--radius);margin-bottom:1.25rem}
+.status-badge.accp,.status-badge.acsc,.status-badge.accc{color:var(--green);border-color:rgba(34,197,94,.35);background:var(--green-dim)}
+.status-badge.rjct{color:var(--red);border-color:rgba(239,68,68,.35);background:var(--red-dim)}
+.status-badge.pdng,.status-badge.acsp,.status-badge.acwc,.status-badge.actc,.status-badge.acfc{color:var(--warn);border-color:rgba(245,158,11,.35);background:var(--warn-dim)}
+.status-badge.mixed{color:var(--purple);border-color:rgba(155,114,245,.35);background:var(--purple-dim)}
+
+/* Code table */
+.code-table-wrap{overflow-x:auto;margin-bottom:1.25rem}
+.code-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.code-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-3);white-space:nowrap}
+.code-table td{padding:.6rem .75rem;border-bottom:1px solid rgba(30,47,74,.45);color:var(--body);vertical-align:top;line-height:1.5}
+.code-table tr:last-child td{border-bottom:none}
+.code-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal);font-weight:500;white-space:nowrap}
+.sev-nr{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.55rem;background:var(--red-dim);padding:.1rem .35rem;border-radius:2px;white-space:nowrap}
+.sev-r{color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.55rem;background:var(--warn-dim);padding:.1rem .35rem;border-radius:2px;white-space:nowrap}
+.sev-i{color:var(--green);font-family:'JetBrains Mono',monospace;font-size:.55rem;background:var(--green-dim);padding:.1rem .35rem;border-radius:2px;white-space:nowrap}
+.cbpr-flag{color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.52rem;background:var(--warn-dim);padding:.1rem .35rem;border-radius:2px}
+
+/* Batch summary */
+.batch-summary{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.25rem}
+.batch-summary-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.75rem}
+.batch-counts{display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:.75rem}
+.batch-count-cell{display:flex;flex-direction:column;align-items:center;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:.5rem .85rem;min-width:64px}
+.batch-count-val{font-family:'DM Serif Display',serif;font-size:1.3rem;line-height:1}
+.batch-count-lbl{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:.2rem}
+
+/* Export row */
+.results-export-row{display:flex;gap:.65rem;flex-wrap:wrap;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;border-radius:var(--radius);border:1px solid;cursor:pointer;transition:all .2s;display:inline-flex;flex-direction:column;align-items:center;gap:.15rem;background:transparent}
+.btn-ghost{color:var(--text);border-color:var(--border)}
+.btn-ghost:hover:not(:disabled){border-color:var(--teal);color:var(--teal)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-ghost.ready{border-color:rgba(20,184,166,.4);color:var(--teal)}
+.btn-subtitle{font-size:.42rem;color:var(--muted);letter-spacing:.08em;text-transform:none}
+.btn-ghost.ready .btn-subtitle{color:rgba(20,184,166,.65)}
+
+/* Info callout */
+.info-callout{background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);border-left:3px solid var(--teal);border-radius:var(--radius);padding:.85rem 1rem;font-size:.75rem;color:var(--text);line-height:1.65;margin-bottom:1.25rem}
+.warn-callout{background:var(--warn-dim);border:1px solid rgba(245,158,11,.25);border-left:3px solid var(--warn);border-radius:var(--radius);padding:.85rem 1rem;font-size:.75rem;color:var(--text);line-height:1.65;margin-bottom:1.25rem}
+.error-callout{background:var(--red-dim);border:1px solid rgba(239,68,68,.25);border-left:3px solid var(--red);border-radius:var(--radius);padding:.85rem 1rem;font-size:.75rem;color:var(--text);line-height:1.65;margin-bottom:1.25rem}
+
+/* Toast */
+#toast{position:fixed;bottom:1.75rem;right:1.75rem;background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:var(--radius);padding:.85rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--text);z-index:999;transform:translateY(120%);transition:transform .3s;max-width:320px;letter-spacing:.05em}
+#toast.show{transform:translateY(0)}
+#toast.error{border-left-color:var(--red)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-body pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;overflow-x:auto;margin:0}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- Lang bar -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="#0D1627"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".7"/></svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/b2b-payments-hub.html">B2B Payments Hub</a><span class="nav-sep">/</span><span>T-319</span></div>
+
+    <a href="../guides/b2b-payments-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">
+      <span id="heroEyebrow">T319 · Cat-01 · ISO 20022 · pacs.002 / pacs.008 / pacs.009 · CBPR+</span>
+    </div>
+    <h1 class="tool-title" id="heroTitle">ISO 20022 Status &amp; <em>Rejection Decoder</em></h1>
+    <p class="hero-desc" id="heroDesc">Decode pacs.002, pacs.008, and pacs.009 transaction status and rejection reason codes into plain English with severity classification, remediation guidance, and CBPR+ Nov 2026 structured address truncation risk flags. Single code or batch mode for up to 20 messages.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-teal">pacs.002 · pacs.008 · pacs.009</span>
+      <span class="hero-badge badge-teal">CBPR+ Nov 2026</span>
+      <span class="hero-badge badge-gold">80+ Status Codes</span>
+      <span class="hero-badge badge-gold">Batch · 20 Messages</span>
+      <span class="hero-badge badge-muted">Client-Side · Zero PII</span>
+    <span class="hero-badge badge-warn" data-i18n="hero.badge.var">Reduces ISO 20022 CBPR+ migration rework costs in November 2025 cutover.</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+    
+  </div>
+</section>
+
+<!-- Main -->
+<main class="main-content">
+  <div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+    <div class="tool-layout">
+
+      <!-- LEFT: Input -->
+      <div class="col-left">
+
+        <div class="panel">
+          <div class="panel-label">Input Mode</div>
+          <div class="mode-toggle" role="group" aria-label="Input mode selector">
+            <button class="mode-btn active" id="modeBtn-single" onclick="setMode('single')" id="modeBtnSingle">Single Code</button>
+            <button class="mode-btn" id="modeBtn-batch" onclick="setMode('batch')">Batch Paste</button>
+          </div>
+
+          <!-- Single mode -->
+          <div id="singlePanel">
+            <div class="panel-row">
+              <label for="singleCodeInput" id="lblSingleCode">Status or Reason Code (e.g. AC01, RJCT, AM04)</label>
+              <input type="text" id="singleCodeInput" placeholder="Enter code — e.g. AC01" autocomplete="off" spellcheck="false">
+            </div>
+          </div>
+
+          <!-- Batch mode -->
+          <div id="batchPanel" style="display:none">
+            <div class="panel-row">
+              <label for="batchInput" id="lblBatch">Paste XML / JSON payload(s) — up to 20 messages</label>
+              <textarea id="batchInput" placeholder="Paste ISO 20022 XML or JSON — TxSts and StsRsnInf fields will be extracted automatically. Up to 20 messages supported."></textarea>
+            </div>
+            <div class="pii-banner">
+              🔒 <strong>All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</strong>
+            </div>
+          </div>
+        </div>
+
+        <button class="run-btn" id="runBtn" onclick="runDecoder()" id="runBtnEl">⟶ Decode Status</button>
+
+        <!-- AP2 / MCP info panel -->
+        <div class="panel">
+          <div class="panel-label">MCP Integration</div>
+          <div style="font-size:.75rem;color:var(--body);line-height:1.7;margin-bottom:.85rem">This tool exposes a machine-readable function for agent consumption via the AINumbers.co MCP server.</div>
+          <button onclick="toggleMCP()" style="width:100%;background:var(--bg-3);border:1px solid var(--border);padding:.65rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text);border-radius:var(--radius);display:flex;align-items:center;justify-content:space-between">
+            <span>📦 manifest.json · decode_iso20022_status_response</span>
+            <span id="mcpArrow" style="color:var(--muted)">▼</span>
+          </button>
+          <div id="mcpPanel" style="display:none;margin-top:1px;background:var(--bg-3);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:1rem;overflow-x:auto">
+<pre style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--body);line-height:1.65;white-space:pre-wrap">{
+  "tool_id": "iso20022-status-rejection-decoder",
+  "version": "1.0.0",
+  "title": "ISO 20022 Status &amp; Rejection Decoder",
+  "category": "cat-1",
+  "mcp_tool_definition": {
+    "name": "decode_iso20022_status_response",
+    "description": "Decodes ISO 20022 pacs.002/008/009 TxSts and StsRsnInf codes to plain English. Returns severity tier, remediation action, and CBPR+ Nov 2026 structured address risk flag.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "payload": { "type": "string" },
+        "mode": { "type": "string", "enum": ["single","batch"] }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/319-iso20022-status-rejection-decoder.html",
+    "function_name": "decodeISO20022Status",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true
+}</pre>
+          </div>
+        </div>
+
+      </div><!-- /col-left -->
+
+      <!-- RIGHT: Results -->
+      <div class="col-right">
+
+        <!-- Pre-run placeholder -->
+        <div id="preRunPlaceholder" class="panel" style="text-align:center;padding:3rem 2rem">
+          <div style="font-size:2rem;margin-bottom:1rem;opacity:.35">◈</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:1rem;color:var(--bright);margin-bottom:.5rem" id="placeholderTitle">Enter a code or paste a payload</div>
+          <div style="font-size:.76rem;color:var(--body)" id="placeholderDesc">Results, severity tiers, and remediation guidance will appear here. CBPR+ structured address risk is flagged automatically.</div>
+        </div>
+
+        <!-- Results -->
+        <div id="resultsPanel" class="results-panel">
+
+          <!-- Status badge -->
+          <div id="statusBadgeWrap" style="margin-bottom:1.25rem"></div>
+
+          <!-- CBPR+ warning if applicable -->
+          <div id="cbprWarning" style="display:none" class="warn-callout">
+            ⚠ <strong>CBPR+ Nov 2026 Structured Address Risk</strong> — One or more rejection codes are address-related. From November 2026 CBPR+ mandates fully structured address fields in cross-border messages. Unstructured address data will cause rejections on SWIFT cross-border flows. Review and remediate before the deadline.
+          </div>
+
+          <!-- Code breakdown -->
+          <div class="panel" style="padding:0;overflow:hidden">
+            <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border)">
+              <div class="panel-label" style="margin-bottom:0" id="resultsLabel">Decoded Status &amp; Reason Codes</div>
+            </div>
+            <div class="code-table-wrap" style="padding:0">
+              <table class="code-table">
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Description</th>
+                    <th>Severity</th>
+                    <th>Remediation</th>
+                    <th>CBPR+</th>
+                  </tr>
+                </thead>
+                <tbody id="codeTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Batch summary (shown in batch mode) -->
+          <div id="batchSummaryWrap" style="display:none">
+            <div class="batch-summary">
+              <div class="batch-summary-title">Batch Summary — Status Count</div>
+              <div class="batch-counts" id="batchCounts"></div>
+              <div style="font-size:.72rem;color:var(--body)" id="batchTopCodes"></div>
+            </div>
+          </div>
+
+          <!-- Export row -->
+          <div class="results-export-row">
+            <button class="btn btn-ghost" id="mdExportBtn" onclick="exportMarkdown()">
+              ⬇ Export Markdown
+              <span class="btn-subtitle">human-readable</span>
+            </button>
+            <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()">
+              {} Export Policy Mandate
+              <span class="btn-subtitle">API · audit trail</span>
+            </button>
+          </div>
+
+        </div><!-- /resultsPanel -->
+
+      </div><!-- /col-right -->
+    </div><!-- /tool-layout -->
+  </div>
+</main>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Footer -->
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/payment-ops-monitoring-hub.html"><span data-i18n="footer.hub_payment_ops_monitoring">Payment Ops Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────
+   REGULATORY CONST BLOCK — ISO 20022 lookup data
+   Source: ISO 20022 ExternalStatusReason1Code list
+   Last reviewed: 2026-05
+   CBPR+ structured address deadline: 2026-11-01
+───────────────────────────────────────────── */
+const CBPR_STRUCTURED_ADDRESS_DEADLINE = '2026-11-01';
+
+// Address-related codes that trigger CBPR+ Nov 2026 structured address risk flag
+const CBPR_ADDRESS_CODES = new Set(['BE04','BE07','BE08','BE10','BE11','BE12','BE13','BE22','RR02','RR03']);
+
+// TxSts (Transaction Status) values
+const TXSTS_LOOKUP = {
+  'ACCP': { desc: 'Accepted Customer Profile', color: 'accp', label: '✓ ACCP — Accepted Customer Profile' },
+  'ACSC': { desc: 'Accepted Settlement Completed', color: 'acsc', label: '✓ ACSC — Accepted Settlement Completed' },
+  'ACCC': { desc: 'Accepted Credit Cleared', color: 'accc', label: '✓ ACCC — Accepted Credit Cleared' },
+  'ACTC': { desc: 'Accepted Technical Validation', color: 'actc', label: '◎ ACTC — Accepted Technical Validation' },
+  'ACSP': { desc: 'Accepted Settlement In Process', color: 'acsp', label: '◎ ACSP — Accepted Settlement In Process' },
+  'ACWC': { desc: 'Accepted With Change', color: 'acwc', label: '◎ ACWC — Accepted With Change' },
+  'ACFC': { desc: 'Accepted Funds Checked', color: 'acfc', label: '◎ ACFC — Accepted Funds Checked' },
+  'PDNG': { desc: 'Pending', color: 'pdng', label: '⏳ PDNG — Pending' },
+  'RJCT': { desc: 'Rejected', color: 'rjct', label: '✕ RJCT — Rejected' },
+};
+
+// Full ISO 20022 ExternalStatusReason1Code lookup
+// Format: code → { desc, severity, remediation, cbpr_address_risk }
+// Severity: 'Non-Recoverable' | 'Recoverable' | 'Informational'
+const ISO20022_STATUS_LOOKUP = {
+  /* Account / beneficiary codes */
+  'AC01': { desc: 'Incorrect Account Number', severity: 'Non-Recoverable', remediation: 'Verify beneficiary IBAN with originator. Correct and resubmit. Do not retry with same details.' },
+  'AC02': { desc: 'Invalid Debtor Account Number', severity: 'Non-Recoverable', remediation: 'Verify debtor account number format and check digit. Correct and resubmit.' },
+  'AC03': { desc: 'Invalid Creditor Account Number', severity: 'Non-Recoverable', remediation: 'Verify creditor IBAN or BBAN. Correct and resubmit.' },
+  'AC04': { desc: 'Closed Account Number', severity: 'Non-Recoverable', remediation: 'Contact beneficiary for updated account details. Do not retry.' },
+  'AC06': { desc: 'Blocked Account', severity: 'Non-Recoverable', remediation: 'Investigate account status with beneficiary bank. Obtain alternative payment details.' },
+  'AC07': { desc: 'Closed Debtor Account Number', severity: 'Non-Recoverable', remediation: 'Debtor account is closed. Contact account holder for updated details.' },
+  'AC13': { desc: 'Invalid Debtor Account Type', severity: 'Non-Recoverable', remediation: 'Verify debtor account type is eligible for this payment scheme.' },
+  'AC14': { desc: 'Invalid Creditor Account Type', severity: 'Non-Recoverable', remediation: 'Verify creditor account type is eligible for this payment scheme.' },
+  /* Agent / bank codes */
+  'AG01': { desc: 'Transaction Forbidden', severity: 'Non-Recoverable', remediation: 'The transaction type is not permitted for this account. Review account terms.' },
+  'AG02': { desc: 'Invalid Bank Operation Code', severity: 'Non-Recoverable', remediation: 'Review bank operation code in the message. Correct and resubmit.' },
+  'AG03': { desc: 'Transaction Not Allowed', severity: 'Non-Recoverable', remediation: 'This transaction type is not allowed for the debtor/creditor account. Seek alternative payment method.' },
+  /* Amount codes */
+  'AM01': { desc: 'Zero Amount', severity: 'Non-Recoverable', remediation: 'Amount must be greater than zero. Correct and resubmit.' },
+  'AM02': { desc: 'Not Allowed Amount', severity: 'Non-Recoverable', remediation: 'Amount is outside permitted range for this payment type. Review scheme rules.' },
+  'AM03': { desc: 'Not Allowed Currency', severity: 'Non-Recoverable', remediation: 'Currency is not supported for this corridor or account. Use a supported currency.' },
+  'AM04': { desc: 'Insufficient Funds', severity: 'Recoverable', remediation: 'Insufficient funds in debtor account. Retry after funds are available or arrange funding.' },
+  'AM05': { desc: 'Duplication', severity: 'Recoverable', remediation: 'Duplicate payment detected. Verify original payment status before resubmitting.' },
+  'AM06': { desc: 'Too Low Amount', severity: 'Non-Recoverable', remediation: 'Amount is below the minimum threshold for this scheme. Review minimum payment amount.' },
+  'AM07': { desc: 'Blocked Amount', severity: 'Recoverable', remediation: 'Amount is blocked. Investigate with debtor bank — may be subject to legal hold.' },
+  'AM09': { desc: 'Wrong Amount', severity: 'Non-Recoverable', remediation: 'Amount does not match agreed amount. Verify with originator and correct.' },
+  'AM10': { desc: 'Invalid Control Sum', severity: 'Non-Recoverable', remediation: 'Control sum in group header does not match sum of individual transactions. Recalculate and resubmit.' },
+  'AM12': { desc: 'Invalid Amount', severity: 'Non-Recoverable', remediation: 'Amount field format is invalid. Check decimal places and currency code.' },
+  'AM14': { desc: 'Amount Exceeds Agreed Limit', severity: 'Non-Recoverable', remediation: 'Payment amount exceeds the transaction limit set by the creditor agent. Split or renegotiate.' },
+  'AM15': { desc: 'Transaction Amount Exceeds Limit', severity: 'Non-Recoverable', remediation: 'Transaction amount exceeds the scheme or regulatory limit. Contact scheme operator.' },
+  /* Beneficiary / party codes */
+  'BE01': { desc: 'Inconsistent with End Customer', severity: 'Non-Recoverable', remediation: 'Beneficiary identification is inconsistent with account holder records. Verify with creditor.' },
+  'BE04': { desc: 'Missing Creditor Address', severity: 'Non-Recoverable', remediation: 'Creditor postal address is missing. Provide structured address fields (street, town, country). ⚠ CBPR+ Nov 2026: structured address required.' },
+  'BE05': { desc: 'Unrecognised Initiating Party', severity: 'Non-Recoverable', remediation: 'Initiating party is not recognised by the receiving institution. Verify party credentials.' },
+  'BE06': { desc: 'Unknown End Customer', severity: 'Non-Recoverable', remediation: 'End customer cannot be identified. Provide correct identification details.' },
+  'BE07': { desc: 'Missing Debtor Address', severity: 'Non-Recoverable', remediation: 'Debtor postal address is missing. Provide structured address. ⚠ CBPR+ Nov 2026: structured address required.' },
+  'BE08': { desc: 'Error in Address', severity: 'Recoverable', remediation: 'Address field contains an error. Review and correct address data — use structured format per CBPR+ requirements.' },
+  'BE10': { desc: 'Invalid Debtor Country', severity: 'Non-Recoverable', remediation: 'Debtor country code is invalid or missing. Use ISO 3166-1 alpha-2 code.' },
+  'BE11': { desc: 'Invalid Creditor Country', severity: 'Non-Recoverable', remediation: 'Creditor country code is invalid or missing. Use ISO 3166-1 alpha-2 code.' },
+  'BE12': { desc: 'Invalid Country', severity: 'Non-Recoverable', remediation: 'Country code is invalid. Verify ISO 3166-1 alpha-2 code for all parties.' },
+  'BE13': { desc: 'Invalid Country of Residence', severity: 'Non-Recoverable', remediation: 'Country of residence is invalid. Provide valid ISO 3166-1 alpha-2 code.' },
+  'BE14': { desc: 'Invalid Creditor Reference', severity: 'Non-Recoverable', remediation: 'Creditor reference is invalid (e.g. ISO 11649 check digit failure). Recompute and resubmit.' },
+  'BE15': { desc: 'Invalid Identifier for SEPA', severity: 'Non-Recoverable', remediation: 'Identifier is not valid for SEPA. Verify IBAN and BIC format.' },
+  'BE16': { desc: 'Invalid Mandate Reference', severity: 'Non-Recoverable', remediation: 'Mandate reference is invalid or does not match records. Verify with creditor.' },
+  'BE17': { desc: 'Invalid Account', severity: 'Non-Recoverable', remediation: 'Account identifier is invalid. Check IBAN or BBAN format and check digit.' },
+  'BE18': { desc: 'Invalid Character Set', severity: 'Non-Recoverable', remediation: 'Message contains unsupported characters. Restrict to SWIFT/SEPA character set.' },
+  'BE19': { desc: 'Invalid Creditor Identification Code', severity: 'Non-Recoverable', remediation: 'Creditor identification code is invalid. Verify LEI, BIC, or proprietary code.' },
+  'BE20': { desc: 'Invalid Creditor Contact Details', severity: 'Recoverable', remediation: 'Creditor contact details are invalid or missing. Provide correct details.' },
+  'BE21': { desc: 'Missing Debtor Name or Address', severity: 'Non-Recoverable', remediation: 'Debtor name or address is missing. Provide full name and structured address.' },
+  'BE22': { desc: 'Missing Creditor Address', severity: 'Non-Recoverable', remediation: 'Creditor address is missing. Provide structured postal address. ⚠ CBPR+ Nov 2026: mandatory structured address.' },
+  /* Cancellation / authorisation */
+  'CN01': { desc: 'Authorisation Cancelled', severity: 'Informational', remediation: 'Authorisation has been cancelled by the account holder. Obtain new authorisation.' },
+  'CNOR': { desc: 'Creditor Bank Not Registered', severity: 'Non-Recoverable', remediation: 'Creditor bank is not registered in the target scheme (e.g. SEPA). Verify BIC registration.' },
+  'CUST': { desc: 'Requested by Customer', severity: 'Informational', remediation: 'Return was requested by the customer. Confirm with originator whether reinitiation is required.' },
+  'CURR': { desc: 'Incorrect Currency', severity: 'Non-Recoverable', remediation: 'Currency in message does not match account currency. Correct currency code and resubmit.' },
+  /* Domestic / scheme */
+  'DNOR': { desc: 'Debtor Bank Not Registered', severity: 'Non-Recoverable', remediation: 'Debtor bank is not registered in the scheme. Verify scheme participation.' },
+  /* Disbursement status */
+  'DS01': { desc: 'Sent in Error', severity: 'Informational', remediation: 'Transaction was sent in error. Return of funds has been initiated.' },
+  'DS02': { desc: 'Order Cancelled by Customer', severity: 'Informational', remediation: 'Order was cancelled by the customer. No action required unless reinitiation is needed.' },
+  'DS03': { desc: 'Order Cancelled by Agent', severity: 'Informational', remediation: 'Order was cancelled by the processing agent. Contact agent for reason.' },
+  'DS04': { desc: 'Refused by Core System', severity: 'Recoverable', remediation: 'Core banking system refused the transaction. Retry during off-peak hours or contact bank operations.' },
+  'DS05': { desc: 'Payment Is Uneditable', severity: 'Non-Recoverable', remediation: 'Payment cannot be modified in current state. Cancel and resubmit as a new transaction.' },
+  'DS06': { desc: 'Inconsistent with Service Agreement', severity: 'Non-Recoverable', remediation: 'Transaction parameters are inconsistent with the service agreement. Review agreement terms.' },
+  'DS07': { desc: 'Processing Error', severity: 'Recoverable', remediation: 'A processing error occurred. Retry after a short interval; escalate if persistent.' },
+  'DS08': { desc: 'Invalid Date', severity: 'Non-Recoverable', remediation: 'Date field is invalid or in wrong format. Use ISO 8601 date format (YYYY-MM-DD).' },
+  'DS0G': { desc: 'Not Enough Signers', severity: 'Non-Recoverable', remediation: 'Dual authorisation is required. Obtain all required signatures before resubmitting.' },
+  'DS0H': { desc: 'Currency Not Allowed', severity: 'Non-Recoverable', remediation: 'Currency is not permitted for this payment instruction. Review scheme currency restrictions.' },
+  /* Date / time */
+  'DT01': { desc: 'Invalid Date', severity: 'Non-Recoverable', remediation: 'Date format is invalid. Use YYYY-MM-DD (ISO 8601).' },
+  'DT02': { desc: 'Invalid Creation Date and Time', severity: 'Non-Recoverable', remediation: 'Message creation date/time is invalid or in the future. Correct timestamp and resubmit.' },
+  'DT03': { desc: 'Invalid Non-Processing Date', severity: 'Non-Recoverable', remediation: 'Requested execution date falls on a non-processing day. Adjust to the next valid business date.' },
+  'DT04': { desc: 'Future Date Not Supported', severity: 'Non-Recoverable', remediation: 'This scheme does not support future-dated payments. Submit on the payment date.' },
+  'DT05': { desc: 'Too Late for Cut-Off', severity: 'Recoverable', remediation: 'Payment received after the scheme cut-off time. Resubmit on the next business day.' },
+  'DT06': { desc: 'Cut-Off Time', severity: 'Recoverable', remediation: 'Cut-off time has passed for this session. Resubmit in the next processing window.' },
+  /* Correspondent / agent */
+  'ED01': { desc: 'Correspondent Bank Not Possible', severity: 'Non-Recoverable', remediation: 'No correspondent banking relationship exists for this route. Use an alternative correspondent or FX provider.' },
+  'ED03': { desc: 'Balance Info Request', severity: 'Informational', remediation: 'Request for balance information received. Provide requested information to complete.' },
+  'ED05': { desc: 'Settlement Failed', severity: 'Recoverable', remediation: 'Settlement system rejected the transaction. Contact settlement agent; check prefunding balance.' },
+  'ED06': { desc: 'Settlement System Not Available', severity: 'Recoverable', remediation: 'Settlement system is temporarily unavailable. Monitor system status and retry.' },
+  'EMVL': { desc: 'EMV Liability Shift', severity: 'Non-Recoverable', remediation: 'EMV liability shift applies. Review card-present transaction compliance.' },
+  'ERIN': { desc: 'End-to-End Reference Not Unique', severity: 'Non-Recoverable', remediation: 'E2E reference is a duplicate. Generate a unique reference and resubmit.' },
+  /* File format */
+  'FF01': { desc: 'Invalid File Format', severity: 'Non-Recoverable', remediation: 'File format is invalid. Validate against ISO 20022 schema before resubmission.' },
+  'FF03': { desc: 'Invalid Payment Type Information', severity: 'Non-Recoverable', remediation: 'Payment type information is invalid. Check service level code and local instrument.' },
+  'FF04': { desc: 'Invalid Service Level Code', severity: 'Non-Recoverable', remediation: 'Service level code is not valid for this scheme. Review valid service level codes.' },
+  'FF05': { desc: 'Invalid Local Instrument Code', severity: 'Non-Recoverable', remediation: 'Local instrument code is invalid. Verify against scheme specification.' },
+  'FF06': { desc: 'Invalid Category Purpose Code', severity: 'Non-Recoverable', remediation: 'Category purpose code is not valid. Check ExternalCategoryPurpose1Code list.' },
+  'FF07': { desc: 'Invalid Purpose', severity: 'Non-Recoverable', remediation: 'Purpose code is invalid. Verify against ExternalPurpose1Code list.' },
+  'FF08': { desc: 'Invalid End-to-End Reference', severity: 'Non-Recoverable', remediation: 'E2E reference format is invalid. Maximum 35 characters, no special characters.' },
+  'FF09': { desc: 'Invalid Cheque Number', severity: 'Non-Recoverable', remediation: 'Cheque number is invalid. Verify format requirements.' },
+  'FF10': { desc: 'Bank Not Registered', severity: 'Non-Recoverable', remediation: 'Bank is not registered in the scheme. Verify BIC participation status.' },
+  /* Fraud */
+  'FR01': { desc: 'Suspected Fraud', severity: 'Non-Recoverable', remediation: 'Transaction flagged as suspected fraud. Investigate with originator; do not retry without fraud clearance.' },
+  /* Cancellation follow-up */
+  'FOCR': { desc: 'Following Cancellation Request', severity: 'Informational', remediation: 'Return is in response to a prior cancellation request. No action required.' },
+  /* ID */
+  'ID01': { desc: 'Corresponding Original File Still in Process', severity: 'Recoverable', remediation: 'Original file is still being processed. Wait for final status before initiating a return or recall.' },
+  /* Legal */
+  'LEGL': { desc: 'Legal Decision', severity: 'Non-Recoverable', remediation: 'Transaction is subject to a legal decision (court order, regulatory action). Seek legal advice.' },
+  /* Mandate */
+  'MD01': { desc: 'No Mandate', severity: 'Non-Recoverable', remediation: 'No valid mandate exists for this direct debit. Obtain signed mandate before initiating.' },
+  'MD02': { desc: 'Missing Mandatory Information in Mandate', severity: 'Non-Recoverable', remediation: 'Mandate is incomplete. Ensure all required mandate fields are populated.' },
+  'MD05': { desc: 'Mandate Is Refused', severity: 'Non-Recoverable', remediation: 'Mandate has been refused by debtor. Do not retry; obtain fresh mandate.' },
+  'MD06': { desc: 'Return of Funds Requested by End Customer', severity: 'Informational', remediation: 'End customer has exercised right to recall. Process return within scheme deadlines.' },
+  'MD07': { desc: 'End Customer Deceased', severity: 'Non-Recoverable', remediation: 'Account holder is deceased. Refer to estate administrators.' },
+  /* Miscellaneous */
+  'MS02': { desc: 'Reason Not Specified by Customer', severity: 'Informational', remediation: 'Customer has not provided a specific reason. Contact customer directly for clarification.' },
+  'MS03': { desc: 'Reason Not Specified by Agent', severity: 'Informational', remediation: 'Agent has not specified a reason. Contact agent operations team for detail.' },
+  /* No answer / not compliant */
+  'NOAS': { desc: 'No Answer from Customer', severity: 'Recoverable', remediation: 'Customer has not responded. Retry contact; escalate if no response within SLA.' },
+  'NOCM': { desc: 'Not Compliant with NCR (National Clearing Rules)', severity: 'Non-Recoverable', remediation: 'Transaction does not comply with national clearing rules. Review national scheme requirements.' },
+  'NOOR': { desc: 'No Original Transaction Received', severity: 'Non-Recoverable', remediation: 'Cannot process return/recall — original transaction not found. Verify references.' },
+  'NOSP': { desc: 'No SEPA Service', severity: 'Non-Recoverable', remediation: 'Receiving bank does not offer SEPA services. Use an alternative payment method.' },
+  'NOVG': { desc: 'Not Valid for Guaranty', severity: 'Non-Recoverable', remediation: 'Transaction is not eligible for guaranty. Review guaranty eligibility conditions.' },
+  'NRCH': { desc: 'Not Reachable', severity: 'Recoverable', remediation: 'Beneficiary bank is temporarily unreachable. Retry during normal operating hours.' },
+  /* Payment type */
+  'PTNA': { desc: 'Payment Type Not Accepted', severity: 'Non-Recoverable', remediation: 'This payment type is not accepted by the receiving bank. Use a different payment instrument.' },
+  /* Bank identifier codes */
+  'RC01': { desc: 'Incorrect Bank Identifier Code (BIC)', severity: 'Non-Recoverable', remediation: 'BIC is incorrect. Verify BIC against SWIFT BIC directory.' },
+  'RC02': { desc: 'Invalid Debtor Bank Identifier', severity: 'Non-Recoverable', remediation: 'Debtor bank BIC is invalid or not found in scheme directory.' },
+  'RC03': { desc: 'Invalid Creditor Bank Identifier', severity: 'Non-Recoverable', remediation: 'Creditor bank BIC is invalid or not found. Verify with beneficiary bank.' },
+  'RC04': { desc: 'Invalid Bank Identifier', severity: 'Non-Recoverable', remediation: 'Bank identifier is invalid. Verify BIC format (8 or 11 characters) and registration.' },
+  'RC05': { desc: 'Invalid Bank Identifier Code', severity: 'Non-Recoverable', remediation: 'BIC format is invalid. Use valid 8 or 11-character BIC.' },
+  'RC06': { desc: 'Duplicate Return', severity: 'Non-Recoverable', remediation: 'Return has already been processed. Check original return status.' },
+  'RC07': { desc: 'Bank Not Reachable', severity: 'Recoverable', remediation: 'Bank is temporarily not reachable via this scheme. Retry or use an alternative route.' },
+  'RC08': { desc: 'BIC Not Valid for Books', severity: 'Non-Recoverable', remediation: 'BIC is not valid for book transfers. Review routing details.' },
+  /* Reference */
+  'RF01': { desc: 'Transaction Reference Not Unique', severity: 'Non-Recoverable', remediation: 'Transaction ID or E2E reference is not unique. Generate a globally unique identifier.' },
+  /* Regulatory / remittance */
+  'RR01': { desc: 'Missing Debtor Account or Identification', severity: 'Non-Recoverable', remediation: 'Debtor account or identification is missing. Required for regulatory reporting.' },
+  'RR02': { desc: 'Missing Debtor Name or Address', severity: 'Non-Recoverable', remediation: 'Debtor name or address is missing. Provide full name and structured address. ⚠ CBPR+ Nov 2026 risk.' },
+  'RR03': { desc: 'Missing Creditor Name or Address', severity: 'Non-Recoverable', remediation: 'Creditor name or address is missing. Provide full name and structured address. ⚠ CBPR+ Nov 2026 risk.' },
+  'RR04': { desc: 'Regulatory Reason', severity: 'Non-Recoverable', remediation: 'Transaction cannot proceed due to a regulatory restriction. Review applicable regulations.' },
+  'RR05': { desc: 'Regulatory Information Invalid', severity: 'Non-Recoverable', remediation: 'Regulatory information field contains invalid data. Check format and completeness.' },
+  'RR06': { desc: 'Tax Information Missing', severity: 'Non-Recoverable', remediation: 'Tax information is required but missing. Provide applicable tax references.' },
+  'RR07': { desc: 'Remittance Information Invalid', severity: 'Non-Recoverable', remediation: 'Remittance information is invalid. Verify format — structured (ISO 11649) or unstructured (max 140 chars).' },
+  'RR08': { desc: 'Remittance Information Truncated', severity: 'Recoverable', remediation: 'Remittance information has been truncated. Use structured creditor reference (ISO 11649) to avoid truncation.' },
+  'RR09': { desc: 'Structured Creditor Reference Invalid', severity: 'Non-Recoverable', remediation: 'Structured creditor reference fails ISO 11649 check digit validation. Recompute.' },
+  'RR10': { desc: 'Invalid Character Set', severity: 'Non-Recoverable', remediation: 'Message contains characters outside the permitted set. Restrict to Latin character set (SWIFT/SEPA).' },
+  'RR11': { desc: 'Invalid Debtor Agent Service ID', severity: 'Non-Recoverable', remediation: 'Debtor agent service identifier is invalid. Verify against scheme service list.' },
+  'RR12': { desc: 'Invalid Party ID', severity: 'Non-Recoverable', remediation: 'Party identifier (LEI, BIC, or national ID) is invalid or not found. Verify identifier.' },
+  'RUTA': { desc: 'Return on Unable to Apply', severity: 'Informational', remediation: 'Funds are being returned because the payment could not be applied. Identify root cause before reinitiating.' },
+  /* Selective list */
+  'SL01': { desc: 'Specific Service Offered by Debtor Agent', severity: 'Informational', remediation: 'Debtor agent is applying a specific service. Review service terms with debtor bank.' },
+  'SL02': { desc: 'Specific Service Offered by Creditor Agent', severity: 'Informational', remediation: 'Creditor agent is applying a specific service. Review service terms with creditor bank.' },
+  'SL11': { desc: 'Creditor Not on Whitelist of Debtor', severity: 'Non-Recoverable', remediation: 'Creditor is not on debtor whitelist. Contact debtor to add creditor to authorised payees.' },
+  'SL12': { desc: 'Debtor Not on Whitelist of Creditor', severity: 'Non-Recoverable', remediation: 'Debtor is not on creditor whitelist. Creditor must authorise this debtor.' },
+  'SL13': { desc: 'End-customer Not on Whitelist', severity: 'Non-Recoverable', remediation: 'End customer is not on whitelist. Authorisation required before payment can proceed.' },
+  'SL14': { desc: 'End-customer on Blacklist', severity: 'Non-Recoverable', remediation: 'End customer is blacklisted. Escalate to compliance team. Do not reinitiate.' },
+  'SL15': { desc: 'Not Allowed Book Transfer', severity: 'Non-Recoverable', remediation: 'Book transfer to this account is not permitted. Use external payment route.' },
+  'SL16': { desc: 'Rejected due to Embargo', severity: 'Non-Recoverable', remediation: 'Transaction rejected due to embargo. Escalate to sanctions/compliance team immediately.' },
+  'SL17': { desc: 'Foreign Exchange Not Contracted', severity: 'Non-Recoverable', remediation: 'No FX contract exists for this transaction. Arrange FX contract before payment.' },
+  'SL18': { desc: 'FX Contract Already Used', severity: 'Non-Recoverable', remediation: 'FX contract has already been used. Obtain a new contract.' },
+  'SL19': { desc: 'FX Agreement Expired', severity: 'Non-Recoverable', remediation: 'FX agreement has expired. Renew agreement with FX provider.' },
+  /* Stop payment */
+  'SP01': { desc: 'Payment Stopped', severity: 'Non-Recoverable', remediation: 'Payment has been stopped by the account holder. Contact account holder.' },
+  'SP02': { desc: 'Previously Stopped via Stop Payment Request', severity: 'Non-Recoverable', remediation: 'A stop payment instruction was previously applied. Obtain new authorisation.' },
+  /* Vendor */
+  'SVNR': { desc: 'Service Not Rendered', severity: 'Informational', remediation: 'Return requested as service was not rendered. Review dispute and initiate return if valid.' },
+  /* Time / transmission */
+  'TM01': { desc: 'Cut-off Time', severity: 'Recoverable', remediation: 'Submission is after cut-off. Resubmit during next processing window.' },
+  'TS01': { desc: 'Transmission Abort', severity: 'Recoverable', remediation: 'Transmission was aborted. Re-establish connection and resubmit.' },
+  'TS04': { desc: 'Format of File Not Valid', severity: 'Non-Recoverable', remediation: 'File format is invalid. Validate against ISO 20022 XSD schema before resubmission.' },
+  /* Undue */
+  'UPAY': { desc: 'Undue Payment', severity: 'Informational', remediation: 'Payment was not due. Initiate return of funds and notify originator.' },
+};
+
+/* ─── State ─── */
+let currentMode = 'single';
+let lastResult = null;
+let runCount = 0;
+
+/* ─── Mode toggle ─── */
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('modeBtn-single').classList.toggle('active', mode === 'single');
+  document.getElementById('modeBtn-batch').classList.toggle('active', mode === 'batch');
+  document.getElementById('singlePanel').style.display = mode === 'single' ? '' : 'none';
+  document.getElementById('batchPanel').style.display = mode === 'batch' ? '' : 'none';
+}
+
+/* ─── Main decode function (also callable by MCP agent) ─── */
+function decodeISO20022Status(payload, mode) {
+  mode = mode || currentMode;
+  if (!payload) {
+    payload = mode === 'single'
+      ? document.getElementById('singleCodeInput').value.trim().toUpperCase()
+      : document.getElementById('batchInput').value.trim();
+  }
+  if (!payload) return null;
+
+  const codes = extractCodes(payload, mode);
+  if (!codes || codes.length === 0) return null;
+
+  const decoded = codes.map(c => decodeSingleCode(c));
+  const cbprRisk = decoded.some(d => d.cbpr_address_risk);
+  const txSts = extractTxSts(payload);
+
+  return {
+    mode,
+    txSts,
+    decoded,
+    cbprRisk,
+    batchCount: mode === 'batch' ? codes.length : null,
+    timestamp: new Date().toISOString()
+  };
+}
+
+/* ─── Extract codes from raw input ─── */
+function extractCodes(payload, mode) {
+  const codes = new Set();
+
+  // Try to parse as XML — extract TxSts and Cd elements
+  const txStsMatches = payload.match(/<TxSts>([A-Z]{4})<\/TxSts>/g) || [];
+  txStsMatches.forEach(m => {
+    const c = m.replace(/<\/?TxSts>/g, '');
+    if (c) codes.add(c);
+  });
+
+  // StsRsnInf > Rsn > Cd
+  const cdMatches = payload.match(/<Cd>([A-Z0-9]{2,6})<\/Cd>/g) || [];
+  cdMatches.forEach(m => {
+    const c = m.replace(/<\/?Cd>/g, '');
+    if (c) codes.add(c);
+  });
+
+  // JSON: "Cd": "XX" or "TxSts": "XX"
+  const jsonCdMatches = payload.match(/"(?:Cd|TxSts|code|statusCode|reasonCode)":\s*"([A-Z0-9]{2,6})"/g) || [];
+  jsonCdMatches.forEach(m => {
+    const c = m.match(/"([A-Z0-9]{2,6})"$/);
+    if (c) codes.add(c[1]);
+  });
+
+  // Fall back: if mode is single or no XML/JSON found, treat entire payload as a raw code
+  if (codes.size === 0) {
+    const raw = payload.replace(/\s/g, '').toUpperCase();
+    // May be comma/space separated
+    raw.split(/[,\s;|]+/).forEach(c => {
+      if (c.length >= 2 && c.length <= 6 && /^[A-Z0-9]+$/.test(c)) codes.add(c);
+    });
+  }
+
+  return Array.from(codes);
+}
+
+function extractTxSts(payload) {
+  const m = payload.match(/<TxSts>([A-Z]{4})<\/TxSts>/);
+  if (m) return m[1];
+  const j = payload.match(/"TxSts":\s*"([A-Z]{4})"/);
+  if (j) return j[1];
+  return null;
+}
+
+function decodeSingleCode(code) {
+  const codeUpper = code.toUpperCase();
+  // Check TxSts first
+  if (TXSTS_LOOKUP[codeUpper]) {
+    const t = TXSTS_LOOKUP[codeUpper];
+    return {
+      code: codeUpper,
+      type: 'TxSts',
+      desc: t.desc,
+      severity: 'Informational',
+      remediation: 'This is a transaction status value, not a rejection reason code.',
+      cbpr_address_risk: false,
+      txSts_color: t.color
+    };
+  }
+  // Check rejection reason code
+  if (ISO20022_STATUS_LOOKUP[codeUpper]) {
+    const r = ISO20022_STATUS_LOOKUP[codeUpper];
+    return {
+      code: codeUpper,
+      type: 'StsRsnCd',
+      desc: r.desc,
+      severity: r.severity,
+      remediation: r.remediation,
+      cbpr_address_risk: CBPR_ADDRESS_CODES.has(codeUpper)
+    };
+  }
+  // Unknown
+  return {
+    code: codeUpper,
+    type: 'Unknown',
+    desc: 'Code not found in ISO 20022 ExternalStatusReason1Code registry',
+    severity: 'Unknown',
+    remediation: 'Verify this code against the latest ISO 20022 ExternalStatusReason1Code list or the specific scheme specification.',
+    cbpr_address_risk: false
+  };
+}
+
+/* ─── Run decoder (UI) ─── */
+function runDecoder() {
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+
+  const payload = currentMode === 'single'
+    ? document.getElementById('singleCodeInput').value.trim().toUpperCase()
+    : document.getElementById('batchInput').value.trim();
+
+  if (!payload) {
+    showToast('Enter a code or paste a payload first.', true);
+    btn.disabled = false;
+    return;
+  }
+
+  const result = decodeISO20022Status(payload, currentMode);
+
+  if (!result || result.decoded.length === 0) {
+    showToast('No recognisable ISO 20022 codes found in input.', true);
+    btn.disabled = false;
+    return;
+  }
+
+  lastResult = result;
+  runCount++;
+  renderResults(result);
+  btn.disabled = false;
+}
+
+/* ─── Render results ─── */
+function renderResults(result) {
+  document.getElementById('preRunPlaceholder').style.display = 'none';
+  const rp = document.getElementById('resultsPanel');
+  rp.classList.add('visible');
+
+  // Status badge
+  const wrap = document.getElementById('statusBadgeWrap');
+  if (result.txSts && TXSTS_LOOKUP[result.txSts]) {
+    const t = TXSTS_LOOKUP[result.txSts];
+    wrap.innerHTML = `<div class="status-badge ${t.color}">${t.label}</div>`;
+  } else if (result.decoded.length > 1) {
+    wrap.innerHTML = `<div class="status-badge mixed">◈ ${result.decoded.length} Codes Decoded</div>`;
+  } else {
+    const d = result.decoded[0];
+    const cls = d.severity === 'Non-Recoverable' ? 'rjct' : d.severity === 'Recoverable' ? 'pdng' : 'actc';
+    wrap.innerHTML = `<div class="status-badge ${cls}">${d.code} — ${d.desc}</div>`;
+  }
+
+  // CBPR+ warning
+  document.getElementById('cbprWarning').style.display = result.cbprRisk ? '' : 'none';
+
+  // Code table
+  const tbody = document.getElementById('codeTableBody');
+  tbody.innerHTML = '';
+  result.decoded.forEach(d => {
+    const sevClass = d.severity === 'Non-Recoverable' ? 'sev-nr' : d.severity === 'Recoverable' ? 'sev-r' : 'sev-i';
+    const cbprCell = d.cbpr_address_risk
+      ? `<span class="cbpr-flag">⚠ 2026-11</span>`
+      : `<span style="color:var(--muted);font-size:.6rem">—</span>`;
+    const typeTag = d.type === 'TxSts' ? `<span style="font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);background:var(--bg-4);border:1px solid var(--border);padding:.08rem .3rem;border-radius:2px">TxSts</span>` : '';
+    tbody.innerHTML += `<tr>
+      <td>${d.code} ${typeTag}</td>
+      <td style="color:var(--text)">${d.desc}</td>
+      <td><span class="${sevClass}">${d.severity}</span></td>
+      <td style="max-width:280px;font-size:.7rem">${d.remediation}</td>
+      <td>${cbprCell}</td>
+    </tr>`;
+  });
+
+  // Batch summary
+  const bsw = document.getElementById('batchSummaryWrap');
+  if (currentMode === 'batch') {
+    bsw.style.display = '';
+    const counts = {};
+    result.decoded.forEach(d => {
+      const key = d.severity;
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    const colors = { 'Non-Recoverable': 'var(--red)', 'Recoverable': 'var(--warn)', 'Informational': 'var(--green)', 'Unknown': 'var(--muted)' };
+    let html = '';
+    Object.entries(counts).forEach(([k, v]) => {
+      html += `<div class="batch-count-cell"><div class="batch-count-val" style="color:${colors[k]||'var(--text)'}">${v}</div><div class="batch-count-lbl">${k}</div></div>`;
+    });
+    document.getElementById('batchCounts').innerHTML = html;
+
+    // Top codes by frequency
+    const codeFreq = {};
+    result.decoded.forEach(d => { codeFreq[d.code] = (codeFreq[d.code] || 0) + 1; });
+    const sorted = Object.entries(codeFreq).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    document.getElementById('batchTopCodes').innerHTML = `<strong style="color:var(--text)">Top codes:</strong> ${sorted.map(([c, n]) => `<span style="font-family:'JetBrains Mono',monospace;color:var(--teal)">${c}</span> ×${n}`).join(' &nbsp;·&nbsp; ')}`;
+  } else {
+    bsw.style.display = 'none';
+  }
+
+  // Enable export buttons
+  document.getElementById('mdExportBtn').disabled = false;
+  enableAP2Btn();
+
+  // Scroll to results on mobile
+  if (window.innerWidth < 860) {
+    document.getElementById('resultsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+/* ─── AP2 Export ─── */
+function enableAP2Btn() {
+  const btn = document.getElementById('ap2ExportBtn');
+  if (btn) { btn.disabled = false; btn.classList.add('ready'); }
+}
+
+function buildAP2Payload() {
+  if (!lastResult) return null;
+  const now = new Date();
+  const validFrom = now.toISOString();
+  const validUntil = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
+
+  return {
+    ap2_version: '1.0',
+    mandate_id: generateUUID(),
+    issued_at: now.toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: 'iso20022-status-rejection-decoder',
+    tool_version: '1.0.0',
+    mandate_type: 'compliance_control',
+    jurisdiction: ['GB', 'EU', 'US'],
+    regulatory_frameworks: ['ISO 20022 2019 Ed.', 'CBPR+ Nov 2026', 'SWIFT gpi'],
+    payload: {
+      input_mode: lastResult.mode,
+      txSts: lastResult.txSts || null,
+      decoded_codes: lastResult.decoded.map(d => ({
+        code: d.code,
+        type: d.type,
+        description: d.desc,
+        severity: d.severity,
+        remediation: d.remediation,
+        cbpr_address_risk: d.cbpr_address_risk
+      })),
+      cbpr_structured_address_risk: lastResult.cbprRisk,
+      cbpr_deadline: CBPR_STRUCTURED_ADDRESS_DEADLINE,
+      total_codes_decoded: lastResult.decoded.length,
+      non_recoverable_count: lastResult.decoded.filter(d => d.severity === 'Non-Recoverable').length,
+      recoverable_count: lastResult.decoded.filter(d => d.severity === 'Recoverable').length,
+      informational_count: lastResult.decoded.filter(d => d.severity === 'Informational').length
+    },
+    summary: `Decoded ${lastResult.decoded.length} ISO 20022 status/rejection code(s). ${lastResult.decoded.filter(d => d.severity === 'Non-Recoverable').length} non-recoverable, ${lastResult.decoded.filter(d => d.severity === 'Recoverable').length} recoverable. CBPR+ structured address risk: ${lastResult.cbprRisk ? 'YES — remediate before November 2026' : 'None detected'}.`,
+    agent_instructions: buildAgentInstructions(lastResult),
+    valid_from: validFrom,
+    valid_until: validUntil,
+    last_reviewed: '2026-05-11',
+    source_tool_inputs: {
+      input_mode: lastResult.mode,
+      codes_found: lastResult.decoded.map(d => d.code)
+    },
+    regulatory_citations: [
+      'ISO 20022 ExternalStatusReason1Code list (2019 Ed.)',
+      'SWIFT CBPR+ Nov 2026 Structured Address Mandate',
+      'EBA SCT Inst Rulebook 2024'
+    ],
+    audit_metadata: {
+      client_side_executed: true,
+      zero_pii_verified: true,
+      deterministic_run: true
+    }
+  };
+}
+
+function buildAgentInstructions(result) {
+  const instructions = [];
+  const nonRec = result.decoded.filter(d => d.severity === 'Non-Recoverable');
+  const rec = result.decoded.filter(d => d.severity === 'Recoverable');
+
+  if (nonRec.length > 0) {
+    instructions.push(`Do not retry the following non-recoverable rejection codes without correcting the root cause: ${nonRec.map(d => d.code).join(', ')}`);
+    nonRec.forEach(d => instructions.push(`For ${d.code} (${d.desc}): ${d.remediation}`));
+  }
+  if (rec.length > 0) {
+    instructions.push(`The following codes are recoverable and may be retried after remediation: ${rec.map(d => d.code).join(', ')}`);
+  }
+  if (result.cbprRisk) {
+    instructions.push(`CBPR+ structured address risk detected. All address fields must be restructured to comply with SWIFT CBPR+ Nov 2026 mandate before the deadline of ${CBPR_STRUCTURED_ADDRESS_DEADLINE}.`);
+  }
+  return instructions;
+}
+
+function exportAP2() {
+  const payload = buildAP2Payload();
+  if (!payload) return;
+
+  // Validate required fields
+  const required = ['ap2_version','mandate_id','issued_at','issued_by','tool_id','tool_version','mandate_type','jurisdiction','payload','audit_metadata'];
+  const missing = required.filter(f => !payload[f]);
+  if (missing.length > 0) {
+    showToast(`Policy Mandate validation failed: missing ${missing.join(', ')}`, true);
+    return;
+  }
+
+  AP2Schema.validate(payload);
+  const json = JSON.stringify(payload, null, 2);
+  const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  triggerDownload(json, `iso20022-status-rejection-decoder_${ts}.policy.json`, 'application/json');
+  showToast('Policy Mandate JSON exported successfully.');
+}
+
+function exportMarkdown() {
+  if (!lastResult) return;
+  let md = `# ISO 20022 Status & Rejection Decoder — Results\n`;
+  md += `_Generated by AINumbers.co T319 · ${new Date().toISOString()}_\n\n`;
+  if (lastResult.txSts) md += `**Transaction Status (TxSts):** ${lastResult.txSts} — ${TXSTS_LOOKUP[lastResult.txSts]?.desc || 'Unknown'}\n\n`;
+  if (lastResult.cbprRisk) md += `> ⚠ **CBPR+ Nov 2026 Structured Address Risk Detected.** Remediate address fields before 2026-11-01.\n\n`;
+  md += `## Decoded Codes\n\n`;
+  md += `| Code | Type | Description | Severity | Remediation | CBPR+ Risk |\n`;
+  md += `|------|------|-------------|----------|-------------|------------|\n`;
+  lastResult.decoded.forEach(d => {
+    md += `| ${d.code} | ${d.type} | ${d.desc} | ${d.severity} | ${d.remediation.replace(/\n/g, ' ')} | ${d.cbpr_address_risk ? '⚠ Nov 2026' : '—'} |\n`;
+  });
+  md += `\n---\n_ISO 20022 ExternalStatusReason1Code · CBPR+ Nov 2026 · ainumbers.co_\n`;
+
+  const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  triggerDownload(md, `iso20022-status-rejection-decoder_${ts}.md`, 'text/markdown');
+  showToast('Markdown exported successfully.');
+}
+
+/* ─── Utilities ─── */
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+function triggerDownload(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function toggleMCP() {
+  const p = document.getElementById('mcpPanel');
+  const a = document.getElementById('mcpArrow');
+  const isOpen = p.style.display === 'block';
+  p.style.display = isOpen ? 'none' : 'block';
+  a.textContent = isOpen ? '▼' : '▲';
+}
+
+let toastTimer;
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 2800);
+}
+
+/* ─── i18n Stage 2 ─── */
+const TRANSLATIONS = {
+  en: { eyebrow: 'T319 · Cat-01 · ISO 20022 · pacs.002 / pacs.008 / pacs.009 · CBPR+', hero_title: 'ISO 20022 Status & Rejection Decoder', hero_desc: 'Decode pacs.002, pacs.008, and pacs.009 transaction status and rejection reason codes into plain English with severity classification, remediation guidance, and CBPR+ Nov 2026 structured address truncation risk flags. Single code or batch mode for up to 20 messages.', nav_cta: 'All Tools', run_btn: '⟶ Decode Status', lbl_single: 'Status or Reason Code (e.g. AC01, RJCT, AM04)', lbl_batch: 'Paste XML / JSON payload(s) — up to 20 messages', placeholder_title: 'Enter a code or paste a payload', placeholder_desc: 'Results, severity tiers, and remediation guidance will appear here. CBPR+ structured address risk is flagged automatically.', lang_dir: 'ltr' 
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+  },
+  es: { eyebrow: 'T319 · Cat-01 · ISO 20022 · pacs.002 / pacs.008 / pacs.009 · CBPR+', hero_title: 'Decodificador de Estado y Rechazo ISO 20022', hero_desc: 'Decodifica códigos de estado de transacción pacs.002, pacs.008 y pacs.009 en lenguaje claro con clasificación de gravedad y orientación de remediación.', nav_cta: 'Todas las herramientas', run_btn: '⟶ Decodificar Estado', lbl_single: 'Código de estado o razón (ej. AC01, RJCT, AM04)', lbl_batch: 'Pegue payload XML/JSON — hasta 20 mensajes', placeholder_title: 'Ingrese un código o pegue un payload', placeholder_desc: 'Los resultados aparecerán aquí.', lang_dir: 'ltr' 
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+  },
+  fr: { eyebrow: 'T319 · Cat-01 · ISO 20022 · pacs.002 / pacs.008 / pacs.009 · CBPR+', hero_title: 'Décodeur de Statut et Rejet ISO 20022', hero_desc: 'Décode les codes de statut de transaction pacs.002, pacs.008 et pacs.009 en langage clair avec classification de gravité et conseils de remédiation.', nav_cta: 'Tous les outils', run_btn: '⟶ Décoder le Statut', lbl_single: 'Code de statut ou de raison (ex. AC01, RJCT, AM04)', lbl_batch: 'Collez le payload XML/JSON — jusqu\'à 20 messages', placeholder_title: 'Entrez un code ou collez un payload', placeholder_desc: 'Les résultats apparaîtront ici.', lang_dir: 'ltr' 
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+  },
+  ar: { eyebrow: 'T319 · الفئة-01 · ISO 20022 · pacs.002 / pacs.008 / pacs.009 · CBPR+', hero_title: 'فك تشفير حالة ورفض ISO 20022', hero_desc: 'فك تشفير رموز حالة المعاملات وأسباب الرفض إلى لغة بسيطة مع تصنيف الخطورة وإرشادات المعالجة.', nav_cta: 'جميع الأدوات', run_btn: '⟶ فك تشفير الحالة', lbl_single: 'رمز الحالة أو السبب', lbl_batch: 'الصق حمولة XML/JSON — حتى 20 رسالة', placeholder_title: 'أدخل رمزاً أو الصق حمولة', placeholder_desc: 'ستظهر النتائج هنا.', lang_dir: 'rtl' 
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+  },
+  pt: { eyebrow: 'T319 · Cat-01 · ISO 20022 · pacs.002 / pacs.008 / pacs.009 · CBPR+', hero_title: 'Decodificador de Status e Rejeição ISO 20022', hero_desc: 'Decodifica códigos de status de transação pacs.002, pacs.008 e pacs.009 em linguagem simples com classificação de gravidade e orientação de remediação.', nav_cta: 'Todas as ferramentas', run_btn: '⟶ Decodificar Status', lbl_single: 'Código de status ou razão (ex. AC01, RJCT, AM04)', lbl_batch: 'Cole payload XML/JSON — até 20 mensagens', placeholder_title: 'Insira um código ou cole um payload', placeholder_desc: 'Os resultados aparecerão aqui.', lang_dir: 'ltr' 
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+  },
+  zh: { eyebrow: 'T319 · 类别-01 · ISO 20022 · pacs.002 / pacs.008 / pacs.009 · CBPR+', hero_title: 'ISO 20022 状态与拒绝解码器', hero_desc: '将pacs.002、pacs.008和pacs.009交易状态及拒绝原因代码解码为通俗语言，包含严重性分类、修复指导和CBPR+结构化地址风险标志。', nav_cta: '所有工具', run_btn: '⟶ 解码状态', lbl_single: '状态或原因代码（如 AC01、RJCT、AM04）', lbl_batch: '粘贴XML/JSON载荷 — 最多20条消息', placeholder_title: '输入代码或粘贴载荷', placeholder_desc: '结果将显示在此处。', lang_dir: 'ltr' 
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+  }
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`);
+  if (btn) btn.classList.add('active');
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  document.documentElement.dir = t.lang_dir || 'ltr';
+  document.body.dir = t.lang_dir || 'ltr';
+
+  const ap = (id, key) => { const e = document.getElementById(id); if (e && t[key] !== undefined) e.textContent = t[key]; };
+  ap('heroEyebrow', 'eyebrow');
+  ap('heroTitle', 'hero_title');
+  ap('heroDesc', 'hero_desc');
+  ap('navCta', 'nav_cta');
+  ap('runBtn', 'run_btn');
+  ap('lblSingleCode', 'lbl_single');
+  ap('lblBatch', 'lbl_batch');
+  ap('placeholderTitle', 'placeholder_title');
+  ap('placeholderDesc', 'placeholder_desc');
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function initLang() {
+  try { const s = sessionStorage.getItem('ain_lang'); if (s && TRANSLATIONS[s]) setLang(s); } catch(e) {}
+})();
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "iso20022-status-rejection-decoder", "version": "1.0.0", "title": "ISO 20022 Status & Rejection Decoder", "description": "Decodes pacs.002/008/009 TxSts and StsRsnInf codes to plain English. Returns severity tier, remediation action, and CBPR+ Nov 2026 structured address risk flag. Client-side. Zero PII.", "category": "cat-1", "tags": ["ISO 20022", "pacs.002", "pacs.008", "pacs.009", "CBPR+", "status", "rejection", "decoder"], "audience": ["engineer", "ops", "compliance"], "input_schema": {"type": "object", "properties": {"payload": {"type": "string", "description": "Raw XML/JSON payload or plain code string"}, "mode": {"type": "string", "enum": ["single", "batch"], "description": "single for one code, batch for up to 20 messages"}}, "required": ["payload"]}, "output_schema": {"type": "object", "properties": {"mode": {"type": "string"}, "txSts": {"type": ["string", "null"]}, "decoded": {"type": "array", "items": {"type": "object", "properties": {"code": {"type": "string"}, "type": {"type": "string"}, "desc": {"type": "string"}, "severity": {"type": "string", "enum": ["Non-Recoverable", "Recoverable", "Informational", "Unknown"]}, "remediation": {"type": "string"}, "cbpr_address_risk": {"type": "boolean"}}}}, "cbprRisk": {"type": "boolean"}, "timestamp": {"type": "string", "format": "date-time"}}}, "mcp_tool_definition": {"name": "decode_iso20022_status_response", "description": "Decodes ISO 20022 pacs.002/008/009 TxSts and StsRsnInf codes to plain English. Returns severity tier (Non-Recoverable / Recoverable / Informational), remediation action, and CBPR+ Nov 2026 structured address risk flag for each code found.", "inputSchema": {"type": "object", "properties": {"payload": {"type": "string", "description": "XML/JSON payload or plain status code(s)"}, "mode": {"type": "string", "enum": ["single", "batch"]}}, "required": ["payload"]}}, "execution": {"type": "browser-javascript", "entry": "tools/319-iso20022-status-rejection-decoder.html", "function_name": "decodeISO20022Status", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

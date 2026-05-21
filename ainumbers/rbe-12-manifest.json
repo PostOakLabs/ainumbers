@@ -1,0 +1,108 @@
+{
+  "tool_id": "rbe-12-scheme-compliance-simulator",
+  "version": "1.0.0",
+  "title": "Network Scheme Compliance Simulator (Visa VAMP / Mastercard DIMP)",
+  "description": "Deterministic Visa VAMP and Mastercard DIMP/VIMP threshold simulation engine. Separate acquirer vs. merchant thresholds with phased enforcement timelines (Oct 2025, Jan 2026 acquirer bands, Apr 2026 merchant tightening). VAAI enumeration rate as a third independent compliance dimension. Computes VAMP ratio, RAG status, headroom, enforcement fee exposure, what-if scenarios, and deterministic remediation action plan. AP2 JSON scheme_compliance_mandate export. Client-side. Zero PII.",
+  "category": "ai",
+  "tags": ["Visa-VAMP", "Mastercard-DIMP", "VAAI", "scheme-compliance", "fraud-disputes", "network-monitoring", "phased-enforcement", "AP2", "export", "Zero-PII"],
+  "audience": ["card-programme-manager", "fraud-team", "payment-operations", "acquirer-risk", "psp-compliance"],
+  "last_reviewed": "2026-04-01",
+  "input_schema": {
+    "type": "object",
+    "required": ["entity_type", "tc40_count", "tc15_count", "settled_cnp_count"],
+    "properties": {
+      "entity_type": { "type": "string", "enum": ["merchant", "acquirer", "payment_facilitator"] },
+      "region": { "type": "string", "enum": ["US", "Canada", "EU", "APAC", "LATAM", "Other"] },
+      "mcc": { "type": "string", "description": "4-digit Merchant Category Code" },
+      "monitoring_period": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}$", "description": "YYYY-MM — affects which phased threshold applies" },
+      "months_in_monitoring_period": { "type": "integer", "minimum": 0, "maximum": 12 },
+      "tc40_count": { "type": "integer", "minimum": 0, "description": "TC40 fraud alert count for the monitoring period" },
+      "tc15_count": { "type": "integer", "minimum": 0, "description": "TC15 non-fraud dispute count" },
+      "excluded_count": { "type": "integer", "minimum": 0, "description": "CE 3.0 / pre-dispute excluded transactions" },
+      "settled_cnp_count": { "type": "integer", "minimum": 1, "description": "Total settled CNP transactions (VAMP denominator)" },
+      "total_transactions": { "type": "integer", "description": "Total monthly transactions (for VAAI enumeration rate)" },
+      "confirmed_enumerated_count": { "type": "integer", "description": "VAAI-confirmed enumerated transactions" },
+      "fraud_amount_eur": { "type": "number", "description": "Mastercard DIMP fraud amount" },
+      "total_sales_eur": { "type": "number", "description": "Mastercard DIMP total sales volume" },
+      "cnp_dispute_count": { "type": "integer", "description": "Mastercard VIMP CNP dispute count" },
+      "total_cnp_count": { "type": "integer", "description": "Mastercard VIMP total CNP transactions" }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "visa_vamp": {
+        "type": "object",
+        "properties": {
+          "vamp_ratio": { "type": "number" },
+          "status": { "type": "string", "enum": ["green", "early_warning", "above_standard", "excessive", "amber"] },
+          "headroom_transactions": { "type": "integer" },
+          "enforcement_fee_exposure_usd_per_month": { "type": "number" }
+        }
+      },
+      "visa_vaai_enumeration": { "type": "object" },
+      "mastercard_dimp": { "type": "object" },
+      "mastercard_vimp": { "type": "object" },
+      "breach_risk_score": { "type": "number", "minimum": 0, "maximum": 1 },
+      "remediation_controls": { "type": "array" },
+      "what_if_scenarios": { "type": "array" },
+      "ap2_mandate": { "type": "object" }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "simulate_scheme_compliance_thresholds",
+    "description": "Simulate Visa VAMP and Mastercard DIMP/VIMP threshold positions using phased enforcement timelines. Three independent compliance dimensions: VAMP ratio (TC40+TC15-excluded)/settled_CNP, VAAI enumeration rate (effective June 2025, triggers independently), and Mastercard DIMP/VIMP ratios. Acquirer bands (EW 0.4%/AS 0.5%/Excessive 0.7%) effective January 2026; merchant phase 2 tightening (2.2%→1.5%) from April 2026 for US/Canada/EU/APAC. Computes headroom to each threshold, enforcement fee exposure after grace period, and deterministic remediation controls. Use when a card programme manager or fraud team needs to assess scheme compliance threshold position.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["entity_type", "tc40_count", "tc15_count", "settled_cnp_count"],
+      "properties": {
+        "entity_type": { "type": "string", "enum": ["merchant", "acquirer", "payment_facilitator"] },
+        "region": { "type": "string" },
+        "mcc": { "type": "string" },
+        "monitoring_period": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}$" },
+        "months_in_monitoring_period": { "type": "integer" },
+        "tc40_count": { "type": "integer" },
+        "tc15_count": { "type": "integer" },
+        "excluded_count": { "type": "integer" },
+        "settled_cnp_count": { "type": "integer" },
+        "total_transactions": { "type": "integer" },
+        "confirmed_enumerated_count": { "type": "integer" },
+        "fraud_amount_eur": { "type": "number" },
+        "total_sales_eur": { "type": "number" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/rbe-12-scheme-compliance-simulator.html",
+    "function_name": "runAnalysis",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "mandate_type": "scheme_compliance_mandate",
+  "deterministic": true,
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "threshold_source": "SCHEME_THRESHOLDS const — embedded configurable threshold object. Update at each Visa/Mastercard rules publication cycle.",
+  "threshold_versions": {
+    "visa_vamp": "VAMP Framework — enforcement October 2025; acquirer bands January 2026; merchant phase 2 April 2026",
+    "visa_vaai": "VAAI Enumeration component — effective June 2025",
+    "mastercard_dimp": "DIMP Framework Q1 2025 update",
+    "mastercard_vimp": "VIMP Framework Q1 2025 update"
+  },
+  "regulatory_citations": [
+    "Visa Acquirer Monitoring Program (VAMP) Framework — enforcement October 2025",
+    "Visa Account Attack Intelligence (VAAI) Score — enumeration rate effective June 2025",
+    "Visa Core Rules and Product and Service Rules — April 2026 edition",
+    "Mastercard Data Integrity Monitoring Program (DIMP)",
+    "Mastercard Visa Issuer Monitoring Program (VIMP)",
+    "EU PSD2 Art. 96 — payment security incident reporting",
+    "FCA Approach to Payment Services and Electronic Money (2019 update)"
+  ],
+  "cross_links": [
+    "rbe-08-fee-schedule-engine",
+    "rbe-10-velocity-rule-simulator",
+    "rbe-13-interchange-qualification-engine",
+    "rbe-11-dora-incident-classifier"
+  ]
+}

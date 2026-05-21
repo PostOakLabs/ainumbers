@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<!--
+  ╔══════════════════════════════════════════════════════════════════════╗
+  ║  AINumbers.co · T239 · SME Credit Risk Scoring Engine              ║
+  ║  Cat-20 · SME Financial Health & Lending Readiness                 ║
+  ║  v1.0.0 · May 2026 · Post Oak Labs                                 ║
+  ╠══════════════════════════════════════════════════════════════════════╣
+  ║  manifest.json                                                      ║
+  ║  {                                                                  ║
+  ║    "tool_id": "sme-credit-risk-scoring",                           ║
+  ║    "version": "1.0.0",                                             ║
+  ║    "title": "SME Credit Risk Scoring Engine",                      ║
+  ║    "description": "6-dimension rule-based credit scoring engine    ║
+  ║     for SME lending readiness. Scores revenue, business age,       ║
+  ║     DSCR, payment behaviour, sector risk, and adverse events.      ║
+  ║     Outputs risk tier, rating equivalent, and AP2 JSON.",          ║
+  ║    "category": "cat-20",                                           ║
+  ║    "tags": ["SME Credit","Risk Scoring","DSCR","AP2","export"],    ║
+  ║    "audience": ["lending","credit","treasury","compliance"],       ║
+  ║    "mcp_tool_definition": {                                        ║
+  ║      "name": "score_sme_credit_risk",                              ║
+  ║      "description": "Scores SME credit risk across 6 dimensions.  ║
+  ║       Use when assessing SME lending readiness, generating an      ║
+  ║       internal credit profile, or exporting an AP2 mandate.",      ║
+  ║      "inputSchema": {                                              ║
+  ║        "type": "object",                                           ║
+  ║        "properties": {                                             ║
+  ║          "annual_revenue":    {"type":"number"},                   ║
+  ║          "business_age":      {"type":"string"},                   ║
+  ║          "sector":            {"type":"string"},                   ║
+  ║          "dscr":              {"type":"number"},                   ║
+  ║          "payment_behaviour": {"type":"string"},                   ║
+  ║          "adverse_events":    {"type":"string"},                   ║
+  ║          "currency":          {"type":"string"}                    ║
+  ║        },                                                          ║
+  ║        "required":["annual_revenue","business_age","sector",       ║
+  ║                    "dscr","payment_behaviour","adverse_events"]    ║
+  ║      }                                                             ║
+  ║    },                                                              ║
+  ║    "execution": {                                                  ║
+  ║      "type": "browser-javascript",                                 ║
+  ║      "entry": "tools/239-sme-credit-risk-scoring.html",           ║
+  ║      "function_name": "runAnalysis",                               ║
+  ║      "timeout_ms": 5000                                            ║
+  ║    },                                                              ║
+  ║    "ap2_export": true                                              ║
+  ║  }                                                                 ║
+  ╚══════════════════════════════════════════════════════════════════════╝
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>SME Credit Risk Scoring Engine · T239 · Cat-20 · AINumbers.co</title>
+<meta name="description" content="6-dimension SME credit risk scoring engine. Score revenue, business age, DSCR, payment behaviour, sector risk, and adverse events. Internal rating, lending recommendations, Policy Mandate JSON export. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/239-sme-credit-risk-scoring">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2322C55E'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","name":"SME Credit Risk Scoring Engine","url":"https://ainumbers.co/tools/239-sme-credit-risk-scoring","description":"6-dimension SME credit risk scoring for lending readiness. Policy Mandate JSON export. Client-side. Zero PII.","author":{"@type":"Organization","name":"Post Oak Labs"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+input,select{font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+.content{max-width:1100px;margin:0 auto;padding:2rem 1.5rem;position:relative;z-index:1}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(34,197,94,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(34,197,94,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* RTL */
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner,[dir="rtl"] .hero-eyebrow,[dir="rtl"] [dir="rtl"] .input-grid,[dir="rtl"] .scorecard-grid,[dir="rtl"] .dim-row{direction:rtl}
+[dir="rtl"] .panel-label,[dir="rtl"] .dim-label{text-align:right}
+[dir="rtl"] .run-btn{letter-spacing:0}
+[dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+
+/* Lang bar */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--green);color:var(--green)}
+
+/* Nav */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+/* Hero */
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--green),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(34,197,94,.06) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--green);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--green)}
+.tool-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--green)}
+.hero h1{font-size:clamp(1.8rem,3.5vw,2.9rem);color:var(--white);max-width:760px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--green)}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:660px;line-height:1.85;margin-bottom:1.5rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.badge-privacy{color:var(--muted);border-color:var(--border)}.badge-privacy::before{content:'·';color:var(--green)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+
+/* Layout */
+.main-content{position:relative;z-index:1;padding:2.5rem 0}
+.tool-layout{display:grid;grid-template-columns:1fr 320px;gap:2rem;align-items:start}
+@media(max-width:860px){.tool-layout{grid-template-columns:1fr}}
+
+/* Panel */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.5rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);padding:.85rem 1.5rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.panel-body{padding:1.5rem}
+.panel-body.tight{padding:1.25rem 1.5rem}
+
+/* Inputs */
+.input-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:520px){.input-grid{grid-template-columns:1fr}}
+.input-group{display:flex;flex-direction:column;gap:.4rem}
+.input-group.full{grid-column:1/-1}
+.input-label{font-size:.72rem;color:var(--text);font-weight:500;display:flex;align-items:center;gap:.4rem}
+.input-label .help{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);font-weight:300}
+.input-field{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.55rem .85rem;font-size:.82rem;border-radius:var(--radius);transition:border-color .2s;width:100%;-webkit-appearance:none}
+.input-field:focus{outline:none;border-color:var(--green)}
+.input-field.error{border-color:var(--red)}
+.input-error{font-size:.65rem;color:var(--red);display:none;margin-top:.2rem}
+.input-error.visible{display:block}
+select.input-field{cursor:pointer}
+.input-prefix-wrap{position:relative;display:flex;align-items:center}
+.input-prefix{position:absolute;left:.85rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--muted);pointer-events:none;z-index:1}
+.input-prefix-wrap .input-field{padding-left:2.2rem}
+
+/* Run button */
+.run-btn{width:100%;padding:.9rem 2rem;background:var(--green);color:var(--bg);font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;font-weight:500;border:none;border-radius:var(--radius);cursor:pointer;transition:all .2s;margin-top:.5rem}
+.run-btn:hover{opacity:.88;transform:translateY(-1px)}
+
+/* Score display */
+.score-hero{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:2rem;margin-bottom:1.5rem;display:flex;gap:2rem;align-items:center;position:relative;overflow:hidden}
+.score-hero::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--green)}
+.score-circle-wrap{flex-shrink:0;text-align:center}
+.score-num{font-family:'DM Serif Display',serif;font-size:3.5rem;line-height:1;color:var(--white)}
+.score-denom{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted)}
+.score-tier-badge{display:inline-flex;align-items:center;gap:.35rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .6rem;border-radius:2px;margin-top:.5rem}
+.score-right{flex:1;min-width:0}
+.score-rating-row{display:flex;align-items:baseline;gap:.75rem;margin-bottom:.4rem}
+.score-rating{font-family:'DM Serif Display',serif;font-size:1.7rem;color:var(--bright)}
+.score-rating-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.score-summary{font-size:.78rem;color:var(--body);line-height:1.75;margin-bottom:.75rem}
+.score-bar-wrap{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);height:8px;overflow:hidden}
+.score-bar-fill{height:100%;border-radius:var(--radius);transition:width .6s ease}
+@media(max-width:560px){.score-hero{flex-direction:column;gap:1rem}}
+
+/* Scorecard dimensions */
+.scorecard-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.75rem}
+.scorecard-grid{display:flex;flex-direction:column;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.5rem}
+.dim-row{background:var(--bg-2);padding:.85rem 1.25rem;display:grid;grid-template-columns:1fr auto 120px;gap:1rem;align-items:center}
+.dim-row:hover{background:var(--bg-3)}
+@media(max-width:560px){.dim-row{grid-template-columns:1fr auto;gap:.5rem}.dim-bar-wrap{display:none}}
+.dim-label{font-size:.78rem;color:var(--text)}
+.dim-score{font-family:'JetBrains Mono',monospace;font-size:.62rem;white-space:nowrap;text-align:right}
+.dim-bar-wrap{background:var(--bg-3);border-radius:var(--radius);height:5px;overflow:hidden}
+.dim-bar-fill{height:100%;border-radius:var(--radius);transition:width .4s ease}
+
+/* Lending reco */
+.lend-grid{display:flex;flex-direction:column;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.5rem}
+.lend-row{background:var(--bg-2);padding:.9rem 1.25rem;display:grid;grid-template-columns:auto 1fr auto;gap:1rem;align-items:center}
+.lend-row:hover{background:var(--bg-3)}
+@media(max-width:520px){.lend-row{grid-template-columns:1fr}}
+.lend-rank{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);width:20px;flex-shrink:0}
+.lend-rank.pri{color:var(--green)}
+.lend-name{font-size:.8rem;color:var(--bright);margin-bottom:.15rem}
+.lend-desc{font-size:.7rem;color:var(--body);line-height:1.6}
+.lend-tag{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.06em;text-transform:uppercase;padding:.15rem .4rem;border-radius:2px;white-space:nowrap}
+.lend-tag.avail{background:var(--green-dim);color:var(--green)}
+.lend-tag.cond{background:var(--gold-dim);color:var(--gold)}
+.lend-tag.restrict{background:var(--red-dim);color:var(--red)}
+
+/* Cross-link callout */
+.crosslink{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);padding:1rem 1.5rem;border-radius:0 var(--radius) var(--radius) 0;margin-bottom:1.5rem;font-size:.78rem;color:var(--body);line-height:1.75}
+.crosslink a{color:var(--teal);border-bottom:1px solid rgba(20,184,166,.2)}
+.crosslink a:hover{border-color:var(--teal)}
+
+/* Export row */
+.export-row{display:flex;gap:.75rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.09em;text-transform:uppercase;color:var(--teal);background:transparent;border:1px solid rgba(20,184,166,.35);padding:.3rem .85rem;border-radius:var(--radius);display:inline-flex;align-items:center;gap:.4rem;transition:all .2s;cursor:pointer}
+.btn-export:hover{border-color:var(--teal);background:var(--teal-dim)}
+.md-badge{font-size:.44rem;background:var(--teal-dim);color:var(--teal);border:1px solid rgba(20,184,166,.3);padding:.1rem .35rem;border-radius:2px;font-weight:600;letter-spacing:.04em}
+
+/* Citations */
+.citations{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.5rem}
+.citations-title{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem}
+.cite-list{list-style:none;display:flex;flex-direction:column;gap:.35rem}
+.cite-list li{font-size:.68rem;color:var(--body);line-height:1.5;padding-left:1.5rem;position:relative}
+.cite-list li::before{content:attr(data-n);position:absolute;left:0;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+
+/* About panel */
+.about-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;position:sticky;top:68px}
+.weight-table{width:100%;border-collapse:collapse;margin:.75rem 0}
+.weight-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.35rem .5rem;border-bottom:1px solid var(--border)}
+.weight-table td{padding:.35rem .5rem;font-size:.68rem;color:var(--body);border-bottom:1px solid rgba(30,47,74,.5)}
+.weight-table tr:last-child td{border-bottom:none}
+.weight-table td:last-child{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--green);text-align:right}
+.about-note{font-size:.73rem;color:var(--body);line-height:1.75;margin-bottom:.75rem}
+.about-note + .about-note{padding-top:.75rem;border-top:1px solid var(--border)}
+
+/* Results */
+.results-section{display:none}
+.results-section.visible{display:block}
+.results-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem;display:flex;align-items:center;gap:.5rem}
+.results-title::before{content:'';display:block;width:16px;height:1px;background:var(--green)}
+
+/* AP2 export button — results row placement (spec: proximity to outcome) */
+#ap2ExportBtn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.09em;text-transform:uppercase;color:var(--green);background:transparent;border:1px solid rgba(34,197,94,.35);padding:.28rem .75rem;border-radius:var(--radius);display:inline-flex;align-items:center;gap:.45rem;white-space:nowrap;cursor:not-allowed;transition:all .25s;opacity:.28}
+#ap2ExportBtn.ready{cursor:pointer;opacity:1}
+#ap2ExportBtn.ready:hover{border-color:var(--green);background:var(--green-dim)}
+.ap2-btn-inner{display:flex;flex-direction:column;gap:.05rem;text-align:left}
+.ap2-btn-label{font-size:.5rem;letter-spacing:.09em;text-transform:uppercase}
+.ap2-btn-sub{font-size:.42rem;color:rgba(34,197,94,.55);text-transform:none;letter-spacing:0;font-weight:300;line-height:1}
+.ap2-icon{font-size:.72rem;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-weight:700}
+}
+.export-toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--green);padding:.7rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--green);z-index:9999;pointer-events:none;display:flex;align-items:center;gap:.5rem;border-radius:var(--radius);box-shadow:0 4px 24px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s}
+.export-toast.show{opacity:1;transform:translateY(0)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick='setLang("zh")'>中文</button>
+  </div>
+</div>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--green)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--green)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--green)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--green)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--green)" opacity=".7"/>
+      </svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/sme-financial-health-hub.html">SME Hub</a><span class="nav-sep">/</span><span>T-239</span></div>
+
+    <a href="../guides/sme-financial-health-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<div class="content">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+    <div class="hero-eyebrow">
+      <span class="tool-eyebrow">T239 · Cat-20 · SME Financial Health · Credit Scoring</span>
+    </div>
+    <h1 class="tool-title">Deterministic <em>SME credit scoring</em> across six dimensions</h1>
+    <p class="hero-desc">Score SME credit risk for lending readiness using a rule-based 6-dimension model: revenue, business age, DSCR, payment behaviour, sector risk, and adverse events. Produces an internal credit score (0–100), an S&P-equivalent rating tier, a dimension-by-dimension scorecard, lending instrument recommendations, and a Policy Mandate JSON SME credit profile. Client-side. Zero PII.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-green">SME Credit · DSCR</span>
+      <span class="hero-badge badge-gold">Risk Scoring</span>
+      <span class="hero-badge badge-teal">Lending Readiness</span>
+      <span class="hero-badge badge-privacy">Zero PII · Client-side</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+  </div>
+</div>
+
+<div class="main-content">
+<div class="container">
+<div class="tool-layout">
+
+  <div class="left-col">
+
+    <!-- CONFIG -->
+    <div class="panel">
+      <div class="panel-label" data-i18n="panel_config">Configuration</div>
+      <div class="panel-body">
+        <div class="input-grid">
+
+          <div class="input-group">
+            <label class="input-label" for="currency" data-i18n="label_currency">Currency</label>
+            <select class="input-field" id="currency">
+              <option value="GBP" selected>GBP — British Pound</option>
+              <option value="USD">USD — US Dollar</option>
+              <option value="EUR">EUR — Euro</option>
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label" for="sector" data-i18n="label_sector">Industry Sector</label>
+            <select class="input-field" id="sector">
+              <option value="tech">Technology / SaaS</option>
+              <option value="professional_services" selected>Professional Services</option>
+              <option value="healthcare">Healthcare / Medical</option>
+              <option value="retail">Retail / E-commerce</option>
+              <option value="wholesale">Wholesale / Distribution</option>
+              <option value="manufacturing">Manufacturing</option>
+              <option value="construction">Construction / Trades</option>
+              <option value="hospitality">Hospitality / Food & Beverage</option>
+              <option value="media">Media / Creative</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div class="input-group full">
+            <label class="input-label" for="revenue" data-i18n="label_revenue">
+              Annual Revenue <span class="help">(last full financial year)</span>
+            </label>
+            <div class="input-prefix-wrap">
+              <span class="input-prefix" id="currSym">£</span>
+              <input type="number" class="input-field" id="revenue" min="1" step="1000" value="400000" placeholder="e.g. 400000">
+            </div>
+            <div class="input-error" id="revErr">Please enter a positive revenue amount.</div>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label" for="bizAge" data-i18n="label_business_age">Business Age</label>
+            <select class="input-field" id="bizAge">
+              <option value="lt1">Less than 1 year</option>
+              <option value="1to2">1 – 2 years</option>
+              <option value="2to3">2 – 3 years</option>
+              <option value="3to5" selected>3 – 5 years</option>
+              <option value="5to10">5 – 10 years</option>
+              <option value="gt10">More than 10 years</option>
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label" for="dscr" data-i18n="label_dscr">
+              DSCR <span class="help">(Net Operating Income ÷ Debt Service)</span>
+            </label>
+            <input type="number" class="input-field" id="dscr" min="0" max="10" step="0.01" value="1.35" placeholder="e.g. 1.35">
+            <div class="input-error" id="dscrErr">Enter a DSCR between 0 and 10.</div>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label" for="payBehaviour" data-i18n="label_payment_behaviour">Payment Behaviour</label>
+            <select class="input-field" id="payBehaviour">
+              <option value="clean" selected>All payments on time</option>
+              <option value="minor">1–2 late payments (30+ days)</option>
+              <option value="moderate">3–5 late payments</option>
+              <option value="frequent">Frequent late payments</option>
+              <option value="default">Default or write-off history</option>
+            </select>
+          </div>
+
+          <div class="input-group full">
+            <label class="input-label" for="adverseEvents" data-i18n="label_adverse_events">Adverse Credit Events</label>
+            <select class="input-field" id="adverseEvents">
+              <option value="none" selected>None on record</option>
+              <option value="ccj">County Court Judgment (CCJ) or lien</option>
+              <option value="director_adverse">Director adverse credit history</option>
+              <option value="cva">Company Voluntary Arrangement (CVA)</option>
+              <option value="bankruptcy">Prior insolvency or bankruptcy</option>
+            </select>
+          </div>
+
+        </div>
+        <button class="run-btn" onclick="runAnalysis()" data-i18n="run_btn">Run Scoring →</button>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="results-section" id="resultsSection">
+      <div class="results-title" data-i18n="results_title">Credit Risk Assessment</div>
+
+      <!-- Score hero -->
+      <div class="score-hero" id="scoreHero">
+        <div class="score-circle-wrap">
+          <div class="score-num" id="scoreNum">—</div>
+          <div class="score-denom">/ 100</div>
+          <div class="score-tier-badge" id="scoreTierBadge">—</div>
+        </div>
+        <div class="score-right">
+          <div class="score-rating-row">
+            <div class="score-rating" id="scoreRating">—</div>
+            <div class="score-rating-label" id="scoreRatingLabel">—</div>
+          </div>
+          <div class="score-summary" id="scoreSummary">—</div>
+          <div class="score-bar-wrap">
+            <div class="score-bar-fill" id="scoreBarFill" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dimension scorecard -->
+      <div class="scorecard-title">Dimension-by-Dimension Scorecard</div>
+      <div class="scorecard-grid" id="scorecardGrid"></div>
+
+      <!-- Lending recommendations -->
+      <div class="scorecard-title">Lending Instrument Recommendations</div>
+      <div class="lend-grid" id="lendGrid"></div>
+
+      <!-- Cross-link T240 -->
+      <div class="crosslink">
+        📊 <strong>Assess the working capital gap next.</strong> Use <a href="../tools/240-working-capital-gap-calculator.html">T240 — Working Capital Gap Calculator</a> to calculate CCC and the funding gap tied up in the operating cycle, then compare against this credit score to size the right facility.
+      </div>
+
+      <!-- Export row — AP2 button lives here, immediately below results (proximity to outcome) -->
+      <div class="results-export-row export-row">
+        <button class="btn-export btn-export-md" onclick="exportMarkdown()" data-i18n="export_md">
+          <span class="md-badge">MD</span> Export Markdown
+        </button>
+        <button id="ap2ExportBtn"
+          onclick="exportAP2()"
+          disabled
+          title="Run the analysis above to generate a Policy Mandate">
+          <span class="ap2-icon">{}</span>
+          <span class="ap2-btn-inner">
+            <span class="ap2-btn-label" data-i18n="export_ap2">Export Policy Mandate</span>
+            <span class="ap2-btn-sub">API · audit trail</span>
+          </span>
+        </button>
+      </div>
+
+      <!-- Citations -->
+      <div class="citations">
+        <div class="citations-title">Methodology &amp; Citations</div>
+        <ul class="cite-list">
+          <li data-n="[1]">6-dimension scoring model adapted from ICAEW Business Finance Guide (2024) and British Business Bank Small Business Finance Markets Report 2024. Weights: DSCR 25%, Revenue 20%, Business Age 20%, Payment Behaviour 20%, Sector Risk 10%, Adverse Events 5%.</li>
+          <li data-n="[2]">DSCR thresholds based on UK Finance SME credit guidelines. DSCR ≥ 1.25 considered satisfactory by most senior lenders; ≥ 1.5 for asset-backed lending. Source: UK Finance SME Lending Standards 2024.</li>
+          <li data-n="[3]">Sector risk classification based on ONS sector default rate data (2022–2024) and Atradius Payment Practices Barometer UK 2024.</li>
+          <li data-n="[4]">Internal rating tiers mapped to S&amp;P-equivalent scale for benchmarking only. This tool is not a credit rating agency. Output is for indicative, internal risk assessment purposes only.</li>
+        </ul>
+      </div>
+
+    </div>
+
+  </div><!-- /left-col -->
+
+  <!-- ABOUT -->
+  <div class="right-col">
+    <div class="about-panel">
+      <div class="panel-label" data-i18n="panel_about">About This Tool</div>
+      <div class="panel-body tight">
+
+        <p class="about-note">A <strong>rule-based</strong> 6-dimension credit scoring model for SME lending readiness. No ML inference — all logic is deterministic and auditable.</p>
+
+        <table class="weight-table">
+          <thead>
+            <tr><th>Dimension</th><th>Max Pts</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>DSCR</td><td>25</td></tr>
+            <tr><td>Annual Revenue</td><td>20</td></tr>
+            <tr><td>Business Age</td><td>20</td></tr>
+            <tr><td>Payment Behaviour</td><td>20</td></tr>
+            <tr><td>Sector Risk</td><td>10</td></tr>
+            <tr><td>Adverse Events</td><td>5</td></tr>
+            <tr><td><strong>Total</strong></td><td><strong>100</strong></td></tr>
+          </tbody>
+        </table>
+
+        <p class="about-note">
+          <strong>Rating tiers:</strong><br>
+          80–100: Prime (AAA–AA)<br>
+          65–79: Strong (A)<br>
+          50–64: Satisfactory (BBB)<br>
+          35–49: Weak (BB–B)<br>
+          20–34: Speculative (CCC)<br>
+          0–19: Distressed (D)
+        </p>
+
+        <p class="about-note"><strong>DSCR</strong> (Debt Service Coverage Ratio) = Net Operating Income ÷ Total Debt Service. Minimum 1.0 to service debt; ≥ 1.25 preferred by most lenders.</p>
+
+        <p class="about-note"><strong>Not a credit rating.</strong> Output is indicative only — for internal pre-qualification and lending readiness assessment. Not suitable for regulatory capital calculation.</p>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+</div>
+
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/sme-financial-health-hub.html"><span data-i18n="footer.hub_sme_financial_health">SME Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* AP2Schema — full validator (PM17; wired into cohort C) */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+if (typeof AP2Schema.validate !== 'function') {
+  AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    return true;
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   T239 · SME Credit Risk Scoring Engine
+   Cat-20 · SME Financial Health & Lending Readiness
+   MCP function: score_sme_credit_risk
+   ======================================================================= */
+
+const CURRENCY_SYM = { GBP: '£', USD: '$', EUR: '€' };
+let lastResult = null;
+
+function sym() { return CURRENCY_SYM[document.getElementById('currency').value] || '£'; }
+function fmtN(n) { return n.toLocaleString('en-GB', { maximumFractionDigits: 0 }); }
+
+/* ── Scoring tables ──────────────────────────────────────────────────── */
+
+/* Revenue score (max 20) — GBP equivalent; rough purchasing power parity applied */
+function scoreRevenue(rev, currency) {
+  /* Normalise to GBP-equivalent for threshold comparison */
+  const fx = { GBP: 1, USD: 0.79, EUR: 0.86 };
+  const revGBP = rev * (fx[currency] || 1);
+  if (revGBP >= 1_000_000) return 20;
+  if (revGBP >= 500_000)   return 18;
+  if (revGBP >= 250_000)   return 15;
+  if (revGBP >= 100_000)   return 11;
+  if (revGBP >= 50_000)    return 6;
+  return 2;
+}
+
+/* Business age score (max 20) */
+function scoreAge(age) {
+  const map = { lt1: 2, '1to2': 8, '2to3': 13, '3to5': 17, '5to10': 19, gt10: 20 };
+  return map[age] || 0;
+}
+
+/* DSCR score (max 25) — see citation [2] */
+function scoreDSCR(dscr) {
+  if (dscr >= 1.75) return 25;
+  if (dscr >= 1.50) return 21;
+  if (dscr >= 1.25) return 17;
+  if (dscr >= 1.10) return 12;
+  if (dscr >= 1.00) return 6;
+  if (dscr >= 0.90) return 2;
+  return 0;
+}
+
+/* Payment behaviour score (max 20) */
+function scorePayment(behaviour) {
+  const map = { clean: 20, minor: 14, moderate: 8, frequent: 3, default: 0 };
+  return map[behaviour] || 0;
+}
+
+/* Sector risk score (max 10) — based on ONS default rate data [3] */
+function scoreSector(sector) {
+  const map = {
+    tech: 10, healthcare: 10, professional_services: 9,
+    wholesale: 7, retail: 7, manufacturing: 7, media: 7,
+    construction: 4, hospitality: 4, other: 6,
+  };
+  return map[sector] || 6;
+}
+
+/* Adverse events score (max 5) */
+function scoreAdverse(events) {
+  const map = { none: 5, ccj: 2, director_adverse: 1, cva: 0, bankruptcy: 0 };
+  return map[events] !== undefined ? map[events] : 5;
+}
+
+/* ── Rating classification ───────────────────────────────────────────── */
+function classifyScore(score) {
+  if (score >= 80) return { tier: 'Prime',        rating: 'AAA–AA', color: '#22C55E', cls: 'green',  badgeCls: 'avail',    summary: 'Excellent credit profile. Qualifies for most unsecured and secured lending products at competitive rates.' };
+  if (score >= 65) return { tier: 'Strong',       rating: 'A',      color: '#22C55E', cls: 'green',  badgeCls: 'avail',    summary: 'Strong lending candidate. Minor risk factors present but well within acceptable parameters for most lenders.' };
+  if (score >= 50) return { tier: 'Satisfactory', rating: 'BBB',    color: '#D4A847', cls: 'gold',   badgeCls: 'cond',     summary: 'Adequate credit profile. Secured or partially secured lending likely required. May need additional covenants.' };
+  if (score >= 35) return { tier: 'Weak',         rating: 'BB–B',   color: '#F59E0B', cls: 'warn',   badgeCls: 'cond',     summary: 'Marginal lending candidate. Asset-backed or invoice finance only. Personal guarantee likely required.' };
+  if (score >= 20) return { tier: 'Speculative',  rating: 'CCC',    color: '#EF4444', cls: 'red',    badgeCls: 'restrict', summary: 'High-risk profile. Limited financing options. Invoice finance against confirmed receivables may be available.' };
+  return               { tier: 'Distressed',    rating: 'D',      color: '#EF4444', cls: 'red',    badgeCls: 'restrict', summary: 'Distressed credit profile. Refer to specialist restructuring advisors. New lending not recommended.' };
+}
+
+/* ── Lending recommendations ─────────────────────────────────────────── */
+function getLendingRecos(score, tier, dscr, rev, sector, currency) {
+  const s = sym();
+  const all = [
+    { name: 'Senior Term Loan (unsecured)',       desc: 'Unsecured term facility at competitive rates. Available to Prime/Strong profiles with DSCR ≥ 1.25 and clean payment history.', minScore: 65, tag: 'avail' },
+    { name: 'Business Overdraft Facility',         desc: 'Revolving facility for working capital timing. Most banks offer up to 10–15% of annual turnover for established businesses.', minScore: 50, tag: 'avail' },
+    { name: 'Invoice Finance / Discounting',       desc: 'Advance against B2B receivables — up to 85–90% of invoice value. Available across most risk tiers where receivables are verifiable.', minScore: 20, tag: 'avail', link: '../tools/242-invoice-finance-eligibility.html', linkLabel: 'Assess eligibility → T242' },
+    { name: 'Revenue-Based Finance (RBF)',         desc: 'Advance repaid as % of monthly revenue. No fixed repayment — suitable for recurring revenue businesses with DSCR volatility.', minScore: 35, tag: 'avail', link: '../tools/244-revenue-based-finance-calculator.html', linkLabel: 'Model RBF economics → T244' },
+    { name: 'Asset Finance / Equipment Leasing',  desc: 'Secured against business assets. Available across most risk tiers — security reduces lender risk significantly.', minScore: 20, tag: 'avail' },
+    { name: 'Senior Term Loan (secured/PG)',       desc: 'Secured term loan with personal guarantee or asset security. Available to Satisfactory/Weak profiles where unsecured not possible.', minScore: 35, maxScore: 64, tag: 'cond' },
+    { name: 'Government-Backed Scheme',           desc: 'UK Growth Guarantee Scheme, US SBA 7(a), or EU COSME. Government partial guarantee reduces lender risk — opens options for weaker profiles.', minScore: 20, tag: 'cond', link: '../tools/245-government-funding-grant-mapper.html', linkLabel: 'Check eligibility → T245' },
+    { name: 'Restructuring / Recovery Advice',    desc: 'For distressed profiles. Specialist insolvency practitioners and turnaround advisors. Not a lending product.', minScore: 0, maxScore: 19, tag: 'restrict' },
+  ];
+
+  return all
+    .filter(r => score >= r.minScore && (r.maxScore === undefined || score <= r.maxScore))
+    .slice(0, 5);
+}
+
+/* ── Validation ──────────────────────────────────────────────────────── */
+function validate() {
+  let ok = true;
+  const rev  = parseFloat(document.getElementById('revenue').value);
+  const dscr = parseFloat(document.getElementById('dscr').value);
+  const revOk  = !isNaN(rev)  && rev > 0;
+  const dscrOk = !isNaN(dscr) && dscr >= 0 && dscr <= 10;
+  document.getElementById('revenue').classList.toggle('error', !revOk);
+  document.getElementById('revErr').classList.toggle('visible', !revOk);
+  document.getElementById('dscr').classList.toggle('error', !dscrOk);
+  document.getElementById('dscrErr').classList.toggle('visible', !dscrOk);
+  if (!revOk || !dscrOk) ok = false;
+  return ok;
+}
+
+/* ── Main scoring function (MCP callable: score_sme_credit_risk) ─────── */
+function runAnalysis() {
+  if (!validate()) return;
+
+  const currency  = document.getElementById('currency').value;
+  const sector    = document.getElementById('sector').value;
+  const revenue   = parseFloat(document.getElementById('revenue').value);
+  const bizAge    = document.getElementById('bizAge').value;
+  const dscr      = parseFloat(document.getElementById('dscr').value);
+  const payBeh    = document.getElementById('payBehaviour').value;
+  const adverse   = document.getElementById('adverseEvents').value;
+
+  /* ── Dimension scores ─────────────────────────────────────────────── */
+  const sRev     = scoreRevenue(revenue, currency);  // max 20
+  const sAge     = scoreAge(bizAge);                 // max 20
+  const sDSCR    = scoreDSCR(dscr);                  // max 25
+  const sPay     = scorePayment(payBeh);             // max 20
+  const sSector  = scoreSector(sector);              // max 10
+  const sAdverse = scoreAdverse(adverse);            // max 5
+
+  const total = sRev + sAge + sDSCR + sPay + sSector + sAdverse; // max 100
+
+  const classification = classifyScore(total);
+
+  /* Persist for export */
+  lastResult = {
+    inputs:  { currency, sector, revenue, bizAge, dscr, payBeh, adverse },
+    scores:  { revenue: sRev, age: sAge, dscr: sDSCR, payment: sPay, sector: sSector, adverse: sAdverse, total },
+    classification,
+    timestamp: new Date().toISOString(),
+  };
+
+  /* ── Score hero ─────────────────────────────────────────────────────── */
+  document.getElementById('scoreNum').textContent = total;
+  document.getElementById('scoreNum').style.color = classification.color;
+  const badge = document.getElementById('scoreTierBadge');
+  badge.textContent = classification.tier;
+  badge.className = 'score-tier-badge ' + classification.badgeCls;
+  document.getElementById('scoreRating').textContent = classification.rating;
+  document.getElementById('scoreRatingLabel').textContent = '— ' + classification.tier;
+  document.getElementById('scoreSummary').textContent = classification.summary;
+  const fill = document.getElementById('scoreBarFill');
+  fill.style.width = total + '%';
+  fill.style.background = classification.color;
+
+  /* ── Dimension scorecard ─────────────────────────────────────────────── */
+  const dims = [
+    { label: 'DSCR',             score: sDSCR,    max: 25, detail: 'DSCR ' + dscr.toFixed(2) },
+    { label: 'Annual Revenue',   score: sRev,     max: 20, detail: sym() + fmtN(revenue) },
+    { label: 'Business Age',     score: sAge,     max: 20, detail: bizAge.replace('lt1','< 1yr').replace('gt10','10yr+').replace('1to2','1–2yr').replace('2to3','2–3yr').replace('3to5','3–5yr').replace('5to10','5–10yr') },
+    { label: 'Payment Behaviour',score: sPay,     max: 20, detail: payBeh.replace('clean','Clean').replace('minor','1–2 late').replace('moderate','3–5 late').replace('frequent','Frequent').replace('default','Default') },
+    { label: 'Sector Risk',      score: sSector,  max: 10, detail: sector.replace(/_/g,' ') },
+    { label: 'Adverse Events',   score: sAdverse, max: 5,  detail: adverse.replace('none','None').replace('ccj','CCJ on record').replace('director_adverse','Director adverse').replace('cva','CVA').replace('bankruptcy','Prior insolvency') },
+  ];
+  const grid = document.getElementById('scorecardGrid');
+  grid.innerHTML = '';
+  dims.forEach(d => {
+    const pct = (d.score / d.max) * 100;
+    const color = pct >= 75 ? 'var(--green)' : pct >= 40 ? 'var(--warn)' : 'var(--red)';
+    const row = document.createElement('div');
+    row.className = 'dim-row';
+    row.innerHTML = `
+      <div class="dim-label">${d.label}<br><span style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">${d.detail}</span></div>
+      <div class="dim-score" style="color:${color}">${d.score} / ${d.max}</div>
+      <div class="dim-bar-wrap"><div class="dim-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+    `;
+    grid.appendChild(row);
+  });
+
+  /* ── Lending recommendations ─────────────────────────────────────────── */
+  const recos = getLendingRecos(total, classification.tier, dscr, revenue, sector, currency);
+  const lendGrid = document.getElementById('lendGrid');
+  lendGrid.innerHTML = '';
+  recos.forEach((r, i) => {
+    const row = document.createElement('div');
+    row.className = 'lend-row';
+    const linkHtml = r.link ? `<br><a href="${r.link}" style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--teal);border-bottom:1px solid rgba(20,184,166,.2)">${r.linkLabel}</a>` : '';
+    row.innerHTML = `
+      <span class="lend-rank ${i===0?'pri':''}">${String(i+1).padStart(2,'0')}</span>
+      <div><div class="lend-name">${r.name}</div><div class="lend-desc">${r.desc}${linkHtml}</div></div>
+      <span class="lend-tag ${r.tag}">${r.tag==='avail'?'Available':r.tag==='cond'?'Conditional':'Refer'}</span>
+    `;
+    lendGrid.appendChild(row);
+  });
+
+  /* Show results & activate AP2 button in results row */
+  document.getElementById('resultsSection').classList.add('visible');
+  enableAP2Btn();
+  document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ── Enable AP2 export button (called after successful analysis run) ── */
+function enableAP2Btn() {
+  const btn = document.getElementById('ap2ExportBtn');
+  if (!btn) return;
+  btn.disabled = false;
+  btn.classList.add('ready');
+  btn.title = 'For API integration · audit trail';
+}
+
+/* ── AP2 JSON export ─────────────────────────────────────────────────── */
+function exportAP2() {
+  if (!lastResult) return;
+  const { inputs, scores, classification, timestamp } = lastResult;
+  const s = CURRENCY_SYM[inputs.currency] || '£';
+
+  const mandate = {
+    ap2_version:           "1.0",
+    mandate_id:            crypto.randomUUID(),
+    issued_at:             new Date().toISOString(),
+    issued_by:             "ainumbers.co",
+    tool_id:               "sme-credit-risk-scoring",
+    tool_version:          "1.0.0",
+    mandate_type:          "credit_assessment",
+    jurisdiction:          ["UK", "US", "EU"],
+    regulatory_frameworks: ["UK Finance SME Lending Standards 2024", "British Business Bank 2024", "ICAEW Business Finance Guide 2024"],
+    payload: {
+      composite_score:        scores.total,
+      rating_tier:            classification.tier,
+      rating_equivalent:      classification.rating,
+      score_revenue:          scores.revenue,
+      score_business_age:     scores.age,
+      score_dscr:             scores.dscr,
+      score_payment:          scores.payment,
+      score_sector:           scores.sector,
+      score_adverse:          scores.adverse,
+      annual_revenue:         inputs.revenue,
+      currency:               inputs.currency,
+      dscr:                   inputs.dscr,
+      business_age_band:      inputs.bizAge,
+      sector:                 inputs.sector,
+      payment_behaviour:      inputs.payBeh,
+      adverse_events:         inputs.adverse,
+      lending_eligible:       scores.total >= 35,
+      unsecured_eligible:     scores.total >= 65,
+    },
+    summary: `SME credit risk assessment. Composite score: ${scores.total}/100 — ${classification.tier} (${classification.rating}). DSCR: ${inputs.dscr.toFixed(2)}. Revenue: ${s}${fmtN(inputs.revenue)}. Sector: ${inputs.sector.replace(/_/g,' ')}. ${classification.summary}`,
+    agent_instructions: [
+      `Credit tier is ${classification.tier} (${classification.rating}) with composite score ${scores.total}/100.`,
+      scores.total >= 65
+        ? 'Unsecured lending eligible. Proceed with standard facility sizing and covenant negotiation.'
+        : scores.total >= 35
+        ? 'Secured or invoice-backed lending recommended. Personal guarantee or asset security likely required.'
+        : 'Refer to specialist restructuring or invoice finance only. Do not approve unsecured lending.',
+      `DSCR of ${inputs.dscr.toFixed(2)} is ${inputs.dscr >= 1.25 ? 'satisfactory' : inputs.dscr >= 1.0 ? 'marginal — monitor closely' : 'below 1.0 — debt service at risk'}.`,
+      'Use T240 Working Capital Gap Calculator to size the working capital facility against the operating cycle gap.',
+      'Use T241 Business Loan Readiness Checker to cross-check against specific lender criteria.',
+      inputs.sector === 'construction' || inputs.sector === 'hospitality'
+        ? 'High-risk sector identified. Apply enhanced due diligence and shorter facility tenor.'
+        : 'Sector risk is within standard parameters. Apply standard underwriting criteria.',
+    ],
+    valid_from:    timestamp.slice(0, 10),
+    last_reviewed: "2026-05-09",
+    source_tool_inputs: { ...inputs, scored_at: timestamp },
+    regulatory_citations: [
+      "UK Finance SME Lending Standards (2024)",
+      "British Business Bank — Small Business Finance Markets Report 2024",
+      "ICAEW Business Finance Guide — SME Lending Readiness (2024)",
+      "Atradius Payment Practices Barometer UK 2024",
+      "ONS Business Demography — Sector Default Rates 2022–2024",
+    ],
+  };
+
+  AP2Schema.validate(mandate);
+  const blob = new Blob([JSON.stringify(mandate, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), { href: url, download: `ap2-sme-credit-score-${Date.now()}.policy.json` });
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  showToast('{} Policy Mandate JSON downloaded', 'ap2');
+}
+
+/* ── Markdown export ──────────────────────────────────────────────────── */
+function exportMarkdown() {
+  if (!lastResult) return;
+  const { inputs, scores, classification } = lastResult;
+  const s = CURRENCY_SYM[inputs.currency] || '£';
+  const date = new Date().toISOString().slice(0,10);
+  const recos = getLendingRecos(scores.total, classification.tier, inputs.dscr, inputs.revenue, inputs.sector, inputs.currency);
+
+  let md = `# SME Credit Risk Assessment\n\n`;
+  md += `**Tool:** T239 · SME Credit Risk Scoring Engine · AINumbers.co  \n**Date:** ${date}  \n**Currency:** ${inputs.currency}  \n\n`;
+  md += `## Overall Score\n\n**${scores.total} / 100 — ${classification.tier} (${classification.rating})**\n\n${classification.summary}\n\n`;
+  md += `## Dimension Scorecard\n\n| Dimension | Score | Max |\n|---|---|---|\n`;
+  md += `| DSCR (${inputs.dscr.toFixed(2)}) | ${scores.dscr} | 25 |\n`;
+  md += `| Annual Revenue (${s}${fmtN(inputs.revenue)}) | ${scores.revenue} | 20 |\n`;
+  md += `| Business Age | ${scores.age} | 20 |\n`;
+  md += `| Payment Behaviour | ${scores.payment} | 20 |\n`;
+  md += `| Sector Risk | ${scores.sector} | 10 |\n`;
+  md += `| Adverse Events | ${scores.adverse} | 5 |\n`;
+  md += `| **Total** | **${scores.total}** | **100** |\n\n`;
+  md += `## Lending Recommendations\n\n`;
+  recos.forEach((r,i) => { md += `${i+1}. **${r.name}**\n   ${r.desc}\n\n`; });
+  md += `---\n\n*Generated by AINumbers.co T239 · Client-side. Zero PII.*\n`;
+
+  const blob = new Blob([md], { type: 'text/markdown' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), { href: url, download: `sme-credit-risk-assessment-${Date.now()}.md` });
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  showToast('MD Markdown downloaded', 'md');
+}
+
+/* ── Toast ────────────────────────────────────────────────────────────── */
+function showToast(msg, type) {
+  let el = document.getElementById('exportToast');
+  if (!el) { el = document.createElement('div'); el.id='exportToast'; el.className='export-toast'; document.body.appendChild(el); }
+  el.style.borderLeftColor = type==='ap2' ? 'var(--green)' : 'var(--teal)';
+  el.style.color            = type==='ap2' ? 'var(--green)' : 'var(--teal)';
+  el.innerHTML = `<span style="font-weight:700;font-family:'JetBrains Mono',monospace">${type==='ap2'?'{}':'MD'}</span>&nbsp;${msg}`;
+  el.classList.add('show');
+  clearTimeout(el._tm);
+  el._tm = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+document.getElementById('currency').addEventListener('change', function() {
+  document.getElementById('currSym').textContent = CURRENCY_SYM[this.value] || '£';
+});
+
+/* ═══ i18n Stage 2 ════════════════════════════════════════════════════ */
+const TRANSLATIONS = {
+  en: { eyebrow:'T239 · Cat-20 · SME Financial Health · Credit Scoring', hero_title:'Deterministic SME credit scoring across six dimensions', hero_desc:'6-dimension rule-based SME credit scoring: revenue, business age, DSCR, payment behaviour, sector risk, adverse events. Internal rating, lending recommendations, Policy Mandate JSON export. Client-side. Zero PII.', panel_config:'Configuration', panel_about:'About This Tool', label_currency:'Currency', label_sector:'Industry Sector', label_revenue:'Annual Revenue', label_business_age:'Business Age', label_dscr:'DSCR', label_payment_behaviour:'Payment Behaviour', label_adverse_events:'Adverse Credit Events', run_btn:'Run Scoring →', results_title:'Credit Risk Assessment', export_ap2:'Export Policy Mandate', export_md:'Export Markdown', nav_all_tools:'All Tools', lang_dir:'ltr' 
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-20 Hub',
+  },
+  es: { eyebrow:'T239 · Cat-20 · Salud Financiera PYME · Puntuación', hero_title:'Puntuación de crédito PYME determinista en seis dimensiones', hero_desc:'Modelo de puntuación crediticia basado en reglas: ingresos, antigüedad, DSCR, comportamiento de pago, riesgo sectorial y eventos adversos.', panel_config:'Configuración', panel_about:'Sobre Esta Herramienta', label_currency:'Moneda', label_sector:'Sector Industrial', label_revenue:'Ingresos Anuales', label_business_age:'Antigüedad del Negocio', label_dscr:'DSCR', label_payment_behaviour:'Comportamiento de Pago', label_adverse_events:'Eventos Crediticios Adversos', run_btn:'Ejecutar Puntuación →', results_title:'Evaluación de Riesgo Crediticio', export_ap2:'Exportar Mandato de Política', export_md:'Exportar Markdown', nav_all_tools:'Todas las Herramientas', lang_dir:'ltr' 
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-20',
+  },
+  fr: { eyebrow:'T239 · Cat-20 · Santé Financière PME · Notation', hero_title:'Scoring crédit PME déterministe en six dimensions', hero_desc:'Modèle de notation crédit PME basé sur des règles : chiffre d\'affaires, ancienneté, DSCR, comportement de paiement, risque sectoriel et événements adverses.', panel_config:'Configuration', panel_about:'À propos de cet outil', label_currency:'Devise', label_sector:'Secteur', label_revenue:'Chiffre d\'affaires annuel', label_business_age:'Ancienneté', label_dscr:'DSCR', label_payment_behaviour:'Comportement de paiement', label_adverse_events:'Événements adverses', run_btn:'Lancer le scoring →', results_title:'Évaluation du risque crédit', export_ap2:'Exporter Mandat de Politique', export_md:'Exporter Markdown', nav_all_tools:'Tous les Outils', lang_dir:'ltr' 
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-20',
+  },
+  ar: { eyebrow:'T239 · الفئة 20 · الصحة المالية للشركات الصغيرة · التقييم الائتماني', hero_title:'تقييم ائتماني حتمي للشركات الصغيرة عبر ستة أبعاد', hero_desc:'نموذج تقييم ائتماني قائم على القواعد: الإيرادات، عمر الشركة، DSCR، سلوك الدفع، مخاطر القطاع والأحداث السلبية.', panel_config:'الإعدادات', panel_about:'حول هذه الأداة', label_currency:'العملة', label_sector:'القطاع', label_revenue:'الإيرادات السنوية', label_business_age:'عمر الشركة', label_dscr:'DSCR', label_payment_behaviour:'سلوك الدفع', label_adverse_events:'الأحداث الائتمانية السلبية', run_btn:'تشغيل التقييم →', results_title:'تقييم مخاطر الائتمان', export_ap2:'تصدير تفويض السياسة', export_md:'تصدير Markdown', nav_all_tools:'جميع الأدوات', lang_dir:'rtl' 
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-20',
+  },
+  pt: { eyebrow:'T239 · Cat-20 · Saúde Financeira PME · Pontuação', hero_title:'Pontuação de crédito PME determinística em seis dimensões', hero_desc:'Modelo de pontuação de crédito PME baseado em regras: receita, idade, DSCR, comportamento de pagamento, risco setorial e eventos adversos.', panel_config:'Configuração', panel_about:'Sobre esta Ferramenta', label_currency:'Moeda', label_sector:'Setor', label_revenue:'Receita Anual', label_business_age:'Idade do Negócio', label_dscr:'DSCR', label_payment_behaviour:'Comportamento de Pagamento', label_adverse_events:'Eventos Adversos', run_btn:'Executar Pontuação →', results_title:'Avaliação de Risco de Crédito', export_ap2:'Exportar Mandato de Política', export_md:'Exportar Markdown', nav_all_tools:'Todas as Ferramentas', lang_dir:'ltr' 
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-20',
+  },
+  zh: { eyebrow:'T239 · 第20类 · 中小企业财务健康 · 信用评分', hero_title:'六维度确定性中小企业信用评分', hero_desc:'基于规则的六维中小企业信用评分模型：收入、经营年限、DSCR、付款行为、行业风险和不良事件。', panel_config:'配置', panel_about:'关于此工具', label_currency:'货币', label_sector:'行业', label_revenue:'年收入', label_business_age:'经营年限', label_dscr:'DSCR', label_payment_behaviour:'付款行为', label_adverse_events:'不良信用事件', run_btn:'运行评分 →', results_title:'信用风险评估', export_ap2:'导出政策授权书', export_md:'导出 Markdown', nav_all_tools:'所有工具', lang_dir:'ltr' 
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-20 中心',
+  },
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS['en'];
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`) || document.querySelector(`.lang-btn[onclick='setLang("${lang}")']`);
+  if (btn) btn.classList.add('active');
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  document.documentElement.dir = document.body.dir = t.lang_dir || 'ltr';
+  const apply = (sel, key) => { const el = document.querySelector(sel); if (el && t[key]) el.textContent = t[key]; };
+  apply('.tool-eyebrow','eyebrow'); apply('.hero h1','hero_title'); apply('.hero-desc','hero_desc');
+  apply('.run-btn','run_btn'); apply('.results-title','results_title'); apply('.nav-cta','nav_all_tools');
+  document.querySelectorAll('.panel-label').forEach((el,i) => { const k=['panel_config','panel_about'][i]; if(k && t[k]) el.textContent=t[k]; });
+  document.querySelectorAll('[data-i18n]').forEach(el => { const k=el.getAttribute('data-i18n'); if(t[k]) el.textContent=t[k]; });
+  document.querySelectorAll('.btn-export').forEach(b => { if(b.classList.contains('btn-export-md') && t.export_md) b.innerHTML=`<span class="md-badge">MD</span> ${t.export_md}`; });
+  const ap2l = document.querySelector('#ap2ExportBtn .ap2-btn-label'); if(ap2l && t.export_ap2) ap2l.textContent = t.export_ap2;
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){ try { const s=sessionStorage.getItem('ain_lang'); if(s && TRANSLATIONS[s]) setLang(s); } catch(e){} })();
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "sme-credit-risk-scoring", "version": "1.0.0", "title": "SME Credit Risk Scoring Engine", "description": "Six-dimension rule-based SME credit scoring across revenue, business age, DSCR, payment behaviour, sector risk, and adverse events. Produces a composite score, internal rating mapped to S&P equivalents, and lending recommendations. Client-side. Zero PII.", "category": "cat-20", "tags": ["SME", "credit risk", "DSCR", "scoring", "lending", "Policy Mandate", "export"], "audience": ["credit analyst", "finance director", "SME owner", "lender"], "input_schema": {"type": "object", "required": ["currency", "sector", "revenue", "businessAge", "dscr", "paymentBehaviour", "adverseEvents"], "properties": {"currency": {"type": "string", "enum": ["GBP", "USD", "EUR"], "description": "Reporting currency"}, "sector": {"type": "string", "description": "Industry sector of the SME"}, "revenue": {"type": "number", "minimum": 0, "description": "Annual revenue in selected currency"}, "businessAge": {"type": "number", "minimum": 0, "description": "Business age in months"}, "dscr": {"type": "number", "minimum": 0, "description": "Debt Service Coverage Ratio (NOI / Debt Service)"}, "paymentBehaviour": {"type": "string", "enum": ["excellent", "good", "fair", "poor", "default"], "description": "Historical payment behaviour classification"}, "adverseEvents": {"type": "string", "enum": ["none", "minor", "ccj", "significant", "insolvency"], "description": "Adverse credit events on record"}}}, "output_schema": {"type": "object", "properties": {"compositeScore": {"type": "number", "minimum": 0, "maximum": 100}, "rating": {"type": "string", "description": "Internal rating: Prime / Strong / Satisfactory / Weak / Speculative / Distressed"}, "spEquivalent": {"type": "string", "description": "Approximate S&P equivalent rating band"}, "dimensionScores": {"type": "object", "description": "Score breakdown per dimension"}, "lendingRecommendations": {"type": "array", "items": {"type": "string"}}}}, "mcp_tool_definition": {"name": "score_sme_credit_risk", "description": "Run a six-dimension rule-based credit risk score for an SME. Returns composite score (0–100), internal rating tier, approximate S&P equivalent, per-dimension breakdown, and lending product recommendations. Use when an agent needs to assess SME creditworthiness before recommending a financing product.", "inputSchema": {"type": "object", "required": ["currency", "sector", "revenue", "businessAge", "dscr", "paymentBehaviour", "adverseEvents"], "properties": {"currency": {"type": "string", "enum": ["GBP", "USD", "EUR"]}, "sector": {"type": "string"}, "revenue": {"type": "number", "minimum": 0}, "businessAge": {"type": "number", "minimum": 0}, "dscr": {"type": "number", "minimum": 0}, "paymentBehaviour": {"type": "string", "enum": ["excellent", "good", "fair", "poor", "default"]}, "adverseEvents": {"type": "string", "enum": ["none", "minor", "ccj", "significant", "insolvency"]}}}}, "execution": {"type": "browser-javascript", "entry": "tools/239-sme-credit-risk-scoring.html", "function_name": "runAnalysis", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

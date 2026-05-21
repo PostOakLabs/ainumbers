@@ -1,0 +1,118 @@
+{
+  "tool_id": "rbe-13-interchange-qualification-engine",
+  "version": "1.0.0",
+  "title": "Interchange Qualification & Least-Cost Routing Rule Builder",
+  "description": "Deterministic interchange qualification engine mapping card transaction attributes to Visa/Mastercard interchange tiers using publicly published schedules. Identifies downgrade risks, builds a prioritised LCR routing rule set (Durbin/RBA regulated debit → L3 commercial → L2 commercial → 3DS2 consumer → default), generates a Level 2/3 data field eligibility matrix, and computes portfolio-level interchange savings estimates. AP2 JSON routing_policy_mandate export. Client-side. Zero PII. Uses publicly published interchange schedules — review annually each April.",
+  "category": "ai",
+  "tags": ["interchange", "LCR", "least-cost-routing", "Durbin", "L2-L3-data", "downgrade-risk", "Visa", "Mastercard", "3DS2", "AP2", "export", "Zero-PII"],
+  "audience": ["merchant", "payment-facilitator", "acquirer-iso", "card-programme-manager", "treasury"],
+  "last_reviewed": "2026-05-01",
+  "review_frequency": "annual — interchange schedules updated each April",
+  "schedule_source": "Visa US Interchange Reimbursement Fees April 2025 (publicly published); Mastercard US Interchange Rates April 2025 (publicly published)",
+  "input_schema": {
+    "type": "object",
+    "required": ["entity_type", "country", "networks", "card_type", "transaction_type"],
+    "properties": {
+      "entity_type": { "type": "string", "enum": ["merchant", "payment_facilitator", "acquirer_iso"] },
+      "country": { "type": "string", "enum": ["US", "UK", "EU", "Australia", "Canada", "Other"] },
+      "networks": { "type": "array", "items": { "type": "string", "enum": ["visa", "mastercard"] } },
+      "monthly_cnp_volume": { "type": "number", "description": "Monthly CNP processing volume in USD/EUR" },
+      "monthly_cp_volume": { "type": "number", "description": "Monthly card-present processing volume" },
+      "card_mix_pct": {
+        "type": "object",
+        "properties": {
+          "consumer_credit": { "type": "number" },
+          "consumer_debit": { "type": "number" },
+          "commercial": { "type": "number" },
+          "rewards_premium": { "type": "number" }
+        }
+      },
+      "processing_capability": {
+        "type": "object",
+        "properties": {
+          "three_ds2_enabled": { "type": "boolean" },
+          "three_ds2_adoption_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+          "level2_data": { "type": "boolean" },
+          "level3_data": { "type": "boolean" },
+          "avs_enabled": { "type": "boolean" },
+          "cvv2_on_all_cnp": { "type": "boolean" }
+        }
+      },
+      "primary_mcc": { "type": "string", "description": "4-digit MCC" },
+      "card_type": { "type": "string", "enum": ["consumer_credit", "consumer_debit", "commercial", "rewards", "fleet", "prepaid"] },
+      "transaction_type": { "type": "string", "enum": ["cnp", "card_present", "recurring", "instalment", "moto"] },
+      "authentication_method": { "type": "string", "enum": ["3ds2_frictionless", "3ds2_challenge", "non_3ds", "emv_chip", "swipe"] },
+      "data_level": { "type": "string", "enum": ["standard", "level2", "level3"] },
+      "transaction_amount": { "type": "number" },
+      "settlement_timing": { "type": "string", "enum": ["same_day", "t1", "t2", "t3"] }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "transaction_simulation": {
+        "type": "object",
+        "properties": {
+          "qualifying_tier": { "type": "string" },
+          "interchange_rate_pct": { "type": "number" },
+          "interchange_fixed": { "type": "number" },
+          "all_in_cost": { "type": "number" },
+          "downgrade_risks": { "type": "array" },
+          "optimisation_opportunities": { "type": "array" }
+        }
+      },
+      "lcr_routing_rules": {
+        "type": "array",
+        "description": "Ordered rules — apply first matching rule at authorisation gateway"
+      },
+      "level2_3_matrix": { "type": "array" },
+      "portfolio_savings_estimate": { "type": "object" },
+      "ap2_mandate": { "type": "object" }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "build_interchange_qualification_ruleset",
+    "description": "Map card transaction attributes to Visa/Mastercard interchange qualification tiers using publicly published schedules. Identifies downgrade risks (missing 3DS2, no CVV2, commercial card without L2/L3 data, late settlement). Builds a prioritised LCR routing rule set actionable in a payment gateway (Durbin-regulated debit first → L3 commercial → L2 commercial → 3DS2-qualified consumer → default). Generates L2/L3 field requirements matrix per card type. Computes portfolio-level interchange savings estimate across LCR, L2/L3, 3DS2 adoption, and downgrade reduction. Note: interchange schedules are updated annually — check last_reviewed date before relying on tier names and rates. Use when a merchant, PayFac, or acquirer ISO needs to optimise card acceptance costs or configure gateway routing.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["entity_type", "country", "networks", "card_type", "transaction_type"],
+      "properties": {
+        "entity_type": { "type": "string", "enum": ["merchant", "payment_facilitator", "acquirer_iso"] },
+        "country": { "type": "string" },
+        "networks": { "type": "array", "items": { "type": "string" } },
+        "card_type": { "type": "string" },
+        "transaction_type": { "type": "string" },
+        "authentication_method": { "type": "string" },
+        "data_level": { "type": "string", "enum": ["standard", "level2", "level3"] },
+        "monthly_cnp_volume": { "type": "number" },
+        "primary_mcc": { "type": "string" }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/rbe-13-interchange-qualification-engine.html",
+    "function_name": "runAnalysis",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "mandate_type": "routing_policy_mandate",
+  "deterministic": true,
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "schedule_last_reviewed": "2026-05-01",
+  "regulatory_citations": [
+    "Visa Interchange Reimbursement Fees — US April 2025 schedule (publicly published)",
+    "Mastercard Interchange Rates — US April 2025 schedule (publicly published)",
+    "Durbin Amendment (Dodd-Frank Act Section 1075) — US regulated debit LCR obligation",
+    "RBA Standard No. 1 of 2006 — Australian debit LCR obligation",
+    "PSD2 Art. 62 — EU interchange fee transparency and cap",
+    "EU IFR Regulation 2015/751 — interchange fee caps (0.2% debit, 0.3% credit)",
+    "UK FCA PSR — post-Brexit interchange fee caps"
+  ],
+  "cross_links": [
+    "rbe-08-fee-schedule-engine",
+    "rbe-12-scheme-compliance-simulator",
+    "rbe-04-agent-guardrail-builder"
+  ]
+}

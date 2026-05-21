@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>T188 · Merchant BNPL Integration Compliance Mapper — AINumbers.co</title>
+<meta name="description" content="Map compliance obligations for merchants integrating BNPL at checkout. Covers PCI DSS scope determination, Reg Z advertising rules, FCA Financial Promotions, EU CCD2 checkout standards, and UX disclosure requirements.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="AINumbers.co — Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/188-merchant-bnpl-compliance-mapper.html">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Merchant BNPL Integration Compliance Mapper — AINumbers.co","url":"https://ainumbers.co/tools/188-merchant-bnpl-compliance-mapper.html","description":"Map compliance obligations for merchants integrating BNPL at checkout. Covers PCI DSS scope determination, Reg Z advertising rules, FCA Financial Promotions, EU CCD2 checkout standards, and UX disclosure requirements.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600;700&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!--
+  manifest.json (embedded reference)
+  {
+    "tool_id": "merchant-bnpl-compliance-mapper",
+    "version": "1.0.0",
+    "title": "Merchant BNPL Integration Compliance Mapper",
+    "description": "Map compliance obligations for merchants integrating BNPL at checkout. Covers PCI DSS scope, Reg Z advertising rules, FCA Financial Promotions, EU CCD2 checkout standards, and UX disclosure requirements. Outputs merchant compliance checklist and Markdown integration guide.",
+    "category": "cat-16",
+    "tags": ["BNPL","Merchant","PCI DSS","Reg Z","FCA Financial Promotions","EU CCD2","Checkout UX"],
+    "audience": ["merchant","product","engineering","compliance"],
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "jurisdictions": { "type": "array", "items": { "type": "string", "enum": ["uk","eu","us"] } },
+        "integration_method": { "type": "string", "enum": ["redirect","iframe","whitelabel","inhouse"] },
+        "promotes_bnpl": { "type": "boolean" },
+        "merchant_type": { "type": "string", "enum": ["ecommerce","physical","both"] }
+      },
+      "required": ["jurisdictions","integration_method","promotes_bnpl","merchant_type"]
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "pci_saq_type": { "type": "string" },
+        "total_items": { "type": "integer" },
+        "checklist": { "type": "array", "items": { "type": "object" } },
+        "markdown_guide": { "type": "string" }
+      }
+    },
+    "mcp_tool_definition": {
+      "name": "map_merchant_bnpl_compliance_obligations",
+      "description": "Generate a tailored BNPL integration compliance map for a merchant. Returns PCI DSS scope determination, per-jurisdiction regulatory disclosure requirements, checkout UX standards, and a Markdown integration guide. Use when a merchant or platform team needs to identify compliance obligations before integrating a BNPL payment option.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "jurisdictions": { "type": "array", "items": { "type": "string" } },
+          "integration_method": { "type": "string" },
+          "promotes_bnpl": { "type": "boolean" },
+          "merchant_type": { "type": "string" }
+        },
+        "required": ["jurisdictions","integration_method","promotes_bnpl","merchant_type"]
+      }
+    },
+    "execution": {
+      "type": "browser-javascript",
+      "entry": "tools/188-merchant-bnpl-compliance-mapper.html",
+      "function_name": "generateMap",
+      "timeout_ms": 2000
+    },
+    "ap2_export": false
+  }
+-->
+
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+/* Edu disclaimer (canonical §9.3) */
+.edu-disclaimer {
+  border: 1px solid var(--warn);
+  border-left: 3px solid var(--warn);
+  background: rgba(245, 158, 11, 0.06);
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  font-size: 0.76rem;
+  color: var(--body);
+  line-height: 1.7;
+  border-radius: var(--radius);
+}
+.edu-disclaimer-label {
+  display: block;
+  color: var(--warn);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12); --gold-hover:#E8B952;
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12); --red-lt:#F87171;
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px; --radius-lg:10px; --radius-xl:14px;
+  --shadow:0 4px 24px rgba(0,0,0,.45);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6;overflow-x:hidden;}
+
+body::before{content:'';position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(239,68,68,.016) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(239,68,68,.016) 1px,transparent 1px);
+  background-size:56px 56px;pointer-events:none;z-index:0;}
+
+.ambient{position:fixed;pointer-events:none;z-index:0;}
+.ambient-1{top:-200px;right:-100px;width:600px;height:600px;
+  background:radial-gradient(ellipse at center,rgba(239,68,68,.05) 0%,transparent 70%);}
+.ambient-2{bottom:-150px;left:-100px;width:550px;height:550px;
+  background:radial-gradient(ellipse at center,rgba(20,184,166,.04) 0%,transparent 70%);}
+
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem;position:relative;z-index:1;}
+
+/* Lang bar */
+.lang-bar{background:rgba(13,22,39,.95);border-bottom:1px solid var(--border);padding:.4rem 0;position:relative;z-index:10;}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;gap:.4rem;justify-content:flex-end;}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid transparent;color:var(--muted);padding:.2rem .55rem;border-radius:var(--radius);cursor:pointer;transition:all .15s;}
+.lang-btn:hover{color:var(--text);border-color:var(--border);}
+.lang-btn.active{color:var(--red-lt);border-color:rgba(239,68,68,.4);background:var(--red-dim);}
+
+/* Nav */
+nav{border-bottom:1px solid var(--border);background:rgba(8,14,26,.9);backdrop-filter:blur(16px);position:sticky;top:0;z-index:100;padding:.9rem 0;}
+.nav-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:.75rem;text-decoration:none;}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal);} .logo-co{color:var(--body);font-size:.8rem;}
+
+
+.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;color:var(--body);text-decoration:none;transition:color .15s;}
+.nav-links a:hover{color:var(--red-lt);}
+/* Tool header */
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;}
+.hero::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--red),transparent);}
+.hero-eyebrow{display:flex;align-items:center;gap:.65rem;margin-bottom:.85rem;flex-wrap:wrap;}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.09em;text-transform:uppercase;padding:.22rem .65rem;border-radius:var(--radius);border:1px solid;}
+.badge-cat{color:var(--red-lt);border-color:rgba(239,68,68,.4);background:var(--red-dim);}
+.badge-neutral{color:var(--body);border-color:var(--border);background:var(--bg-3);}
+.badge-md{color:var(--teal-lt);border-color:rgba(20,184,166,.35);background:var(--teal-dim);}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(1.7rem,3.5vw,2.5rem);color:var(--white);line-height:1.15;margin-bottom:.65rem;}
+.hero h1 em{color:var(--red-lt);font-style:italic;}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:700px;line-height:1.72;margin-bottom:.85rem;}
+.meta-row{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;}
+.meta-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.18rem .55rem;border-radius:var(--radius);border:1px solid;}
+.tag-red{color:var(--red-lt);border-color:rgba(239,68,68,.3);background:var(--red-dim);}
+.tag-teal{color:var(--teal-lt);border-color:rgba(20,184,166,.3);background:var(--teal-dim);}
+.tag-gold{color:var(--gold);border-color:rgba(212,168,71,.3);background:var(--gold-dim);}
+.tag-green{color:var(--green);border-color:rgba(34,197,94,.3);background:var(--green-dim);}
+.tag-purple{color:var(--purple);border-color:rgba(155,114,245,.3);background:var(--purple-dim);}
+
+/* Step layout */
+.step-section{margin:2rem 0;}
+.step-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--red-lt);margin-bottom:.55rem;display:flex;align-items:center;gap:.5rem;}
+.step-label::before{content:attr(data-step);background:var(--red-dim);border:1px solid rgba(239,68,68,.4);color:var(--red-lt);font-size:.55rem;padding:.15rem .45rem;border-radius:3px;}
+.step-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white);margin-bottom:.35rem;}
+.step-desc{font-size:.78rem;color:var(--body);margin-bottom:1.1rem;line-height:1.65;}
+
+/* Profile form grid */
+.profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;}
+@media(max-width:700px){.profile-grid{grid-template-columns:1fr;}}
+.form-group{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.25rem;}
+.form-group.full-width{grid-column:1/-1;}
+.fg-label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.65rem;display:block;}
+.fg-hint{font-size:.7rem;color:var(--body);margin-top:.35rem;line-height:1.5;}
+
+/* Checkbox/radio option cards */
+.option-row{display:flex;flex-direction:column;gap:.45rem;}
+.opt-label{display:flex;align-items:flex-start;gap:.7rem;cursor:pointer;padding:.55rem .7rem;border-radius:var(--radius);border:1px solid transparent;transition:all .15s;}
+.opt-label:hover{background:var(--bg-3);border-color:var(--border);}
+.opt-label input[type=checkbox], .opt-label input[type=radio]{margin-top:.15rem;flex-shrink:0;accent-color:var(--red);}
+.opt-label.selected{background:var(--red-dim);border-color:rgba(239,68,68,.35);}
+.opt-title{font-size:.78rem;color:var(--bright);font-weight:500;line-height:1.3;}
+.opt-sub{font-size:.68rem;color:var(--body);margin-top:.15rem;line-height:1.45;}
+
+/* Toggle pair */
+.toggle-pair{display:flex;gap:.5rem;}
+.toggle-btn{flex:1;font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;padding:.55rem .8rem;border-radius:var(--radius);border:1px solid var(--border);background:transparent;color:var(--body);cursor:pointer;transition:all .15s;text-align:center;}
+.toggle-btn:hover{border-color:var(--border-2);color:var(--text);}
+.toggle-btn.active-yes{border-color:rgba(239,68,68,.5);background:var(--red-dim);color:var(--red-lt);}
+.toggle-btn.active-no{border-color:var(--border-2);background:var(--bg-3);color:var(--text);}
+
+/* Generate button */
+.run-row{display:flex;align-items:center;gap:1rem;margin:1.5rem 0;flex-wrap:wrap;}
+.btn-run{font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600;background:var(--red);color:#fff;border:none;padding:.75rem 1.8rem;border-radius:var(--radius);cursor:pointer;transition:background .15s;}
+.btn-run:hover{background:var(--red-lt);color:#111;}
+.error-msg{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--red-lt);background:var(--red-dim);border:1px solid rgba(239,68,68,.3);padding:.55rem .85rem;border-radius:var(--radius);display:none;margin-top:.5rem;}
+.error-msg.visible{display:block;}
+
+/* Results */
+.results-panel{display:none;margin-top:.5rem;}
+.results-panel.visible{display:block;}
+.sec-divider{border:none;border-top:1px solid var(--border);margin:2rem 0;}
+
+/* Summary card */
+.summary-card{background:var(--bg-2);border:1px solid var(--border);border-left:4px solid var(--red);border-radius:var(--radius-xl);padding:1.25rem 1.5rem;margin-bottom:1.25rem;display:flex;flex-wrap:wrap;gap:1.5rem;align-items:flex-start;}
+.sc-stat{text-align:center;min-width:90px;}
+.sc-num{font-family:'DM Serif Display',serif;font-size:2.5rem;line-height:1;color:var(--red-lt);}
+.sc-lbl{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:.25rem;}
+.sc-divider{width:1px;background:var(--border);align-self:stretch;flex-shrink:0;}
+.sc-pci{flex:1;min-width:240px;}
+.sc-pci-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem;}
+.sc-pci-val{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright);margin-bottom:.25rem;}
+.sc-pci-desc{font-size:.73rem;color:var(--body);line-height:1.55;}
+
+/* Domain sections */
+.domain-section{margin-bottom:1.1rem;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-xl);overflow:hidden;}
+.domain-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;}
+.domain-title{font-family:'DM Serif Display',serif;font-size:.95rem;color:var(--white);}
+.domain-count{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);}
+.checklist-items{list-style:none;padding:.25rem 0;}
+.ci{padding:.65rem 1.25rem;border-bottom:1px solid var(--border);display:flex;gap:.9rem;align-items:flex-start;}
+.ci:last-child{border-bottom:none;}
+.ci:hover{background:rgba(255,255,255,.012);}
+.ci-icon{font-size:.85rem;flex-shrink:0;margin-top:.05rem;line-height:1.4;}
+.ci-body{flex:1;}
+.ci-title{font-size:.76rem;color:var(--bright);line-height:1.4;margin-bottom:.2rem;}
+.ci-detail{font-size:.7rem;color:var(--body);line-height:1.55;}
+.ci-tags{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.35rem;}
+.ci-tag{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.07em;text-transform:uppercase;padding:.13rem .4rem;border-radius:3px;border:1px solid;}
+.priority-high .ci-icon::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--red);margin-right:.35rem;vertical-align:middle;}
+.priority-med .ci-icon::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--gold);margin-right:.35rem;vertical-align:middle;}
+.priority-low .ci-icon::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--teal);margin-right:.35rem;vertical-align:middle;}
+
+/* Export */
+.export-row{display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1.5rem;}
+.btn-md{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;font-weight:600;background:var(--teal-dim);border:1px solid rgba(20,184,166,.4);color:var(--teal-lt);padding:.65rem 1.4rem;border-radius:var(--radius);cursor:pointer;transition:all .15s;}
+.btn-md:hover{background:rgba(20,184,166,.2);border-color:var(--teal-lt);}
+
+/* Citations */
+.citations{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.4rem;margin-top:1.5rem;}
+.cit-title{font-family:'JetBrains Mono',monospace;font-size:.53rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.7rem;}
+.cit-list{list-style:none;display:flex;flex-direction:column;gap:.35rem;}
+.cit-list li{font-size:.72rem;color:var(--body);line-height:1.55;padding-left:1.4rem;position:relative;}
+.cit-list li::before{content:attr(data-n);position:absolute;left:0;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--red-lt);font-weight:600;}
+
+@media(max-width:640px){
+  .nav-links a:not(:last-child){display:none;}
+  .summary-card{flex-direction:column;}
+  .sc-divider{display:none;}
+  }
+[dir="rtl"] body{text-align:right;}
+[dir="rtl"] .nav-inner,[dir="rtl"] [dir="rtl"] .cit-list li{padding-left:0;padding-right:1.4rem;}
+[dir="rtl"] .cit-list li::before{left:auto;right:0;}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-privacy::before{content:'\B7';color:var(--green)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<div class="ambient ambient-1"></div>
+<div class="ambient ambient-2"></div>
+
+<!-- Language bar -->
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<!-- Nav -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+    <div class="logo-text">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/bnpl-consumer-credit-hub.html">BNPL Hub</a><span class="nav-sep">/</span><span>T-188</span></div>
+
+    <a href="../guides/bnpl-consumer-credit-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<!-- Tool header -->
+<div class="hero"><div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+  <!-- Edu disclaimer (canonical §9.3) -->
+  <div class="edu-disclaimer">
+    <strong class="edu-disclaimer-label" data-i18n="disclaimer.label">Educational Use Only</strong>
+    <span data-i18n="disclaimer.body">This tool provides a self-assessment / educational framework for internal planning purposes only. It is not a regulatory audit, legal advice, or a substitute for a formal compliance review by a qualified advisor. Verify all interpretations against the official source text and applicable RTS/ITS/guidance published by the relevant authority.</span>
+  </div>
+
+
+  <div class="hero-eyebrow">
+    <span class="badge badge-cat">Cat-16 · BNPL</span>
+    <span class="badge badge-md">Markdown Export</span>
+    <span class="badge badge-neutral">Client-Side · Zero PII</span>
+  </div>
+  <h1 class="tool-title" data-i18n="h1">Merchant BNPL <em>Integration</em> Compliance Mapper</h1>
+  <p class="hero-desc" data-i18n="desc">Generate a tailored compliance obligation map for merchants integrating BNPL at checkout. Covers PCI DSS scope determination by integration method, per-jurisdiction regulatory disclosure requirements, and checkout UX standards. Outputs a prioritised checklist and downloadable Markdown integration guide.</p>
+  <div class="hero-meta meta-row">
+    <span class="meta-tag tag-red">PCI DSS v4.0</span>
+    <span class="meta-tag tag-red">FCA Fin. Promotions</span>
+    <span class="meta-tag tag-teal">EU CCD2</span>
+    <span class="meta-tag tag-gold">CFPB Reg Z Advertising</span>
+    <span class="meta-tag tag-green">Markdown Export</span>
+      </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+  
+</div></div>
+
+<!-- Main -->
+<div class="container" style="padding-top:1.75rem;padding-bottom:3rem;">
+
+  <!-- STEP 1: Merchant profile -->
+  <div class="step-section">
+    <div class="step-label" data-step="01" data-i18n="step1_label">Merchant Profile</div>
+    <div class="step-title" data-i18n="step1_title">Describe your BNPL integration</div>
+    <p class="step-desc" data-i18n="step1_desc">Four inputs are required. The compliance map is generated entirely from your answers — no data leaves your browser.</p>
+
+    <div class="profile-grid">
+
+      <!-- Jurisdictions -->
+      <div class="form-group">
+        <label class="fg-label" data-i18n="lbl_juris">Jurisdictions of operation</label>
+        <div class="option-row">
+          <label class="opt-label" id="opt-uk" onclick="toggleCheck('uk',this)">
+            <input type="checkbox" id="chk-uk" value="uk" onchange="syncLabel('uk')">
+            <div>
+              <div class="opt-title">🇬🇧 United Kingdom</div>
+              <div class="opt-sub">FCA Financial Promotions · FCA DPC · Consumer Duty</div>
+            </div>
+          </label>
+          <label class="opt-label" id="opt-eu" onclick="toggleCheck('eu',this)">
+            <input type="checkbox" id="chk-eu" value="eu" onchange="syncLabel('eu')">
+            <div>
+              <div class="opt-title">🇪🇺 European Union</div>
+              <div class="opt-sub">EU CCD2 · GDPR checkout data · Consumer Rights Directive</div>
+            </div>
+          </label>
+          <label class="opt-label" id="opt-us" onclick="toggleCheck('us',this)">
+            <input type="checkbox" id="chk-us" value="us" onchange="syncLabel('us')">
+            <div>
+              <div class="opt-title">🇺🇸 United States</div>
+              <div class="opt-sub">CFPB Reg Z advertising · UDAAP · State consumer protection</div>
+            </div>
+          </label>
+        </div>
+        <div id="jurisErr" class="error-msg" data-i18n="err_juris">Select at least one jurisdiction.</div>
+      </div>
+
+      <!-- Integration method -->
+      <div class="form-group">
+        <label class="fg-label" data-i18n="lbl_method">BNPL integration method</label>
+        <div class="option-row" id="methodGroup">
+          <label class="opt-label" onclick="setRadio('method','redirect',this)">
+            <input type="radio" name="method" value="redirect">
+            <div>
+              <div class="opt-title">Redirect — off-site checkout</div>
+              <div class="opt-sub">Consumer leaves merchant site to complete BNPL agreement on provider's domain. Lowest PCI scope impact.</div>
+            </div>
+          </label>
+          <label class="opt-label" onclick="setRadio('method','iframe',this)">
+            <input type="radio" name="method" value="iframe">
+            <div>
+              <div class="opt-title">Embedded iframe / hosted widget</div>
+              <div class="opt-sub">BNPL checkout embedded in merchant page via cross-origin iframe. Moderate scope: SAQ A-EP may apply.</div>
+            </div>
+          </label>
+          <label class="opt-label" onclick="setRadio('method','whitelabel',this)">
+            <input type="radio" name="method" value="whitelabel">
+            <div>
+              <div class="opt-title">White-label / co-branded checkout</div>
+              <div class="opt-sub">Merchant branding on BNPL flow, typically API-driven. Broader PCI and promotional compliance obligations.</div>
+            </div>
+          </label>
+          <label class="opt-label" onclick="setRadio('method','inhouse',this)">
+            <input type="radio" name="method" value="inhouse">
+            <div>
+              <div class="opt-title">In-house / own checkout with BNPL API</div>
+              <div class="opt-sub">Merchant-controlled checkout calls BNPL API directly. Highest PCI DSS scope. Full Req. 6.4.3 applies.</div>
+            </div>
+          </label>
+        </div>
+        <div id="methodErr" class="error-msg" data-i18n="err_method">Select an integration method.</div>
+      </div>
+
+      <!-- Promotes BNPL -->
+      <div class="form-group">
+        <label class="fg-label" data-i18n="lbl_promo">Do you promote or advertise BNPL in marketing materials?</label>
+        <div class="toggle-pair">
+          <button class="toggle-btn" id="promoYes" onclick="setPromo(true)" data-i18n="yes_btn">Yes — in emails, ads, site banners, social</button>
+          <button class="toggle-btn" id="promoNo" onclick="setPromo(false)" data-i18n="no_btn">No — checkout display only</button>
+        </div>
+        <p class="fg-hint" data-i18n="promo_hint">Advertising BNPL ("4 interest-free payments") triggers additional financial promotion and Reg Z advertising rules.</p>
+      </div>
+
+      <!-- Merchant type -->
+      <div class="form-group">
+        <label class="fg-label" data-i18n="lbl_type">Merchant type</label>
+        <div class="option-row" id="typeGroup">
+          <label class="opt-label" onclick="setRadio('type','ecommerce',this)">
+            <input type="radio" name="type" value="ecommerce">
+            <div>
+              <div class="opt-title">E-commerce only</div>
+              <div class="opt-sub">Online checkout only. No face-to-face BNPL agreements.</div>
+            </div>
+          </label>
+          <label class="opt-label" onclick="setRadio('type','physical',this)">
+            <input type="radio" name="type" value="physical">
+            <div>
+              <div class="opt-title">Physical retail / in-store</div>
+              <div class="opt-sub">BNPL offered at point of sale (kiosk, tablet, QR). Physical disclosure obligations apply.</div>
+            </div>
+          </label>
+          <label class="opt-label" onclick="setRadio('type','both',this)">
+            <input type="radio" name="type" value="both">
+            <div>
+              <div class="opt-title">Both online and in-store</div>
+              <div class="opt-sub">Full scope — digital and physical disclosure requirements.</div>
+            </div>
+          </label>
+        </div>
+        <div id="typeErr" class="error-msg" data-i18n="err_type">Select a merchant type.</div>
+      </div>
+
+    </div><!-- /profile-grid -->
+
+    <div class="run-row" style="margin-top:1.5rem;">
+      <button class="btn-run" onclick="generateMap()" data-i18n="gen_btn">Generate Compliance Map →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Results -->
+  <div class="results-panel" id="resultsPanel">
+    <hr class="sec-divider" style="margin-top:0;">
+    <div class="step-label" data-step="02" data-i18n="step2_label">Compliance Map</div>
+    <div class="step-title" data-i18n="step2_title">Merchant BNPL Integration Requirements</div>
+
+    <!-- Summary -->
+    <div class="summary-card" id="summaryCard" style="margin-top:1rem;"></div>
+
+    <!-- Domain checklists -->
+    <div id="domainSections"></div>
+
+    <!-- Export -->
+    <div class="export-row">
+      <button class="btn-md" onclick="exportMarkdown()" data-i18n="btn_md">⬇ Export Markdown Integration Guide</button>
+    </div>
+  </div>
+
+  <!-- Citations -->
+  <hr class="sec-divider">
+  <div class="citations">
+    <div class="cit-title">Source Notes &amp; Regulatory Citations</div>
+    <ul class="cit-list">
+      <li data-n="1">PCI DSS v4.0 (March 2022) — PCI Security Standards Council. SAQ A: card-not-present merchants that outsource all cardholder data functions. SAQ A-EP: e-commerce merchants using third-party payment pages with scripts on their own pages. Requirement 6.4.3: management of all payment page scripts loaded in consumer browsers.</li>
+      <li data-n="2">PCI DSS v4.0 Req. 12.8 — Third-Party Service Provider (TPSP) management. Merchants must maintain a register of TPSPs, obtain written acknowledgement of PCI DSS responsibility, and monitor compliance status annually.</li>
+      <li data-n="3">FCA Financial Services and Markets Act 2000, s.21 — restriction on financial promotions. Any communication inviting or inducing a person to enter into a consumer credit agreement must be approved by an FCA-authorised person or issued by one.</li>
+      <li data-n="4">FCA Consumer Credit sourcebook (CONC) 3.3 — financial promotions must be fair, clear and not misleading. CONC 3.5.5 — representative APR must be displayed in any promotion that includes specific credit terms or payment amounts. FCA PS24/3 — Consumer Duty application to BNPL financial promotions from July 2026.</li>
+      <li data-n="5">Directive 2023/2225/EU (CCD2) Art. 13 — obligation to inform consumer about BNPL at point of sale. Art. 10 — SECCI must be made available. Recital 29 — BNPL must not be presented as 'free' if charges may arise. Active affirmative consent required; pre-ticked BNPL boxes prohibited.</li>
+      <li data-n="6">12 CFR 1026.24 (Regulation Z) — BNPL advertising requirements. Advertising a specific payment amount ("4 payments of $X") triggers full disclosure of APR, total amount, and payment schedule per § 1026.24(d). CFPB interpretive rule (May 2024): 4-installment BNPL classified as closed-end credit.</li>
+      <li data-n="7">FCA Consumer Duty (PS22/9) — effective July 2023. Applies to all consumer-facing communications including BNPL checkout flows. Merchants acting as distribution chain must ensure outcomes are fair. Product governance obligations apply from July 2026 to newly regulated BNPL.</li>
+      <li data-n="8">Dark patterns in consumer finance: FCA DP22/2 (Consumer Duty); CFPB Circular 2022-04 (UDAAP); EU Unfair Commercial Practices Directive 2005/29/EC. Pre-selected BNPL, misleading countdown timers, and hiding total repayable cost are cited as unfair design practices.</li>
+      <li data-n="9">Methodology: compliance items generated deterministically from four merchant profile inputs. Priority levels: High (regulatory breach risk), Medium (best practice / enforcement focus), Low (standard hygiene). Client-side. Zero PII.</li>
+    </ul>
+  </div>
+
+</div><!-- /container -->
+
+<!-- Footer -->
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/bnpl-consumer-credit-hub.html"><span data-i18n="footer.hub_bnpl_consumer_credit">BNPL Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* =========================================================
+   T188 · Merchant BNPL Integration Compliance Mapper
+   AINumbers.co · Post Oak Labs · CC BY 4.0
+   Client-side only. Zero PII. No external requests.
+   ========================================================= */
+
+/* ----------------------------------------------------------
+   i18n
+   ---------------------------------------------------------- */
+var LANG = {
+  en:{
+    nav_all:'All Tools',nav_hub:'BNPL Hub',nav_t187:'← T187 FCA Readiness',
+    h1:'Merchant BNPL Integration Compliance Mapper',
+    desc:'Generate a tailored compliance obligation map for merchants integrating BNPL at checkout.',
+    step1_label:'Step 1 — Merchant Profile',step1_title:'Describe your BNPL integration',
+    step1_desc:'Four inputs are required. The compliance map is generated entirely in-browser — no data transmitted.',
+    lbl_juris:'Jurisdictions of operation',lbl_method:'BNPL integration method',
+    lbl_promo:'Do you promote or advertise BNPL in marketing materials?',
+    yes_btn:'Yes — in emails, ads, site banners, social',no_btn:'No — checkout display only',
+    promo_hint:'Advertising BNPL ("4 interest-free payments") triggers additional financial promotion and Reg Z advertising rules.',
+    lbl_type:'Merchant type',
+    err_juris:'Select at least one jurisdiction.',err_method:'Select an integration method.',err_type:'Select a merchant type.',
+    gen_btn:'Generate Compliance Map →',
+    step2_label:'Step 2 — Compliance Map',step2_title:'Merchant BNPL Integration Requirements',
+    btn_md:'⬇ Export Markdown Integration Guide',footer_all:'All Tools'
+  },
+  es:{
+    nav_all:'Todas las Herramientas',nav_hub:'Hub BNPL',nav_t187:'← T187 Cumplimiento FCA',
+    h1:'Mapeador de Cumplimiento de Integración BNPL para Comerciantes',
+    desc:'Genera un mapa de obligaciones de cumplimiento personalizado para comerciantes que integran BNPL en el pago.',
+    step1_label:'Paso 1 — Perfil del Comerciante',step1_title:'Describa su integración BNPL',
+    step1_desc:'Se requieren cuatro inputs. El mapa se genera en el navegador — no se transmiten datos.',
+    lbl_juris:'Jurisdicciones de operación',lbl_method:'Método de integración BNPL',
+    lbl_promo:'¿Promociona o publicita BNPL en materiales de marketing?',
+    yes_btn:'Sí — en emails, anuncios, banners, redes sociales',no_btn:'No — solo pantalla de pago',
+    promo_hint:'Publicitar BNPL activa reglas adicionales de promoción financiera y publicidad Reg Z.',
+    lbl_type:'Tipo de comerciante',
+    err_juris:'Seleccione al menos una jurisdicción.',err_method:'Seleccione un método de integración.',err_type:'Seleccione un tipo de comerciante.',
+    gen_btn:'Generar Mapa de Cumplimiento →',
+    step2_label:'Paso 2 — Mapa de Cumplimiento',step2_title:'Requisitos de Integración BNPL para Comerciantes',
+    btn_md:'⬇ Exportar Guía de Integración Markdown',footer_all:'Todas las Herramientas'
+  },
+  fr:{
+    nav_all:'Tous les Outils',nav_hub:'Hub BNPL',nav_t187:'← T187 Conformité FCA',
+    h1:'Cartographe de Conformité BNPL pour Marchands',
+    desc:'Générez une carte d\'obligations de conformité sur mesure pour les marchands intégrant le BNPL au paiement.',
+    step1_label:'Étape 1 — Profil Marchand',step1_title:'Décrivez votre intégration BNPL',
+    step1_desc:'Quatre inputs sont requis. La carte est générée dans le navigateur — aucune donnée transmise.',
+    lbl_juris:'Juridictions d\'opération',lbl_method:'Méthode d\'intégration BNPL',
+    lbl_promo:'Faites-vous la promotion du BNPL dans vos supports marketing ?',
+    yes_btn:'Oui — emails, publicités, bannières, réseaux sociaux',no_btn:'Non — affichage caisse uniquement',
+    promo_hint:'La promotion du BNPL déclenche des règles supplémentaires de promotion financière et Reg Z.',
+    lbl_type:'Type de marchand',
+    err_juris:'Sélectionnez au moins une juridiction.',err_method:'Sélectionnez une méthode d\'intégration.',err_type:'Sélectionnez un type de marchand.',
+    gen_btn:'Générer la Carte de Conformité →',
+    step2_label:'Étape 2 — Carte de Conformité',step2_title:'Exigences d\'Intégration BNPL pour Marchands',
+    btn_md:'⬇ Exporter le Guide d\'Intégration Markdown',footer_all:'Tous les Outils'
+  },
+  ar:{
+    nav_all:'جميع الأدوات',nav_hub:'مركز BNPL',nav_t187:'← T187 جاهزية FCA',
+    h1:'محدد متطلبات الامتثال لتكامل BNPL للتجار',
+    desc:'أنشئ خريطة التزامات امتثال مخصصة للتجار الذين يدمجون BNPL في الدفع.',
+    step1_label:'الخطوة 1 — ملف التاجر',step1_title:'صف تكاملك مع BNPL',
+    step1_desc:'أربعة مدخلات مطلوبة. يتم إنشاء الخريطة في المتصفح — لا تُرسل بيانات.',
+    lbl_juris:'مناطق الولاية القضائية',lbl_method:'طريقة تكامل BNPL',
+    lbl_promo:'هل تروج أو تُعلن عن BNPL في مواد تسويقية؟',
+    yes_btn:'نعم — في الإيميلات والإعلانات والبانرات',no_btn:'لا — عرض الدفع فقط',
+    promo_hint:'الإعلان عن BNPL يُفعّل قواعد إضافية.',
+    lbl_type:'نوع التاجر',
+    err_juris:'اختر ولاية قضائية واحدة على الأقل.',err_method:'اختر طريقة تكامل.',err_type:'اختر نوع التاجر.',
+    gen_btn:'إنشاء خريطة الامتثال ←',
+    step2_label:'الخطوة 2 — خريطة الامتثال',step2_title:'متطلبات تكامل BNPL للتجار',
+    btn_md:'⬇ تصدير دليل التكامل Markdown',footer_all:'جميع الأدوات'
+  },
+  pt:{
+    nav_all:'Todas as Ferramentas',nav_hub:'Hub BNPL',nav_t187:'← T187 Conformidade FCA',
+    h1:'Mapeador de Conformidade de Integração BNPL para Comerciantes',
+    desc:'Gere um mapa de obrigações de conformidade personalizado para comerciantes que integram BNPL no checkout.',
+    step1_label:'Passo 1 — Perfil do Comerciante',step1_title:'Descreva a sua integração BNPL',
+    step1_desc:'São necessários quatro inputs. O mapa é gerado no navegador — sem transmissão de dados.',
+    lbl_juris:'Jurisdições de operação',lbl_method:'Método de integração BNPL',
+    lbl_promo:'Promove ou publicita BNPL em materiais de marketing?',
+    yes_btn:'Sim — emails, anúncios, banners, redes sociais',no_btn:'Não — apenas exibição no checkout',
+    promo_hint:'Publicitar BNPL aciona regras adicionais de promoção financeira e Reg Z.',
+    lbl_type:'Tipo de comerciante',
+    err_juris:'Seleccione pelo menos uma jurisdição.',err_method:'Seleccione um método de integração.',err_type:'Seleccione um tipo de comerciante.',
+    gen_btn:'Gerar Mapa de Conformidade →',
+    step2_label:'Passo 2 — Mapa de Conformidade',step2_title:'Requisitos de Integração BNPL para Comerciantes',
+    btn_md:'⬇ Exportar Guia de Integração Markdown',footer_all:'Todas as Ferramentas'
+  },
+  zh:{
+    nav_all:'所有工具',nav_hub:'BNPL中心',nav_t187:'← T187 FCA合规',
+    h1:'商户BNPL集成合规映射器',
+    desc:'为在结账时集成BNPL的商户生成量身定制的合规义务映射。',
+    step1_label:'第1步 — 商户档案',step1_title:'描述您的BNPL集成方式',
+    step1_desc:'需要填写四个输入项。合规映射完全在浏览器中生成，不传输任何数据。',
+    lbl_juris:'运营司法管辖区',lbl_method:'BNPL集成方式',
+    lbl_promo:'您是否在营销材料中推广或宣传BNPL？',
+    yes_btn:'是 — 电子邮件、广告、横幅、社交媒体',no_btn:'否 — 仅结账页面显示',
+    promo_hint:'宣传BNPL（"4次免息付款"）会触发额外的金融促销和Reg Z广告规则。',
+    lbl_type:'商户类型',
+    err_juris:'请至少选择一个司法管辖区。',err_method:'请选择集成方式。',err_type:'请选择商户类型。',
+    gen_btn:'生成合规映射 →',
+    step2_label:'第2步 — 合规映射',step2_title:'商户BNPL集成要求',
+    btn_md:'⬇ 导出Markdown集成指南',footer_all:'所有工具'
+  }
+};
+
+/* ----------------------------------------------------------
+   State
+   ---------------------------------------------------------- */
+var state = {
+  jurisdictions: [],  // ['uk','eu','us']
+  method: null,       // 'redirect'|'iframe'|'whitelabel'|'inhouse'
+  promotesbnpl: null, // true|false
+  merchantType: null  // 'ecommerce'|'physical'|'both'
+};
+
+/* ----------------------------------------------------------
+   i18n
+   ---------------------------------------------------------- */
+var currentLang = 'en';
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+    'nav.hub': '← Cat-16 Hub',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.hub': '← Centro Cat-16',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+    'nav.hub': '← Centre Cat-16',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+    'nav.hub': '← مركز Cat-16',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.hub': '← Central Cat-16',
+  }, zh:{
+    'nav.alltools': '所有工具',
+    'nav.hub': '← Cat-16 中心',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+
+/* ----------------------------------------------------------
+   Input handlers
+   ---------------------------------------------------------- */
+function toggleCheck(id, labelEl) {
+  var chk = document.getElementById('chk-' + id);
+  // The click on the label will naturally toggle the checkbox
+  // We need to read the NEW state after toggle (done in syncLabel)
+  setTimeout(function(){ syncLabel(id); }, 0);
+}
+
+function syncLabel(id) {
+  var chk = document.getElementById('chk-' + id);
+  var lbl = document.getElementById('opt-' + id);
+  if (chk.checked) {
+    lbl.classList.add('selected');
+    if (state.jurisdictions.indexOf(id) === -1) state.jurisdictions.push(id);
+  } else {
+    lbl.classList.remove('selected');
+    state.jurisdictions = state.jurisdictions.filter(function(j){ return j !== id; });
+  }
+  document.getElementById('jurisErr').classList.remove('visible');
+}
+
+function setRadio(group, val, labelEl) {
+  /* De-select all options in group */
+  document.querySelectorAll('#' + group + 'Group .opt-label').forEach(function(l){ l.classList.remove('selected'); });
+  labelEl.classList.add('selected');
+  if (group === 'method') {
+    state.method = val;
+    document.getElementById('methodErr').classList.remove('visible');
+  }
+  if (group === 'type') {
+    state.merchantType = val;
+    document.getElementById('typeErr').classList.remove('visible');
+  }
+}
+
+function setPromo(val) {
+  state.promotesbnpl = val;
+  document.getElementById('promoYes').className = 'toggle-btn ' + (val ? 'active-yes' : '');
+  document.getElementById('promoNo').className  = 'toggle-btn ' + (!val ? 'active-no' : '');
+}
+
+/* ----------------------------------------------------------
+   Compliance item data
+   Domain structure: { id, title, items[] }
+   Item: { title, detail, priority:'high'|'med'|'low', tags[], cite }
+   ---------------------------------------------------------- */
+function buildItems(juris, method, promotes, mtype) {
+
+  var items = [];
+
+  /* ── PCI DSS (always) ── */
+  var pciDomain = { id:'pci', title:'PCI DSS v4.0 — Payment Security', icon:'🔐', items:[] };
+
+  /* SAQ determination based on integration method */
+  var saqType, saqDesc;
+  if (method === 'redirect') {
+    saqType = 'SAQ A';
+    saqDesc = 'Redirect integration: all payment functions outsourced. SAQ A eligible (6 requirements). No cardholder data handled by merchant servers.';
+  } else if (method === 'iframe') {
+    saqType = 'SAQ A-EP (review required)';
+    saqDesc = 'Embedded iframe: if scripts on your page could intercept cardholder data, SAQ A-EP or higher applies. Req. 6.4.3 script management is mandatory.';
+  } else {
+    saqType = 'SAQ D / QSA assessment likely';
+    saqDesc = 'White-label / in-house API integration: payment data flows through or is processed by merchant systems. Full PCI DSS v4.0 assessment recommended. Engage a Qualified Security Assessor.';
+  }
+
+  pciDomain.items.push({
+    title: 'SAQ scope determination: ' + saqType,
+    detail: saqDesc + ' [1]',
+    priority: method === 'redirect' ? 'low' : 'high',
+    tags: ['PCI DSS v4.0', saqType],
+    cite:'PCI DSS v4.0 SAQ Decision Tree [1]'
+  });
+
+  pciDomain.items.push({
+    title: 'Third-Party Service Provider (TPSP) register — BNPL provider entry',
+    detail: 'Add BNPL provider to your TPSP register (Req. 12.8.1). Obtain written acknowledgement of their PCI DSS responsibility scope (Req. 12.8.2). Verify their current AOC (Attestation of Compliance) or confirm Level 1 status on Visa/Mastercard published merchant lists. Review annually. [2]',
+    priority: 'high',
+    tags: ['Req. 12.8', 'TPSP'],
+    cite:'PCI DSS v4.0 Req. 12.8 [2]'
+  });
+
+  if (method === 'iframe' || method === 'whitelabel' || method === 'inhouse') {
+    pciDomain.items.push({
+      title: 'Payment page script management — Req. 6.4.3 (mandatory from March 2025)',
+      detail: 'All scripts loaded in consumer payment browsers must be: (a) authorised by a documented method, (b) integrity-assured (SRI hashes or equivalent), (c) inventoried. Implement Content Security Policy (CSP) headers to restrict script execution to known domains. [1]',
+      priority: 'high',
+      tags: ['Req. 6.4.3', 'CSP', 'SRI'],
+      cite:'PCI DSS v4.0 Req. 6.4.3 [1]'
+    });
+  }
+
+  if (method === 'whitelabel' || method === 'inhouse') {
+    pciDomain.items.push({
+      title: 'Network segmentation — isolate BNPL API call path',
+      detail: 'Ensure servers making BNPL API calls are segmented from general merchant systems. Implement firewall rules to restrict outbound calls to BNPL provider IP ranges only. Document segmentation as part of your PCI DSS scoping exercise. [1]',
+      priority: 'med',
+      tags: ['Req. 1', 'Network Segmentation'],
+      cite:'PCI DSS v4.0 Req. 1.3 [1]'
+    });
+  }
+
+  pciDomain.items.push({
+    title: 'Secure transmission of BNPL redirect / API tokens (TLS 1.2+)',
+    detail: 'All BNPL API communications and redirect tokens must use TLS 1.2 or higher (Req. 4.2.1). Validate server certificates; disable TLS 1.0 and 1.1 in all environments including development. Test with automated TLS scanning tools. [1]',
+    priority: 'med',
+    tags: ['Req. 4.2.1', 'TLS 1.2+'],
+    cite:'PCI DSS v4.0 Req. 4.2.1 [1]'
+  });
+
+  items.push(pciDomain);
+
+  /* ── UK FCA Financial Promotions ── */
+  if (juris.indexOf('uk') !== -1) {
+    var fcaDomain = { id:'fca', title:'🇬🇧 UK — FCA Financial Promotions & Consumer Duty', icon:'⚖️', items:[] };
+
+    fcaDomain.items.push({
+      title: 'Financial promotion approval — s.21 FSMA 2000',
+      detail: 'Any communication that promotes BNPL as a credit option — including checkout badges, landing page copy, or email callouts — is a financial promotion. It must be issued or approved by an FCA-authorised person before publication. Confirm that your BNPL provider covers merchant-facing promotions under their authorisation, or obtain standalone approval. [3]',
+      priority: 'high',
+      tags: ['s.21 FSMA', 'FCA Authorisation'],
+      cite:'FSMA 2000 s.21 [3]'
+    });
+
+    if (promotes) {
+      fcaDomain.items.push({
+        title: 'Representative APR disclosure in promotions — CONC 3.5.5',
+        detail: 'Any advertisement that includes a specific payment amount, number of instalments, or interest rate is a "triggered term" under CONC 3.5.5. This requires the representative APR to be displayed with equal prominence. For zero-interest BNPL: 0% APR representative must still appear. Example: "4 payments of £25" → must show "0% APR representative (variable)". [4]',
+        priority: 'high',
+        tags: ['CONC 3.5.5', 'Rep APR'],
+        cite:'FCA CONC 3.5.5 [4]'
+      });
+    }
+
+    fcaDomain.items.push({
+      title: 'Fair, clear and not misleading — CONC 3.3 & Consumer Duty',
+      detail: 'All BNPL checkout copy and promotional materials must meet the FCA\'s "fair, clear and not misleading" standard (CONC 3.3) and Consumer Duty outcomes (PS22/9). Avoid language that obscures the credit nature of BNPL ("try before you buy", "spread the cost for free" if fees are chargeable). Display total repayable amount prominently. [4][7]',
+      priority: 'high',
+      tags: ['CONC 3.3', 'Consumer Duty'],
+      cite:'FCA CONC 3.3 · PS22/9 [4][7]'
+    });
+
+    fcaDomain.items.push({
+      title: 'Product governance — Consumer Duty distribution chain',
+      detail: 'From July 2026, merchants acting in the BNPL distribution chain have product governance obligations under the Consumer Duty. Assess whether checkout design, targeting, or promotional timing could lead to foreseeable consumer harm. Document your product oversight process. [7]',
+      priority: 'med',
+      tags: ['Consumer Duty', 'PS22/9', 'Distribution Chain'],
+      cite:'FCA PS22/9 [7]'
+    });
+
+    items.push(fcaDomain);
+  }
+
+  /* ── EU CCD2 ── */
+  if (juris.indexOf('eu') !== -1) {
+    var euDomain = { id:'eu', title:'🇪🇺 EU — Consumer Credit Directive 2 (CCD2)', icon:'🏛️', items:[] };
+
+    euDomain.items.push({
+      title: 'Mandatory labelling of BNPL as credit at checkout — CCD2 Art. 13',
+      detail: 'CCD2 requires that BNPL be clearly labelled as a credit product at the point of sale. The checkout flow must use terms such as "credit", "loan", or "deferred payment agreement". Do not use "free" to describe BNPL unless all charges, including late fees, are genuinely impossible. [5]',
+      priority: 'high',
+      tags: ['CCD2 Art. 13', 'Labelling'],
+      cite:'CCD2 Art. 13 [5]'
+    });
+
+    euDomain.items.push({
+      title: 'SECCI availability at point of BNPL selection',
+      detail: 'The Standard European Consumer Credit Information (SECCI) document (CCD2 Annex II) must be made available to the consumer before they finalise their BNPL selection. The SECCI must be provided in a durable medium (downloadable PDF or email copy). [5]',
+      priority: 'high',
+      tags: ['CCD2 Art. 10', 'SECCI', 'Annex II'],
+      cite:'CCD2 Art. 10 & Annex II [5]'
+    });
+
+    euDomain.items.push({
+      title: 'Active affirmative consent — no pre-selected BNPL',
+      detail: 'CCD2 Recital 29 and Art. 10 require the consumer to actively select BNPL; pre-ticked boxes or default BNPL selection at checkout are prohibited. Implement an explicit opt-in (radio button or distinct CTA). Retain timestamped record of consumer acceptance. [5]',
+      priority: 'high',
+      tags: ['CCD2 Art. 10', 'Active Consent'],
+      cite:'CCD2 Recital 29 [5]'
+    });
+
+    euDomain.items.push({
+      title: 'Display installment schedule and total repayable before confirmation',
+      detail: 'Before the consumer confirms the BNPL agreement, display: number of installments, amount of each installment, dates, APR, and total amount repayable. This information must be on a summary screen prior to the final confirmation click. [5]',
+      priority: 'med',
+      tags: ['CCD2 Art. 10', 'Disclosure'],
+      cite:'CCD2 Art. 10 [5]'
+    });
+
+    if (promotes) {
+      euDomain.items.push({
+        title: 'BNPL advertising — representative APR and total cost disclosure',
+        detail: 'Any EU marketing referencing a specific payment amount or period ("3 × €33") must include the APR and total repayable amount with no less prominence (CCD2 Art. 11). Early-stage draft member state transpositions may add further restrictions — check applicable national law. [5]',
+        priority: 'high',
+        tags: ['CCD2 Art. 11', 'Advertising'],
+        cite:'CCD2 Art. 11 [5]'
+      });
+    }
+
+    items.push(euDomain);
+  }
+
+  /* ── US CFPB Reg Z ── */
+  if (juris.indexOf('us') !== -1) {
+    var usDomain = { id:'us', title:'🇺🇸 US — CFPB Regulation Z & UDAAP', icon:'🏦', items:[] };
+
+    if (promotes) {
+      usDomain.items.push({
+        title: 'Reg Z advertising — triggering terms require full APR disclosure (§ 1026.24)',
+        detail: 'Under 12 CFR 1026.24(d), advertising any specific payment amount ("pay in 4 installments"), down payment, number of payments, or finance charge triggers the requirement to disclose: (1) the amount or percentage of any down payment, (2) the terms of repayment, and (3) the annual percentage rate. Omitting APR from ads that mention payment amounts is a Reg Z violation. [6]',
+        priority: 'high',
+        tags: ['12 CFR 1026.24', 'APR', 'Triggering Terms'],
+        cite:'12 CFR 1026.24(d) [6]'
+      });
+
+      usDomain.items.push({
+        title: 'UDAAP — deceptive BNPL advertising practices',
+        detail: 'The CFPB has identified BNPL advertising as an active UDAAP enforcement focus (Supervisory Highlights, Spring 2023). Avoid: (a) describing BNPL as "interest-free" if late fees apply, (b) downplaying credit impact, (c) omitting total cost. Review all BNPL copy against UDAAP unfair, deceptive, and abusive standards. [7]',
+        priority: 'high',
+        tags: ['UDAAP', 'CFPB 2023'],
+        cite:'CFPB Supervisory Highlights Spring 2023 [7]'
+      });
+    }
+
+    usDomain.items.push({
+      title: 'Closed-end credit disclosure placement at checkout (§ 1026.18)',
+      detail: 'CFPB\'s May 2024 interpretive rule classifies 4-installment BNPL as closed-end credit. The mandatory § 1026.18 disclosures (amount financed, finance charge, APR, payment schedule) must be provided to the consumer before consummation. Confirm your BNPL provider\'s checkout flow includes these disclosures and that your integration does not suppress them. [6]',
+      priority: 'high',
+      tags: ['§ 1026.18', 'CFPB 2024', 'Closed-End'],
+      cite:'12 CFR 1026.18 · CFPB May 2024 [6]'
+    });
+
+    usDomain.items.push({
+      title: 'Billing error / dispute resolution visibility',
+      detail: 'Ensure the checkout flow clearly communicates the dispute resolution pathway to consumers (12 CFR 1026.13). A link to the BNPL provider\'s dispute process must be accessible at or before agreement. For white-label integrations, confirm whether error resolution obligations fall on the merchant or provider under your contract. [6]',
+      priority: 'med',
+      tags: ['§ 1026.13', 'Dispute Resolution'],
+      cite:'12 CFR 1026.13 [6]'
+    });
+
+    items.push(usDomain);
+  }
+
+  /* ── UX Standards (always) ── */
+  var uxDomain = { id:'ux', title:'Checkout UX & Disclosure Standards', icon:'🖥️', items:[] };
+
+  uxDomain.items.push({
+    title: 'No pre-selection of BNPL as default payment method',
+    detail: 'BNPL must never be the pre-selected or default payment option at checkout. Consumers must actively choose BNPL over other payment methods. Pre-selection is cited as an unfair design practice by the FCA (DP22/2), CFPB (Circular 2022-04), and EU Unfair Commercial Practices Directive. [8]',
+    priority: 'high',
+    tags: ['Dark Patterns', 'FCA DP22/2', 'CFPB'],
+    cite:'FCA DP22/2 · CFPB Circular 2022-04 [8]'
+  });
+
+  uxDomain.items.push({
+    title: 'Total repayable amount visible before final confirmation',
+    detail: 'Before the consumer clicks the final "confirm purchase" or "place order" button, display a clear summary showing: total repayable amount, installment schedule, and any fees that may apply (late fees, administration fees). This must be a dedicated confirmation step, not merely a footnote. [5][8]',
+    priority: 'high',
+    tags: ['Total Cost', 'Summary Screen'],
+    cite:'CCD2 Art. 10 · FCA Consumer Duty [5][7]'
+  });
+
+  uxDomain.items.push({
+    title: 'Returns and refund interaction disclosure',
+    detail: 'Clearly disclose at checkout how returns and refunds interact with the BNPL arrangement. Consumers must understand: (a) whether missed installments continue during a pending return, (b) refund timelines, (c) who to contact for credit disputes. Failure to disclose creates complaint risk and potential UDAAP/Consumer Duty breach. [7][8]',
+    priority: 'high',
+    tags: ['Returns Policy', 'Consumer Duty'],
+    cite:'FCA Consumer Duty · CFPB Supervisory Highlights [7]'
+  });
+
+  uxDomain.items.push({
+    title: 'No misleading urgency or scarcity cues near BNPL option',
+    detail: 'Countdown timers, "only X left at this price with BNPL", or urgency prompts placed near the BNPL selection are dark patterns cited by regulators. Ensure BNPL promotional copy is static, factual, and consistent across the shopping session. [8]',
+    priority: 'med',
+    tags: ['Dark Patterns', 'UX Standards'],
+    cite:'FCA DP22/2 · EU UCPD [8]'
+  });
+
+  if (mtype === 'physical' || mtype === 'both') {
+    uxDomain.items.push({
+      title: 'In-store / kiosk: physical disclosure document available',
+      detail: 'For in-store BNPL agreements, the pre-contractual disclosure (SECCI / PCCI equivalent) must be available in physical form or on the device used for agreement. Store staff must be trained on BNPL disclosure requirements. UK: s.61 CCA 1974 applies to in-store agreements. [3][5]',
+      priority: 'med',
+      tags: ['In-Store', 'Physical Disclosure'],
+      cite:'CCA 1974 s.61 · CCD2 Art. 10 [3][5]'
+    });
+  }
+
+  uxDomain.items.push({
+    title: 'Complaints escalation pathway accessible from BNPL checkout',
+    detail: 'Link to the complaints / dispute process must be accessible within the BNPL checkout journey (not only in footer or T&Cs). UK: FOS escalation must be mentioned. EU: ADR scheme must be disclosed. US: CFPB billing error process link recommended. [4][5][6]',
+    priority: 'med',
+    tags: ['Complaints', 'FOS', 'ADR'],
+    cite:'FCA DISP · CCD2 · 12 CFR 1026.13 [4][5][6]'
+  });
+
+  items.push(uxDomain);
+
+  return items;
+}
+
+/* ----------------------------------------------------------
+   Determine PCI SAQ label
+   ---------------------------------------------------------- */
+function getSaqLabel(method) {
+  if (method === 'redirect') return 'SAQ A';
+  if (method === 'iframe') return 'SAQ A-EP (review required)';
+  return 'SAQ D / QSA Assessment';
+}
+
+/* ----------------------------------------------------------
+   generateMap — main function (called from Run button & MCP)
+   ---------------------------------------------------------- */
+function generateMap() {
+  /* Validate */
+  var valid = true;
+  if (state.jurisdictions.length === 0) { document.getElementById('jurisErr').classList.add('visible'); valid=false; }
+  if (!state.method)        { document.getElementById('methodErr').classList.add('visible'); valid=false; }
+  if (!state.merchantType)  { document.getElementById('typeErr').classList.add('visible'); valid=false; }
+  if (state.promotesbnpl === null) { state.promotesbnpl = false; setPromo(false); }
+  if (!valid) return;
+
+  var domains = buildItems(state.jurisdictions, state.method, state.promotesbnpl, state.merchantType);
+
+  /* Count totals */
+  var total = 0, highCount = 0;
+  domains.forEach(function(d){ d.items.forEach(function(i){ total++; if(i.priority==='high') highCount++; }); });
+
+  /* Summary card */
+  var saqLabel = getSaqLabel(state.method);
+  var jurisLabels = { uk:'🇬🇧 UK', eu:'🇪🇺 EU', us:'🇺🇸 US' };
+  var jurisStr = state.jurisdictions.map(function(j){ return jurisLabels[j]; }).join(' · ');
+  document.getElementById('summaryCard').innerHTML =
+    '<div class="sc-stat"><div class="sc-num">' + total + '</div><div class="sc-lbl">Total Items</div></div>' +
+    '<div class="sc-divider"></div>' +
+    '<div class="sc-stat"><div class="sc-num" style="color:var(--red-lt)">' + highCount + '</div><div class="sc-lbl">High Priority</div></div>' +
+    '<div class="sc-divider"></div>' +
+    '<div class="sc-pci">' +
+      '<div class="sc-pci-title">PCI DSS Scope</div>' +
+      '<div class="sc-pci-val">' + saqLabel + '</div>' +
+      '<div class="sc-pci-desc">Jurisdictions: ' + jurisStr + ' · Integration: ' + state.method + ' · ' + (state.promotesbnpl ? 'Marketing active' : 'Checkout only') + '</div>' +
+    '</div>';
+
+  /* Domain sections */
+  var html = '';
+  var priorityIcon = { high:'🔴', med:'🟡', low:'🟢' };
+  domains.forEach(function(domain) {
+    html += '<div class="domain-section">';
+    html += '<div class="domain-header">';
+    html += '<span class="domain-title">' + domain.icon + ' ' + domain.title + '</span>';
+    html += '<span class="domain-count">' + domain.items.length + ' items</span>';
+    html += '</div>';
+    html += '<ul class="checklist-items">';
+    domain.items.forEach(function(item) {
+      html += '<li class="ci priority-' + item.priority + '">';
+      html += '<div class="ci-icon">' + priorityIcon[item.priority] + '</div>';
+      html += '<div class="ci-body">';
+      html += '<div class="ci-title">' + item.title + '</div>';
+      html += '<div class="ci-detail">' + item.detail + '</div>';
+      html += '<div class="ci-tags">';
+      item.tags.forEach(function(tag) {
+        html += '<span class="ci-tag meta-tag tag-' + (item.priority==='high'?'red':item.priority==='med'?'gold':'teal') + '">' + tag + '</span>';
+      });
+      html += '</div></div></li>';
+    });
+    html += '</ul></div>';
+  });
+  document.getElementById('domainSections').innerHTML = html;
+
+  document.getElementById('resultsPanel').classList.add('visible');
+  setTimeout(function(){ document.getElementById('resultsPanel').scrollIntoView({behavior:'smooth',block:'start'}); }, 100);
+}
+
+/* ----------------------------------------------------------
+   Markdown export
+   ---------------------------------------------------------- */
+function exportMarkdown() {
+  if (!document.getElementById('resultsPanel').classList.contains('visible')) return;
+
+  var now = new Date().toISOString().slice(0,10);
+  var jurisLabels = { uk:'United Kingdom (FCA)', eu:'European Union (CCD2)', us:'United States (CFPB Reg Z)' };
+  var methodLabels = { redirect:'Redirect (off-site)', iframe:'Embedded iframe / hosted widget', whitelabel:'White-label / co-branded', inhouse:'In-house / own checkout with BNPL API' };
+  var typeLabels = { ecommerce:'E-commerce only', physical:'Physical retail only', both:'Both online and in-store' };
+  var jurisStr = state.jurisdictions.map(function(j){ return jurisLabels[j]||j; }).join(', ');
+  var saqLabel = getSaqLabel(state.method);
+
+  var md = '# Merchant BNPL Integration Compliance Guide\n\n';
+  md += '> Generated by AINumbers.co T188 — Merchant BNPL Integration Compliance Mapper  \n';
+  md += '> Date: ' + now + ' · Tool version: 1.0.0 · CC BY 4.0 · Post Oak Labs  \n';
+  md += '> **Client-side only. Zero PII. No data transmitted.**\n\n';
+  md += '---\n\n';
+  md += '## Merchant Profile\n\n';
+  md += '| Parameter | Value |\n';
+  md += '|---|---|\n';
+  md += '| Jurisdictions | ' + jurisStr + ' |\n';
+  md += '| Integration method | ' + (methodLabels[state.method]||state.method) + ' |\n';
+  md += '| Promotes BNPL in marketing | ' + (state.promotesbnpl ? 'Yes' : 'No') + ' |\n';
+  md += '| Merchant type | ' + (typeLabels[state.merchantType]||state.merchantType) + ' |\n';
+  md += '| **PCI DSS SAQ scope** | **' + saqLabel + '** |\n\n';
+  md += '---\n\n';
+
+  var domains = buildItems(state.jurisdictions, state.method, state.promotesbnpl, state.merchantType);
+  var priorityLabel = { high:'🔴 HIGH', med:'🟡 MEDIUM', low:'🟢 LOW' };
+
+  domains.forEach(function(domain) {
+    md += '## ' + domain.icon + ' ' + domain.title + '\n\n';
+    domain.items.forEach(function(item, idx) {
+      md += '### ' + (idx+1) + '. ' + item.title + '\n\n';
+      md += '**Priority:** ' + (priorityLabel[item.priority]||item.priority) + '  \n';
+      md += '**Tags:** ' + item.tags.join(' · ') + '  \n';
+      md += '**Citation:** ' + item.cite + '\n\n';
+      /* Strip citation brackets from detail for Markdown */
+      md += item.detail.replace(/\s*\[\d+\]/g,'') + '\n\n';
+    });
+    md += '---\n\n';
+  });
+
+  md += '## Regulatory References\n\n';
+  md += '1. PCI DSS v4.0 — PCI Security Standards Council (March 2022)\n';
+  md += '2. PCI DSS v4.0 Requirement 12.8 — Third-Party Service Provider management\n';
+  md += '3. Financial Services and Markets Act 2000, s.21 — financial promotions restriction\n';
+  md += '4. FCA Consumer Credit sourcebook (CONC) 3.3, 3.5.5 — financial promotions\n';
+  md += '5. Directive 2023/2225/EU (CCD2) — Art. 10, 11, 13; Annex II (SECCI)\n';
+  md += '6. 12 CFR Part 1026 (Reg Z) — CFPB BNPL interpretive rule May 2024\n';
+  md += '7. FCA Consumer Duty (PS22/9) · CFPB Supervisory Highlights Spring 2023\n';
+  md += '8. FCA DP22/2 · CFPB Circular 2022-04 · EU Unfair Commercial Practices Directive 2005/29/EC\n\n';
+  md += '*This guide is generated by a deterministic rule engine. It does not constitute legal advice. Consult qualified legal counsel before making compliance decisions.*\n';
+
+  /* Download */
+  var blob = new Blob([md], {type:'text/markdown;charset=utf-8'});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href = url;
+  a.download = 'merchant-bnpl-compliance-guide-' + now + '.md';
+  a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+</script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "merchant-bnpl-compliance-mapper", "version": "1.0.0", "title": "Merchant BNPL Integration Compliance Mapper — AINumbers.co", "description": "Map compliance obligations for merchants integrating BNPL at checkout. Covers PCI DSS scope determination, Reg Z advertising rules, FCA Financial Promotions, EU CCD2 checkout standards, and UX disclosure requirements.", "category": "bnpl-consumer-credit", "tags": ["Cat-16 · BNPL", "Markdown Export", "Client-Side · Zero PII"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"chk-uk": {"type": "string"}, "chk-eu": {"type": "string"}, "chk-us": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "merchant_bnpl_compliance_mapper", "description": "Run Merchant BNPL Integration Compliance Mapper — AINumbers.co. Map compliance obligations for merchants integrating BNPL at checkout. Covers PCI DSS scope determination, Reg Z advertising rules, FCA Financial Promotions, EU CCD2 checkout standards, and UX disclos", "inputSchema": {"type": "object", "properties": {"chk-uk": {"type": "string"}, "chk-eu": {"type": "string"}, "chk-us": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/188-merchant-bnpl-compliance-mapper.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+{
+  "tool_id": "rtp-fraud-velocity-rule-builder",
+  "version": "1.0.0",
+  "title": "Real-Time Payment Fraud Velocity Rule Builder",
+  "description": "Configures and validates fraud velocity rules within the sub-second RTP authorisation window (250ms–1,000ms) for FedNow, RTP/TCH, Faster Payments, PIX, SEPA Instant, and PayNow. Covers mule account detection, reverse-push/refund patterns, velocity thresholds, rule conflict detection, and latency budget waterfall analysis. Outputs structured rule pseudocode and AP2 JSON RTP fraud policy. Scope: sub-second authorisation path only — distinct from Tool 05 (A2A invoice velocity) and Tool 80 (fraud investigation). Client-side. Zero PII.",
+  "category": "cat-21",
+  "tags": [
+    "RTP fraud",
+    "velocity rules",
+    "FedNow",
+    "real-time payments",
+    "fraud monitoring",
+    "mule detection",
+    "push payment fraud",
+    "latency budget",
+    "rule conflict detection",
+    "AP2",
+    "export",
+    "sub-second authorisation"
+  ],
+  "audience": ["engineer", "fraud analyst", "compliance", "payments architect"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "rail": {
+        "type": "string",
+        "enum": ["fednow", "rtp", "fps", "pix", "sepa_inst", "paynow"],
+        "description": "Target real-time payment rail"
+      },
+      "latency_budget_ms": {
+        "type": "integer",
+        "enum": [250, 500, 750, 1000],
+        "description": "Maximum permissible latency for the entire rule set in the authorisation path"
+      },
+      "rules": {
+        "type": "array",
+        "maxItems": 6,
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["velocity_count", "velocity_amount", "mule_detection", "reverse_push", "amount_anomaly", "device_ip_vel"]
+            },
+            "window_seconds": { "type": "integer", "enum": [60, 300, 900, 3600, 86400] },
+            "customer_risk_tier": { "type": "string", "enum": ["all", "high", "medium", "low"] },
+            "threshold_count": { "type": "integer", "minimum": 1 },
+            "threshold_amount": { "type": "number", "minimum": 0 },
+            "action": { "type": "string", "enum": ["block", "hold", "alert", "monitor"] }
+          },
+          "required": ["type", "window_seconds", "action"]
+        },
+        "description": "Array of fraud velocity rules to evaluate"
+      }
+    },
+    "required": ["rail", "latency_budget_ms", "rules"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "total_rule_latency_ms": { "type": "integer" },
+      "budget_compliant": { "type": "boolean" },
+      "budget_remaining_ms": { "type": "integer" },
+      "conflict_count": { "type": "integer" },
+      "critical_conflicts": { "type": "integer" },
+      "rules": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "rule_index": { "type": "integer" },
+            "rule_type": { "type": "string" },
+            "rule_label": { "type": "string" },
+            "estimated_latency_ms": { "type": "integer" },
+            "reject_code": { "type": "string" },
+            "action": { "type": "string" }
+          }
+        }
+      },
+      "agent_instructions": { "type": "array", "items": { "type": "string" } },
+      "ap2_mandate": { "type": "object" }
+    },
+    "required": ["total_rule_latency_ms", "budget_compliant", "conflict_count", "rules", "ap2_mandate"]
+  },
+  "mcp_tool_definition": {
+    "name": "build_rtp_fraud_velocity_rules",
+    "description": "Builds and validates a fraud velocity rule set for the sub-second RTP payment authorisation path. Checks latency budget compliance, detects rule conflicts, and generates structured pseudocode and an AP2 JSON fraud policy. Use when a fraud engineer or compliance agent needs to configure velocity rules for FedNow, RTP/TCH, Faster Payments, PIX, SEPA Instant, or PayNow within the real-time authorisation SLA. Distinct from Tool 05 (A2A invoice velocity) and Tool 80 (post-payment fraud investigation).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "rail": { "type": "string", "enum": ["fednow", "rtp", "fps", "pix", "sepa_inst", "paynow"] },
+        "latency_budget_ms": { "type": "integer", "enum": [250, 500, 750, 1000] },
+        "rules": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "enum": ["velocity_count", "velocity_amount", "mule_detection", "reverse_push", "amount_anomaly", "device_ip_vel"] },
+              "window_seconds": { "type": "integer" },
+              "action": { "type": "string", "enum": ["block", "hold", "alert", "monitor"] },
+              "threshold_count": { "type": "integer" },
+              "threshold_amount": { "type": "number" }
+            },
+            "required": ["type", "window_seconds", "action"]
+          }
+        }
+      },
+      "required": ["rail", "latency_budget_ms", "rules"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/256-rtp-fraud-velocity-rule-builder.html",
+    "function_name": "buildRTPFraudVelocityRules",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true
+}

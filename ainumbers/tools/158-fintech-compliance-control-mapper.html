@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Fintech Compliance Control Mapper · AINumbers.co</title>
+<meta name="description" content="Map BaaS-specific compliance controls across Reg E, UDAAP, card network obligations, and sponsor bank programme management. Heatmap, maturity score, and Policy Mandate JSON control register. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/158-fintech-compliance-mapper.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Fintech Compliance Control Mapper","url":"https://ainumbers.co/tools/166-fintech-compliance-mapper.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "fintech-compliance-control-mapper",
+  "version": "1.0.0",
+  "title": "Fintech Compliance Control Mapper",
+  "description": "Maps BaaS-specific compliance controls across Reg E, UDAAP, card network obligations, and sponsor bank programme management. Outputs maturity heatmap, composite score, and AP2 JSON control register.",
+  "category": "cat-14",
+  "tags": ["Reg E","UDAAP","card network","BaaS","compliance","fintech","sponsor bank","control register","AP2"],
+  "audience": ["compliance","engineer","product"],
+  "input_schema": {"type":"object","properties":{"programme_type":{"type":"string"},"controls":{"type":"array","items":{"type":"object","properties":{"domain":{"type":"string"},"control_id":{"type":"string"},"maturity":{"type":"integer","minimum":1,"maximum":5}}}}},"required":["programme_type","controls"]},
+  "output_schema": {"type":"object","properties":{"composite_score":{"type":"number"},"domain_scores":{"type":"object"},"critical_gaps":{"type":"array","items":{"type":"string"}},"ap2_mandate":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"map_fintech_compliance_controls","description":"Maps and scores BaaS fintech compliance controls across Reg E, UDAAP, card network, and sponsor bank domains. Returns maturity scores and AP2 JSON control register.","inputSchema":{"type":"object","properties":{"programme_type":{"type":"string","description":"BaaS programme type: debit_card, credit_card, stored_value, lending"},"controls":{"type":"array","description":"Array of control maturity ratings per domain"}},"required":["programme_type"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/166-fintech-compliance-mapper.html","function_name":"runAssessment","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+/* Edu disclaimer (canonical §9.3) */
+.edu-disclaimer {
+  border: 1px solid var(--warn);
+  border-left: 3px solid var(--warn);
+  background: rgba(245, 158, 11, 0.06);
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  font-size: 0.76rem;
+  color: var(--body);
+  line-height: 1.7;
+  border-radius: var(--radius);
+}
+.edu-disclaimer-label {
+  display: block;
+  color: var(--warn);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--gold-lt:#F0C060;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1040px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(212,168,71,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(212,168,71,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1040px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--gold);color:var(--gold)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1040px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}.nav-trail a:hover{color:var(--gold)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}.nav-sep{color:var(--border-2)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--gold)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--gold-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:640px;line-height:1.8;margin-bottom:1.25rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.scope-note{background:var(--gold-dim);border:1px solid rgba(212,168,71,.2);border-radius:var(--radius);padding:.65rem 1rem;font-size:.72rem;color:var(--gold);margin-bottom:1.5rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.tool-grid{display:grid;grid-template-columns:300px 1fr;gap:1.5rem;align-items:start}
+@media(max-width:820px){.tool-grid{grid-template-columns:1fr}}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.panel-body{padding:1.25rem}
+.field{margin-bottom:1rem}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.field select,.field input{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.75rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none;transition:border-color .2s;-webkit-appearance:none}
+.field select:focus,.field input:focus{border-color:var(--gold)}
+.domain-section{margin-bottom:1.25rem}
+.domain-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:.6rem;padding-bottom:.35rem;border-bottom:1px solid var(--border)}
+.control-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;gap:.5rem}
+.ctrl-name{font-size:.68rem;color:var(--text);flex:1;line-height:1.4}
+.maturity-sel{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.22rem .5rem;border-radius:3px;outline:none;-webkit-appearance:none;cursor:pointer;min-width:52px;text-align:center}
+.maturity-sel:focus{border-color:var(--gold)}
+.run-btn{width:100%;background:var(--gold);color:var(--bg);border:none;padding:.65rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.85rem}
+.run-btn:hover{background:var(--gold-lt)}
+.output-panel{display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.out-body{padding:1.25rem}
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border)}
+@media(max-width:600px){.metrics-grid{grid-template-columns:repeat(2,1fr)}}
+.metric-cell{background:var(--bg-2);padding:.85rem 1rem;text-align:center}
+.metric-val{font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--bright);line-height:1}
+.metric-val.gold{color:var(--gold)}.metric-val.teal{color:var(--teal)}.metric-val.green{color:var(--green)}.metric-val.red{color:var(--red)}.metric-val.warn{color:var(--warn)}
+.metric-lbl{font-family:'JetBrains Mono',monospace;font-size:.4rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:.25rem}
+/* Heatmap */
+.heatmap{display:grid;grid-template-columns:1fr;gap:1px;background:var(--border)}
+.hm-row{display:grid;grid-template-columns:160px 1fr auto auto;gap:1px;background:var(--border);align-items:center}
+.hm-cell{background:var(--bg-2);padding:.55rem .85rem;font-size:.68rem}
+.hm-domain{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.hm-bar-wrap{background:var(--bg-2);padding:.55rem .85rem}
+.hm-bar{height:8px;border-radius:3px;transition:width .4s}
+.hm-score{font-family:'JetBrains Mono',monospace;font-size:.65rem;font-weight:500;padding:.55rem .85rem;background:var(--bg-2);text-align:center;min-width:48px}
+.hm-level{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;padding:.55rem .85rem;background:var(--bg-2);min-width:80px}
+/* Gaps */
+.gap-list{display:flex;flex-direction:column;gap:.5rem}
+.gap-item{display:flex;align-items:flex-start;gap:.75rem;padding:.65rem .85rem;border-radius:var(--radius);border:1px solid var(--border)}
+.gap-item.critical{border-color:rgba(239,68,68,.3);background:var(--red-dim)}
+.gap-item.moderate{border-color:rgba(245,158,11,.3);background:var(--warn-dim)}
+.gap-dot{width:8px;height:8px;border-radius:50%;margin-top:.35rem;flex-shrink:0}
+.gap-dot.critical{background:var(--red)}.gap-dot.moderate{background:var(--warn)}
+.gap-text{font-size:.7rem;color:var(--text);line-height:1.5}
+.gap-domain{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.15rem}
+/* AP2 + memo */
+.code-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal);line-height:1.7;white-space:pre-wrap;overflow-x:auto;max-height:320px;overflow-y:auto}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.72rem;color:var(--body);line-height:1.8;white-space:pre-wrap}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--gold);color:var(--gold)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+/* 5D-nav-bc-v1 */
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-privacy::before{content:'·';color:var(--green)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick='setLang("zh")'>中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/embedded-finance-baas-hub.html">BaaS Hub</a><span class="nav-sep">/</span><span>T-158</span></div>
+
+    <a href="../guides/embedded-finance-baas-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-14 · T166 · Embedded Finance &amp; BaaS Infrastructure</div>
+  <h1 class="tool-title">Fintech Compliance <em>Control Mapper</em></h1>
+  <p class="hero-desc">Map and score BaaS-specific compliance controls across Reg E, UDAAP, card network obligations, and sponsor bank programme management. Outputs maturity heatmap, gap register, control Policy Mandate JSON, and Markdown compliance memo. Explicitly excludes general AML/KYC — see Cat-12 tools for transaction monitoring.</p>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-gold">Reg E</span>
+    <span class="badge badge-gold">UDAAP</span>
+    <span class="badge badge-teal">Card Network</span>
+    <span class="badge badge-purple">Policy Mandate Export</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+        </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+  <!-- Edu disclaimer (canonical §9.3) -->
+  <div class="edu-disclaimer">
+    <strong class="edu-disclaimer-label" data-i18n="disclaimer.label">Educational Use Only</strong>
+    <span data-i18n="disclaimer.body">This tool provides a self-assessment / educational framework for internal planning purposes only. It is not a regulatory audit, legal advice, or a substitute for a formal compliance review by a qualified advisor. Verify all interpretations against the official source text and applicable RTS/ITS/guidance published by the relevant authority.</span>
+  </div>
+
+
+  <div class="scope-note">⚠ Scope: BaaS-specific obligations only — Reg E, UDAAP, card network rules, sponsor bank programme management. General AML/KYC and transaction monitoring are out of scope (see Cat-12).</div>
+  <div class="tool-grid">
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Programme Configuration</span></div>
+    <div class="panel-body">
+      <div class="field">
+        <label>BaaS Programme Type</label>
+        <select id="progType">
+          <option value="debit_card">Debit Card / Prepaid</option>
+          <option value="credit_card">Credit Card Programme</option>
+          <option value="stored_value">Stored Value / Wallet</option>
+          <option value="lending">Embedded Lending (B2B)</option>
+          <option value="full_stack">Full-Stack BaaS (All Products)</option>
+        </select>
+      </div>
+
+      <div class="domain-section">
+        <div class="domain-label">Reg E — Electronic Fund Transfers</div>
+        <!-- Maturity: 1=Initial 2=Defined 3=Managed 4=Optimised 5=Leading -->
+        <div class="control-row"><span class="ctrl-name">Error resolution procedures (§205.11)</span><select class="maturity-sel" id="re1"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></div>
+        <div class="control-row"><span class="ctrl-name">Initial error notices &amp; provisional credits</span><select class="maturity-sel" id="re2"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></div>
+        <div class="control-row"><span class="ctrl-name">Periodic statement disclosures</span><select class="maturity-sel" id="re3"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option></select></div>
+        <div class="control-row"><span class="ctrl-name">Investigation timelines (10/45-day)</span><select class="maturity-sel" id="re4"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
+        <div class="control-row"><span class="ctrl-name">Limitation of consumer liability</span><select class="maturity-sel" id="re5"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></div>
+      </div>
+
+      <div class="domain-section">
+        <div class="domain-label">UDAAP — Consumer Protection</div>
+        <div class="control-row"><span class="ctrl-name">Unfair practices review programme</span><select class="maturity-sel" id="ud1"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></div>
+        <div class="control-row"><span class="ctrl-name">Deceptive marketing / disclosure review</span><select class="maturity-sel" id="ud2"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
+        <div class="control-row"><span class="ctrl-name">Abusive practices assessment</span><select class="maturity-sel" id="ud3"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></div>
+        <div class="control-row"><span class="ctrl-name">Complaint handling &amp; remediation</span><select class="maturity-sel" id="ud4"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></div>
+        <div class="control-row"><span class="ctrl-name">Product design &amp; consumer outcome review</span><select class="maturity-sel" id="ud5"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></div>
+      </div>
+
+      <div class="domain-section">
+        <div class="domain-label">Card Network Obligations</div>
+        <div class="control-row"><span class="ctrl-name">Chargeback &amp; dispute resolution SLAs</span><select class="maturity-sel" id="cn1"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></div>
+        <div class="control-row"><span class="ctrl-name">PCI DSS scope &amp; compliance status</span><select class="maturity-sel" id="cn2"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
+        <div class="control-row"><span class="ctrl-name">Network rule acknowledgement &amp; training</span><select class="maturity-sel" id="cn3"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></div>
+        <div class="control-row"><span class="ctrl-name">Transaction monitoring &amp; fraud controls</span><select class="maturity-sel" id="cn4"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></div>
+        <div class="control-row"><span class="ctrl-name">Card programme registration &amp; BIN mgmt</span><select class="maturity-sel" id="cn5"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option></select></div>
+      </div>
+
+      <div class="domain-section">
+        <div class="domain-label">Sponsor Bank Programme Management</div>
+        <div class="control-row"><span class="ctrl-name">Programme oversight &amp; governance structure</span><select class="maturity-sel" id="sb1"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></div>
+        <div class="control-row"><span class="ctrl-name">Ongoing compliance monitoring &amp; reporting</span><select class="maturity-sel" id="sb2"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
+        <div class="control-row"><span class="ctrl-name">Incident escalation &amp; notification procedures</span><select class="maturity-sel" id="sb3"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></div>
+        <div class="control-row"><span class="ctrl-name">Exam readiness &amp; regulator access</span><select class="maturity-sel" id="sb4"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
+        <div class="control-row"><span class="ctrl-name">Change management &amp; model risk controls</span><select class="maturity-sel" id="sb5"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></div>
+      </div>
+
+      <button class="run-btn" onclick="runAssessment()">▶ Generate Control Map</button>
+    </div>
+  </div>
+
+  <div class="output-panel" id="outputPanel">
+    <div class="out-section"><div class="out-body" style="text-align:center;padding:3rem;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.62rem">Configure programme type and control maturity ratings, then click Generate Control Map</div></div>
+  </div>
+
+</div></div></div>
+
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/embedded-finance-baas-hub.html"><span data-i18n="footer.hub_embedded_finance_baas">BaaS Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* ─── Maturity level labels ─── */
+const LEVELS = ['','Initial','Defined','Managed','Optimised','Leading'];
+const COLOURS = ['','var(--red)','var(--warn)','var(--gold)','var(--teal)','var(--green)'];
+
+/* ─── Control metadata ─── */
+const DOMAINS = [
+  {
+    id:'reg_e', label:'Reg E', ids:['re1','re2','re3','re4','re5'],
+    controls:['Error resolution procedures (§205.11)','Initial error notices & provisional credits','Periodic statement disclosures','Investigation timelines (10/45-day)','Limitation of consumer liability'],
+    refs:['12 CFR Part 205','15 USC §1693','CFPB Reg E Commentary']
+  },
+  {
+    id:'udaap', label:'UDAAP', ids:['ud1','ud2','ud3','ud4','ud5'],
+    controls:['Unfair practices review programme','Deceptive marketing / disclosure review','Abusive practices assessment','Complaint handling & remediation','Product design & consumer outcome review'],
+    refs:['12 USC §5531','CFPB UDAAP Examination Procedures','CFPB Supervisory Guidance']
+  },
+  {
+    id:'card_network', label:'Card Network', ids:['cn1','cn2','cn3','cn4','cn5'],
+    controls:['Chargeback & dispute resolution SLAs','PCI DSS scope & compliance status','Network rule acknowledgement & training','Transaction monitoring & fraud controls','Card programme registration & BIN management'],
+    refs:['Visa Core Rules','Mastercard Rules','PCI DSS v4.0']
+  },
+  {
+    id:'sponsor_bank', label:'Sponsor Bank', ids:['sb1','sb2','sb3','sb4','sb5'],
+    controls:['Programme oversight & governance structure','Ongoing compliance monitoring & reporting','Incident escalation & notification procedures','Exam readiness & regulator access','Change management & model risk controls'],
+    refs:['OCC Interpretive Letter 1174','Federal Reserve SR 11-7','FDIC FIL-50-2020']
+  }
+];
+
+function g(id){return parseInt(document.getElementById(id).value)||1;}
+
+function domainScore(d){
+  const scores = d.ids.map(id=>g(id));
+  return +(scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(2);
+}
+
+function maturityColor(s){
+  if(s>=4.5) return 'var(--green)';
+  if(s>=3.5) return 'var(--teal)';
+  if(s>=2.5) return 'var(--gold)';
+  if(s>=1.5) return 'var(--warn)';
+  return 'var(--red)';
+}
+
+function maturityLabel(s){
+  if(s>=4.5) return 'Leading';
+  if(s>=3.5) return 'Optimised';
+  if(s>=2.5) return 'Managed';
+  if(s>=1.5) return 'Defined';
+  return 'Initial';
+}
+
+function runAssessment(){
+  const prog = document.getElementById('progType').value;
+  const progLabels = {debit_card:'Debit Card / Prepaid',credit_card:'Credit Card Programme',stored_value:'Stored Value / Wallet',lending:'Embedded Lending (B2B)',full_stack:'Full-Stack BaaS'};
+  const progLabel = progLabels[prog];
+
+  /* ── Domain scores ── */
+  const domainResults = DOMAINS.map(d=>({
+    ...d,
+    score: domainScore(d),
+    controlScores: d.ids.map((id,i)=>({name:d.controls[i],score:g(id)}))
+  }));
+
+  const composite = +(domainResults.reduce((a,b)=>a+b.score,0)/domainResults.length).toFixed(2);
+  const pctScore = Math.round((composite-1)/4*100);
+
+  /* ── Gap identification ── */
+  const gaps = [];
+  domainResults.forEach(d=>{
+    d.controlScores.forEach(c=>{
+      if(c.score<=2) gaps.push({domain:d.label,control:c.name,score:c.score,severity:c.score===1?'critical':'moderate'});
+    });
+  });
+
+  /* ── Heatmap HTML ── */
+  const heatmapRows = domainResults.map(d=>{
+    const pct = (d.score-1)/4*100;
+    const col = maturityColor(d.score);
+    return `<div class="hm-row">
+      <div class="hm-cell"><span class="hm-domain">${d.label}</span></div>
+      <div class="hm-bar-wrap"><div class="hm-bar" style="width:${pct}%;background:${col}"></div></div>
+      <div class="hm-score" style="color:${col}">${d.score.toFixed(1)}</div>
+      <div class="hm-level" style="color:${col}">${maturityLabel(d.score)}</div>
+    </div>`;
+  }).join('');
+
+  /* ── Gap list HTML ── */
+  const gapHtml = gaps.length===0
+    ? `<div style="text-align:center;padding:1rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--green)">✓ No critical or moderate gaps identified</div>`
+    : gaps.map(g=>`<div class="gap-item ${g.severity}">
+        <div class="gap-dot ${g.severity}"></div>
+        <div><div class="gap-domain">${g.domain} · Maturity ${g.score}/5</div><div class="gap-text">${g.control}</div></div>
+      </div>`).join('');
+
+  /* ── AP2 JSON mandate ── */
+  const ap2 = {
+    ap2_version: "1.0",
+    mandate_type: "baas_compliance_control_register",
+    tool_id: "fintech-compliance-control-mapper",
+    generated_at: new Date().toISOString(),
+    programme_type: prog,
+    programme_label: progLabel,
+    maturity_scores: {
+      composite: composite,
+      composite_pct: pctScore,
+      domains: Object.fromEntries(domainResults.map(d=>[d.id,{score:d.score,level:maturityLabel(d.score),controls:Object.fromEntries(d.controlScores.map(c=>[c.name.replace(/[^a-z0-9]/gi,'_').toLowerCase(),c.score]))}]))
+    },
+    critical_gaps: gaps.filter(g=>g.severity==='critical').map(g=>({domain:g.domain,control:g.control,maturity:g.score})),
+    moderate_gaps: gaps.filter(g=>g.severity==='moderate').map(g=>({domain:g.domain,control:g.control,maturity:g.score})),
+    agent_instruction: `BaaS programme ${progLabel} has composite compliance maturity of ${composite}/5 (${pctScore}%). ${gaps.filter(g=>g.severity==='critical').length} critical gaps require immediate remediation before programme launch. Execute control enhancements in priority order: critical gaps → moderate gaps. Rerun assessment upon completion.`,
+    references: ["12 CFR Part 205 (Reg E)","12 USC §5531 (UDAAP)","PCI DSS v4.0","OCC Interpretive Letter 1174"]
+  };
+
+  /* ── Markdown memo ── */
+  const memo = `FINTECH COMPLIANCE CONTROL REGISTER
+Programme: ${progLabel}
+Generated: ${new Date().toLocaleDateString()} | Tool: AINumbers.co T166
+
+COMPOSITE MATURITY SCORE: ${composite}/5 (${pctScore}%)
+Overall Level: ${maturityLabel(composite)}
+
+DOMAIN SCORES
+${domainResults.map(d=>`  ${d.label.padEnd(20)} ${d.score.toFixed(1)}/5  [${maturityLabel(d.score)}]`).join('\n')}
+
+${gaps.length===0?'NO GAPS IDENTIFIED — All controls at Defined maturity or above.\n':
+`GAPS REQUIRING REMEDIATION (${gaps.length} total)
+Critical: ${gaps.filter(g=>g.severity==='critical').length} | Moderate: ${gaps.filter(g=>g.severity==='moderate').length}
+
+${gaps.map((g,i)=>`${i+1}. [${g.severity.toUpperCase()}] ${g.domain} · ${g.control} (Maturity: ${g.score}/5)`).join('\n')}`}
+
+REGULATORY REFERENCES
+${DOMAINS.map(d=>`  ${d.label}: ${d.refs.join(', ')}`).join('\n')}
+
+METHODOLOGY
+  Maturity scale: 1=Initial, 2=Defined, 3=Managed, 4=Optimised, 5=Leading
+  Composite score = arithmetic mean of domain averages
+  Critical gap = any control scored 1/5; Moderate gap = any control scored 2/5
+
+DISCLAIMER
+  For compliance assessment purposes only. Consult qualified legal and compliance
+  counsel before making programme launch decisions. Data current as of tool generation.
+  AINumbers.co Zero PII — no inputs stored or transmitted.`;
+
+  /* ── Render ── */
+  document.getElementById('outputPanel').innerHTML = `
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Maturity Summary</span></div>
+      <div class="metrics-grid">
+        <div class="metric-cell"><div class="metric-val" style="color:${maturityColor(composite)}">${composite}</div><div class="metric-lbl">Composite Score /5</div></div>
+        <div class="metric-cell"><div class="metric-val" style="color:${maturityColor(composite)}">${pctScore}%</div><div class="metric-lbl">Maturity %</div></div>
+        <div class="metric-cell"><div class="metric-val red">${gaps.filter(g=>g.severity==='critical').length}</div><div class="metric-lbl">Critical Gaps</div></div>
+        <div class="metric-cell"><div class="metric-val warn">${gaps.filter(g=>g.severity==='moderate').length}</div><div class="metric-lbl">Moderate Gaps</div></div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Compliance Maturity Heatmap</span></div>
+      <div class="heatmap">${heatmapRows}</div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Gap Register (${gaps.length} gaps)</span></div>
+      <div class="out-body"><div class="gap-list">${gapHtml}</div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Policy Mandate JSON — Control Register Mandate</span><button class="copy-btn" onclick="copyAP2()">Copy JSON</button></div>
+      <div class="out-body" style="padding:.75rem"><div class="code-block" id="ap2Block">${JSON.stringify(ap2,null,2)}</div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Compliance Control Memo (Markdown)</span><button class="copy-btn" onclick="copyMemo()">Copy</button></div>
+      <div class="out-body" style="padding:.75rem"><div class="memo-block" id="memoBlock">${memo}</div></div>
+    </div>
+  `;
+  window._ap2 = JSON.stringify(ap2,null,2);
+  window._memo = memo;
+}
+
+function copyAP2(){if(window._ap2){navigator.clipboard.writeText(window._ap2).then(()=>{const b=document.querySelectorAll('.copy-btn')[0];if(b){b.textContent='Copied ✓';setTimeout(()=>b.textContent='Copy JSON',2000)}})}}
+function copyMemo(){if(window._memo){navigator.clipboard.writeText(window._memo).then(()=>{const b=document.querySelectorAll('.copy-btn')[1];if(b){b.textContent='Copied ✓';setTimeout(()=>b.textContent='Copy',2000)}})}}
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+    'nav.hub': '← Cat-14 Hub',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.hub': '← Centro Cat-14',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+    'nav.hub': '← Centre Cat-14',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+    'nav.hub': '← مركز Cat-14',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.hub': '← Central Cat-14',
+  }, zh:{
+    'nav.alltools': '所有工具',
+    'nav.hub': '← Cat-14 中心',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+runAssessment();
+</script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "fintech-compliance-mapper", "version": "1.0.0", "title": "Fintech Compliance Control Mapper", "description": "Map BaaS-specific compliance controls across Reg E, UDAAP, card network obligations, and sponsor bank programme management. Heatmap, maturity score, and Policy Mandate JSON control register. Client-side. Zero PII.", "category": "embedded-finance-baas", "tags": ["Reg E", "UDAAP", "Card Network", "Policy Mandate Export", "Zero PII", "Client-Side"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"progType": {"type": "string"}, "re1": {"type": "string"}, "re2": {"type": "string"}, "re3": {"type": "string"}, "re4": {"type": "string"}, "re5": {"type": "string"}, "ud1": {"type": "string"}, "ud2": {"type": "string"}, "ud3": {"type": "string"}, "ud4": {"type": "string"}, "ud5": {"type": "string"}, "cn1": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "fintech_compliance_mapper", "description": "Run Fintech Compliance Control Mapper. Map BaaS-specific compliance controls across Reg E, UDAAP, card network obligations, and sponsor bank programme management. Heatmap, maturity score, and Policy Mandate JSON control register. Client-si", "inputSchema": {"type": "object", "properties": {"progType": {"type": "string"}, "re1": {"type": "string"}, "re2": {"type": "string"}, "re3": {"type": "string"}, "re4": {"type": "string"}, "re5": {"type": "string"}, "ud1": {"type": "string"}, "ud2": {"type": "string"}, "ud3": {"type": "string"}, "ud4": {"type": "string"}, "ud5": {"type": "string"}, "cn1": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/158-fintech-compliance-control-mapper.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

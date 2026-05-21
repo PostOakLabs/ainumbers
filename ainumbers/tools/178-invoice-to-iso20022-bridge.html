@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>T178 · Invoice-to-ISO 20022 Bridge (pain.001 Generator) — AINumbers.co</title>
+<meta name="description" content="Transform e-invoice data into ISO 20022 pain.001.001.09 payment initiation XML. Maps IBAN, BIC, amount, due date, and ISO 11649 structured creditor reference. Outputs pain.001 XML and Policy Mandate JSON. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="AINumbers.co — Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/178-invoice-to-iso20022-bridge.html">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Invoice-to-ISO 20022 Bridge (pain.001 Generator) — AINumbers.co","url":"https://ainumbers.co/tools/178-invoice-to-iso20022-bridge.html","description":"Transform e-invoice data into ISO 20022 pain.001.001.09 payment initiation XML. Maps IBAN, BIC, amount, due date, and ISO 11649 structured creditor reference. Outputs pain.001 XML and Policy Mandate JSON. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12); --gold-hover:#E8B952;
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px; --radius-lg:10px; --shadow:0 4px 24px rgba(0,0,0,.45);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0;}
+.container{max-width:1200px;margin:0 auto;padding:0 1.5rem;position:relative;z-index:1;}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.4rem 0;position:relative;z-index:1;}
+.lang-inner{max-width:1200px;margin:0 auto;padding:0 1.5rem;display:flex;gap:.4rem;justify-content:flex-end;}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid transparent;color:var(--muted);padding:.2rem .55rem;border-radius:var(--radius);cursor:pointer;transition:all .15s;}
+.lang-btn:hover{color:var(--text);border-color:var(--border);}
+.lang-btn.active{color:var(--teal-lt);border-color:rgba(20,184,166,.4);background:var(--teal-dim);}
+nav{border-bottom:1px solid var(--border);background:rgba(8,14,26,.85);backdrop-filter:blur(14px);position:sticky;top:0;z-index:100;padding:.9rem 0;}
+.nav-inner{max-width:1200px;margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:.75rem;text-decoration:none;}
+.logo-icon{width:36px;height:36px;background:var(--bg-3);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:700;color:var(--teal);flex-shrink:0;}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-name .ai{color:var(--teal);}
+.logo-name .co{color:var(--body);}
+
+
+.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;color:var(--body);text-decoration:none;transition:color .15s;}
+.nav-links a:hover{color:var(--teal-lt);}
+.hero{padding:2.75rem 0 2rem;border-bottom:1px solid var(--border);}
+.hero-eyebrow{display:flex;align-items:center;gap:.65rem;margin-bottom:.85rem;flex-wrap:wrap;}
+.ebadge{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.09em;text-transform:uppercase;padding:.22rem .65rem;border-radius:var(--radius);border:1px solid;}
+.ebadge-cat{color:var(--teal-lt);border-color:rgba(20,184,166,.35);background:var(--teal-dim);}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(1.75rem,3.8vw,2.7rem);color:var(--white);line-height:1.15;margin-bottom:.7rem;}
+.hero h1 .accent{color:var(--teal-lt);}
+.hero-desc{font-size:.92rem;color:var(--body);max-width:700px;line-height:1.72;margin-bottom:1.2rem;}
+.hero-tags{display:flex;flex-wrap:wrap;gap:.45rem;}
+.htag{font-family:'JetBrains Mono',monospace;font-size:.53rem;letter-spacing:.08em;text-transform:uppercase;padding:.2rem .6rem;border-radius:var(--radius);border:1px solid;}
+.tag-teal{color:var(--teal-lt);border-color:rgba(20,184,166,.3);background:var(--teal-dim);}
+.tag-gold{color:var(--gold);border-color:rgba(212,168,71,.3);background:var(--gold-dim);}
+.tag-purple{color:var(--purple);border-color:rgba(155,114,245,.3);background:var(--purple-dim);}
+.tag-green{color:var(--green);border-color:rgba(34,197,94,.3);background:var(--green-dim);}
+.tool-section{padding:2rem 0 3rem;}
+.tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start;}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;position:relative;}
+.panel-teal::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--teal);border-radius:var(--radius-lg) var(--radius-lg) 0 0;}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;margin-top:.25rem;}
+.section-divider{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:1rem 0 .65rem;padding-bottom:.4rem;border-bottom:1px solid var(--border);}
+.field{margin-bottom:.9rem;}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.38rem;}
+.field-input{width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .85rem;color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;outline:none;transition:border-color .15s;}
+.field-input:focus{border-color:var(--teal);}
+.field-input::placeholder{color:var(--muted);}
+.field-input.err{border-color:var(--red);}
+.field-err{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--red);margin-top:.25rem;}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);margin-top:.25rem;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:.65rem;}
+.pii-banner{background:var(--warn-dim);border:1px solid rgba(245,158,11,.3);border-radius:var(--radius);padding:.5rem .8rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--warn);margin-bottom:.65rem;}
+.btn-primary{font-family:'JetBrains Mono',monospace;font-size:.63rem;letter-spacing:.08em;text-transform:uppercase;font-weight:600;background:var(--teal);color:#000;border:none;padding:.65rem 1.4rem;border-radius:var(--radius);cursor:pointer;transition:background .15s;width:100%;margin-top:.35rem;}
+.btn-primary:hover{background:var(--teal-lt);}
+.btn-primary:disabled{opacity:.35;cursor:not-allowed;}
+.btn-sec{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.07em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--body);padding:.5rem 1rem;border-radius:var(--radius);cursor:pointer;transition:all .15s;}
+.btn-sec:hover{border-color:var(--teal);color:var(--teal-lt);}
+.btn-ap2{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.07em;text-transform:uppercase;background:var(--gold-dim);border:1px solid rgba(212,168,71,.4);color:var(--gold);padding:.5rem 1rem;border-radius:var(--radius);cursor:pointer;transition:all .15s;}
+.btn-ap2:hover{background:var(--gold);color:#000;}
+.results-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3.5rem 1rem;text-align:center;gap:.75rem;}
+.results-empty-icon{font-size:2.25rem;opacity:.3;}
+.results-empty-text{font-family:'JetBrains Mono',monospace;font-size:.63rem;color:var(--muted);letter-spacing:.06em;}
+.xml-output{width:100%;min-height:260px;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.9rem 1rem;color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.65rem;line-height:1.55;resize:vertical;outline:none;}
+.val-badge{display:inline-flex;align-items:center;gap:.5rem;padding:.4rem .85rem;border-radius:var(--radius);margin-bottom:.75rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;font-weight:600;border:1px solid;}
+.val-ok{background:var(--green-dim);border-color:rgba(34,197,94,.3);color:var(--green);}
+.val-err{background:var(--red-dim);border-color:rgba(239,68,68,.3);color:var(--red);}
+.rf-chip{display:inline-flex;align-items:center;gap:.5rem;background:var(--teal-dim);border:1px solid rgba(20,184,166,.3);border-radius:var(--radius);padding:.35rem .75rem;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--teal-lt);margin-bottom:.75rem;}
+.export-row{display:flex;gap:.55rem;flex-wrap:wrap;margin-top:.9rem;}
+.citations{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.2rem 1.5rem;margin-top:2rem;}
+.citations-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.75rem;}
+.cit-list{list-style:none;display:flex;flex-direction:column;gap:.38rem;}
+.cit-list li{font-size:.73rem;color:var(--body);line-height:1.55;padding-left:1.4rem;position:relative;}
+.cit-list li::before{content:attr(data-n);position:absolute;left:0;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--teal-lt);font-weight:600;}
+#toastWrap{position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;display:flex;flex-direction:column;gap:.45rem;}
+.toast{font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.07em;text-transform:uppercase;padding:.5rem 1rem;border-radius:var(--radius);background:var(--bg-3);border:1px solid var(--border);box-shadow:var(--shadow);animation:toastIn .18s ease;color:var(--text);}
+.toast.t-ok{border-color:rgba(34,197,94,.4);color:var(--green);}
+.toast.t-err{border-color:rgba(239,68,68,.4);color:var(--red);}
+@keyframes toastIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:900px){.tool-grid{grid-template-columns:1fr;}}
+@media(max-width:640px){.nav-links a:not(:last-child){display:none;}.hero h1{font-size:1.6rem;}.field-row{grid-template-columns:1fr;}}
+[dir="rtl"] body{text-align:right;}[dir="rtl"] .nav-inner{flex-direction:row-reverse;}[dir="rtl"] [dir="rtl"] .cit-list li{padding-left:0;padding-right:1.4rem;}[dir="rtl"] .cit-list li::before{left:auto;right:0;}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-privacy::before{content:'·';color:var(--green)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--gold)" opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".7"/></svg>
+    <div class="logo-text">
+      <div class="logo-name"><span class="ai">AI</span>Numbers<span class="co">.co</span></div>
+    </div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/einvoicing-vat-vida-hub.html">E-Invoicing Hub</a><span class="nav-sep">/</span><span>T-178</span></div>
+
+    <a href="../guides/einvoicing-vat-vida-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+<section class="hero"><div class="container">
+  <div class="hero-eyebrow"><span class="ebadge ebadge-cat">Cat-15 · E-Invoicing / VAT / ViDA</span></div>
+  <h1 class="tool-title"><span data-i18n="hero_h1a">Invoice-to-ISO 20022 Bridge</span> <span class="accent" data-i18n="hero_h1b">(pain.001 Generator)</span></h1>
+  <p class="hero-desc" data-i18n="hero_desc">Transform structured e-invoice payment data into ISO 20022 pain.001.001.09 payment initiation XML. Maps payee IBAN/BIC, amount, due date, and generates an ISO 11649 structured creditor reference (RF). Outputs downloadable pain.001 XML and Policy Mandate JSON payment instruction stub. Client-side. Zero PII.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-privacy"><span data-i18n="hero.badge.privacy">Zero PII · Client-side</span></span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+  <div class="hero-meta hero-tags">
+    <span class="htag tag-teal">ISO 20022</span>
+    <span class="htag tag-gold">pain.001</span>
+    <span class="htag tag-purple">E-Invoice</span>
+    <span class="htag tag-green">Export</span>
+    <span class="htag tag-green">Policy Mandate</span>
+    <span class="htag tag-teal">Client-Side</span>
+  </div>
+</div></section>
+
+<section class="tool-section"><div class="container">
+<div class="tool-grid">
+
+<!-- Input panel -->
+<div class="panel panel-teal">
+  <div class="panel-title" data-i18n="panel_input">Invoice Payment Details</div>
+  <div class="pii-banner">
+  <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+</div>
+
+  <div class="section-divider" data-i18n="sec_invoice">Invoice Reference</div>
+  <div class="field-row">
+    <div class="field">
+      <label class="field-label" for="invNum" data-i18n="lbl_invnum">Invoice Number</label>
+      <input type="text" id="invNum" class="field-input" placeholder="INV-2026-00042" oninput="validate()">
+    </div>
+    <div class="field">
+      <label class="field-label" for="invDate" data-i18n="lbl_invdate">Invoice Date</label>
+      <input type="date" id="invDate" class="field-input" oninput="validate()">
+    </div>
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <label class="field-label" for="dueDate" data-i18n="lbl_duedate">Payment Due Date</label>
+      <input type="date" id="dueDate" class="field-input" oninput="validate()">
+    </div>
+    <div class="field">
+      <label class="field-label" for="currency" data-i18n="lbl_currency">Currency</label>
+      <select id="currency" class="field-input" onchange="validate()">
+        <option value="EUR">EUR</option><option value="GBP">GBP</option><option value="USD">USD</option>
+        <option value="CHF">CHF</option><option value="SEK">SEK</option><option value="DKK">DKK</option>
+        <option value="NOK">NOK</option><option value="PLN">PLN</option><option value="CZK">CZK</option>
+      </select>
+    </div>
+  </div>
+  <div class="field">
+    <label class="field-label" for="amount" data-i18n="lbl_amount">Invoice Amount (payable)</label>
+    <input type="number" id="amount" class="field-input" placeholder="2380.00" min="0.01" step="0.01" oninput="validate()">
+    <div class="field-err" id="amountErr"></div>
+  </div>
+
+  <div class="section-divider" data-i18n="sec_creditor">Creditor (Payee)</div>
+  <div class="field">
+    <label class="field-label" for="credName" data-i18n="lbl_credname">Creditor Name</label>
+    <input type="text" id="credName" class="field-input" placeholder="Acme Supplies GmbH" oninput="validate()">
+  </div>
+  <div class="field">
+    <label class="field-label" for="credIBAN" data-i18n="lbl_crediban">Creditor IBAN</label>
+    <input type="text" id="credIBAN" class="field-input" placeholder="DE89370400440532013000" oninput="validate()" style="text-transform:uppercase;">
+    <div class="field-err" id="ibanErr"></div>
+    <div class="field-hint" data-i18n="iban_hint">IBAN validated on-device only. Not transmitted.</div>
+  </div>
+  <div class="field">
+    <label class="field-label" for="credBIC" data-i18n="lbl_credbic">Creditor BIC / SWIFT</label>
+    <input type="text" id="credBIC" class="field-input" placeholder="COBADEFFXXX" oninput="validate()" style="text-transform:uppercase;">
+    <div class="field-err" id="bicErr"></div>
+  </div>
+
+  <div class="section-divider" data-i18n="sec_debtor">Debtor (Payer)</div>
+  <div class="field">
+    <label class="field-label" for="debtName" data-i18n="lbl_debtname">Debtor Name</label>
+    <input type="text" id="debtName" class="field-input" placeholder="TechCorp AG" oninput="validate()">
+  </div>
+  <div class="field">
+    <label class="field-label" for="debtIBAN" data-i18n="lbl_debtiban">Debtor IBAN (optional)</label>
+    <input type="text" id="debtIBAN" class="field-input" placeholder="FR7630006000011234567890189" oninput="validate()" style="text-transform:uppercase;">
+    <div class="field-hint" data-i18n="debtiban_hint">Debtor account is optional in pain.001 — may be pre-filled by debtor's bank.</div>
+  </div>
+
+  <button class="btn-primary" id="generateBtn" onclick="generate()" disabled data-i18n="btn_generate">▶ Generate pain.001 XML</button>
+</div>
+
+<!-- Output panel -->
+<div class="panel">
+  <div class="panel-title" data-i18n="panel_output">Generated Output</div>
+  <div class="results-empty" id="outputEmpty">
+    <div class="results-empty-icon">📄</div>
+    <div class="results-empty-text" data-i18n="output_empty">Fill in the invoice details and click Generate.</div>
+  </div>
+  <div id="outputContent" style="display:none;">
+    <div id="valBadge"></div>
+    <div id="rfChip"></div>
+    <div class="panel-title" data-i18n="pain_label">pain.001.001.09 XML</div>
+    <textarea id="xmlOutput" class="xml-output" readonly spellcheck="false"></textarea>
+    <div class="results-export-row export-row">
+      <button class="btn-sec" onclick="downloadXML()" data-i18n="btn_dl_xml">↓ Download XML</button>
+      <button id="ap2ExportBtn" class="btn-ap2" onclick="downloadAP2()" data-i18n="btn_dl_ap2">↓ Policy Mandate</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<div class="citations">
+  <div class="citations-title" data-i18n="citations_title">Sources &amp; References</div>
+  <ol class="cit-list">
+    <li data-n="1.">ISO 20022 — <em>pain.001.001.09 Customer Credit Transfer Initiation</em> (SEPA SCT and CBPR+). Published by ISO TC68/SC9. Schema: urn:iso:std:iso:20022:tech:xsd:pain.001.001.09.</li>
+    <li data-n="2.">European Payments Council (EPC), <em>SEPA Credit Transfer (SCT) Rulebook v1.1</em>, November 2023. Defines pain.001 usage for SEPA Credit Transfers including SvcLvl=SEPA.</li>
+    <li data-n="3.">ISO 11649:2009 — <em>Financial services — Core banking — Structured creditor reference to remittance information</em>. Defines the RF reference format and MOD 97 check digit algorithm.</li>
+    <li data-n="4.">Swift CBPR+ — <em>pain.001 Cross-Border Payments and Reporting Plus</em> usage guidelines for cross-currency payments.</li>
+    <li data-n="5.">EN 16931-1:2017 — <em>Electronic invoicing — Part 1: Semantic data model</em>. BT-84 (payment account identifier / IBAN) and BT-89 (payment reference) map to pain.001 creditor account and end-to-end reference.</li>
+  </ol>
+</div>
+</div></section>
+
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+<div id="toastWrap"></div>
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* T178 · Invoice-to-ISO 20022 Bridge (pain.001 Generator)
+   AINumbers.co · Post Oak Labs · CC BY 4.0
+   Generates pain.001.001.09 XML and AP2 JSON from invoice payment data.
+   All processing client-side. IBAN/BIC never transmitted. */
+
+/* ── UUID generator ─────────────────────────────────────────── */
+function genUUID() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+/* ── IBAN validation (structural only, MOD 97) ──────────────── */
+function validateIBAN(iban) {
+  if (!iban) return { ok:false, msg:'' };
+  var s = iban.replace(/\s/g, '').toUpperCase();
+  if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]+$/.test(s)) return { ok:false, msg:'Invalid IBAN format' };
+  if (s.length < 15 || s.length > 34) return { ok:false, msg:'IBAN length invalid (' + s.length + ' chars)' };
+  /* Rearrange: move first 4 chars to end, convert letters to numbers */
+  var rearranged = s.slice(4) + s.slice(0, 4);
+  var numeric = rearranged.split('').map(function(c) {
+    var code = c.charCodeAt(0);
+    return code >= 65 ? String(code - 55) : c;
+  }).join('');
+  /* MOD 97 — process in chunks to avoid integer overflow */
+  var remainder = 0;
+  for (var i = 0; i < numeric.length; i += 7) {
+    remainder = parseInt(String(remainder) + numeric.slice(i, i + 7), 10) % 97;
+  }
+  return remainder === 1 ? { ok:true, msg:'Valid' } : { ok:false, msg:'IBAN check digit failed (MOD 97)' };
+}
+
+/* ── BIC validation ─────────────────────────────────────────── */
+function validateBIC(bic) {
+  if (!bic) return { ok:false, msg:'' };
+  var s = bic.replace(/\s/g, '').toUpperCase();
+  return /^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(s)
+    ? { ok:true, msg:'Valid' }
+    : { ok:false, msg:'BIC format invalid (6 alpha + 2 alphanum + optional 3 alphanum)' };
+}
+
+/* ── ISO 11649 structured creditor reference (RF) ──────────── */
+function calcRF(ref) {
+  /* Clean to alphanumeric, max 21 chars per ISO 11649 */
+  var clean = (ref || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 21);
+  if (!clean) return '';
+  /* Step 1: append RF00, convert to all-numeric */
+  var arranged = clean + 'RF00';
+  var numeric = arranged.split('').map(function(c) {
+    var code = c.charCodeAt(0);
+    return code >= 65 ? String(code - 55) : c;
+  }).join('');
+  /* Step 2: MOD 97 in chunks */
+  var remainder = 0;
+  for (var i = 0; i < numeric.length; i += 7) {
+    remainder = parseInt(String(remainder) + numeric.slice(i, i + 7), 10) % 97;
+  }
+  /* Step 3: check digits = 98 - remainder, padded to 2 digits */
+  var check = String(98 - remainder).padStart(2, '0');
+  return 'RF' + check + clean;
+}
+
+/* ── Form state ─────────────────────────────────────────────── */
+var lastXML = '';
+var lastAP2 = null;
+
+function getField(id) { return document.getElementById(id).value.trim(); }
+
+function validate() {
+  var invNum  = getField('invNum');
+  var dueDate = getField('dueDate');
+  var amount  = parseFloat(getField('amount'));
+  var credName= getField('credName');
+  var credIBAN= getField('credIBAN').replace(/\s/g, '').toUpperCase();
+  var credBIC = getField('credBIC').replace(/\s/g, '').toUpperCase();
+  var debtName= getField('debtName');
+
+  var ok = true;
+
+  /* IBAN */
+  var ibanRes = validateIBAN(credIBAN);
+  var ibanErr = document.getElementById('ibanErr');
+  if (credIBAN && !ibanRes.ok) { ibanErr.textContent = ibanRes.msg; document.getElementById('credIBAN').classList.add('err'); ok = false; }
+  else { ibanErr.textContent = ''; document.getElementById('credIBAN').classList.remove('err'); }
+
+  /* BIC */
+  var bicRes = validateBIC(credBIC);
+  var bicErr = document.getElementById('bicErr');
+  if (credBIC && !bicRes.ok) { bicErr.textContent = bicRes.msg; document.getElementById('credBIC').classList.add('err'); ok = false; }
+  else { bicErr.textContent = ''; document.getElementById('credBIC').classList.remove('err'); }
+
+  /* Amount */
+  var amtErr = document.getElementById('amountErr');
+  if (getField('amount') && (isNaN(amount) || amount <= 0)) { amtErr.textContent = 'Amount must be a positive number'; ok = false; }
+  else { amtErr.textContent = ''; }
+
+  var allFilled = invNum && dueDate && getField('amount') && credName && credIBAN && credBIC && debtName;
+  document.getElementById('generateBtn').disabled = !(allFilled && ok && ibanRes.ok && bicRes.ok && !isNaN(amount) && amount > 0);
+}
+
+/* ── Build pain.001 XML ─────────────────────────────────────── */
+function buildPain001() {
+  var invNum   = getField('invNum');
+  var invDate  = getField('invDate') || new Date().toISOString().slice(0, 10);
+  var dueDate  = getField('dueDate');
+  var amount   = parseFloat(getField('amount')).toFixed(2);
+  var currency = getField('currency');
+  var credName = getField('credName');
+  var credIBAN = getField('credIBAN').replace(/\s/g, '').toUpperCase();
+  var credBIC  = getField('credBIC').replace(/\s/g, '').toUpperCase();
+  var debtName = getField('debtName');
+  var debtIBAN = getField('debtIBAN').replace(/\s/g, '').toUpperCase();
+
+  var rfRef    = calcRF(invNum);
+  var msgId    = 'AINBR-' + invNum.replace(/[^A-Za-z0-9]/g, '').slice(0, 20).toUpperCase() + '-' + Date.now().toString().slice(-6);
+  var now      = new Date().toISOString().replace(/\.\d+Z$/, '');
+
+  var debtAcctXML = debtIBAN
+    ? '      <DbtrAcct>\n        <Id><IBAN>' + debtIBAN + '</IBAN></Id>\n      </DbtrAcct>'
+    : '      <!-- DbtrAcct: optional — may be pre-filled by debtor\'s bank -->';
+
+  var xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    + '<!-- Generated by AINumbers.co T178 — Invoice-to-ISO 20022 Bridge -->\n'
+    + '<!-- pain.001.001.09 Customer Credit Transfer Initiation -->\n'
+    + '<!-- Generated: ' + now + ' -->\n'
+    + '<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.09"\n'
+    + '          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n'
+    + '          xsi:schemaLocation="urn:iso:std:iso:20022:tech:xsd:pain.001.001.09 pain.001.001.09.xsd">\n'
+    + '  <CstmrCdtTrfInitn>\n'
+    + '    <GrpHdr>\n'
+    + '      <MsgId>' + esc(msgId) + '</MsgId>\n'
+    + '      <CreDtTm>' + now + '</CreDtTm>\n'
+    + '      <NbOfTxs>1</NbOfTxs>\n'
+    + '      <CtrlSum>' + amount + '</CtrlSum>\n'
+    + '      <InitgPty><Nm>' + esc(debtName) + '</Nm></InitgPty>\n'
+    + '    </GrpHdr>\n'
+    + '    <PmtInf>\n'
+    + '      <PmtInfId>PMTINF-' + esc(invNum.replace(/[^A-Za-z0-9]/g, '').slice(0,10).toUpperCase()) + '</PmtInfId>\n'
+    + '      <PmtMtd>TRF</PmtMtd>\n'
+    + '      <NbOfTxs>1</NbOfTxs>\n'
+    + '      <CtrlSum>' + amount + '</CtrlSum>\n'
+    + '      <PmtTpInf>\n'
+    + '        <SvcLvl><Cd>SEPA</Cd></SvcLvl>\n'
+    + '      </PmtTpInf>\n'
+    + '      <ReqdExctnDt><Dt>' + esc(dueDate) + '</Dt></ReqdExctnDt>\n'
+    + '      <Dbtr><Nm>' + esc(debtName) + '</Nm></Dbtr>\n'
+    + debtAcctXML + '\n'
+    + '      <DbtrAgt><FinInstnId><BICFI>NOTPROVIDED</BICFI></FinInstnId></DbtrAgt>\n'
+    + '      <CdtTrfTxInf>\n'
+    + '        <PmtId>\n'
+    + '          <InstrId>' + esc(msgId) + '</InstrId>\n'
+    + '          <EndToEndId>' + esc(invNum.replace(/[^A-Za-z0-9\-]/g, '').slice(0, 35)) + '</EndToEndId>\n'
+    + '        </PmtId>\n'
+    + '        <Amt><InstdAmt Ccy="' + esc(currency) + '">' + amount + '</InstdAmt></Amt>\n'
+    + '        <CdtrAgt><FinInstnId><BICFI>' + esc(credBIC) + '</BICFI></FinInstnId></CdtrAgt>\n'
+    + '        <Cdtr><Nm>' + esc(credName) + '</Nm></Cdtr>\n'
+    + '        <CdtrAcct><Id><IBAN>' + esc(credIBAN) + '</IBAN></Id></CdtrAcct>\n'
+    + '        <RmtInf>\n'
+    + '          <Strd>\n'
+    + '            <CdtrRefInf>\n'
+    + '              <Tp><CdOrPrtry><Cd>SCOR</Cd></CdOrPrtry></Tp>\n'
+    + '              <Ref>' + esc(rfRef) + '</Ref>\n'
+    + '            </CdtrRefInf>\n'
+    + '          </Strd>\n'
+    + '        </RmtInf>\n'
+    + '      </CdtTrfTxInf>\n'
+    + '    </PmtInf>\n'
+    + '  </CstmrCdtTrfInitn>\n'
+    + '</Document>';
+
+  return { xml: xml, rfRef: rfRef, msgId: msgId };
+}
+
+/* ── Build AP2 JSON mandate ─────────────────────────────────── */
+function buildAP2(result) {
+  var invNum   = getField('invNum');
+  var dueDate  = getField('dueDate');
+  var amount   = parseFloat(getField('amount')).toFixed(2);
+  var currency = getField('currency');
+  var credName = getField('credName');
+  var credIBAN = getField('credIBAN').replace(/\s/g, '').toUpperCase();
+  var credBIC  = getField('credBIC').replace(/\s/g, '').toUpperCase();
+  var debtName = getField('debtName');
+  var now = new Date().toISOString();
+
+  return {
+    ap2_version: '1.0',
+    mandate_id: genUUID(),
+    issued_at: now,
+    issued_by: 'ainumbers.co',
+    tool_id: 'invoice-to-iso20022-bridge',
+    tool_version: '1.0.0',
+    mandate_type: 'payment_policy',
+    jurisdiction: ['EU', 'SEPA'],
+    regulatory_frameworks: ['ISO 20022 pain.001.001.09', 'SEPA SCT EPC v1.1', 'ISO 11649:2009'],
+    payload: {
+      iso_standard: 'pain.001.001.09',
+      message_id: result.msgId,
+      creditor_name: credName,
+      creditor_iban: credIBAN,
+      creditor_bic: credBIC,
+      debtor_name: debtName,
+      amount: parseFloat(amount),
+      currency: currency,
+      payment_due_date: dueDate,
+      invoice_reference: invNum,
+      structured_creditor_reference: result.rfRef,
+      reference_type: 'SCOR',
+      service_level: 'SEPA',
+      payment_method: 'TRF'
+    },
+    summary: 'Payment initiation instruction for invoice ' + invNum + '. Creditor: ' + credName + '. Amount: ' + currency + ' ' + amount + ' due ' + dueDate + '. ISO 11649 RF reference: ' + result.rfRef + '.',
+    agent_instructions: [
+      'Validate pain.001 XML against urn:iso:std:iso:20022:tech:xsd:pain.001.001.09 schema before submission',
+      'Submit pain.001 to the debtor\'s bank via EBICS, SFTP, or API channel',
+      'Verify creditor IBAN ' + credIBAN.slice(0, 4) + '... via SEPA reachability check before submission',
+      'Confirm payment execution against ISO 20022 pain.002 status report',
+      'Match received camt.054 debit notification to invoice ' + invNum + ' for reconciliation'
+    ],
+    valid_from: new Date().toISOString().slice(0, 10),
+    last_reviewed: '2026-05-08',
+    source_tool_inputs: {
+      invoice_number: invNum,
+      debtor_name: debtName,
+      creditor_name: credName,
+      amount: parseFloat(amount),
+      currency: currency,
+      due_date: dueDate
+    },
+    regulatory_citations: [
+      'ISO 20022 pain.001.001.09 — Customer Credit Transfer Initiation',
+      'EPC SEPA Credit Transfer Rulebook v1.1 — November 2023',
+      'ISO 11649:2009 — Structured creditor reference (RF format)',
+      'EN 16931-1:2017 BT-84 (payment account identifier) and BT-89 (payment reference)'
+    ]
+  };
+}
+
+/* ── Generate ─────────────────────────────────────────────────*/
+function generate() {
+  var result = buildPain001();
+  lastXML = result.xml;
+  lastAP2 = buildAP2(result);
+
+  document.getElementById('outputEmpty').style.display   = 'none';
+  document.getElementById('outputContent').style.display = '';
+  document.getElementById('xmlOutput').value = result.xml;
+
+  document.getElementById('valBadge').innerHTML =
+    '<div class="val-badge val-ok">✅ pain.001.001.09 structure valid</div>';
+  document.getElementById('rfChip').innerHTML =
+    '<div class="rf-chip">🔢 ISO 11649 RF Reference: <strong>' + result.rfRef + '</strong></div>';
+  showToast('pain.001 generated', 't-ok');
+}
+
+function downloadXML() {
+  if (!lastXML) return;
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lastXML],{type:'application/xml;charset=utf-8'}));
+  a.download = 'pain001-' + getField('invNum').replace(/[^A-Za-z0-9]/g,'-') + '.xml';
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('XML downloaded', 't-ok');
+}
+
+function downloadAP2() {
+  if (!lastAP2) return;
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(lastAP2,null,2)],{type:'application/json;charset=utf-8'}));
+  a.download = 'ap2-payment-mandate-' + getField('invNum').replace(/[^A-Za-z0-9]/g,'-') + '.policy.json';
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('Policy Mandate JSON downloaded', 't-ok');
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showToast(msg, cls) {
+  var wrap = document.getElementById('toastWrap');
+  var t = document.createElement('div');
+  t.className = 'toast ' + (cls||''); t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(function(){t.remove();}, 3000);
+}
+
+/* Set today as default invoice date */
+document.getElementById('invDate').value = new Date().toISOString().slice(0,10);
+
+var LANG = {
+  en:{ hero_h1a:'Invoice-to-ISO 20022 Bridge', hero_h1b:'(pain.001 Generator)', hero_desc:'Transform e-invoice payment data into ISO 20022 pain.001.001.09 XML. Maps IBAN/BIC, amount, due date, and generates ISO 11649 RF structured creditor reference. Outputs XML and Policy Mandate JSON. Client-side. Zero PII.', panel_input:'Invoice Payment Details', pii_msg:'IBAN and BIC fields may contain personal/financial data. AINumbers.co never stores, logs, or transmits any input.', sec_invoice:'Invoice Reference', lbl_invnum:'Invoice Number', lbl_invdate:'Invoice Date', lbl_duedate:'Payment Due Date', lbl_currency:'Currency', lbl_amount:'Invoice Amount (payable)', sec_creditor:'Creditor (Payee)', lbl_credname:'Creditor Name', lbl_crediban:'Creditor IBAN', iban_hint:'IBAN validated on-device only. Not transmitted.', lbl_credbic:'Creditor BIC / SWIFT', sec_debtor:'Debtor (Payer)', lbl_debtname:'Debtor Name', lbl_debtiban:'Debtor IBAN (optional)', debtiban_hint:'Debtor account is optional in pain.001.', btn_generate:'▶ Generate pain.001 XML', panel_output:'Generated Output', output_empty:'Fill in the invoice details and click Generate.', pain_label:'pain.001.001.09 XML', btn_dl_xml:'↓ Download XML', btn_dl_ap2:'↓ Policy Mandate', citations_title:'Sources & References' },
+  es:{ hero_h1a:'Puente Factura-ISO 20022', hero_h1b:'(Generador pain.001)', hero_desc:'Transforme datos de pago de factura en XML ISO 20022 pain.001.001.09 con referencia estructurada ISO 11649 RF. Mandato de Política incluido.', panel_input:'Datos de Pago de Factura', pii_msg:'Los campos IBAN y BIC pueden contener datos financieros. AINumbers.co nunca almacena ni transmite ningún dato.', sec_invoice:'Referencia de Factura', lbl_invnum:'Número de Factura', lbl_invdate:'Fecha de Factura', lbl_duedate:'Fecha de Vencimiento', lbl_currency:'Moneda', lbl_amount:'Importe Pagadero', sec_creditor:'Acreedor', lbl_credname:'Nombre del Acreedor', lbl_crediban:'IBAN del Acreedor', iban_hint:'IBAN validado localmente. No transmitido.', lbl_credbic:'BIC del Acreedor', sec_debtor:'Deudor', lbl_debtname:'Nombre del Deudor', lbl_debtiban:'IBAN del Deudor (opcional)', debtiban_hint:'La cuenta del deudor es opcional.', btn_generate:'▶ Generar XML pain.001', panel_output:'Salida Generada', output_empty:'Complete los datos y haga clic en Generar.', pain_label:'XML pain.001.001.09', btn_dl_xml:'↓ Descargar XML', btn_dl_ap2:'↓ Mandato de Política', citations_title:'Fuentes y Referencias' },
+  fr:{ hero_h1a:'Pont Facture-ISO 20022', hero_h1b:'(Générateur pain.001)', hero_desc:'Transformez les données de paiement de facture en XML ISO 20022 pain.001.001.09 avec référence créancier ISO 11649 RF. Export Mandat de Politique inclus.', panel_input:'Données de Paiement', pii_msg:'Les champs IBAN et BIC peuvent contenir des données financières. AINumbers.co ne stocke ni ne transmet aucune donnée.', sec_invoice:'Référence Facture', lbl_invnum:'Numéro de Facture', lbl_invdate:'Date de Facture', lbl_duedate:'Date d\'Échéance', lbl_currency:'Devise', lbl_amount:'Montant à Payer', sec_creditor:'Créancier', lbl_credname:'Nom du Créancier', lbl_crediban:'IBAN du Créancier', iban_hint:'IBAN validé localement. Non transmis.', lbl_credbic:'BIC du Créancier', sec_debtor:'Débiteur', lbl_debtname:'Nom du Débiteur', lbl_debtiban:'IBAN du Débiteur (optionnel)', debtiban_hint:'Compte débiteur optionnel dans pain.001.', btn_generate:'▶ Générer XML pain.001', panel_output:'Résultat Généré', output_empty:'Remplissez les données et cliquez sur Générer.', pain_label:'XML pain.001.001.09', btn_dl_xml:'↓ Télécharger XML', btn_dl_ap2:'↓ Mandat de Politique', citations_title:'Sources et Références' },
+  ar:{ hero_h1a:'جسر الفاتورة-ISO 20022', hero_h1b:'(مولد pain.001)', hero_desc:'تحويل بيانات دفع الفاتورة إلى XML ISO 20022 pain.001.001.09 مع مرجع الدائن المنظم ISO 11649 RF.', panel_input:'بيانات دفع الفاتورة', pii_msg:'حقول IBAN وBIC قد تحتوي على بيانات مالية. لا يقوم AINumbers.co بتخزين أو إرسال أي مدخلات.', sec_invoice:'مرجع الفاتورة', lbl_invnum:'رقم الفاتورة', lbl_invdate:'تاريخ الفاتورة', lbl_duedate:'تاريخ الاستحقاق', lbl_currency:'العملة', lbl_amount:'المبلغ المستحق', sec_creditor:'الدائن', lbl_credname:'اسم الدائن', lbl_crediban:'IBAN الدائن', iban_hint:'يتم التحقق من IBAN محلياً فقط.', lbl_credbic:'BIC الدائن', sec_debtor:'المدين', lbl_debtname:'اسم المدين', lbl_debtiban:'IBAN المدين (اختياري)', debtiban_hint:'حساب المدين اختياري في pain.001.', btn_generate:'▶ توليد XML pain.001', panel_output:'المخرجات', output_empty:'أدخل البيانات وانقر توليد.', pain_label:'XML pain.001.001.09', btn_dl_xml:'↓ تنزيل XML', btn_dl_ap2:'↓ تفويض السياسة', citations_title:'المصادر والمراجع' },
+  pt:{ hero_h1a:'Ponte Fatura-ISO 20022', hero_h1b:'(Gerador pain.001)', hero_desc:'Transforme dados de pagamento de fatura em XML ISO 20022 pain.001.001.09 com referência de credor ISO 11649 RF. Export Mandato de Política incluído.', panel_input:'Dados de Pagamento', pii_msg:'Os campos IBAN e BIC podem conter dados financeiros. O AINumbers.co nunca armazena nem transmite nenhum dado.', sec_invoice:'Referência da Fatura', lbl_invnum:'Número da Fatura', lbl_invdate:'Data da Fatura', lbl_duedate:'Data de Vencimento', lbl_currency:'Moeda', lbl_amount:'Montante a Pagar', sec_creditor:'Credor', lbl_credname:'Nome do Credor', lbl_crediban:'IBAN do Credor', iban_hint:'IBAN validado localmente. Não transmitido.', lbl_credbic:'BIC do Credor', sec_debtor:'Devedor', lbl_debtname:'Nome do Devedor', lbl_debtiban:'IBAN do Devedor (opcional)', debtiban_hint:'Conta do devedor opcional no pain.001.', btn_generate:'▶ Gerar XML pain.001', panel_output:'Saída Gerada', output_empty:'Preencha os dados e clique em Gerar.', pain_label:'XML pain.001.001.09', btn_dl_xml:'↓ Descarregar XML', btn_dl_ap2:'↓ Mandato de Política', citations_title:'Fontes e Referências' },
+  zh:{ hero_h1a:'发票到ISO 20022桥接', hero_h1b:'(pain.001生成器)', hero_desc:'将电子发票付款数据转换为ISO 20022 pain.001.001.09 XML，生成ISO 11649 RF结构化债权人参考。输出XML和政策授权书。客户端处理，零PII。', panel_input:'发票付款详情', pii_msg:'IBAN和BIC字段可能包含财务数据。AINumbers.co不存储、记录或传输任何输入。', sec_invoice:'发票参考', lbl_invnum:'发票号码', lbl_invdate:'发票日期', lbl_duedate:'付款到期日', lbl_currency:'货币', lbl_amount:'应付金额', sec_creditor:'债权人（收款方）', lbl_credname:'债权人名称', lbl_crediban:'债权人IBAN', iban_hint:'IBAN仅在设备上验证，不传输。', lbl_credbic:'债权人BIC', sec_debtor:'债务人（付款方）', lbl_debtname:'债务人名称', lbl_debtiban:'债务人IBAN（可选）', debtiban_hint:'pain.001中债务人账户为可选项。', btn_generate:'▶ 生成pain.001 XML', panel_output:'生成结果', output_empty:'填写发票详情后点击生成。', pain_label:'pain.001.001.09 XML', btn_dl_xml:'↓ 下载XML', btn_dl_ap2:'↓ 政策授权书', citations_title:'来源与参考' },
+};
+var currentLang = 'en';
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+    'nav.hub': '← Cat-15 Hub',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.hub': '← Centro Cat-15',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+    'nav.hub': '← Centre Cat-15',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+    'nav.hub': '← مركز Cat-15',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.hub': '← Central Cat-15',
+  }, zh:{
+    'nav.alltools': '所有工具',
+    'nav.hub': '← Cat-15 中心',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+</script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "invoice-to-iso20022-bridge", "version": "1.0.0", "title": "Invoice-to-ISO 20022 Bridge (pain.001 Generator) — AINumbers.co", "description": "Transform e-invoice data into ISO 20022 pain.001.001.09 payment initiation XML. Maps IBAN, BIC, amount, due date, and ISO 11649 structured creditor reference. Outputs pain.001 XML and Policy Mandate JSON. Client-side. Zero PII.", "category": "einvoicing-vat-vida", "tags": ["Invoice", "ISO", "Bridge", "Generator", "AINumbers"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"invNum": {"type": "string"}, "invDate": {"type": "string"}, "dueDate": {"type": "string"}, "currency": {"type": "string"}, "amount": {"type": "string"}, "credName": {"type": "string"}, "credIBAN": {"type": "string"}, "credBIC": {"type": "string"}, "debtName": {"type": "string"}, "debtIBAN": {"type": "string"}, "xmlOutput": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "invoice_to_iso20022_bridge", "description": "Run Invoice-to-ISO 20022 Bridge (pain.001 Generator) — AINumbers.co. Transform e-invoice data into ISO 20022 pain.001.001.09 payment initiation XML. Maps IBAN, BIC, amount, due date, and ISO 11649 structured creditor reference. Outputs pain.001 XML and Policy Mandate J", "inputSchema": {"type": "object", "properties": {"invNum": {"type": "string"}, "invDate": {"type": "string"}, "dueDate": {"type": "string"}, "currency": {"type": "string"}, "amount": {"type": "string"}, "credName": {"type": "string"}, "credIBAN": {"type": "string"}, "credBIC": {"type": "string"}, "debtName": {"type": "string"}, "debtIBAN": {"type": "string"}, "xmlOutput": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/178-invoice-to-iso20022-bridge.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

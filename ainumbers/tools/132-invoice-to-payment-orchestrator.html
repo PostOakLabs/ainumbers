@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Invoice-to-Payment Orchestrator · AINumbers.co</title>
+<meta name="description" content="Map the full invoice-to-payment lifecycle: invoice capture, approval routing, payment method selection, ISO 20022 message assignment, and settlement timeline. Outputs workflow diagram, ISO 20022 message type map, and Policy Mandate JSON payment instruction stub. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/132-invoice-to-payment-orchestrator.html">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Invoice-to-Payment Orchestrator","url":"https://ainumbers.co/tools/140-invoice-to-payment-orchestrator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","description":"Map the full invoice-to-payment lifecycle with ISO 20022 message type assignment and Policy Mandate JSON export.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<!-- manifest.json (embedded)
+{
+  "tool_id": "invoice-to-payment-orchestrator",
+  "version": "1.0.0",
+  "title": "Invoice-to-Payment Orchestrator",
+  "description": "Maps the full invoice-to-payment lifecycle with ISO 20022 message type assignment, three-way match simulation, and AP2 JSON payment instruction stub export.",
+  "category": "cat-13",
+  "tags": ["ISO 20022","AP Workflow","B2B","invoice","payment","orchestration","AP2"],
+  "audience": ["engineer","treasury","product"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "invoice_amount": {"type": "number"},
+      "currency": {"type": "string"},
+      "payment_method": {"type": "string", "enum": ["ACH","RTP","FedNow","SEPA_CT","SEPA_Instant","Wire","Virtual_Card"]},
+      "approval_threshold": {"type": "number"},
+      "three_way_match": {"type": "boolean"},
+      "destination_country": {"type": "string"}
+    },
+    "required": ["invoice_amount","currency","payment_method"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "iso20022_message_type": {"type": "string"},
+      "settlement_timeline": {"type": "string"},
+      "approval_route": {"type": "string"},
+      "workflow_steps": {"type": "array"},
+      "ap2_payload": {"type": "object"}
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "orchestrate_invoice_to_payment",
+    "description": "Maps an invoice through the full payment lifecycle, assigns ISO 20022 message types, determines approval routing, and exports an AP2 JSON payment instruction stub.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "invoice_amount": {"type": "number", "description": "Invoice amount in base currency"},
+        "currency": {"type": "string", "description": "ISO 4217 currency code"},
+        "payment_method": {"type": "string", "description": "Target payment rail"},
+        "approval_threshold": {"type": "number", "description": "Single-approver limit in base currency"},
+        "three_way_match": {"type": "boolean", "description": "Whether three-way match is required"},
+        "destination_country": {"type": "string", "description": "ISO 3166-1 alpha-2 destination country"}
+      },
+      "required": ["invoice_amount","currency","payment_method"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/140-invoice-to-payment-orchestrator.html",
+    "function_name": "runOrchestrator",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:960px;margin:0 auto;padding:0 1.5rem}
+.content{max-width:960px;margin:0 auto;padding:2rem 1.5rem;position:relative;z-index:1}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.015) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* LANG BAR */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:960px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+
+/* NAV */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:960px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body);transition:color .2s}.nav-trail a:hover{color:var(--teal)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+/* HERO */
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:620px;line-height:1.8;margin-bottom:1.25rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+
+/* TOOL BODY */
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.tool-grid{display:grid;grid-template-columns:340px 1fr;gap:1.5rem;align-items:start}
+@media(max-width:768px){.tool-grid{grid-template-columns:1fr}}
+
+/* INPUT PANEL */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.panel-body{padding:1.25rem}
+
+.field{margin-bottom:1.1rem}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+.field input,.field select{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.75rem;padding:.5rem .75rem;border-radius:var(--radius);outline:none;transition:border-color .2s;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--teal)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.field-hint{font-size:.62rem;color:var(--muted);margin-top:.3rem}
+.checkbox-row{display:flex;align-items:center;gap:.6rem;padding:.5rem 0}
+.checkbox-row input[type=checkbox]{width:14px;height:14px;accent-color:var(--teal);flex-shrink:0}
+.checkbox-row label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--body);margin-bottom:0}
+
+.run-btn{width:100%;background:var(--teal);color:var(--bg);border:none;padding:.7rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:1rem}
+.run-btn:hover{background:var(--teal-lt)}
+
+/* OUTPUT PANEL */
+.output-panel{display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+
+/* WORKFLOW STEPS */
+.workflow-steps{display:flex;flex-direction:column;gap:0}
+.wf-step{display:flex;gap:1rem;padding:.75rem 0;border-bottom:1px solid var(--border);align-items:flex-start}
+.wf-step:last-child{border-bottom:none}
+.wf-num{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--teal);width:20px;flex-shrink:0;padding-top:.15rem}
+.wf-content{flex:1}
+.wf-title{font-size:.78rem;color:var(--bright);margin-bottom:.2rem}
+.wf-detail{font-size:.68rem;color:var(--body);line-height:1.6}
+.wf-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.06em;text-transform:uppercase;padding:.1rem .4rem;border-radius:2px;margin-left:.5rem;vertical-align:middle}
+.wf-teal{background:var(--teal-dim);color:var(--teal)}
+.wf-gold{background:var(--gold-dim);color:var(--gold)}
+.wf-green{background:var(--green-dim);color:var(--green)}
+.wf-warn{background:rgba(245,158,11,.12);color:var(--warn)}
+
+/* ISO TABLE */
+.iso-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.iso-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400}
+.iso-table td{padding:.55rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.iso-table tr:last-child td{border-bottom:none}
+.iso-table tr:hover td{background:var(--bg-3)}
+.iso-msg{font-family:'JetBrains Mono',monospace;color:var(--teal-lt)}
+.iso-primary{background:var(--teal-dim);border:1px solid rgba(20,184,166,.2)}
+
+/* METRICS GRID */
+.metrics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border)}
+.metric-cell{background:var(--bg-2);padding:.85rem 1rem;text-align:center}
+.metric-val{font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--bright);line-height:1}
+.metric-val.teal{color:var(--teal)}.metric-val.gold{color:var(--gold)}.metric-val.green{color:var(--green)}
+.metric-lbl{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:.25rem}
+
+/* AP2 JSON */
+.ap2-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--teal-lt);line-height:1.7;white-space:pre-wrap;word-break:break-all;max-height:320px;overflow-y:auto}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+
+/* EMPTY STATE */
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.08em}
+.empty-icon{font-size:2rem;margin-bottom:.75rem;opacity:.4}
+
+/* FOOTER */
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-privacy::before{content:'·';color:var(--green)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick='setLang("zh")'>中文</button>
+  </div>
+</div>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/b2b-payments-hub.html">B2B Payments Hub</a><span class="nav-sep">/</span><span>T-132</span></div>
+
+    <a href="../guides/b2b-payments-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<div class="content">
+    <div class="hero-eyebrow">Cat-13 · T140 · B2B Payments &amp; Platform Operations</div>
+    <h1 class="tool-title">Invoice-to-Payment <em>Orchestrator</em></h1>
+    <p class="hero-desc">Map the full invoice-to-payment lifecycle: invoice capture → approval routing → payment method selection → ISO 20022 message assignment → settlement timeline. Supports three-way match simulation and exception routing. Exports Policy Mandate JSON payment instruction stub.</p>
+    <div class="hero-meta hero-badges">
+      <span class="badge badge-teal">ISO 20022</span>
+      <span class="badge badge-gold">AP Workflow</span>
+      <span class="badge badge-purple">Policy Mandate Export</span>
+      <span class="badge badge-green">Zero PII</span>
+      <span class="badge badge-muted">Client-Side</span>
+        </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+  </div>
+
+<div class="tool-body">
+  <div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+    <div class="tool-grid">
+
+      <!-- INPUT PANEL -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Invoice Parameters</span>
+        </div>
+        <div class="panel-body">
+
+          <div class="field-row">
+            <div class="field">
+              <label>Invoice Amount</label>
+              <input type="number" id="invAmount" value="125000" min="1">
+            </div>
+            <div class="field">
+              <label>Currency</label>
+              <select id="invCurrency">
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+                <option value="CAD">CAD</option>
+                <option value="AUD">AUD</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Payment Rail</label>
+            <select id="payRail">
+              <option value="ACH">ACH (Same-Day / Next-Day)</option>
+              <option value="RTP">RTP (Real-Time Payments)</option>
+              <option value="FedNow">FedNow</option>
+              <option value="SEPA_CT">SEPA Credit Transfer</option>
+              <option value="SEPA_Instant">SEPA Instant</option>
+              <option value="Wire">Fedwire / SWIFT Wire</option>
+              <option value="Virtual_Card">Virtual Card</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Supplier Tier</label>
+            <select id="supplierTier">
+              <option value="strategic">Strategic (Tier 1)</option>
+              <option value="preferred">Preferred (Tier 2)</option>
+              <option value="standard" selected>Standard (Tier 3)</option>
+              <option value="spot">Spot / One-time</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Single-Approver Limit ({{currency}})</label>
+            <input type="number" id="approvalLimit" value="50000" min="0">
+            <div class="field-hint">Invoices above this require dual approval</div>
+          </div>
+
+          <div class="field">
+            <label>Destination Country</label>
+            <select id="destCountry">
+              <option value="US">United States</option>
+              <option value="GB">United Kingdom</option>
+              <option value="DE">Germany</option>
+              <option value="FR">France</option>
+              <option value="CA">Canada</option>
+              <option value="AU">Australia</option>
+              <option value="SG">Singapore</option>
+              <option value="Other">Other / Cross-Border</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Payment Terms</label>
+            <select id="payTerms">
+              <option value="net30">Net 30</option>
+              <option value="net60">Net 60</option>
+              <option value="net15">Net 15</option>
+              <option value="2/10net30">2/10 Net 30 (Early Pay Discount)</option>
+              <option value="immediate">Immediate / On Receipt</option>
+            </select>
+          </div>
+
+          <div class="checkbox-row">
+            <input type="checkbox" id="threeWay" checked>
+            <label for="threeWay">Three-way match required (PO / Receipt / Invoice)</label>
+          </div>
+
+          <div class="checkbox-row">
+            <input type="checkbox" id="exceptionRouting" checked>
+            <label for="exceptionRouting">Enable exception routing simulation</label>
+          </div>
+
+          <button class="run-btn" onclick="runOrchestrator()">▶ Run Orchestrator</button>
+        </div>
+      </div>
+
+      <!-- OUTPUT PANEL -->
+      <div class="output-panel" id="outputPanel">
+        <div class="out-section">
+          <div class="out-body">
+            <div class="empty-state">
+              <div class="empty-icon">⟳</div>
+              Configure invoice parameters and click Run Orchestrator to generate the lifecycle workflow, ISO 20022 message map, and Policy Mandate JSON export.
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/b2b-payments-hub.html"><span data-i18n="footer.hub_b2b_payments">B2B Payments Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+// ── DATA TABLES ──
+const RAIL_DATA = {
+  ACH:          { iso: 'pain.001.001.09', settlement: 'T+1 (Same-Day: T+0)', finality: 'Provisional until T+2', maxAmount: 1000000, crossBorder: false },
+  RTP:          { iso: 'pacs.008.001.08', settlement: 'Seconds (24/7)', finality: 'Immediate irrevocable', maxAmount: 1000000, crossBorder: false },
+  FedNow:       { iso: 'pacs.008.001.08', settlement: 'Seconds (24/7)', finality: 'Immediate irrevocable', maxAmount: 500000, crossBorder: false },
+  SEPA_CT:      { iso: 'pain.001.001.09', settlement: 'T+1 business day', finality: 'Final on settlement', maxAmount: 999999999, crossBorder: true },
+  SEPA_Instant: { iso: 'pacs.008.001.08', settlement: '≤10 seconds (24/7)', finality: 'Immediate irrevocable', maxAmount: 100000, crossBorder: true },
+  Wire:         { iso: 'pacs.009.001.08', settlement: 'Same day (cut-off dependent)', finality: 'Final on Fedwire settlement', maxAmount: 999999999, crossBorder: true },
+  Virtual_Card: { iso: 'N/A (card network)', settlement: 'T+2 (card settlement)', finality: 'Final on card settlement', maxAmount: 500000, crossBorder: true }
+};
+
+const ISO_LIFECYCLE = {
+  pain001: { msg: 'pain.001.001.09', role: 'Customer Credit Transfer Initiation', stage: 'Initiation', direction: 'ERP → Bank' },
+  pacs008: { msg: 'pacs.008.001.08', role: 'Financial Institution Credit Transfer', stage: 'Interbank', direction: 'Bank → Correspondent' },
+  pacs002: { msg: 'pacs.002.001.10', role: 'Payment Status Report', stage: 'Confirmation', direction: 'Bank → ERP' },
+  camt054: { msg: 'camt.054.001.08', role: 'Bank-to-Customer Debit/Credit Notification', stage: 'Notification', direction: 'Bank → ERP' },
+  camt053: { msg: 'camt.053.001.08', role: 'Bank-to-Customer Statement', stage: 'Reconciliation', direction: 'Bank → ERP' }
+};
+
+const EXCEPTION_TYPES = [
+  { code: 'EX-001', label: 'PO-Invoice Mismatch', action: 'Route to AP Supervisor', probability: 0.08 },
+  { code: 'EX-002', label: 'Duplicate Invoice Risk', action: 'Hold for duplicate check', probability: 0.03 },
+  { code: 'EX-003', label: 'Missing GRN', action: 'Request Goods Receipt Note', probability: 0.12 },
+  { code: 'EX-004', label: 'Amount Tolerance Breach', action: 'Route to Finance Director', probability: 0.05 },
+  { code: 'EX-005', label: 'Vendor Not Approved', action: 'Block — trigger KYB review', probability: 0.02 }
+];
+
+function genUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random()*16|0, v = c==='x'?r:(r&0x3|0x8);
+    return v.toString(16);
+  });
+}
+
+function runOrchestrator() {
+  const amt    = parseFloat(document.getElementById('invAmount').value) || 0;
+  const cur    = document.getElementById('invCurrency').value;
+  const rail   = document.getElementById('payRail').value;
+  const tier   = document.getElementById('supplierTier').value;
+  const limit  = parseFloat(document.getElementById('approvalLimit').value) || 0;
+  const dest   = document.getElementById('destCountry').value;
+  const terms  = document.getElementById('payTerms').value;
+  const threeW = document.getElementById('threeWay').checked;
+  const excRou = document.getElementById('exceptionRouting').checked;
+
+  const rd = RAIL_DATA[rail];
+  const needsDual = amt > limit;
+  const needsEsc  = amt > limit * 3;
+  const approvalRoute = needsEsc ? 'Finance Director → CFO' : needsDual ? 'AP Manager → Finance Director' : 'AP Specialist (auto-approve)';
+
+  // Determine ISO messages for this rail
+  let isoMessages = [];
+  if (rail === 'Virtual_Card') {
+    isoMessages = [
+      { msg: 'ISO 8583 Auth', role: 'Card authorisation request', stage: 'Initiation', direction: 'Merchant → Issuer', primary: true },
+      { msg: 'ISO 8583 Capture', role: 'Card capture / settlement', stage: 'Settlement', direction: 'Acquirer → Issuer', primary: false }
+    ];
+  } else {
+    const primary = (rail === 'ACH' || rail === 'SEPA_CT') ? 'pain001' : 'pacs008';
+    const msgs = [primary, 'pacs002', 'camt054', 'camt053'];
+    isoMessages = msgs.map((k,i) => ({ ...ISO_LIFECYCLE[k], primary: i===0 }));
+    if (rail === 'Wire') isoMessages[0] = { ...ISO_LIFECYCLE['pacs008'], msg: 'pacs.009.001.08', role: 'Financial Institution Credit Transfer (Bank-to-Bank)', primary: true };
+  }
+
+  // Build workflow steps
+  const steps = [];
+  steps.push({ title: 'Invoice Capture & Coding', detail: `${cur} ${amt.toLocaleString()} received from ${tier} supplier. OCR extraction and GL coding initiated.`, badge: { label: 'Capture', cls: 'wf-teal' } });
+  if (threeW) steps.push({ title: 'Three-Way Match', detail: `Matching invoice against Purchase Order and Goods Receipt Note. Tolerance: ±2%.`, badge: { label: '3-Way Match', cls: 'wf-gold' } });
+  steps.push({ title: 'Approval Routing', detail: `${approvalRoute}. Trigger: amount ${needsDual ? 'exceeds' : 'within'} single-approver limit of ${cur} ${limit.toLocaleString()}.`, badge: { label: needsDual ? 'Dual Approval' : 'Auto-Approve', cls: needsDual ? 'wf-warn' : 'wf-green' } });
+  if (excRou) steps.push({ title: 'Exception Screening', detail: `Checking against ${EXCEPTION_TYPES.length} exception rules: duplicate detection, vendor status, tolerance breach.`, badge: { label: 'Exception Engine', cls: 'wf-teal' } });
+  steps.push({ title: 'Payment Instruction Generation', detail: `Generating ${rd.iso} payment instruction. Rail: ${rail}. Settlement: ${rd.settlement}.`, badge: { label: rd.iso, cls: 'wf-teal' } });
+  steps.push({ title: 'Payment Execution & Transmission', detail: `Instruction transmitted to bank. Finality: ${rd.finality}.`, badge: { label: 'Transmitted', cls: 'wf-green' } });
+  steps.push({ title: 'Settlement & Reconciliation', detail: `camt.054 debit notification expected. Auto-match against open AP ledger item. camt.053 monthly statement reconciliation.`, badge: { label: 'Reconcile', cls: 'wf-gold' } });
+
+  // Metrics
+  const excCount = excRou ? EXCEPTION_TYPES.filter(e => Math.random() < e.probability).length : 0;
+  const settleDays = { ACH: 1, RTP: 0, FedNow: 0, SEPA_CT: 1, SEPA_Instant: 0, Wire: 0, Virtual_Card: 2 }[rail];
+  const amountWarning = amt > rd.maxAmount ? `⚠ Amount exceeds ${rail} limit of ${cur} ${rd.maxAmount.toLocaleString()}` : null;
+
+  // Policy Mandate JSON
+  const ap2 = {
+    ap2_version: '1.0',
+    tool_id: 'invoice-to-payment-orchestrator',
+    generated_at: new Date().toISOString(),
+    payment_instruction: {
+      instruction_id: `INV-${genUUID().substring(0,8).toUpperCase()}`,
+      payment_rail: rail,
+      iso20022_message_type: rd.iso,
+      amount: { value: amt, currency: cur },
+      supplier_tier: tier,
+      settlement_timeline: rd.settlement,
+      finality: rd.finality,
+      approval_route: approvalRoute,
+      three_way_match_required: threeW,
+      payment_terms: terms,
+      destination_country: dest,
+      exception_screening_enabled: excRou
+    },
+    workflow_summary: {
+      total_steps: steps.length,
+      approval_required: needsDual,
+      escalation_required: needsEsc,
+      expected_settlement_days: settleDays
+    },
+    mandate_type: 'B2B_PAYMENT_INSTRUCTION',
+    agent_instructions: [
+      `Validate invoice amount ${amt} ${cur} against PO before initiating payment`,
+      `Route approval via: ${approvalRoute}`,
+      `Initiate ${rd.iso} payment instruction on approval confirmation`,
+      `Monitor for ${rd.iso.startsWith('pacs') ? 'pacs.002' : 'pain.002'} status report`,
+      `Reconcile against camt.054 debit notification on settlement`
+    ]
+  };
+
+  // Render
+  const op = document.getElementById('outputPanel');
+  op.innerHTML = `
+    ${amountWarning ? `<div class="out-section"><div class="out-body" style="color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.75rem">${amountWarning}</div></div>` : ''}
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Lifecycle Metrics</span></div>
+      <div class="metrics-grid">
+        <div class="metric-cell"><div class="metric-val teal">${steps.length}</div><div class="metric-lbl">Workflow Steps</div></div>
+        <div class="metric-cell"><div class="metric-val gold">${settleDays === 0 ? 'Real-Time' : 'T+'+settleDays}</div><div class="metric-lbl">Settlement</div></div>
+        <div class="metric-cell"><div class="metric-val ${excCount > 0 ? 'gold' : 'green'}">${excCount}</div><div class="metric-lbl">Exceptions Flagged</div></div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Workflow Lifecycle</span></div>
+      <div class="out-body">
+        <div class="workflow-steps">
+          ${steps.map((s,i) => `
+            <div class="wf-step">
+              <div class="wf-num">${String(i+1).padStart(2,'0')}</div>
+              <div class="wf-content">
+                <div class="wf-title">${s.title}<span class="wf-badge ${s.badge.cls}">${s.badge.label}</span></div>
+                <div class="wf-detail">${s.detail}</div>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">ISO 20022 Message Type Map</span></div>
+      <div class="out-body" style="padding:0">
+        <table class="iso-table">
+          <thead><tr><th>Message Type</th><th>Role</th><th>Stage</th><th>Direction</th></tr></thead>
+          <tbody>
+            ${isoMessages.map(m => `
+              <tr ${m.primary ? 'style="background:rgba(20,184,166,.04)"' : ''}>
+                <td class="iso-msg">${m.msg}</td>
+                <td>${m.role}</td>
+                <td>${m.stage}</td>
+                <td style="font-size:.65rem;color:var(--muted)">${m.direction}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    ${excRou && excCount > 0 ? `
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Exception Routing Flags</span></div>
+      <div class="out-body">
+        ${EXCEPTION_TYPES.filter(e => Math.random() < (e.probability * 2)).slice(0, excCount).map(e => `
+          <div style="display:flex;align-items:flex-start;gap:.75rem;padding:.6rem 0;border-bottom:1px solid var(--border)">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--warn);flex-shrink:0">${e.code}</span>
+            <div>
+              <div style="font-size:.76rem;color:var(--bright)">${e.label}</div>
+              <div style="font-size:.66rem;color:var(--body)">${e.action}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>` : ''}
+
+    <div class="out-section">
+      <div class="out-header">
+        <span class="out-title">Policy Mandate JSON — Payment Instruction Stub</span>
+        <button class="copy-btn" onclick="copyAP2()">Copy JSON</button>
+      </div>
+      <div class="out-body" style="padding:.75rem">
+        <div class="ap2-block" id="ap2Block">${JSON.stringify(ap2, null, 2)}</div>
+      </div>
+    </div>
+  `;
+
+  window._ap2 = JSON.stringify(ap2, null, 2);
+}
+
+function copyAP2() {
+  if (window._ap2) {
+    navigator.clipboard.writeText(window._ap2).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      if (btn) { btn.textContent = 'Copied ✓'; setTimeout(() => btn.textContent = 'Copy JSON', 2000); }
+    });
+  }
+}
+
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+    'nav.hub': '← Cat-13 Hub',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.hub': '← Centro Cat-13',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+    'nav.hub': '← Centre Cat-13',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+    'nav.hub': '← مركز Cat-13',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.hub': '← Central Cat-13',
+  }, zh:{
+    'nav.alltools': '所有工具',
+    'nav.hub': '← Cat-13 中心',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+
+// Auto-run on load
+runOrchestrator();
+</script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "invoice-to-payment-orchestrator", "version": "1.0.0", "title": "Invoice-to-Payment Orchestrator", "description": "Map the full invoice-to-payment lifecycle: invoice capture, approval routing, payment method selection, ISO 20022 message assignment, and settlement timeline. Outputs workflow diagram, ISO 20022 message type map, and Policy Mandate JSON payment instruction stub. Client-side. Zero PII.", "category": "b2b-payments", "tags": ["ISO 20022", "AP Workflow", "Policy Mandate Export", "Zero PII", "Client-Side"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"invAmount": {"type": "string"}, "invCurrency": {"type": "string"}, "payRail": {"type": "string"}, "supplierTier": {"type": "string"}, "approvalLimit": {"type": "string"}, "destCountry": {"type": "string"}, "payTerms": {"type": "string"}, "threeWay": {"type": "string"}, "exceptionRouting": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "invoice_to_payment_orchestrator", "description": "Run Invoice-to-Payment Orchestrator. Map the full invoice-to-payment lifecycle: invoice capture, approval routing, payment method selection, ISO 20022 message assignment, and settlement timeline. Outputs workflow diagram, ISO 20022 messa", "inputSchema": {"type": "object", "properties": {"invAmount": {"type": "string"}, "invCurrency": {"type": "string"}, "payRail": {"type": "string"}, "supplierTier": {"type": "string"}, "approvalLimit": {"type": "string"}, "destCountry": {"type": "string"}, "payTerms": {"type": "string"}, "threeWay": {"type": "string"}, "exceptionRouting": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/132-invoice-to-payment-orchestrator.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

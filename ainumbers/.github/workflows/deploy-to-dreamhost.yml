@@ -1,0 +1,45 @@
+name: Deploy to DreamHost
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🔐 Setup SSH Key & Host
+        run: |
+          mkdir -p ~/.ssh
+          # Strip Windows line endings and write clean key
+          echo "${{ secrets.DH_SSH_KEY }}" | tr -d '\r' > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.DH_SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          
+          # Verification (safe, does not expose key)
+          echo "Key header: $(head -1 ~/.ssh/deploy_key)"
+          echo "Key footer: $(tail -1 ~/.ssh/deploy_key)"
+          echo "Permissions: $(stat -c %a ~/.ssh/deploy_key)"
+
+      - name: 🚀 Sync to DreamHost via rsync
+        run: |
+          rsync -avz --delete --omit-dir-times --ignore-errors \
+            -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no" \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='*.md' \
+            --exclude='specs/' \
+            --exclude='CONTRACT.md' \
+            --exclude='CLAUDE.md' \
+            --exclude='.gitignore' \
+            --exclude='.env*' \
+            --exclude='node_modules/' \
+            --exclude='.DS_Store' \
+            --exclude='Thumbs.db' \
+            ./ ${{ secrets.DH_SSH_USER }}@${{ secrets.DH_SSH_HOST }}:${{ secrets.DH_WEB_ROOT }}/
+            
+          echo "✅ rsync completed successfully."

@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<!--
+  ╔══════════════════════════════════════════════════════════════════════╗
+  ║  AINumbers.co · T240 · Working Capital Gap Calculator               ║
+  ║  Cat-20 · SME Financial Health & Lending Readiness                  ║
+  ║  Anchor tool — lightweight SME entry-point                          ║
+  ║  Status: v1.0.0 · May 2026 · Post Oak Labs                         ║
+  ╠══════════════════════════════════════════════════════════════════════╣
+  ║  manifest.json (place in tools/240-working-capital-gap-calculator/) ║
+  ║  {                                                                   ║
+  ║    "tool_id": "working-capital-gap-calculator",                     ║
+  ║    "version": "1.0.0",                                              ║
+  ║    "title": "Working Capital Gap Calculator",                       ║
+  ║    "description": "Calculates CCC and working capital funding gap   ║
+  ║     from AR days, AP days, and inventory days. Recommends           ║
+  ║     financing instruments and exports AP2 JSON funding profile.",   ║
+  ║    "category": "cat-20",                                            ║
+  ║    "tags": ["Working Capital","CCC","SME","Funding Gap","AP2"],     ║
+  ║    "audience": ["treasury","operations","lending"],                 ║
+  ║    "mcp_tool_definition": {                                         ║
+  ║      "name": "calculate_working_capital_gap",                       ║
+  ║      "description": "Calculates the SME cash conversion cycle and   ║
+  ║       working capital funding gap from AR days, AP days, inventory  ║
+  ║       days, and revenue. Returns CCC, gap amount, risk tier, and    ║
+  ║       financing instrument recommendations.",                        ║
+  ║      "inputSchema": {                                               ║
+  ║        "type": "object",                                            ║
+  ║        "properties": {                                              ║
+  ║          "annual_revenue": {"type":"number"},                       ║
+  ║          "ar_days":        {"type":"number","minimum":0},           ║
+  ║          "ap_days":        {"type":"number","minimum":0},           ║
+  ║          "inventory_days": {"type":"number","minimum":0},           ║
+  ║          "currency":       {"type":"string","enum":["USD","GBP","EUR"]}, ║
+  ║          "sector":         {"type":"string"}                        ║
+  ║        },                                                           ║
+  ║        "required":["annual_revenue","ar_days","ap_days","inventory_days"] ║
+  ║      }                                                              ║
+  ║    },                                                               ║
+  ║    "execution": {                                                   ║
+  ║      "type": "browser-javascript",                                  ║
+  ║      "entry": "tools/240-working-capital-gap-calculator.html",      ║
+  ║      "function_name": "runAnalysis",                                ║
+  ║      "timeout_ms": 5000                                             ║
+  ║    },                                                               ║
+  ║    "ap2_export": true                                               ║
+  ║  }                                                                   ║
+  ╚══════════════════════════════════════════════════════════════════════╝
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Working Capital Gap Calculator · T240 · Cat-20 · AINumbers.co</title>
+<meta name="description" content="Calculate your SME's cash conversion cycle (CCC) and working capital funding gap. Recommends overdraft, invoice finance, revenue-based finance, and trade credit instruments. Policy Mandate JSON export. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/240-working-capital-gap-calculator">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2322C55E'>AI</text></svg>">
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","name":"Working Capital Gap Calculator","url":"https://ainumbers.co/tools/240-working-capital-gap-calculator","description":"Calculate SME cash conversion cycle and working capital funding gap. Financing instrument recommendations. Policy Mandate JSON export. Client-side. Zero PII.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ── Design Tokens ─────────────────────────────────────── */
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px; --radius-lg:10px;
+  /* Cat-20 accent = green */
+  --accent:var(--green); --accent-dim:var(--green-dim);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+input,select{font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+
+/* Grid background — green tint for Cat-20 */
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(34,197,94,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(34,197,94,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* ── RTL support (Arabic) ── */
+[dir="rtl"] .nav-inner       { flex-direction: row-reverse; }
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+[dir="rtl"] .lang-inner      { justify-content: flex-start; }
+[dir="rtl"] .hero-eyebrow    { flex-direction: row-reverse; }
+[dir="rtl"] .tool-grid       { direction: rtl; }
+[dir="rtl"] .panel-label     { text-align: right; }
+[dir="rtl"] .flag-row        { flex-direction: row-reverse; }
+[dir="rtl"] .result-row      { flex-direction: row-reverse; }
+[dir="rtl"] .export-row      { flex-direction: row-reverse; }
+[dir="rtl"] [dir="rtl"] body             { font-family: 'Sora', 'Segoe UI', Tahoma, sans-serif; }
+[dir="rtl"] .run-btn         { letter-spacing: 0; }
+[dir="rtl"] .input-grid      { direction: rtl; }
+[dir="rtl"] .results-grid    { direction: rtl; }
+[dir="rtl"] .reco-table      { direction: rtl; }
+
+/* ── Lang bar ─────────────────────────────────────────── */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--green);color:var(--green)}
+
+/* ── Nav ─────────────────────────────────────────────── */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+/* ── Hero ─────────────────────────────────────────────── */
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--green),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(34,197,94,.06) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--green);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--green)}
+.tool-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--green)}
+.hero h1{font-size:clamp(1.8rem,3.5vw,2.9rem);color:var(--white);max-width:760px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--green)}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:660px;line-height:1.85;margin-bottom:1.5rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.badge-privacy{color:var(--muted);border-color:var(--border)}.badge-privacy::before{content:'·';color:var(--green)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+
+/* ── Main layout ──────────────────────────────────────── */
+.main-content{position:relative;z-index:1;padding:2.5rem 0}
+.tool-layout{display:grid;grid-template-columns:1fr 340px;gap:2rem;align-items:start}
+@media(max-width:860px){.tool-layout{grid-template-columns:1fr}}
+
+/* ── Panel ────────────────────────────────────────────── */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.5rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);padding:.85rem 1.5rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.panel-body{padding:1.5rem}
+.panel-body.tight{padding:1.25rem 1.5rem}
+
+/* ── Input groups ─────────────────────────────────────── */
+.input-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:520px){.input-grid{grid-template-columns:1fr}}
+.input-group{display:flex;flex-direction:column;gap:.4rem}
+.input-group.full{grid-column:1/-1}
+.input-label{font-size:.72rem;color:var(--text);font-weight:500;display:flex;align-items:center;gap:.4rem}
+.input-label .help{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);font-weight:300;margin-left:.25rem}
+.input-field{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.55rem .85rem;font-size:.82rem;border-radius:var(--radius);transition:border-color .2s;width:100%;-webkit-appearance:none}
+.input-field:focus{outline:none;border-color:var(--green)}
+.input-field::placeholder{color:var(--muted)}
+.input-field.error{border-color:var(--red)}
+.input-error{font-size:.65rem;color:var(--red);display:none;margin-top:.2rem}
+.input-error.visible{display:block}
+select.input-field{cursor:pointer}
+.input-prefix-wrap{position:relative;display:flex;align-items:center}
+.input-prefix{position:absolute;left:.85rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--muted);pointer-events:none;z-index:1}
+.input-prefix-wrap .input-field{padding-left:2.2rem}
+.input-suffix-wrap{position:relative;display:flex;align-items:center}
+.input-suffix{position:absolute;right:.85rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);pointer-events:none}
+.input-suffix-wrap .input-field{padding-right:3.5rem}
+
+/* ── Run button ───────────────────────────────────────── */
+.run-btn{width:100%;padding:.9rem 2rem;background:var(--green);color:var(--bg);font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;font-weight:500;border:none;border-radius:var(--radius);cursor:pointer;transition:all .2s;margin-top:.5rem}
+.run-btn:hover{opacity:.88;transform:translateY(-1px)}
+.run-btn:active{transform:translateY(0)}
+
+/* ── Sidebar about panel ──────────────────────────────── */
+.about-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;position:sticky;top:68px}
+.about-formula{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;margin:.75rem 0;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--green);line-height:2}
+.about-formula span{color:var(--muted)}
+.about-note{font-size:.73rem;color:var(--body);line-height:1.75}
+.about-note + .about-note{margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border)}
+.cite{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);display:block;margin-top:.25rem}
+
+/* ── Results ──────────────────────────────────────────── */
+.results-section{display:none}
+.results-section.visible{display:block}
+.results-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:1.25rem;display:flex;align-items:center;gap:.5rem}
+.results-title::before{content:'';display:block;width:16px;height:1px;background:var(--green)}
+
+/* ── CCC metric cards ─────────────────────────────────── */
+.metrics-row{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.5rem}
+@media(max-width:600px){.metrics-row{grid-template-columns:1fr}}
+.metric-card{background:var(--bg-2);padding:1.25rem 1.5rem}
+.metric-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+.metric-value{font-family:'DM Serif Display',serif;font-size:2rem;line-height:1;margin-bottom:.25rem}
+.metric-value.green{color:var(--green)}
+.metric-value.warn{color:var(--warn)}
+.metric-value.red{color:var(--red)}
+.metric-value.teal{color:var(--teal)}
+.metric-sub{font-size:.68rem;color:var(--body)}
+.metric-formula{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);margin-top:.35rem;line-height:1.5}
+
+/* ── Gap summary card ─────────────────────────────────── */
+.gap-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem;position:relative;overflow:hidden}
+.gap-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--green)}
+.gap-card.warn-border::before{background:var(--warn)}
+.gap-card.red-border::before{background:var(--red)}
+.gap-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.75rem}
+.gap-amount{font-family:'DM Serif Display',serif;font-size:2.4rem;color:var(--white);line-height:1;margin-bottom:.5rem}
+.gap-amount em{font-size:1.4rem;color:var(--green)}
+.gap-amount.warn em{color:var(--warn)}
+.gap-amount.red em{color:var(--red)}
+.gap-tier-badge{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .6rem;border-radius:2px;margin-bottom:.75rem}
+.gap-tier-badge.low{background:var(--green-dim);color:var(--green)}
+.gap-tier-badge.moderate{background:var(--gold-dim);color:var(--gold)}
+.gap-tier-badge.elevated{background:rgba(239,68,68,.1);color:var(--warn)}
+.gap-tier-badge.high{background:var(--red-dim);color:var(--red)}
+.gap-desc{font-size:.78rem;color:var(--body);line-height:1.75}
+
+/* ── Scenario cards ───────────────────────────────────── */
+.scenarios-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.75rem;margin-top:.25rem}
+.scenarios-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1.5rem}
+@media(max-width:560px){.scenarios-grid{grid-template-columns:1fr}}
+.scenario-cell{background:var(--bg-2);padding:1rem 1.25rem}
+.scenario-cell.base{background:var(--bg-3)}
+.scenario-tag{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+.scenario-tag.base-tag{color:var(--green)}
+.scenario-rev{font-size:.75rem;color:var(--text);margin-bottom:.25rem}
+.scenario-gap{font-family:'DM Serif Display',serif;font-size:1.35rem;color:var(--bright)}
+.scenario-delta{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);margin-top:.2rem}
+.scenario-delta.pos{color:var(--red)}
+.scenario-delta.neg{color:var(--green)}
+
+/* ── CCC breakdown bar ────────────────────────────────── */
+.ccc-bar-wrap{margin-bottom:1.5rem}
+.ccc-bar-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.75rem}
+.ccc-bar{display:flex;height:28px;border-radius:var(--radius);overflow:hidden;background:var(--bg-3);border:1px solid var(--border)}
+.ccc-seg{display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.5rem;font-weight:500;transition:width .4s ease;white-space:nowrap;overflow:hidden;min-width:0}
+.ccc-seg.ar{background:rgba(34,197,94,.25);color:var(--green)}
+.ccc-seg.inv{background:rgba(20,184,166,.2);color:var(--teal)}
+.ccc-seg.ap{background:rgba(239,68,68,.15);color:var(--red)}
+.ccc-legend{display:flex;gap:1.25rem;margin-top:.6rem;flex-wrap:wrap}
+.ccc-legend-item{display:flex;align-items:center;gap:.4rem;font-size:.68rem;color:var(--body)}
+.ccc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.ccc-dot.ar{background:var(--green)}.ccc-dot.inv{background:var(--teal)}.ccc-dot.ap{background:var(--red)}
+
+/* ── Recommendation table ─────────────────────────────── */
+.reco-section{margin-bottom:1.5rem}
+.reco-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.75rem}
+.reco-grid{display:flex;flex-direction:column;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.reco-row{background:var(--bg-2);padding:1rem 1.25rem;display:grid;grid-template-columns:auto 1fr auto;gap:1rem;align-items:center}
+.reco-row:hover{background:var(--bg-3)}
+@media(max-width:560px){.reco-row{grid-template-columns:1fr;gap:.5rem}}
+.reco-rank{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);width:20px;flex-shrink:0}
+.reco-rank.primary{color:var(--green)}
+.reco-body{}
+.reco-name{font-size:.82rem;color:var(--bright);margin-bottom:.2rem}
+.reco-desc{font-size:.7rem;color:var(--body);line-height:1.6}
+.reco-tag{font-family:'JetBrains Mono',monospace;font-size:.43rem;letter-spacing:.06em;text-transform:uppercase;padding:.15rem .4rem;border-radius:2px;white-space:nowrap;align-self:center}
+.reco-tag.primary-tag{background:var(--green-dim);color:var(--green)}
+.reco-tag.secondary-tag{background:var(--bg-3);color:var(--muted);border:1px solid var(--border)}
+
+/* ── Cross-link callout ───────────────────────────────── */
+.crosslink-callout{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--teal);padding:1.1rem 1.5rem;border-radius:0 var(--radius) var(--radius) 0;margin-bottom:1.5rem;display:flex;align-items:flex-start;gap:1rem}
+.crosslink-icon{font-size:1.1rem;flex-shrink:0;margin-top:.1rem}
+.crosslink-body{}
+.crosslink-title{font-size:.8rem;color:var(--bright);margin-bottom:.2rem}
+.crosslink-desc{font-size:.72rem;color:var(--body);line-height:1.65}
+.crosslink-desc a{color:var(--teal);border-bottom:1px solid rgba(20,184,166,.2);transition:border-color .2s}
+.crosslink-desc a:hover{border-color:var(--teal)}
+
+/* ── MD export row ────────────────────────────────────── */
+.export-row{display:flex;gap:.75rem;justify-content:flex-start;margin-bottom:1.5rem;flex-wrap:wrap}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.09em;text-transform:uppercase;color:var(--teal);background:transparent;border:1px solid rgba(20,184,166,.35);padding:.3rem .85rem;border-radius:var(--radius);display:inline-flex;align-items:center;gap:.4rem;transition:all .2s;cursor:pointer}
+.btn-export:hover{border-color:var(--teal);background:var(--teal-dim)}
+.btn-export.btn-export-md{color:var(--teal)}
+.md-badge{font-size:.44rem;background:var(--teal-dim);color:var(--teal);border:1px solid rgba(20,184,166,.3);padding:.1rem .35rem;border-radius:2px;font-weight:600;letter-spacing:.04em}
+
+/* ── Citations ─────────────────────────────────────────── */
+.citations-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.5rem}
+.citations-title{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem}
+.citation-list{list-style:none;display:flex;flex-direction:column;gap:.35rem}
+.citation-list li{font-size:.68rem;color:var(--body);line-height:1.5;padding-left:1.5rem;position:relative}
+.citation-list li::before{content:attr(data-n);position:absolute;left:0;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+
+/* ── Export success toast ──────────────────────────────── */
+.export-toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--green);padding:.7rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--green);z-index:9999;pointer-events:none;display:flex;align-items:center;gap:.5rem;border-radius:var(--radius);box-shadow:0 4px 24px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s}
+.export-toast.show{opacity:1;transform:translateY(0)}
+
+/* Section label */
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- LANG BAR -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick='setLang("zh")'>中文</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--green)"  opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--green)"  opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"   opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--green)"  opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"   opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--green)"  opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"   opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"   opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--green)"  opacity=".7"/>
+      </svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/sme-financial-health-hub.html">SME Hub</a><span class="nav-sep">/</span><span>T-240</span></div>
+
+    <a href="../guides/sme-financial-health-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+    <div class="hero-eyebrow">
+      <span class="tool-eyebrow">T240 · Cat-20 · SME Financial Health · Working Capital</span>
+    </div>
+    <h1 class="tool-title">Find your <em>working capital gap</em> in seconds</h1>
+    <p class="hero-desc">Input AR days, AP days, and inventory days to calculate your Cash Conversion Cycle and the funding gap tied up in your operating cycle. Get plain-language financing instrument recommendations — overdraft, invoice finance, revenue-based finance, or trade credit — and export a Policy Mandate JSON funding profile. Anchor tool for the Cat-20 SME Financial Health Hub.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-green">CCC · Working Capital</span>
+      <span class="hero-badge badge-teal">Invoice Finance · RBF</span>
+      <span class="hero-badge badge-gold">SME Lending</span>
+      <span class="hero-badge badge-privacy">Zero PII · Client-side</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main-content">
+<div class="container">
+<div class="tool-layout">
+
+  <!-- LEFT COLUMN: INPUTS + RESULTS -->
+  <div class="left-col">
+
+    <!-- CONFIG PANEL -->
+    <div class="panel">
+      <div class="panel-label" data-i18n="panel_config">Configuration</div>
+      <div class="panel-body">
+        <div class="input-grid">
+
+          <!-- Currency -->
+          <div class="input-group">
+            <label class="input-label" for="currency" data-i18n="label_currency">Currency</label>
+            <select class="input-field" id="currency">
+              <option value="USD">USD — US Dollar</option>
+              <option value="GBP" selected>GBP — British Pound</option>
+              <option value="EUR">EUR — Euro</option>
+            </select>
+          </div>
+
+          <!-- Sector -->
+          <div class="input-group">
+            <label class="input-label" for="sector" data-i18n="label_sector">Industry Sector</label>
+            <select class="input-field" id="sector">
+              <option value="retail">Retail / E-commerce</option>
+              <option value="manufacturing">Manufacturing</option>
+              <option value="services" selected>Professional Services</option>
+              <option value="construction">Construction</option>
+              <option value="wholesale">Wholesale / Distribution</option>
+              <option value="tech">Technology</option>
+              <option value="hospitality">Hospitality / Food</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <!-- Annual Revenue -->
+          <div class="input-group full">
+            <label class="input-label" for="revenue" data-i18n="label_revenue">
+              Annual Revenue <span class="help">(last 12 months)</span>
+            </label>
+            <div class="input-prefix-wrap">
+              <span class="input-prefix" id="currencySymbol">£</span>
+              <input type="number" class="input-field" id="revenue" min="0" step="1000" value="500000" placeholder="e.g. 500000">
+            </div>
+            <div class="input-error" id="revenueErr">Please enter a valid positive revenue amount.</div>
+          </div>
+
+          <!-- AR Days -->
+          <div class="input-group">
+            <label class="input-label" for="arDays" data-i18n="label_ar_days">
+              AR Days (DSO) <span class="help">days to collect</span>
+            </label>
+            <div class="input-suffix-wrap">
+              <input type="number" class="input-field" id="arDays" min="0" max="365" step="1" value="45" placeholder="e.g. 45">
+              <span class="input-suffix">days</span>
+            </div>
+            <div class="input-error" id="arErr">Enter a value between 0 and 365.</div>
+          </div>
+
+          <!-- AP Days -->
+          <div class="input-group">
+            <label class="input-label" for="apDays" data-i18n="label_ap_days">
+              AP Days (DPO) <span class="help">days to pay suppliers</span>
+            </label>
+            <div class="input-suffix-wrap">
+              <input type="number" class="input-field" id="apDays" min="0" max="365" step="1" value="30" placeholder="e.g. 30">
+              <span class="input-suffix">days</span>
+            </div>
+            <div class="input-error" id="apErr">Enter a value between 0 and 365.</div>
+          </div>
+
+          <!-- Inventory Days -->
+          <div class="input-group">
+            <label class="input-label" for="invDays" data-i18n="label_inventory_days">
+              Inventory Days (DIO) <span class="help">0 for service businesses</span>
+            </label>
+            <div class="input-suffix-wrap">
+              <input type="number" class="input-field" id="invDays" min="0" max="365" step="1" value="0" placeholder="0 for services">
+              <span class="input-suffix">days</span>
+            </div>
+            <div class="input-error" id="invErr">Enter a value between 0 and 365.</div>
+          </div>
+
+        </div><!-- /input-grid -->
+
+        <button class="run-btn" onclick="runAnalysis()" id="runBtn" data-i18n="run_btn">Run Analysis →</button>
+
+      </div><!-- /panel-body -->
+    </div><!-- /panel -->
+
+    <!-- RESULTS -->
+    <div class="results-section" id="resultsSection">
+      <div class="results-title" data-i18n="results_title">Working Capital Analysis</div>
+
+      <!-- METRIC CARDS: CCC breakdown -->
+      <div class="metrics-row" id="metricsRow">
+        <div class="metric-card">
+          <div class="metric-label">Cash Conversion Cycle</div>
+          <div class="metric-value" id="cccValue">—</div>
+          <div class="metric-sub">days</div>
+          <div class="metric-formula" id="cccFormula">AR + Inv − AP</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Daily Revenue</div>
+          <div class="metric-value teal" id="dailyRevValue">—</div>
+          <div class="metric-sub" id="dailyRevSub">per day</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Risk Tier</div>
+          <div class="metric-value" id="riskTierValue">—</div>
+          <div class="metric-sub" id="riskTierSub">working capital position</div>
+        </div>
+      </div>
+
+      <!-- CCC BAR -->
+      <div class="ccc-bar-wrap">
+        <div class="ccc-bar-label">Cash Conversion Cycle — Component Breakdown</div>
+        <div class="ccc-bar" id="cccBar">
+          <div class="ccc-seg ar" id="cccSegAR" style="width:60%">AR</div>
+          <div class="ccc-seg inv" id="cccSegInv" style="width:0%">Inv</div>
+          <div class="ccc-seg ap" id="cccSegAP" style="width:40%">AP (offset)</div>
+        </div>
+        <div class="ccc-legend">
+          <span class="ccc-legend-item"><span class="ccc-dot ar"></span><span id="arLegend">AR Days: —</span></span>
+          <span class="ccc-legend-item"><span class="ccc-dot inv"></span><span id="invLegend">Inventory Days: —</span></span>
+          <span class="ccc-legend-item"><span class="ccc-dot ap"></span><span id="apLegend">AP Days (offset): —</span></span>
+        </div>
+      </div>
+
+      <!-- GAP CARD -->
+      <div class="gap-card" id="gapCard">
+        <div class="gap-label">Working Capital Funding Gap</div>
+        <div class="gap-amount" id="gapAmount"><em>—</em></div>
+        <div class="gap-tier-badge" id="gapTierBadge">—</div>
+        <div class="gap-desc" id="gapDesc">—</div>
+      </div>
+
+      <!-- SCENARIOS -->
+      <div class="scenarios-label">Revenue Sensitivity Analysis</div>
+      <div class="scenarios-grid">
+        <div class="scenario-cell">
+          <div class="scenario-tag">−20% Revenue</div>
+          <div class="scenario-rev" id="scenRevDown">—</div>
+          <div class="scenario-gap" id="scenGapDown">—</div>
+          <div class="scenario-delta pos" id="scenDeltaDown">— vs base</div>
+        </div>
+        <div class="scenario-cell base">
+          <div class="scenario-tag base-tag">● Base Case</div>
+          <div class="scenario-rev" id="scenRevBase">—</div>
+          <div class="scenario-gap" id="scenGapBase">—</div>
+          <div class="scenario-delta" id="scenDeltaBase">your inputs</div>
+        </div>
+        <div class="scenario-cell">
+          <div class="scenario-tag">+20% Revenue</div>
+          <div class="scenario-rev" id="scenRevUp">—</div>
+          <div class="scenario-gap" id="scenGapUp">—</div>
+          <div class="scenario-delta neg" id="scenDeltaUp">— vs base</div>
+        </div>
+      </div>
+
+      <!-- RECOMMENDATIONS -->
+      <div class="reco-section">
+        <div class="reco-label">Financing Instrument Recommendations</div>
+        <div class="reco-grid" id="recoGrid">
+          <!-- populated by JS -->
+        </div>
+      </div>
+
+      <!-- CROSS-LINK: Tool 89 -->
+      <div class="crosslink-callout">
+        <div class="crosslink-icon">🔬</div>
+        <div class="crosslink-body">
+          <div class="crosslink-title">Need a full stress lab for your cash position?</div>
+          <div class="crosslink-desc">This tool gives you the working capital gap entry point. For a comprehensive 13-week cash flow model with shock scenarios, seasonal adjustments, and board-ready reporting, use <a href="../tools/89-treasury-liquidity-stress-lab.html">Tool 89 — Treasury Liquidity Stress Lab →</a></div>
+        </div>
+      </div>
+
+      <!-- EXPORT ROW: AP2 button lives here alongside MD, immediately below results -->
+      <div class="results-export-row export-row">
+        <button class="btn-export btn-export-md" onclick="exportMarkdown()" data-i18n="export_md">
+          <span class="md-badge">MD</span> Export Markdown
+        </button>
+        <button id="ap2ExportBtn"
+          onclick="exportAP2()"
+          disabled
+          title="Run the analysis above to generate a Policy Mandate">
+          <span class="ap2-icon">{}</span>
+          <span class="ap2-btn-inner">
+            <span class="ap2-btn-label" data-i18n="export_ap2">Export Policy Mandate</span>
+            <span class="ap2-btn-sub">API · audit trail</span>
+          </span>
+        </button>
+      </div>
+
+      <!-- CITATIONS -->
+      <div class="citations-panel">
+        <div class="citations-title">Methodology &amp; Citations</div>
+        <ul class="citation-list">
+          <li data-n="[1]">Cash Conversion Cycle formula: CCC = DSO + DIO − DPO. Working Capital funding gap: Revenue × (CCC ÷ 365). Source: Gitman, L.J. (1974), <em>Estimating Corporate Liquidity Requirements</em>.</li>
+          <li data-n="[2]">Financing instrument thresholds based on UK Finance SME lending data 2024 and British Business Bank Small Business Finance Markets Report 2024.</li>
+          <li data-n="[3]">Risk tier classification adapted from Atradius Payment Practices Barometer SME 2024 and ICAEW Business Finance Guide 2024.</li>
+          <li data-n="[4]">CFPB 1033 / PSD3 open banking data signals — see T243 Open Finance Credit Signal Mapper for underwriting improvement modelling.</li>
+        </ul>
+      </div>
+
+    </div><!-- /results-section -->
+
+  </div><!-- /left-col -->
+
+  <!-- RIGHT COLUMN: ABOUT -->
+  <div class="right-col">
+    <div class="about-panel">
+      <div class="panel-label" data-i18n="panel_about">About This Tool</div>
+      <div class="panel-body tight">
+
+        <p class="about-note">The <strong>Cash Conversion Cycle (CCC)</strong> measures how long cash is tied up in your operating cycle — from paying suppliers to collecting from customers.</p>
+
+        <div class="about-formula">
+          CCC<br>
+          <span>= AR Days (DSO)</span><br>
+          <span>+ Inventory Days (DIO)</span><br>
+          <span>− AP Days (DPO)</span>
+        </div>
+
+        <p class="about-note">A <strong>positive CCC</strong> means your business is funding a gap: you pay suppliers before customers pay you. A negative CCC (common in subscription or pre-payment models) means customers fund your operations.</p>
+
+        <p class="about-note">The <strong>Working Capital Funding Gap</strong> translates the CCC into a cash amount:
+          <div class="about-formula">Gap = Revenue × CCC ÷ 365</div>
+          This is the amount you need to keep operations running smoothly at your current revenue level.
+          <span class="cite">[1] Gitman (1974), adapted</span>
+        </p>
+
+        <p class="about-note"><strong>Benchmark reference:</strong> UK SMEs in manufacturing average 45–65 CCC days; services firms 20–40 days; retail 10–30 days.
+          <span class="cite">[2] UK Finance SME Report 2024</span>
+        </p>
+
+        <p class="about-note"><strong>Policy Mandate</strong> — this tool outputs a validated Policy Mandate JSON funding profile, usable as an agent instruction set for open banking and fintech lending integrations.
+        </p>
+
+        <p class="about-note"><strong>Cross-links:</strong> For a full 13-week cash flow stress model use <a href="../tools/89-treasury-liquidity-stress-lab.html" style="color:var(--teal);border-bottom:1px solid rgba(20,184,166,.2)">Tool 89</a>. For revenue-based finance economics see <a href="../tools/244-revenue-based-finance-calculator.html" style="color:var(--teal);border-bottom:1px solid rgba(20,184,166,.2)">T244</a>.
+        </p>
+
+      </div>
+    </div>
+  </div><!-- /right-col -->
+
+</div><!-- /tool-layout -->
+</div><!-- /container -->
+</div><!-- /main-content -->
+
+<!-- FOOTER -->
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/sme-financial-health-hub.html"><span data-i18n="footer.hub_sme_financial_health">SME Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* AP2Schema — full validator (PM17; wired into cohort C) */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+if (typeof AP2Schema.validate !== 'function') {
+  AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    return true;
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   T240 · Working Capital Gap Calculator
+   Cat-20 · SME Financial Health & Lending Readiness
+   
+   Core logic: CCC = AR Days + Inventory Days − AP Days
+               Working Capital Gap = Annual Revenue × (CCC / 365)
+   
+   AP2 export: manifest.json ap2_export: true
+   i18n: Stage 2 — 6 languages (EN ES FR AR PT 中文)
+   ======================================================================= */
+
+/* ── State ─────────────────────────────────────────────────────────── */
+let lastResult = null; // populated after runAnalysis(); consumed by exportAP2()
+
+/* ── Currency helpers ──────────────────────────────────────────────── */
+const CURRENCY_SYMBOLS = { USD: '$', GBP: '£', EUR: '€' };
+
+function getCurrency() {
+  return document.getElementById('currency').value || 'GBP';
+}
+function getSymbol() {
+  return CURRENCY_SYMBOLS[getCurrency()] || '£';
+}
+function fmt(n, dp) {
+  /* Format a number as a localised currency string */
+  const sym = getSymbol();
+  if (dp === undefined) dp = 0;
+  const abs = Math.abs(n);
+  let str;
+  if (abs >= 1_000_000) {
+    str = sym + (n / 1_000_000).toFixed(2) + 'M';
+  } else if (abs >= 1_000) {
+    str = sym + Math.round(n / 100) * 100 < abs
+      ? sym + n.toLocaleString('en-GB', { maximumFractionDigits: 0 })
+      : sym + n.toLocaleString('en-GB', { maximumFractionDigits: 0 });
+    str = sym + n.toLocaleString('en-GB', { maximumFractionDigits: dp });
+  } else {
+    str = sym + n.toFixed(dp);
+  }
+  return str;
+}
+
+/* ── Risk tier classification ──────────────────────────────────────── */
+/* Based on CCC duration — sector-adjusted benchmarks from UK Finance 2024 */
+function classifyRisk(ccc, sector) {
+  // Sector adjustments: lower CCC thresholds for services, higher for manufacturing
+  const sectorFactor = {
+    retail: 1.0, manufacturing: 1.3, services: 0.75, construction: 1.2,
+    wholesale: 1.1, tech: 0.7, hospitality: 0.9, other: 1.0
+  }[sector] || 1.0;
+
+  const adj = ccc / sectorFactor; // normalised CCC
+  if (adj <= 20)  return { tier: 'Low',      label: 'Healthy',          cls: 'low',      color: 'green' };
+  if (adj <= 45)  return { tier: 'Moderate', label: 'Manageable',       cls: 'moderate', color: 'warn' };
+  if (adj <= 75)  return { tier: 'Elevated', label: 'Requires Action',  cls: 'elevated', color: 'red' };
+  return            { tier: 'High',      label: 'Critical',         cls: 'high',     color: 'red' };
+}
+
+/* ── Financing instrument recommendation engine ────────────────────── */
+/* Based on gap size and CCC duration; cross-linked instruments */
+function getRecommendations(ccc, gapAmount, sector) {
+  const sym = getSymbol();
+  const allInstruments = [
+    {
+      name: 'Business Overdraft',
+      desc: 'Revolving credit facility for short-term cash timing mismatches. Ideal for CCC under 30 days or gaps under ' + sym + '25K. Lowest cost option for minor gaps.',
+      primary: gapAmount < 25000 || ccc < 30,
+      link: null,
+    },
+    {
+      name: 'Invoice Finance / Discounting',
+      desc: 'Release up to 85–90% of outstanding invoice value as soon as you issue invoices. Best for B2B businesses with 30–90 day payment terms. Grows with your revenue.',
+      primary: gapAmount >= 10000 && ccc >= 25,
+      link: '../tools/242-invoice-finance-eligibility.html',
+      linkLabel: 'Assess eligibility → T242',
+    },
+    {
+      name: 'Trade Credit Extension',
+      desc: 'Negotiate longer payment terms with suppliers (AP days). Adding 15–30 days to AP can eliminate up to 30–40% of the working capital gap without borrowing.',
+      primary: ccc >= 20,
+      link: null,
+    },
+    {
+      name: 'Revenue-Based Finance (RBF)',
+      desc: 'Advance against future revenue with repayment as a percentage of monthly receipts. No fixed monthly payment — repayment flexes with cash flow. Best for recurring revenue.',
+      primary: gapAmount >= 50000 || ccc >= 60,
+      link: '../tools/244-revenue-based-finance-calculator.html',
+      linkLabel: 'Model RBF economics → T244',
+    },
+    {
+      name: 'Asset Finance / Equipment Leasing',
+      desc: 'If inventory gap is a major driver, consider leasing equipment or stock financing to convert capex into opex, reducing the cash tied up in assets.',
+      primary: gapAmount >= 100000 && sector === 'manufacturing',
+      link: null,
+    },
+    {
+      name: 'Business Credit Card',
+      desc: 'For very small gaps under ' + sym + '10K, a 0% business purchase card provides 30–56 days of interest-free float on purchases — effectively free short-term working capital.',
+      primary: gapAmount < 10000,
+      link: null,
+    },
+  ];
+
+  // Sort: primary recommendations first, then secondary
+  const sorted = [
+    ...allInstruments.filter(i => i.primary),
+    ...allInstruments.filter(i => !i.primary),
+  ].slice(0, 5); // max 5 recommendations
+
+  return sorted;
+}
+
+/* ── Validation ────────────────────────────────────────────────────── */
+function validateInputs() {
+  let valid = true;
+
+  const revenue = parseFloat(document.getElementById('revenue').value);
+  const arDays  = parseFloat(document.getElementById('arDays').value);
+  const apDays  = parseFloat(document.getElementById('apDays').value);
+  const invDays = parseFloat(document.getElementById('invDays').value);
+
+  // Revenue
+  const revOk = !isNaN(revenue) && revenue > 0;
+  document.getElementById('revenue').classList.toggle('error', !revOk);
+  document.getElementById('revenueErr').classList.toggle('visible', !revOk);
+  if (!revOk) valid = false;
+
+  // AR Days
+  const arOk = !isNaN(arDays) && arDays >= 0 && arDays <= 365;
+  document.getElementById('arDays').classList.toggle('error', !arOk);
+  document.getElementById('arErr').classList.toggle('visible', !arOk);
+  if (!arOk) valid = false;
+
+  // AP Days
+  const apOk = !isNaN(apDays) && apDays >= 0 && apDays <= 365;
+  document.getElementById('apDays').classList.toggle('error', !apOk);
+  document.getElementById('apErr').classList.toggle('visible', !apOk);
+  if (!apOk) valid = false;
+
+  // Inventory Days
+  const invOk = !isNaN(invDays) && invDays >= 0 && invDays <= 365;
+  document.getElementById('invDays').classList.toggle('error', !invOk);
+  document.getElementById('invErr').classList.toggle('visible', !invOk);
+  if (!invOk) valid = false;
+
+  return valid;
+}
+
+/* ── Main analysis function (MCP callable: calculate_working_capital_gap) */
+function runAnalysis() {
+  if (!validateInputs()) return;
+
+  const revenue  = parseFloat(document.getElementById('revenue').value);
+  const arDays   = parseFloat(document.getElementById('arDays').value);
+  const apDays   = parseFloat(document.getElementById('apDays').value);
+  const invDays  = parseFloat(document.getElementById('invDays').value);
+  const currency = getCurrency();
+  const sector   = document.getElementById('sector').value;
+  const sym      = getSymbol();
+
+  /* ── Core CCC computation ──────────────────────────────────────────
+     CCC = DSO (AR Days) + DIO (Inventory Days) − DPO (AP Days)
+     Reference: Gitman (1974); adapted for SME context
+  ─────────────────────────────────────────────────────────────────── */
+  const ccc       = arDays + invDays - apDays;
+  const dailyRev  = revenue / 365;
+  const wcGap     = revenue * (ccc / 365); // working capital funding gap
+
+  /* Scenarios: ±20% revenue, same CCC */
+  const gapDown  = revenue * 0.8 * (ccc / 365);
+  const gapUp    = revenue * 1.2 * (ccc / 365);
+
+  const risk = classifyRisk(ccc, sector);
+
+  /* ── Persist result for AP2 export ──────────────────────────────── */
+  lastResult = {
+    inputs:  { revenue, arDays, apDays, invDays, currency, sector },
+    outputs: { ccc, dailyRev, wcGap, gapDown, gapUp, riskTier: risk.tier, riskLabel: risk.label },
+    timestamp: new Date().toISOString(),
+  };
+
+  /* ── Render metric cards ─────────────────────────────────────────── */
+  const cccEl = document.getElementById('cccValue');
+  cccEl.textContent = ccc.toFixed(1);
+  cccEl.className = 'metric-value ' + risk.color;
+
+  document.getElementById('cccFormula').textContent =
+    arDays + ' + ' + invDays + ' − ' + apDays + ' = ' + ccc.toFixed(1) + ' days';
+  document.getElementById('dailyRevValue').textContent = fmt(dailyRev, 0);
+  document.getElementById('dailyRevSub').textContent = sym + ' per day · ' + currency;
+  document.getElementById('riskTierValue').textContent = risk.tier;
+  document.getElementById('riskTierValue').className = 'metric-value ' + risk.color;
+  document.getElementById('riskTierSub').textContent = risk.label;
+
+  /* ── CCC bar chart ───────────────────────────────────────────────── */
+  const totalRaw = arDays + invDays + apDays;
+  const total    = totalRaw > 0 ? totalRaw : 1; // avoid division by zero
+  const arPct    = (arDays  / total) * 100;
+  const invPct   = (invDays / total) * 100;
+  const apPct    = (apDays  / total) * 100;
+  document.getElementById('cccSegAR').style.width  = arPct  + '%';
+  document.getElementById('cccSegAR').textContent  = arDays  > 0 ? 'AR ' + arDays + 'd' : '';
+  document.getElementById('cccSegInv').style.width = invPct + '%';
+  document.getElementById('cccSegInv').textContent = invDays > 0 ? 'Inv ' + invDays + 'd' : '';
+  document.getElementById('cccSegAP').style.width  = apPct  + '%';
+  document.getElementById('cccSegAP').textContent  = apDays  > 0 ? 'AP ' + apDays + 'd' : '';
+  document.getElementById('arLegend').textContent  = 'AR Days (DSO): ' + arDays;
+  document.getElementById('invLegend').textContent = 'Inventory Days (DIO): ' + invDays;
+  document.getElementById('apLegend').textContent  = 'AP Days offset (DPO): ' + apDays;
+
+  /* ── Gap card ────────────────────────────────────────────────────── */
+  const gapCard   = document.getElementById('gapCard');
+  const gapAmtEl  = document.getElementById('gapAmount');
+  const badgeEl   = document.getElementById('gapTierBadge');
+  const gapDescEl = document.getElementById('gapDesc');
+
+  gapCard.className = 'gap-card';
+  if (risk.color === 'warn') gapCard.classList.add('warn-border');
+  if (risk.color === 'red')  gapCard.classList.add('red-border');
+
+  const gapAbs = Math.abs(wcGap);
+  if (wcGap < 0) {
+    gapAmtEl.innerHTML = '<em>' + fmt(gapAbs) + '</em> surplus';
+    gapAmtEl.className = 'gap-amount';
+  } else {
+    gapAmtEl.innerHTML = '<em>' + fmt(gapAbs) + '</em> required';
+    gapAmtEl.className = 'gap-amount ' + (risk.color === 'red' ? 'red' : risk.color === 'warn' ? 'warn' : '');
+  }
+
+  badgeEl.textContent = risk.label + ' — ' + risk.tier + ' Risk';
+  badgeEl.className   = 'gap-tier-badge ' + risk.cls;
+
+  const cccNote = ccc <= 0
+    ? 'Your CCC is negative (' + ccc.toFixed(1) + ' days), meaning customers are effectively funding your operations — a strong working capital position.'
+    : 'Your business needs approximately ' + fmt(gapAbs) + ' of working capital to bridge the ' + ccc.toFixed(1) + '-day gap between paying suppliers and collecting from customers. At your revenue level of ' + fmt(revenue) + '/year (' + fmt(dailyRev, 0) + '/day), this gap is ' + risk.label.toLowerCase() + '.';
+  gapDescEl.textContent = cccNote;
+
+  /* ── Scenarios ───────────────────────────────────────────────────── */
+  const revDown = revenue * 0.8;
+  const revUp   = revenue * 1.2;
+  document.getElementById('scenRevDown').textContent  = fmt(revDown) + ' revenue';
+  document.getElementById('scenGapDown').textContent  = fmt(Math.abs(gapDown));
+  document.getElementById('scenDeltaDown').textContent = '+' + fmt(Math.abs(gapDown) - gapAbs) + ' vs base';
+  document.getElementById('scenRevBase').textContent  = fmt(revenue) + ' revenue';
+  document.getElementById('scenGapBase').textContent  = fmt(gapAbs);
+  document.getElementById('scenRevUp').textContent   = fmt(revUp) + ' revenue';
+  document.getElementById('scenGapUp').textContent   = fmt(Math.abs(gapUp));
+  document.getElementById('scenDeltaUp').textContent = '+' + fmt(Math.abs(gapUp) - gapAbs) + ' vs base';
+
+  /* ── Recommendations ─────────────────────────────────────────────── */
+  const recos = getRecommendations(ccc, gapAbs, sector);
+  const recoGrid = document.getElementById('recoGrid');
+  recoGrid.innerHTML = '';
+  recos.forEach((r, i) => {
+    const row = document.createElement('div');
+    row.className = 'reco-row';
+    const rankSpan = `<span class="reco-rank ${i === 0 ? 'primary' : ''}">${String(i + 1).padStart(2, '0')}</span>`;
+    const linkHtml = r.link
+      ? `<br><a href="${r.link}" style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--teal);border-bottom:1px solid rgba(20,184,166,.2)">${r.linkLabel || 'Learn more →'}</a>`
+      : '';
+    const tagHtml = `<span class="reco-tag ${i === 0 ? 'primary-tag' : 'secondary-tag'}">${i === 0 ? 'Primary' : 'Consider'}</span>`;
+    row.innerHTML = `
+      ${rankSpan}
+      <div class="reco-body">
+        <div class="reco-name">${r.name}</div>
+        <div class="reco-desc">${r.desc}${linkHtml}</div>
+      </div>
+      ${tagHtml}
+    `;
+    recoGrid.appendChild(row);
+  });
+
+  /* ── Show results + activate AP2 button in results row ──────────────── */
+  document.getElementById('resultsSection').classList.add('visible');
+  enableAP2Btn();
+
+  // Smooth scroll to results
+  document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ── Enable AP2 button (called after successful analysis run) ─────────── */
+function enableAP2Btn() {
+  const btn = document.getElementById('ap2ExportBtn');
+  if (!btn) return;
+  btn.disabled = false;
+  btn.classList.add('ready');
+  btn.title = 'For API integration · audit trail';
+}
+
+/* ── AP2 JSON export ─────────────────────────────────────────────────
+   ap2_export: true — mandate_type: "risk_parameter"
+   Aligns with AP2 schema in 00-master-rules-and-overlap-registry-v2.md
+─────────────────────────────────────────────────────────────────────── */
+function exportAP2() {
+  if (!lastResult) return; // button is disabled pre-run; guard anyway
+
+  const { inputs, outputs, timestamp } = lastResult;
+  const sym = CURRENCY_SYMBOLS[inputs.currency] || '£';
+  const recos = getRecommendations(outputs.ccc, Math.abs(outputs.wcGap), inputs.sector);
+
+  /* Build AP2 mandate — schema: 00-master-rules-and-overlap-registry-v2.md §8 */
+  const mandate = {
+    ap2_version:           "1.0",
+    mandate_id:            crypto.randomUUID(),
+    issued_at:             new Date().toISOString(),
+    issued_by:             "ainumbers.co",
+    tool_id:               "working-capital-gap-calculator",
+    tool_version:          "1.0.0",
+    mandate_type:          "risk_parameter",
+    jurisdiction:          ["UK", "US", "EU"],
+    regulatory_frameworks: ["UK Finance SME Lending Standards", "British Business Bank 2024", "CFPB 1033", "PSD3"],
+
+    payload: {
+      /* Core CCC outputs */
+      cash_conversion_cycle_days:  outputs.ccc,
+      ar_days_dso:                 inputs.arDays,
+      ap_days_dpo:                 inputs.apDays,
+      inventory_days_dio:          inputs.invDays,
+      annual_revenue:              inputs.revenue,
+      currency:                    inputs.currency,
+      daily_revenue:               Math.round(outputs.dailyRev),
+      working_capital_gap:         Math.round(outputs.wcGap),
+      working_capital_gap_abs:     Math.round(Math.abs(outputs.wcGap)),
+      risk_tier:                   outputs.riskTier,
+      risk_label:                  outputs.riskLabel,
+      sector:                      inputs.sector,
+      /* Scenario sensitivity */
+      gap_at_revenue_minus_20pct:  Math.round(outputs.gapDown),
+      gap_at_revenue_plus_20pct:   Math.round(outputs.gapUp),
+      /* Primary recommendation */
+      primary_instrument:          recos[0] ? recos[0].name : "Overdraft",
+      secondary_instrument:        recos[1] ? recos[1].name : "Invoice Finance",
+    },
+
+    summary: `SME working capital gap analysis. CCC: ${outputs.ccc.toFixed(1)} days (AR: ${inputs.arDays}d + Inv: ${inputs.invDays}d − AP: ${inputs.apDays}d). Working capital funding gap: ${sym}${Math.round(Math.abs(outputs.wcGap)).toLocaleString('en-GB')} on ${sym}${Math.round(inputs.revenue).toLocaleString('en-GB')} annual revenue. Risk tier: ${outputs.riskTier} (${outputs.riskLabel}). Primary financing recommendation: ${recos[0] ? recos[0].name : 'Overdraft'}.`,
+
+    agent_instructions: [
+      `Assess working capital gap of ${sym}${Math.round(Math.abs(outputs.wcGap)).toLocaleString('en-GB')} (CCC: ${outputs.ccc.toFixed(1)} days) against lending appetite before advancing any facility.`,
+      `Risk tier is ${outputs.riskTier} — ${outputs.riskLabel}. ${outputs.riskTier === 'High' ? 'Refer for enhanced cash flow review before credit approval.' : 'Standard underwriting criteria apply.'}`,
+      `Primary recommended instrument: ${recos[0] ? recos[0].name : 'Overdraft'}. ${recos[1] ? 'Secondary option: ' + recos[1].name + '.' : ''}`,
+      `Advise borrower to use T242 Invoice Finance Eligibility Assessor for invoice finance sizing and T244 Revenue-Based Finance Calculator for RBF economics.`,
+      `Cross-reference with Tool 89 Treasury Liquidity Stress Lab for 13-week cash flow projection before facility drawdown.`,
+      `Rerun analysis if revenue changes by more than ±15% or if AR/AP terms are renegotiated.`,
+    ],
+
+    valid_from:   timestamp.slice(0, 10),
+    last_reviewed: "2026-05-09",
+
+    source_tool_inputs: {
+      annual_revenue:  inputs.revenue,
+      ar_days:         inputs.arDays,
+      ap_days:         inputs.apDays,
+      inventory_days:  inputs.invDays,
+      currency:        inputs.currency,
+      sector:          inputs.sector,
+      analysed_at:     timestamp,
+    },
+
+    regulatory_citations: [
+      "Gitman L.J. (1974) — Estimating Corporate Liquidity Requirements: A Simplified Approach",
+      "UK Finance SME Lending Data Report 2024",
+      "British Business Bank — Small Business Finance Markets Report 2024",
+      "Atradius Payment Practices Barometer SME Europe 2024",
+      "CFPB Final Rule 12 CFR Part 1033 — Open Banking (2024)",
+      "EU PSD3 — Payment Services Directive 3 (proposed 2023)",
+    ],
+  };
+
+  /* Download as JSON */
+  AP2Schema.validate(mandate);
+  const blob = new Blob([JSON.stringify(mandate, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {
+    href:     url,
+    download: `ap2-working-capital-gap-${Date.now()}.policy.json`,
+  });
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showExportToast('{} Policy Mandate JSON downloaded', 'ap2');
+}
+
+/* ── Markdown export ──────────────────────────────────────────────── */
+function exportMarkdown() {
+  if (!lastResult) return;
+
+  const { inputs, outputs } = lastResult;
+  const sym  = CURRENCY_SYMBOLS[inputs.currency] || '£';
+  const recos = getRecommendations(outputs.ccc, Math.abs(outputs.wcGap), inputs.sector);
+  const date  = new Date().toISOString().slice(0, 10);
+
+  let md = `# Working Capital Gap Analysis\n\n`;
+  md += `**Tool:** T240 · Working Capital Gap Calculator · AINumbers.co  \n`;
+  md += `**Date:** ${date}  \n`;
+  md += `**Sector:** ${inputs.sector}  \n`;
+  md += `**Currency:** ${inputs.currency}  \n\n`;
+
+  md += `## Cash Conversion Cycle\n\n`;
+  md += `| Component | Days |\n|---|---|\n`;
+  md += `| AR Days (DSO) | ${inputs.arDays} |\n`;
+  md += `| Inventory Days (DIO) | ${inputs.invDays} |\n`;
+  md += `| AP Days (DPO) | ${inputs.apDays} |\n`;
+  md += `| **CCC** | **${outputs.ccc.toFixed(1)}** |\n\n`;
+
+  md += `## Working Capital Funding Gap\n\n`;
+  md += `| Metric | Value |\n|---|---|\n`;
+  md += `| Annual Revenue | ${sym}${Math.round(inputs.revenue).toLocaleString('en-GB')} |\n`;
+  md += `| Daily Revenue | ${sym}${Math.round(outputs.dailyRev).toLocaleString('en-GB')} |\n`;
+  md += `| Working Capital Gap | ${sym}${Math.round(Math.abs(outputs.wcGap)).toLocaleString('en-GB')} |\n`;
+  md += `| Risk Tier | ${outputs.riskTier} (${outputs.riskLabel}) |\n\n`;
+
+  md += `## Revenue Sensitivity\n\n`;
+  md += `| Scenario | Revenue | Gap |\n|---|---|---|\n`;
+  md += `| −20% Revenue | ${sym}${Math.round(inputs.revenue * 0.8).toLocaleString('en-GB')} | ${sym}${Math.round(Math.abs(outputs.gapDown)).toLocaleString('en-GB')} |\n`;
+  md += `| Base Case | ${sym}${Math.round(inputs.revenue).toLocaleString('en-GB')} | ${sym}${Math.round(Math.abs(outputs.wcGap)).toLocaleString('en-GB')} |\n`;
+  md += `| +20% Revenue | ${sym}${Math.round(inputs.revenue * 1.2).toLocaleString('en-GB')} | ${sym}${Math.round(Math.abs(outputs.gapUp)).toLocaleString('en-GB')} |\n\n`;
+
+  md += `## Financing Instrument Recommendations\n\n`;
+  recos.forEach((r, i) => {
+    md += `${i + 1}. **${r.name}**${i === 0 ? ' _(Primary)_' : ''}  \n`;
+    md += `   ${r.desc}\n\n`;
+  });
+
+  md += `---\n\n`;
+  md += `*Generated by AINumbers.co T240 · Working Capital Gap Calculator · Client-side. Zero PII.*  \n`;
+  md += `*For methodology see: Gitman (1974); UK Finance SME Lending Data 2024.*\n`;
+
+  const blob = new Blob([md], { type: 'text/markdown' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {
+    href:     url,
+    download: `working-capital-gap-analysis-${Date.now()}.md`,
+  });
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showExportToast('MD Markdown downloaded', 'md');
+}
+
+/* ── Export toast ─────────────────────────────────────────────────── */
+function showExportToast(msg, type) {
+  let el = document.getElementById('exportToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'exportToast';
+    el.className = 'export-toast';
+    document.body.appendChild(el);
+  }
+  const isAp2 = type === 'ap2';
+  el.style.borderLeftColor = isAp2 ? 'var(--green)' : 'var(--teal)';
+  el.style.color            = isAp2 ? 'var(--green)' : 'var(--teal)';
+  el.innerHTML = '<span style="font-weight:700;font-family:\'JetBrains Mono\',monospace">'
+    + (isAp2 ? '{}' : 'MD') + '</span>&nbsp;' + msg;
+  el.classList.add('show');
+  clearTimeout(el._tm);
+  el._tm = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+/* ── Currency symbol update on select change ─────────────────────── */
+document.getElementById('currency').addEventListener('change', function() {
+  document.getElementById('currencySymbol').textContent = CURRENCY_SYMBOLS[this.value] || '£';
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   i18n — Stage 2 UI Chrome Translations
+   Regulatory citations and financial codes stay in EN.
+   Tool output content stays in EN (professional B2B audience).
+   UI labels, buttons, and nav translate to all 6 languages.
+═══════════════════════════════════════════════════════════════════ */
+const TRANSLATIONS = {
+  en: {
+    eyebrow:          "T240 · Cat-20 · SME Financial Health · Working Capital",
+    hero_title:       "Find your working capital gap in seconds",
+    hero_desc:        "Input AR days, AP days, and inventory days to calculate your Cash Conversion Cycle and the funding gap tied up in your operating cycle. Financing instrument recommendations and Policy Mandate JSON export. Anchor tool for the SME Financial Health Hub.",
+    panel_config:     "Configuration",
+    panel_about:      "About This Tool",
+    label_currency:   "Currency",
+    label_sector:     "Industry Sector",
+    label_revenue:    "Annual Revenue",
+    label_ar_days:    "AR Days (DSO)",
+    label_ap_days:    "AP Days (DPO)",
+    label_inventory_days: "Inventory Days (DIO)",
+    run_btn:          "Run Analysis →",
+    results_title:    "Working Capital Analysis",
+    export_ap2:       "Export Policy Mandate",
+    export_md:        "Export Markdown",
+    nav_all_tools:    "All Tools",
+    footer_badge:     "🔒 Zero PII \u00a0 📡 Client-Side \u00a0 💻 No Server Calls",
+    lang_dir:         "ltr",
+  
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-20 Hub',
+  },
+  es: {
+    eyebrow:          "T240 · Cat-20 · Salud Financiera PYME · Capital de Trabajo",
+    hero_title:       "Calcula tu brecha de capital de trabajo en segundos",
+    hero_desc:        "Ingresa los días de AR, AP e inventario para calcular tu Ciclo de Conversión de Efectivo y la brecha de financiamiento en tu ciclo operativo. Recomendaciones de instrumentos financieros y exportación de Mandato de Política.",
+    panel_config:     "Configuración",
+    panel_about:      "Sobre Esta Herramienta",
+    label_currency:   "Moneda",
+    label_sector:     "Sector Industrial",
+    label_revenue:    "Ingresos Anuales",
+    label_ar_days:    "Días AR (DSO)",
+    label_ap_days:    "Días AP (DPO)",
+    label_inventory_days: "Días de Inventario (DIO)",
+    run_btn:          "Ejecutar Análisis →",
+    results_title:    "Análisis de Capital de Trabajo",
+    export_ap2:       "Exportar Mandato de Política",
+    export_md:        "Exportar Markdown",
+    nav_all_tools:    "Todas las Herramientas",
+    footer_badge:     "🔒 Sin PII \u00a0 📡 Cliente \u00a0 💻 Sin servidor",
+    lang_dir:         "ltr",
+  
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-20',
+  },
+  fr: {
+    eyebrow:          "T240 · Cat-20 · Santé Financière PME · Besoin en Fonds de Roulement",
+    hero_title:       "Calculez votre besoin en fonds de roulement en secondes",
+    hero_desc:        "Saisissez les jours clients, fournisseurs et de stock pour calculer votre cycle de conversion de trésorerie et le besoin de financement lié à votre cycle d'exploitation. Recommandations d'instruments et export de Mandat de Politique.",
+    panel_config:     "Configuration",
+    panel_about:      "À propos de cet outil",
+    label_currency:   "Devise",
+    label_sector:     "Secteur d'activité",
+    label_revenue:    "Chiffre d'affaires annuel",
+    label_ar_days:    "Jours clients (DSO)",
+    label_ap_days:    "Jours fournisseurs (DPO)",
+    label_inventory_days: "Jours de stock (DIO)",
+    run_btn:          "Lancer l'analyse →",
+    results_title:    "Analyse du Fonds de Roulement",
+    export_ap2:       "Exporter Mandat de Politique",
+    export_md:        "Exporter Markdown",
+    nav_all_tools:    "Tous les Outils",
+    footer_badge:     "🔒 Zéro PII \u00a0 📡 Côté client \u00a0 💻 Sans serveur",
+    lang_dir:         "ltr",
+  
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-20',
+  },
+  ar: {
+    eyebrow:          "T240 · الفئة 20 · الصحة المالية للشركات الصغيرة · رأس المال العامل",
+    hero_title:       "احسب فجوة رأس المال العامل في ثوانٍ",
+    hero_desc:        "أدخل أيام الذمم المدينة والدائنة والمخزون لحساب دورة تحويل النقد والفجوة التمويلية في دورتك التشغيلية. توصيات بأدوات التمويل وتصدير تفويض السياسة.",
+    panel_config:     "الإعدادات",
+    panel_about:      "حول هذه الأداة",
+    label_currency:   "العملة",
+    label_sector:     "القطاع الصناعي",
+    label_revenue:    "الإيرادات السنوية",
+    label_ar_days:    "أيام الذمم المدينة (DSO)",
+    label_ap_days:    "أيام الذمم الدائنة (DPO)",
+    label_inventory_days: "أيام المخزون (DIO)",
+    run_btn:          "تشغيل التحليل →",
+    results_title:    "تحليل رأس المال العامل",
+    export_ap2:       "تصدير تفويض السياسة",
+    export_md:        "تصدير Markdown",
+    nav_all_tools:    "جميع الأدوات",
+    footer_badge:     "🔒 بدون بيانات شخصية \u00a0 📡 من جانب العميل \u00a0 💻 بدون خادم",
+    lang_dir:         "rtl",
+  
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-20',
+  },
+  pt: {
+    eyebrow:          "T240 · Cat-20 · Saúde Financeira PME · Capital de Giro",
+    hero_title:       "Calcule sua lacuna de capital de giro em segundos",
+    hero_desc:        "Insira os dias de AR, AP e estoque para calcular seu Ciclo de Conversão de Caixa e a lacuna de financiamento no seu ciclo operacional. Recomendações de instrumentos e exportação de Mandato de Política.",
+    panel_config:     "Configuração",
+    panel_about:      "Sobre esta Ferramenta",
+    label_currency:   "Moeda",
+    label_sector:     "Setor Industrial",
+    label_revenue:    "Receita Anual",
+    label_ar_days:    "Dias AR (DSO)",
+    label_ap_days:    "Dias AP (DPO)",
+    label_inventory_days: "Dias de Estoque (DIO)",
+    run_btn:          "Executar Análise →",
+    results_title:    "Análise de Capital de Giro",
+    export_ap2:       "Exportar Mandato de Política",
+    export_md:        "Exportar Markdown",
+    nav_all_tools:    "Todas as Ferramentas",
+    footer_badge:     "🔒 Zero PII \u00a0 📡 Lado cliente \u00a0 💻 Sem servidor",
+    lang_dir:         "ltr",
+  
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-20',
+  },
+  zh: {
+    eyebrow:          "T240 · 第20类 · 中小企业财务健康 · 营运资金",
+    hero_title:       "几秒内计算出您的营运资金缺口",
+    hero_desc:        "输入AR天数、AP天数和库存天数，计算现金转换周期及运营周期中占用的资金缺口。获取融资工具建议并导出政策授权书资金概况。",
+    panel_config:     "配置",
+    panel_about:      "关于此工具",
+    label_currency:   "货币",
+    label_sector:     "行业",
+    label_revenue:    "年收入",
+    label_ar_days:    "应收账款天数 (DSO)",
+    label_ap_days:    "应付账款天数 (DPO)",
+    label_inventory_days: "库存天数 (DIO)",
+    run_btn:          "运行分析 →",
+    results_title:    "营运资金分析",
+    export_ap2:       "导出政策授权书",
+    export_md:        "导出 Markdown",
+    nav_all_tools:    "所有工具",
+    footer_badge:     "🔒 零个人信息 \u00a0 📡 客户端 \u00a0 💻 无服务器",
+    lang_dir:         "ltr",
+  
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-20 中心',
+  },
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS['en'];
+  /* Activate button */
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`) ||
+              document.querySelector(`.lang-btn[onclick='setLang("${lang}")']`);
+  if (btn) btn.classList.add('active');
+  /* Document direction */
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  document.documentElement.dir  = t.lang_dir || 'ltr';
+  document.body.dir              = t.lang_dir || 'ltr';
+
+  /* Helper for single-selector targets */
+  const apply = (selector, key) => {
+    const el = document.querySelector(selector);
+    if (el && t[key] !== undefined) el.textContent = t[key];
+  };
+
+  apply('.tool-eyebrow',  'eyebrow');
+  apply('.hero h1',       'hero_title');
+  apply('.hero-desc',     'hero_desc');
+  apply('.run-btn',       'run_btn');
+  apply('.results-title', 'results_title');
+  apply('.nav-cta',       'nav_all_tools');
+
+  /* Panel labels */
+  const panelLabels = document.querySelectorAll('.panel-label');
+  const panelKeys   = ['panel_config', 'panel_about'];
+  panelLabels.forEach((el, i) => {
+    if (panelKeys[i] && t[panelKeys[i]]) el.textContent = t[panelKeys[i]];
+  });
+
+  /* Export buttons */
+  document.querySelectorAll('.btn-export').forEach(b => {
+    if (b.classList.contains('btn-export-md')) {
+      const k = t['export_md'];
+      if (k) b.innerHTML = '<span class="md-badge">MD</span> ' + k;
+    }
+  });
+  const ap2Label = document.querySelector('#ap2ExportBtn .ap2-btn-label');
+  if (ap2Label && t['export_ap2']) ap2Label.textContent = t['export_ap2'];
+
+  /* data-i18n attributes */
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (t[key] !== undefined) el.textContent = t[key];
+  });
+
+  /* Footer badge */
+  const footerBadge = document.querySelector('.footer-pii-badge');
+  if (footerBadge && t['footer_badge']) {
+    const parts = t['footer_badge'].split('\u00a0');
+    const spans = footerBadge.querySelectorAll('span');
+    spans.forEach((s, i) => { if (parts[i]) s.textContent = parts[i].trim(); });
+  }
+
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function initLang() {
+  try {
+    const saved = sessionStorage.getItem('ain_lang');
+    if (saved && TRANSLATIONS[saved]) setLang(saved);
+  } catch(e) {}
+})();
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "working-capital-gap-calculator", "version": "1.0.0", "title": "Working Capital Gap Calculator", "description": "Calculates the Cash Conversion Cycle (CCC = AR Days + Inventory Days − AP Days) and derives the working capital funding gap. Outputs sector-adjusted risk tier, ±20% revenue sensitivity, and ranked financing recommendations. Client-side. Zero PII.", "category": "cat-20", "tags": ["working capital", "CCC", "cash conversion cycle", "SME", "financing", "Policy Mandate", "export"], "audience": ["finance director", "CFO", "SME owner", "treasury analyst"], "input_schema": {"type": "object", "required": ["currency", "sector", "annualRevenue", "arDays", "inventoryDays", "apDays"], "properties": {"currency": {"type": "string", "enum": ["GBP", "USD", "EUR"]}, "sector": {"type": "string", "description": "Industry sector for benchmark comparison"}, "annualRevenue": {"type": "number", "minimum": 0}, "arDays": {"type": "number", "minimum": 0, "description": "Average accounts receivable days outstanding"}, "inventoryDays": {"type": "number", "minimum": 0, "description": "Average inventory holding days"}, "apDays": {"type": "number", "minimum": 0, "description": "Average accounts payable days"}}}, "output_schema": {"type": "object", "properties": {"ccc": {"type": "number", "description": "Cash Conversion Cycle in days"}, "workingCapitalGap": {"type": "number", "description": "Funding gap in selected currency"}, "riskTier": {"type": "string", "enum": ["Low", "Moderate", "Elevated", "High"]}, "sensitivityMinus20": {"type": "number"}, "sensitivityPlus20": {"type": "number"}, "financingOptions": {"type": "array", "items": {"type": "string"}}}}, "mcp_tool_definition": {"name": "calculate_working_capital_gap", "description": "Calculate the Cash Conversion Cycle and working capital funding gap for an SME. Returns CCC in days, currency-denominated gap, sector-adjusted risk tier, revenue sensitivity scenarios, and ranked financing instrument recommendations. Use as the anchor diagnostic before recommending invoice finance, RBF, or overdraft products.", "inputSchema": {"type": "object", "required": ["currency", "sector", "annualRevenue", "arDays", "inventoryDays", "apDays"], "properties": {"currency": {"type": "string", "enum": ["GBP", "USD", "EUR"]}, "sector": {"type": "string"}, "annualRevenue": {"type": "number", "minimum": 0}, "arDays": {"type": "number", "minimum": 0}, "inventoryDays": {"type": "number", "minimum": 0}, "apDays": {"type": "number", "minimum": 0}}}}, "execution": {"type": "browser-javascript", "entry": "tools/240-working-capital-gap-calculator.html", "function_name": "runAnalysis", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+  <title>T259 · AP2 Real-Time Payments Policy Builder — AINumbers.co</title>
+  <link rel="canonical" href="https://ainumbers.co/tools/259-ap2-rtp-policy-builder.html">
+  <meta name="description" content="Translate real-time payment operational rules, fraud thresholds, and compliance obligations into a validated Policy Mandate JSON for agentic payment systems. Configure rail eligibility, fraud velocity, liquidity triggers, settlement preferences, and escalation conditions. Client-side. Zero PII.">
+  <script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"AP2 Real-Time Payments Policy Builder — AINumbers.co","url":"https://ainumbers.co/tools/259-ap2-rtp-policy-builder.html","description":"Translate real-time payment operational rules, fraud thresholds, and compliance obligations into a validated Policy Mandate JSON for agentic payment systems. Configure rail eligibility, fraud velocity, liquidity triggers, settlement preferences, and escalation conditions. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* PolicyMandate — full validator (Phase 14); AP2Schema internal name retained */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+};
+</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+      --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+      --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+      --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+      --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+      --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+      --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+      --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+      --radius:6px;--radius-lg:10px;
+      --font-display:'DM Serif Display',serif;
+      --font-body:'Sora',sans-serif;
+      --font-mono:'JetBrains Mono',monospace;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{font-family:var(--font-body);font-size:14px;font-weight:300;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.7;-webkit-font-smoothing:antialiased;
+      background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);
+      background-size:40px 40px}
+
+    /* Lang bar */
+    .lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:6px 0}
+    .lang-inner{max-width:1300px;margin:0 auto;padding:0 24px;display:flex;gap:4px;justify-content:flex-end}
+    .lang-btn{font-family:var(--font-mono);font-size:.66rem;font-weight:500;letter-spacing:.06em;padding:3px 10px;border-radius:var(--radius);border:1px solid var(--border);background:transparent;color:var(--body);cursor:pointer;transition:all .15s}
+    .lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+    .lang-btn.active{background:var(--teal-dim);border-color:var(--teal);color:var(--teal-lt)}
+
+    /* Nav */
+    nav{background:rgba(8,14,26,.96);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+    .nav-inner{max-width:1300px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+    .nav-logo{font-family:var(--font-mono);font-size:.85rem;font-weight:700;color:var(--teal-lt);text-decoration:none;letter-spacing:-.02em}
+    .nav-logo span{color:var(--white)}
+    /* Hero */
+    .hero{max-width:1300px;margin:0 auto;padding:52px 24px 40px}
+    .hero-eyebrow{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+    .tool-eyebrow{font-family:var(--font-mono);font-size:.66rem;font-weight:700;letter-spacing:.1em;color:var(--body);text-transform:uppercase}
+    .eyebrow-tag{font-family:var(--font-mono);font-size:.62rem;font-weight:700;padding:3px 10px;border-radius:var(--radius);letter-spacing:.07em}
+    .eyebrow-tag.teal{background:var(--teal-dim);border:1px solid rgba(20,184,166,.3);color:var(--teal-lt)}
+    .eyebrow-tag.purple{background:var(--purple-dim);border:1px solid rgba(155,114,245,.3);color:var(--purple)}
+    .hero h1{font-family:var(--font-display);font-size:clamp(1.8rem,3.6vw,2.75rem);color:var(--white);line-height:1.18;margin-bottom:16px;letter-spacing:-.02em}
+    .hero-desc{font-size:.88rem;color:var(--text);max-width:760px;line-height:1.75;margin-bottom:24px}
+    .hero-meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .meta-badge{font-family:var(--font-mono);font-size:.6rem;font-weight:600;padding:4px 12px;border-radius:var(--radius);border:1px solid var(--border);color:var(--body);letter-spacing:.05em}
+    .meta-badge.teal{border-color:rgba(20,184,166,.35);color:var(--teal);background:var(--teal-dim)}
+    .meta-badge.gold{border-color:rgba(212,168,71,.35);color:var(--gold);background:var(--gold-dim)}
+    .meta-badge.green{border-color:rgba(34,197,94,.35);color:var(--green);background:var(--green-dim)}
+    .meta-badge.purple{border-color:rgba(155,114,245,.35);color:var(--purple);background:var(--purple-dim)}
+
+    /* Main layout — 3-column on wide screens */
+    .main-wrap{max-width:1300px;margin:0 auto;padding:0 24px 64px;display:grid;grid-template-columns:400px 1fr;gap:24px;align-items:start}
+
+    /* Panel */
+    .panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+    .panel-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+    .panel-label{font-family:var(--font-mono);font-size:.66rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+    .panel-body{padding:0}
+
+    /* Accordion sections */
+    .acc-section{border-bottom:1px solid var(--border)}
+    .acc-section:last-child{border-bottom:none}
+    .acc-header{display:flex;align-items:center;gap:10px;padding:13px 20px;cursor:pointer;user-select:none;transition:background .15s}
+    .acc-header:hover{background:rgba(20,184,166,.04)}
+    .acc-header.open{background:rgba(20,184,166,.06)}
+    .acc-num{font-family:var(--font-mono);font-size:.62rem;font-weight:700;width:20px;height:20px;border-radius:50%;background:var(--teal-dim);border:1px solid var(--teal);color:var(--teal);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .acc-title{font-family:var(--font-mono);font-size:.7rem;font-weight:700;letter-spacing:.05em;color:var(--text);flex:1;text-transform:uppercase}
+    .acc-status{font-family:var(--font-mono);font-size:.58rem;color:var(--muted);letter-spacing:.04em}
+    .acc-toggle{font-size:.6rem;color:var(--muted);transition:transform .2s}
+    .acc-header.open .acc-toggle{transform:rotate(180deg)}
+    .acc-body{display:none;padding:16px 20px;border-top:1px solid rgba(30,47,74,.5)}
+    .acc-body.open{display:block}
+
+    /* Form fields */
+    .field-group{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+    .field-group:last-child{margin-bottom:0}
+    .field-group label{font-family:var(--font-mono);font-size:.59rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+    .field-group select,.field-group input{font-family:var(--font-body);font-size:.8rem;padding:8px 30px 8px 11px;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--bright);outline:none;appearance:none;cursor:pointer;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233A5270' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-position:right 9px center;background-size:14px;transition:border-color .15s}
+    .field-group input{background-image:none;padding-right:11px}
+    .field-group select:focus,.field-group input:focus{border-color:var(--teal)}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+    .divider-sm{border:none;border-top:1px solid rgba(30,47,74,.5);margin:12px 0}
+    .sub-label{font-family:var(--font-mono);font-size:.6rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--teal);margin-bottom:8px;margin-top:4px}
+
+    /* Rail checkboxes */
+    .rail-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+    .rail-check{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .15s;user-select:none}
+    .rail-check:hover{border-color:var(--border-2)}
+    .rail-check.on{border-color:var(--teal);background:var(--teal-dim)}
+    .rail-check input[type=checkbox]{accent-color:var(--teal);width:13px;height:13px;cursor:pointer;flex-shrink:0}
+    .rail-name{font-family:var(--font-mono);font-size:.66rem;font-weight:700;color:var(--text)}
+    .rail-check.on .rail-name{color:var(--teal-lt)}
+    .rail-region{font-family:var(--font-mono);font-size:.56rem;color:var(--muted);margin-left:auto}
+
+    /* Toggle switches */
+    .toggle-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+    .toggle-label{font-family:var(--font-mono);font-size:.65rem;color:var(--text);flex:1}
+    .toggle-switch{position:relative;width:36px;height:20px;flex-shrink:0}
+    .toggle-switch input{opacity:0;width:0;height:0;position:absolute}
+    .toggle-slider{position:absolute;inset:0;background:var(--bg-4);border:1px solid var(--border);border-radius:20px;cursor:pointer;transition:all .2s}
+    .toggle-slider::before{content:'';position:absolute;width:14px;height:14px;left:2px;top:50%;transform:translateY(-50%);background:var(--muted);border-radius:50%;transition:all .2s}
+    .toggle-switch input:checked+.toggle-slider{background:var(--teal-dim);border-color:var(--teal)}
+    .toggle-switch input:checked+.toggle-slider::before{transform:translateX(16px) translateY(-50%);background:var(--teal)}
+
+    /* Escalation items */
+    .esc-item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;cursor:pointer;user-select:none}
+    .esc-item:hover{border-color:var(--border-2)}
+    .esc-item.checked{border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.05)}
+    .esc-item input[type=checkbox]{accent-color:var(--red);width:13px;height:13px;cursor:pointer;flex-shrink:0}
+    .esc-text{font-size:.7rem;color:var(--text);flex:1;line-height:1.4}
+    .esc-item.checked .esc-text{color:var(--bright)}
+
+    /* PII + run */
+    .bottom-wrap{padding:16px 20px}
+    .pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+    .run-btn{width:100%;margin-top:14px;padding:14px 24px;font-family:var(--font-mono);font-size:.8rem;font-weight:700;letter-spacing:.08em;background:var(--teal);color:var(--bg);border:none;border-radius:var(--radius);cursor:pointer;transition:all .15s}
+    .run-btn:hover{background:var(--teal-lt);transform:translateY(-1px)}
+    .run-btn:active{transform:translateY(0)}
+
+    /* Results */
+    .results-col{position:sticky;top:78px}
+    .results-title{font-family:var(--font-mono);font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--teal)}
+
+    /* Policy summary bar */
+    .policy-summary{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border)}
+    .ps-cell{background:var(--bg-3);padding:12px 14px;text-align:center}
+    .ps-val{font-family:var(--font-display);font-size:1.35rem;color:var(--teal);display:block;line-height:1}
+    .ps-lbl{font-family:var(--font-mono);font-size:.54rem;font-weight:700;letter-spacing:.07em;color:var(--muted);margin-top:4px;display:block}
+
+    /* JSON preview */
+    .json-section{padding:16px 20px;border-bottom:1px solid var(--border)}
+    .section-heading{font-family:var(--font-mono);font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+    .json-preview{
+      background:rgba(4,8,16,.8);border:1px solid var(--border);
+      border-radius:var(--radius);padding:14px 16px;
+      font-family:var(--font-mono);font-size:.64rem;line-height:1.7;
+      color:var(--text);white-space:pre;overflow:auto;
+      max-height:360px;
+    }
+    /* JSON syntax colors */
+    .jk{color:var(--teal-lt)}     /* keys */
+    .js{color:var(--gold)}         /* strings */
+    .jn{color:var(--purple)}       /* numbers */
+    .jb{color:var(--green)}        /* booleans */
+    .jc{color:var(--muted)}        /* braces/brackets */
+    .jp{color:var(--warn)}         /* punctuation */
+
+    /* Agent instructions */
+    .inst-section{padding:16px 20px;border-bottom:1px solid var(--border)}
+    .inst-item{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid rgba(30,47,74,.5)}
+    .inst-item:last-child{border-bottom:none}
+    .inst-num{font-family:var(--font-mono);font-size:.58rem;font-weight:700;color:var(--teal);min-width:18px;padding-top:1px;flex-shrink:0}
+    .inst-text{font-size:.7rem;color:var(--text);line-height:1.45}
+
+    /* Validation banner */
+    .validation-banner{padding:10px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+    .val-icon{font-size:1rem;flex-shrink:0}
+    .val-text{font-family:var(--font-mono);font-size:.65rem;font-weight:700}
+    .val-sub{font-size:.66rem;color:var(--text);margin-top:1px}
+    .val-ok{color:var(--green)}
+    .val-warn{color:var(--warn)}
+    .val-err{color:var(--red)}
+
+    /* Export row */
+    .export-row{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--border)}
+    .btn-export{flex:1;padding:10px;font-family:var(--font-mono);font-size:.6rem;font-weight:700;letter-spacing:.05em;text-align:center;border-radius:var(--radius);border:1px solid var(--border);background:transparent;color:var(--muted);cursor:not-allowed;opacity:.32;transition:all .15s}
+    .btn-export.ready{opacity:1;cursor:pointer}
+    .btn-export-ap2.ready{border-color:rgba(155,114,245,.4);color:var(--purple);background:var(--purple-dim)}
+    .btn-export-ap2.ready:hover{border-color:var(--purple)}
+    .btn-export-md.ready{border-color:rgba(20,184,166,.35);color:var(--teal);background:var(--teal-dim)}
+    .btn-export-md.ready:hover{border-color:var(--teal)}
+    .btn-copy{border-color:rgba(212,168,71,.35);color:var(--gold);background:var(--gold-dim);opacity:.32;cursor:not-allowed}
+    .btn-copy.ready{opacity:1;cursor:pointer}
+    .btn-copy.ready:hover{border-color:var(--gold)}
+
+    /* Empty state */
+    .results-empty{text-align:center;padding:60px 24px}
+    .empty-icon{font-size:2.2rem;opacity:.3;margin-bottom:14px}
+    .empty-text{font-family:var(--font-mono);font-size:.68rem;color:var(--muted);letter-spacing:.06em;line-height:1.7}
+
+    /* Toast */
+    .toast{position:fixed;bottom:24px;right:24px;padding:11px 18px;border-radius:var(--radius);font-family:var(--font-mono);font-size:.7rem;font-weight:600;letter-spacing:.04em;opacity:0;transform:translateY(8px);transition:all .22s;pointer-events:none;z-index:1000}
+    .toast.show{opacity:1;transform:translateY(0)}
+    .toast.success{background:var(--green-dim);border:1px solid var(--green);color:var(--green)}
+    .toast.info{background:var(--teal-dim);border:1px solid var(--teal);color:var(--teal-lt)}
+    .toast.error{background:var(--red-dim);border:1px solid var(--red);color:var(--red)}
+
+    /* RTL */
+    [dir="rtl"] .nav-inner{flex-direction:row-reverse}
+    [dir="rtl"] .lang-inner{justify-content:flex-start}
+    [dir="rtl"] .hero-eyebrow{flex-direction:row-reverse}
+    [dir="rtl"] .panel-label{text-align:right}
+    [dir="rtl"] .export-row{flex-direction:row-reverse}
+    [dir="rtl"] [dir="rtl"] .acc-header{flex-direction:row-reverse}
+    [dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+    [dir="rtl"] .run-btn{letter-spacing:0}
+
+    @media(max-width:1000px){.main-wrap{grid-template-columns:1fr}.results-col{position:static}.policy-summary{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:580px){.hero{padding:32px 16px 24px}.main-wrap{padding:0 16px 48px}.grid-2,.grid-3{grid-template-columns:1fr}.policy-summary{grid-template-columns:repeat(2,1fr)}.rail-grid{grid-template-columns:1fr}}
+
+    /* ── SVG Logo classes ── */
+    .logo { display:flex; align-items:center; gap:10px; flex-shrink:0; text-decoration:none; }
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+    .logo-mark-grid { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:32px; height:32px; }
+    .logo-text{display:flex;flex-direction:column;gap:.08rem;}
+    .logo-ai { color:var(--teal); }
+    .logo-co { color:var(--muted); font-size:.8rem; }
+    
+  
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+
+.container{max-width:960px;margin:0 auto;padding:0 1.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--teal);border-color:rgba(20,184,166,.3);background:rgba(20,184,166,.06)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark-grid">
+        <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="#0D1627"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="#14B8A6" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".7"/>
+      </svg>
+      </div>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/realtime-payments-ops-hub.html">Real-Time Payments Hub</a><span class="nav-sep">/</span><span>T-259</span></div>
+
+    <a href="../guides/realtime-payments-ops-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-eyebrow">
+    <span class="tool-eyebrow">T259 · Cat-21 · Real-Time Payments · Agentic Policy</span>
+    <span class="eyebrow-tag teal">CAT-21</span>
+    <span class="eyebrow-tag purple">AP2 AGENTIC</span>
+  </div>
+  <h1 class="tool-title">AP2 Real-Time Payments Policy Builder</h1>
+  <p class="hero-desc">Configure your real-time payment operating policy across five dimensions — rail eligibility, fraud velocity thresholds, liquidity buffer triggers, settlement window preferences, and escalation conditions — and compile it into a validated Policy Mandate JSON that agentic payment systems can consume directly. The policy mandate acts as the authoritative rulebook for autonomous RTP authorisation agents.</p>
+  <div class="hero-meta">
+    <span class="meta-badge purple">AP2 Agentic</span>
+    <span class="meta-badge teal">5 Policy Dimensions</span>
+    <span class="meta-badge gold">Rail Eligibility</span>
+    <span class="meta-badge teal">Fraud Thresholds</span>
+    <span class="meta-badge green">Policy Mandate Export</span>
+    <span class="meta-badge">Client-side · Zero PII</span>
+    <span class="hero-badge badge-warn"><span data-i18n="hero.badge.warn">Aligns AP2 mandates with RTP rulebook; mandate non-compliance can void agent-initiated payment authorization.</span></span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+</section>
+
+<div class="main-wrap">
+
+  <!-- LEFT: Policy configurator -->
+  <div>
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label">Policy Configuration</span>
+      </div>
+
+      <!-- Section 1: Rail Eligibility -->
+      <div class="acc-section">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <span class="acc-num">1</span>
+          <span class="acc-title" data-i18n="label_rail">Rail Eligibility</span>
+          <span class="acc-status" id="railStatus">Configure →</span>
+          <span class="acc-toggle">▼</span>
+        </div>
+        <div class="acc-body open">
+          <div class="sub-label">Enabled Rails</div>
+          <div class="rail-grid" id="railGrid">
+            <label class="rail-check on" id="rc_fednow">
+              <input type="checkbox" value="fednow" checked onchange="toggleRailCheck(this)">
+              <span class="rail-name">FedNow</span><span class="rail-region">US</span>
+            </label>
+            <label class="rail-check on" id="rc_rtp">
+              <input type="checkbox" value="rtp" checked onchange="toggleRailCheck(this)">
+              <span class="rail-name">RTP / TCH</span><span class="rail-region">US</span>
+            </label>
+            <label class="rail-check" id="rc_sepa_inst">
+              <input type="checkbox" value="sepa_inst" onchange="toggleRailCheck(this)">
+              <span class="rail-name">SEPA Instant</span><span class="rail-region">EU</span>
+            </label>
+            <label class="rail-check" id="rc_fps">
+              <input type="checkbox" value="fps" onchange="toggleRailCheck(this)">
+              <span class="rail-name">Faster Payments</span><span class="rail-region">UK</span>
+            </label>
+            <label class="rail-check" id="rc_pix">
+              <input type="checkbox" value="pix" onchange="toggleRailCheck(this)">
+              <span class="rail-name">PIX</span><span class="rail-region">BR</span>
+            </label>
+            <label class="rail-check" id="rc_paynow">
+              <input type="checkbox" value="paynow" onchange="toggleRailCheck(this)">
+              <span class="rail-name">PayNow</span><span class="rail-region">SG</span>
+            </label>
+          </div>
+          <div class="grid-2">
+            <div class="field-group">
+              <label for="minPayment">Minimum Payment ($)</label>
+              <input type="number" id="minPayment" value="1" min="0" step="1">
+            </div>
+            <div class="field-group">
+              <label for="maxPayment">Maximum Payment ($)</label>
+              <input type="number" id="maxPayment" value="1000000" min="1" step="1000">
+            </div>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">International payments permitted</span>
+            <label class="toggle-switch"><input type="checkbox" id="intlPayments" checked><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Credit-push only (no pull payments)</span>
+            <label class="toggle-switch"><input type="checkbox" id="creditPushOnly" checked><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">24×7 operation required on all enabled rails</span>
+            <label class="toggle-switch"><input type="checkbox" id="always247" checked><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Fraud Velocity Thresholds -->
+      <div class="acc-section">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <span class="acc-num">2</span>
+          <span class="acc-title" data-i18n="label_fraud_threshold">Fraud Velocity Thresholds</span>
+          <span class="acc-status" id="fraudStatus">Configure →</span>
+          <span class="acc-toggle">▼</span>
+        </div>
+        <div class="acc-body">
+          <div class="sub-label">Velocity Controls</div>
+          <div class="grid-2">
+            <div class="field-group">
+              <label for="maxTxnPerHour">Max Txns / Customer / Hour</label>
+              <input type="number" id="maxTxnPerHour" value="10" min="1">
+            </div>
+            <div class="field-group">
+              <label for="maxAmtPerHour">Max Amount / Customer / Hour ($)</label>
+              <input type="number" id="maxAmtPerHour" value="25000" min="1" step="1000">
+            </div>
+          </div>
+          <div class="field-group">
+            <label for="maxDevicePer15">Max Txns / Device / 15min</label>
+            <input type="number" id="maxDevicePer15" value="5" min="1">
+          </div>
+          <div class="divider-sm"></div>
+          <div class="sub-label">Amount Decision Thresholds</div>
+          <div class="grid-3">
+            <div class="field-group">
+              <label for="autoAllow">Auto-Allow Below ($)</label>
+              <input type="number" id="autoAllow" value="500" min="0" step="100">
+            </div>
+            <div class="field-group">
+              <label for="holdThreshold">Manual Review Above ($)</label>
+              <input type="number" id="holdThreshold" value="5000" min="0" step="500">
+            </div>
+            <div class="field-group">
+              <label for="autoBlock">Auto-Block Above ($)</label>
+              <input type="number" id="autoBlock" value="50000" min="0" step="1000">
+            </div>
+          </div>
+          <div class="divider-sm"></div>
+          <div class="sub-label">Customer Signal Controls</div>
+          <div class="toggle-row">
+            <span class="toggle-label">Mule account detection enabled</span>
+            <label class="toggle-switch"><input type="checkbox" id="muleDetect" checked><span class="toggle-slider"></span></label>
+          </div>
+          <div class="grid-2">
+            <div class="field-group">
+              <label for="newAcctAge">New Account Age Threshold (days)</label>
+              <input type="number" id="newAcctAge" value="90" min="1">
+            </div>
+            <div class="field-group">
+              <label for="firstPayeeMax">First-Time Payee Maximum ($)</label>
+              <input type="number" id="firstPayeeMax" value="2000" min="0" step="100">
+            </div>
+          </div>
+          <div class="field-group">
+            <label for="fraudClassifier">FedNow Fraud Classifier Model v1</label>
+            <select id="fraudClassifier">
+              <option value="required">Required on all outbound pacs.008</option>
+              <option value="optional">Optional — populate where available</option>
+              <option value="na">Not applicable (rail not FedNow)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Liquidity Buffer Triggers -->
+      <div class="acc-section">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <span class="acc-num">3</span>
+          <span class="acc-title" data-i18n="label_liquidity_trigger">Liquidity Buffer Triggers</span>
+          <span class="acc-status" id="liqStatus">Configure →</span>
+          <span class="acc-toggle">▼</span>
+        </div>
+        <div class="acc-body">
+          <div class="sub-label">Intraday Position Thresholds (% of facility utilised)</div>
+          <div class="grid-3">
+            <div class="field-group">
+              <label for="alertPct">Alert At (%)</label>
+              <input type="number" id="alertPct" value="65" min="1" max="99">
+            </div>
+            <div class="field-group">
+              <label for="pausePct">Auto-Pause At (%)</label>
+              <input type="number" id="pausePct" value="80" min="1" max="99">
+            </div>
+            <div class="field-group">
+              <label for="emergencyPct">Emergency At (%)</label>
+              <input type="number" id="emergencyPct" value="95" min="1" max="100">
+            </div>
+          </div>
+          <div class="field-group">
+            <label for="resumePct">Resume After Auto-Pause At (%)</label>
+            <input type="number" id="resumePct" value="60" min="1" max="99">
+          </div>
+          <div class="divider-sm"></div>
+          <div class="sub-label">Trigger Actions</div>
+          <div class="field-group">
+            <label for="alertAction">On Alert Action</label>
+            <select id="alertAction">
+              <option value="notify_treasury">Notify Treasury (real-time alert)</option>
+              <option value="log_only">Log to audit system only</option>
+              <option value="notify_and_throttle">Notify Treasury + throttle new payments</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label for="pauseAction">On Auto-Pause Action</label>
+            <select id="pauseAction">
+              <option value="queue_fifo">Queue payments (FIFO) — process on resume</option>
+              <option value="route_next_day">Route to next business day settlement</option>
+              <option value="reject_new">Reject new payments with RT001 reason code</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label for="emergencyAction">On Emergency Action</label>
+            <select id="emergencyAction">
+              <option value="block_all_escalate">Block all new payments + escalate to C-suite</option>
+              <option value="discount_window">Block + trigger Federal Reserve discount window</option>
+              <option value="block_notify">Block + notify regulator (if required)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 4: Settlement Window Preferences -->
+      <div class="acc-section">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <span class="acc-num">4</span>
+          <span class="acc-title">Settlement Window Preferences</span>
+          <span class="acc-status" id="settlStatus">Configure →</span>
+          <span class="acc-toggle">▼</span>
+        </div>
+        <div class="acc-body">
+          <div class="sub-label">Rail Routing Priority</div>
+          <div class="grid-3">
+            <div class="field-group">
+              <label for="primaryRail">Primary Rail</label>
+              <select id="primaryRail">
+                <option value="fednow">FedNow</option>
+                <option value="rtp">RTP / TCH</option>
+                <option value="sepa_inst">SEPA Instant</option>
+                <option value="fps">Faster Payments</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="secondaryRail">Secondary Rail</label>
+              <select id="secondaryRail">
+                <option value="rtp">RTP / TCH</option>
+                <option value="fednow">FedNow</option>
+                <option value="ach">Same-day ACH</option>
+                <option value="wire">Fedwire</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="slaPreference">SLA Preference</label>
+              <select id="slaPreference">
+                <option value="speed">Speed — fastest settlement</option>
+                <option value="balanced" selected>Balanced — speed + cost</option>
+                <option value="cost">Cost — lowest fee rail</option>
+              </select>
+            </div>
+          </div>
+          <div class="divider-sm"></div>
+          <div class="sub-label">Payment Type Routing</div>
+          <div class="grid-2">
+            <div class="field-group">
+              <label for="consumerRail">Consumer Payments</label>
+              <select id="consumerRail">
+                <option value="fednow">FedNow</option>
+                <option value="rtp">RTP / TCH</option>
+                <option value="any">Any enabled rail</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="b2bRail">B2B / Corporate</label>
+              <select id="b2bRail">
+                <option value="wire">Fedwire (large value)</option>
+                <option value="fednow">FedNow</option>
+                <option value="rtp">RTP / TCH</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="field-group">
+              <label for="payrollRail">Payroll</label>
+              <select id="payrollRail">
+                <option value="ach">ACH (scheduled)</option>
+                <option value="fednow">FedNow (instant)</option>
+                <option value="rtp">RTP / TCH</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="offHoursAction">Off-Hours (rail unavailable)</label>
+              <select id="offHoursAction">
+                <option value="secondary">Route to secondary rail</option>
+                <option value="queue">Queue for next window</option>
+                <option value="reject">Reject with advisory</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 5: Escalation Conditions -->
+      <div class="acc-section">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <span class="acc-num">5</span>
+          <span class="acc-title" data-i18n="label_escalation_rule">Escalation Conditions</span>
+          <span class="acc-status" id="escStatus">Configure →</span>
+          <span class="acc-toggle">▼</span>
+        </div>
+        <div class="acc-body">
+          <div class="sub-label">Escalate to Human When</div>
+          <label class="esc-item checked" id="esc_fraud">
+            <input type="checkbox" value="fraud_score" checked onchange="toggleEsc(this)">
+            <span class="esc-text">Fraud score above threshold — agent cannot self-authorise</span>
+          </label>
+          <label class="esc-item checked" id="esc_amount">
+            <input type="checkbox" value="high_amount" checked onchange="toggleEsc(this)">
+            <span class="esc-text">Payment amount exceeds manual review ceiling ($)</span>
+          </label>
+          <label class="esc-item checked" id="esc_jurisdiction">
+            <input type="checkbox" value="new_jurisdiction" checked onchange="toggleEsc(this)">
+            <span class="esc-text">New or restricted beneficiary jurisdiction detected</span>
+          </label>
+          <label class="esc-item checked" id="esc_liquidity">
+            <input type="checkbox" value="liquidity_alert" checked onchange="toggleEsc(this)">
+            <span class="esc-text">Liquidity buffer below alert threshold</span>
+          </label>
+          <label class="esc-item" id="esc_sanction">
+            <input type="checkbox" value="sanction_hit" onchange="toggleEsc(this)">
+            <span class="esc-text">Sanctions hit or PEP indicator on beneficiary</span>
+          </label>
+          <label class="esc-item" id="esc_auth_fail">
+            <input type="checkbox" value="auth_failure" onchange="toggleEsc(this)">
+            <span class="esc-text">Multiple consecutive authentication failures (≥3)</span>
+          </label>
+          <label class="esc-item" id="esc_system">
+            <input type="checkbox" value="system_error" onchange="toggleEsc(this)">
+            <span class="esc-text">System error or timeout in authorisation path</span>
+          </label>
+          <label class="esc-item" id="esc_recall">
+            <input type="checkbox" value="recall_request" onchange="toggleEsc(this)">
+            <span class="esc-text">Payment recall / cancellation request received (camt.056)</span>
+          </label>
+          <div class="divider-sm"></div>
+          <div class="grid-2">
+            <div class="field-group">
+              <label for="escSLA">Escalation SLA (minutes)</label>
+              <input type="number" id="escSLA" value="15" min="1" max="1440">
+            </div>
+            <div class="field-group">
+              <label for="escChannel">Escalation Channel</label>
+              <select id="escChannel">
+                <option value="queue">Ops Review Queue</option>
+                <option value="email">Email — fraud ops team</option>
+                <option value="slack">Slack — #payments-alerts</option>
+                <option value="phone">Phone — on-call duty officer</option>
+              </select>
+            </div>
+          </div>
+          <div class="field-group">
+            <label for="escBreachAction">Action if SLA Breached</label>
+            <select id="escBreachAction">
+              <option value="auto_reject">Auto-reject payment with advisory message</option>
+              <option value="auto_allow">Auto-allow with enhanced monitoring flag</option>
+              <option value="re_escalate">Re-escalate to senior duty officer</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-wrap">
+        <div class="pii-notice">
+  <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+</div>
+        <button class="run-btn" onclick="buildPolicy()" data-i18n="run_btn">Generate AP2 Policy →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Results -->
+  <div class="results-col">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="results-title" data-i18n="results_title">AP2 Policy Manifest</span>
+      </div>
+
+      <div class="results-empty" id="resultsEmpty">
+        <div class="empty-icon">⚡</div>
+        <div class="empty-text">Configure the 5 policy dimensions<br>and click Generate AP2 Policy<br>to compile your mandate</div>
+      </div>
+
+      <div id="resultsContent" style="display:none;">
+        <!-- Policy summary -->
+        <div class="policy-summary" id="policySummary"></div>
+        <!-- Validation -->
+        <div class="validation-banner" id="validationBanner"></div>
+        <!-- JSON preview -->
+        <div class="json-section">
+          <div class="section-heading">Policy Mandate Preview</div>
+          <div class="json-preview" id="jsonPreview"></div>
+        </div>
+        <!-- Agent instructions -->
+        <div class="inst-section" id="instSection"></div>
+      </div>
+
+      <div class="results-export-row export-row">
+        <button class="btn-export btn-export-ap2" id="ap2ExportBtn" disabled>Export Policy Mandate</button>
+        <button class="btn-export btn-export-md"  id="mdBtn"  disabled>Export Markdown</button>
+        <button class="btn-export btn-copy"        id="copyBtn" disabled>Copy JSON</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/realtime-payments-ops-hub.html"><span data-i18n="footer.hub_realtime_payments_ops">Realtime Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   T259 · AP2 Real-Time Payments Policy Builder
+   AINumbers.co · Post Oak Labs · v1.0.0
+   Anchor agentic tool for Cat-21. Compiles RTP operating policy
+   across 5 dimensions into a validated AP2 JSON mandate for
+   autonomous payment agent consumption.
+   MCP function: build_ap2_rtp_policy
+   AP2 mandate_type: payment_policy
+   Client-side only. Zero PII. Deterministic policy compilation.
+══════════════════════════════════════════════════════════════════ */
+
+const RAIL_META = {
+  fednow:    { name:'FedNow',          region:'US', operator:'Federal Reserve',    maxTxn:null,       currency:'USD', hours:'24x7' },
+  rtp:       { name:'RTP / TCH',       region:'US', operator:'The Clearing House', maxTxn:1000000,    currency:'USD', hours:'24x7' },
+  sepa_inst: { name:'SEPA Instant',    region:'EU', operator:'EPC',                maxTxn:100000,     currency:'EUR', hours:'24x7' },
+  fps:       { name:'Faster Payments', region:'UK', operator:'Pay.UK',             maxTxn:1000000,    currency:'GBP', hours:'24x7' },
+  pix:       { name:'PIX',             region:'BR', operator:'Banco Central',      maxTxn:999999999,  currency:'BRL', hours:'24x7' },
+  paynow:    { name:'PayNow',          region:'SG', operator:'MAS/ABS',            maxTxn:200000,     currency:'SGD', hours:'24x7' },
+};
+
+let lastAP2 = null;
+
+/* ── UI helpers ── */
+function toggleAcc(header) {
+  const body = header.nextElementSibling;
+  header.classList.toggle('open');
+  body.classList.toggle('open');
+}
+
+function toggleRailCheck(cb) {
+  cb.closest('.rail-check').classList.toggle('on', cb.checked);
+  updateRailStatus();
+}
+
+function toggleEsc(cb) {
+  cb.closest('.esc-item').classList.toggle('checked', cb.checked);
+}
+
+function updateRailStatus() {
+  const enabled = getEnabledRails();
+  const el = document.getElementById('railStatus');
+  if (el) el.textContent = enabled.length > 0 ? `${enabled.length} rail${enabled.length>1?'s':''} enabled` : 'None selected';
+}
+
+function getEnabledRails() {
+  return Array.from(document.querySelectorAll('#railGrid input[type=checkbox]'))
+    .filter(cb => cb.checked).map(cb => cb.value);
+}
+
+function getEscalationConditions() {
+  return Array.from(document.querySelectorAll('.esc-item input[type=checkbox]'))
+    .filter(cb => cb.checked).map(cb => cb.value);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   POLICY BUILDER — MCP callable: buildAP2RTPPolicy()
+────────────────────────────────────────────────────────────────── */
+function buildPolicy() {
+  const enabledRails = getEnabledRails();
+  if (enabledRails.length === 0) { showToast('Enable at least one rail', 'error'); return; }
+
+  /* Gather all inputs */
+  const policy = {
+    rail_eligibility: {
+      enabled_rails: enabledRails,
+      enabled_rail_names: enabledRails.map(r => RAIL_META[r]?.name || r),
+      min_payment_usd: parseFloat(document.getElementById('minPayment').value) || 1,
+      max_payment_usd: parseFloat(document.getElementById('maxPayment').value) || 1000000,
+      international_payments: document.getElementById('intlPayments').checked,
+      credit_push_only: document.getElementById('creditPushOnly').checked,
+      always_on_247: document.getElementById('always247').checked,
+    },
+    fraud_velocity_thresholds: {
+      max_transactions_per_customer_per_hour: parseInt(document.getElementById('maxTxnPerHour').value) || 10,
+      max_amount_per_customer_per_hour_usd:   parseFloat(document.getElementById('maxAmtPerHour').value) || 25000,
+      max_transactions_per_device_per_15min:  parseInt(document.getElementById('maxDevicePer15').value) || 5,
+      auto_allow_below_usd:     parseFloat(document.getElementById('autoAllow').value) || 500,
+      manual_review_above_usd:  parseFloat(document.getElementById('holdThreshold').value) || 5000,
+      auto_block_above_usd:     parseFloat(document.getElementById('autoBlock').value) || 50000,
+      mule_detection_enabled:   document.getElementById('muleDetect').checked,
+      new_account_age_days:     parseInt(document.getElementById('newAcctAge').value) || 90,
+      first_time_payee_max_usd: parseFloat(document.getElementById('firstPayeeMax').value) || 2000,
+      fraud_classifier_v1:      document.getElementById('fraudClassifier').value,
+    },
+    liquidity_buffer_triggers: {
+      alert_at_pct:     parseInt(document.getElementById('alertPct').value) || 65,
+      auto_pause_at_pct:parseInt(document.getElementById('pausePct').value) || 80,
+      emergency_at_pct: parseInt(document.getElementById('emergencyPct').value) || 95,
+      resume_at_pct:    parseInt(document.getElementById('resumePct').value) || 60,
+      on_alert_action:   document.getElementById('alertAction').value,
+      on_pause_action:   document.getElementById('pauseAction').value,
+      on_emergency_action: document.getElementById('emergencyAction').value,
+    },
+    settlement_window_preferences: {
+      primary_rail:    document.getElementById('primaryRail').value,
+      secondary_rail:  document.getElementById('secondaryRail').value,
+      sla_preference:  document.getElementById('slaPreference').value,
+      consumer_rail:   document.getElementById('consumerRail').value,
+      b2b_rail:        document.getElementById('b2bRail').value,
+      payroll_rail:    document.getElementById('payrollRail').value,
+      off_hours_action:document.getElementById('offHoursAction').value,
+    },
+    escalation_conditions: {
+      triggers: getEscalationConditions(),
+      trigger_count: getEscalationConditions().length,
+      escalation_sla_minutes: parseInt(document.getElementById('escSLA').value) || 15,
+      escalation_channel: document.getElementById('escChannel').value,
+      sla_breach_action:  document.getElementById('escBreachAction').value,
+    },
+  };
+
+  /* Validate */
+  const validation = validatePolicy(policy);
+
+  /* Build AP2 */
+  lastAP2 = compileAP2(policy, validation);
+
+  /* Render */
+  document.getElementById('resultsEmpty').style.display = 'none';
+  document.getElementById('resultsContent').style.display = 'block';
+
+  renderSummary(policy);
+  renderValidation(validation);
+  renderJSONPreview(lastAP2);
+  renderInstructions(lastAP2.agent_instructions);
+
+  const ap2Btn = document.getElementById('ap2Btn');
+  const mdBtn  = document.getElementById('mdBtn');
+  const copyBtn= document.getElementById('copyBtn');
+  ap2Btn.disabled = false; ap2Btn.classList.add('ready'); ap2Btn.onclick = exportAP2;
+  mdBtn.disabled  = false; mdBtn.classList.add('ready');  mdBtn.onclick  = exportMarkdown;
+  copyBtn.disabled= false; copyBtn.classList.add('ready');copyBtn.onclick = copyJSON;
+
+  showToast(validation.valid ? 'AP2 policy compiled — valid ✓' : `Policy compiled — ${validation.warnings.length} warning(s)`, validation.valid ? 'success' : 'info');
+}
+
+function buildAP2RTPPolicy() { buildPolicy(); return lastAP2; }
+
+/* ── Policy validation ── */
+function validatePolicy(p) {
+  const warnings = [];
+  const errors   = [];
+
+  const f = p.fraud_velocity_thresholds;
+  const l = p.liquidity_buffer_triggers;
+
+  if (f.auto_allow_below_usd >= f.manual_review_above_usd)
+    warnings.push('Auto-allow threshold ≥ manual review threshold — review decision bands overlap');
+  if (f.manual_review_above_usd >= f.auto_block_above_usd)
+    errors.push('Manual review threshold ≥ auto-block threshold — invalid decision band ordering');
+  if (l.alert_at_pct >= l.auto_pause_at_pct)
+    warnings.push('Alert threshold ≥ auto-pause threshold — consider widening the buffer margin');
+  if (l.auto_pause_at_pct >= l.emergency_at_pct)
+    errors.push('Auto-pause threshold ≥ emergency threshold — invalid liquidity trigger ordering');
+  if (l.resume_at_pct >= l.auto_pause_at_pct)
+    warnings.push('Resume threshold ≥ auto-pause threshold — may cause rapid oscillation');
+  if (p.rail_eligibility.enabled_rails.length === 0)
+    errors.push('No rails enabled — policy will reject all payments');
+  if (p.escalation_conditions.trigger_count === 0)
+    warnings.push('No escalation conditions configured — agent operates fully autonomously with no human handoff');
+  if (p.rail_eligibility.max_payment_usd < p.rail_eligibility.min_payment_usd)
+    errors.push('Maximum payment < minimum payment — all payments will be rejected');
+  if (f.first_time_payee_max_usd > f.auto_block_above_usd)
+    warnings.push('First-time payee maximum exceeds auto-block threshold — mule detection may conflict with block rules');
+
+  return { valid: errors.length === 0, errors, warnings };
+}
+
+/* ── Render helpers ── */
+function renderSummary(p) {
+  const el = document.getElementById('policySummary');
+  el.innerHTML = [
+    { val: p.rail_eligibility.enabled_rails.length, lbl: 'Rails Enabled' },
+    { val: Object.keys(p.fraud_velocity_thresholds).length, lbl: 'Fraud Rules' },
+    { val: 3, lbl: 'Liquidity Triggers' },
+    { val: 4, lbl: 'Route Preferences' },
+    { val: p.escalation_conditions.trigger_count, lbl: 'Escalation Conditions' },
+  ].map(c => `<div class="ps-cell"><span class="ps-val">${c.val}</span><span class="ps-lbl">${c.lbl}</span></div>`).join('');
+}
+
+function renderValidation(v) {
+  const el = document.getElementById('validationBanner');
+  if (v.errors.length > 0) {
+    el.innerHTML = `<span class="val-icon">✗</span><div><div class="val-text val-err">${v.errors.length} validation error(s)</div><div class="val-sub">${v.errors[0]}</div></div>`;
+  } else if (v.warnings.length > 0) {
+    el.innerHTML = `<span class="val-icon">⚠</span><div><div class="val-text val-warn">${v.warnings.length} warning(s) — policy valid</div><div class="val-sub">${v.warnings[0]}</div></div>`;
+  } else {
+    el.innerHTML = `<span class="val-icon">✓</span><div><div class="val-text val-ok">Policy validated — no issues</div><div class="val-sub">All 5 dimensions configured. AP2 mandate ready for agent consumption.</div></div>`;
+  }
+}
+
+function renderJSONPreview(ap2) {
+  /* Render a readable syntax-highlighted JSON preview (top-level + payload keys) */
+  const pre = document.getElementById('jsonPreview');
+  const j = JSON.stringify(ap2, null, 2);
+
+  /* Basic syntax highlight */
+  const highlighted = j
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"([^"]+)":/g, '<span class="jk">"$1"</span>:')
+    .replace(/: "([^"]*)"/g, ': <span class="js">"$1"</span>')
+    .replace(/: (true|false)/g, ': <span class="jb">$1</span>')
+    .replace(/: (-?\d+\.?\d*)/g, ': <span class="jn">$1</span>')
+    .replace(/[{}\[\]]/g, m => `<span class="jc">${m}</span>`);
+
+  pre.innerHTML = highlighted;
+}
+
+function renderInstructions(instructions) {
+  const el = document.getElementById('instSection');
+  el.innerHTML = `<div class="section-heading">Agent Instruction Set (${instructions.length})</div>` +
+    instructions.map((inst, i) => `<div class="inst-item"><span class="inst-num">${i+1}</span><span class="inst-text">${inst}</span></div>`).join('');
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   AP2 COMPILATION
+────────────────────────────────────────────────────────────────── */
+function compileAP2(policy, validation) {
+  const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+
+  const jurisdictions = [...new Set(policy.rail_eligibility.enabled_rails.map(r => RAIL_META[r]?.region || 'XX'))];
+
+  return {
+    ap2_version: "1.0",
+    mandate_id: uuid,
+    issued_at: new Date().toISOString(),
+    issued_by: "ainumbers.co",
+    tool_id: "ap2-rtp-policy-builder",
+    tool_version: "1.0.0",
+    mandate_type: "payment_policy",
+    jurisdiction: jurisdictions,
+    regulatory_frameworks: [
+      "ISO 20022 — Universal Financial Industry Message Scheme",
+      "Federal Reserve FedNow Service Operating Procedures",
+      "FinCEN Bank Secrecy Act 31 CFR Part 1020 — Suspicious Activity Reporting",
+      "BCBS 248 — Monitoring indicators for intraday liquidity management",
+      "EPC SCT Inst Rulebook — SEPA Instant Credit Transfer",
+      "Pay.UK Faster Payments Scheme Rules",
+      "CFPB Regulation E (12 CFR 1005) — Electronic Fund Transfers"
+    ],
+    payload: {
+      policy_name: "Real-Time Payments Operating Policy",
+      policy_scope: "Authorisation path — sub-second to settlement",
+      rail_eligibility: policy.rail_eligibility,
+      fraud_velocity_thresholds: policy.fraud_velocity_thresholds,
+      liquidity_buffer_triggers: policy.liquidity_buffer_triggers,
+      settlement_window_preferences: policy.settlement_window_preferences,
+      escalation_conditions: policy.escalation_conditions,
+      validation_result: {
+        valid: validation.valid,
+        error_count: validation.errors.length,
+        warning_count: validation.warnings.length,
+        errors: validation.errors,
+        warnings: validation.warnings,
+      },
+    },
+    summary: buildSummary(policy, validation),
+    agent_instructions: buildAgentInstructions(policy, validation),
+    last_reviewed: "2026-05-09",
+    source_tool_inputs: {
+      enabled_rails: policy.rail_eligibility.enabled_rails,
+      escalation_conditions: policy.escalation_conditions.triggers,
+      validation_passed: validation.valid,
+    },
+    regulatory_citations: [
+      "Federal Reserve FedNow Fraud Classifier Model v1 — Implementation Guidance (2024)",
+      "FinCEN 31 CFR 1020.320 — Reports by banks of suspicious transactions",
+      "ISO 20022 pacs.002 — Payment Status Report reject reason code registry",
+      "BCBS 248 — Intraday liquidity monitoring indicators ILM1–ILM7 (April 2013)",
+      "EPC262-24 SCT Inst Rulebook v2.0 — fraud thresholds and SCA requirements",
+      "CFPB 12 CFR 1005.12 — Recordkeeping requirements for electronic fund transfers"
+    ]
+  };
+}
+
+function buildSummary(p, v) {
+  const f = p.fraud_velocity_thresholds;
+  const l = p.liquidity_buffer_triggers;
+  return `RTP policy covering ${p.rail_eligibility.enabled_rails.length} rail(s) (${p.rail_eligibility.enabled_rail_names.join(', ')}). ` +
+    `Payment range $${fmt(p.rail_eligibility.min_payment_usd)}–$${fmt(p.rail_eligibility.max_payment_usd)}. ` +
+    `Fraud: auto-allow <$${fmt(f.auto_allow_below_usd)}, review >$${fmt(f.manual_review_above_usd)}, block >$${fmt(f.auto_block_above_usd)}. ` +
+    `Liquidity pause at ${l.auto_pause_at_pct}% facility. ` +
+    `${p.escalation_conditions.trigger_count} escalation condition(s) — ${p.escalation_conditions.escalation_sla_minutes}min SLA. ` +
+    `Validation: ${v.valid ? 'PASS' : 'FAIL'}.`;
+}
+
+function buildAgentInstructions(p, v) {
+  const insts = [];
+  const f = p.fraud_velocity_thresholds;
+  const l = p.liquidity_buffer_triggers;
+  const e = p.escalation_conditions;
+
+  if (!v.valid) {
+    insts.push(`⚠ POLICY VALIDATION FAILED — ${v.errors.length} error(s): ${v.errors.join('; ')}. Do not deploy this policy until errors are resolved.`);
+  }
+
+  insts.push(`Restrict all RTP payment authorisation to enabled rails: ${p.rail_eligibility.enabled_rail_names.join(', ')}. Reject payment instructions specifying any other rail with reject code AM05.`);
+
+  insts.push(`Apply three-band amount decision: auto-allow payments ≤ $${fmt(f.auto_allow_below_usd)} (subject to velocity limits); route $${fmt(f.manual_review_above_usd)}–$${fmt(f.auto_block_above_usd)} to manual review queue; auto-block payments > $${fmt(f.auto_block_above_usd)} with pacs.002 RJCT + reject code AM04.`);
+
+  insts.push(`Enforce velocity controls in sub-second authorisation path: maximum ${f.max_transactions_per_customer_per_hour} transactions per customer per hour; $${fmt(f.max_amount_per_customer_per_hour_usd)} total per customer per hour; ${f.max_transactions_per_device_per_15min} transactions per device per 15 minutes.`);
+
+  if (f.mule_detection_enabled) {
+    insts.push(`Activate mule account detection: flag accounts with age < ${f.new_account_age_days} days attempting payments > $${fmt(f.first_time_payee_max_usd)} to first-time payees — route to enhanced manual review before auth path approval.`);
+  }
+
+  insts.push(`Monitor intraday liquidity position continuously: alert Treasury at ${l.alert_at_pct}% facility utilisation (action: ${l.on_alert_action.replace(/_/g,' ')}); auto-pause new payments at ${l.auto_pause_at_pct}% (action: ${l.on_pause_action.replace(/_/g,' ')}); emergency protocol at ${l.emergency_at_pct}% (action: ${l.on_emergency_action.replace(/_/g,' ')}). Resume at ${l.resume_at_pct}%.`);
+
+  insts.push(`Route payments by preference: primary rail ${p.settlement_window_preferences.primary_rail.toUpperCase()} → secondary ${p.settlement_window_preferences.secondary_rail.toUpperCase()}. SLA preference: ${p.settlement_window_preferences.sla_preference}. Off-hours action: ${p.settlement_window_preferences.off_hours_action.replace(/_/g,' ')}.`);
+
+  if (e.trigger_count > 0) {
+    insts.push(`Escalate to human via ${e.escalation_channel.replace(/_/g,' ')} within ${e.escalation_sla_minutes} minutes when any of these conditions fire: ${e.triggers.map(t=>t.replace(/_/g,' ')).join(', ')}. SLA breach action: ${e.sla_breach_action.replace(/_/g,' ')}.`);
+  }
+
+  if (f.fraud_classifier_v1 === 'required') {
+    insts.push(`Populate FedNow Fraud Classifier Model v1 fields on ALL outbound pacs.008 messages — this is a Federal Reserve participation requirement; do not submit pacs.008 without classifier data.`);
+  }
+
+  insts.push(`Maintain full ISO 20022 message audit trail for every authorisation decision — log: payment ID, rail, amount, decision, decision reason code, latency (ms), agent version, mandate_id. Retain for minimum 5 years per Regulation E 12 CFR 1005.12.`);
+
+  insts.push(`Re-validate this policy mandate quarterly or whenever: (a) a new rail is enabled, (b) fraud threshold data indicates FPR > 2% or TPR < 80%, (c) peak intraday debit grows > 15% QoQ, or (d) a regulatory requirement changes. Update mandate_id on every revision.`);
+
+  if (v.warnings.length > 0) {
+    v.warnings.forEach(w => insts.push(`⚠ Policy warning: ${w}`));
+  }
+
+  return insts;
+}
+
+function fmt(n) {
+  if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(0) + 'K';
+  return String(Math.round(n));
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   EXPORT FUNCTIONS
+────────────────────────────────────────────────────────────────── */
+function exportAP2() {
+  if (!lastAP2) return;
+  try {
+    AP2Schema.validate(lastAP2);
+    const blob = new Blob([JSON.stringify(lastAP2, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = `ap2-rtp-policy_${new Date().toISOString().slice(0,10)}.policy.json`;
+    a.click(); URL.revokeObjectURL(url);
+    showToast('Policy Mandate JSON policy downloaded', 'success');
+  } catch(e) { showToast('Export failed', 'error'); }
+}
+
+function copyJSON() {
+  if (!lastAP2) return;
+  try {
+    navigator.clipboard.writeText(JSON.stringify(lastAP2, null, 2))
+      .then(() => showToast('Policy Mandate JSON copied to clipboard', 'success'))
+      .catch(() => showToast('Copy not available — use Export', 'error'));
+  } catch(e) { showToast('Copy failed', 'error'); }
+}
+
+function exportMarkdown() {
+  if (!lastAP2) return;
+  const p = lastAP2.payload; const date = new Date().toISOString().slice(0,10);
+  let md = `# AP2 Real-Time Payments Policy Manifest\n**Generated:** ${date}  \n**Mandate ID:** \`${lastAP2.mandate_id}\`  \n**Tool:** T259 · AP2 Real-Time Payments Policy Builder — AINumbers.co\n\n---\n\n`;
+  md += `## Summary\n${lastAP2.summary}\n\n`;
+  md += `## Rail Eligibility\n- Enabled rails: **${p.rail_eligibility.enabled_rail_names.join(', ')}**\n`;
+  md += `- Payment range: $${fmt(p.rail_eligibility.min_payment_usd)} – $${fmt(p.rail_eligibility.max_payment_usd)}\n`;
+  md += `- International payments: ${p.rail_eligibility.international_payments ? 'Permitted' : 'Blocked'}\n`;
+  md += `- Credit-push only: ${p.rail_eligibility.credit_push_only ? 'Yes' : 'No'}\n\n`;
+  md += `## Fraud Velocity Thresholds\n| Rule | Value |\n|---|---|\n`;
+  const f = p.fraud_velocity_thresholds;
+  md += `| Max transactions / customer / hr | ${f.max_transactions_per_customer_per_hour} |\n`;
+  md += `| Max amount / customer / hr | $${fmt(f.max_amount_per_customer_per_hour_usd)} |\n`;
+  md += `| Max transactions / device / 15min | ${f.max_transactions_per_device_per_15min} |\n`;
+  md += `| Auto-allow below | $${fmt(f.auto_allow_below_usd)} |\n`;
+  md += `| Manual review above | $${fmt(f.manual_review_above_usd)} |\n`;
+  md += `| Auto-block above | $${fmt(f.auto_block_above_usd)} |\n`;
+  md += `| Mule detection | ${f.mule_detection_enabled ? 'Enabled' : 'Disabled'} |\n`;
+  md += `| New account age threshold | ${f.new_account_age_days} days |\n`;
+  md += `| First-time payee maximum | $${fmt(f.first_time_payee_max_usd)} |\n\n`;
+  const l = p.liquidity_buffer_triggers;
+  md += `## Liquidity Buffer Triggers\n| Trigger | Threshold | Action |\n|---|---|---|\n`;
+  md += `| Alert | ${l.alert_at_pct}% | ${l.on_alert_action.replace(/_/g,' ')} |\n`;
+  md += `| Auto-Pause | ${l.auto_pause_at_pct}% | ${l.on_pause_action.replace(/_/g,' ')} |\n`;
+  md += `| Emergency | ${l.emergency_at_pct}% | ${l.on_emergency_action.replace(/_/g,' ')} |\n`;
+  md += `| Resume | ${l.resume_at_pct}% | Process queued payments (FIFO) |\n\n`;
+  md += `## Settlement Window Preferences\n- Primary: ${p.settlement_window_preferences.primary_rail.toUpperCase()}\n`;
+  md += `- Secondary: ${p.settlement_window_preferences.secondary_rail.toUpperCase()}\n`;
+  md += `- SLA: ${p.settlement_window_preferences.sla_preference}\n`;
+  md += `- Off-hours: ${p.settlement_window_preferences.off_hours_action.replace(/_/g,' ')}\n\n`;
+  md += `## Escalation Conditions\n- Triggers: ${p.escalation_conditions.triggers.map(t=>t.replace(/_/g,' ')).join(', ')}\n`;
+  md += `- SLA: ${p.escalation_conditions.escalation_sla_minutes} minutes\n`;
+  md += `- Channel: ${p.escalation_conditions.escalation_channel.replace(/_/g,' ')}\n`;
+  md += `- SLA breach: ${p.escalation_conditions.sla_breach_action.replace(/_/g,' ')}\n\n`;
+  md += `## Validation\n- Status: **${p.validation_result.valid ? 'PASS ✓' : 'FAIL ✗'}**\n`;
+  if (p.validation_result.errors.length > 0) { md += `- Errors:\n`; p.validation_result.errors.forEach(e => { md += `  - ${e}\n`; }); }
+  if (p.validation_result.warnings.length > 0) { md += `- Warnings:\n`; p.validation_result.warnings.forEach(w => { md += `  - ${w}\n`; }); }
+  md += `\n## Agent Instructions\n`;
+  lastAP2.agent_instructions.forEach((a,i) => { md += `${i+1}. ${a}\n`; });
+  md += `\n## Regulatory Citations\n`;
+  lastAP2.regulatory_citations.forEach(r => { md += `- ${r}\n`; });
+  md += `\n---\n*Client-side. Zero PII. Generated by AINumbers.co — T259 AP2 Real-Time Payments Policy Builder v1.0.0*\n`;
+
+  try {
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = `ap2-rtp-policy_${date}.md`;
+    a.click(); URL.revokeObjectURL(url);
+    showToast('Markdown policy downloaded', 'info');
+  } catch(e) { showToast('Export failed', 'error'); }
+}
+
+function showToast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type}`;
+  setTimeout(() => t.classList.add('show'), 10);
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   i18n — Stage 2 UI Chrome Translations
+══════════════════════════════════════════════════════════════════ */
+const TRANSLATIONS = {
+  en: { eyebrow:"T259 · Cat-21 · Real-Time Payments · Agentic Policy", hero_title:"AP2 Real-Time Payments Policy Builder", hero_desc:"Configure your real-time payment operating policy across five dimensions and compile it into a validated Policy Mandate JSON for agentic payment system consumption.", panel_config:"Policy Configuration", panel_about:"About this tool", label_rail:"Rail Eligibility", label_fraud_threshold:"Fraud Velocity Thresholds", label_liquidity_trigger:"Liquidity Buffer Triggers", label_escalation_rule:"Escalation Conditions", run_btn:"Generate AP2 Policy →", results_title:"AP2 Policy Manifest", export_ap2:"Export Policy Mandate", export_md:"Export Markdown", pii_notice:"🔒 All inputs are processed locally in your browser. No data is transmitted. Use representative policy parameters — do not enter institution-specific thresholds not intended for publication.", last_reviewed:"Last Reviewed", nav_all_tools:"All 200+ Tools", footer_badge:"Zero PII \u00a0 📡 No server calls \u00a0 💻 Client-side", lang_dir:"ltr" 
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-21 Hub',
+  },
+  es: { eyebrow:"T259 · Cat-21 · Pagos en Tiempo Real · Política Agéntica", hero_title:"Constructor de Política AP2 para Pagos en Tiempo Real", hero_desc:"Configure su política de pagos en tiempo real en cinco dimensiones y compílela en un Mandato de Política validado para sistemas de pago agénticos.", panel_config:"Configuración de Política", panel_about:"Sobre esta herramienta", label_rail:"Elegibilidad de Rieles", label_fraud_threshold:"Umbrales de Velocidad de Fraude", label_liquidity_trigger:"Disparadores de Buffer de Liquidez", label_escalation_rule:"Condiciones de Escalación", run_btn:"Generar Política AP2 →", results_title:"Manifiesto de Política AP2", export_ap2:"Exportar Mandato de Política", export_md:"Exportar Markdown", pii_notice:"🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos.", last_reviewed:"Última Revisión", nav_all_tools:"Más de 200 Herramientas", footer_badge:"Sin IIP \u00a0 📡 Sin llamadas al servidor \u00a0 💻 Solo cliente", lang_dir:"ltr" 
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-21',
+  },
+  fr: { eyebrow:"T259 · Cat-21 · Paiements en Temps Réel · Politique Agentique", hero_title:"Constructeur de Politique AP2 pour Paiements en Temps Réel", hero_desc:"Configurez votre politique de paiement en temps réel sur cinq dimensions et compilez-la en un Mandat de Politique validé pour les systèmes de paiement agentiques.", panel_config:"Configuration de Politique", panel_about:"À propos de cet outil", label_rail:"Éligibilité des Rails", label_fraud_threshold:"Seuils de Vélocité de Fraude", label_liquidity_trigger:"Déclencheurs de Buffer de Liquidité", label_escalation_rule:"Conditions d'Escalade", run_btn:"Générer la Politique AP2 →", results_title:"Manifeste de Politique AP2", export_ap2:"Exporter Mandat de Politique", export_md:"Exporter Markdown", pii_notice:"🔒 Toutes les entrées sont traitées localement. Aucune donnée n'est transmise.", last_reviewed:"Dernière Révision", nav_all_tools:"Plus de 200 Outils", footer_badge:"Zéro DPI \u00a0 📡 Aucun appel serveur \u00a0 💻 Côté client", lang_dir:"ltr" 
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-21',
+  },
+  ar: { eyebrow:"T259 · القطاع 21 · المدفوعات الفورية · السياسة الذكية", hero_title:"منشئ سياسة AP2 للمدفوعات الفورية", hero_desc:"قم بتهيئة سياسة الدفع الفوري عبر خمسة أبعاد وترجمتها إلى تفويض سياسة موثق لأنظمة الدفع الذكية.", panel_config:"تهيئة السياسة", panel_about:"حول هذه الأداة", label_rail:"أهلية شبكات الدفع", label_fraud_threshold:"عتبات سرعة الاحتيال", label_liquidity_trigger:"محفزات احتياطي السيولة", label_escalation_rule:"شروط التصعيد", run_btn:"إنشاء سياسة AP2 ←", results_title:"بيان سياسة AP2", export_ap2:"تصدير تفويض السياسة", export_md:"تصدير Markdown", pii_notice:"🔒 تتم معالجة جميع المدخلات محلياً في متصفحك. لا يتم نقل أي بيانات.", last_reviewed:"آخر مراجعة", nav_all_tools:"أكثر من 200 أداة", footer_badge:"بدون بيانات شخصية \u00a0 📡 بدون اتصال بالخادم \u00a0 💻 من جانب العميل", lang_dir:"rtl" 
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-21',
+  },
+  pt: { eyebrow:"T259 · Cat-21 · Pagamentos em Tempo Real · Política Agêntica", hero_title:"Construtor de Política AP2 para Pagamentos em Tempo Real", hero_desc:"Configure sua política de pagamento em tempo real em cinco dimensões e compile-a em um Mandato de Política validado para sistemas de pagamento agênticos.", panel_config:"Configuração de Política", panel_about:"Sobre esta ferramenta", label_rail:"Elegibilidade de Trilhos", label_fraud_threshold:"Limites de Velocidade de Fraude", label_liquidity_trigger:"Gatilhos de Buffer de Liquidez", label_escalation_rule:"Condições de Escalação", run_btn:"Gerar Política AP2 →", results_title:"Manifesto de Política AP2", export_ap2:"Exportar Mandato de Política", export_md:"Exportar Markdown", pii_notice:"🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido.", last_reviewed:"Última Revisão", nav_all_tools:"Mais de 200 Ferramentas", footer_badge:"Zero PII \u00a0 📡 Sem chamadas ao servidor \u00a0 💻 Lado do cliente", lang_dir:"ltr" 
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-21',
+  },
+  zh: { eyebrow:"T259 · 第21类 · 实时支付 · 智能代理政策", hero_title:"AP2实时支付政策构建器", hero_desc:"在五个维度配置您的实时支付运营政策，并将其编译为智能支付系统可消费的经验证政策授权书书。", panel_config:"政策配置", panel_about:"关于此工具", label_rail:"轨道资格", label_fraud_threshold:"欺诈速度阈值", label_liquidity_trigger:"流动性缓冲触发器", label_escalation_rule:"升级条件", run_btn:"生成AP2政策 →", results_title:"AP2政策清单", export_ap2:"导出政策授权书", export_md:"导出Markdown", pii_notice:"🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。", last_reviewed:"最后审查", nav_all_tools:"全部200+工具", footer_badge:"零个人信息 \u00a0 📡 无服务器调用 \u00a0 💻 纯客户端", lang_dir:"ltr" 
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-21 中心',
+  },
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS['en'];
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`) || document.querySelector(`.lang-btn[onclick='setLang("${lang}")']`);
+  if (btn) btn.classList.add('active');
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  document.documentElement.dir = t.lang_dir || 'ltr';
+  document.body.dir = t.lang_dir || 'ltr';
+  const apply = (sel, key) => { const el = document.querySelector(sel); if (el && t[key] !== undefined) el.textContent = t[key]; };
+  apply('.tool-eyebrow','eyebrow'); apply('.hero h1','hero_title'); apply('.hero-desc','hero_desc');
+  apply('.pii-notice','pii_notice'); apply('.run-btn','run_btn'); apply('.results-title','results_title'); apply('.nav-cta','nav_all_tools');
+  const panelLabels = document.querySelectorAll('.panel-label');
+  ['panel_config','panel_about'].forEach((k,i) => { if (panelLabels[i] && t[k]) panelLabels[i].textContent = t[k]; });
+  document.querySelectorAll('.btn-export').forEach(b => {
+    if (b.classList.contains('btn-export-md')) { if (t['export_md']) b.textContent = t['export_md']; }
+    else if (!b.classList.contains('btn-copy')) { if (t['export_ap2']) b.textContent = t['export_ap2']; }
+  });
+  document.querySelectorAll('[data-i18n]').forEach(el => { const k = el.getAttribute('data-i18n'); if (t[k] !== undefined) el.textContent = t[k]; });
+  const badge = document.querySelector('.footer-badge-ai span:last-child');
+  if (badge) badge.textContent = t['footer_badge'];
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function initLang() {
+  updateRailStatus();
+  try { const saved = sessionStorage.getItem('ain_lang'); if (saved && TRANSLATIONS[saved]) setLang(saved); } catch(e) {}
+})();
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "ap2-rtp-policy-builder", "version": "1.0.0", "title": "AP2 Real-Time Payments Policy Builder", "description": "Compiles real-time payment operating rules, fraud velocity thresholds, liquidity buffer triggers, settlement window preferences, and escalation conditions into a validated Policy Mandate JSON consumable by agentic payment systems. Provides real-time policy validation (error detection, conflict checking), a JSON preview, a human-readable agent instruction set, and AP2/Markdown export. Anchor agentic tool for Cat-21. Client-side. Zero PII.", "category": "cat-21", "tags": ["AP2 agentic", "RTP policy", "FedNow", "real-time payments", "payment policy", "fraud thresholds", "liquidity triggers", "escalation conditions", "rail eligibility", "agentic finance", "policy compiler", "AP2", "export"], "audience": ["engineer", "compliance", "treasury", "fraud analyst", "payments architect", "AI agent developer"], "input_schema": {"type": "object", "properties": {"rail_eligibility": {"type": "object", "properties": {"enabled_rails": {"type": "array", "items": {"type": "string", "enum": ["fednow", "rtp", "sepa_inst", "fps", "pix", "paynow"]}, "minItems": 1}, "min_payment_usd": {"type": "number", "minimum": 0}, "max_payment_usd": {"type": "number", "minimum": 1}, "international_payments": {"type": "boolean"}, "credit_push_only": {"type": "boolean"}, "always_on_247": {"type": "boolean"}}, "required": ["enabled_rails"]}, "fraud_velocity_thresholds": {"type": "object", "properties": {"max_transactions_per_customer_per_hour": {"type": "integer", "minimum": 1}, "max_amount_per_customer_per_hour_usd": {"type": "number", "minimum": 0}, "max_transactions_per_device_per_15min": {"type": "integer", "minimum": 1}, "auto_allow_below_usd": {"type": "number"}, "manual_review_above_usd": {"type": "number"}, "auto_block_above_usd": {"type": "number"}, "mule_detection_enabled": {"type": "boolean"}, "new_account_age_days": {"type": "integer", "minimum": 1}, "first_time_payee_max_usd": {"type": "number"}, "fraud_classifier_v1": {"type": "string", "enum": ["required", "optional", "na"]}}}, "liquidity_buffer_triggers": {"type": "object", "properties": {"alert_at_pct": {"type": "integer", "minimum": 1, "maximum": 100}, "auto_pause_at_pct": {"type": "integer", "minimum": 1, "maximum": 100}, "emergency_at_pct": {"type": "integer", "minimum": 1, "maximum": 100}, "resume_at_pct": {"type": "integer", "minimum": 1, "maximum": 100}, "on_alert_action": {"type": "string"}, "on_pause_action": {"type": "string"}, "on_emergency_action": {"type": "string"}}}, "settlement_window_preferences": {"type": "object", "properties": {"primary_rail": {"type": "string"}, "secondary_rail": {"type": "string"}, "sla_preference": {"type": "string", "enum": ["speed", "balanced", "cost"]}, "consumer_rail": {"type": "string"}, "b2b_rail": {"type": "string"}, "payroll_rail": {"type": "string"}, "off_hours_action": {"type": "string"}}}, "escalation_conditions": {"type": "object", "properties": {"triggers": {"type": "array", "items": {"type": "string", "enum": ["fraud_score", "high_amount", "new_jurisdiction", "liquidity_alert", "sanction_hit", "auth_failure", "system_error", "recall_request"]}}, "escalation_sla_minutes": {"type": "integer", "minimum": 1}, "escalation_channel": {"type": "string", "enum": ["queue", "email", "slack", "phone"]}, "sla_breach_action": {"type": "string"}}}}, "required": ["rail_eligibility"]}, "output_schema": {"type": "object", "properties": {"mandate_id": {"type": "string", "format": "uuid"}, "mandate_type": {"type": "string", "const": "payment_policy"}, "jurisdiction": {"type": "array", "items": {"type": "string"}}, "payload": {"type": "object", "properties": {"rail_eligibility": {"type": "object"}, "fraud_velocity_thresholds": {"type": "object"}, "liquidity_buffer_triggers": {"type": "object"}, "settlement_window_preferences": {"type": "object"}, "escalation_conditions": {"type": "object"}, "validation_result": {"type": "object", "properties": {"valid": {"type": "boolean"}, "error_count": {"type": "integer"}, "warning_count": {"type": "integer"}, "errors": {"type": "array", "items": {"type": "string"}}, "warnings": {"type": "array", "items": {"type": "string"}}}}}}, "agent_instructions": {"type": "array", "items": {"type": "string"}}}, "required": ["mandate_id", "mandate_type", "payload", "agent_instructions"]}, "mcp_tool_definition": {"name": "build_ap2_rtp_policy", "description": "Compiles a real-time payment operating policy across five dimensions (rail eligibility, fraud velocity thresholds, liquidity buffer triggers, settlement window preferences, escalation conditions) into a validated Policy Mandate JSON for agentic payment system consumption. Performs policy validation (conflict detection, threshold ordering), generates a human-readable agent instruction set, and returns the complete AP2 mandate. Use when an agent or developer needs to configure an authoritative RTP payment policy rulebook, validate threshold consistency, or generate a machine-readable mandate for autonomous payment authorisation systems. This is the capstone policy compiler for the Cat-21 Real-Time Payments toolset.", "inputSchema": {"type": "object", "properties": {"rail_eligibility": {"type": "object", "properties": {"enabled_rails": {"type": "array", "items": {"type": "string"}, "minItems": 1}, "min_payment_usd": {"type": "number"}, "max_payment_usd": {"type": "number"}, "international_payments": {"type": "boolean"}, "credit_push_only": {"type": "boolean"}}, "required": ["enabled_rails"]}, "fraud_velocity_thresholds": {"type": "object", "properties": {"max_transactions_per_customer_per_hour": {"type": "integer"}, "max_amount_per_customer_per_hour_usd": {"type": "number"}, "auto_allow_below_usd": {"type": "number"}, "manual_review_above_usd": {"type": "number"}, "auto_block_above_usd": {"type": "number"}, "mule_detection_enabled": {"type": "boolean"}, "fraud_classifier_v1": {"type": "string"}}}, "liquidity_buffer_triggers": {"type": "object", "properties": {"alert_at_pct": {"type": "integer"}, "auto_pause_at_pct": {"type": "integer"}, "emergency_at_pct": {"type": "integer"}, "resume_at_pct": {"type": "integer"}}}, "escalation_conditions": {"type": "object", "properties": {"triggers": {"type": "array", "items": {"type": "string"}}, "escalation_sla_minutes": {"type": "integer"}, "escalation_channel": {"type": "string"}}}}, "required": ["rail_eligibility"]}}, "execution": {"type": "browser-javascript", "entry": "tools/259-ap2-rtp-policy-builder.html", "function_name": "buildAP2RTPPolicy", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

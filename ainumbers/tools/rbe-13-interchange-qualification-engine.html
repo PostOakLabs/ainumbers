@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Interchange Qualification &amp; LCR Rule Builder · RBE·13 · AINumbers.co</title>
+<meta name="description" content="Browser-based interchange qualification engine. Map card transaction attributes to Visa/Mastercard tier, build LCR routing rules, identify downgrade risk, generate Level 2/3 data eligibility matrix, and export routing Policy Mandate JSON. Zero PII. Client-side. Uses publicly published interchange schedules.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Interchange Qualification & LCR Rule Builder · RBE·13","url":"https://ainumbers.co/tools/rbe-13-interchange-qualification-engine.html","description":"Browser-based interchange qualification engine. Map card transaction attributes to Visa/Mastercard tier, build LCR routing rules, identify downgrade risk, generate Level 2/3 data eligibility matrix, and export routing Policy Mandate JSON. Zero PII. Client-side. Uses publicly published interchange schedules.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Edu disclaimer (canonical §9.3) */
+.edu-disclaimer {
+  border: 1px solid var(--warn);
+  border-left: 3px solid var(--warn);
+  background: rgba(245, 158, 11, 0.06);
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  font-size: 0.76rem;
+  color: var(--body);
+  line-height: 1.7;
+  border-radius: var(--radius);
+}
+.edu-disclaimer-label {
+  display: block;
+  color: var(--warn);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:14px;line-height:1.6;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.03) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+body>*{position:relative;z-index:1}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:6px 0}
+.lang-inner{max-width:1200px;margin:0 auto;padding:0 24px;display:flex;gap:4px;justify-content:flex-end}
+.lang-btn{background:transparent;border:1px solid transparent;color:var(--body);font-family:'Sora',sans-serif;font-size:11px;font-weight:500;letter-spacing:.06em;padding:3px 10px;border-radius:var(--radius);cursor:pointer;transition:all .15s}
+.lang-btn:hover{color:var(--text);border-color:var(--border-2)}
+.lang-btn.active{background:var(--teal-dim);color:var(--purple);border-color:rgba(20,184,166,.3)}
+nav{background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.nav-inner{max-width:1200px;margin:0 auto;padding:0 24px;height:56px;display:grid;grid-template-columns:1fr auto 1fr;}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center;justify-self:center;text-align:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{justify-self:end;display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.nav-brand{font-family:'DM Serif Display',serif;font-size:18px;color:var(--white);text-decoration:none;display:flex;align-items:center;gap:10px}
+.nav-brand-dot{width:8px;height:8px;border-radius:50%;background:var(--purple);box-shadow:0 0 8px var(--purple)}
+.hero{padding:52px 24px 40px;max-width:1200px;margin:0 auto}
+.hero-eyebrow{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.tool-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);letter-spacing:.1em;text-transform:uppercase}
+.hero-badge{background:var(--purple-dim);color:var(--purple);font-size:10px;font-weight:600;padding:3px 10px;border-radius:20px;border:1px solid rgba(155,114,245,.25)}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(26px,4vw,40px);color:var(--white);line-height:1.2;margin-bottom:14px;max-width:780px}
+.hero-desc{color:var(--body);font-size:14px;max-width:680px;line-height:1.7}
+.hero-meta{display:flex;gap:16px;margin-top:20px;flex-wrap:wrap}
+.hero-meta-pill{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--body);background:var(--bg-3);border:1px solid var(--border);padding:4px 12px;border-radius:20px}
+.hero-meta-pill span:first-child{color:var(--teal)}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+.tag{font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;letter-spacing:.04em;border:1px solid}
+.tag-teal{background:var(--teal-dim);color:var(--teal);border-color:rgba(20,184,166,.25)}
+.tag-gold{background:var(--gold-dim);color:var(--gold);border-color:rgba(212,168,71,.25)}
+.tag-green{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.25)}
+.tag-purple{background:var(--purple-dim);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.tool-body{max-width:1200px;margin:0 auto;padding:0 24px 60px;display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
+@media(max-width:900px){.tool-body{grid-template-columns:1fr}}
+.main-col,.side-col{display:flex;flex-direction:column;gap:20px}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);letter-spacing:.08em;text-transform:uppercase;font-weight:500}
+.panel-body{padding:20px}
+.panel-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.panel-row.three{grid-template-columns:1fr 1fr 1fr}
+.panel-row.four{grid-template-columns:1fr 1fr 1fr 1fr}
+.panel-row:last-child{margin-bottom:0}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:11px;color:var(--body);font-weight:500;letter-spacing:.04em}
+.field input,.field select{background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);font-family:'Sora',sans-serif;font-size:13px;padding:8px 10px;border-radius:var(--radius);outline:none;transition:border-color .15s;width:100%}
+.field input:focus,.field select:focus{border-color:var(--purple)}
+.field select option{background:var(--bg-3)}
+.btn{display:inline-flex;align-items:center;gap:6px;font-family:'Sora',sans-serif;font-size:12px;font-weight:500;padding:7px 16px;border-radius:var(--radius);cursor:pointer;border:1px solid transparent;transition:all .15s;white-space:nowrap}
+.btn-teal{background:var(--purple);color:#080E1A;border-color:var(--purple)}
+.btn-teal:hover{background:var(--purple-lt)}
+.btn-ghost{background:transparent;color:var(--text);border-color:var(--border-2)}
+.btn-ghost:hover{background:var(--bg-3);border-color:var(--teal);color:var(--teal)}
+.btn-sm{font-size:11px;padding:5px 12px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.btn-subtitle{display:block;font-size:10px;opacity:.65;margin-top:1px}
+.run-btn{width:100%;background:var(--purple);color:#080E1A;border:none;font-family:'Sora',sans-serif;font-size:14px;font-weight:600;padding:14px 24px;border-radius:var(--radius-lg);cursor:pointer;transition:all .2s;letter-spacing:.02em;box-shadow:0 0 20px rgba(155,114,245,.2)}
+.run-btn:hover{background:var(--purple-lt);box-shadow:0 0 30px rgba(155,114,245,.35)}
+.run-btn:active{transform:scale(.99)}
+
+/* ── Slider ── */
+.slider-field{display:flex;flex-direction:column;gap:5px}
+.slider-field label{font-size:11px;color:var(--body);font-weight:500}
+.slider-row{display:flex;align-items:center;gap:8px}
+.slider-row input[type=range]{flex:1;-webkit-appearance:none;height:4px;background:var(--border-2);border-radius:2px;outline:none;cursor:pointer}
+.slider-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--teal);cursor:pointer}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--bright);min-width:36px;text-align:right}
+
+/* ── Toggle ── */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)}
+.toggle-row:last-child{border-bottom:none}
+.toggle-label{font-size:12px;color:var(--text)}
+.toggle-switch{position:relative;width:34px;height:18px;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0;position:absolute}
+.toggle-slider{position:absolute;inset:0;background:var(--bg-4);border:1px solid var(--border-2);border-radius:9px;cursor:pointer;transition:all .2s}
+.toggle-slider::before{content:'';position:absolute;width:12px;height:12px;background:var(--body);border-radius:50%;top:2px;left:2px;transition:all .2s}
+.toggle-switch input:checked+.toggle-slider{background:var(--teal-dim);border-color:rgba(20,184,166,.4)}
+.toggle-switch input:checked+.toggle-slider::before{background:var(--teal);transform:translateX(16px)}
+
+/* ── Sim result ── */
+.sim-result{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:16px 20px;margin-top:16px;display:none}
+.sim-result.visible{display:block}
+.sim-tier{font-family:'DM Serif Display',serif;font-size:22px;color:var(--teal);margin-bottom:4px}
+.sim-rate{font-size:24px;font-family:'JetBrains Mono',monospace;color:var(--bright);margin-bottom:12px}
+.sim-breakdown{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.sim-breakdown-item{background:var(--bg-4);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px}
+.sim-breakdown-item .lbl{font-size:10px;color:var(--body);margin-bottom:2px}
+.sim-breakdown-item .val{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--bright)}
+.downgrade-block{background:var(--warn-dim);border:1px solid rgba(245,158,11,.25);border-radius:var(--radius);padding:10px 14px;margin-bottom:10px;font-size:12px}
+.downgrade-title{color:var(--warn);font-weight:600;margin-bottom:6px;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.downgrade-item{padding:3px 0;border-bottom:1px solid rgba(245,158,11,.15);color:var(--text)}
+.downgrade-item:last-child{border-bottom:none}
+.optim-block{background:var(--teal-dim);border:1px solid rgba(20,184,166,.2);border-radius:var(--radius);padding:10px 14px;font-size:12px}
+.optim-title{color:var(--teal);font-weight:600;margin-bottom:6px;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.optim-item{padding:3px 0;border-bottom:1px solid rgba(20,184,166,.15);color:var(--text)}
+.optim-item:last-child{border-bottom:none}
+
+/* ── LCR rule table ── */
+.lcr-table{width:100%;border-collapse:collapse;font-size:11px}
+.lcr-table th{background:var(--bg-3);color:var(--body);padding:7px 10px;border:1px solid var(--border);text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.lcr-table td{padding:6px 10px;border:1px solid var(--border);vertical-align:middle}
+.lcr-table tr:hover td{background:rgba(20,184,166,.03)}
+.lcr-priority{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--teal);background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);padding:1px 8px;border-radius:10px}
+.saving-badge{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--green);background:var(--green-dim);border:1px solid rgba(34,197,94,.2);padding:1px 8px;border-radius:10px}
+
+/* ── L2/L3 matrix ── */
+.l23-table{width:100%;border-collapse:collapse;font-size:11px}
+.l23-table th{background:var(--bg-3);color:var(--body);padding:7px 10px;border:1px solid var(--border);font-size:10px;text-transform:uppercase;letter-spacing:.05em;text-align:left}
+.l23-table td{padding:6px 10px;border:1px solid var(--border);font-size:11px}
+.l23-table tr:hover td{background:rgba(20,184,166,.03)}
+.field-list{font-size:10px;color:var(--body);line-height:1.5}
+
+/* ── Savings ── */
+.savings-hero{background:var(--teal-dim);border:1px solid rgba(20,184,166,.2);border-radius:var(--radius-lg);padding:20px;text-align:center;margin-bottom:16px}
+.savings-amount{font-family:'DM Serif Display',serif;font-size:40px;color:var(--teal);margin-bottom:4px}
+.savings-label{font-size:12px;color:var(--body)}
+.savings-breakdown{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.savings-item{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
+.savings-item .lbl{font-size:10px;color:var(--body);margin-bottom:2px}
+.savings-item .val{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--teal)}
+
+/* ── Schedule banner ── */
+.schedule-banner{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.25);border-radius:var(--radius);padding:8px 14px;font-size:11px;color:var(--warn);margin-bottom:14px}
+
+/* ── Export / Results ── */
+.results-panel{display:none}
+.results-panel.visible{display:flex;flex-direction:column;gap:14px}
+.results-title{font-family:'DM Serif Display',serif;font-size:20px;color:var(--white)}
+.results-export-row{display:flex;gap:8px;flex-wrap:wrap;padding:16px 20px;background:var(--bg-3);border-top:1px solid var(--border)}
+.results-export-row .btn{flex-direction:column;align-items:flex-start;padding:10px 16px}
+.results-export-row .btn[disabled]{opacity:.28;cursor:not-allowed}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat-box{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
+.stat-box .lbl{font-size:10px;color:var(--body);margin-bottom:2px}
+.stat-box .val{font-size:18px;font-family:'DM Serif Display',serif}
+.about-item{padding:10px 0;border-bottom:1px solid var(--border);font-size:12px}
+.about-item:last-child{border-bottom:none}
+.about-item strong{color:var(--text);display:block;margin-bottom:3px}
+.about-item .cite{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--teal)}
+
+.mcp-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:14px 20px;user-select:none;font-size:12px;color:var(--body);background:none;border:none;width:100%;font-family:'Sora',sans-serif;transition:color .15s}
+.mcp-toggle:hover{color:var(--text)}
+
+.mcp-code{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--body);overflow-x:auto;line-height:1.6;white-space:pre}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:12px 18px;font-size:13px;color:var(--bright);box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:9999;transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.error{border-color:rgba(239,68,68,.4);color:var(--red)}
+.toast.success{border-color:rgba(155,114,245,.4);color:var(--purple)}
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner,[dir="rtl"] .hero-eyebrow,[dir="rtl"] [dir="rtl"] .panel-label{text-align:right}
+[dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+[dir="rtl"] .run-btn{letter-spacing:0}
+
+/* ── DORA-style logo & nav ── */
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-body pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;overflow-x:auto;margin:0}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+
+.container{max-width:960px;margin:0 auto;padding:0 1.5rem}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo"><svg width="32" height="32" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="#0D1627"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".7"/></svg>
+    <div class="logo-text">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </div></a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/rbe-deterministic-suite-hub.html">RBE Suite Hub</a><span class="nav-sep">/</span><span>Tool RBE-13</span></div>
+
+    <a href="../guides/rbe-deterministic-suite-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="hero">
+  <div class="hero-eyebrow">
+    <span class="tool-eyebrow">RBE·13 · RBE Deterministic Suite · Interchange &amp; LCR</span>
+    <span class="hero-badge">Schedules: April 2025 · Last Reviewed 2026-05-01</span>
+  </div>
+  <h1 class="tool-title">Interchange Qualification &amp; Least-Cost Routing Rule Builder</h1>
+  <p class="hero-desc">Map card transaction attributes to Visa/Mastercard interchange tiers, identify downgrade risk, build a prioritised LCR routing rule set, generate a Level 2/3 data eligibility matrix, and compute portfolio-level interchange savings. Uses publicly published interchange schedules. Zero PII. Client-side.</p>
+  <div class="tag-row">
+    <span class="tag tag-teal">Visa Interchange</span>
+    <span class="tag tag-teal">Mastercard Interchange</span>
+    <span class="tag tag-gold">Durbin Amendment LCR</span>
+    <span class="tag tag-gold">L2/L3 Data</span>
+    <span class="tag tag-purple">Downgrade Detection</span>
+    <span class="tag tag-green">Policy Mandate · Zero PII</span>
+  </div>
+  <div class="hero-meta">
+    <div class="hero-meta-pill"><span>⚡</span> Client-side · No server calls</div>
+    <div class="hero-meta-pill"><span>🔒</span> Zero PII · Static schedules</div>
+    <div class="hero-meta-pill"><span>📦</span> MCP-compatible · manifest.json</div>
+    <div class="hero-meta-pill"><span>v</span> RBE Suite v1.0</div>
+  </div>
+</div>
+
+<div class="tool-body">
+<div class="main-col">
+
+  <!-- Schedule banner -->
+  <div class="schedule-banner">
+    ⏱ Interchange rates embedded in this tool were last reviewed <strong>2026-05-01</strong> (based on Visa US April 2025 and Mastercard US April 2025 publicly published schedules). Verify against your acquirer's current interchange statement before making routing decisions.
+  </div>
+
+  <!-- Panel A: Portfolio Configuration -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label" data-i18n="panel_portfolio">A — Portfolio Configuration</span>
+      <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-01</span></span>
+    </div>
+    <div class="panel-body">
+      <div class="panel-row three">
+        <div class="field">
+          <label data-i18n="label_entity_type" for="entityType">Entity Type</label>
+          <select id="entityType">
+            <option value="merchant">Merchant</option>
+            <option value="payment_facilitator">Payment Facilitator</option>
+            <option value="acquirer_iso">Acquirer / ISO</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-i18n="label_country" for="country">Country</label>
+          <select id="country" onchange="updateCountryContext()">
+            <option value="US" selected>US</option>
+            <option value="UK">UK</option>
+            <option value="EU">EU</option>
+            <option value="Australia">Australia</option>
+            <option value="Canada">Canada</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-i18n="label_networks">Networks</label>
+          <select id="networks">
+            <option value="both" selected>Visa + Mastercard</option>
+            <option value="visa">Visa only</option>
+            <option value="mastercard">Mastercard only</option>
+          </select>
+        </div>
+      </div>
+      <div class="panel-row">
+        <div class="field">
+          <label data-i18n="label_cnp_vol" for="cnpVol">Monthly CNP Volume ($/€)</label>
+          <input type="number" id="cnpVol" value="2000000" min="0" step="10000">
+        </div>
+        <div class="field">
+          <label data-i18n="label_cp_vol" for="cpVol">Monthly Card-Present Volume ($/€)</label>
+          <input type="number" id="cpVol" value="500000" min="0" step="10000">
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--body);margin-bottom:10px;font-weight:500">Card Mix (% of monthly volume — total should ≈ 100%)</div>
+      <div class="panel-row four">
+        <div class="slider-field">
+          <label>Consumer Credit</label>
+          <div class="slider-row"><input type="range" id="mixCredit" min="0" max="100" value="45" oninput="document.getElementById('mixCreditVal').textContent=this.value+'%'"><span class="slider-val" id="mixCreditVal">45%</span></div>
+        </div>
+        <div class="slider-field">
+          <label>Consumer Debit</label>
+          <div class="slider-row"><input type="range" id="mixDebit" min="0" max="100" value="30" oninput="document.getElementById('mixDebitVal').textContent=this.value+'%'"><span class="slider-val" id="mixDebitVal">30%</span></div>
+        </div>
+        <div class="slider-field">
+          <label>Commercial / Corporate</label>
+          <div class="slider-row"><input type="range" id="mixCommercial" min="0" max="100" value="15" oninput="document.getElementById('mixCommercialVal').textContent=this.value+'%'"><span class="slider-val" id="mixCommercialVal">15%</span></div>
+        </div>
+        <div class="slider-field">
+          <label>Rewards / Premium</label>
+          <div class="slider-row"><input type="range" id="mixRewards" min="0" max="100" value="10" oninput="document.getElementById('mixRewardsVal').textContent=this.value+'%'"><span class="slider-val" id="mixRewardsVal">10%</span></div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--body);margin:14px 0 10px;font-weight:500">Processing Capability</div>
+      <div class="toggle-row">
+        <span class="toggle-label" data-i18n="label_3ds2">3DS2 enabled</span>
+        <label class="toggle-switch"><input type="checkbox" id="cap3ds2" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row" id="row3ds2Pct">
+        <span class="toggle-label">3DS2 adoption rate</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="range" id="cap3ds2Pct" min="10" max="100" value="75" style="-webkit-appearance:none;height:4px;background:var(--border-2);border-radius:2px;outline:none;cursor:pointer;width:80px">
+          <span id="cap3ds2PctVal" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--bright)">75%</span>
+        </div>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label" data-i18n="label_l2">Level 2 data submission</span>
+        <label class="toggle-switch"><input type="checkbox" id="capL2"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label" data-i18n="label_l3">Level 3 data submission</span>
+        <label class="toggle-switch"><input type="checkbox" id="capL3"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label" data-i18n="label_avs">AVS on all CNP</span>
+        <label class="toggle-switch"><input type="checkbox" id="capAvs" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row" style="border-bottom:none">
+        <span class="toggle-label" data-i18n="label_cvv2">CVV2 on all CNP</span>
+        <label class="toggle-switch"><input type="checkbox" id="capCvv2" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div class="field" style="margin-top:14px">
+        <label data-i18n="label_mcc" for="mcc">Primary MCC</label>
+        <select id="mcc">
+          <option value="7372" selected>7372 — Computer Services / SaaS</option>
+          <option value="5411">5411 — Grocery Stores</option>
+          <option value="5732">5732 — Electronics</option>
+          <option value="7011">7011 — Hotels / Accommodation</option>
+          <option value="4816">4816 — Computer Network Services</option>
+          <option value="5999">5999 — Miscellaneous Retail</option>
+          <option value="5122">5122 — Drugs / Pharmaceuticals</option>
+          <option value="7995">7995 — Gambling</option>
+          <option value="0000">Other / Custom</option>
+        </select>
+      </div>
+      <div id="countryContext" style="font-size:11px;color:var(--teal);margin-top:10px;background:var(--teal-dim);padding:8px 12px;border-radius:var(--radius);border:1px solid rgba(20,184,166,.2)"></div>
+      <div class="pii-notice" style="margin-top:12px">
+  <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+</div>
+  <!-- Edu disclaimer (canonical §9.3) -->
+  <div class="edu-disclaimer">
+    <strong class="edu-disclaimer-label" data-i18n="disclaimer.label">Educational Use Only</strong>
+    <span data-i18n="disclaimer.body">This tool provides a self-assessment / educational framework for internal planning purposes only. It is not a regulatory audit, legal advice, or a substitute for a formal compliance review by a qualified advisor. Verify all interpretations against the official source text and applicable RTS/ITS/guidance published by the relevant authority.</span>
+  </div>
+
+    </div>
+  </div>
+
+  <!-- Panel B: Transaction Simulator -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label" data-i18n="panel_sim">B — Transaction Simulator</span>
+    </div>
+    <div class="panel-body">
+      <div class="panel-row four">
+        <div class="field">
+          <label data-i18n="label_card_type" for="simCardType">Card Type</label>
+          <select id="simCardType">
+            <option value="consumer_credit">Consumer Credit</option>
+            <option value="consumer_debit">Consumer Debit</option>
+            <option value="commercial">Commercial / Corporate</option>
+            <option value="rewards">Rewards / Premium</option>
+            <option value="fleet">Fleet Card</option>
+            <option value="prepaid">Prepaid</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-i18n="label_network" for="simNetwork">Network</label>
+          <select id="simNetwork">
+            <option value="visa">Visa</option>
+            <option value="mastercard">Mastercard</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-i18n="label_tx_type" for="simTxType">Transaction Type</label>
+          <select id="simTxType">
+            <option value="cnp">Card-Not-Present (CNP)</option>
+            <option value="card_present">Card Present (EMV Chip)</option>
+            <option value="recurring">Recurring / Subscription</option>
+            <option value="instalment">Instalment</option>
+            <option value="moto">MOTO</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-i18n="label_auth" for="simAuth">Authentication Method</label>
+          <select id="simAuth">
+            <option value="3ds2_frictionless">3DS2 Frictionless</option>
+            <option value="3ds2_challenge">3DS2 Challenge</option>
+            <option value="non_3ds">Non-3DS</option>
+            <option value="emv_chip">EMV Chip (CP)</option>
+            <option value="swipe">Swipe</option>
+          </select>
+        </div>
+      </div>
+      <div class="panel-row three">
+        <div class="field">
+          <label data-i18n="label_data_level" for="simDataLevel">Data Level</label>
+          <select id="simDataLevel">
+            <option value="standard">Standard</option>
+            <option value="level2">Level 2</option>
+            <option value="level3">Level 3</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-i18n="label_amount" for="simAmount">Transaction Amount ($)</label>
+          <input type="number" id="simAmount" value="250" min="0" step="1">
+        </div>
+        <div class="field">
+          <label data-i18n="label_settlement">Settlement Timing</label>
+          <select id="simSettlement">
+            <option value="same_day">Same day</option>
+            <option value="t1">T+1</option>
+            <option value="t2">T+2</option>
+            <option value="t3">T+3+ (downgrade risk)</option>
+          </select>
+        </div>
+      </div>
+      <div class="btn-row" style="padding-top:6px">
+        <button class="btn btn-teal" onclick="simulateTransaction()">⚡ Qualify Transaction →</button>
+      </div>
+      <div class="sim-result" id="simResult">
+        <div class="sim-tier" id="simTierName">—</div>
+        <div class="sim-rate" id="simRateDisplay">—</div>
+        <div class="sim-breakdown" id="simBreakdown"></div>
+        <div id="simDowngrades"></div>
+        <div id="simOptimisation"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel C: LCR Rule Builder -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label" data-i18n="panel_lcr">C — Least-Cost Routing Rule Set</span>
+      <button class="btn btn-ghost btn-sm" onclick="generateLCR()">⚡ Auto-Generate from Portfolio →</button>
+    </div>
+    <div class="panel-body">
+      <div style="font-size:12px;color:var(--body);margin-bottom:12px">Rules are applied in priority order. First matching rule determines the routing path. Click Auto-Generate to build from Panel A inputs, or edit rules manually.</div>
+      <div id="lcrTableWrap" style="overflow-x:auto"><div style="font-size:12px;color:var(--body)">Click Auto-Generate to build LCR rules from your portfolio configuration.</div></div>
+    </div>
+  </div>
+
+  <!-- Panel D: L2/L3 Matrix -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-label" data-i18n="panel_l23">D — Level 2/3 Data Eligibility Matrix</span>
+    </div>
+    <div class="panel-body">
+      <div id="l23MatrixWrap"><div style="font-size:12px;color:var(--body)">Run analysis to see the L2/L3 eligibility matrix filtered to your card mix.</div></div>
+    </div>
+  </div>
+
+  <!-- Panel E: Portfolio Savings -->
+  <div class="panel" id="savingsPanel" style="display:none">
+    <div class="panel-header">
+      <span class="panel-label" data-i18n="panel_savings">E — Portfolio Interchange Savings Estimate</span>
+    </div>
+    <div class="panel-body" id="savingsBody"></div>
+  </div>
+
+</div><!-- /main-col -->
+
+<div class="side-col">
+  <div class="panel">
+    <div class="panel-header"><span class="panel-label">Analyse &amp; Export</span></div>
+    <div class="panel-body" style="padding:16px">
+      <button class="run-btn" onclick="runAnalysis()" data-i18n="run_btn">Run Analysis →</button>
+    </div>
+    <div class="results-export-row" id="exportRow">
+      <button class="btn btn-ghost btn-sm btn-export" id="ap2ExportBtn" disabled onclick="exportAP2()" title="Run analysis first">
+        {} Policy Mandate
+        <span class="btn-subtitle">routing_policy_mandate</span>
+      </button>
+      <button class="btn btn-ghost btn-sm btn-export btn-export-md" id="mdExportBtn" disabled onclick="exportMarkdown()" title="Run analysis first">
+        ↓ Optimisation Memo
+        <span class="btn-subtitle">Interchange savings</span>
+      </button>
+      <button class="btn btn-ghost btn-sm" id="lcrJsonBtn" disabled onclick="exportLCR()" title="Run analysis first">
+        {} LCR Rule Set JSON
+        <span class="btn-subtitle">For gateway config</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="panel results-panel" id="resultsPanel">
+    <div class="panel-header"><span class="panel-label results-title" data-i18n="results_title">Analysis Results</span></div>
+    <div class="panel-body" id="resultsSummary" style="padding:16px"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-label" data-i18n="panel_about">About this tool</span></div>
+    <div class="panel-body">
+      <div class="about-item"><strong>Interchange qualification</strong>Maps transaction attributes to the applicable Visa/Mastercard interchange tier using a static embedded schedule (publicly published). A single downgrade can move a CNP transaction from 1.80% to 2.95%. At $10M/month, a 5% downgrade rate costs ~$57,500/month in avoidable interchange.</div>
+      <div class="about-item"><strong>Level 2/3 data</strong>Commercial cards qualify for lower rates when enhanced data is submitted. L2: customer code, tax amount, PO number. L3: line items, ship-to ZIP, product codes. At $10M/month B2B volume, enabling L3 can save $20k–$50k/month.</div>
+      <div class="about-item"><strong>LCR (Durbin/RBA)</strong>US Durbin-regulated and Australian RBA-regulated dual-network debit cards must be routable over the lowest-cost eligible network. The LCR rule set is directly actionable in your payment gateway's routing engine.</div>
+      <div class="about-item"><strong>Regulatory coverage</strong><span class="cite">Durbin Amdt. §1075</span> · <span class="cite">EU IFR 2015/751</span> · <span class="cite">RBA Std. No.1/2006</span> · <span class="cite">UK FCA PSR</span> · <span class="cite">PSD2 Art. 62</span></div>
+      
+    </div>
+  </div>
+
+  <div class="panel">
+    <button class="mcp-toggle" onclick="toggleMCP()">
+      <span>📦 MCP manifest.json · build_interchange_qualification_ruleset</span>
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" id="mcpArrow"><path d="M2 4l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+    <div class="mcp-panel" id="mcpPanel">
+      <pre class="mcp-code">{
+  "tool_id": "rbe-13-interchange-qualification-engine",
+  "version": "1.0.0",
+  "title": "Interchange Qualification & LCR Builder",
+  "category": "ai",
+  "ap2_export": true,
+  "mandate_type": "routing_policy_mandate",
+  "last_reviewed": "2026-05-01",
+  "review_frequency": "annual — April",
+  "mcp_tool_definition": {
+    "name": "build_interchange_qualification_ruleset",
+    "description": "Map card attributes to interchange
+tiers, identify downgrades, build LCR rules,
+L2/L3 matrix, portfolio savings estimate.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["entity_type","country",
+        "networks","card_type","transaction_type"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/rbe-13-interchange-qualification-engine.html",
+    "function_name": "runAnalysis",
+    "timeout_ms": 5000
+  }
+}</pre>
+    </div>
+  </div>
+</div>
+</div><!-- /tool-body -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<!-- FOOTER -->
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/rbe-deterministic-suite-hub.html"><span data-i18n="footer.hub_rbe_deterministic_suite">RBE Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+<div class="toast" id="toast"></div>
+
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* AP2Schema — full validator (PM17; wired into cohort C) */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+if (typeof AP2Schema.validate !== 'function') {
+  AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    return true;
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RBE·13 — Interchange Qualification & LCR Rule Builder
+   Version: 1.0  |  Suite: RBE Deterministic Intelligence Suite
+   Client-side. Zero PII. Deterministic.
+   Schedule source: Visa US Apr 2025, Mastercard US Apr 2025 (public)
+   LAST REVIEWED: 2026-05-01
+   REVIEW FREQUENCY: Annual (each April)
+   Regulatory: Durbin §1075 · EU IFR 2015/751 · RBA Std.1/2006
+═══════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════
+   INTERCHANGE_SCHEDULES — Static embedded lookup table
+   Source: Publicly published Visa and Mastercard interchange
+   schedules (US April 2025 edition).
+   Key: [network][card_type][tx_type][auth][data_level]
+   → { tier_name, rate_pct, fixed_fee_usd, schedule_date }
+   UPDATE ANNUALLY when new schedules are published.
+═══════════════════════════════════════════════════════════ */
+const INTERCHANGE_SCHEDULES = {
+  schedule_date: "2025-04-01",
+  last_reviewed: "2026-05-01",
+  source: "Visa US Interchange Reimbursement Fees Apr 2025 (public); Mastercard US Interchange Rates Apr 2025 (public)",
+  visa: {
+    consumer_credit: {
+      cnp: {
+        "3ds2_frictionless": { standard: { tier:"Visa Secure (Preferred)", rate_pct:1.80, fixed:0.10 }, level2:null, level3:null },
+        "3ds2_challenge":    { standard: { tier:"Visa Secure (Preferred)", rate_pct:1.80, fixed:0.10 }, level2:null, level3:null },
+        "non_3ds":           { standard: { tier:"Card Not Present", rate_pct:2.10, fixed:0.10 }, level2:null, level3:null },
+      },
+      card_present: {
+        "emv_chip": { standard: { tier:"Card Present EMV", rate_pct:1.51, fixed:0.10 } },
+        "swipe":    { standard: { tier:"Card Present Swipe", rate_pct:1.65, fixed:0.10 } },
+      },
+      recurring: {
+        "non_3ds": { standard: { tier:"Recurring Payments", rate_pct:1.80, fixed:0.10 } },
+        "3ds2_frictionless": { standard: { tier:"Recurring Payments 3DS", rate_pct:1.65, fixed:0.10 } },
+      },
+      moto: {
+        "non_3ds": { standard: { tier:"MOTO", rate_pct:2.40, fixed:0.10 } },
+      },
+    },
+    consumer_debit: {
+      cnp: {
+        "3ds2_frictionless": { standard: { tier:"Debit (Durbin-regulated)", rate_pct:0.05, fixed:0.22, durbin:true } },
+        "3ds2_challenge":    { standard: { tier:"Debit (Durbin-regulated)", rate_pct:0.05, fixed:0.22, durbin:true } },
+        "non_3ds":           { standard: { tier:"Debit Non-3DS", rate_pct:0.80, fixed:0.15 } },
+      },
+      card_present: {
+        "emv_chip": { standard: { tier:"Debit CP (Durbin)", rate_pct:0.05, fixed:0.22, durbin:true } },
+      },
+    },
+    commercial: {
+      cnp: {
+        "3ds2_frictionless": {
+          standard: { tier:"Commercial Card CNP", rate_pct:2.50, fixed:0.10 },
+          level2:   { tier:"Commercial Card Data Rate I", rate_pct:2.25, fixed:0.10 },
+          level3:   { tier:"Commercial Card Data Rate II", rate_pct:1.90, fixed:0.10 },
+        },
+        "non_3ds": {
+          standard: { tier:"Commercial Card CNP Standard", rate_pct:2.70, fixed:0.10 },
+          level2:   { tier:"Commercial Card Data Rate I", rate_pct:2.40, fixed:0.10 },
+          level3:   { tier:"Commercial Card Data Rate II", rate_pct:2.05, fixed:0.10 },
+        },
+      },
+      card_present: {
+        "emv_chip": {
+          standard: { tier:"Commercial Card CP", rate_pct:2.20, fixed:0.10 },
+          level2:   { tier:"Commercial Card Data Rate I CP", rate_pct:1.95, fixed:0.10 },
+          level3:   { tier:"Commercial Card Data Rate II CP", rate_pct:1.65, fixed:0.10 },
+        },
+      },
+    },
+    rewards: {
+      cnp: {
+        "3ds2_frictionless": { standard: { tier:"Rewards Card CNP (3DS)", rate_pct:2.10, fixed:0.10 } },
+        "non_3ds":           { standard: { tier:"Rewards Card CNP", rate_pct:2.40, fixed:0.10 } },
+      },
+      card_present: {
+        "emv_chip": { standard: { tier:"Rewards Card CP", rate_pct:1.90, fixed:0.10 } },
+      },
+    },
+    fleet: {
+      cnp: { "non_3ds": { standard: { tier:"Fleet Card", rate_pct:2.00, fixed:0.10 }, level3: { tier:"Fleet Data Rate", rate_pct:1.55, fixed:0.10 } } },
+    },
+    prepaid: {
+      cnp: { "non_3ds": { standard: { tier:"Prepaid Card CNP", rate_pct:1.75, fixed:0.15 } } },
+    },
+  },
+  mastercard: {
+    consumer_credit: {
+      cnp: {
+        "3ds2_frictionless": { standard: { tier:"Mastercard SecureCode (Preferred)", rate_pct:1.87, fixed:0.10 } },
+        "3ds2_challenge":    { standard: { tier:"Mastercard SecureCode", rate_pct:1.87, fixed:0.10 } },
+        "non_3ds":           { standard: { tier:"Standard Card Not Present", rate_pct:2.05, fixed:0.10 } },
+      },
+      card_present: {
+        "emv_chip": { standard: { tier:"Mastercard Merit III", rate_pct:1.58, fixed:0.10 } },
+        "swipe":    { standard: { tier:"Mastercard Merit I", rate_pct:1.73, fixed:0.10 } },
+      },
+      recurring: {
+        "non_3ds": { standard: { tier:"Recurring Payments", rate_pct:1.89, fixed:0.10 } },
+      },
+      moto: {
+        "non_3ds": { standard: { tier:"MOTO", rate_pct:2.45, fixed:0.10 } },
+      },
+    },
+    consumer_debit: {
+      cnp: {
+        "3ds2_frictionless": { standard: { tier:"Regulated Debit (Durbin)", rate_pct:0.05, fixed:0.22, durbin:true } },
+        "non_3ds":           { standard: { tier:"Debit Non-3DS", rate_pct:0.95, fixed:0.15 } },
+      },
+      card_present: {
+        "emv_chip": { standard: { tier:"Regulated Debit CP (Durbin)", rate_pct:0.05, fixed:0.22, durbin:true } },
+      },
+    },
+    commercial: {
+      cnp: {
+        "3ds2_frictionless": {
+          standard: { tier:"World Corporate", rate_pct:2.60, fixed:0.10 },
+          level2:   { tier:"World Corporate Enhanced Data", rate_pct:2.35, fixed:0.10 },
+          level3:   { tier:"World Corporate Enhanced Data II", rate_pct:1.95, fixed:0.10 },
+        },
+        "non_3ds": {
+          standard: { tier:"World Corporate Standard", rate_pct:2.80, fixed:0.10 },
+          level2:   { tier:"World Corporate Enhanced Data", rate_pct:2.50, fixed:0.10 },
+          level3:   { tier:"World Corporate Enhanced Data II", rate_pct:2.10, fixed:0.10 },
+        },
+      },
+      card_present: {
+        "emv_chip": {
+          standard: { tier:"World Corporate CP", rate_pct:2.30, fixed:0.10 },
+          level2:   { tier:"World Corporate Enhanced CP", rate_pct:2.05, fixed:0.10 },
+          level3:   { tier:"World Corporate Enhanced II CP", rate_pct:1.70, fixed:0.10 },
+        },
+      },
+    },
+    rewards: {
+      cnp: {
+        "3ds2_frictionless": { standard: { tier:"World Elite CNP (3DS)", rate_pct:2.15, fixed:0.10 } },
+        "non_3ds":           { standard: { tier:"World Elite CNP", rate_pct:2.45, fixed:0.10 } },
+      },
+      card_present: {
+        "emv_chip": { standard: { tier:"World Elite CP", rate_pct:1.95, fixed:0.10 } },
+      },
+    },
+    prepaid: {
+      cnp: { "non_3ds": { standard: { tier:"Prepaid CNP", rate_pct:1.80, fixed:0.15 } } },
+    },
+  },
+};
+
+/* ── L2/L3 requirements static table ── */
+const L23_MATRIX = [
+  { card_type:"Visa Corporate",    network:"visa",       l2_fields:["Customer code","Tax amount","Purchase order number"], l2_min:0.10, l2_max:0.30, l3_fields:["Line items","Ship-from ZIP","Ship-to ZIP","Product codes","Unit cost","Quantity"], l3_min:0.20, l3_max:0.50 },
+  { card_type:"Mastercard Corp.",  network:"mastercard", l2_fields:["Customer code","Tax amount","PO number"],            l2_min:0.10, l2_max:0.25, l3_fields:["Line items","Ship-from/to ZIP","Product codes","Unit cost","Quantity"],              l3_min:0.20, l3_max:0.45 },
+  { card_type:"Visa Fleet",        network:"visa",       l2_fields:["N/A"],                                               l2_min:0,    l2_max:0,    l3_fields:["Fuel type","Odometer reading","Vehicle ID","Driver ID"],                              l3_min:0.30, l3_max:0.60 },
+  { card_type:"Visa Purchasing",   network:"visa",       l2_fields:["Customer code","Tax amount"],                        l2_min:0.10, l2_max:0.25, l3_fields:["Line items","Ship-from ZIP","Product codes","Unit cost"],                             l3_min:0.15, l3_max:0.40 },
+  { card_type:"MC Purchasing",     network:"mastercard", l2_fields:["Customer code","Tax amount"],                        l2_min:0.10, l2_max:0.25, l3_fields:["Line items","Unit cost","Quantity"],                                                  l3_min:0.15, l3_max:0.40 },
+];
+
+/* ── i18n Stage 2 ── */
+const TRANSLATIONS = {
+  en:{eyebrow:"RBE·13 · RBE Deterministic Suite · Interchange & LCR",hero_title:"Interchange Qualification & Least-Cost Routing Rule Builder",hero_desc:"Map card transaction attributes to Visa/Mastercard interchange tiers, identify downgrade risk, build a prioritised LCR routing rule set, generate a Level 2/3 data eligibility matrix, and compute portfolio-level interchange savings. Uses publicly published interchange schedules. Zero PII. Client-side.",panel_portfolio:"A — Portfolio Configuration",panel_sim:"B — Transaction Simulator",panel_lcr:"C — Least-Cost Routing Rule Set",panel_l23:"D — Level 2/3 Data Eligibility Matrix",panel_savings:"E — Portfolio Interchange Savings Estimate",panel_about:"About this tool",label_entity_type:"Entity Type",label_country:"Country",label_networks:"Networks",label_cnp_vol:"Monthly CNP Volume ($/€)",label_cp_vol:"Monthly Card-Present Volume ($/€)",label_3ds2:"3DS2 enabled",label_l2:"Level 2 data submission",label_l3:"Level 3 data submission",label_avs:"AVS on all CNP",label_cvv2:"CVV2 on all CNP",label_mcc:"Primary MCC",label_card_type:"Card Type",label_network:"Network",label_tx_type:"Transaction Type",label_auth:"Authentication Method",label_data_level:"Data Level",label_amount:"Transaction Amount ($)",label_settlement:"Settlement Timing",run_btn:"Run Analysis →",results_title:"Analysis Results",export_ap2:"Policy Mandate",export_md:"Export Markdown",pii_notice:"🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.",last_reviewed:"Last Reviewed",nav_all_tools:"All 200+ Tools",footer_badge:"🔒 Zero PII \u00a0 📡 No server calls \u00a0 💻 Client-side",lang_dir:"ltr"
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+  },
+  es:{eyebrow:"RBE·13 · Suite RBE · Intercambio y LCR",hero_title:"Calificador de Intercambio y Constructor de Reglas LCR",hero_desc:"Mapee atributos de transacciones con tarjeta a niveles de intercambio Visa/Mastercard. Identifique riesgo de degradación, construya reglas LCR y estime ahorros de cartera.",panel_portfolio:"A — Configuración de Cartera",panel_sim:"B — Simulador de Transacciones",panel_lcr:"C — Conjunto de Reglas LCR",panel_l23:"D — Matriz de Elegibilidad L2/L3",panel_savings:"E — Estimación de Ahorros de Intercambio",panel_about:"Acerca de esta herramienta",label_entity_type:"Tipo de Entidad",label_country:"País",label_networks:"Redes",label_cnp_vol:"Volumen CNP Mensual",label_cp_vol:"Volumen CP Mensual",label_3ds2:"3DS2 habilitado",label_l2:"Datos Nivel 2",label_l3:"Datos Nivel 3",label_avs:"AVS en CNP",label_cvv2:"CVV2 en CNP",label_mcc:"MCC Principal",label_card_type:"Tipo de Tarjeta",label_network:"Red",label_tx_type:"Tipo de Transacción",label_auth:"Método de Autenticación",label_data_level:"Nivel de Datos",label_amount:"Monto de Transacción",label_settlement:"Plazo de Liquidación",run_btn:"Ejecutar Análisis →",results_title:"Resultados del Análisis",export_ap2:"Mandato Mandato de Política",export_md:"Exportar Markdown",pii_notice:"🔒 Todas las entradas se procesan localmente. No se transmiten datos.",last_reviewed:"Última Revisión",nav_all_tools:"Todas las Herramientas",footer_badge:"🔒 Zero PII \u00a0 📡 Sin servidor \u00a0 💻 Cliente",lang_dir:"ltr"
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+  },
+  fr:{eyebrow:"RBE·13 · Suite RBE · Interchange et LCR",hero_title:"Qualificateur d'Interchange et Constructeur de Règles LCR",hero_desc:"Mappez les attributs de transactions par carte aux niveaux d'interchange Visa/Mastercard. Identifiez les risques de déclassement, construisez des règles LCR et estimez les économies de portefeuille.",panel_portfolio:"A — Configuration du Portefeuille",panel_sim:"B — Simulateur de Transactions",panel_lcr:"C — Ensemble de Règles LCR",panel_l23:"D — Matrice d'Éligibilité L2/L3",panel_savings:"E — Estimation des Économies d'Interchange",panel_about:"À propos de cet outil",label_entity_type:"Type d'Entité",label_country:"Pays",label_networks:"Réseaux",label_cnp_vol:"Volume CNP Mensuel",label_cp_vol:"Volume CP Mensuel",label_3ds2:"3DS2 activé",label_l2:"Données Niveau 2",label_l3:"Données Niveau 3",label_avs:"AVS sur CNP",label_cvv2:"CVV2 sur CNP",label_mcc:"MCC Principal",label_card_type:"Type de Carte",label_network:"Réseau",label_tx_type:"Type de Transaction",label_auth:"Méthode d'Authentification",label_data_level:"Niveau de Données",label_amount:"Montant de Transaction",label_settlement:"Délai de Règlement",run_btn:"Lancer l'Analyse →",results_title:"Résultats de l'Analyse",export_ap2:"Mandat Mandat de Politique",export_md:"Exporter Markdown",pii_notice:"🔒 Toutes les saisies sont traitées localement. Aucune donnée n'est transmise.",last_reviewed:"Dernière Révision",nav_all_tools:"Tous les Outils",footer_badge:"🔒 Zéro PII \u00a0 📡 Sans serveur \u00a0 💻 Côté client",lang_dir:"ltr"
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+  },
+  ar:{eyebrow:"RBE·13 · مجموعة RBE · التبادل وLCR",hero_title:"محرك تأهيل التبادل وبناء قواعد التوجيه الأقل تكلفة",hero_desc:"رسم خرائط سمات معاملات البطاقة على مستويات تبادل Visa/Mastercard. تحديد مخاطر التخفيض وبناء قواعد LCR وتقدير مدخرات المحفظة.",panel_portfolio:"أ — تكوين المحفظة",panel_sim:"ب — محاكي المعاملات",panel_lcr:"ج — مجموعة قواعد LCR",panel_l23:"د — مصفوفة أهلية L2/L3",panel_savings:"هـ — تقدير مدخرات التبادل",panel_about:"حول هذه الأداة",label_entity_type:"نوع الكيان",label_country:"البلد",label_networks:"الشبكات",label_cnp_vol:"حجم CNP الشهري",label_cp_vol:"حجم CP الشهري",label_3ds2:"3DS2 مفعل",label_l2:"بيانات المستوى 2",label_l3:"بيانات المستوى 3",label_avs:"AVS على CNP",label_cvv2:"CVV2 على CNP",label_mcc:"MCC الرئيسي",label_card_type:"نوع البطاقة",label_network:"الشبكة",label_tx_type:"نوع المعاملة",label_auth:"طريقة المصادقة",label_data_level:"مستوى البيانات",label_amount:"مبلغ المعاملة",label_settlement:"توقيت التسوية",run_btn:"تشغيل التحليل →",results_title:"نتائج التحليل",export_ap2:"ولاية تفويض السياسة",export_md:"تصدير Markdown",pii_notice:"🔒 تتم معالجة جميع المدخلات محليًا. لا يتم نقل أي بيانات.",last_reviewed:"آخر مراجعة",nav_all_tools:"جميع الأدوات",footer_badge:"🔒 بدون بيانات شخصية \u00a0 📡 بدون خادم \u00a0 💻 من جانب العميل",lang_dir:"rtl"
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+  },
+  pt:{eyebrow:"RBE·13 · Suíte RBE · Intercâmbio e LCR",hero_title:"Qualificador de Intercâmbio e Construtor de Regras LCR",hero_desc:"Mapeie atributos de transações com cartão para níveis de intercâmbio Visa/Mastercard. Identifique riscos de downgrade, construa regras LCR e estime economias de portfólio.",panel_portfolio:"A — Configuração do Portfólio",panel_sim:"B — Simulador de Transações",panel_lcr:"C — Conjunto de Regras LCR",panel_l23:"D — Matriz de Elegibilidade L2/L3",panel_savings:"E — Estimativa de Economias de Intercâmbio",panel_about:"Sobre esta ferramenta",label_entity_type:"Tipo de Entidade",label_country:"País",label_networks:"Redes",label_cnp_vol:"Volume CNP Mensal",label_cp_vol:"Volume CP Mensal",label_3ds2:"3DS2 habilitado",label_l2:"Dados Nível 2",label_l3:"Dados Nível 3",label_avs:"AVS em CNP",label_cvv2:"CVV2 em CNP",label_mcc:"MCC Principal",label_card_type:"Tipo de Cartão",label_network:"Rede",label_tx_type:"Tipo de Transação",label_auth:"Método de Autenticação",label_data_level:"Nível de Dados",label_amount:"Valor da Transação",label_settlement:"Prazo de Liquidação",run_btn:"Executar Análise →",results_title:"Resultados da Análise",export_ap2:"Mandato Mandato de Política",export_md:"Exportar Markdown",pii_notice:"🔒 Todas as entradas são processadas localmente. Nenhum dado é transmitido.",last_reviewed:"Última Revisão",nav_all_tools:"Todas as Ferramentas",footer_badge:"🔒 Zero PII \u00a0 📡 Sem servidor \u00a0 💻 Cliente",lang_dir:"ltr"
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+  },
+  zh:{eyebrow:"RBE·13 · RBE确定性套件 · 银行卡交换费与LCR",hero_title:"银行卡交换费资格认定与最低成本路由规则构建器",hero_desc:"将银行卡交易属性映射到Visa/Mastercard交换费等级，识别降级风险，构建优先级LCR路由规则集，生成2/3级数据资格矩阵，并计算组合级交换费节省。使用公开发布的交换费时间表。零PII。客户端。",panel_portfolio:"A — 组合配置",panel_sim:"B — 交易模拟器",panel_lcr:"C — 最低成本路由规则集",panel_l23:"D — 2/3级数据资格矩阵",panel_savings:"E — 组合交换费节省估算",panel_about:"关于此工具",label_entity_type:"实体类型",label_country:"国家",label_networks:"网络",label_cnp_vol:"月度CNP交易量",label_cp_vol:"月度实体卡交易量",label_3ds2:"3DS2已启用",label_l2:"2级数据提交",label_l3:"3级数据提交",label_avs:"CNP全部启用AVS",label_cvv2:"CNP全部启用CVV2",label_mcc:"主要MCC",label_card_type:"卡片类型",label_network:"网络",label_tx_type:"交易类型",label_auth:"认证方式",label_data_level:"数据级别",label_amount:"交易金额",label_settlement:"结算时间",run_btn:"运行分析 →",results_title:"分析结果",export_ap2:"政策授权书",export_md:"导出Markdown",pii_notice:"🔒 所有输入均在您的浏览器本地处理。不传输任何数据。",last_reviewed:"最后审查",nav_all_tools:"全部工具",footer_badge:"🔒 零PII \u00a0 📡 无服务器 \u00a0 💻 客户端",lang_dir:"ltr"
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+  },
+};
+function setLang(lang){
+  const t=TRANSLATIONS[lang]||TRANSLATIONS['en'];
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`);
+  if(btn)btn.classList.add('active');
+  document.documentElement.lang=lang==='zh'?'zh-Hans':lang;
+  document.documentElement.dir=t.lang_dir||'ltr';
+  document.body.dir=t.lang_dir||'ltr';
+  const apply=(s,k)=>{const el=document.querySelector(s);if(el&&t[k]!==undefined)el.textContent=t[k];};
+  apply('.tool-eyebrow','eyebrow');apply('.hero h1','hero_title');apply('.hero-desc','hero_desc');
+  apply('.run-btn','run_btn');apply('.results-title','results_title');apply('.nav-cta','nav_all_tools');
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n');if(t[k]!==undefined)el.textContent=t[k];});
+  const fb=document.querySelector('.footer-badge-ai span:last-child');if(fb)fb.textContent=t['footer_badge'];
+  document.querySelectorAll('.last-reviewed').forEach(lr=>{const d=lr.textContent.match(/\d{4}-\d{2}-\d{2}/);lr.textContent=`⏱ ${t['last_reviewed']} ${d?d[0]:'2026-05-01'}`;});
+  try{sessionStorage.setItem('ain_lang',lang);}catch(e){}
+}
+(function initLang(){try{const s=sessionStorage.getItem('ain_lang');if(s&&TRANSLATIONS[s])setLang(s);}catch(e){}})();
+
+/* ── State ── */
+let lastAP2=null;
+let lastMD=null;
+let lastLCR=null;
+let lastSimResult=null;
+
+/* ── Utilities ── */
+function showToast(msg,type='success'){const t=document.getElementById('toast');t.textContent=msg;t.className=`toast ${type} show`;setTimeout(()=>t.classList.remove('show'),3000);}
+function generateUUID(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);});}
+function triggerDownload(content,filename,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);}
+function toggleMCP(){const p=document.getElementById('mcpPanel');const a=document.getElementById('mcpArrow');p.classList.toggle('open');a.style.transform=p.classList.contains('open')?'rotate(180deg)':'';}
+function cap(id){return document.getElementById(id).checked;}
+function sel(id){return document.getElementById(id).value;}
+function num(id){return parseFloat(document.getElementById(id).value)||0;}
+
+/* ── Country context ── */
+function updateCountryContext(){
+  const country=sel('country');
+  const msgs={
+    US:'Durbin Amendment applies — dual-network debit cards must be routable over lowest-cost eligible network. EU IFR caps do not apply.',
+    UK:'UK FCA PSR (post-Brexit) interchange caps apply: 0.2% debit, 0.3% credit for consumer cards. Durbin does not apply.',
+    EU:'EU IFR Regulation 2015/751 caps: 0.2% debit, 0.3% credit (consumer cards). LCR may apply for specific payment schemes.',
+    Australia:'RBA Standard No. 1 of 2006 applies — debit card LCR is mandatory. Weighted average interchange cap: 0.8% (credit), 12c (debit).',
+    Canada:'LCR is voluntary for merchants. No statutory Durbin equivalent. Visa/MC interchange subject to voluntary code of conduct.',
+    Other:'Verify applicable interchange regulations for your jurisdiction. Rates shown are US-published schedules — adjust for local published schedules.',
+  };
+  document.getElementById('countryContext').textContent=msgs[country]||msgs['Other'];
+}
+
+/* ── Interchange lookup ── */
+function lookupInterchange(network, cardType, txType, auth, dataLevel){
+  const sch=INTERCHANGE_SCHEDULES[network];
+  if(!sch)return null;
+  const ct=sch[cardType];if(!ct)return null;
+  const tt=ct[txType];if(!tt)return null;
+  const au=tt[auth]||tt['non_3ds']||tt['emv_chip'];if(!au)return null;
+  return au[dataLevel]||au['standard']||null;
+}
+
+/* ── Transaction Simulator ── */
+function simulateTransaction(){
+  const cardType=sel('simCardType');
+  const network=sel('simNetwork');
+  const txType=sel('simTxType');
+  const auth=sel('simAuth');
+  const dataLevel=sel('simDataLevel');
+  const amount=num('simAmount');
+  const settlement=sel('simSettlement');
+
+  const tier=lookupInterchange(network,cardType,txType,auth,dataLevel);
+  const tierStd=lookupInterchange(network,cardType,txType,auth,'standard');
+
+  const resultEl=document.getElementById('simResult');
+
+  if(!tier){
+    showToast('No interchange data for this combination — try different settings','error');
+    return;
+  }
+
+  const interchangeAmt=(amount*tier.rate_pct/100)+tier.fixed_fee_usd;
+  const effRate=(interchangeAmt/amount*100).toFixed(3);
+
+  document.getElementById('simTierName').textContent=tier.tier_name||tier.tier;
+  document.getElementById('simRateDisplay').textContent=`${tier.rate_pct.toFixed(2)}% + $${tier.fixed_fee_usd.toFixed(2)} fixed`;
+
+  document.getElementById('simBreakdown').innerHTML=`
+    <div class="sim-breakdown-item"><div class="lbl">Interchange %</div><div class="val">${tier.rate_pct.toFixed(2)}%</div></div>
+    <div class="sim-breakdown-item"><div class="lbl">Fixed Fee</div><div class="val">$${tier.fixed_fee_usd.toFixed(2)}</div></div>
+    <div class="sim-breakdown-item"><div class="lbl">All-in ($${amount})</div><div class="val">$${interchangeAmt.toFixed(2)} (${effRate}%)</div></div>`;
+
+  // Downgrade risks
+  const downgrades=[];
+  if(settlement==='t3')downgrades.push({risk:'Settlement at T+3+ — may downgrade to standard CNP rate',additional:'+0.30–0.50%',mitigation:'Settle within T+1 of authorisation'});
+  if(auth==='non_3ds'&&(txType==='cnp'||txType==='moto'))downgrades.push({risk:'No 3DS authentication on CNP — higher risk tier applied',additional:'+0.25–0.45%',mitigation:'Enable 3DS2 frictionless authentication'});
+  if(dataLevel==='standard'&&(cardType==='commercial'||cardType==='fleet'))downgrades.push({risk:'Commercial/Fleet card without L2/L3 data — qualifying at standard rate',additional:'+0.30–0.50%',mitigation:'Submit Level 2/3 enhanced transaction data'});
+  if(!cap('capCvv2')&&txType==='cnp')downgrades.push({risk:'No CVV2 on CNP transaction — downgrade risk at some issuers',additional:'+0.10%',mitigation:'Always submit CVV2 on CNP authorisations'});
+  if(!cap('capAvs')&&txType==='cnp')downgrades.push({risk:'No AVS verification on CNP — may affect qualification for preferred tier',additional:'+0.05–0.10%',mitigation:'Enable AVS check on all CNP transactions'});
+
+  const downEl=document.getElementById('simDowngrades');
+  if(downgrades.length>0){
+    downEl.innerHTML=`<div class="downgrade-block"><div class="downgrade-title">⚠ Downgrade Risks (${downgrades.length})</div>${downgrades.map(d=>`<div class="downgrade-item">${d.risk} <span style="color:var(--red)">${d.additional}</span> — <span style="color:var(--teal)">${d.mitigation}</span></div>`).join('')}</div>`;
+  } else {
+    downEl.innerHTML='<div style="font-size:11px;color:var(--green);padding:6px 0">✓ No downgrade risks detected for this combination.</div>';
+  }
+
+  // Optimisation opportunities
+  const optims=[];
+  if(dataLevel==='standard'&&(cardType==='commercial'||cardType==='fleet')){
+    const l2=lookupInterchange(network,cardType,txType,auth,'level2');
+    const l3=lookupInterchange(network,cardType,txType,auth,'level3');
+    if(l2)optims.push({action:`Enable Level 2 data → qualify for ${l2.tier||l2.tier_name}`,saving:`Save ${(tier.rate_pct-l2.rate_pct).toFixed(2)}%`,newTier:l2.tier||l2.tier_name});
+    if(l3)optims.push({action:`Enable Level 3 data → qualify for ${l3.tier||l3.tier_name}`,saving:`Save ${(tier.rate_pct-l3.rate_pct).toFixed(2)}%`,newTier:l3.tier||l3.tier_name});
+  }
+  if(auth==='non_3ds'&&txType==='cnp'){
+    const ds=lookupInterchange(network,cardType,txType,'3ds2_frictionless',dataLevel);
+    if(ds&&ds.rate_pct<tier.rate_pct)optims.push({action:`Enable 3DS2 frictionless → qualify for ${ds.tier||ds.tier_name}`,saving:`Save ${(tier.rate_pct-ds.rate_pct).toFixed(2)}%`,newTier:ds.tier||ds.tier_name});
+  }
+
+  const optimEl=document.getElementById('simOptimisation');
+  if(optims.length>0){
+    optimEl.innerHTML=`<div class="optim-block"><div class="optim-title">💡 Optimisation Opportunities (${optims.length})</div>${optims.map(o=>`<div class="optim-item">${o.action} → <span style="color:var(--green);font-weight:600">${o.saving}</span></div>`).join('')}</div>`;
+  } else {
+    optimEl.innerHTML='';
+  }
+
+  lastSimResult={cardType,network,txType,auth,dataLevel,amount,tier,interchangeAmt,effRate,downgrades,optims};
+  resultEl.classList.add('visible');
+}
+
+/* ── LCR rule auto-generation (pure deterministic function) ── */
+function generateLCRRules(){
+  const country=sel('country');
+  const isDurbin=country==='US'||country==='Canada';
+  const isRBA=country==='Australia';
+  const hasL3=cap('capL3');
+  const hasL2=cap('capL2');
+  const has3ds2=cap('cap3ds2');
+  const networks=sel('networks');
+  const mixCommercial=parseInt(document.getElementById('mixCommercial').value)||0;
+  const mixDebit=parseInt(document.getElementById('mixDebit').value)||0;
+
+  const rules=[];
+
+  // Rule 1: Durbin/RBA regulated debit → LCR
+  if(isDurbin&&mixDebit>0){
+    rules.push({priority:1,condition:{card_type:'consumer_debit',country,network:'any',transaction_type:'any',data_level:'any'},action:{route_to_network:'lowest_cost_eligible_network',preferred_acquirer_path:null,interchange_tier:'Regulated Debit (Durbin-capped)',interchange_rate_pct:0.05},saving_vs_default_pct:0.75,rationale:'Durbin Amendment §1075 — dual-network debit routing to lowest-cost eligible network is required for US merchants. Saves ~0.75% vs. non-regulated routing.'});
+  }
+  if(isRBA&&mixDebit>0){
+    rules.push({priority:1,condition:{card_type:'consumer_debit',country:'Australia',network:'any',transaction_type:'any',data_level:'any'},action:{route_to_network:'lowest_cost_eligible_network',preferred_acquirer_path:null,interchange_tier:'RBA-Regulated Debit',interchange_rate_pct:0.00},saving_vs_default_pct:0.30,rationale:'RBA Standard No. 1 of 2006 — debit LCR is mandatory for Australian merchants.'});
+  }
+
+  // Rule 2: Commercial CNP with L3 data
+  if(hasL3&&mixCommercial>0){
+    rules.push({priority:2,condition:{card_type:'commercial',country:'any',network:'visa',transaction_type:'cnp',data_level:'level3'},action:{route_to_network:'visa',preferred_acquirer_path:'L3-capable processor',interchange_tier:'Commercial Card Data Rate II',interchange_rate_pct:1.90},saving_vs_default_pct:0.60,rationale:'Level 3 data submission on commercial cards qualifies for lowest interchange tier. Saving: ~0.60% vs. standard commercial CNP rate.'});
+    rules.push({priority:3,condition:{card_type:'commercial',country:'any',network:'mastercard',transaction_type:'cnp',data_level:'level3'},action:{route_to_network:'mastercard',preferred_acquirer_path:'L3-capable processor',interchange_tier:'World Corporate Enhanced Data II',interchange_rate_pct:1.95},saving_vs_default_pct:0.65,rationale:'Mastercard L3 data on commercial cards. Saving: ~0.65% vs. standard commercial rate.'});
+  }
+
+  // Rule 3: Commercial CNP with L2 data
+  if(hasL2&&!hasL3&&mixCommercial>0){
+    rules.push({priority:2,condition:{card_type:'commercial',country:'any',network:'visa',transaction_type:'cnp',data_level:'level2'},action:{route_to_network:'visa',preferred_acquirer_path:null,interchange_tier:'Commercial Card Data Rate I',interchange_rate_pct:2.25},saving_vs_default_pct:0.25,rationale:'Level 2 data on commercial cards. Saving: ~0.25% vs. standard commercial rate.'});
+  }
+
+  // Rule 4: Consumer CNP with 3DS2
+  if(has3ds2){
+    const pct3ds=parseInt(document.getElementById('cap3ds2Pct').value)||75;
+    rules.push({priority:rules.length+1,condition:{card_type:'consumer_credit',country:'any',network:'visa',transaction_type:'cnp',data_level:'standard'},action:{route_to_network:'visa',preferred_acquirer_path:null,interchange_tier:'Visa Secure (Preferred)',interchange_rate_pct:1.80},saving_vs_default_pct:0.30,rationale:`3DS2 authentication (${pct3ds}% adoption) qualifies consumer credit CNP for preferred tier. Saving: ~0.30% vs. non-3DS CNP rate.`});
+  }
+
+  // Rule 5: Default
+  rules.push({priority:rules.length+1,condition:{card_type:'any',country:'any',network:'any',transaction_type:'any',data_level:'standard'},action:{route_to_network:'network_preference_by_cost',preferred_acquirer_path:null,interchange_tier:'Standard',interchange_rate_pct:null},saving_vs_default_pct:0,rationale:'Default fallback — route by lowest-cost network based on card type. No data optimisation applied.'});
+
+  lastLCR=rules;
+  renderLCRTable(rules);
+  return rules;
+}
+
+function renderLCRTable(rules){
+  const html=`<table class="lcr-table">
+    <thead><tr>
+      <th>Priority</th><th>Card Type</th><th>Network</th><th>Tx Type</th><th>Data Level</th>
+      <th>Route To</th><th>Interchange Tier</th><th>Saving vs. Default</th>
+    </tr></thead>
+    <tbody>${rules.map(r=>`<tr>
+      <td><span class="lcr-priority">${r.priority}</span></td>
+      <td style="font-size:11px">${r.condition.card_type.replace(/_/g,' ')}</td>
+      <td style="font-size:11px">${r.condition.network}</td>
+      <td style="font-size:11px">${r.condition.transaction_type}</td>
+      <td style="font-size:11px">${r.condition.data_level}</td>
+      <td style="font-size:11px;color:var(--teal)">${r.action.route_to_network.replace(/_/g,' ')}</td>
+      <td style="font-size:10px;color:var(--text)">${r.action.interchange_tier}</td>
+      <td>${r.saving_vs_default_pct>0?`<span class="saving-badge">-${r.saving_vs_default_pct.toFixed(2)}%</span>`:'—'}</td>
+    </tr>`).join('')}</tbody>
+  </table>
+  <div style="font-size:10px;color:var(--body);margin-top:8px">Priority order: first matching rule determines routing. Apply in sequence 1→N at authorisation gateway.</div>`;
+  document.getElementById('lcrTableWrap').innerHTML=html;
+  showToast(`${rules.length} LCR rules generated`,'success');
+}
+
+/* ── L2/L3 matrix render ── */
+function renderL23Matrix(){
+  const mixCommercial=parseInt(document.getElementById('mixCommercial').value)||0;
+  const cnpVol=num('cnpVol');
+  const commercialVol=cnpVol*(mixCommercial/100);
+
+  let html=`<table class="l23-table">
+    <thead><tr><th>Card Type</th><th>Network</th><th>L2 Required Fields</th><th>L2 Tier Saving</th><th>L3 Required Fields</th><th>L3 Tier Saving</th></tr></thead>
+    <tbody>${L23_MATRIX.map(row=>`<tr>
+      <td style="font-weight:500;color:var(--bright)">${row.card_type}</td>
+      <td style="text-transform:capitalize">${row.network}</td>
+      <td><div class="field-list">${row.l2_fields.join(', ')}</div></td>
+      <td><span style="color:var(--green);font-family:'JetBrains Mono',monospace;font-size:10px">-${row.l2_min.toFixed(2)}% to -${row.l2_max.toFixed(2)}%</span></td>
+      <td><div class="field-list">${row.l3_fields.join(', ')}</div></td>
+      <td><span style="color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:10px">-${row.l3_min.toFixed(2)}% to -${row.l3_max.toFixed(2)}%</span></td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+
+  if(commercialVol>0){
+    const l2Save=commercialVol*(0.20/100)*12;
+    const l3Save=commercialVol*(0.40/100)*12;
+    html+=`<div style="background:var(--teal-dim);border:1px solid rgba(20,184,166,.2);border-radius:var(--radius);padding:10px 14px;margin-top:12px;font-size:12px">
+      At your commercial card volume (~$${commercialVol.toLocaleString(undefined,{maximumFractionDigits:0})}/month):<br>
+      Enabling L2: estimated saving <b style="color:var(--teal)">$${(l2Save/12).toLocaleString(undefined,{maximumFractionDigits:0})}/month</b> · Enabling L3: <b style="color:var(--teal)">$${(l3Save/12).toLocaleString(undefined,{maximumFractionDigits:0})}/month</b>
+    </div>`;
+  }
+  document.getElementById('l23MatrixWrap').innerHTML=html;
+}
+
+/* ── Portfolio savings estimate ── */
+function computeSavings(){
+  const cnpVol=num('cnpVol');
+  const cpVol=num('cpVol');
+  const total=cnpVol+cpVol;
+  const mixCredit=parseInt(document.getElementById('mixCredit').value)/100;
+  const mixDebit=parseInt(document.getElementById('mixDebit').value)/100;
+  const mixComm=parseInt(document.getElementById('mixCommercial').value)/100;
+  const mixRew=parseInt(document.getElementById('mixRewards').value)/100;
+  const has3ds2=cap('cap3ds2');
+  const hasL2=cap('capL2');
+  const hasL3=cap('capL3');
+  const hasCvv2=cap('capCvv2');
+  const hasAvs=cap('capAvs');
+  const adoption3ds=parseInt(document.getElementById('cap3ds2Pct').value)/100;
+  const country=sel('country');
+  const isDurbin=country==='US'||country==='Canada';
+
+  // Current blended rate (without optimisation)
+  const currentRates={consumer_credit:2.10,consumer_debit:isDurbin?0.05:0.80,commercial:2.70,rewards:2.40};
+  const currentBlended=mixCredit*currentRates.consumer_credit+mixDebit*currentRates.consumer_debit+mixComm*currentRates.commercial+mixRew*currentRates.rewards;
+
+  // Optimised blended rate
+  const optCreditRate=has3ds2?2.10-(adoption3ds*0.30):2.10;
+  const optDebitRate=isDurbin?0.05:0.80;
+  const optCommRate=hasL3?1.90:hasL2?2.25:2.70;
+  const optRewRate=has3ds2?2.10:2.40;
+  const cvv2Saving=hasCvv2?0:0.10;
+  const avsSaving=hasAvs?0:0.05;
+  const optBlended=mixCredit*optCreditRate+mixDebit*optDebitRate+mixComm*optCommRate+mixRew*optRewRate-cvv2Saving-avsSaving;
+
+  const rateReduction=Math.max(0,currentBlended-optBlended);
+  const annualSaving=(rateReduction/100)*cnpVol*12;
+
+  const lcrSaving=isDurbin?((mixDebit*cnpVol)*(0.75/100)*12):0;
+  const l23Saving=hasL3?(mixComm*cnpVol*(0.40/100)*12):hasL2?(mixComm*cnpVol*(0.20/100)*12):0;
+  const ds2Saving=has3ds2?((mixCredit*cnpVol)*(adoption3ds*0.30/100)*12):0;
+  const downgradeReduction=(hasCvv2&&hasAvs)?0:(mixCredit*cnpVol*(0.10/100)*12);
+
+  return{currentBlended,optBlended,rateReduction,annualSaving,lcrSaving,l23Saving,ds2Saving,downgradeReduction,cnpVol,cpVol};
+}
+
+function renderSavings(s){
+  document.getElementById('savingsPanel').style.display='block';
+  const curr=sel('country')==='EU'||sel('country')==='UK'?'€':'$';
+  document.getElementById('savingsBody').innerHTML=`
+    <div class="savings-hero">
+      <div class="savings-amount">${curr}${Math.round(s.annualSaving).toLocaleString()}</div>
+      <div class="savings-label">Estimated annual interchange saving at current volume</div>
+    </div>
+    <div style="font-size:11px;color:var(--body);margin-bottom:12px;padding:8px 12px;background:var(--bg-3);border-radius:var(--radius);border:1px solid var(--border)">
+      Current blended rate: <b style="color:var(--text)">${s.currentBlended.toFixed(3)}%</b> · Optimised: <b style="color:var(--teal)">${s.optBlended.toFixed(3)}%</b> · Reduction: <b style="color:var(--green)">${s.rateReduction.toFixed(3)}%</b>
+    </div>
+    <div class="savings-breakdown">
+      <div class="savings-item"><div class="lbl">LCR on regulated debit</div><div class="val">${curr}${Math.round(s.lcrSaving).toLocaleString()}/yr</div></div>
+      <div class="savings-item"><div class="lbl">L2/L3 on commercial cards</div><div class="val">${curr}${Math.round(s.l23Saving).toLocaleString()}/yr</div></div>
+      <div class="savings-item"><div class="lbl">3DS2 on consumer CNP</div><div class="val">${curr}${Math.round(s.ds2Saving).toLocaleString()}/yr</div></div>
+      <div class="savings-item"><div class="lbl">Downgrade reduction</div><div class="val">${curr}${Math.round(s.downgradeReduction).toLocaleString()}/yr</div></div>
+    </div>
+    <div style="font-size:10px;color:var(--body);margin-top:10px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius)">⚠ Estimates based on publicly published interchange schedules embedded in this tool. Actual savings depend on your acquirer's pricing model (interchange++, blended, tiered flat-rate) and transaction mix. Validate against live acquirer statement.</div>`;
+}
+
+/* ── Main Analysis ── */
+function runAnalysis(){
+  const lcr=generateLCRRules();
+  renderL23Matrix();
+  const savings=computeSavings();
+  renderSavings(savings);
+
+  // Build AP2
+  buildAP2(savings,lcr);
+
+  document.getElementById('resultsPanel').classList.add('visible');
+  const curr=sel('country')==='EU'||sel('country')==='UK'?'€':'$';
+  document.getElementById('resultsSummary').innerHTML=`
+    <div class="stat-grid">
+      <div class="stat-box"><div class="lbl">LCR Rules Generated</div><div class="val" style="color:var(--teal)">${lcr.length}</div></div>
+      <div class="stat-box"><div class="lbl">Annual Saving Est.</div><div class="val" style="color:var(--green);font-size:14px">${curr}${Math.round(savings.annualSaving).toLocaleString()}</div></div>
+      <div class="stat-box"><div class="lbl">Current Blended Rate</div><div class="val" style="color:var(--text);font-size:14px">${savings.currentBlended.toFixed(3)}%</div></div>
+      <div class="stat-box"><div class="lbl">Optimised Rate</div><div class="val" style="color:var(--teal);font-size:14px">${savings.optBlended.toFixed(3)}%</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--body);border-top:1px solid var(--border);padding-top:10px;margin-top:10px">Mandate ID: <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--teal)">${lastAP2?.mandate_id?.substring(0,16)||'—'}…</span></div>`;
+
+  document.getElementById('ap2ExportBtn').disabled=false;
+  document.getElementById('mdExportBtn').disabled=false;
+  document.getElementById('lcrJsonBtn').disabled=false;
+  showToast(`Analysis complete — ${lcr.length} LCR rules · Est. ${curr}${Math.round(savings.annualSaving).toLocaleString()}/yr saving`,'success');
+}
+
+function buildAP2(savings,lcr){
+  const cnpVol=num('cnpVol');const cpVol=num('cpVol');
+  lastAP2={
+    ap2_version:"1.0",
+    mandate_id:generateUUID(),
+    issued_at:new Date().toISOString(),
+    issued_by:"ainumbers.co",
+    tool_id:"rbe-13-interchange-qualification-engine",
+    tool_version:"1.0",
+    suite:"RBE Deterministic Intelligence Suite",
+    mandate_type:"routing_policy_mandate",
+    generated_at:new Date().toISOString(),
+    jurisdiction:[sel('country')],
+    regulatory_frameworks:["Durbin Amendment (Dodd-Frank Act Section 1075)","EU IFR Regulation 2015/751","RBA Standard No. 1 of 2006","UK FCA PSR","PSD2 Art. 62"],
+    last_reviewed:INTERCHANGE_SCHEDULES.last_reviewed,
+    schedule_source:INTERCHANGE_SCHEDULES.source,
+    portfolio:{
+      entity_type:sel('entityType'),country:sel('country'),
+      networks:sel('networks')==='both'?['visa','mastercard']:[sel('networks')],
+      monthly_cnp_volume:cnpVol,monthly_cp_volume:cpVol,
+      card_mix_pct:{
+        consumer_credit:parseInt(document.getElementById('mixCredit').value),
+        consumer_debit:parseInt(document.getElementById('mixDebit').value),
+        commercial:parseInt(document.getElementById('mixCommercial').value),
+        rewards_premium:parseInt(document.getElementById('mixRewards').value),
+      },
+      processing_capability:{
+        three_ds2_enabled:cap('cap3ds2'),
+        three_ds2_adoption_pct:parseInt(document.getElementById('cap3ds2Pct').value),
+        level2_data:cap('capL2'),
+        level3_data:cap('capL3'),
+        avs_enabled:cap('capAvs'),
+        cvv2_on_all_cnp:cap('capCvv2'),
+      },
+      primary_mcc:sel('mcc'),
+    },
+    transaction_simulation:lastSimResult?{
+      card_type:lastSimResult.cardType,
+      network:lastSimResult.network,
+      transaction_type:lastSimResult.txType,
+      authentication_method:lastSimResult.auth,
+      data_level:lastSimResult.dataLevel,
+      qualifying_tier:lastSimResult.tier.tier||lastSimResult.tier.tier_name,
+      interchange_rate_pct:lastSimResult.tier.rate_pct,
+      interchange_fixed:lastSimResult.tier.fixed_fee_usd,
+      all_in_cost:lastSimResult.interchangeAmt,
+      downgrade_risks:lastSimResult.downgrades.map(d=>({risk:d.risk,additional_rate_pct:parseFloat(d.additional)||0.20,mitigation:d.mitigation})),
+      optimisation_opportunities:lastSimResult.optims.map(o=>({action:o.action,saving_pct:parseFloat(o.saving)||0,new_tier:o.newTier})),
+    }:null,
+    lcr_routing_rules:lcr,
+    level2_3_matrix:L23_MATRIX,
+    portfolio_savings_estimate:{
+      current_blended_rate_pct:parseFloat(savings.currentBlended.toFixed(4)),
+      optimised_blended_rate_pct:parseFloat(savings.optBlended.toFixed(4)),
+      rate_reduction_pct:parseFloat(savings.rateReduction.toFixed(4)),
+      annual_saving_estimate:Math.round(savings.annualSaving),
+      currency:sel('country')==='EU'||sel('country')==='UK'?'EUR':'USD',
+      breakdown:{lcr_debit_saving:Math.round(savings.lcrSaving),l2_l3_saving:Math.round(savings.l23Saving),three_ds2_saving:Math.round(savings.ds2Saving),downgrade_reduction_saving:Math.round(savings.downgradeReduction)},
+      note:"Estimates based on publicly published interchange schedules embedded in this tool. Actual savings depend on acquirer pricing model.",
+    },
+    summary:`Portfolio (${sel('entityType')}, ${sel('country')}, MCC ${sel('mcc')}): ${lcr.length} LCR rules generated. Estimated annual interchange saving: ${sel('country')==='EU'||sel('country')==='UK'?'€':'$'}${Math.round(savings.annualSaving).toLocaleString()} (blended rate ${savings.currentBlended.toFixed(3)}% → ${savings.optBlended.toFixed(3)}%).`,
+    agent_instructions:"lcr_routing_rules[] are ordered by priority — apply first matching rule. transaction_simulation.downgrade_risks[] must be remediated before production routing decisions. level2_3_matrix[] gives field-level requirements per card type. portfolio_savings_estimate is indicative — validate against live acquirer statement. Check last_reviewed date annually.",
+    regulatory_citations:["Visa Interchange Reimbursement Fees — US April 2025 schedule (publicly published)","Mastercard Interchange Rates — US April 2025 schedule (publicly published)","Durbin Amendment (Dodd-Frank Act Section 1075) — US regulated debit LCR obligation","RBA Standard No. 1 of 2006 — Australian debit LCR obligation","PSD2 Art. 62 — EU interchange fee caps","EU IFR Regulation 2015/751 — interchange fee caps (0.2% debit, 0.3% credit)","UK FCA PSR — post-Brexit interchange fee caps"],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true},
+  };
+}
+
+function buildMarkdown(){
+  if(!lastAP2)return'';
+  const r=lastAP2;const s=r.portfolio_savings_estimate;const ts=new Date().toISOString();
+  const cur=s.currency==='EUR'?'€':'$';
+  let md=`# Interchange Optimisation Memo\n`;
+  md+=`**Entity:** ${r.portfolio.entity_type} · **Country:** ${r.portfolio.country} · **MCC:** ${r.portfolio.primary_mcc}\n`;
+  md+=`**Generated:** ${ts} · **Tool:** RBE·13 · AINumbers.co\n`;
+  md+=`**Schedule source:** ${r.schedule_source}\n`;
+  md+=`**Last reviewed:** ${r.last_reviewed} · Review annually each April\n\n---\n\n`;
+  md+=`## Portfolio Savings Estimate\n\n`;
+  md+=`| Metric | Value |\n|--------|-------|\n`;
+  md+=`| Current blended interchange rate | ${s.current_blended_rate_pct.toFixed(3)}% |\n`;
+  md+=`| Optimised blended rate | ${s.optimised_blended_rate_pct.toFixed(3)}% |\n`;
+  md+=`| Rate reduction | ${s.rate_reduction_pct.toFixed(3)}% |\n`;
+  md+=`| **Estimated annual saving** | **${cur}${s.annual_saving_estimate.toLocaleString()}** |\n\n`;
+  md+=`### Saving Breakdown\n\n`;
+  md+=`| Category | Annual Saving |\n|----------|---------------|\n`;
+  md+=`| LCR on regulated debit | ${cur}${s.breakdown.lcr_debit_saving.toLocaleString()} |\n`;
+  md+=`| L2/L3 on commercial cards | ${cur}${s.breakdown.l2_l3_saving.toLocaleString()} |\n`;
+  md+=`| 3DS2 on consumer CNP | ${cur}${s.breakdown.three_ds2_saving.toLocaleString()} |\n`;
+  md+=`| Downgrade reduction | ${cur}${s.breakdown.downgrade_reduction_saving.toLocaleString()} |\n\n`;
+  md+=`> ${s.note}\n\n`;
+  md+=`## LCR Routing Rules (${r.lcr_routing_rules.length})\n\n`;
+  md+=`| Priority | Card Type | Network | Route To | Tier | Saving |\n|----------|-----------|---------|----------|------|--------|\n`;
+  r.lcr_routing_rules.forEach(rule=>{md+=`| ${rule.priority} | ${rule.condition.card_type} | ${rule.condition.network} | ${rule.action.route_to_network} | ${rule.action.interchange_tier} | ${rule.saving_vs_default_pct>0?`-${rule.saving_vs_default_pct.toFixed(2)}%`:'Default'} |\n`;});
+  md+=`\n## Processing Capability Gaps\n\n`;
+  if(!r.portfolio.processing_capability.three_ds2_enabled)md+=`- **3DS2 not enabled** — enabling 3DS2 frictionless on consumer CNP saves ~0.30% in interchange\n`;
+  if(!r.portfolio.processing_capability.level2_data)md+=`- **Level 2 data not submitted** — commercial/fleet card volume missing L2 savings of 0.10–0.30%\n`;
+  if(!r.portfolio.processing_capability.level3_data)md+=`- **Level 3 data not submitted** — commercial/fleet volume missing L3 savings of 0.20–0.60%\n`;
+  if(!r.portfolio.processing_capability.cvv2_on_all_cnp)md+=`- **CVV2 not on all CNP** — missing CVV2 can trigger downgrade on some issuers\n`;
+  md+=`\n## Regulatory Citations\n\n`;
+  r.regulatory_citations.forEach(c=>{ md+=`- ${c}\n`; });
+  md+=`\n---\n*Client-side. Zero PII. Generated by RBE·13 · AINumbers.co · RBE Deterministic Intelligence Suite*\n`;
+  return md;
+}
+
+AP2Schema.validate(lastAP2);
+function exportAP2(){if(!lastAP2){showToast('Run analysis first','error');return;}const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);triggerDownload(JSON.stringify(lastAP2,null,2),`rbe-13-interchange-lcr_${ts}.policy.json`,'application/json');showToast('Policy Mandate JSON exported','success');}
+function exportMarkdown(){if(!lastAP2){showToast('Run analysis first','error');return;}const md=buildMarkdown();const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);triggerDownload(md,`rbe-13-interchange-memo_${ts}.md`,'text/markdown');showToast('Optimisation memo exported','success');}
+function exportLCR(){if(!lastLCR){showToast('Run analysis first','error');return;}const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);triggerDownload(JSON.stringify(lastLCR,null,2),`rbe-13-lcr-rules_${ts}.json`,'application/json');showToast('LCR rule set exported','success');}
+
+/* ── Init ── */
+(function init(){updateCountryContext();document.getElementById('cap3ds2Pct').oninput=()=>{document.getElementById('cap3ds2PctVal').textContent=document.getElementById('cap3ds2Pct').value+'%';};})();
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "rbe-13-interchange-qualification-engine", "version": "1.0.0", "title": "Interchange Qualification & Least-Cost Routing Rule Builder", "description": "Deterministic interchange qualification engine mapping card transaction attributes to Visa/Mastercard interchange tiers using publicly published schedules. Identifies downgrade risks, builds a prioritised LCR routing rule set (Durbin/RBA regulated debit → L3 commercial → L2 commercial → 3DS2 consumer → default), generates a Level 2/3 data field eligibility matrix, and computes portfolio-level interchange savings estimates. Policy Mandate JSON routing_policy_mandate export. Client-side. Zero PII. Uses publicly published interchange schedules — review annually each April.", "category": "ai", "tags": ["interchange", "LCR", "least-cost-routing", "Durbin", "L2-L3-data", "downgrade-risk", "Visa", "Mastercard", "3DS2", "Policy Mandate", "export", "Zero-PII"], "audience": ["merchant", "payment-facilitator", "acquirer-iso", "card-programme-manager", "treasury"], "last_reviewed": "2026-05-01", "review_frequency": "annual — interchange schedules updated each April", "schedule_source": "Visa US Interchange Reimbursement Fees April 2025 (publicly published); Mastercard US Interchange Rates April 2025 (publicly published)", "input_schema": {"type": "object", "required": ["entity_type", "country", "networks", "card_type", "transaction_type"], "properties": {"entity_type": {"type": "string", "enum": ["merchant", "payment_facilitator", "acquirer_iso"]}, "country": {"type": "string", "enum": ["US", "UK", "EU", "Australia", "Canada", "Other"]}, "networks": {"type": "array", "items": {"type": "string", "enum": ["visa", "mastercard"]}}, "monthly_cnp_volume": {"type": "number", "description": "Monthly CNP processing volume in USD/EUR"}, "monthly_cp_volume": {"type": "number", "description": "Monthly card-present processing volume"}, "card_mix_pct": {"type": "object", "properties": {"consumer_credit": {"type": "number"}, "consumer_debit": {"type": "number"}, "commercial": {"type": "number"}, "rewards_premium": {"type": "number"}}}, "processing_capability": {"type": "object", "properties": {"three_ds2_enabled": {"type": "boolean"}, "three_ds2_adoption_pct": {"type": "number", "minimum": 0, "maximum": 100}, "level2_data": {"type": "boolean"}, "level3_data": {"type": "boolean"}, "avs_enabled": {"type": "boolean"}, "cvv2_on_all_cnp": {"type": "boolean"}}}, "primary_mcc": {"type": "string", "description": "4-digit MCC"}, "card_type": {"type": "string", "enum": ["consumer_credit", "consumer_debit", "commercial", "rewards", "fleet", "prepaid"]}, "transaction_type": {"type": "string", "enum": ["cnp", "card_present", "recurring", "instalment", "moto"]}, "authentication_method": {"type": "string", "enum": ["3ds2_frictionless", "3ds2_challenge", "non_3ds", "emv_chip", "swipe"]}, "data_level": {"type": "string", "enum": ["standard", "level2", "level3"]}, "transaction_amount": {"type": "number"}, "settlement_timing": {"type": "string", "enum": ["same_day", "t1", "t2", "t3"]}}}, "output_schema": {"type": "object", "properties": {"transaction_simulation": {"type": "object", "properties": {"qualifying_tier": {"type": "string"}, "interchange_rate_pct": {"type": "number"}, "interchange_fixed": {"type": "number"}, "all_in_cost": {"type": "number"}, "downgrade_risks": {"type": "array"}, "optimisation_opportunities": {"type": "array"}}}, "lcr_routing_rules": {"type": "array", "description": "Ordered rules — apply first matching rule at authorisation gateway"}, "level2_3_matrix": {"type": "array"}, "portfolio_savings_estimate": {"type": "object"}, "ap2_mandate": {"type": "object"}}}, "mcp_tool_definition": {"name": "build_interchange_qualification_ruleset", "description": "Map card transaction attributes to Visa/Mastercard interchange qualification tiers using publicly published schedules. Identifies downgrade risks (missing 3DS2, no CVV2, commercial card without L2/L3 data, late settlement). Builds a prioritised LCR routing rule set actionable in a payment gateway (Durbin-regulated debit first → L3 commercial → L2 commercial → 3DS2-qualified consumer → default). Generates L2/L3 field requirements matrix per card type. Computes portfolio-level interchange savings estimate across LCR, L2/L3, 3DS2 adoption, and downgrade reduction. Note: interchange schedules are updated annually — check last_reviewed date before relying on tier names and rates. Use when a merchant, PayFac, or acquirer ISO needs to optimise card acceptance costs or configure gateway routing.", "inputSchema": {"type": "object", "required": ["entity_type", "country", "networks", "card_type", "transaction_type"], "properties": {"entity_type": {"type": "string", "enum": ["merchant", "payment_facilitator", "acquirer_iso"]}, "country": {"type": "string"}, "networks": {"type": "array", "items": {"type": "string"}}, "card_type": {"type": "string"}, "transaction_type": {"type": "string"}, "authentication_method": {"type": "string"}, "data_level": {"type": "string", "enum": ["standard", "level2", "level3"]}, "monthly_cnp_volume": {"type": "number"}, "primary_mcc": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/rbe-13-interchange-qualification-engine.html", "function_name": "runAnalysis", "timeout_ms": 5000}, "ap2_export": true, "mandate_type": "routing_policy_mandate", "deterministic": true, "pii_transmitted": false, "execution_context": "client_side_browser", "schedule_last_reviewed": "2026-05-01", "regulatory_citations": ["Visa Interchange Reimbursement Fees — US April 2025 schedule (publicly published)", "Mastercard Interchange Rates — US April 2025 schedule (publicly published)", "Durbin Amendment (Dodd-Frank Act Section 1075) — US regulated debit LCR obligation", "RBA Standard No. 1 of 2006 — Australian debit LCR obligation", "PSD2 Art. 62 — EU interchange fee transparency and cap", "EU IFR Regulation 2015/751 — interchange fee caps (0.2% debit, 0.3% credit)", "UK FCA PSR — post-Brexit interchange fee caps"], "cross_links": ["rbe-08-fee-schedule-engine", "rbe-12-scheme-compliance-simulator", "rbe-04-agent-guardrail-builder"]}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>BIN Sponsorship Economics Simulator · AINumbers.co</title>
+<meta name="description" content="Model BIN sponsorship economics: interchange income, rebate share, BIN rental fee, network dues, fraud loss, reserve requirement, net margin per transaction. Break-even volume and 5-year NPV projection. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/155-bin-sponsorship-economics.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"BIN Sponsorship Economics Simulator","url":"https://ainumbers.co/tools/163-bin-sponsorship-economics.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "bin-sponsorship-economics",
+  "version": "1.0.0",
+  "title": "BIN Sponsorship Economics Simulator",
+  "description": "Models BIN sponsorship margin waterfall: interchange income, rebate share, BIN rental fee, network dues, fraud loss, reserve requirement, net margin per transaction. Outputs break-even volume and 5-year NPV projection.",
+  "category": "cat-14",
+  "tags": ["BIN","interchange","rebate","network dues","fraud loss","reserve","card economics","BaaS","take rate"],
+  "audience": ["product","treasury","engineer"],
+  "input_schema": {"type":"object","properties":{"card_network":{"type":"string"},"interchange_rate":{"type":"number"},"rebate_share_pct":{"type":"number"},"bin_rental_monthly":{"type":"number"},"network_dues_pct":{"type":"number"},"fraud_rate_pct":{"type":"number"},"reserve_req_pct":{"type":"number"},"avg_txn_size":{"type":"number"},"monthly_txn_volume":{"type":"integer"},"processing_cost_pct":{"type":"number"}},"required":["interchange_rate","rebate_share_pct","avg_txn_size","monthly_txn_volume"]},
+  "output_schema": {"type":"object","properties":{"net_margin_per_txn":{"type":"number"},"gross_margin_pct":{"type":"number"},"break_even_monthly_volume":{"type":"integer"},"npv_5yr":{"type":"number"},"annual_net_revenue":{"type":"number"}}},
+  "mcp_tool_definition": {"name":"simulate_bin_sponsorship_economics","description":"Simulates BIN sponsorship programme economics including full margin waterfall, break-even volume, and 5-year NPV projection.","inputSchema":{"type":"object","properties":{"interchange_rate":{"type":"number","description":"Gross interchange rate as percentage"},"rebate_share_pct":{"type":"number","description":"Fintech rebate share of interchange as percentage"},"avg_txn_size":{"type":"number","description":"Average transaction size in USD"},"monthly_txn_volume":{"type":"integer","description":"Monthly transaction count"}},"required":["interchange_rate","rebate_share_pct","avg_txn_size","monthly_txn_volume"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/163-bin-sponsorship-economics.html","function_name":"runSim","timeout_ms":3000},
+  "ap2_export": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1000px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1000px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--purple);color:var(--purple)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1000px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}.nav-trail a:hover{color:var(--purple)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}.nav-sep{color:var(--border-2)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--purple-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:640px;line-height:1.8;margin-bottom:1.25rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0;flex:1}
+.tool-grid{display:grid;grid-template-columns:300px 1fr;gap:1.5rem;align-items:start}
+@media(max-width:820px){.tool-grid{grid-template-columns:1fr}}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.panel-body{padding:1.25rem}
+.field{margin-bottom:1rem}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.field input,.field select{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.75rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none;transition:border-color .2s;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--purple)}
+.field-hint{font-size:.6rem;color:var(--muted);margin-top:.25rem}
+.run-btn{width:100%;background:var(--purple);color:var(--bg);border:none;padding:.65rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.85rem}
+.run-btn:hover{background:var(--purple-lt)}
+.output-panel{display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.out-body{padding:1.25rem}
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border)}
+@media(max-width:600px){.metrics-grid{grid-template-columns:repeat(2,1fr)}}
+.metric-cell{background:var(--bg-2);padding:.85rem 1rem;text-align:center}
+.metric-val{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--bright);line-height:1}
+.metric-val.purple{color:var(--purple)}.metric-val.teal{color:var(--teal)}.metric-val.gold{color:var(--gold)}.metric-val.green{color:var(--green)}.metric-val.red{color:var(--red)}
+.metric-lbl{font-family:'JetBrains Mono',monospace;font-size:.4rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:.25rem}
+.waterfall{padding:1.25rem;display:flex;flex-direction:column;gap:4px}
+.wf-row{display:grid;grid-template-columns:200px 1fr 90px;gap:.75rem;align-items:center}
+.wf-label{font-size:.7rem;color:var(--text)}
+.wf-bar-wrap{height:20px;background:var(--bg-3);border-radius:3px;overflow:hidden}
+.wf-bar{height:100%;border-radius:3px;transition:width .4s}
+.wf-val{font-family:'JetBrains Mono',monospace;font-size:.65rem;text-align:right}
+.wf-sep{border-top:1px dashed var(--border);margin:.35rem 0}
+.npv-table{width:100%;border-collapse:collapse}
+.npv-table th{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .85rem;text-align:right;border-bottom:1px solid var(--border)}
+.npv-table th:first-child{text-align:left}
+.npv-table td{font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:.5rem .85rem;border-bottom:1px solid var(--border);text-align:right}
+.npv-table td:first-child{text-align:left;color:var(--muted)}
+.npv-table tr:last-child td{border-bottom:none}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.72rem;color:var(--body);line-height:1.8;white-space:pre-wrap}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--purple);color:var(--purple)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+/* 5D-nav-bc-v1 */
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-privacy::before{content:'·';color:var(--green)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick='setLang("zh")'>中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/embedded-finance-baas-hub.html">BaaS Hub</a><span class="nav-sep">/</span><span>T-155</span></div>
+
+    <a href="../guides/embedded-finance-baas-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-14 · T163 · Embedded Finance &amp; BaaS Infrastructure</div>
+  <h1 class="tool-title">BIN Sponsorship <em>Economics Simulator</em></h1>
+  <p class="hero-desc">Model BIN sponsorship programme economics end-to-end: interchange income → rebate share → BIN rental fee → network dues → fraud loss → reserve requirement → net margin per transaction. Sensitivity analysis by volume tier. Break-even volume and 5-year NPV projection.</p>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-purple">BIN Sponsorship</span>
+    <span class="badge badge-gold">Interchange</span>
+    <span class="badge badge-teal">Card Economics</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+        </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+<div class="tool-grid">
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Programme Economics</span></div>
+    <div class="panel-body">
+      <div class="field">
+        <label>Card Network</label>
+        <select id="network">
+          <option value="visa">Visa</option>
+          <option value="mastercard" selected>Mastercard</option>
+          <option value="amex">Amex (Proprietary)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Gross Interchange Rate (%)</label>
+        <input type="number" id="interchange" value="1.65" step="0.05" min="0" max="5">
+        <div class="field-hint">Typical debit: 0.8–1.2% · Prepaid: 1.2–1.8% · Credit: 1.5–2.5%</div>
+      </div>
+      <div class="field">
+        <label>Fintech Rebate Share (%)</label>
+        <input type="number" id="rebateShare" value="70" step="5" min="0" max="95">
+        <div class="field-hint">% of interchange passed through to fintech after sponsor bank share</div>
+      </div>
+      <div class="field">
+        <label>BIN Rental Fee (USD/month)</label>
+        <input type="number" id="binRental" value="1500" min="0">
+        <div class="field-hint">Monthly BIN sponsorship fee charged by sponsor bank</div>
+      </div>
+      <div class="field">
+        <label>Network Dues &amp; Assessments (%)</label>
+        <input type="number" id="networkDues" value="0.13" step="0.01" min="0" max="1">
+        <div class="field-hint">Visa/MC assessment fees (% of volume, charged on gross)</div>
+      </div>
+      <div class="field">
+        <label>Processing Cost (% per txn)</label>
+        <input type="number" id="processingCost" value="0.15" step="0.01" min="0" max="2">
+        <div class="field-hint">Processor + BaaS platform per-transaction cost</div>
+      </div>
+      <div class="field">
+        <label>Fraud Loss Rate (%)</label>
+        <input type="number" id="fraudRate" value="0.08" step="0.01" min="0" max="5">
+        <div class="field-hint">Estimated net fraud loss after recovery</div>
+      </div>
+      <div class="field">
+        <label>Reserve Requirement (% of volume)</label>
+        <input type="number" id="reserveReq" value="1.0" step="0.25" min="0" max="10">
+        <div class="field-hint">Capital set aside for chargebacks; earn implicit carry cost</div>
+      </div>
+      <div class="field">
+        <label>Cost of Reserve Capital (%/year)</label>
+        <input type="number" id="reserveRate" value="5.5" step="0.25" min="0" max="20">
+      </div>
+      <div class="field">
+        <label>Average Transaction Size (USD)</label>
+        <input type="number" id="avgTxn" value="65" min="1">
+      </div>
+      <div class="field">
+        <label>Monthly Transaction Volume</label>
+        <input type="number" id="monthlyVol" value="200000" min="0">
+      </div>
+      <button class="run-btn" onclick="runSim()">▶ Simulate BIN Economics</button>
+    </div>
+  </div>
+
+  <div class="output-panel" id="outputPanel">
+    <div class="out-section"><div class="out-body" style="text-align:center;padding:3rem;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.62rem">Configure programme economics and click Simulate BIN Economics</div></div>
+  </div>
+</div></div></div>
+
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/embedded-finance-baas-hub.html"><span data-i18n="footer.hub_embedded_finance_baas">BaaS Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+function fmt(n){return n>=1e6?'$'+(n/1e6).toFixed(2)+'M':n>=1e3?'$'+(n/1e3).toFixed(1)+'K':'$'+n.toFixed(0)}
+function fmtC(n){return(n*100).toFixed(3)+'¢'}
+function pct(n){return n.toFixed(3)+'%'}
+function fmtN(n){return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':n.toLocaleString()}
+
+function runSim(){
+  const network     = document.getElementById('network').value;
+  const interchange = parseFloat(document.getElementById('interchange').value)/100;
+  const rebateShare = parseFloat(document.getElementById('rebateShare').value)/100;
+  const binRental   = parseFloat(document.getElementById('binRental').value)||0;
+  const networkDues = parseFloat(document.getElementById('networkDues').value)/100;
+  const procCost    = parseFloat(document.getElementById('processingCost').value)/100;
+  const fraudRate   = parseFloat(document.getElementById('fraudRate').value)/100;
+  const reserveReq  = parseFloat(document.getElementById('reserveReq').value)/100;
+  const reserveRate = parseFloat(document.getElementById('reserveRate').value)/100;
+  const avgTxn      = parseFloat(document.getElementById('avgTxn').value)||1;
+  const monthlyVol  = parseInt(document.getElementById('monthlyVol').value)||0;
+
+  const networkLabel = {visa:'Visa',mastercard:'Mastercard',amex:'Amex'}[network];
+
+  /* ── Per-transaction economics ── */
+  const grossInterchange  = avgTxn * interchange;          // $ gross per txn
+  const rebateToFintech   = grossInterchange * rebateShare; // $ fintech gets
+  const networkDuesPer    = avgTxn * networkDues;           // $ network cost per txn
+  const procCostPer       = avgTxn * procCost;              // $ processing per txn
+  const fraudLossPer      = avgTxn * fraudRate;             // $ fraud per txn
+  const reserveCostPer    = avgTxn * reserveReq * (reserveRate/12); // monthly carry cost
+  const binRentalPer      = monthlyVol>0 ? binRental/monthlyVol : binRental; // per txn
+
+  const netMarginPer = rebateToFintech - networkDuesPer - procCostPer - fraudLossPer - reserveCostPer - binRentalPer;
+  const grossMarginPct = rebateToFintech / avgTxn * 100;
+  const netMarginPct   = netMarginPer / avgTxn * 100;
+
+  /* ── Monthly model ── */
+  const monthlyVolume   = monthlyVol * avgTxn;
+  const monthlyGrossIC  = monthlyVolume * interchange;
+  const monthlyRebate   = monthlyGrossIC * rebateShare;
+  const monthlyNetDues  = monthlyVolume * networkDues;
+  const monthlyProc     = monthlyVolume * procCost;
+  const monthlyFraud    = monthlyVolume * fraudRate;
+  const monthlyReserveC = monthlyVolume * reserveReq * (reserveRate/12);
+  const monthlyNet      = monthlyRebate - monthlyNetDues - monthlyProc - monthlyFraud - monthlyReserveC - binRental;
+
+  /* ── Break-even volume ── */
+  // Fixed cost = BIN rental; variable net = rebate - dues - proc - fraud - reserveCarry
+  const varNetPerTxn = rebateToFintech - networkDuesPer - procCostPer - fraudLossPer - reserveCostPer;
+  const breakEvenMonthlyVol = varNetPerTxn > 0 ? Math.ceil(binRental / varNetPerTxn) : Infinity;
+  const breakEvenMonthlyGMV = breakEvenMonthlyVol * avgTxn;
+
+  /* ── 5-year NPV (discount rate 10%) ── */
+  const annualNet = monthlyNet * 12;
+  const discRate = 0.10;
+  let npv5 = 0;
+  for(let yr=1;yr<=5;yr++){
+    // assume 40% growth y1->y2, 25% y2->y3, 15% y3->y4, 10% y4->y5
+    const growthFactors = [1,1.4,1.75,2.01,2.21];
+    npv5 += (annualNet * growthFactors[yr-1]) / Math.pow(1+discRate, yr);
+  }
+
+  /* ── Waterfall max ── */
+  const wfMax = rebateToFintech;
+
+  function wfRow(label,val,col){
+    const bar = Math.abs(val)/Math.max(Math.abs(grossInterchange),0.001)*100;
+    const isAdd = val>=0;
+    return `<div class="wf-row">
+      <div class="wf-label">${label}</div>
+      <div class="wf-bar-wrap"><div class="wf-bar" style="width:${Math.min(bar,100)}%;background:${col}"></div></div>
+      <div class="wf-val" style="color:${col}">${isAdd?'+':''}${fmtC(val)}</div>
+    </div>`;
+  }
+
+  /* ── Volume sensitivity table ── */
+  const volTiers = [10000,50000,100000,250000,500000,1000000];
+  const sensRows = volTiers.map(v=>{
+    const m = (v*avgTxn*interchange*rebateShare) - (v*avgTxn*networkDues) - (v*avgTxn*procCost) - (v*avgTxn*fraudRate) - (v*avgTxn*reserveReq*(reserveRate/12)) - binRental;
+    const col = m>0?'var(--green)':m>-1000?'var(--warn)':'var(--red)';
+    return `<tr>
+      <td>${fmtN(v)}</td>
+      <td style="color:${col}">${fmt(m)}</td>
+      <td style="color:${col}">${m>0?'Profitable':'Below B/E'}</td>
+    </tr>`;
+  }).join('');
+
+  const memo = `BIN SPONSORSHIP ECONOMICS
+Network: ${networkLabel} | Generated: ${new Date().toLocaleDateString()} | Tool: AINumbers.co T163
+
+PER-TRANSACTION WATERFALL (avg txn: ${fmt(avgTxn)})
+  Gross Interchange Income:     +${fmtC(grossInterchange)}  (${pct(interchange*100)})
+  Sponsor Bank Retention:       −${fmtC(grossInterchange*(1-rebateShare))}  (${pct((1-rebateShare)*100)} of gross IC)
+  Fintech Rebate Received:      +${fmtC(rebateToFintech)}  (${pct(rebateShare*100)} of gross IC)
+  Network Dues & Assessments:   −${fmtC(networkDuesPer)}
+  Processing Cost:              −${fmtC(procCostPer)}
+  Fraud Loss (net):             −${fmtC(fraudLossPer)}
+  Reserve Capital Carry Cost:   −${fmtC(reserveCostPer)}
+  BIN Rental Allocation:        −${fmtC(binRentalPer)}
+  ─────────────────────────────────────
+  NET MARGIN PER TXN:           ${fmtC(netMarginPer)}  (${netMarginPct.toFixed(3)}%)
+
+MONTHLY PROGRAMME P&L (${fmtN(monthlyVol)} txns)
+  Rebate Revenue:               ${fmt(monthlyRebate)}
+  Network Dues:                 −${fmt(monthlyNetDues)}
+  Processing:                   −${fmt(monthlyProc)}
+  Fraud Losses:                 −${fmt(monthlyFraud)}
+  Reserve Carry Cost:           −${fmt(monthlyReserveC)}
+  BIN Rental:                   −${fmt(binRental)}
+  Net Monthly:                  ${fmt(monthlyNet)}
+  Net Annual (current volume):  ${fmt(annualNet)}
+
+BREAK-EVEN VOLUME
+  Break-even Monthly Txns:     ${breakEvenMonthlyVol===Infinity?'Not achievable':fmtN(breakEvenMonthlyVol)}
+  Break-even Monthly GMV:      ${breakEvenMonthlyVol===Infinity?'Not achievable':fmt(breakEvenMonthlyGMV)}
+
+5-YEAR NPV (10% discount, 40%/25%/15%/10% YoY growth)
+  NPV (5yr):                   ${fmt(npv5)}
+
+DISCLAIMER
+  For programme economics modelling only. Actual rates vary by sponsor bank,
+  card type, and volume tier. Not financial advice. AINumbers.co Zero PII.`;
+
+  document.getElementById('outputPanel').innerHTML = `
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Programme Economics Summary</span></div>
+      <div class="metrics-grid">
+        <div class="metric-cell"><div class="metric-val purple">${fmtC(netMarginPer)}</div><div class="metric-lbl">Net Margin / Txn</div></div>
+        <div class="metric-cell"><div class="metric-val ${monthlyNet>=0?'green':'red'}">${fmt(monthlyNet)}</div><div class="metric-lbl">Monthly Net P&L</div></div>
+        <div class="metric-cell"><div class="metric-val gold">${breakEvenMonthlyVol===Infinity?'∞':fmtN(breakEvenMonthlyVol)}</div><div class="metric-lbl">Break-even Txns/Mo</div></div>
+        <div class="metric-cell"><div class="metric-val teal">${fmt(npv5)}</div><div class="metric-lbl">5-Year NPV</div></div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Per-Transaction Margin Waterfall</span></div>
+      <div class="waterfall">
+        ${wfRow('Gross Interchange Income',grossInterchange,'var(--green)')}
+        ${wfRow('Sponsor Bank Retention ('+((1-rebateShare)*100).toFixed(0)+'%)',-(grossInterchange*(1-rebateShare)),'var(--body)')}
+        <div class="wf-sep"></div>
+        ${wfRow('Fintech Rebate Received',rebateToFintech,'var(--teal)')}
+        ${wfRow('Network Dues & Assessments',-networkDuesPer,'var(--warn)')}
+        ${wfRow('Processing Cost',-procCostPer,'var(--body)')}
+        ${wfRow('Fraud Loss (net)',-fraudLossPer,'var(--red)')}
+        ${wfRow('Reserve Carry Cost',-reserveCostPer,'var(--muted)')}
+        ${wfRow('BIN Rental Allocation',-binRentalPer,'var(--muted)')}
+        <div class="wf-sep"></div>
+        ${wfRow('NET MARGIN PER TXN',netMarginPer,netMarginPer>=0?'var(--green)':'var(--red)')}
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Volume Sensitivity (Monthly Net P&L)</span></div>
+      <div class="out-body" style="padding:0">
+        <table class="npv-table">
+          <tr><th style="text-align:left">Monthly Txns</th><th>Net P&L</th><th>Status</th></tr>
+          ${sensRows}
+        </table>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Economics Memo (Markdown)</span><button class="copy-btn" onclick="copyMemo()">Copy</button></div>
+      <div class="out-body" style="padding:.75rem"><div class="memo-block">${memo}</div></div>
+    </div>
+  `;
+  window._memo = memo;
+}
+
+function copyMemo(){if(window._memo){navigator.clipboard.writeText(window._memo).then(()=>{const b=document.querySelector('.copy-btn');if(b){b.textContent='Copied ✓';setTimeout(()=>b.textContent='Copy',2000)}})}}
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+    'nav.hub': '← Cat-14 Hub',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.hub': '← Centro Cat-14',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+    'nav.hub': '← Centre Cat-14',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+    'nav.hub': '← مركز Cat-14',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.hub': '← Central Cat-14',
+  }, zh:{
+    'nav.alltools': '所有工具',
+    'nav.hub': '← Cat-14 中心',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+runSim();
+</script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "bin-sponsorship-economics", "version": "1.0.0", "title": "BIN Sponsorship Economics Simulator", "description": "Model BIN sponsorship economics: interchange income, rebate share, BIN rental fee, network dues, fraud loss, reserve requirement, net margin per transaction. Break-even volume and 5-year NPV projection. Client-side. Zero PII.", "category": "embedded-finance-baas", "tags": ["BIN Sponsorship", "Interchange", "Card Economics", "Zero PII", "Client-Side"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"network": {"type": "string"}, "interchange": {"type": "string"}, "rebateShare": {"type": "string"}, "binRental": {"type": "string"}, "networkDues": {"type": "string"}, "processingCost": {"type": "string"}, "fraudRate": {"type": "string"}, "reserveReq": {"type": "string"}, "reserveRate": {"type": "string"}, "avgTxn": {"type": "string"}, "monthlyVol": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "bin_sponsorship_economics", "description": "Run BIN Sponsorship Economics Simulator. Model BIN sponsorship economics: interchange income, rebate share, BIN rental fee, network dues, fraud loss, reserve requirement, net margin per transaction. Break-even volume and 5-year NPV projectio", "inputSchema": {"type": "object", "properties": {"network": {"type": "string"}, "interchange": {"type": "string"}, "rebateShare": {"type": "string"}, "binRental": {"type": "string"}, "networkDues": {"type": "string"}, "processingCost": {"type": "string"}, "fraudRate": {"type": "string"}, "reserveReq": {"type": "string"}, "reserveRate": {"type": "string"}, "avgTxn": {"type": "string"}, "monthlyVol": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/155-bin-sponsorship-economics.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

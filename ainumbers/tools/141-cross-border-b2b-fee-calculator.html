@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Cross-Border B2B Fee Transparency Calculator · AINumbers.co</title>
+<meta name="description" content="Deconstruct total landed cost per B2B invoice: FX spread, correspondent fees, VAT/GST treatment, Incoterms payment obligation timing, documentary credit costs, ERP remittance reconciliation cost. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/141-cross-border-b2b-fee-calculator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Cross-Border B2B Fee Transparency Calculator","url":"https://ainumbers.co/tools/149-cross-border-b2b-fee-calculator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "cross-border-b2b-fee-calculator",
+  "version": "1.0.0",
+  "title": "Cross-Border B2B Fee Transparency Calculator",
+  "description": "Deconstructs total landed cost per B2B invoice including FX spread, correspondent fees, VAT/GST reverse charge, Incoterms timing, documentary credit costs, and ERP remittance reconciliation cost.",
+  "category": "cat-13",
+  "tags": ["cross-border","B2B","FX","VAT","GST","Incoterms","correspondent","invoice","landed cost"],
+  "audience": ["treasury","finance","engineer"],
+  "input_schema": {"type":"object","properties":{"invoice_amount":{"type":"number"},"currency_pair":{"type":"string"},"origin_country":{"type":"string"},"dest_country":{"type":"string"},"incoterms":{"type":"string"},"payment_method":{"type":"string"}},"required":["invoice_amount","currency_pair","origin_country","dest_country"]},
+  "output_schema": {"type":"object","properties":{"total_landed_cost":{"type":"number"},"fx_cost":{"type":"number"},"correspondent_cost":{"type":"number"},"vat_treatment":{"type":"string"},"incoterms_timing":{"type":"string"}}},
+  "mcp_tool_definition": {"name":"calculate_cross_border_b2b_fees","description":"Calculates total landed cost for cross-border B2B invoice payments including all fee layers absent from treasury hedge tools.","inputSchema":{"type":"object","properties":{"invoice_amount":{"type":"number","description":"Invoice amount in originating currency"},"currency_pair":{"type":"string","description":"Currency pair e.g. USD/EUR"},"origin_country":{"type":"string","description":"ISO 3166-1 alpha-2 origin country"},"dest_country":{"type":"string","description":"ISO 3166-1 alpha-2 destination country"},"incoterms":{"type":"string","description":"Incoterms 2020 term e.g. EXW, FOB, CIF, DDP"}},"required":["invoice_amount","currency_pair","origin_country","dest_country"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/149-cross-border-b2b-fee-calculator.html","function_name":"calcFees","timeout_ms":3000},
+  "ap2_export": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:960px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.015) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:960px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:960px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}.nav-trail a:hover{color:var(--teal)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}.nav-sep{color:var(--border-2)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:620px;line-height:1.8;margin-bottom:1.25rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.tool-grid{display:grid;grid-template-columns:320px 1fr;gap:1.5rem;align-items:start}
+@media(max-width:768px){.tool-grid{grid-template-columns:1fr}}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.panel-body{padding:1.25rem}
+.field{margin-bottom:1rem}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.field input,.field select{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.75rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none;transition:border-color .2s;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--teal)}
+.field-hint{font-size:.6rem;color:var(--muted);margin-top:.25rem}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.slider-row{display:flex;align-items:center;gap:.75rem}
+.slider-row input[type=range]{flex:1;accent-color:var(--teal)}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--teal-lt);min-width:50px;text-align:right}
+.run-btn{width:100%;background:var(--teal);color:var(--bg);border:none;padding:.65rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.85rem}
+.run-btn:hover{background:var(--teal-lt)}
+.output-panel{display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.metrics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border)}
+.metric-cell{background:var(--bg-2);padding:.85rem 1rem;text-align:center}
+.metric-val{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--bright);line-height:1}
+.metric-val.teal{color:var(--teal)}.metric-val.gold{color:var(--gold)}.metric-val.green{color:var(--green)}.metric-val.red{color:var(--red)}
+.metric-lbl{font-family:'JetBrains Mono',monospace;font-size:.4rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:.25rem}
+.cost-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.cost-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400}
+.cost-table td{padding:.55rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.cost-table tr:last-child td{border-bottom:none;font-weight:600;color:var(--bright);border-top:2px solid var(--border)}
+.cost-table tr:hover td{background:var(--bg-3)}
+.layer-badge{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.06em;text-transform:uppercase;padding:.1rem .35rem;border-radius:2px}
+.l-fx{background:var(--teal-dim);color:var(--teal)}.l-corr{background:var(--gold-dim);color:var(--gold)}.l-vat{background:var(--purple-dim);color:var(--purple)}.l-inc{background:rgba(168,196,222,.08);color:var(--body);border:1px solid var(--border)}.l-doc{background:var(--red-dim);color:var(--red)}.l-recon{background:var(--green-dim);color:var(--green)}
+.inco-box{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem}
+.inco-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem}
+.inco-text{font-size:.73rem;color:var(--body);line-height:1.7}
+.vat-box{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:var(--radius);padding:.85rem 1rem}
+.vat-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:.4rem}
+.vat-text{font-size:.73rem;color:var(--body);line-height:1.7}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.72rem;color:var(--body);line-height:1.8;white-space:pre-wrap}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-privacy::before{content:'·';color:var(--green)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick='setLang("zh")'>中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/b2b-payments-hub.html">B2B Payments Hub</a><span class="nav-sep">/</span><span>T-141</span></div>
+
+    <a href="../guides/b2b-payments-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-13 · T149 · B2B Payments &amp; Platform Operations</div>
+  <h1 class="tool-title">Cross-Border B2B <em>Fee Transparency Calculator</em></h1>
+  <p class="hero-desc">Deconstruct total landed cost per B2B invoice: FX spread, correspondent fees, VAT/GST treatment (reverse charge, import VAT), Incoterms payment obligation timing, documentary credit costs, and ERP remittance reconciliation cost — five differentiation layers absent from standard treasury hedge tools.</p>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-teal">Cross-Border B2B</span>
+    <span class="badge badge-gold">Landed Cost</span>
+    <span class="badge badge-gold">VAT / GST</span>
+    <span class="badge badge-gold">Incoterms 2020</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+        </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+<div class="tool-grid">
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Invoice &amp; Trade Parameters</span></div>
+    <div class="panel-body">
+      <div class="field">
+        <label>Invoice Amount (originating currency)</label>
+        <input type="number" id="invAmt" value="85000" min="1">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Origin Country</label>
+          <select id="origCtry">
+            <option value="US">United States</option>
+            <option value="GB">United Kingdom</option>
+            <option value="DE">Germany</option>
+            <option value="FR">France</option>
+            <option value="JP">Japan</option>
+            <option value="CN">China</option>
+            <option value="AU">Australia</option>
+            <option value="SG">Singapore</option>
+            <option value="CA">Canada</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Destination Country</label>
+          <select id="destCtry">
+            <option value="GB">United Kingdom</option>
+            <option value="DE">Germany</option>
+            <option value="US">United States</option>
+            <option value="FR">France</option>
+            <option value="JP">Japan</option>
+            <option value="AU">Australia</option>
+            <option value="SG">Singapore</option>
+            <option value="CA">Canada</option>
+            <option value="CN">China</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Payment Method</label>
+        <select id="payMeth">
+          <option value="wire_swift">SWIFT Wire (correspondent)</option>
+          <option value="sepa_ct">SEPA Credit Transfer</option>
+          <option value="sepa_instant">SEPA Instant</option>
+          <option value="ach">ACH (US domestic)</option>
+          <option value="faster_pay">Faster Payments (UK)</option>
+          <option value="fintech">Fintech Rail (Wise/Airwallex)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>FX Spread (bps above mid-rate)</label>
+        <div class="slider-row">
+          <input type="range" id="fxSpread" min="0" max="300" step="5" value="75" oninput="syncS('fxSpread','fxSpreadV',' bps')">
+          <span class="slider-val" id="fxSpreadV">75 bps</span>
+        </div>
+        <div class="field-hint">SWIFT wire: 50–200 bps · Fintech: 10–50 bps</div>
+      </div>
+      <div class="field">
+        <label>Correspondent / Intermediary Fees (USD)</label>
+        <input type="number" id="corrFee" value="35" min="0">
+        <div class="field-hint">SWIFT wire: $15–$60 · SEPA: €0 · Fintech: $0–$10</div>
+      </div>
+      <div class="field">
+        <label>Incoterms 2020 Term</label>
+        <select id="incoterm">
+          <option value="EXW">EXW — Ex Works</option>
+          <option value="FCA">FCA — Free Carrier</option>
+          <option value="FOB">FOB — Free on Board</option>
+          <option value="CFR">CFR — Cost &amp; Freight</option>
+          <option value="CIF">CIF — Cost, Insurance &amp; Freight</option>
+          <option value="CPT">CPT — Carriage Paid To</option>
+          <option value="CIP">CIP — Carriage &amp; Insurance Paid</option>
+          <option value="DAP">DAP — Delivered at Place</option>
+          <option value="DPU">DPU — Delivered at Place Unloaded</option>
+          <option value="DDP">DDP — Delivered Duty Paid</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Documentary Credit Required?</label>
+        <select id="docCredit">
+          <option value="none">No — Open Account</option>
+          <option value="lc_sight">Letter of Credit (Sight)</option>
+          <option value="lc_usance">Letter of Credit (Usance 90d)</option>
+          <option value="doc_collection">Documentary Collection (D/A)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>ERP Remittance Reconciliation Cost (USD)</label>
+        <input type="number" id="reconCost" value="12" min="0">
+        <div class="field-hint">Staff cost per invoice for manual remittance matching</div>
+      </div>
+      <button class="run-btn" onclick="calcFees()">▶ Calculate Landed Cost</button>
+    </div>
+  </div>
+
+  <div class="output-panel" id="outputPanel">
+    <div class="out-section"><div class="out-body" style="text-align:center;padding:3rem;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.62rem">Configure invoice parameters and click Calculate Landed Cost</div></div>
+  </div>
+
+</div></div></div>
+
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/b2b-payments-hub.html"><span data-i18n="footer.hub_b2b_payments">B2B Payments Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+const INCO_DATA = {
+  EXW:{risk:'Buyer bears all risk/cost from seller premises',timing:'Payment obligation arises at collection from seller site',vatNote:'Buyer responsible for all export/import documentation'},
+  FCA:{risk:'Risk transfers to carrier nominated by buyer',timing:'Payment typically due within agreed credit terms after carrier receipt',vatNote:'Seller handles export clearance; buyer handles import'},
+  FOB:{risk:'Risk transfers when goods pass ships rail at port of loading',timing:'Classic L/C trigger: B/L date initiates payment clock',vatNote:'Zero-rated export for VAT; import VAT due in destination country'},
+  CFR:{risk:'Seller pays freight; risk transfers at port of loading',timing:'B/L date triggers payment under documentary credit',vatNote:'Import VAT/duty charged at destination port'},
+  CIF:{risk:'Seller pays freight + insurance; risk transfers at port of loading',timing:'B/L date + insurance certificate trigger payment',vatNote:'Import VAT/duty charged at destination'},
+  CPT:{risk:'Risk transfers to first carrier; seller pays freight to named destination',timing:'Carrier receipt triggers payment clock',vatNote:'Export VAT zero-rated; reverse charge or import VAT at destination'},
+  CIP:{risk:'Seller pays freight + higher insurance cover; risk at first carrier',timing:'Carrier receipt + insurance trigger payment',vatNote:'Same as CPT — check destination import VAT rules'},
+  DAP:{risk:'Seller bears all risk to named destination; buyer handles import',timing:'Delivery confirmation at destination triggers payment',vatNote:'Buyer responsible for import duty/VAT — common reverse charge scenario'},
+  DPU:{risk:'Seller unloads at destination; risk transfers on unloading',timing:'Unloading confirmation triggers payment obligation',vatNote:'Buyer handles import customs; import VAT due'},
+  DDP:{risk:'Seller bears maximum obligation — delivers duty and tax paid',timing:'Delivery confirmation triggers payment; no additional buyer costs',vatNote:'Seller accounts for import VAT — complex for cross-border B2B; may trigger VAT registration obligation'},
+};
+
+const VAT_RULES = {
+  'US-GB':{treatment:'Reverse Charge',rate:0,note:'UK recipient accounts for VAT under reverse charge (VATA 1994 s.8). Seller issues zero-rated invoice. Buyer self-assesses at 20%.'},
+  'US-DE':{treatment:'Reverse Charge',rate:0,note:'B2B reverse charge under EU VAT Directive Art. 196. Buyer self-assesses at 19%. Seller must obtain buyer VAT number.'},
+  'US-FR':{treatment:'Reverse Charge',rate:0,note:'French reverse charge applies. Buyer self-assesses at 20%. Seller includes "Autoliquidation" on invoice.'},
+  'GB-DE':{treatment:'Reverse Charge (Post-Brexit)',rate:0,note:'Post-Brexit: UK seller treats as zero-rated export. German buyer accounts for acquisition VAT at 19% via reverse charge.'},
+  'GB-US':{treatment:'Zero-Rated Export',rate:0,note:'UK export — zero-rated for UK VAT. No US sales tax on B2B services (generally). Check nexus rules.'},
+  'DE-GB':{treatment:'Zero-Rated Export',rate:0,note:'EU export zero-rated. UK buyer applies reverse charge at 20% under post-Brexit rules.'},
+  'AU-US':{treatment:'GST-Free Export',rate:0,note:'Australian GST-free export (GST Act s.38-185). No US tax on imported B2B services generally.'},
+  'SG-US':{treatment:'Zero-Rated Export',rate:0,note:'Singapore GST zero-rated for international services. No US tax generally on B2B service imports.'},
+  DEFAULT:{treatment:'Standard Import VAT',rate:0.1,note:'Import VAT likely applicable at destination. Rate varies by jurisdiction. Consult local tax advisor.'},
+};
+
+const DOC_COSTS = {
+  none:0,
+  lc_sight:1500,  // LC issuance fee (~1.5% of face value capped; using fixed for simplicity)
+  lc_usance:2500,
+  doc_collection:350,
+};
+
+function syncS(id,vId,sfx){document.getElementById(vId).textContent=document.getElementById(id).value+sfx;}
+function fmt(n){return n>=1e6?'$'+(n/1e6).toFixed(3)+'M':n>=1e3?'$'+(n/1e3).toFixed(2)+'K':'$'+n.toFixed(2)}
+function fmtPct(n){return (n*100).toFixed(3)+'%'}
+
+function calcFees() {
+  const amt     = parseFloat(document.getElementById('invAmt').value)||0;
+  const orig    = document.getElementById('origCtry').value;
+  const dest    = document.getElementById('destCtry').value;
+  const method  = document.getElementById('payMeth').value;
+  const fxBps   = parseFloat(document.getElementById('fxSpread').value)||0;
+  const corr    = parseFloat(document.getElementById('corrFee').value)||0;
+  const inco    = document.getElementById('incoterm').value;
+  const docType = document.getElementById('docCredit').value;
+  const recon   = parseFloat(document.getElementById('reconCost').value)||0;
+
+  const fxCost    = amt * (fxBps/10000);
+  const vatKey    = `${orig}-${dest}`;
+  const vatRule   = VAT_RULES[vatKey] || VAT_RULES.DEFAULT;
+  const vatCost   = amt * vatRule.rate; // buyer cost if applicable
+  const docCost   = DOC_COSTS[docType] || 0;
+  const incoData  = INCO_DATA[inco];
+
+  // Payment method base fees
+  const methodFees = {wire_swift:corr,sepa_ct:0,sepa_instant:0,ach:0.35,faster_pay:0,fintech:corr*0.2}[method]||corr;
+
+  const totalCost = fxCost + methodFees + vatCost + docCost + recon;
+  const pctOfInv  = totalCost / amt * 100;
+
+  // Cost breakdown layers
+  const layers = [
+    {label:'FX Spread Cost',       badge:'l-fx',   cost:fxCost,      bps:(fxBps),    note:`${fxBps} bps above mid-rate`},
+    {label:'Correspondent / Method Fee', badge:'l-corr', cost:methodFees, bps:(methodFees/amt*10000).toFixed(1), note:method.replace('_',' ')},
+    {label:'VAT/GST at Destination', badge:'l-vat', cost:vatCost,    bps:(vatRule.rate*10000), note:vatRule.treatment},
+    {label:'Incoterms Obligation',  badge:'l-inc',  cost:0,           bps:'N/A',      note:inco+' — '+incoData.timing},
+    {label:'Documentary Credit',    badge:'l-doc',  cost:docCost,     bps:(docCost/amt*10000).toFixed(1), note:docType.replace('_',' ')},
+    {label:'Recon / Remittance Cost',badge:'l-recon',cost:recon,     bps:(recon/amt*10000).toFixed(1), note:'ERP manual matching cost per invoice'},
+    {label:'Total Landed Cost',     badge:'',       cost:totalCost,   bps:(pctOfInv*100).toFixed(1), note:'', total:true},
+  ];
+
+  const ctryNames = {US:'United States',GB:'United Kingdom',DE:'Germany',FR:'France',JP:'Japan',CN:'China',AU:'Australia',SG:'Singapore',CA:'Canada'};
+  const methNames = {wire_swift:'SWIFT Wire',sepa_ct:'SEPA CT',sepa_instant:'SEPA Instant',ach:'ACH',faster_pay:'Faster Payments',fintech:'Fintech Rail'};
+
+  const memo = `CROSS-BORDER B2B INVOICE COST ANALYSIS
+Generated: ${new Date().toLocaleDateString()}
+
+TRANSACTION DETAILS
+  Invoice Amount:        ${fmt(amt)}
+  Route:                 ${ctryNames[orig]} → ${ctryNames[dest]}
+  Payment Method:        ${methNames[method]}
+  Incoterms:             ${inco}
+  Documentary Credit:    ${docType.replace(/_/g,' ')}
+
+COST LAYER BREAKDOWN
+  1. FX Spread:           ${fmt(fxCost)}  (${fxBps} bps)
+  2. Correspondent Fees:  ${fmt(methodFees)}
+  3. VAT/GST:             ${fmt(vatCost)}  (${vatRule.treatment})
+  4. Documentary Credit:  ${fmt(docCost)}
+  5. Recon Cost:          ${fmt(recon)}
+  ─────────────────────────────────
+  Total Landed Cost:      ${fmt(totalCost)}  (${pctOfInv.toFixed(3)}% of invoice)
+
+INCOTERMS ANALYSIS (${inco})
+  Risk Transfer:  ${incoData.risk}
+  Payment Timing: ${incoData.timing}
+  VAT Treatment:  ${incoData.vatNote}
+
+VAT/GST TREATMENT (${ctryNames[orig]} → ${ctryNames[dest]})
+  Treatment:  ${vatRule.treatment}
+  Note:       ${vatRule.note}
+
+Cross-link: Tool 76 (FX Hedge Optimizer) for treasury hedge cost modelling on the same corridor.`;
+
+  document.getElementById('outputPanel').innerHTML = `
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Landed Cost Summary</span></div>
+      <div class="metrics-grid">
+        <div class="metric-cell"><div class="metric-val red">${fmt(totalCost)}</div><div class="metric-lbl">Total Landed Cost</div></div>
+        <div class="metric-cell"><div class="metric-val gold">${pctOfInv.toFixed(3)}%</div><div class="metric-lbl">% of Invoice Value</div></div>
+        <div class="metric-cell"><div class="metric-val teal">${(pctOfInv*100).toFixed(1)}</div><div class="metric-lbl">bps on Invoice</div></div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Five Cost Layer Breakdown</span></div>
+      <div class="out-body" style="padding:0">
+        <table class="cost-table">
+          <thead><tr><th>Layer</th><th>Category</th><th>Cost (USD)</th><th>bps</th><th>Detail</th></tr></thead>
+          <tbody>
+            ${layers.map(l=>`
+              <tr ${l.total?'style="background:rgba(20,184,166,.04)"':''}>
+                <td>${l.label}</td>
+                <td>${l.badge?`<span class="layer-badge ${l.badge}">${l.badge.replace('l-','')}</span>`:''}</td>
+                <td style="font-family:'JetBrains Mono',monospace;color:${l.total?'var(--red)':l.cost>0?'var(--warn)':'var(--muted)'}">${l.cost>0||l.total?fmt(l.cost):'—'}</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted)">${l.bps}</td>
+                <td style="font-size:.67rem;color:var(--body)">${l.note}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Incoterms Analysis — ${inco}</span></div>
+      <div class="out-body">
+        <div class="inco-box">
+          <div class="inco-title">Incoterms 2020 · ${inco}</div>
+          <div class="inco-text"><strong style="color:var(--text)">Risk Transfer:</strong> ${incoData.risk}</div>
+          <div class="inco-text" style="margin-top:.4rem"><strong style="color:var(--text)">Payment Obligation Timing:</strong> ${incoData.timing}</div>
+          <div class="inco-text" style="margin-top:.4rem"><strong style="color:var(--text)">VAT/Customs Note:</strong> ${incoData.vatNote}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">VAT/GST Treatment — ${ctryNames[orig]} → ${ctryNames[dest]}</span></div>
+      <div class="out-body">
+        <div class="vat-box">
+          <div class="vat-title">${vatRule.treatment}</div>
+          <div class="vat-text">${vatRule.note}</div>
+        </div>
+        <p style="font-size:.65rem;color:var(--muted);margin-top:.75rem">⚠ Tax treatment is indicative only for standard B2B cross-border services. Always verify with a qualified tax advisor for your specific transaction type and classification.</p>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Cost Analysis Export</span><button class="copy-btn" onclick="copyM()">Copy</button></div>
+      <div class="out-body" style="padding:.75rem"><div class="memo-block">${memo}</div></div>
+    </div>
+  `;
+  window._memo = memo;
+}
+
+function copyM(){if(window._memo){navigator.clipboard.writeText(window._memo).then(()=>{const b=document.querySelector('.copy-btn');if(b){b.textContent='Copied ✓';setTimeout(()=>b.textContent='Copy',2000)}})}}
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+    'nav.hub': '← Cat-13 Hub',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.hub': '← Centro Cat-13',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+    'nav.hub': '← Centre Cat-13',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+    'nav.hub': '← مركز Cat-13',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.hub': '← Central Cat-13',
+  }, zh:{
+    'nav.alltools': '所有工具',
+    'nav.hub': '← Cat-13 中心',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+calcFees();
+</script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "cross-border-b2b-fee-calculator", "version": "1.0.0", "title": "Cross-Border B2B Fee Transparency Calculator", "description": "Deconstruct total landed cost per B2B invoice: FX spread, correspondent fees, VAT/GST treatment, Incoterms payment obligation timing, documentary credit costs, ERP remittance reconciliation cost. Client-side. Zero PII.", "category": "b2b-payments", "tags": ["Cross-Border B2B", "Landed Cost", "VAT / GST", "Incoterms 2020", "Zero PII", "Client-Side"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"invAmt": {"type": "string"}, "origCtry": {"type": "string"}, "destCtry": {"type": "string"}, "payMeth": {"type": "string"}, "fxSpread": {"type": "string"}, "corrFee": {"type": "string"}, "incoterm": {"type": "string"}, "docCredit": {"type": "string"}, "reconCost": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "cross_border_b2b_fee_calculator", "description": "Run Cross-Border B2B Fee Transparency Calculator. Deconstruct total landed cost per B2B invoice: FX spread, correspondent fees, VAT/GST treatment, Incoterms payment obligation timing, documentary credit costs, ERP remittance reconciliation cost. Clie", "inputSchema": {"type": "object", "properties": {"invAmt": {"type": "string"}, "origCtry": {"type": "string"}, "destCtry": {"type": "string"}, "payMeth": {"type": "string"}, "fxSpread": {"type": "string"}, "corrFee": {"type": "string"}, "incoterm": {"type": "string"}, "docCredit": {"type": "string"}, "reconCost": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/141-cross-border-b2b-fee-calculator.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,2203 @@
+<!-- [[PostOakLabs.com](http://PostOakLabs.com)]| MIT License  -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Real-Time Ops Dashboard Template | AINumbers.co</title>
+<meta name="description" content="Configurable mock real-time A2A payment ops dashboard. Monitor FedNow, RTP, ACH, SEPA Instant SLAs, latency, TPM, and failure rates. Client-side only, zero PII.">
+<meta name="keywords" content="A2A payments, ops dashboard, FedNow, RTP, ACH, SEPA, latency monitoring, SLA, payment operations, fintech tools">
+<meta name="robots" content="index, follow">
+<meta name="author" content="AINumbers.co">
+<link rel="canonical" href="https://ainumbers.co/tools/14-realtime-ops-dashboard.html">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Real-Time Ops Dashboard Template","url":"https://ainumbers.co/tools/14-realtime-ops-dashboard.html","description":"Configurable mock real-time A2A payment ops dashboard. Monitor FedNow, RTP, ACH, SEPA Instant SLAs, latency, TPM, and failure rates. Client-side only, zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<meta property="og:url" content="https://ainumbers.co/tools/14-realtime-ops-dashboard.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- Charts: inline SVG renderers (replaced Chart.js CDN per CONTRACT §0). enableAP2Btn() is invoked from the DOMContentLoaded boot handler. -->
+<style>
+/* ═══════════════════════════════════════════
+   POL DESIGN SYSTEM
+═══════════════════════════════════════════ */
+:root {
+  --bg:        #080E1A;
+  --bg-2:      #0D1627;
+  --bg-3:      #111E35;
+  --bg-4:      #162340;
+  --border:    #1E2F4A;
+  --border-2:  #263855;
+  --muted:     #3A5270;
+  --body:      #6888A8;
+  --text:      #A8C4DE;
+  --bright:    #D4E8F8;
+  --white:     #EEF6FD;
+  --teal:      #14B8A6;
+  --teal-dim:  rgba(20,184,166,.12);
+  --teal-glow: rgba(20,184,166,.06);
+  --teal-lt:   #2DD4BF;
+  --gold:      #D4A847;
+  --gold-dim:  rgba(212,168,71,.12);
+  --purple:    #9B72F5;
+  --purple-dim:rgba(155,114,245,.12);
+  --green:     #22C55E;
+  --green-dim: rgba(34,197,94,.12);
+  --red:       #EF4444;
+  --warn:      #F59E0B;
+  --radius:    6px;
+  --radius-lg: 10px;
+  --shadow:    0 4px 24px rgba(0,0,0,.4);
+  /* Legacy aliases */
+  --ink:       #080E1A;
+  --deep:      #0D1627;
+  --navy:      #111E35;
+  --panel:     #162340;
+  --edge:      #1E2F4A;
+  --rim:       #263855;
+  --accent:    #14B8A6;
+  --accent-lt: #2DD4BF;
+  --gold-lt:   #E8C06A;
+  --green-lt:  #22C55E;
+  --green-bg:  rgba(34,197,94,.08);
+  --red-lt:    #F87171;
+  --warn-bg:   rgba(245,158,11,.08);
+  --warn-lt:   #FCD34D;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Sora', sans-serif; font-weight: 300;
+  line-height: 1.7; font-size: 15px;
+  -webkit-font-smoothing: antialiased; overflow-x: hidden;
+}
+h1,h2,h3,h4 { font-family: 'DM Serif Display', serif; font-weight: 400; line-height: 1.15; }
+a { color: inherit; text-decoration: none; }
+.container { max-width: 1400px; margin: 0 auto; padding: 0 1.5rem; }
+
+/* ── LANG BAR ── */
+
+
+/* ── NAV ── */
+nav {
+  padding: 0 1.5rem; height: 52px;
+  border-bottom: 1px solid var(--edge);
+  background: rgba(8,14,26,.92);
+  position: sticky; top: 0; z-index: 300;
+  backdrop-filter: blur(8px);
+}
+.nav-inner {
+  max-width: 1400px; margin: 0 auto; height: 100%;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.nav-logo { font-family: 'DM Serif Display', serif; font-size: 1.05rem; color: var(--bright); letter-spacing: 0.02em; }
+.nav-logo span { color: var(--gold); }
+
+.nav-links a { font-family: 'JetBrains Mono', monospace; font-size: 0.58rem; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); transition: color 0.2s; }
+.nav-links a:hover { color: var(--accent-lt); }
+/* ── HERO / DASHBOARD HEADER ── */
+.dash-header {
+  background: var(--deep); border-bottom: 1px solid var(--edge);
+  padding: 1.25rem 1.5rem; position: sticky; top: 52px; z-index: 200;
+}
+.dash-header-inner {
+  max-width: 1400px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+}
+.dash-title-block { display: flex; align-items: center; gap: 1rem; }
+.dash-eyebrow {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.48rem;
+  letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent-lt);
+}
+.dash-title { font-family: 'DM Serif Display', serif; font-size: 1.3rem; color: var(--white); line-height: 1; }
+.live-pill {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.46rem;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--green-lt); border: 1px solid rgba(42,168,106,0.4);
+  background: rgba(26,122,74,0.1); padding: 0.25rem 0.6rem;
+}
+.live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green-lt); animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity:1; transform:scale(1); }
+  50%      { opacity:0.4; transform:scale(0.7); }
+}
+.paused-pill {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.46rem;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted); border: 1px solid var(--edge);
+  background: transparent; padding: 0.25rem 0.6rem;
+}
+.dash-controls { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.dash-clock {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+  color: var(--muted); letter-spacing: 0.08em;
+}
+
+/* ── BUTTONS ── */
+.btn-primary {
+  padding: 0.5rem 1.1rem; background: var(--accent);
+  color: var(--white); font-family: 'JetBrains Mono', monospace;
+  font-size: 0.54rem; letter-spacing: 0.14em; text-transform: uppercase;
+  border: 1px solid var(--accent); cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+.btn-primary:hover { background: var(--accent-lt); border-color: var(--accent-lt); }
+.btn-secondary {
+  padding: 0.45rem 0.9rem; background: transparent;
+  color: var(--text); font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem; letter-spacing: 0.12em; text-transform: uppercase;
+  border: 1px solid var(--edge); cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent-lt); }
+.btn-ghost {
+  padding: 0.4rem 0.75rem; background: transparent;
+  color: var(--muted); font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem; letter-spacing: 0.1em; text-transform: uppercase;
+  border: 1px solid var(--edge); cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+.btn-ghost:hover { color: var(--text); border-color: var(--rim); }
+.btn-warn {
+  padding: 0.45rem 0.9rem; background: rgba(184,120,32,0.1);
+  color: var(--warn-lt); font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem; letter-spacing: 0.12em; text-transform: uppercase;
+  border: 1px solid rgba(184,120,32,0.4); cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+.btn-warn:hover { background: rgba(184,120,32,0.2); }
+
+/* ── MOCK BANNER ── */
+.mock-banner {
+  background: rgba(192,144,64,0.08); border-bottom: 1px solid rgba(192,144,64,0.25);
+  padding: 0.45rem 1.5rem; text-align: center;
+}
+.mock-banner-inner {
+  max-width: 1400px; margin: 0 auto;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.5rem;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold);
+}
+
+/* ── MAIN DASHBOARD AREA ── */
+.dash-body { padding: 1.25rem 1.5rem 3rem; }
+.dash-body-inner { max-width: 1400px; margin: 0 auto; }
+
+/* ── ALERT BAR ── */
+.alert-bar { margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.alert-item {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.55rem 1rem; border: 1px solid; font-size: 0.76rem;
+  animation: slideIn 0.3s ease;
+}
+@keyframes slideIn {
+  from { opacity:0; transform:translateY(-6px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.alert-crit { background: var(--red-bg); border-color: rgba(138,32,32,0.5); color: var(--red-lt); }
+.alert-warn { background: var(--warn-bg); border-color: rgba(184,120,32,0.4); color: var(--warn-lt); }
+.alert-ok   { background: var(--green-bg); border-color: rgba(26,122,74,0.4); color: var(--green-lt); }
+.alert-icon { font-size: 0.9rem; flex-shrink: 0; }
+.alert-msg  { flex: 1; }
+.alert-time { font-family: 'JetBrains Mono', monospace; font-size: 0.5rem; letter-spacing: 0.1em; color: inherit; opacity: 0.6; white-space: nowrap; }
+.alert-dismiss { background: transparent; border: none; color: inherit; cursor: pointer; opacity: 0.5; font-size: 0.9rem; padding: 0; transition: opacity 0.2s; }
+.alert-dismiss:hover { opacity: 1; }
+
+/* ── METRIC GRID ── */
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px; margin-bottom: 1.25rem;
+  background: var(--edge); border: 1px solid var(--edge);
+}
+.metric-card {
+  background: var(--deep); padding: 1.25rem 1.4rem;
+  position: relative; overflow: hidden;
+  transition: background 0.3s;
+}
+.metric-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: var(--accent); transition: background 0.3s;
+}
+.metric-card.status-ok::before    { background: var(--green-lt); }
+.metric-card.status-warn::before  { background: var(--warn-lt); }
+.metric-card.status-crit::before  { background: var(--red-lt); }
+.metric-card.status-crit { background: rgba(28,10,10,0.7); }
+.metric-card.status-warn { background: rgba(30,20,8,0.5); }
+.metric-rail {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.48rem;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
+  margin-bottom: 0.3rem; display: flex; align-items: center; gap: 0.5rem;
+}
+.rail-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.metric-value {
+  font-family: 'DM Serif Display', serif; font-size: 2.2rem;
+  color: var(--white); line-height: 1; margin-bottom: 0.15rem;
+  transition: color 0.3s;
+}
+.metric-card.status-warn .metric-value { color: var(--warn-lt); }
+.metric-card.status-crit .metric-value { color: var(--red-lt); }
+.metric-unit { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; color: var(--muted); margin-left: 0.25rem; }
+.metric-label { font-size: 0.7rem; color: var(--body); margin-bottom: 0.6rem; }
+.metric-subgrid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;
+  border-top: 1px solid var(--edge); padding-top: 0.6rem; margin-top: 0.2rem;
+}
+.metric-sub-item { }
+.metric-sub-val {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.68rem;
+  color: var(--text); font-weight: 500;
+}
+.metric-sub-lbl {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.4rem;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+}
+.status-badge {
+  position: absolute; top: 1rem; right: 1rem;
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.4rem;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 0.15rem 0.45rem; border: 1px solid;
+}
+.sb-ok   { color: var(--green-lt); border-color: rgba(42,168,106,0.4); background: rgba(26,122,74,0.1); }
+.sb-warn { color: var(--warn-lt);  border-color: rgba(184,120,32,0.4); background: rgba(184,120,32,0.1); }
+.sb-crit { color: var(--red-lt);   border-color: rgba(138,32,32,0.5); background: rgba(138,32,32,0.1); }
+.sb-idle { color: var(--muted);    border-color: var(--edge); }
+
+/* ── SUMMARY ROW ── */
+.summary-row {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 1px; margin-bottom: 1.25rem;
+  background: var(--edge); border: 1px solid var(--edge);
+  border-top: 2px solid var(--gold);
+}
+.summary-cell { background: var(--navy); padding: 0.85rem 1.1rem; text-align: center; }
+.summary-num { font-family: 'DM Serif Display', serif; font-size: 1.6rem; color: var(--white); line-height: 1; margin-bottom: 0.15rem; }
+.summary-num.ok   { color: var(--green-lt); }
+.summary-num.warn { color: var(--warn-lt); }
+.summary-num.crit { color: var(--red-lt); }
+.summary-num.gold { color: var(--gold-lt); }
+.summary-lbl { font-family: 'JetBrains Mono', monospace; font-size: 0.42rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+
+/* ── CHARTS GRID ── */
+.charts-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem;
+}
+.chart-panel { background: var(--deep); border: 1px solid var(--edge); }
+.chart-header {
+  padding: 0.8rem 1.1rem; border-bottom: 1px solid var(--edge);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.chart-title {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.5rem;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold);
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.chart-legend { display: flex; gap: 0.75rem; align-items: center; }
+.chart-legend-item {
+  display: flex; align-items: center; gap: 0.3rem;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.4rem;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+}
+.legend-swatch { width: 10px; height: 2px; }
+.chart-body { padding: 1rem; position: relative; height: 200px; }
+.svg-chart { position: absolute; top: 1rem; left: 1rem; right: 1rem; bottom: 1rem; font-family: 'JetBrains Mono', monospace; }
+.svg-chart svg { display: block; width: 100%; height: 100%; }
+
+/* ── FULL-WIDTH CHART ── */
+.chart-full { background: var(--deep); border: 1px solid var(--edge); margin-bottom: 1.25rem; }
+.chart-full .chart-body { height: 180px; }
+
+/* ── TRANSACTION LOG ── */
+.txlog-panel { background: var(--deep); border: 1px solid var(--edge); margin-bottom: 1.25rem; }
+.txlog-header {
+  padding: 0.8rem 1.1rem; border-bottom: 1px solid var(--edge);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.txlog-title {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.5rem;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold);
+}
+.txlog-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+.txlog-table th {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.42rem;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold);
+  background: var(--panel); padding: 0.55rem 0.9rem; text-align: left;
+  border-bottom: 1px solid var(--edge); white-space: nowrap;
+}
+.txlog-table td {
+  padding: 0.45rem 0.9rem; border-bottom: 1px solid rgba(30,52,84,0.4);
+  color: var(--text); vertical-align: middle; white-space: nowrap;
+}
+.txlog-table tr:last-child td { border-bottom: none; }
+.txlog-table tr:hover td { background: rgba(42,127,192,0.04); }
+.tx-new td { animation: fadeRow 0.5s ease; }
+@keyframes fadeRow {
+  from { background: rgba(42,127,192,0.12); }
+  to   { background: transparent; }
+}
+.mono { font-family: 'JetBrains Mono', monospace; font-size: 0.64rem; color: var(--bright); }
+.tx-id { font-family: 'JetBrains Mono', monospace; font-size: 0.58rem; color: var(--muted); }
+
+/* ── STATUS CHIPS ── */
+.chip {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.38rem;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 0.15rem 0.4rem; border: 1px solid;
+}
+.chip-ok   { color: var(--green-lt); border-color: rgba(42,168,106,0.4); background: rgba(26,122,74,0.08); }
+.chip-fail { color: var(--red-lt);   border-color: rgba(138,32,32,0.5); background: rgba(138,32,32,0.08); }
+.chip-pend { color: var(--warn-lt);  border-color: rgba(184,120,32,0.4); background: rgba(184,120,32,0.08); }
+.chip-ret  { color: var(--accent-lt);border-color: rgba(42,127,192,0.4); background: rgba(42,127,192,0.08); }
+
+/* ── RAIL COLOR DOTS ── */
+.rd-fednow { background: #4a9fd8; }
+.rd-rtp    { background: #2aa86a; }
+.rd-ach    { background: #d8b060; }
+.rd-sepa   { background: #c04040; }
+
+/* ── THRESHOLD MODAL ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(5,12,21,0.85); z-index: 500;
+  align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: var(--navy); border: 1px solid var(--rim);
+  width: 100%; max-width: 560px; margin: 1rem;
+  border-top: 2px solid var(--gold);
+}
+.modal-header {
+  padding: 1.1rem 1.4rem; border-bottom: 1px solid var(--edge);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-title { font-family: 'DM Serif Display', serif; font-size: 1.15rem; color: var(--white); }
+.modal-close {
+  background: transparent; border: none; color: var(--muted);
+  font-size: 1.2rem; cursor: pointer; transition: color 0.2s;
+}
+.modal-close:hover { color: var(--white); }
+.modal-body { padding: 1.4rem; display: flex; flex-direction: column; gap: 1.1rem; }
+.modal-.modal-section-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.46rem;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold);
+  margin-bottom: 0.75rem; display: block;
+}
+.threshold-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; }
+.input-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.44rem;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted); display: block; margin-bottom: 0.35rem;
+}
+.input-field {
+  width: 100%; background: var(--deep); border: 1px solid var(--edge);
+  color: var(--white); font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;
+  padding: 0.5rem 0.7rem; outline: none; transition: border-color 0.2s;
+}
+.input-field:focus { border-color: var(--accent); }
+select.input-field { cursor: pointer; -webkit-appearance: none; }
+.rail-group { background: var(--deep); border: 1px solid var(--edge); padding: 1rem; }
+.rail-group-name {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.46rem;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-lt);
+  margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;
+}
+
+/* ── COLLAPSIBLES ── */
+.collapsible-section { border: 1px solid var(--edge); margin-bottom: 1rem; }
+.collapsible-trigger {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 0.85rem 1.1rem; background: var(--panel); cursor: pointer;
+  border: none; color: var(--text); font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem; letter-spacing: 0.16em; text-transform: uppercase;
+  transition: background 0.2s;
+}
+.collapsible-trigger:hover { background: var(--edge); }
+.collapsible-arrow { transition: transform 0.25s; font-size: 0.7rem; color: var(--muted); }
+.collapsible-trigger.open .collapsible-arrow { transform: rotate(180deg); }
+.collapsible-body {
+  display: none; padding: 1.25rem 1.1rem;
+  background: var(--deep); border-top: 1px solid var(--edge);
+  font-size: 0.8rem; color: var(--body); line-height: 1.8;
+}
+.collapsible-body.open { display: block; }
+.collapsible-body p { margin-bottom: 0.85rem; }
+.collapsible-body p:last-child { margin-bottom: 0; }
+.collapsible-body ul { padding-left: 1.2rem; margin-bottom: 0.85rem; }
+.collapsible-body li { margin-bottom: 0.35rem; }
+.collapsible-body strong { color: var(--bright); font-weight: 400; }
+
+/* ── PRIVACY NOTICE ── */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.privacy-icon { font-size: 0.9rem; margin-top: 0.05rem; flex-shrink: 0; }
+
+/* ── FOOTER ── */
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--navy); }
+::-webkit-scrollbar-thumb { background: var(--rim); }
+
+/* ── REFRESH SELECTOR ── */
+.refresh-select {
+  background: var(--navy); border: 1px solid var(--edge);
+  color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 0.52rem;
+  padding: 0.35rem 0.6rem; outline: none; cursor: pointer; -webkit-appearance: none;
+}
+.refresh-select:focus { border-color: var(--accent); }
+
+/* ── OVERFLOW HIDDEN TABLE WRAP ── */
+.table-wrap { overflow-x: auto; max-height: 280px; overflow-y: auto; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 1100px) {
+  .metric-grid { grid-template-columns: repeat(2, 1fr); }
+  .summary-row { grid-template-columns: repeat(3, 1fr); }
+  .charts-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .metric-grid { grid-template-columns: 1fr; }
+  .summary-row { grid-template-columns: 1fr 1fr; }
+  
+    .dash-header-inner { flex-direction: column; align-items: flex-start; }
+  .threshold-grid { grid-template-columns: 1fr; }
+}
+
+/* ── NAV STANDARD ── */
+.nav-active { color: var(--accent-lt) !important; }
+/* ── FOOTER STANDARD ── */
+.lang-bar {
+  background: var(--deep);
+  border-bottom: 1px solid var(--edge);
+  padding: 0 2rem;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.lang-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+.lang-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+.lang-btn:hover {
+  color: var(--body);
+  border-color: var(--edge);
+}
+.lang-btn.active {
+  color: var(--teal-lt);
+  border-bottom: 1px solid var(--teal);
+}
+
+/* ── RTL SUPPORT ── */
+[dir="rtl"] .nav-inner,[dir="rtl"] 
+[dir="rtl"] .lang-inner { flex-direction: row-reverse; justify-content: flex-start; }
+[dir="rtl"] label,[dir="rtl"] .label,[dir="rtl"] .input-label-text,
+[dir="rtl"] .input-label-hint,[dir="rtl"] .section-head,[dir="rtl"] .panel-label,
+[dir="rtl"] .form-label,[dir="rtl"] .field-label { text-align:right;direction:rtl; }
+[dir="rtl"] .stat-cell,[dir="rtl"] .stat-label,[dir="rtl"] .stat-sub,
+[dir="rtl"] .kpi-label { text-align:right; }
+[dir="rtl"] .config-panel,[dir="rtl"] .left-panel { order:2; }
+[dir="rtl"] .output-panel,[dir="rtl"] .results-panel,[dir="rtl"] .right-panel { order:1; }
+[dir="rtl"] .tool-grid,[dir="rtl"] .split-grid { direction:rtl; }
+[dir="rtl"] .hero,[dir="rtl"] .hero-eyebrow { direction:rtl;text-align:right; }
+[dir="rtl"] .hero-eyebrow::before { margin-left:0.5rem;margin-right:0; }
+[dir="rtl"] .hero-meta { justify-content:flex-end; }
+[dir="rtl"] .collapsible-trigger { text-align:right; }
+
+
+/* ── AINUMBERS TOKENS ── */
+/* (aliases above handle legacy var names) */
+
+/* ── BACKGROUND GRID ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(20,184,166,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20,184,166,.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── LOGO ── */
+.logo { display:flex; align-items:center; gap:10px; flex-shrink:0; text-decoration:none; }
+.logo-mark-grid { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:32px; height:32px; }
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai { color:var(--teal); }
+.logo-co { color:var(--muted); font-size:.8rem; }
+
+@media(max-width:600px){}
+
+/* ── NAV CTA ── */
+/* ── FOOTER ── */
+@media(max-width:600px){   }
+
+/* ── Z-INDEX FIX ── */
+/* ── AP2 Export Button ────────────────────────────────── */
+#ap2ExportBtn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .5rem; letter-spacing: .12em; text-transform: uppercase;
+  padding: .4rem 1rem; border-radius: 4px;
+  cursor: not-allowed; border: 1px solid var(--border, #1E2F4A);
+  background: transparent; color: var(--muted, #3A5270);
+  opacity: .28; display: inline-flex; flex-direction: column;
+  align-items: center; gap: 2px;
+  transition: opacity .2s, border-color .2s, color .2s;
+  white-space: nowrap; line-height: 1.3;
+}
+#ap2ExportBtn .ap2-sub {
+  font-size: .44rem; letter-spacing: .08em;
+  opacity: .65; display: block; margin-top: 1px;
+}
+#ap2ExportBtn.ready { opacity: 1; cursor: pointer; border-color: var(--border-2, #263855); }
+#ap2ExportBtn.ready:hover {
+  border-color: var(--teal, #14B8A6);
+  color: var(--teal-lt, #2DD4BF);
+  background: var(--teal-dim, rgba(20,184,166,.12));
+}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-privacy::before{content:'\B7';color:var(--green)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+</style>
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@ainumbers">
+<meta name="twitter:title" content="Real-Time Ops Dashboard Template | AINumbers.co">
+<meta name="twitter:description" content="Configurable mock A2A payment ops dashboard. FedNow, RTP, ACH, SEPA Instant SLAs. Client-side only, zero PII.">
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- LANG BAR -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark-grid">
+        <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/>
+        </svg>
+      </div>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/payment-ops-monitoring-hub.html">Payment Ops Hub</a><span class="nav-sep">/</span><span>T-14</span></div>
+
+    <a href="../guides/payment-ops-monitoring-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<!-- MOCK DATA BANNER -->
+<div class="mock-banner">
+  <div class="mock-banner-inner">⬡ Mock Data Mode — All figures are synthetically generated in-browser. No real payment data. Zero PII transmitted.</div>
+</div>
+
+<!-- DASHBOARD HEADER -->
+<div class="dash-header">
+  <div class="dash-header-inner">
+    <div class="dash-title-block">
+      <div>
+        <div class="dash-eyebrow hero-eyebrow"><span data-i18n="f14.hero.eyebrow">Tool 14 · Payment Operations</span></div>
+        <h1 class="dash-title tool-title"><span data-i18n="f14.hero.title">Real-Time Ops Dashboard</span></h1>
+        <p class="hero-desc" style="font-size:0.62rem;line-height:1.4;color:var(--muted,#9aa3ad);margin:0.35rem 0 0;max-width:64ch;"><span data-i18n="f14.hero.sub">Configurable mock A2A payment ops dashboard with live SLA tracking for FedNow, RTP, ACH, and SEPA Instant. Set alert thresholds and simulate real-time transaction flows. Client-side only.</span></p>
+        <div class="hero-meta" style="margin-top:0.4rem;display:flex;gap:0.5rem;flex-wrap:wrap;"><span class="hero-badge badge-muted" style="font-family:'JetBrains Mono',monospace;font-size:0.48rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent-lt);"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-13</span></span></div>
+      </div>
+      <div id="live-pill" class="live-pill"><span class="live-dot"></span>Live · Mock</div>
+    </div>
+    <div class="dash-controls">
+      <div class="dash-clock" id="dash-clock">--:--:--</div>
+      <select class="refresh-select" id="refresh-select" onchange="updateRefreshInterval()">
+        <option value="2000">2s refresh</option>
+        <option value="5000" selected>5s refresh</option>
+        <option value="10000">10s refresh</option>
+        <option value="30000">30s refresh</option>
+      </select>
+      <button class="btn-secondary" onclick="togglePause()" id="pause-btn"><span data-i18n="f14.btn.pause">⏸ Pause</span></button>
+      <button class="btn-warn" onclick="openModal()"><span data-i18n="f14.btn.thresholds">⚙ Thresholds</span></button>
+      <button class="btn-secondary" onclick="exportCSV()"><span data-i18n="btn.exportcsv">↓ Export CSV</span></button>
+  <div class="results-export-row"><button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the analysis above to generate a Policy Mandate">{} Export Policy Mandate<span class="ap2-sub">API · audit trail</span></button></div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN BODY -->
+<div class="dash-body">
+  <div class="dash-body-inner">
+
+    <!-- ALERT BAR -->
+    <div class="alert-bar" id="alert-bar"></div>
+
+    <!-- SUMMARY ROW -->
+    <div class="summary-row">
+      <div class="summary-cell">
+        <div class="summary-num gold" id="sum-tpm">—</div>
+        <div class="summary-lbl">Total TPM (All Rails)</div>
+      </div>
+      <div class="summary-cell">
+        <div class="summary-num ok" id="sum-success">—</div>
+        <div class="summary-lbl">Txns Successful (1h)</div>
+      </div>
+      <div class="summary-cell">
+        <div class="summary-num crit" id="sum-fail">—</div>
+        <div class="summary-lbl">Txns Failed (1h)</div>
+      </div>
+      <div class="summary-cell">
+        <div class="summary-num" id="sum-latency">—</div>
+        <div class="summary-lbl">Avg Latency (ms)</div>
+      </div>
+      <div class="summary-cell">
+        <div class="summary-num" id="sum-alerts">0</div>
+        <div class="summary-lbl"><span data-i18n="f14.lbl.alerts">Active Alerts</span></div>
+      </div>
+    </div>
+
+    <!-- METRIC CARDS -->
+    <div class="metric-grid" id="metric-grid"></div>
+
+    <!-- CHARTS ROW -->
+    <div class="charts-grid">
+      <!-- Latency Chart -->
+      <div class="chart-panel">
+        <div class="chart-header">
+          <div class="chart-title">↑ Avg Latency — Rolling 60min</div>
+          <div class="chart-legend" id="latency-legend"></div>
+        </div>
+        <div class="chart-body"><div id="latency-chart" class="svg-chart" role="img" aria-label="Rolling latency (ms) by payment rail"></div></div>
+      </div>
+      <!-- TPM Chart -->
+      <div class="chart-panel">
+        <div class="chart-header">
+          <div class="chart-title">↑ Transactions/min — Rolling 60min</div>
+          <div class="chart-legend" id="tpm-legend"></div>
+        </div>
+        <div class="chart-body"><div id="tpm-chart" class="svg-chart" role="img" aria-label="Rolling transactions per minute by payment rail"></div></div>
+      </div>
+    </div>
+
+    <!-- FAILURE RATE CHART -->
+    <div class="chart-full">
+      <div class="chart-header">
+        <div class="chart-title">↑ Failure Rate % — Rolling 60min</div>
+        <div class="chart-legend" id="fail-legend"></div>
+      </div>
+      <div class="chart-body"><div id="fail-chart" class="svg-chart" role="img" aria-label="Rolling failure rate (%) by payment rail"></div></div>
+    </div>
+
+    <!-- TRANSACTION LOG -->
+    <div class="txlog-panel">
+      <div class="txlog-header">
+        <div class="txlog-title">Recent Transactions — Live Feed</div>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:0.46rem;letter-spacing:0.1em;color:var(--muted);" id="log-count">0 events</span>
+          <button class="btn-ghost" onclick="clearLog()"><span data-i18n="btn.clear">↺ Clear</span></button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="txlog-table">
+          <th scope="col"ead>
+            <tr>
+              <th scope="col">Time</th>
+              <th scope="col"><span data-i18n="lbl.rail">Rail</span></th>
+              <th scope="col">Txn ID</th>
+              <th scope="col">Amount</th>
+              <th scope="col">Latency</th>
+              <th scope="col"><span data-i18n="lbl.status">Status</span></th>
+              <th scope="col">Return Code</th>
+            </tr>
+          </thead>
+          <tbody id="tx-log-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- COLLAPSIBLES -->
+    <div class="pii-notice">
+  <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+</div>
+
+    <div class="collapsible-section">
+      <button class="collapsible-trigger" onclick="toggleCollapsible(this,'about-body')" role="button" tabindex="0" aria-expanded="false" aria-controls="about-body" onkeydown="if(event.key==='Enter'||event.key===' '){this.click();event.preventDefault();}">
+        About This Tool <span class="collapsible-arrow">▾</span>
+      </button>
+      <div class="collapsible-body" id="about-body">
+        <p><strong><span data-i18n="f14.hero.title">Real-Time Ops Dashboard Template</span></strong> simulates a production-grade A2A payment operations monitoring interface using entirely synthetic, in-browser generated data.</p>
+        <ul>
+          <li><strong>Rails monitored:</strong> FedNow Instant Credit, RTP (The Clearing House), ACH (Next-Day &amp; Same-Day), and SEPA Instant (SCT Inst).</li>
+          <li><strong>Metrics generated:</strong> Transactions per minute (TPM), average latency (ms), p95 latency, and failure rate (%), each with configurable alert thresholds.</li>
+          <li><strong>Alert logic:</strong> Rule-based JS conditionals — if <code>failure_rate &gt; threshold</code>, the card and alert bar turn red. Warnings fire at 50% of the critical threshold.</li>
+          <li><strong>Rolling charts:</strong> 60-minute sliding window maintained in memory using arrays capped at 60 data points. Rendered as inline SVG (zero external dependencies).</li>
+          <li><strong><span data-i18n="about.export">Export:</span></strong> "Export CSV" downloads the last hour of mock data for all rails as a formatted CSV file.</li>
+        </ul>
+        <p>This template is designed for fintech teams to prototype and demo ops dashboards without exposing any production data. Adapt the mock data generators in the JavaScript to connect to real APIs by replacing the <code>generateTick()</code> function with live data fetches.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- THRESHOLD CONFIG MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">Alert Threshold Configuration</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body">
+      <!-- dynamically rendered -->
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="resetThresholds()">↺ Reset Defaults</button>
+      <button class="btn-primary" onclick="saveThresholds()"><span data-i18n="f14.btn.savethresh">Save Thresholds</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+var MANIFEST = {
+  tool_id: 'realtime-ops-dashboard',
+  version: '1.0.0',
+  title: 'Real-Time Ops Dashboard Template',
+  description: 'Configurable mock A2A payment operations dashboard with live SLA tracking for FedNow, RTP, ACH, and SEPA Instant. Simulates TPM, latency, and failure rate metrics with configurable alert thresholds. Exports threshold configuration as a Policy Mandate.',
+  category: 'ops-monitoring',
+  tags: ['ops', 'dashboard', 'SLA', 'FedNow', 'RTP', 'ACH', 'SEPA', 'monitoring', 'thresholds'],
+  audience: ['ops', 'engineer', 'SRE'],
+  input_schema: {
+    type: 'object',
+    properties: {
+      failRate_warn:    { type: 'number', description: 'Failure rate warn threshold %' },
+      failRate_crit:    { type: 'number', description: 'Failure rate critical threshold %' },
+      latency_warn_ms:  { type: 'number', description: 'Latency warn threshold ms' },
+      latency_crit_ms:  { type: 'number', description: 'Latency critical threshold ms' },
+      rail:             { type: 'string', enum: ['FedNow','RTP','ACH','SEPA_Instant','ALL'] }
+    }
+  },
+  output_schema: {
+    type: 'object',
+    properties: {
+      current_tpm:         { type: 'number' },
+      current_latency_ms:  { type: 'number' },
+      current_fail_rate:   { type: 'number' },
+      alert_status:        { type: 'string', enum: ['OK','WARN','CRIT'] },
+      threshold_config:    { type: 'object' }
+    }
+  },
+  mcp_tool_definition: {
+    name: 'export_ops_threshold_config',
+    description: 'Export the current ops dashboard alert threshold configuration as a Policy Mandate. Returns current metric values and the configured warn/critical thresholds for TPM, latency, and failure rate. Use when an agent needs to capture or apply ops monitoring configuration.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        failRate_warn:   { type: 'number' },
+        failRate_crit:   { type: 'number' },
+        latency_warn_ms: { type: 'number' },
+        latency_crit_ms: { type: 'number' }
+      }
+    }
+  },
+  execution: {
+    type: 'browser-javascript',
+    entry: 'tools/14-realtime-ops-dashboard.html',
+    function_name: 'exportAP2',
+    timeout_ms: 3000
+  },
+  ap2_export: true
+};
+
+/* ═══════════════════════════════════════════════════════
+   AP2 SCHEMA HELPER
+═══════════════════════════════════════════════════════ */
+const AP2Schema = {
+  version: '1.0',
+  type: '@ainumbers.co/mandate-v1',
+  build(toolId, toolSlug, payload, inputs) {
+    return {
+      '@type':      AP2Schema.type,
+      '@version':   AP2Schema.version,
+      '@generated': new Date().toISOString(),
+      tool_id:      toolId,
+      tool_slug:    toolSlug,
+      mandate_id:   (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2)),
+      issued_by:    'ainumbers.co',
+      ap2_export:   true,
+      payload,
+      source_tool_inputs: inputs,
+      last_reviewed: '2025-01-15'
+    };
+  },
+  download(manifest, filename) {
+    const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename || `ainumbers-${manifest.mandate_id}.policy.json`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(a.href);
+  }
+,
+  validate: function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+}};
+
+function enableAP2Btn() {
+  const btn = document.getElementById('ap2ExportBtn');
+  if (!btn) return;
+  btn.classList.add('ready');
+  btn.removeAttribute('disabled');
+  btn.title = 'For API integration · audit trail';
+}
+
+function showAP2Toast() {
+  let el = document.getElementById('ap2ToastG4');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'ap2ToastG4';
+    el.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3,#111E35);border:1px solid var(--border,#1E2F4A);border-left:3px solid var(--green,#22C55E);padding:.7rem 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.58rem;color:var(--green,#22C55E);z-index:9999;display:flex;align-items:center;gap:.5rem;border-radius:4px;box-shadow:0 4px 24px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s;pointer-events:none';
+    el.innerHTML = '<strong>{}</strong>&nbsp;Policy Mandate JSON downloaded';
+    document.body.appendChild(el);
+  }
+  el.style.opacity = '1'; el.style.transform = 'translateY(0)';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateY(8px)'; }, 2200);
+}
+
+
+/* ═══════════════════════════════════════════
+   CONFIGURATION & STATE
+═══════════════════════════════════════════ */
+const RAILS = [
+  { id:'fednow', name:'FedNow',      sub:'US · Instant Credit',     color:'#4a9fd8', dotCls:'rd-fednow',
+    baseTpm:42,  baseLatency:320,  baseFailRate:0.4,  p95Mult:2.1 },
+  { id:'rtp',    name:'RTP',         sub:'US · Real-Time Payments',  color:'#2aa86a', dotCls:'rd-rtp',
+    baseTpm:28,  baseLatency:480,  baseFailRate:0.6,  p95Mult:2.4 },
+  { id:'ach',    name:'ACH',         sub:'US · Same-Day / Next-Day', color:'#d8b060', dotCls:'rd-ach',
+    baseTpm:185, baseLatency:1800, baseFailRate:1.2,  p95Mult:1.6 },
+  { id:'sepa',   name:'SEPA Instant',sub:'EU · SCT Inst',            color:'#c04040', dotCls:'rd-sepa',
+    baseTpm:67,  baseLatency:720,  baseFailRate:0.8,  p95Mult:2.2 },
+];
+
+/* Default thresholds: { failRate_warn, failRate_crit, latency_warn_ms, latency_crit_ms } */
+let THRESHOLDS = {
+  fednow: { failRate_warn:1.0, failRate_crit:2.0, latency_warn:600,  latency_crit:1000 },
+  rtp:    { failRate_warn:1.5, failRate_crit:3.0, latency_warn:800,  latency_crit:1500 },
+  ach:    { failRate_warn:2.5, failRate_crit:5.0, latency_warn:3000, latency_crit:6000 },
+  sepa:   { failRate_warn:1.5, failRate_crit:3.0, latency_warn:1200, latency_crit:2000 },
+};
+const DEFAULTS = JSON.parse(JSON.stringify(THRESHOLDS));
+
+/* Rolling data store — 60 data points each */
+const HISTORY_LEN = 60;
+let history = {};
+RAILS.forEach(r => {
+  history[r.id] = {
+    tpm: [], latency: [], p95: [], failRate: [],
+    totalSuccess: 0, totalFail: 0,
+  };
+});
+
+let txLog = [];        // recent transactions
+let alerts = [];       // active alert objects
+let isPaused = false;
+let refreshInterval = 5000;
+let intervalHandle = null;
+let tickCount = 0;
+let charts = {};
+
+/* ═══════════════════════════════════════════
+   MOCK DATA GENERATOR
+═══════════════════════════════════════════ */
+function rand(min, max) { return min + Math.random() * (max - min); }
+function randInt(min, max) { return Math.floor(rand(min, max+1)); }
+function jitter(base, pct) { return base * (1 + rand(-pct, pct)); }
+
+/* Occasional "incident" spikes */
+function isIncident(railId) {
+  // Each rail has ~5% chance of a mini-incident on any tick
+  return Math.random() < 0.05;
+}
+
+function generateTick() {
+  tickCount++;
+  const now = new Date();
+  let totalTpm = 0, totalLatency = 0, totalSuccess = 0, totalFail = 0;
+
+  RAILS.forEach(r => {
+    const incident = isIncident(r.id);
+    const tpm       = Math.round(jitter(r.baseTpm, 0.18) * (incident ? 0.6 : 1));
+    const latency   = Math.round(jitter(r.baseLatency, 0.22) * (incident ? 3.2 : 1));
+    const failRate  = parseFloat((jitter(r.baseFailRate, 0.35) * (incident ? 4.5 : 1)).toFixed(2));
+    const p95       = Math.round(latency * r.p95Mult * (incident ? 1.4 : 1));
+
+    const h = history[r.id];
+    h.tpm.push(tpm);       if (h.tpm.length > HISTORY_LEN)      h.tpm.shift();
+    h.latency.push(latency);if (h.latency.length > HISTORY_LEN) h.latency.shift();
+    h.p95.push(p95);       if (h.p95.length > HISTORY_LEN)      h.p95.shift();
+    h.failRate.push(failRate);if (h.failRate.length > HISTORY_LEN) h.failRate.shift();
+
+    const successThisTick = Math.round(tpm * (1 - failRate / 100));
+    const failThisTick    = tpm - successThisTick;
+    h.totalSuccess += successThisTick;
+    h.totalFail    += failThisTick;
+
+    totalTpm     += tpm;
+    totalLatency += latency;
+    totalSuccess += h.totalSuccess;
+    totalFail    += h.totalFail;
+
+    // Generate mock transactions for log
+    const numTx = Math.min(randInt(0, 3), 3);
+    for (let i = 0; i < numTx; i++) {
+      const isFail = Math.random() < (failRate / 100);
+      const isPend = !isFail && Math.random() < 0.05;
+      const isRet  = isFail && Math.random() < 0.4;
+      txLog.unshift({
+        time:       now.toLocaleTimeString('en-US',{hour12:false}),
+        rail:       r.id,
+        railName:   r.name,
+        railColor:  r.color,
+        dotCls:     r.dotCls,
+        txId:       genTxId(r.id),
+        amount:     formatAmt(rand(10, 250000)),
+        latency:    Math.round(jitter(latency, 0.3)),
+        status:     isFail ? 'failed' : isPend ? 'pending' : isRet ? 'returned' : 'settled',
+        returnCode: (isFail || isRet) ? pickReturnCode(r.id) : '—',
+        incident,
+      });
+    }
+    if (txLog.length > 200) txLog = txLog.slice(0, 200);
+
+    // Check thresholds & generate alerts
+    checkThresholds(r, latency, failRate, incident);
+  });
+
+  updateSummary(totalTpm, totalSuccess, totalFail, Math.round(totalLatency / RAILS.length));
+  updateMetricCards();
+  updateCharts();
+  updateTxLog();
+  updateAlertBar();
+  updateClock(now);
+}
+
+function genTxId(rail) {
+  const prefixes = { fednow:'FN', rtp:'RT', ach:'AC', sepa:'SC' };
+  const p = prefixes[rail] || 'TX';
+  return p + Math.random().toString(36).substring(2,10).toUpperCase();
+}
+
+function formatAmt(n) {
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+}
+
+const R_CODES = {
+  fednow: ['RJCT/AC03','RJCT/AC01','RJCT/AM04','RJCT/NARR','RJCT/MS03'],
+  rtp:    ['RCNP','RACR','RGAR','RIAM','ROPS'],
+  ach:    ['R01','R02','R03','R04','R07','R10','R16','R29'],
+  sepa:   ['AC01','AM04','MS03','NARR','AG01','FF01'],
+};
+function pickReturnCode(rail) {
+  const codes = R_CODES[rail] || ['ERR'];
+  return codes[randInt(0, codes.length - 1)];
+}
+
+/* ═══════════════════════════════════════════
+   THRESHOLD CHECKING / ALERTS
+═══════════════════════════════════════════ */
+function checkThresholds(rail, latency, failRate, incident) {
+  const t = THRESHOLDS[rail.id];
+
+  // Fail rate alerts
+  if (failRate >= t.failRate_crit) {
+    pushAlert('crit', rail, `Failure rate ${failRate.toFixed(2)}% exceeds critical threshold (${t.failRate_crit}%)`, 'fail_rate');
+  } else if (failRate >= t.failRate_warn) {
+    pushAlert('warn', rail, `Failure rate ${failRate.toFixed(2)}% exceeds warning threshold (${t.failRate_warn}%)`, 'fail_warn');
+  }
+
+  // Latency alerts
+  if (latency >= t.latency_crit) {
+    pushAlert('crit', rail, `Avg latency ${latency}ms exceeds critical threshold (${t.latency_crit}ms)`, 'lat_crit');
+  } else if (latency >= t.latency_warn) {
+    pushAlert('warn', rail, `Avg latency ${latency}ms exceeds warning threshold (${t.latency_warn}ms)`, 'lat_warn');
+  }
+}
+
+function pushAlert(sev, rail, msg, key) {
+  // Deduplicate: only one alert per rail+key at a time
+  const existing = alerts.find(a => a.rail === rail.id && a.key === key);
+  if (existing) {
+    existing.time = new Date().toLocaleTimeString('en-US',{hour12:false});
+    existing.count = (existing.count || 1) + 1;
+    return;
+  }
+  alerts.unshift({
+    id:   Date.now() + Math.random(),
+    sev, rail: rail.id, railName: rail.name,
+    msg, key,
+    time: new Date().toLocaleTimeString('en-US',{hour12:false}),
+    count: 1,
+  });
+  if (alerts.length > 12) alerts = alerts.slice(0, 12);
+}
+
+function dismissAlert(id) {
+  alerts = alerts.filter(a => a.id !== id);
+  updateAlertBar();
+  updateSummaryAlertCount();
+}
+
+/* ═══════════════════════════════════════════
+   UI UPDATES
+═══════════════════════════════════════════ */
+function updateClock(now) {
+  document.getElementById('dash-clock').textContent = now.toLocaleTimeString('en-US',{hour12:false});
+}
+
+function updateSummary(tpm, success, fail, lat) {
+  document.getElementById('sum-tpm').textContent     = tpm.toLocaleString();
+  document.getElementById('sum-success').textContent = success.toLocaleString();
+  document.getElementById('sum-fail').textContent    = fail.toLocaleString();
+  document.getElementById('sum-latency').textContent = lat.toLocaleString() + 'ms';
+  updateSummaryAlertCount();
+}
+
+function updateSummaryAlertCount() {
+  document.getElementById('sum-alerts').textContent = alerts.length;
+  const el = document.getElementById('sum-alerts');
+  el.className = 'summary-num ' + (alerts.some(a=>a.sev==='crit') ? 'crit' : alerts.length > 0 ? 'warn' : 'ok');
+}
+
+function updateMetricCards() {
+  const grid = document.getElementById('metric-grid');
+  grid.innerHTML = RAILS.map(r => {
+    const h = history[r.id];
+    if (!h.tpm.length) return '';
+    const tpm      = h.tpm[h.tpm.length-1];
+    const lat      = h.latency[h.latency.length-1];
+    const p95      = h.p95[h.p95.length-1];
+    const failRate = h.failRate[h.failRate.length-1];
+    const t = THRESHOLDS[r.id];
+
+    let statusCls = 'status-ok', sbCls = 'sb-ok', sbLabel = '● Nominal';
+    if (failRate >= t.failRate_crit || lat >= t.latency_crit) {
+      statusCls = 'status-crit'; sbCls = 'sb-crit'; sbLabel = '✕ Critical';
+    } else if (failRate >= t.failRate_warn || lat >= t.latency_warn) {
+      statusCls = 'status-warn'; sbCls = 'sb-warn'; sbLabel = '⚠ Warning';
+    }
+
+    // Avg tpm over history
+    const avgTpm = Math.round(h.tpm.reduce((a,b)=>a+b,0) / h.tpm.length);
+    const avgLat = Math.round(h.latency.reduce((a,b)=>a+b,0) / h.latency.length);
+
+    return `
+    <div class="metric-card ${statusCls}">
+      <div class="status-badge ${sbCls}">${sbLabel}</div>
+      <div class="metric-rail"><span class="rail-dot ${r.dotCls}"></span>${r.name}</div>
+      <div style="font-size:0.64rem;color:var(--muted);margin-bottom:0.5rem;font-family:'JetBrains Mono',monospace;letter-spacing:0.06em;">${r.sub}</div>
+      <div class="metric-value">${lat.toLocaleString()}<span class="metric-unit">ms</span></div>
+      <div class="metric-label">Current Avg Latency</div>
+      <div class="metric-subgrid">
+        <div class="metric-sub-item">
+          <div class="metric-sub-val">${tpm}</div>
+          <div class="metric-sub-lbl">TPM</div>
+        </div>
+        <div class="metric-sub-item">
+          <div class="metric-sub-val">${p95.toLocaleString()}ms</div>
+          <div class="metric-sub-lbl">p95 Lat</div>
+        </div>
+        <div class="metric-sub-item">
+          <div class="metric-sub-val" style="color:${failRate>=t.failRate_crit?'var(--red-lt)':failRate>=t.failRate_warn?'var(--warn-lt)':'var(--green-lt)'}">${failRate.toFixed(2)}%</div>
+          <div class="metric-sub-lbl">Fail Rate</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateAlertBar() {
+  const bar = document.getElementById('alert-bar');
+  // Show only most recent 5
+  const shown = alerts.slice(0, 5);
+  bar.innerHTML = shown.map(a => `
+    <div class="alert-item alert-${a.sev}" id="alert-${a.id}">
+      <span class="alert-icon">${a.sev==='crit'?'✕':'⚠'}</span>
+      <span class="alert-msg"><strong>${a.railName}:</strong> ${escHtml(a.msg)}${a.count>1?' (×'+a.count+')':''}</span>
+      <span class="alert-time">${a.time}</span>
+      <button class="alert-dismiss" onclick="dismissAlert(${a.id})">✕</button>
+    </div>`).join('');
+  updateSummaryAlertCount();
+}
+
+/* ═══════════════════════════════════════════
+   CHARTS (inline SVG renderers per CONTRACT §0)
+═══════════════════════════════════════════ */
+function makeLabels() {
+  return Array.from({length: HISTORY_LEN}, (_, i) => {
+    const mins = HISTORY_LEN - 1 - i;
+    return mins === 0 ? 'Now' : `-${mins}`;
+  });
+}
+
+function initCharts() {
+  // No-op for SVG renderers — charts are drawn on first updateCharts() call.
+  // Legends still need to be built once.
+  buildLegend('latency-legend');
+  buildLegend('tpm-legend');
+  buildLegend('fail-legend');
+  // Initial empty render so the boxes don't look blank before first metric tick.
+  renderRailLineSVG('latency-chart', { yMin: 0, yLabel: 'ms',  fill: false, datasets: RAILS.map(r => ({ label: r.name, data: [], borderColor: r.color, fillColor: r.color + '18' })) });
+  renderRailLineSVG('tpm-chart',     { yMin: 0, yLabel: 'TPM', fill: true,  datasets: RAILS.map(r => ({ label: r.name, data: [], borderColor: r.color, fillColor: r.color + '18' })) });
+  renderRailLineSVG('fail-chart',    { yMin: 0, yLabel: '%',   fill: true,  datasets: RAILS.map(r => ({ label: r.name, data: [], borderColor: r.color, fillColor: r.color + '14' })) });
+}
+
+function buildLegend(elId) {
+  document.getElementById(elId).innerHTML = RAILS.map(r =>
+    `<span class="chart-legend-item"><span class="legend-swatch" style="background:${r.color}"></span>${r.name}</span>`
+  ).join('');
+}
+
+function updateCharts() {
+  const labels = makeLabels();
+  const padded = arr => {
+    const pad = Array(HISTORY_LEN - arr.length).fill(null);
+    return [...pad, ...arr];
+  };
+  renderRailLineSVG('latency-chart', {
+    yMin: 0, yLabel: 'ms', fill: false, labels,
+    datasets: RAILS.map(r => ({ label: r.name, data: padded(history[r.id].latency), borderColor: r.color, fillColor: r.color + '18' }))
+  });
+  renderRailLineSVG('tpm-chart', {
+    yMin: 0, yLabel: 'TPM', fill: true, labels,
+    datasets: RAILS.map(r => ({ label: r.name, data: padded(history[r.id].tpm), borderColor: r.color, fillColor: r.color + '18' }))
+  });
+  renderRailLineSVG('fail-chart', {
+    yMin: 0, yLabel: '%', fill: true, labels,
+    datasets: RAILS.map(r => ({ label: r.name, data: padded(history[r.id].failRate), borderColor: r.color, fillColor: r.color + '14' }))
+  });
+}
+
+/* SVG line chart helper — sliding-window friendly, accepts null sentinel for missing samples.
+   cfg = { labels, datasets:[{label,data,borderColor,fillColor}], yMin, yMax, yLabel, fill } */
+function renderRailLineSVG(targetId, cfg) {
+  const target = document.getElementById(targetId);
+  if (!target) return;
+  const W = Math.max(target.clientWidth  || target.parentElement.clientWidth  || 600, 240);
+  const H = Math.max(target.clientHeight || target.parentElement.clientHeight || 200, 120);
+  const datasets = cfg.datasets || [];
+  const labels = cfg.labels || (datasets[0] && datasets[0].data ? datasets[0].data.map((_,i) => '') : []);
+  const pad = { top: 8, right: 10, bottom: 22, left: 36 };
+  const innerW = Math.max(W - pad.left - pad.right, 50);
+  const innerH = Math.max(H - pad.top  - pad.bottom, 50);
+  let lo = cfg.yMin != null ? cfg.yMin : Infinity;
+  let hi = cfg.yMax != null ? cfg.yMax : -Infinity;
+  datasets.forEach(d => (d.data || []).forEach(v => {
+    if (v == null || !isFinite(v)) return;
+    if (cfg.yMin == null && v < lo) lo = v;
+    if (cfg.yMax == null && v > hi) hi = v;
+  }));
+  if (!isFinite(lo)) lo = 0;
+  if (!isFinite(hi)) hi = 1;
+  if (cfg.yMin != null) lo = cfg.yMin;
+  if (cfg.yMax == null && hi <= lo) hi = lo + 1;
+  const range = hi - lo || 1;
+  const ticks = 4;
+  const n = Math.max(...datasets.map(d => (d.data || []).length), 0);
+  const parts = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img">`];
+  for (let t = 0; t <= ticks; t++) {
+    const v = lo + range * t / ticks;
+    const y = pad.top + innerH - (t/ticks) * innerH;
+    parts.push(`<line x1="${pad.left}" y1="${y}" x2="${pad.left+innerW}" y2="${y}" stroke="rgba(30,52,84,.5)" stroke-width="1"/>`);
+    parts.push(`<text x="${pad.left-4}" y="${y+3}" text-anchor="end" fill="#4a6a8a" font-size="8">${(Math.round(v*10)/10)}</text>`);
+  }
+  if (cfg.yLabel) parts.push(`<text x="6" y="${pad.top+innerH/2}" fill="#4a6a8a" font-size="9" transform="rotate(-90 6 ${pad.top+innerH/2})" text-anchor="middle">${cfg.yLabel}</text>`);
+  if (n > 1) {
+    const step = innerW / (n - 1);
+    [0, Math.floor(n/2), n-1].forEach(i => {
+      const x = pad.left + i * step;
+      parts.push(`<text x="${x}" y="${pad.top+innerH+12}" text-anchor="middle" fill="#4a6a8a" font-size="8">${labels[i] || ''}</text>`);
+    });
+  }
+  datasets.forEach(d => {
+    const data = d.data || [];
+    if (data.length < 2) return;
+    const step = innerW / (data.length - 1);
+    // Split into runs of non-null points
+    let run = [];
+    const segs = [];
+    data.forEach((v, i) => {
+      if (v == null || !isFinite(v)) {
+        if (run.length) { segs.push(run); run = []; }
+      } else {
+        const x = pad.left + i * step;
+        const y = pad.top + innerH - ((v - lo) / range) * innerH;
+        run.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+      }
+    });
+    if (run.length) segs.push(run);
+    segs.forEach(seg => {
+      if (cfg.fill && seg.length >= 2) {
+        const first = seg[0].split(',')[0];
+        const last = seg[seg.length - 1].split(',')[0];
+        const baseY = pad.top + innerH;
+        parts.push(`<path d="M ${first},${baseY} L ${seg.join(' L ')} L ${last},${baseY} Z" fill="${d.fillColor || 'rgba(20,184,166,.12)'}" stroke="none"/>`);
+      }
+      parts.push(`<polyline points="${seg.join(' ')}" fill="none" stroke="${d.borderColor || '#14B8A6'}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`);
+    });
+  });
+  parts.push('</svg>');
+  target.innerHTML = parts.join('');
+}
+
+/* ═══════════════════════════════════════════
+   TRANSACTION LOG
+═══════════════════════════════════════════ */
+function updateTxLog() {
+  const tbody = document.getElementById('tx-log-body');
+  const rows = txLog.slice(0, 60);
+  document.getElementById('log-count').textContent = txLog.length + ' events';
+
+  const statusMap = {
+    settled:  `<span class="chip chip-ok">✓ Settled</span>`,
+    failed:   `<span class="chip chip-fail">✕ Failed</span>`,
+    pending:  `<span class="chip chip-pend">⋯ Pending</span>`,
+    returned: `<span class="chip chip-ret">↩ Returned</span>`,
+  };
+
+  tbody.innerHTML = rows.map((tx, i) => `
+    <tr class="${i === 0 ? 'tx-new' : ''}">
+      <td class="mono">${tx.time}</td>
+      <td><span style="display:inline-flex;align-items:center;gap:0.35rem;"><span class="rail-dot ${tx.dotCls}" style="width:6px;height:6px;border-radius:50%;flex-shrink:0;display:inline-block;"></span><span style="font-size:0.7rem;color:var(--text);">${tx.railName}</span></span></td>
+      <td class="tx-id">${tx.txId}</td>
+      <td class="mono">${tx.amount}</td>
+      <td class="mono" style="color:${tx.latency>2000?'var(--warn-lt)':tx.latency>5000?'var(--red-lt)':'var(--text)'}">${tx.latency}ms</td>
+      <td>${statusMap[tx.status] || tx.status}</td>
+      <td class="mono" style="color:${tx.returnCode!=='—'?'var(--red-lt)':'var(--muted)'}">${tx.returnCode}</td>
+    </tr>`).join('');
+}
+
+function clearLog() {
+  txLog = [];
+  document.getElementById('tx-log-body').innerHTML = '';
+  document.getElementById('log-count').textContent = '0 events';
+}
+
+/* ═══════════════════════════════════════════
+   MODAL — THRESHOLD CONFIG
+═══════════════════════════════════════════ */
+function openModal() {
+  renderModal();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+function closeModalOutside(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+function renderModal() {
+  document.getElementById('modal-body').innerHTML = `
+    <div class="pii-notice" style="margin-bottom:0;">
+      <span class="privacy-icon">ℹ</span>
+      <span>Alert thresholds are stored in memory only and reset on page reload. No data is persisted.</span>
+    </div>
+    ${RAILS.map(r => `
+    <div class="rail-group">
+      <div class="rail-group-name"><span class="rail-dot ${r.dotCls}" style="width:6px;height:6px;border-radius:50%;display:inline-block;"></span>${r.name} — ${r.sub}</div>
+      <div class="threshold-grid">
+        <div>
+          <label class="input-label">Fail Rate Warn (%)</label>
+          <input class="input-field" type="number" step="0.1" min="0" max="100" id="th-${r.id}-fw" value="${THRESHOLDS[r.id].failRate_warn}">
+        </div>
+        <div>
+          <label class="input-label">Fail Rate Crit (%)</label>
+          <input class="input-field" type="number" step="0.1" min="0" max="100" id="th-${r.id}-fc" value="${THRESHOLDS[r.id].failRate_crit}">
+        </div>
+        <div></div>
+        <div>
+          <label class="input-label">Latency Warn (ms)</label>
+          <input class="input-field" type="number" step="50" min="0" id="th-${r.id}-lw" value="${THRESHOLDS[r.id].latency_warn}">
+        </div>
+        <div>
+          <label class="input-label">Latency Crit (ms)</label>
+          <input class="input-field" type="number" step="50" min="0" id="th-${r.id}-lc" value="${THRESHOLDS[r.id].latency_crit}">
+        </div>
+        <div></div>
+      </div>
+    </div>`).join('')}
+  `;
+}
+
+function saveThresholds() {
+  RAILS.forEach(r => {
+    const fw = parseFloat(document.getElementById(`th-${r.id}-fw`).value);
+    const fc = parseFloat(document.getElementById(`th-${r.id}-fc`).value);
+    const lw = parseInt(document.getElementById(`th-${r.id}-lw`).value, 10);
+    const lc = parseInt(document.getElementById(`th-${r.id}-lc`).value, 10);
+    if (!isNaN(fw)) THRESHOLDS[r.id].failRate_warn  = fw;
+    if (!isNaN(fc)) THRESHOLDS[r.id].failRate_crit  = fc;
+    if (!isNaN(lw)) THRESHOLDS[r.id].latency_warn   = lw;
+    if (!isNaN(lc)) THRESHOLDS[r.id].latency_crit   = lc;
+  });
+  alerts = []; // clear stale alerts after threshold change
+  closeModal();
+  updateAlertBar();
+  updateMetricCards();
+}
+
+function resetThresholds() {
+  THRESHOLDS = JSON.parse(JSON.stringify(DEFAULTS));
+  renderModal();
+}
+
+/* ═══════════════════════════════════════════
+   PAUSE / RESUME
+═══════════════════════════════════════════ */
+function togglePause() {
+  isPaused = !isPaused;
+  const btn  = document.getElementById('pause-btn');
+  const pill = document.getElementById('live-pill');
+  if (isPaused) {
+    btn.textContent = '▶ Resume';
+    pill.className = 'paused-pill';
+    pill.innerHTML = '⏸ Paused';
+  } else {
+    btn.textContent = '⏸ Pause';
+    pill.className = 'live-pill';
+    pill.innerHTML = '<span class="live-dot"></span>Live · Mock';
+  }
+}
+
+/* ═══════════════════════════════════════════
+   REFRESH INTERVAL
+═══════════════════════════════════════════ */
+function updateRefreshInterval() {
+  refreshInterval = parseInt(document.getElementById('refresh-select').value, 10);
+  clearInterval(intervalHandle);
+  intervalHandle = setInterval(tick, refreshInterval);
+}
+
+function tick() {
+  if (!isPaused) generateTick();
+}
+
+/* ═══════════════════════════════════════════
+   CSV EXPORT
+═══════════════════════════════════════════ */
+function exportCSV() {
+  const rows = [
+    ['Timestamp', 'Rail', 'TPM', 'Avg Latency (ms)', 'p95 Latency (ms)', 'Failure Rate (%)', 'Status'],
+  ];
+
+  RAILS.forEach(r => {
+    const h = history[r.id];
+    const len = Math.max(h.tpm.length, h.latency.length, h.failRate.length, h.p95.length);
+    for (let i = 0; i < len; i++) {
+      const tpm     = h.tpm[i]      ?? '';
+      const lat     = h.latency[i]  ?? '';
+      const p95     = h.p95[i]      ?? '';
+      const fail    = h.failRate[i] ?? '';
+      const t       = THRESHOLDS[r.id];
+      let status = 'Nominal';
+      if (fail >= t.failRate_crit || lat >= t.latency_crit) status = 'Critical';
+      else if (fail >= t.failRate_warn || lat >= t.latency_warn) status = 'Warning';
+      const ts = new Date(Date.now() - (len - 1 - i) * refreshInterval).toISOString();
+      rows.push([ts, r.name, tpm, lat, p95, fail, status]);
+    }
+  });
+
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `pol-ops-dashboard-${new Date().toISOString().slice(0,16).replace('T','-').replace(':','-')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ═══════════════════════════════════════════
+   COLLAPSIBLE
+═══════════════════════════════════════════ */
+function toggleCollapsible(trigger, bodyId) {
+  const body = document.getElementById(bodyId);
+  const open = body.classList.contains('open');
+  body.classList.toggle('open', !open);
+  trigger.classList.toggle('open', !open);
+}
+
+/* ═══════════════════════════════════════════
+   UTILS
+═══════════════════════════════════════════ */
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ═══════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  // Pre-populate 20 ticks of history silently
+  for (let i = 0; i < 20; i++) generateTick();
+
+  // Init charts after history is seeded
+  initCharts();
+  updateCharts();
+  updateMetricCards();
+  updateAlertBar();
+
+  // Enable Policy Mandate button (this call previously sat inside a legacy
+  // external-script body which browsers silently ignore. Moved here
+  // per CONTRACT §0 CDN-inlining sweep.)
+  enableAP2Btn();
+
+  // Start live refresh
+  intervalHandle = setInterval(tick, refreshInterval);
+});
+
+const TRANSLATIONS = {
+  'en': {
+    'nav.home': 'Home',
+    'nav.a2a': 'A2A Payments',
+    'nav.glossary': 'Glossary',
+    'nav.tools': 'Tools',
+    'nav.contact': 'Contact',
+    'footer.alltools': 'All Tools',
+    'footer.a2a': 'A2A Payments',
+    'footer.glossary': 'Glossary',
+    'footer.home': 'Home',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Privacy Statement',
+    'about.trigger': 'About This Tool',
+    'about.trigger2': 'About This Tool ▾',
+    'priv.runs': 'This tool runs entirely in your browser.',
+    'priv.notrans': 'No data is transmitted to any server.',
+    'priv.local': 'All inputs, calculations, and generated outputs are processed locally on your device.',
+    'priv.never': 'and never leaves your device.',
+    'priv.blocked': 'are overridden at runtime to block all outbound network calls.',
+    'priv.allproc': 'All processing in your browser · No data transmitted',
+    'priv.zeropii': 'Zero PII · Client-Side Only',
+    'priv.zeropii2': 'Zero PII · 100% Client-Side',
+    'about.howworks': 'How it works:',
+    'about.audience': 'Target audience:',
+    'about.limits': 'Limitations:',
+    'about.export': 'Export:',
+    'about.whatdoes': 'What this tool does:',
+    'about.whatdoes2': 'What this tool does',
+    'about.whatsim': 'What it simulates:',
+    'about.source': 'Source:',
+    'about.builtby': 'Built by',
+    'about.dataprivacy': 'Data privacy:',
+    'about.dataprivnote': 'Data privacy note:',
+    'about.whatisthis': 'What is this?',
+    'about.results_export': 'Results can be downloaded as JSON or Markdown for use in downstream workflows, agent runtimes, or audit documentation.',
+    'btn.reset': '↺ Reset',
+    'btn.clear': '↺ Clear',
+    'btn.exportcsv': '↓ Export CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Print',
+    'btn.copy': 'Copy',
+    'btn.alltools': '← All Tools',
+    'lbl.jurisdiction': 'Jurisdiction',
+    'lbl.currency': 'Currency',
+    'lbl.amount': 'Amount',
+    'lbl.status': 'Status',
+    'lbl.type': 'Type',
+    'lbl.rail': 'Rail',
+    'lbl.paymentrail': 'Payment Rail',
+    'lbl.selectopt': '— Select —',
+    'lbl.config': 'Configuration',
+    'lbl.valresults': 'Validation Results',
+    'geo.us': 'United States',
+    'geo.uk': 'United Kingdom',
+    'geo.eu': 'European Union',
+    'geo.brazil': 'Brazil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brazil)',
+    'pay.sameday': 'Same-Day ACH',
+    'pay.nextday': 'Next-Day ACH',
+    'sev.high': 'High',
+    'sev.medium': 'Medium',
+    'f14.hero.eyebrow': 'Tool 14 · Payment Operations',
+    'f14.hero.title': 'Real-Time Ops Dashboard Template',
+    'f14.hero.sub': 'Configurable mock A2A payment ops dashboard with live SLA tracking for FedNow, RTP, ACH, and SEPA Instant. Set alert thresholds and simulate real-time transaction flows. Client-side only.',
+    'f14.lbl.txpersec': 'Transactions/sec',
+    'f14.lbl.success': 'Success Rate',
+    'f14.lbl.avglatency': 'Avg Latency',
+    'f14.lbl.sla': 'SLA Status',
+    'f14.lbl.alerts': 'Active Alerts',
+    'f14.btn.pause': '⏸ Pause',
+    'f14.btn.thresholds': '⚙ Thresholds',
+    'f14.btn.savethresh': 'Save Thresholds',
+    'f14.btn.resetdefaults': 'Reset Defaults',
+    'f14.lbl.throughput': 'Throughput',
+    'f14.lbl.errorrate': 'Error Rate',
+    'f14.lbl.p99': 'P99 Latency',
+  
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-04 Hub',
+  },
+  'es': {
+    'nav.home': 'Inicio',
+    'nav.a2a': 'Pagos A2A',
+    'nav.glossary': 'Glosario',
+    'nav.tools': 'Herramientas',
+    'nav.contact': 'Contacto',
+    'footer.alltools': 'Todas las Herramientas',
+    'footer.a2a': 'Pagos A2A',
+    'footer.glossary': 'Glosario',
+    'footer.home': 'Inicio',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Declaración de Privacidad',
+    'about.trigger': 'Acerca de Esta Herramienta',
+    'about.trigger2': 'Acerca de Esta Herramienta ▾',
+    'priv.runs': 'Esta herramienta se ejecuta completamente en su navegador.',
+    'priv.notrans': 'No se transmiten datos a ningún servidor.',
+    'priv.local': 'Todas las entradas, cálculos y resultados generados se procesan localmente en su dispositivo.',
+    'priv.never': 'y nunca sale de su dispositivo.',
+    'priv.blocked': 'se anulan en tiempo de ejecución para bloquear todas las llamadas de red salientes.',
+    'priv.allproc': 'Todo el procesamiento en su navegador · Sin datos transmitidos',
+    'priv.zeropii': 'Sin PII · Solo en el Navegador',
+    'priv.zeropii2': 'Sin PII · 100% en el Navegador',
+    'about.howworks': 'Cómo funciona:',
+    'about.audience': 'Público objetivo:',
+    'about.limits': 'Limitaciones:',
+    'about.export': 'Exportar:',
+    'about.whatdoes': 'Qué hace esta herramienta:',
+    'about.whatdoes2': 'Qué hace esta herramienta',
+    'about.whatsim': 'Qué simula:',
+    'about.source': 'Fuente:',
+    'about.builtby': 'Creado por',
+    'about.dataprivacy': 'Privacidad de datos:',
+    'about.dataprivnote': 'Nota de privacidad de datos:',
+    'about.whatisthis': '¿Qué es esto?',
+    'about.results_export': 'Los resultados se pueden descargar como JSON o Markdown para su uso en flujos de trabajo posteriores, tiempos de ejecución de agentes o documentación de auditoría.',
+    'btn.reset': '↺ Restablecer',
+    'btn.clear': '↺ Limpiar',
+    'btn.exportcsv': '↓ Exportar CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimir',
+    'btn.copy': 'Copiar',
+    'btn.alltools': '← Todas las Herramientas',
+    'lbl.jurisdiction': 'Jurisdicción',
+    'lbl.currency': 'Moneda',
+    'lbl.amount': 'Monto',
+    'lbl.status': 'Estado',
+    'lbl.type': 'Tipo',
+    'lbl.rail': 'Carril',
+    'lbl.paymentrail': 'Carril de Pago',
+    'lbl.selectopt': '— Seleccionar —',
+    'lbl.config': 'Configuración',
+    'lbl.valresults': 'Resultados de Validación',
+    'geo.us': 'Estados Unidos',
+    'geo.uk': 'Reino Unido',
+    'geo.eu': 'Unión Europea',
+    'geo.brazil': 'Brasil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brasil)',
+    'pay.sameday': 'ACH en el Mismo Día',
+    'pay.nextday': 'ACH al Día Siguiente',
+    'sev.high': 'Alto',
+    'sev.medium': 'Medio',
+    'f14.hero.eyebrow': 'Herramienta 14 de 18 · Operaciones de Pago',
+    'f14.hero.title': 'Plantilla de Panel de Operaciones en Tiempo Real',
+    'f14.hero.sub': 'Panel de operaciones de pagos A2A simulado configurable con seguimiento SLA en vivo para FedNow, RTP, ACH y SEPA Instant. Establezca umbrales de alerta y simule flujos de transacciones en tiempo real.',
+    'f14.lbl.txpersec': 'Transacciones/seg',
+    'f14.lbl.success': 'Tasa de Éxito',
+    'f14.lbl.avglatency': 'Latencia Promedio',
+    'f14.lbl.sla': 'Estado del SLA',
+    'f14.lbl.alerts': 'Alertas Activas',
+    'f14.btn.pause': '⏸ Pausar',
+    'f14.btn.thresholds': '⚙ Umbrales',
+    'f14.btn.savethresh': 'Guardar Umbrales',
+    'f14.btn.resetdefaults': 'Restablecer Valores',
+    'f14.lbl.throughput': 'Rendimiento',
+    'f14.lbl.errorrate': 'Tasa de Error',
+    'f14.lbl.p99': 'Latencia P99',
+  
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-04',
+  },
+  'fr': {
+    'nav.home': 'Accueil',
+    'nav.a2a': 'Paiements A2A',
+    'nav.glossary': 'Glossaire',
+    'nav.tools': 'Outils',
+    'nav.contact': 'Contact',
+    'footer.alltools': 'Tous les Outils',
+    'footer.a2a': 'Paiements A2A',
+    'footer.glossary': 'Glossaire',
+    'footer.home': 'Accueil',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Déclaration de Confidentialité',
+    'about.trigger': 'À Propos de Cet Outil',
+    'about.trigger2': 'À Propos de Cet Outil ▾',
+    'priv.runs': 'Cet outil fonctionne entièrement dans votre navigateur.',
+    'priv.notrans': 'Aucune donnée n\'est transmise à un serveur.',
+    'priv.local': 'Toutes les entrées, calculs et sorties générées sont traités localement sur votre appareil.',
+    'priv.never': 'et ne quitte jamais votre appareil.',
+    'priv.blocked': 'sont remplacés au moment de l\'exécution pour bloquer tous les appels réseau sortants.',
+    'priv.allproc': 'Tout le traitement dans votre navigateur · Aucune donnée transmise',
+    'priv.zeropii': 'Zéro PII · Côté Client Uniquement',
+    'priv.zeropii2': 'Zéro PII · 100% Côté Client',
+    'about.howworks': 'Comment ça fonctionne :',
+    'about.audience': 'Public cible :',
+    'about.limits': 'Limitations :',
+    'about.export': 'Export :',
+    'about.whatdoes': 'Ce que fait cet outil :',
+    'about.whatdoes2': 'Ce que fait cet outil',
+    'about.whatsim': 'Ce qu\'il simule :',
+    'about.source': 'Source :',
+    'about.builtby': 'Créé par',
+    'about.dataprivacy': 'Confidentialité des données :',
+    'about.dataprivnote': 'Note sur la confidentialité des données :',
+    'about.whatisthis': 'Qu\'est-ce que c\'est ?',
+    'about.results_export': 'Les résultats peuvent être téléchargés en JSON ou Markdown pour une utilisation dans des flux de travail en aval, des environnements d\'exécution d\'agents ou de la documentation d\'audit.',
+    'btn.reset': '↺ Réinitialiser',
+    'btn.clear': '↺ Effacer',
+    'btn.exportcsv': '↓ Exporter CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimer',
+    'btn.copy': 'Copier',
+    'btn.alltools': '← Tous les Outils',
+    'lbl.jurisdiction': 'Juridiction',
+    'lbl.currency': 'Devise',
+    'lbl.amount': 'Montant',
+    'lbl.status': 'Statut',
+    'lbl.type': 'Type',
+    'lbl.rail': 'Rail',
+    'lbl.paymentrail': 'Rail de Paiement',
+    'lbl.selectopt': '— Sélectionner —',
+    'lbl.config': 'Configuration',
+    'lbl.valresults': 'Résultats de Validation',
+    'geo.us': 'États-Unis',
+    'geo.uk': 'Royaume-Uni',
+    'geo.eu': 'Union Européenne',
+    'geo.brazil': 'Brésil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brésil)',
+    'pay.sameday': 'ACH le Jour Même',
+    'pay.nextday': 'ACH le Lendemain',
+    'sev.high': 'Élevé',
+    'sev.medium': 'Moyen',
+    'f14.hero.eyebrow': 'Outil 14 sur 18 · Opérations de Paiement',
+    'f14.hero.title': 'Modèle de Tableau de Bord Ops Temps Réel',
+    'f14.hero.sub': 'Tableau de bord d\'opérations de paiement A2A configurable avec suivi SLA en temps réel pour FedNow, RTP, ACH et SEPA Instant. Définissez des seuils d\'alerte et simulez des flux de transactions.',
+    'f14.lbl.txpersec': 'Transactions/sec',
+    'f14.lbl.success': 'Taux de Succès',
+    'f14.lbl.avglatency': 'Latence Moyenne',
+    'f14.lbl.sla': 'Statut SLA',
+    'f14.lbl.alerts': 'Alertes Actives',
+    'f14.btn.pause': '⏸ Pause',
+    'f14.btn.thresholds': '⚙ Seuils',
+    'f14.btn.savethresh': 'Enregistrer Seuils',
+    'f14.btn.resetdefaults': 'Réinitialiser Défauts',
+    'f14.lbl.throughput': 'Débit',
+    'f14.lbl.errorrate': 'Taux d\'Erreur',
+    'f14.lbl.p99': 'Latence P99',
+  
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-04',
+  },
+  'ar': {
+    'nav.home': 'الرئيسية',
+    'nav.a2a': 'مدفوعات A2A',
+    'nav.glossary': 'المسرد',
+    'nav.tools': 'الأدوات',
+    'nav.contact': 'تواصل معنا',
+    'footer.alltools': 'جميع الأدوات',
+    'footer.a2a': 'مدفوعات A2A',
+    'footer.glossary': 'المسرد',
+    'footer.home': 'الرئيسية',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'بيان الخصوصية',
+    'about.trigger': 'حول هذه الأداة',
+    'about.trigger2': 'حول هذه الأداة ▾',
+    'priv.runs': 'تعمل هذه الأداة بالكامل في متصفحك.',
+    'priv.notrans': 'لا يتم إرسال أي بيانات إلى أي خادم.',
+    'priv.local': 'تتم معالجة جميع المدخلات والحسابات والمخرجات محليًا على جهازك.',
+    'priv.never': 'ولا يغادر جهازك أبدًا.',
+    'priv.blocked': 'تُستبدل في وقت التشغيل لحجب جميع استدعاءات الشبكة الصادرة.',
+    'priv.allproc': 'جميع المعالجة في متصفحك · لا بيانات مُرسَلة',
+    'priv.zeropii': 'بدون بيانات شخصية · من جانب العميل فقط',
+    'priv.zeropii2': 'بدون بيانات شخصية · 100% من جانب العميل',
+    'about.howworks': 'كيف تعمل:',
+    'about.audience': 'الجمهور المستهدف:',
+    'about.limits': 'القيود:',
+    'about.export': 'تصدير:',
+    'about.whatdoes': 'ما تفعله هذه الأداة:',
+    'about.whatdoes2': 'ما تفعله هذه الأداة',
+    'about.whatsim': 'ما يحاكيه:',
+    'about.source': 'المصدر:',
+    'about.builtby': 'أُنشئ بواسطة',
+    'about.dataprivacy': 'خصوصية البيانات:',
+    'about.dataprivnote': 'ملاحظة خصوصية البيانات:',
+    'about.whatisthis': 'ما هذا؟',
+    'about.results_export': 'يمكن تنزيل النتائج بتنسيق JSON أو Markdown للاستخدام في سير العمل اللاحق أو بيئات تشغيل الوكلاء أو وثائق التدقيق.',
+    'btn.reset': '↺ إعادة تعيين',
+    'btn.clear': '↺ مسح',
+    'btn.exportcsv': '↓ تصدير CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ طباعة',
+    'btn.copy': 'نسخ',
+    'btn.alltools': '← جميع الأدوات',
+    'lbl.jurisdiction': 'الاختصاص القضائي',
+    'lbl.currency': 'العملة',
+    'lbl.amount': 'المبلغ',
+    'lbl.status': 'الحالة',
+    'lbl.type': 'النوع',
+    'lbl.rail': 'المسار',
+    'lbl.paymentrail': 'مسار الدفع',
+    'lbl.selectopt': '— اختر —',
+    'lbl.config': 'الإعدادات',
+    'lbl.valresults': 'نتائج التحقق',
+    'geo.us': 'الولايات المتحدة',
+    'geo.uk': 'المملكة المتحدة',
+    'geo.eu': 'الاتحاد الأوروبي',
+    'geo.brazil': 'البرازيل',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'سيبا',
+    'pay.sepainstant': 'SEPA فوري',
+    'pay.pix': 'PIX (البرازيل)',
+    'pay.sameday': 'ACH في اليوم ذاته',
+    'pay.nextday': 'ACH في اليوم التالي',
+    'sev.high': 'عالٍ',
+    'sev.medium': 'متوسط',
+    'f14.hero.eyebrow': 'أداة 14 من 18 · عمليات الدفع',
+    'f14.hero.title': 'قالب لوحة عمليات الوقت الفعلي',
+    'f14.hero.sub': 'لوحة عمليات دفع A2A وهمية قابلة للتهيئة مع تتبع SLA في الوقت الفعلي لـ FedNow وRTP وACH وSEPA Instant. حدد عتبات التنبيه وحاكِ تدفقات المعاملات.',
+    'f14.lbl.txpersec': 'معاملات/ثانية',
+    'f14.lbl.success': 'معدل النجاح',
+    'f14.lbl.avglatency': 'متوسط الزمن الإضافي',
+    'f14.lbl.sla': 'حالة SLA',
+    'f14.lbl.alerts': 'التنبيهات النشطة',
+    'f14.btn.pause': '⏸ إيقاف مؤقت',
+    'f14.btn.thresholds': '⚙ الحدود',
+    'f14.btn.savethresh': 'حفظ الحدود',
+    'f14.btn.resetdefaults': 'إعادة الضبط الافتراضي',
+    'f14.lbl.throughput': 'الإنتاجية',
+    'f14.lbl.errorrate': 'معدل الخطأ',
+    'f14.lbl.p99': 'زمن إضافي P99',
+  
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-04',
+  },
+  'pt': {
+    'nav.home': 'Início',
+    'nav.a2a': 'Pagamentos A2A',
+    'nav.glossary': 'Glossário',
+    'nav.tools': 'Ferramentas',
+    'nav.contact': 'Contato',
+    'footer.alltools': 'Todas as Ferramentas',
+    'footer.a2a': 'Pagamentos A2A',
+    'footer.glossary': 'Glossário',
+    'footer.home': 'Início',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': 'Declaração de Privacidade',
+    'about.trigger': 'Sobre Esta Ferramenta',
+    'about.trigger2': 'Sobre Esta Ferramenta ▾',
+    'priv.runs': 'Esta ferramenta funciona inteiramente no seu navegador.',
+    'priv.notrans': 'Nenhum dado é transmitido para nenhum servidor.',
+    'priv.local': 'Todas as entradas, cálculos e saídas geradas são processados localmente no seu dispositivo.',
+    'priv.never': 'e nunca sai do seu dispositivo.',
+    'priv.blocked': 'são substituídos em tempo de execução para bloquear todas as chamadas de rede de saída.',
+    'priv.allproc': 'Todo o processamento no seu navegador · Nenhum dado transmitido',
+    'priv.zeropii': 'Sem PII · Somente no Navegador',
+    'priv.zeropii2': 'Sem PII · 100% no Navegador',
+    'about.howworks': 'Como funciona:',
+    'about.audience': 'Público-alvo:',
+    'about.limits': 'Limitações:',
+    'about.export': 'Exportar:',
+    'about.whatdoes': 'O que esta ferramenta faz:',
+    'about.whatdoes2': 'O que esta ferramenta faz',
+    'about.whatsim': 'O que simula:',
+    'about.source': 'Fonte:',
+    'about.builtby': 'Criado por',
+    'about.dataprivacy': 'Privacidade de dados:',
+    'about.dataprivnote': 'Nota de privacidade de dados:',
+    'about.whatisthis': 'O que é isso?',
+    'about.results_export': 'Os resultados podem ser baixados como JSON ou Markdown para uso em fluxos de trabalho downstream, ambientes de execução de agentes ou documentação de auditoria.',
+    'btn.reset': '↺ Redefinir',
+    'btn.clear': '↺ Limpar',
+    'btn.exportcsv': '↓ Exportar CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ Imprimir',
+    'btn.copy': 'Copiar',
+    'btn.alltools': '← Todas as Ferramentas',
+    'lbl.jurisdiction': 'Jurisdição',
+    'lbl.currency': 'Moeda',
+    'lbl.amount': 'Valor',
+    'lbl.status': 'Status',
+    'lbl.type': 'Tipo',
+    'lbl.rail': 'Trilho',
+    'lbl.paymentrail': 'Trilho de Pagamento',
+    'lbl.selectopt': '— Selecionar —',
+    'lbl.config': 'Configuração',
+    'lbl.valresults': 'Resultados de Validação',
+    'geo.us': 'Estados Unidos',
+    'geo.uk': 'Reino Unido',
+    'geo.eu': 'União Europeia',
+    'geo.brazil': 'Brasil',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA Instant',
+    'pay.pix': 'PIX (Brasil)',
+    'pay.sameday': 'ACH no Mesmo Dia',
+    'pay.nextday': 'ACH no Dia Seguinte',
+    'sev.high': 'Alto',
+    'sev.medium': 'Médio',
+    'f14.hero.eyebrow': 'Ferramenta 14 de 18 · Operações de Pagamento',
+    'f14.hero.title': 'Modelo de Painel de Operações em Tempo Real',
+    'f14.hero.sub': 'Painel de operações de pagamento A2A configurável com rastreamento SLA em tempo real para FedNow, RTP, ACH e SEPA Instant. Defina limites de alerta e simule fluxos de transações.',
+    'f14.lbl.txpersec': 'Transações/seg',
+    'f14.lbl.success': 'Taxa de Sucesso',
+    'f14.lbl.avglatency': 'Latência Média',
+    'f14.lbl.sla': 'Status do SLA',
+    'f14.lbl.alerts': 'Alertas Ativas',
+    'f14.btn.pause': '⏸ Pausar',
+    'f14.btn.thresholds': '⚙ Limites',
+    'f14.btn.savethresh': 'Salvar Limites',
+    'f14.btn.resetdefaults': 'Redefinir Padrões',
+    'f14.lbl.throughput': 'Rendimento',
+    'f14.lbl.errorrate': 'Taxa de Erro',
+    'f14.lbl.p99': 'Latência P99',
+  
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-04',
+  },
+  'zh': {
+    'nav.home': '首页',
+    'nav.a2a': 'A2A 支付',
+    'nav.glossary': '术语表',
+    'nav.tools': '工具',
+    'nav.contact': '联系我们',
+    'footer.alltools': '所有工具',
+    'footer.a2a': 'A2A 支付',
+    'footer.glossary': '术语表',
+    'footer.home': '首页',
+    'footer.cc': 'CC BY 4.0',
+    'privacy.title': '隐私声明',
+    'about.trigger': '关于此工具',
+    'about.trigger2': '关于此工具 ▾',
+    'priv.runs': '此工具完全在您的浏览器中运行。',
+    'priv.notrans': '没有任何数据被传输到服务器。',
+    'priv.local': '所有输入、计算和生成的输出均在您的设备本地处理。',
+    'priv.never': '且永远不会离开您的设备。',
+    'priv.blocked': '在运行时被覆盖以阻止所有出站网络调用。',
+    'priv.allproc': '所有处理在浏览器中进行 · 无数据传输',
+    'priv.zeropii': '零个人信息 · 纯本地运行',
+    'priv.zeropii2': '零个人信息 · 100% 本地运行',
+    'about.howworks': '工作原理：',
+    'about.audience': '目标用户：',
+    'about.limits': '局限性：',
+    'about.export': '导出：',
+    'about.whatdoes': '此工具的功能：',
+    'about.whatdoes2': '此工具的功能',
+    'about.whatsim': '模拟内容：',
+    'about.source': '来源：',
+    'about.builtby': '作者',
+    'about.dataprivacy': '数据隐私：',
+    'about.dataprivnote': '数据隐私说明：',
+    'about.whatisthis': '这是什么？',
+    'about.results_export': '结果可下载为 JSON 或 Markdown 格式，用于下游工作流、代理运行时或审计文档。',
+    'btn.reset': '↺ 重置',
+    'btn.clear': '↺ 清除',
+    'btn.exportcsv': '↓ 导出 CSV',
+    'btn.exportjson': '↓ JSON',
+    'btn.markdown': '↓ Markdown',
+    'btn.print': '⎙ 打印',
+    'btn.copy': '复制',
+    'btn.alltools': '← 所有工具',
+    'lbl.jurisdiction': '司法管辖区',
+    'lbl.currency': '货币',
+    'lbl.amount': '金额',
+    'lbl.status': '状态',
+    'lbl.type': '类型',
+    'lbl.rail': '支付轨道',
+    'lbl.paymentrail': '支付轨道',
+    'lbl.selectopt': '— 请选择 —',
+    'lbl.config': '配置',
+    'lbl.valresults': '验证结果',
+    'geo.us': '美国',
+    'geo.uk': '英国',
+    'geo.eu': '欧盟',
+    'geo.brazil': '巴西',
+    'pay.fednow': 'FedNow',
+    'pay.sepa': 'SEPA',
+    'pay.sepainstant': 'SEPA 即时',
+    'pay.pix': 'PIX（巴西）',
+    'pay.sameday': '同日 ACH',
+    'pay.nextday': '次日 ACH',
+    'sev.high': '高',
+    'sev.medium': '中',
+    'f14.hero.eyebrow': '工具 14/18 · 支付运营',
+    'f14.hero.title': '实时运营仪表板模板',
+    'f14.hero.sub': '可配置的模拟 A2A 支付运营仪表板，实时追踪 FedNow、RTP、ACH 和 SEPA Instant 的 SLA。设置告警阈值，模拟实时交易流。',
+    'f14.lbl.txpersec': '交易/秒',
+    'f14.lbl.success': '成功率',
+    'f14.lbl.avglatency': '平均延迟',
+    'f14.lbl.sla': 'SLA 状态',
+    'f14.lbl.alerts': '活跃告警',
+    'f14.btn.pause': '⏸ 暂停',
+    'f14.btn.thresholds': '⚙ 阈值',
+    'f14.btn.savethresh': '保存阈值',
+    'f14.btn.resetdefaults': '重置默认值',
+    'f14.lbl.throughput': '吞吐量',
+    'f14.lbl.errorrate': '错误率',
+    'f14.lbl.p99': 'P99 延迟',
+  
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-04 中心',
+  },
+};
+
+/* ── LANG SWITCHER ── */
+function setLang(lang) {
+  document.querySelectorAll('.lang-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.lang-btn').forEach(function(b){
+    if(b.getAttribute('data-lang')===lang) b.classList.add('active');
+  });
+  document.documentElement.lang = lang==='zh'?'zh-Hans':lang;
+  document.documentElement.dir  = lang==='ar'?'rtl':'ltr';
+  var s = TRANSLATIONS[lang]||TRANSLATIONS['en'];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var k=el.getAttribute('data-i18n');
+    if(s[k]!==undefined) el.textContent=s[k];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el){
+    var k=el.getAttribute('data-i18n-placeholder');
+    if(s[k]!==undefined) el.placeholder=s[k];
+  });
+  window._lang=lang;
+
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+
+function exportAP2() {
+  const thresholds = typeof currentThresholds !== 'undefined' ? currentThresholds :
+    typeof DEFAULT_THRESHOLDS !== 'undefined' ? DEFAULT_THRESHOLDS : {};
+  const tpmEl    = document.getElementById('stat-tpm')    || document.getElementById('metric-tpm');
+  const latEl    = document.getElementById('stat-lat')    || document.getElementById('metric-lat');
+  const failEl   = document.getElementById('stat-fail')   || document.getElementById('metric-fail');
+  const alertEl  = document.getElementById('alert-status')|| document.querySelector('.alert-badge');
+  const payload = {
+    mandate_type:       'ops_threshold_config',
+    threshold_config:   thresholds,
+    current_tpm:        tpmEl  ? parseFloat(tpmEl.textContent)  : null,
+    current_latency_ms: latEl  ? parseFloat(latEl.textContent)  : null,
+    current_fail_rate:  failEl ? parseFloat(failEl.textContent) : null,
+    alert_status:       alertEl ? alertEl.textContent.trim() : 'UNKNOWN',
+  };
+  const inputs = { ...thresholds };
+  const summary = `Ops Dashboard: alert status ${payload.alert_status}, TPM ${payload.current_tpm ?? 'N/A'}, latency ${payload.current_latency_ms ?? 'N/A'}ms, fail rate ${payload.current_fail_rate ?? 'N/A'}%. Thresholds: fail warn ${thresholds.failRate_warn}%, crit ${thresholds.failRate_crit}%, latency warn ${thresholds.latency_warn_ms}ms, crit ${thresholds.latency_crit_ms}ms.`;
+  const agent_instructions = [
+    `Alert status: ${payload.alert_status}. ${payload.alert_status === 'CRIT' ? 'ESCALATE immediately — critical threshold breached.' : payload.alert_status === 'WARN' ? 'Monitor closely — warn threshold active.' : 'All metrics within normal range.'}`,
+    `Apply these thresholds to production monitoring: fail rate warn ${thresholds.failRate_warn}% / crit ${thresholds.failRate_crit}%, latency warn ${thresholds.latency_warn_ms}ms / crit ${thresholds.latency_crit_ms}ms.`,
+    'Re-export threshold config after any SLA review or incident post-mortem.',
+  ].filter(Boolean);
+  const mandate = {
+    ...AP2Schema.build('T14', 'realtime-ops-dashboard', payload, inputs),
+    summary, agent_instructions,
+    regulatory_citations: [
+      'Federal Reserve FedNow Service Operating Procedures — Availability SLAs (2024)',
+      'The Clearing House RTP Network Rules — Performance Standards (2024)',
+      'EPC SEPA Instant — 10-second processing SLA (Rulebook v1.1, 2024)',
+    ]
+  };
+  AP2Schema.validate(mandate);
+  AP2Schema.download(mandate, 'ops-threshold-config.policy.json');
+  showAP2Toast();
+}
+
+</script>
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "realtime-ops-dashboard", "version": "1.0.0", "title": "Real-Time Ops Dashboard Template", "description": "Configurable mock real-time A2A payment ops dashboard. Monitor FedNow, RTP, ACH, SEPA Instant SLAs, latency, TPM, and failure rates. Client-side only, zero PII.", "category": "payment-ops-monitoring", "tags": ["Real", "Time", "Ops", "Dashboard", "Template"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"refresh-select": {"type": "string"}, "th-${r.id}-fw": {"type": "string"}, "th-${r.id}-fc": {"type": "string"}, "th-${r.id}-lw": {"type": "string"}, "th-${r.id}-lc": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "realtime_ops_dashboard", "description": "Run Real-Time Ops Dashboard Template. Configurable mock real-time A2A payment ops dashboard. Monitor FedNow, RTP, ACH, SEPA Instant SLAs, latency, TPM, and failure rates. Client-side only, zero PII.", "inputSchema": {"type": "object", "properties": {"refresh-select": {"type": "string"}, "th-${r.id}-fw": {"type": "string"}, "th-${r.id}-fc": {"type": "string"}, "th-${r.id}-lw": {"type": "string"}, "th-${r.id}-lc": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/14-realtime-ops-dashboard.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

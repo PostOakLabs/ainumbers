@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>DAC7 / 1099-K Withholding Threshold Simulator · AINumbers.co</title>
+<meta name="description" content="Model EU DAC7 and US IRS 1099-K reporting trigger calculations by seller jurisdiction, residency, and transaction volume. Calculate IRS backup withholding (24%), DAC7 thresholds, OECD safe harbours, FATCA flags. Policy Mandate JSON export. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/148-dac7-1099k-withholding-simulator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"DAC7 / 1099-K Withholding Threshold Simulator","url":"https://ainumbers.co/tools/156-dac7-1099k-withholding-simulator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "dac7-1099k-withholding-simulator",
+  "version": "1.0.0",
+  "title": "DAC7 / 1099-K Withholding Threshold Simulator",
+  "description": "Models EU DAC7 and US IRS 1099-K reporting trigger calculations with IRS backup withholding, DAC7 thresholds, OECD safe harbours, and FATCA Form 8966 flags. Exports AP2 JSON tax policy.",
+  "category": "cat-13",
+  "tags": ["DAC7","1099-K","withholding","FATCA","CRS","marketplace","tax","platform","AP2"],
+  "audience": ["compliance","treasury","product"],
+  "input_schema": {"type":"object","properties":{"seller_jurisdiction":{"type":"string"},"residency_status":{"type":"string"},"annual_volume":{"type":"number"},"transaction_count":{"type":"number"},"entity_type":{"type":"string"}},"required":["seller_jurisdiction","residency_status","annual_volume","transaction_count"]},
+  "output_schema": {"type":"object","properties":{"dac7_triggered":{"type":"boolean"},"irs_1099k_triggered":{"type":"boolean"},"backup_withholding_required":{"type":"boolean"},"withholding_amount":{"type":"number"},"ap2_tax_policy":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"simulate_dac7_1099k_withholding","description":"Simulates DAC7 and 1099-K reporting triggers with withholding calculations and AP2 JSON tax policy export.","inputSchema":{"type":"object","properties":{"seller_jurisdiction":{"type":"string","description":"ISO 3166-1 alpha-2 seller country"},"residency_status":{"type":"string","description":"US person, EU resident, non-EU/non-US"},"annual_volume":{"type":"number","description":"Annual gross payment volume in USD"},"transaction_count":{"type":"number","description":"Annual transaction count"}},"required":["seller_jurisdiction","residency_status","annual_volume","transaction_count"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/156-dac7-1099k-withholding-simulator.html","function_name":"runSim","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:960px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.015) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:960px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:960px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}.nav-trail a:hover{color:var(--teal)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}.nav-sep{color:var(--border-2)}
+
+.last-reviewed::before{content:'⏱'}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:620px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0;flex:1}
+.tool-grid{display:grid;grid-template-columns:310px 1fr;gap:1.5rem;align-items:start}
+@media(max-width:768px){.tool-grid{grid-template-columns:1fr}}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.panel-body{padding:1.25rem}
+.field{margin-bottom:1rem}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.field input,.field select{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.75rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none;transition:border-color .2s;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--teal)}
+.field-hint{font-size:.6rem;color:var(--muted);margin-top:.25rem}
+.run-btn{width:100%;background:var(--teal);color:var(--bg);border:none;padding:.65rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.85rem}
+.run-btn:hover{background:var(--teal-lt)}
+.output-panel{display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.trigger-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border)}
+.trigger-cell{background:var(--bg-2);padding:1rem 1.25rem;display:flex;flex-direction:column;gap:.35rem}
+.trigger-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.trigger-status{font-family:'DM Serif Display',serif;font-size:1.1rem}
+.trigger-detail{font-size:.68rem;color:var(--body);line-height:1.6}
+.trig-yes{color:var(--red)}.trig-no{color:var(--green)}.trig-warn{color:var(--warn)}
+.waterfall-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.waterfall-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400}
+.waterfall-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.waterfall-table tr:last-child td{border-bottom:none;font-weight:600;color:var(--bright);border-top:2px solid var(--border)}
+.status-badge{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.06em;text-transform:uppercase;padding:.1rem .35rem;border-radius:2px}
+.sb-trigger{background:var(--red-dim);color:var(--red)}.sb-clear{background:var(--green-dim);color:var(--green)}.sb-warn{background:var(--warn-dim);color:var(--warn)}.sb-na{background:var(--bg-3);color:var(--muted);border:1px solid var(--border)}
+.ap2-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--teal-lt);line-height:1.7;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.disc-note{font-size:.65rem;color:var(--muted);font-style:italic;margin-top:.75rem;padding:.6rem .85rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-3)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+/* 5D-nav-bc-v1 */
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-privacy::before{content:'·';color:var(--green)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick='setLang("zh")'>中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/b2b-payments-hub.html">B2B Payments Hub</a><span class="nav-sep">/</span><span>T-148</span></div>
+
+    <a href="../guides/b2b-payments-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-13 · T156 · B2B Payments &amp; Platform Operations</div>
+  <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-08</span></span>
+  <h1 class="tool-title">DAC7 / 1099-K Withholding <em>Threshold Simulator</em></h1>
+  <p class="hero-desc">Model EU DAC7 and US IRS 1099-K reporting trigger calculations by seller jurisdiction, residency status, and transaction volume. Calculate IRS backup withholding (24%), EU DAC7 thresholds (€2,000 / 30 transactions), OECD Model Rules safe harbours, and FATCA Form 8966 flags.</p>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-gold">DAC7</span>
+    <span class="badge badge-gold">1099-K</span>
+    <span class="badge badge-teal">FATCA</span>
+    <span class="badge badge-purple">Policy Mandate Export</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+<div class="tool-grid">
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-title">Seller Profile</span></div>
+    <div class="panel-body">
+      <div class="field">
+        <label>Seller Jurisdiction</label>
+        <select id="sellerJuris">
+          <option value="US">United States</option>
+          <option value="DE">Germany</option>
+          <option value="FR">France</option>
+          <option value="GB">United Kingdom</option>
+          <option value="NL">Netherlands</option>
+          <option value="PL">Poland</option>
+          <option value="ES">Spain</option>
+          <option value="IT">Italy</option>
+          <option value="CN">China</option>
+          <option value="IN">India</option>
+          <option value="Other_EU">Other EU Member State</option>
+          <option value="Other_Non_EU">Other Non-EU</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Residency / Tax Status</label>
+        <select id="residency">
+          <option value="us_person">US Person (citizen / resident)</option>
+          <option value="eu_resident">EU Resident (non-US)</option>
+          <option value="uk_resident">UK Resident (post-Brexit)</option>
+          <option value="non_eu_non_us">Non-EU / Non-US Resident</option>
+          <option value="exempt_entity">Exempt Entity (Corp / Gov / 501c3)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Entity Type</label>
+        <select id="entityType">
+          <option value="individual">Individual / Sole Trader</option>
+          <option value="llc_single">LLC (Single Member)</option>
+          <option value="llc_multi">LLC (Multi Member)</option>
+          <option value="corp">Corporation (C-Corp / Ltd)</option>
+          <option value="partnership">Partnership</option>
+          <option value="nonprofit">Non-Profit / Charity</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Annual Gross Payment Volume (USD)</label>
+        <input type="number" id="annVol" value="25000" min="0">
+        <div class="field-hint">Total gross payments received on platform per calendar year</div>
+      </div>
+      <div class="field">
+        <label>Annual Transaction Count</label>
+        <input type="number" id="annTxns" value="45" min="0">
+      </div>
+      <div class="field">
+        <label>W-9 / W-8 on File?</label>
+        <select id="taxForm">
+          <option value="w9">W-9 (US Person TIN provided)</option>
+          <option value="w8ben">W-8BEN (Foreign Individual)</option>
+          <option value="w8bene">W-8BEN-E (Foreign Entity)</option>
+          <option value="none">No form on file</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Platform Operates In</label>
+        <select id="platJuris">
+          <option value="US_EU">US + EU</option>
+          <option value="US_only">US Only</option>
+          <option value="EU_only">EU Only</option>
+          <option value="Global">Global</option>
+        </select>
+      </div>
+      <button class="run-btn" onclick="runSim()">▶ Simulate Thresholds</button>
+    </div>
+  </div>
+
+  <div class="output-panel" id="outputPanel">
+    <div class="out-section"><div class="out-body" style="text-align:center;padding:3rem;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.62rem">Configure seller profile and click Simulate Thresholds</div></div>
+  </div>
+
+</div></div></div>
+
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/b2b-payments-hub.html"><span data-i18n="footer.hub_b2b_payments">B2B Payments Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+const DAC7_EUR_THRESHOLD  = 2000;   // EUR (approx. USD equiv)
+const DAC7_TXN_THRESHOLD  = 30;
+const IRS_1099K_THRESHOLD = 5000;   // USD (2024 IRS threshold — previously $600; current enforcement)
+const IRS_1099K_TXN_THRESHOLD = 200; // transactions (pre-2024 rule)
+const BACKUP_WITHHOLDING  = 0.24;
+const EUR_TO_USD          = 1.08;   // approximate
+
+function genUUID(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0,v=c==='x'?r:(r&0x3|0x8);return v.toString(16);})}
+function fmt(n){return n>=1e6?'$'+(n/1e6).toFixed(2)+'M':n>=1e3?'$'+(n/1e3).toFixed(1)+'K':'$'+n.toFixed(0)}
+
+function runSim() {
+  const juris    = document.getElementById('sellerJuris').value;
+  const res      = document.getElementById('residency').value;
+  const entity   = document.getElementById('entityType').value;
+  const vol      = parseFloat(document.getElementById('annVol').value)||0;
+  const txns     = parseFloat(document.getElementById('annTxns').value)||0;
+  const taxForm  = document.getElementById('taxForm').value;
+  const platJ    = document.getElementById('platJuris').value;
+
+  const isEU     = ['DE','FR','NL','PL','ES','IT','Other_EU'].includes(juris);
+  const isUS     = juris === 'US';
+  const isUsPerson = res === 'us_person';
+  const isExempt = entity === 'nonprofit' || res === 'exempt_entity' || entity === 'corp';
+
+  // ── DAC7 ──
+  const dac7Applicable = (platJ === 'US_EU' || platJ === 'EU_only' || platJ === 'Global');
+  const dac7VolTriggered  = vol > (DAC7_EUR_THRESHOLD * EUR_TO_USD);
+  const dac7TxnTriggered  = txns > DAC7_TXN_THRESHOLD;
+  const dac7Triggered     = dac7Applicable && (dac7VolTriggered || dac7TxnTriggered);
+  const dac7SafeHarbour   = isExempt && !isUsPerson;
+
+  // ── IRS 1099-K ──
+  const irs1099Applicable = platJ === 'US_EU' || platJ === 'US_only' || platJ === 'Global';
+  const irs1099Triggered  = irs1099Applicable && isUsPerson && vol > IRS_1099K_THRESHOLD;
+
+  // ── Backup Withholding ──
+  const backupWHRequired  = irs1099Applicable && isUsPerson && taxForm === 'none' && vol > 600;
+  const backupWHAmount    = backupWHRequired ? vol * BACKUP_WITHHOLDING : 0;
+
+  // ── FATCA ──
+  const fatcaFlag = !isUsPerson && !isEU && vol > 50000;
+  const form8966  = !isUsPerson && vol > 10000;
+
+  // ── OECD CARF ──
+  const carfApplicable = dac7Applicable && !isUsPerson;
+
+  // Waterfall rows
+  const rows = [
+    {regime:'EU DAC7 Directive 2021/514', threshold:`€${(DAC7_EUR_THRESHOLD).toLocaleString()} or ${DAC7_TXN_THRESHOLD} txns`, sellerVol: vol, sellerTxns: txns, triggered: dac7Triggered && !dac7SafeHarbour, safeHarbour: dac7SafeHarbour, applicable: dac7Applicable, action: dac7Triggered && !dac7SafeHarbour ? 'Report seller data to competent authority' : 'No DAC7 reporting required'},
+    {regime:'IRS 1099-K (US)',             threshold:`$${IRS_1099K_THRESHOLD.toLocaleString()} (2024)`, sellerVol: vol, sellerTxns: txns, triggered: irs1099Triggered, safeHarbour: false, applicable: irs1099Applicable && isUsPerson, action: irs1099Triggered ? 'Issue 1099-K by Jan 31; report to IRS' : 'Below 1099-K threshold'},
+    {regime:'IRS Backup Withholding 24%',  threshold:'Missing TIN / W-9', sellerVol: vol, sellerTxns: txns, triggered: backupWHRequired, safeHarbour: false, applicable: irs1099Applicable && isUsPerson, action: backupWHRequired ? `Withhold $${backupWHAmount.toFixed(2)} (24% of $${vol.toFixed(0)})` : 'W-9 on file — no backup withholding'},
+    {regime:'FATCA Form 8966',             threshold:'$50,000 foreign payee', sellerVol: vol, sellerTxns: txns, triggered: fatcaFlag, safeHarbour: false, applicable: !isUsPerson, action: fatcaFlag ? 'File Form 8966 with IRS annually' : 'Below FATCA threshold'},
+    {regime:'OECD CARF (Crypto Assets)',   threshold:'All reportable users', sellerVol: vol, sellerTxns: txns, triggered: false, safeHarbour: false, applicable: carfApplicable, action: 'CARF applies only to crypto-asset platforms — verify platform scope'},
+  ];
+
+  const triggerCount = rows.filter(r => r.triggered).length;
+
+  const ap2 = {
+    ap2_version: '1.0',
+    tool_id: 'dac7-1099k-withholding-simulator',
+    generated_at: new Date().toISOString(),
+    last_reviewed: '2026-05-08',
+    regulatory_references: ['DAC7 Directive 2021/514','IRS Rev. Proc. 2023-12','OECD Model Rules 2023'],
+    tax_policy: {
+      policy_id: `TAX-POLICY-${genUUID().substring(0,8).toUpperCase()}`,
+      seller_jurisdiction: juris,
+      residency_status: res,
+      entity_type: entity,
+      annual_volume_usd: vol,
+      annual_transaction_count: txns,
+      dac7_reporting_required: dac7Triggered && !dac7SafeHarbour,
+      irs_1099k_required: irs1099Triggered,
+      backup_withholding_required: backupWHRequired,
+      backup_withholding_rate: BACKUP_WITHHOLDING,
+      backup_withholding_amount: backupWHAmount,
+      fatca_form_8966_required: fatcaFlag,
+      tax_form_on_file: taxForm
+    },
+    mandate_type: 'PLATFORM_TAX_POLICY',
+    agent_instructions: [
+      dac7Triggered && !dac7SafeHarbour ? 'Trigger DAC7 reporting workflow for this seller' : 'No DAC7 reporting required for this seller',
+      irs1099Triggered ? 'Generate IRS 1099-K by January 31' : 'Below 1099-K threshold — no form required',
+      backupWHRequired ? `Apply 24% backup withholding on payments — withhold $${backupWHAmount.toFixed(2)}` : 'No backup withholding required',
+      fatcaFlag ? 'Flag for FATCA Form 8966 annual filing' : 'Below FATCA reporting threshold'
+    ]
+  };
+
+  document.getElementById('outputPanel').innerHTML = `
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Threshold Trigger Summary</span></div>
+      <div class="trigger-grid">
+        <div class="trigger-cell">
+          <div class="trigger-label">EU DAC7</div>
+          <div class="trigger-status ${(dac7Triggered&&!dac7SafeHarbour)?'trig-yes':dac7SafeHarbour?'trig-warn':'trig-no'}">${(dac7Triggered&&!dac7SafeHarbour)?'⚠ TRIGGERED':dac7SafeHarbour?'Safe Harbour':'Not Triggered'}</div>
+          <div class="trigger-detail">Vol: $${vol.toLocaleString()} vs €${DAC7_EUR_THRESHOLD.toLocaleString()} limit · ${txns} txns vs ${DAC7_TXN_THRESHOLD} limit</div>
+        </div>
+        <div class="trigger-cell">
+          <div class="trigger-label">IRS 1099-K</div>
+          <div class="trigger-status ${irs1099Triggered?'trig-yes':'trig-no'}">${irs1099Triggered?'⚠ TRIGGERED':'Not Triggered'}</div>
+          <div class="trigger-detail">$${vol.toLocaleString()} vs $${IRS_1099K_THRESHOLD.toLocaleString()} threshold · US person: ${isUsPerson?'Yes':'No'}</div>
+        </div>
+        <div class="trigger-cell">
+          <div class="trigger-label">Backup Withholding</div>
+          <div class="trigger-status ${backupWHRequired?'trig-yes':'trig-no'}">${backupWHRequired?'⚠ REQUIRED':'Not Required'}</div>
+          <div class="trigger-detail">${backupWHRequired?`24% × $${vol.toLocaleString()} = $${backupWHAmount.toFixed(0)}`:'W-9 / tax form on file'}</div>
+        </div>
+        <div class="trigger-cell">
+          <div class="trigger-label">FATCA Form 8966</div>
+          <div class="trigger-status ${fatcaFlag?'trig-warn':'trig-no'}">${fatcaFlag?'⚠ FLAG':'Not Required'}</div>
+          <div class="trigger-detail">Foreign payee · $${vol.toLocaleString()} vs $50,000 FATCA threshold</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Jurisdictional Tax Waterfall</span></div>
+      <div class="out-body" style="padding:0">
+        <table class="waterfall-table">
+          <thead><tr><th>Regime</th><th>Threshold</th><th>Applicable</th><th>Status</th><th>Required Action</th></tr></thead>
+          <tbody>
+            ${rows.map(r=>`
+              <tr>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--bright)">${r.regime}</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted)">${r.threshold}</td>
+                <td><span class="status-badge ${r.applicable?'sb-clear':'sb-na'}">${r.applicable?'Yes':'N/A'}</span></td>
+                <td><span class="status-badge ${r.triggered?'sb-trigger':r.safeHarbour?'sb-warn':'sb-clear'}">${r.triggered?'TRIGGERED':r.safeHarbour?'SAFE HARBOUR':'CLEAR'}</span></td>
+                <td style="font-size:.67rem;color:var(--body)">${r.action}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header">
+        <span class="out-title">Policy Mandate JSON Tax Policy Export</span>
+        <button class="copy-btn" onclick="copyAP2()">Copy JSON</button>
+      </div>
+      <div class="out-body" style="padding:.75rem">
+        <div class="ap2-block">${JSON.stringify(ap2,null,2)}</div>
+        <div class="disc-note">⚠ This tool provides indicative regulatory guidance only. Tax treatment varies significantly by seller entity type, platform classification, product type, and jurisdiction-specific rules. Always consult a qualified tax advisor before applying withholding or reporting obligations.</div>
+      </div>
+    </div>
+  `;
+  window._ap2 = JSON.stringify(ap2,null,2);
+}
+
+function copyAP2(){if(window._ap2){navigator.clipboard.writeText(window._ap2).then(()=>{const b=document.querySelector('.copy-btn');if(b){b.textContent='Copied ✓';setTimeout(()=>b.textContent='Copy JSON',2000)}})}}
+const TRANSLATIONS = { en:{
+    'nav.alltools': 'All Tools',
+    'nav.hub': '← Cat-13 Hub',
+  }, es:{
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.hub': '← Centro Cat-13',
+  }, fr:{
+    'nav.alltools': 'Tous les Outils',
+    'nav.hub': '← Centre Cat-13',
+  }, ar:{
+    'nav.alltools': 'جميع الأدوات',
+    'nav.hub': '← مركز Cat-13',
+  }, pt:{
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.hub': '← Central Cat-13',
+  }, zh:{
+    'nav.alltools': '所有工具',
+    'nav.hub': '← Cat-13 中心',
+  } };
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+runSim();
+</script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "dac7-1099k-withholding-simulator", "version": "1.0.0", "title": "DAC7 / 1099-K Withholding Threshold Simulator", "description": "Model EU DAC7 and US IRS 1099-K reporting trigger calculations by seller jurisdiction, residency, and transaction volume. Calculate IRS backup withholding (24%), DAC7 thresholds, OECD safe harbours, FATCA flags. Policy Mandate JSON export. Client-side. Zero PII.", "category": "b2b-payments", "tags": ["DAC7", "1099-K", "FATCA", "Policy Mandate Export", "Zero PII", "Client-Side"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"sellerJuris": {"type": "string"}, "residency": {"type": "string"}, "entityType": {"type": "string"}, "annVol": {"type": "string"}, "annTxns": {"type": "string"}, "taxForm": {"type": "string"}, "platJuris": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "dac7_1099k_withholding_simulator", "description": "Run DAC7 / 1099-K Withholding Threshold Simulator. Model EU DAC7 and US IRS 1099-K reporting trigger calculations by seller jurisdiction, residency, and transaction volume. Calculate IRS backup withholding (24%), DAC7 thresholds, OECD safe harbours, F", "inputSchema": {"type": "object", "properties": {"sellerJuris": {"type": "string"}, "residency": {"type": "string"}, "entityType": {"type": "string"}, "annVol": {"type": "string"}, "annTxns": {"type": "string"}, "taxForm": {"type": "string"}, "platJuris": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/148-dac7-1099k-withholding-simulator.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

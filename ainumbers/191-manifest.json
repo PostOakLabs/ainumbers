@@ -1,0 +1,210 @@
+{
+  "tool_id": "bnpl-disclosure-template-generator",
+  "version": "1.0.0",
+  "title": "BNPL Disclosure Template Generator",
+  "description": "Generate jurisdiction-specific BNPL checkout disclosure language for UK (FCA CONC 4 / PCCI), US (TILA/Reg Z §1026.18), and EU (CCD2 SECCI Annex II). Calculates payment schedule, finance charge, and total payable from product parameters. Outputs per-jurisdiction long-form disclosure documents, checkout summary copy, and an AP2 JSON disclosure manifest.",
+  "category": "cat-16",
+  "tags": ["BNPL", "FCA CONC 4", "PCCI", "TILA", "Reg Z", "CCD2 SECCI", "Disclosure", "Template", "AP2"],
+  "audience": ["compliance", "legal", "product", "engineer"],
+
+  "input_schema": {
+    "type": "object",
+    "required": ["jurisdictions", "purchase_amount", "num_instalments"],
+    "properties": {
+      "jurisdictions": {
+        "type": "array",
+        "minItems": 1,
+        "items": { "type": "string", "enum": ["uk", "eu", "us"] }
+      },
+      "lender_name": {
+        "type": "string",
+        "description": "Legal entity name of the lender/creditor. Used in all disclosure documents."
+      },
+      "product_name": {
+        "type": "string",
+        "description": "BNPL product name (e.g. 'Pay in 4', 'Split Pay')."
+      },
+      "currency": {
+        "type": "string",
+        "enum": ["GBP", "EUR", "USD"],
+        "default": "GBP"
+      },
+      "purchase_amount": {
+        "type": "number",
+        "description": "Total credit / purchase amount.",
+        "minimum": 1
+      },
+      "num_instalments": {
+        "type": "integer",
+        "description": "Number of repayment instalments.",
+        "minimum": 2,
+        "maximum": 36
+      },
+      "first_payment_timing": {
+        "type": "string",
+        "enum": ["immediate", "deferred"],
+        "description": "Whether first payment is due at checkout or deferred."
+      },
+      "defer_days": {
+        "type": "integer",
+        "description": "Days before first payment when first_payment_timing is 'deferred'."
+      },
+      "payment_interval": {
+        "type": "string",
+        "enum": ["2weeks", "monthly", "custom"]
+      },
+      "apr_pct": {
+        "type": "number",
+        "description": "Annual Percentage Rate as a percentage. 0 for interest-free BNPL.",
+        "default": 0,
+        "minimum": 0
+      },
+      "late_fee": {
+        "type": "number",
+        "description": "Late fee per missed payment in reporting currency. Optional.",
+        "minimum": 0
+      },
+      "fca_authorisation_number": {
+        "type": "string",
+        "description": "FCA authorisation number for UK disclosures. Inserts placeholder if blank."
+      }
+    }
+  },
+
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "calculated_fields": {
+        "type": "object",
+        "properties": {
+          "instalment_amount": { "type": "number" },
+          "last_instalment": { "type": "number" },
+          "total_payable": { "type": "number" },
+          "finance_charge": { "type": "number" }
+        }
+      },
+      "disclosures": {
+        "type": "object",
+        "description": "Per-jurisdiction disclosure text.",
+        "properties": {
+          "uk": {
+            "type": "object",
+            "properties": {
+              "checkout_summary": { "type": "string" },
+              "pcci_long_form": { "type": "string" }
+            }
+          },
+          "eu": {
+            "type": "object",
+            "properties": {
+              "checkout_summary": { "type": "string" },
+              "secci_long_form": { "type": "string" }
+            }
+          },
+          "us": {
+            "type": "object",
+            "properties": {
+              "checkout_summary": { "type": "string" },
+              "tila_box_long_form": { "type": "string" }
+            }
+          }
+        }
+      },
+      "ap2_mandate": {
+        "type": "object",
+        "description": "AP2 JSON disclosure manifest with mandate_type: disclosure_template."
+      }
+    }
+  },
+
+  "mcp_tool_definition": {
+    "name": "generate_bnpl_disclosure_templates",
+    "description": "Generate jurisdiction-specific BNPL disclosure templates. For UK: FCA CONC 4 / Pre-Contract Credit Information (PCCI) in SECCI format. For EU: CCD2 Standard European Consumer Credit Information (SECCI, Annex II). For US: TILA Reg Z § 1026.18 Federal Truth in Lending Disclosure. Returns checkout summary copy, full pre-contract disclosure documents, calculated financial figures, and an AP2 JSON disclosure manifest. Output templates require legal review and placeholder completion before live use. Use when a BNPL lender or merchant needs compliant disclosure language for checkout integration.",
+    "inputSchema": {
+      "type": "object",
+      "required": ["jurisdictions", "purchase_amount", "num_instalments"],
+      "properties": {
+        "jurisdictions": { "type": "array", "items": { "type": "string" } },
+        "lender_name": { "type": "string" },
+        "product_name": { "type": "string" },
+        "currency": { "type": "string" },
+        "purchase_amount": { "type": "number" },
+        "num_instalments": { "type": "integer" },
+        "first_payment_timing": { "type": "string" },
+        "defer_days": { "type": "integer" },
+        "payment_interval": { "type": "string" },
+        "apr_pct": { "type": "number" },
+        "late_fee": { "type": "number" },
+        "fca_authorisation_number": { "type": "string" }
+      }
+    }
+  },
+
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/191-bnpl-disclosure-template-generator.html",
+    "function_name": "generateTemplates",
+    "timeout_ms": 2000
+  },
+
+  "ap2_export": true,
+
+  "disclosure_formats": {
+    "uk": {
+      "regulation": "FCA CONC 4.2 / Consumer Credit Act 1974",
+      "format": "Pre-Contract Credit Information (PCCI) — SECCI equivalent",
+      "right_of_withdrawal_days": 14,
+      "mandatory_elements": [
+        "Creditor identity and FCA number",
+        "Type of credit",
+        "Total amount of credit",
+        "Duration",
+        "Rate of interest and APR",
+        "Total amount payable",
+        "Repayment schedule",
+        "Late payment charges",
+        "Right of withdrawal (14 days)",
+        "FOS complaint pathway"
+      ]
+    },
+    "eu": {
+      "regulation": "Directive 2023/2225/EU (CCD2) Art. 10, Annex II",
+      "format": "Standard European Consumer Credit Information (SECCI)",
+      "right_of_withdrawal_days": 14,
+      "mandatory_elements": [
+        "Creditor identity",
+        "Type of credit",
+        "Total credit amount",
+        "Duration",
+        "Borrowing rate",
+        "APR with representative example",
+        "Total amount payable",
+        "Repayment schedule",
+        "Late charges",
+        "Right of withdrawal (14 days)",
+        "Early repayment right",
+        "ADR body"
+      ]
+    },
+    "us": {
+      "regulation": "12 CFR 1026.18 (Regulation Z / TILA)",
+      "format": "Federal Truth in Lending Disclosure — Closed-End Credit",
+      "right_of_withdrawal_days": null,
+      "mandatory_elements": [
+        "Creditor identity",
+        "Amount financed",
+        "Finance charge",
+        "Annual percentage rate",
+        "Payment schedule",
+        "Total of payments",
+        "Prepayment information",
+        "Late payment charges",
+        "Security interest"
+      ]
+    }
+  },
+
+  "legal_disclaimer": "Generated disclosures are structured templates. They must be reviewed and approved by qualified legal counsel before use. Placeholders in [BRACKETS] must be completed with actual entity details.",
+  "last_reviewed": "2026-05-08",
+  "notes": "Client-side. Zero PII. AP2 export: true (mandate_type: disclosure_template). Copy-to-clipboard enabled per pane."
+}

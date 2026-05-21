@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>T202 · Credit Stress Testing Workbench · AINumbers.co</title>
+<meta name="description" content="Apply macro stress scenarios — GDP shock, rate move, sector downturn, FX shock — to counterparty credit metrics. Outputs scenario comparison table, credit metric migration, Markdown stress memo, and Policy Mandate JSON stress scenario record. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/202-credit-stress-testing-workbench">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Credit Stress Testing Workbench","url":"https://ainumbers.co/tools/202-credit-stress-testing-workbench","description":"Apply macro stress scenarios — GDP shock, rate move, sector downturn, FX shock — to counterparty credit metrics. Outputs scenario comparison table, credit metric migration, Markdown stress memo, and Policy Mandate JSON stress scenario record. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(212,168,71,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(212,168,71,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+[dir="rtl"] .nav-inner{flex-direction:row-reverse}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+[dir="rtl"] .lang-inner{justify-content:flex-start}
+[dir="rtl"] [dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+[dir="rtl"] .run-btn{letter-spacing:0}
+
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+.hero{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:360px;height:360px;background:radial-gradient(circle,rgba(212,168,71,.06) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:.9rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--gold)}
+.tool-eyebrow{color:var(--gold)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.5rem);color:var(--white);max-width:700px;margin-bottom:.65rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.85rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.6rem;flex-wrap:wrap}
+.hero-badge{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.28rem .65rem;border:1px solid}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+
+.main-content{position:relative;z-index:1;padding:2.5rem 0 1rem}
+.tool-layout{display:grid;grid-template-columns:1fr 320px;gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:1.5rem}
+@media(max-width:820px){.tool-layout{grid-template-columns:1fr}}
+.panel{background:var(--bg-2);padding:1.75rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.section-divider{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:.4rem;margin:.25rem 0 1rem}
+
+/* Form */
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+@media(max-width:560px){.field-row{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:.35rem;margin-bottom:1rem}
+.field:last-child{margin-bottom:0}
+label.fl{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text);display:block;margin-bottom:.35rem}
+label.fl .hint{font-size:.46rem;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:300}
+select.fs,input.fi{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.5rem .75rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;border-radius:var(--radius);width:100%;-webkit-appearance:none;transition:border-color .2s}
+select.fs:focus,input.fi:focus{outline:none;border-color:var(--gold)}
+select option{background:var(--bg-3)}
+.field-sub{font-size:.65rem;color:var(--muted);line-height:1.5;margin-top:.3rem}
+
+/* Scenario cards */
+.scenario-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:1.5rem}
+.scenario-card{background:var(--bg-3);padding:.85rem 1rem;cursor:pointer;transition:background .15s;position:relative}
+.scenario-card:hover{background:var(--bg-4)}
+.scenario-card.selected{background:var(--gold-dim)}
+.scenario-card.selected::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--gold)}
+.sc-name{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;color:var(--bright);margin-bottom:.2rem}
+.sc-desc{font-size:.65rem;color:var(--body);line-height:1.5}
+.sc-tags{display:flex;gap:.3rem;margin-top:.4rem;flex-wrap:wrap}
+.sc-tag{font-family:'JetBrains Mono',monospace;font-size:.42rem;padding:.1rem .35rem;background:var(--bg-2);border:1px solid var(--border);color:var(--muted);border-radius:2px}
+
+/* Custom scenario inputs */
+.custom-panel{background:var(--bg-3);border:1px solid var(--border);padding:1rem;margin-bottom:1.5rem;display:none}
+.custom-panel.visible{display:block}
+
+.run-btn{width:100%;background:var(--gold);color:var(--bg);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;padding:.85rem 1.5rem;border:none;border-radius:var(--radius);font-weight:500;transition:all .2s;margin-top:.5rem}
+.run-btn:hover{opacity:.88;transform:translateY(-1px)}
+
+/* About */
+.about-block{border-bottom:1px solid var(--border);padding-bottom:1rem;margin-bottom:1rem}
+.about-block:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.about-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.about-text{font-size:.74rem;color:var(--body);line-height:1.7}
+.about-text strong{color:var(--text)}
+.transmission-list{display:flex;flex-direction:column;gap:2px;margin-top:.5rem}
+.trans-row{font-family:'JetBrains Mono',monospace;font-size:.5rem;background:var(--bg-3);border:1px solid var(--border);padding:.25rem .6rem;display:flex;align-items:center;gap:.5rem;color:var(--muted)}
+.trans-row span:first-child{color:var(--text);min-width:80px}
+.trans-arrow{color:var(--gold)}
+
+.last-reviewed::before{content:'⏱';font-size:.6rem}
+
+/* Results */
+.results-panel{background:var(--bg-2);border:1px solid var(--border);margin-bottom:1.5rem;display:none}
+.results-panel.visible{display:block}
+.results-header{padding:1.25rem 1.75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem}
+.results-title-el{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
+.results-body{padding:1.75rem}
+
+/* Scenario comparison table */
+.sec-lbl{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.85rem}
+.stress-table{width:100%;border-collapse:collapse;margin-bottom:2rem}
+.stress-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.6rem .85rem;border-bottom:1px solid var(--border-2);text-align:left;font-weight:400}
+.stress-table th.scenario-col{text-align:center;min-width:120px}
+.stress-table td{padding:.65rem .85rem;border-bottom:1px solid var(--border);font-size:.78rem;vertical-align:middle}
+.stress-table tr:last-child td{border-bottom:none}
+.stress-table tr:hover td{background:rgba(255,255,255,.012)}
+.stress-table td.metric-name{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text)}
+.stress-table td.scenario-val{font-family:'JetBrains Mono',monospace;font-size:.68rem;text-align:center}
+.val-base{color:var(--teal)}
+.val-mild{color:var(--gold)}
+.val-moderate{color:var(--warn)}
+.val-severe{color:var(--red)}
+.val-custom{color:var(--purple)}
+
+/* Rating migration visual */
+.migration-grid{display:grid;gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:2rem}
+.mig-row{background:var(--bg-3);padding:.75rem 1.25rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.mig-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);min-width:90px;flex-shrink:0}
+.mig-base{font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--teal);min-width:50px}
+.mig-arrow{color:var(--muted);font-size:.85rem}
+.mig-stressed{font-family:'DM Serif Display',serif;font-size:1.3rem}
+.mig-notches{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);flex:1}
+.notch-chip{display:inline-block;padding:.12rem .4rem;border-radius:2px;font-family:'JetBrains Mono',monospace;font-size:.46rem;margin-left:.3rem}
+.nc-0{background:var(--teal-dim);color:var(--teal)}
+.nc-1,.nc-2{background:var(--gold-dim);color:var(--gold)}
+.nc-3,.nc-4{background:var(--warn-dim);color:var(--warn)}
+.nc-5,.nc-6,.nc-hi{background:var(--red-dim);color:var(--red)}
+
+/* Rationale */
+.rationale-block{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);padding:1.25rem 1.5rem;margin-bottom:2rem}
+.rationale-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem}
+.rationale-text{font-size:.82rem;color:var(--text);line-height:1.8}
+.rationale-text strong{color:var(--bright)}
+
+.results-export-row{display:flex;gap:.75rem;padding-top:1.25rem;border-top:1px solid var(--border)}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;border-radius:var(--radius);border:1px solid;cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;transition:all .2s;background:transparent}
+.btn-export-md{color:var(--teal);border-color:rgba(20,184,166,.35)}
+.btn-export-md:hover{border-color:var(--teal);background:var(--teal-dim)}
+
+}
+
+/* ── Export button enhancements ─────────────────────────────── */
+.ap2-btn-inner{display:flex;flex-direction:column;gap:.05rem;text-align:left}
+.ap2-btn-label{font-size:.5rem;letter-spacing:.09em;text-transform:uppercase}
+.ap2-btn-sub{font-size:.42rem;color:rgba(212,168,71,.55);text-transform:none;letter-spacing:0;font-weight:300;line-height:1}
+.ap2-icon{font-size:.72rem;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-weight:700}
+.md-badge{font-size:.44rem;background:var(--teal-dim);color:var(--teal);border:1px solid rgba(20,184,166,.3);padding:.1rem .35rem;border-radius:2px;font-weight:600;letter-spacing:.04em;margin-right:.3rem;flex-shrink:0}
+/* ── Export success toast ────────────────────────────────────── */
+.export-toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--green);padding:.7rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--green);z-index:9999;pointer-events:none;display:flex;align-items:center;gap:.5rem;border-radius:var(--radius);box-shadow:0 4px 24px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s}
+.export-toast.show{opacity:1;transform:translateY(0)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- LANG BAR -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick='setLang("zh")'>中文</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--gold)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".7"/>
+      </svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/counterparty-credit-risk-hub.html">Credit Risk Hub</a><span class="nav-sep">/</span><span>T-202</span></div>
+
+    <a href="../guides/counterparty-credit-risk-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+    <div class="hero-eyebrow">
+      <span class="tool-eyebrow">T202 · Cat-17 · Counterparty Credit Risk · Stress Testing</span>
+    </div>
+    <h1 class="tool-title">Credit <em>Stress Testing Workbench</em></h1>
+    <p class="hero-desc">Apply macro stress scenarios — GDP shock, interest rate move, sector downturn, FX shock — to counterparty credit metrics. Outputs a four-scenario comparison table (base, mild, moderate, severe), credit metric migration across rating notches, Markdown stress memo, and Policy Mandate JSON stress scenario record.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-gold">Scenario Analysis</span>
+      <span class="hero-badge badge-teal">Rating Migration</span>
+      <span class="hero-badge badge-gold">ICAAP · ECL Stress</span>
+      <span class="hero-badge badge-muted">Zero PII · Client-side</span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main-content">
+<div class="container">
+
+  <div class="tool-layout">
+
+    <!-- CONFIG PANEL -->
+    <div class="panel">
+      <div class="panel-label">Configuration</div>
+
+      <!-- Base metrics -->
+      <div class="section-divider">Base Case Metrics <span style="color:var(--body);text-transform:none;letter-spacing:0;font-weight:300;font-size:.6rem;font-family:'Sora',sans-serif"> — from T197/T198/T201 or enter directly</span></div>
+
+      <div class="field-row">
+        <div>
+          <label class="fl">Base Rating <span class="hint">— internal/external</span></label>
+          <select class="fs" id="baseRating">
+            <option value="AAA">AAA</option><option value="AA+">AA+</option><option value="AA">AA</option><option value="AA-">AA-</option>
+            <option value="A+">A+</option><option value="A">A</option><option value="A-">A-</option>
+            <option value="BBB+">BBB+</option><option value="BBB" selected>BBB</option><option value="BBB-">BBB-</option>
+            <option value="BB+">BB+</option><option value="BB">BB</option><option value="BB-">BB-</option>
+            <option value="B+">B+</option><option value="B">B</option><option value="B-">B-</option>
+            <option value="CCC+">CCC+</option><option value="CCC">CCC</option><option value="CC">CC</option>
+          </select>
+        </div>
+        <div>
+          <label class="fl" data-i18n="label_sector">Sector <span class="hint">— transmission factor</span></label>
+          <select class="fs" id="sector">
+            <option value="general">General Corporate</option>
+            <option value="tech">Technology</option>
+            <option value="healthcare">Healthcare</option>
+            <option value="utilities">Utilities / Infrastructure</option>
+            <option value="realestate">Real Estate</option>
+            <option value="energy">Energy / Commodities</option>
+            <option value="retail">Retail / Consumer</option>
+            <option value="financial">Financial Services</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div>
+          <label class="fl">Base 1-Yr PD <span class="hint">% — from T198</span></label>
+          <input class="fi" id="basePD" type="number" placeholder="e.g. 0.30" step="0.01" min="0.001" max="100" value="0.30">
+        </div>
+        <div>
+          <label class="fl">EAD <span class="hint">$ — from T201</span></label>
+          <input class="fi" id="baseEAD" type="number" placeholder="e.g. 5000000" step="100000" min="0" value="5000000">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div>
+          <label class="fl">LGD <span class="hint">% — from T198</span></label>
+          <input class="fi" id="baseLGD" type="number" placeholder="e.g. 45" step="1" min="0" max="100" value="45">
+        </div>
+        <div>
+          <label class="fl">Base RWA <span class="hint">$ — from T201</span></label>
+          <input class="fi" id="baseRWA" type="number" placeholder="e.g. 3750000" step="100000" min="0" value="3750000">
+        </div>
+      </div>
+
+      <!-- Scenario selection -->
+      <div class="section-divider">Stress Scenarios <span style="color:var(--body);text-transform:none;letter-spacing:0;font-weight:300;font-size:.6rem;font-family:'Sora',sans-serif"> — select active scenarios</span></div>
+
+      <div class="scenario-grid">
+        <div class="scenario-card selected" onclick="toggleScenario(this,'mild')" data-scenario="mild">
+          <div class="sc-name">Mild Recession</div>
+          <div class="sc-desc">GDP −1%, rates +100bps, limited sector stress</div>
+          <div class="sc-tags"><span class="sc-tag">GDP −1%</span><span class="sc-tag">+100bps</span></div>
+        </div>
+        <div class="scenario-card selected" onclick="toggleScenario(this,'moderate')" data-scenario="moderate">
+          <div class="sc-name">Moderate Recession</div>
+          <div class="sc-desc">GDP −3%, rates +200bps, sector downturn</div>
+          <div class="sc-tags"><span class="sc-tag">GDP −3%</span><span class="sc-tag">+200bps</span></div>
+        </div>
+        <div class="scenario-card selected" onclick="toggleScenario(this,'severe')" data-scenario="severe">
+          <div class="sc-name">Severe Recession</div>
+          <div class="sc-desc">GDP −6%, rates ±300bps, severe sector shock</div>
+          <div class="sc-tags"><span class="sc-tag">GDP −6%</span><span class="sc-tag">±300bps</span></div>
+        </div>
+        <div class="scenario-card" onclick="toggleScenario(this,'custom')" data-scenario="custom">
+          <div class="sc-name">Custom Scenario</div>
+          <div class="sc-desc">Define your own shock parameters</div>
+          <div class="sc-tags"><span class="sc-tag" id="customTag">Configure below</span></div>
+        </div>
+      </div>
+
+      <!-- Custom scenario inputs -->
+      <div class="custom-panel" id="customPanel">
+        <div class="section-divider">Custom Scenario Parameters</div>
+        <div class="field-row">
+          <div>
+            <label class="fl" data-i18n="label_gdp_shock">GDP Shock <span class="hint">% decline</span></label>
+            <input class="fi" id="customGDP" type="number" placeholder="e.g. 4.0" step="0.5" min="0" max="20" value="4.0">
+          </div>
+          <div>
+            <label class="fl" data-i18n="label_rate_move">Rate Move <span class="hint">bps change</span></label>
+            <input class="fi" id="customRate" type="number" placeholder="e.g. 250" step="25" value="250">
+          </div>
+        </div>
+        <div class="field-row">
+          <div>
+            <label class="fl">Sector Shock <span class="hint">% EBITDA decline</span></label>
+            <input class="fi" id="customSector" type="number" placeholder="e.g. 20" step="5" min="0" max="100" value="20">
+          </div>
+          <div>
+            <label class="fl">FX Shock <span class="hint">% depreciation</span></label>
+            <input class="fi" id="customFX" type="number" placeholder="e.g. 15" step="5" min="0" max="100" value="15">
+          </div>
+        </div>
+        <div>
+          <label class="fl">Scenario Name</label>
+          <input class="fi" type="text" id="customName" placeholder="e.g. EM Currency Crisis" maxlength="40" value="Custom Scenario">
+        </div>
+      </div>
+
+      <button class="run-btn" onclick="runStress()" data-i18n="run_btn">Run Analysis →</button>
+    </div>
+
+    <!-- ABOUT PANEL -->
+    <div class="panel">
+      <div class="panel-label">About This Tool</div>
+
+      <div class="about-block">
+        <div class="about-label">Stress Transmission Model</div>
+        <div class="about-text">Each macro shock is translated to a credit score deterioration via sector-calibrated multipliers. Score degradation drives rating migration, which in turn updates PD, ECL, and RWA.</div>
+        <div class="transmission-list">
+          <div class="trans-row"><span>GDP Shock</span><span class="trans-arrow">→</span><span>EBITDA decline → leverage rise → score −3 pts per 1% GDP</span></div>
+          <div class="trans-row"><span>Rate Move</span><span class="trans-arrow">→</span><span>Interest cover decline → score −0.5 pts per 100bps</span></div>
+          <div class="trans-row"><span>Sector Shock</span><span class="trans-arrow">→</span><span>Direct sector multiplier on EBITDA → score penalty</span></div>
+          <div class="trans-row"><span>FX Shock</span><span class="trans-arrow">→</span><span>Revenue/cost mismatch → score −1 pt per 10% depreciation</span></div>
+        </div>
+      </div>
+
+      <div class="about-block">
+        <div class="about-label">Sector Sensitivity</div>
+        <div class="about-text">Sectors with high operating leverage (retail, energy, real estate) are more sensitive to GDP shocks. Utilities and healthcare are more defensive. Sector multipliers scale the raw macro shock impact on credit score.</div>
+      </div>
+
+      <div class="about-block">
+        <div class="about-label">Limitations</div>
+        <div class="about-text">This is a <strong>single-counterparty stress model</strong> — it does not model portfolio-level correlations, contagion, or feedback loops. PD and score migration is deterministic. For portfolio CVaR and correlation modelling, use T206 (Credit Portfolio VaR, Phase 2).</div>
+      </div>
+
+      <div class="about-block">
+        <div class="about-label">ICAAP / DFAST Context</div>
+        <div class="about-text">Results are designed to feed ICAAP stress testing documentation and DFAST/EBA AQR submissions. Output the Policy Mandate JSON to attach structured stress results to credit files.</div>
+      </div>
+
+      </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2025-01-15</span></span>
+
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+    <div class="results-header">
+      <div class="results-title-el">Stress Test Results</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--muted)" id="runMeta"></div>
+    </div>
+    <div class="results-body">
+
+      <!-- Scenario comparison table -->
+      <div class="sec-lbl">Scenario Comparison — Credit Metric Migration</div>
+      <div style="overflow-x:auto;margin-bottom:2rem">
+        <table class="stress-table" id="compTable"></table>
+      </div>
+
+      <!-- Rating migration visual -->
+      <div class="sec-lbl">Rating Migration by Scenario</div>
+      <div class="migration-grid" id="migrationGrid"></div>
+
+      <!-- Rationale -->
+      <div class="rationale-block" style="margin-top:1.5rem">
+        <div class="rationale-label">Stress Commentary</div>
+        <div class="rationale-text" id="rationaleText"></div>
+      </div>
+
+      <div class="results-export-row">
+        <button class="btn-export btn-export-md" onclick="exportMarkdown()"><span class="md-badge">MD</span><span class="md-btn-text">Export Markdown</span></button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- FOOTER -->
+
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/counterparty-credit-risk-hub.html"><span data-i18n="footer.hub_counterparty_credit_risk">CCR Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* AP2Schema — full validator (PM17; wired into cohort C) */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+if (typeof AP2Schema.validate !== 'function') {
+  AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    return true;
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   T202 · Credit Stress Testing Workbench
+   Methodology: macro shock → score degradation → rating migration
+                → stressed PD / ECL / RWA / Capital
+   ap2_export: true — stress scenario record
+   Client-side. Zero PII. Zero external calls.
+═══════════════════════════════════════════════════════════════ */
+
+/* ── i18n ─────────────────────────────────────────────────── */
+const TRANSLATIONS = {
+  en:{ eyebrow:"T202 · Cat-17 · Counterparty Credit Risk · Stress Testing", hero_title:"Credit Stress Testing Workbench", hero_desc:"Apply macro stress scenarios to counterparty credit metrics. Outputs scenario comparison table, rating migration, Markdown stress memo, and Policy Mandate JSON stress scenario record.", panel_config:"Configuration", panel_about:"About This Tool", label_scenario:"Stress Scenario", label_gdp_shock:"GDP Shock (%)", label_rate_move:"Rate Move (bps)", label_sector:"Sector", run_btn:"Run Analysis →", results_title:"Stress Test Results", export_ap2:"Export Policy Mandate", export_md:"⬇ Export Markdown", last_reviewed:"Last Reviewed", nav_all_tools:"All Tools", lang_dir:"ltr" 
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-17 Hub',
+  },
+  es:{ eyebrow:"T202 · Cat-17 · Riesgo de Crédito · Pruebas de Estrés", hero_title:"Banco de Pruebas de Estrés Crediticio", hero_desc:"Aplique escenarios de estrés macroeconómico a métricas crediticias. Genera tabla comparativa, migración de calificaciones y Mandato de Política.", panel_config:"Configuración", panel_about:"Acerca de esta herramienta", label_scenario:"Escenario", label_gdp_shock:"Choque PIB (%)", label_rate_move:"Cambio de Tasas (pbs)", label_sector:"Sector", run_btn:"Ejecutar Análisis →", results_title:"Resultados de Estrés", export_ap2:"Exportar Mandato de Política", export_md:"⬇ Exportar Markdown", last_reviewed:"Última Revisión", nav_all_tools:"Todas las Herramientas", lang_dir:"ltr" 
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-17',
+  },
+  fr:{ eyebrow:"T202 · Cat-17 · Risque de Crédit · Tests de Résistance", hero_title:"Banc de Test de Résistance Crédit", hero_desc:"Appliquez des scénarios de stress macroéconomique aux métriques de crédit. Sorties : tableau comparatif, migration de notation, mémo Markdown et Mandat de Politique.", panel_config:"Configuration", panel_about:"À propos", label_scenario:"Scénario", label_gdp_shock:"Choc PIB (%)", label_rate_move:"Mouvement de Taux (bps)", label_sector:"Secteur", run_btn:"Lancer l'Analyse →", results_title:"Résultats de Stress", export_ap2:"Exporter Mandat de Politique", export_md:"⬇ Exporter Markdown", last_reviewed:"Dernière Révision", nav_all_tools:"Tous les Outils", lang_dir:"ltr" 
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-17',
+  },
+  ar:{ eyebrow:"T202 · القسم 17 · مخاطر الائتمان · اختبارات الإجهاد", hero_title:"منصة اختبار إجهاد الائتمان", hero_desc:"تطبيق سيناريوهات الإجهاد الاقتصادي الكلي على مقاييس الائتمان.", panel_config:"الإعدادات", panel_about:"حول هذه الأداة", label_scenario:"السيناريو", label_gdp_shock:"صدمة الناتج المحلي (%)", label_rate_move:"تغيير أسعار الفائدة (نقطة أساس)", label_sector:"القطاع", run_btn:"تشغيل التحليل →", results_title:"نتائج اختبار الإجهاد", export_ap2:"تصدير تفويض السياسة", export_md:"⬇ تصدير Markdown", last_reviewed:"آخر مراجعة", nav_all_tools:"جميع الأدوات", lang_dir:"rtl" 
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-17',
+  },
+  pt:{ eyebrow:"T202 · Cat-17 · Risco de Crédito · Testes de Stress", hero_title:"Bancada de Testes de Stress de Crédito", hero_desc:"Aplique cenários de stress macroeconómico a métricas de crédito. Gera tabela comparativa, migração de ratings e Mandato de Política.", panel_config:"Configuração", panel_about:"Sobre esta ferramenta", label_scenario:"Cenário", label_gdp_shock:"Choque PIB (%)", label_rate_move:"Movimento de Taxa (bps)", label_sector:"Sector", run_btn:"Executar Análise →", results_title:"Resultados de Stress", export_ap2:"Exportar Mandato de Política", export_md:"⬇ Exportar Markdown", last_reviewed:"Última Revisão", nav_all_tools:"Todas as Ferramentas", lang_dir:"ltr" 
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-17',
+  },
+  zh:{ eyebrow:"T202 · 第17类 · 交易对手信用风险 · 压力测试", hero_title:"信用压力测试工作台", hero_desc:"对交易对手信用指标应用宏观压力情景，输出情景对比表、评级迁移、Markdown备忘录和政策授权书压力情景记录。", panel_config:"配置", panel_about:"关于本工具", label_scenario:"压力情景", label_gdp_shock:"GDP冲击（%）", label_rate_move:"利率变动（bp）", label_sector:"行业", run_btn:"运行分析 →", results_title:"压力测试结果", export_ap2:"导出政策授权书", export_md:"⬇ 导出 Markdown", last_reviewed:"最近审核", nav_all_tools:"全部工具", lang_dir:"ltr" 
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-17 中心',
+  },
+};
+function setLang(lang) {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`) || document.querySelector(`.lang-btn[onclick='setLang("${lang}")']`);
+  if (btn) btn.classList.add('active');
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  document.documentElement.dir = t.lang_dir || 'ltr';
+  document.body.dir = t.lang_dir || 'ltr';
+  const ap = (sel,key) => { const el = document.querySelector(sel); if (el && t[key]) el.textContent = t[key]; };
+  ap('.tool-eyebrow','eyebrow'); ap('.hero h1','hero_title'); ap('.hero-desc','hero_desc');
+  ap('.run-btn','run_btn'); ap('.results-title-el','results_title'); ap('.nav-cta','nav_all_tools');
+  const panels = document.querySelectorAll('.panel-label');
+  ['panel_config','panel_about'].forEach((k,i) => { if (panels[i] && t[k]) panels[i].textContent = t[k]; });
+  document.querySelectorAll('[data-i18n]').forEach(el => { const k = el.getAttribute('data-i18n'); if (t[k]) el.textContent = t[k]; });
+  document.querySelectorAll('.btn-export-md').forEach(function(b){ if(t.export_md){ var s=b.querySelector('.md-btn-text'); if(s) s.textContent=t.export_md.replace('⬇ ',''); } });
+  const ap2btn = document.getElementById('footerAp2Btn');
+  if (ap2btn && t.export_ap2) { const lbl=ap2btn.querySelector('.ap2-btn-label'); if(lbl) lbl.textContent=t.export_ap2; }
+  const lr = document.querySelector('.last-reviewed');
+  if (lr) { const d = lr.textContent.match(/\d{4}-\d{2}-\d{2}/); if (d) lr.textContent = `⏱ ${t.last_reviewed} ${d[0]}`; }
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){ try { const s = sessionStorage.getItem('ain_lang'); if (s && TRANSLATIONS[s]) setLang(s); } catch(e){} })();
+
+/* ── Scenario toggle ──────────────────────────────────────── */
+const activeScenarios = new Set(['mild','moderate','severe']);
+function toggleScenario(card, id) {
+  if (id === 'custom') {
+    const active = card.classList.toggle('selected');
+    document.getElementById('customPanel').classList.toggle('visible', active);
+    if (active) activeScenarios.add('custom'); else activeScenarios.delete('custom');
+  } else {
+    card.classList.toggle('selected');
+    if (activeScenarios.has(id)) activeScenarios.delete(id); else activeScenarios.add(id);
+  }
+}
+
+/* ── Rating / score tables ────────────────────────────────── */
+const RATING_ORDER = ['AAA','AA+','AA','AA-','A+','A','A-','BBB+','BBB','BBB-','BB+','BB','BB-','B+','B','B-','CCC+','CCC','CC','C','D'];
+const RATING_SCORE = { 'AAA':95,'AA+':88,'AA':84,'AA-':80,'A+':75,'A':71,'A-':67,'BBB+':63,'BBB':60,'BBB-':56,'BB+':52,'BB':48,'BB-':44,'B+':40,'B':36,'B-':32,'CCC+':28,'CCC':22,'CC':15,'C':8,'D':3 };
+const TTC_PD = { 'AAA':0.01,'AA+':0.02,'AA':0.03,'AA-':0.04,'A+':0.07,'A':0.09,'A-':0.12,'BBB+':0.20,'BBB':0.30,'BBB-':0.45,'BB+':0.75,'BB':1.10,'BB-':1.65,'B+':2.50,'B':3.75,'B-':5.50,'CCC+':9.00,'CCC':14.00,'CC':25.00,'C':50.00,'D':100.00 };
+const SA_RW = { 'AAA':0.20,'AA+':0.20,'AA':0.20,'AA-':0.20,'A+':0.50,'A':0.50,'A-':0.50,'BBB+':0.75,'BBB':0.75,'BBB-':0.75,'BB+':1.00,'BB':1.00,'BB-':1.00,'B+':1.50,'B':1.50,'B-':1.50,'CCC+':1.50,'CCC':1.50,'CC':1.50,'C':1.50,'D':1.50 };
+
+function scoreToRating(score) {
+  const s = Math.max(0, Math.min(100, score));
+  const entries = Object.entries(RATING_SCORE).sort((a,b) => b[1]-a[1]);
+  for (const [rtg, sc] of entries) { if (s >= sc) return rtg; }
+  return 'D';
+}
+
+/* ── Sector sensitivity multipliers ──────────────────────────
+   Higher = more sensitive to GDP / rate shocks
+────────────────────────────────────────────────────────────── */
+const SECTOR_MULT = { general:1.0, tech:1.1, healthcare:0.7, utilities:0.6, realestate:1.3, energy:1.4, retail:1.2, financial:1.0 };
+
+/* ── Predefined scenarios (shock parameters) ──────────────── */
+const SCENARIOS_DEF = {
+  mild:     { name:'Mild Recession',     gdp:1.0,  rate:100,  sector:10, fx:5  },
+  moderate: { name:'Moderate Recession', gdp:3.0,  rate:200,  sector:25, fx:15 },
+  severe:   { name:'Severe Recession',   gdp:6.0,  rate:300,  sector:50, fx:30 },
+};
+
+/* ── Score shock formula ──────────────────────────────────── */
+function calcScoreShock(params, sectorMult) {
+  const gdpEffect    = params.gdp  * 3.0 * sectorMult;     // 3 pts per 1% GDP decline
+  const rateEffect   = (params.rate / 100) * 0.5 * sectorMult; // 0.5 pts per 100bps
+  const sectorEffect = params.sector * 0.15 * sectorMult;   // 0.15 pts per 1% EBITDA decline
+  const fxEffect     = (params.fx / 10) * 1.0;              // 1 pt per 10% FX depreciation
+  return Math.round(gdpEffect + rateEffect + sectorEffect + fxEffect);
+}
+
+/* ── State ─────────────────────────────────────────────────── */
+let lastResult = null;
+
+/* ── Main stress engine ───────────────────────────────────── */
+function runStress() {
+  const baseRating = document.getElementById('baseRating').value;
+  const sector     = document.getElementById('sector').value;
+  const basePD     = parseFloat(document.getElementById('basePD').value);
+  const baseEAD    = parseFloat(document.getElementById('baseEAD').value);
+  const baseLGD    = parseFloat(document.getElementById('baseLGD').value);
+  const baseRWA    = parseFloat(document.getElementById('baseRWA').value);
+
+  if ([basePD,baseEAD,baseLGD,baseRWA].some(v => isNaN(v) || v <= 0)) {
+    alert('Please fill in all base case metric fields with positive values.'); return;
+  }
+  if (activeScenarios.size === 0) {
+    alert('Please select at least one stress scenario.'); return;
+  }
+
+  const baseScore   = RATING_SCORE[baseRating] || 60;
+  const baseECL     = (basePD / 100) * (baseLGD / 100) * baseEAD;
+  const baseCapital = baseRWA * 0.08;
+  const sectorMult  = SECTOR_MULT[sector] || 1.0;
+
+  // Collect active scenarios including custom
+  const scenarioParams = {};
+  activeScenarios.forEach(id => {
+    if (id === 'custom') {
+      scenarioParams['custom'] = {
+        name: document.getElementById('customName').value || 'Custom',
+        gdp:    parseFloat(document.getElementById('customGDP').value)    || 0,
+        rate:   parseFloat(document.getElementById('customRate').value)   || 0,
+        sector: parseFloat(document.getElementById('customSector').value) || 0,
+        fx:     parseFloat(document.getElementById('customFX').value)     || 0,
+      };
+    } else {
+      scenarioParams[id] = SCENARIOS_DEF[id];
+    }
+  });
+
+  const base = { id:'base', name:'Base Case', score:baseScore, rating:baseRating, pd:basePD, ecl:baseECL, rwa:baseRWA, capital:baseCapital, scoreShock:0, notches:0, params:null };
+
+  const stressed = Object.entries(scenarioParams).map(([id, params]) => {
+    const shock       = calcScoreShock(params, sectorMult);
+    const stressScore = Math.max(3, baseScore - shock);
+    const stressRating= scoreToRating(stressScore);
+    const stressPD    = TTC_PD[stressRating] || basePD;
+    const stressLGD   = Math.min(100, baseLGD * (1 + params.sector / 200)); // LGD also slightly stressed
+    const stressECL   = (stressPD / 100) * (stressLGD / 100) * baseEAD;
+    const stressRW    = SA_RW[stressRating] || 1.0;
+    const stressRWA   = baseEAD * stressRW;
+    const stressCapital = stressRWA * 0.08;
+    const baseIdx     = RATING_ORDER.indexOf(baseRating);
+    const stressIdx   = RATING_ORDER.indexOf(stressRating);
+    const notches     = Math.max(0, stressIdx - baseIdx);
+    return { id, name:params.name, score:stressScore, rating:stressRating, pd:stressPD, lgd:stressLGD, ecl:stressECL, rwa:stressRWA, capital:stressCapital, scoreShock:shock, notches, params };
+  });
+
+  lastResult = { base, stressed, baseRating, sector, basePD, baseEAD, baseLGD, baseRWA, sectorMult, runAt:new Date().toISOString() };
+  renderResults();
+  const _ab=document.getElementById('footerAp2Btn'); _ab.classList.add('ready'); _ab.title='For API integration · audit trail';
+}
+
+/* ── Render ───────────────────────────────────────────────── */
+function fmtCcy(n) { return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n); }
+function fmtPct(n,dp=3) { return n.toFixed(dp) + '%'; }
+
+const COL_CLASSES = { base:'val-base', mild:'val-mild', moderate:'val-moderate', severe:'val-severe', custom:'val-custom' };
+
+function renderResults() {
+  const r = lastResult;
+  const allScenarios = [r.base, ...r.stressed];
+
+  // Comparison table
+  const headers = allScenarios.map(s => `<th class="scenario-col">${s.name}</th>`).join('');
+  const metrics = [
+    { label:'Credit Score', fn: s => s.score.toFixed(0) },
+    { label:'Rating',       fn: s => s.rating },
+    { label:'1-Yr PD',      fn: s => fmtPct(s.pd, 3) },
+    { label:'ECL',          fn: s => fmtCcy(s.ecl) },
+    { label:'RWA',          fn: s => fmtCcy(s.rwa) },
+    { label:'Capital (8%)', fn: s => fmtCcy(s.capital) },
+    { label:'Notch Change', fn: s => s.notches === 0 ? '—' : '▼ ' + s.notches },
+    { label:'Score Shock',  fn: s => s.scoreShock > 0 ? '−' + s.scoreShock : '—' },
+  ];
+
+  const bodyRows = metrics.map(m => {
+    const cells = allScenarios.map(s => {
+      const cls = COL_CLASSES[s.id] || 'val-mild';
+      return `<td class="scenario-val ${cls}">${m.fn(s)}</td>`;
+    }).join('');
+    return `<tr><td class="metric-name">${m.label}</td>${cells}</tr>`;
+  }).join('');
+
+  document.getElementById('compTable').innerHTML = `<thead><tr><th>Metric</th>${headers}</tr></thead><tbody>${bodyRows}</tbody>`;
+
+  // Rating migration
+  document.getElementById('migrationGrid').innerHTML = r.stressed.map(s => {
+    const nc = Math.min(s.notches, 10);
+    const ncClass = nc === 0 ? 'nc-0' : nc <= 2 ? 'nc-1' : nc <= 4 ? 'nc-3' : 'nc-5';
+    const ratingColor = s.notches === 0 ? 'var(--teal)' : s.notches <= 2 ? 'var(--gold)' : s.notches <= 4 ? 'var(--warn)' : 'var(--red)';
+    return `<div class="mig-row">
+      <div class="mig-label">${s.name}</div>
+      <div class="mig-base">${r.base.rating}</div>
+      <div class="mig-arrow">→</div>
+      <div class="mig-stressed" style="color:${ratingColor}">${s.rating}</div>
+      <div class="mig-notches">
+        ${s.notches === 0
+          ? '<span style="color:var(--teal);font-size:.6rem">No migration</span>'
+          : `<span class="notch-chip ${ncClass}">▼ ${s.notches} notch${s.notches>1?'es':''}</span>`}
+        <span style="margin-left:.5rem;font-size:.6rem">PD: ${fmtPct(r.base.pd,3)} → ${fmtPct(s.pd,3)} · ECL: ${fmtCcy(r.base.ecl)} → ${fmtCcy(s.ecl)}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Rationale
+  const worstCase = [...r.stressed].sort((a,b) => b.notches - a.notches)[0];
+  const igBreaches = r.stressed.filter(s => {
+    const base_ig = RATING_ORDER.indexOf(r.base.rating) <= RATING_ORDER.indexOf('BBB-');
+    const stress_ig = RATING_ORDER.indexOf(s.rating) > RATING_ORDER.indexOf('BBB-');
+    return base_ig && stress_ig;
+  });
+
+  document.getElementById('rationaleText').innerHTML =
+    `Base case rating of <strong>${r.base.rating}</strong> (PD ${fmtPct(r.base.pd,3)}, ECL ${fmtCcy(r.base.ecl)}) tested across ${r.stressed.length} stress scenario${r.stressed.length>1?'s':''}.
+    <strong>Worst case (${worstCase.name}):</strong> rating migrates to <strong>${worstCase.rating}</strong> — ${worstCase.notches} notch${worstCase.notches>1?'es':''} of deterioration. Stressed ECL of <strong>${fmtCcy(worstCase.ecl)}</strong> vs. base ${fmtCcy(r.base.ecl)} (×${(worstCase.ecl/r.base.ecl).toFixed(1)} multiple). Capital requirement rises to <strong>${fmtCcy(worstCase.capital)}</strong> vs. base ${fmtCcy(r.base.capital)}.
+    ${igBreaches.length ? `<strong>Investment grade breach:</strong> Under ${igBreaches.map(s=>s.name).join(', ')}, the counterparty migrates below BBB− — triggering potential forced seller / covenant event provisions. Immediate covenant review recommended.` : 'Counterparty remains investment grade under all tested scenarios.'}
+    <strong>Sector note:</strong> ${r.sector} sector sensitivity multiplier of ${r.sectorMult.toFixed(1)}× applied — ${r.sectorMult >= 1.2 ? 'high transmission sensitivity; stress impacts amplified.' : r.sectorMult <= 0.7 ? 'defensive sector; stress transmission is muted.' : 'average stress transmission.'}
+    <strong>Recommended actions:</strong> ${igBreaches.length ? 'Review covenant headroom via T199, consider requesting additional credit support. ' : ''}Update T198 PD inputs to stressed values for ICAAP ECL provisioning. Feed stressed RWA into RAROC pricing review via T203.`;
+
+  document.getElementById('runMeta').textContent = new Date().toLocaleTimeString();
+  const panel = document.getElementById('resultsPanel');
+  panel.classList.add('visible');
+  panel.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+/* ── AP2 Export ───────────────────────────────────────────── */
+function exportAP2() {
+  if (!lastResult) return;
+  const r = lastResult;
+  const mandate = {
+    ap2_version:"1.0", mandate_id:crypto.randomUUID(), issued_at:new Date().toISOString(),
+    issued_by:"ainumbers.co", tool_id:"credit-stress-testing-workbench", tool_version:"4.0.0",
+    mandate_type:"risk_parameter",
+    jurisdiction:["global"],
+    regulatory_frameworks:["Basel III","ICAAP","EBA Stress Testing Guidelines","DFAST"],
+    payload:{
+      base_rating: r.base.rating,
+      base_pd_pct: r.base.pd,
+      base_ead: r.base.rwa / (SA_RW[r.base.rating]||1),
+      base_ecl: parseFloat(r.base.ecl.toFixed(2)),
+      base_rwa: r.base.rwa,
+      base_capital: parseFloat(r.base.capital.toFixed(2)),
+      sector: r.sector,
+      sector_sensitivity_multiplier: r.sectorMult,
+      stress_scenarios: r.stressed.map(s => ({
+        scenario_id: s.id,
+        scenario_name: s.name,
+        stressed_rating: s.rating,
+        rating_notch_change: s.notches,
+        stressed_pd_pct: parseFloat(s.pd.toFixed(4)),
+        stressed_ecl: parseFloat(s.ecl.toFixed(2)),
+        stressed_rwa: parseFloat(s.rwa.toFixed(2)),
+        stressed_capital: parseFloat(s.capital.toFixed(2)),
+        score_shock: s.scoreShock,
+        ig_breach: RATING_ORDER.indexOf(s.rating) > RATING_ORDER.indexOf('BBB-') && RATING_ORDER.indexOf(r.base.rating) <= RATING_ORDER.indexOf('BBB-'),
+      })),
+    },
+    summary: `Credit stress test: base rating ${r.base.rating} (PD ${r.base.pd.toFixed(3)}%, ECL ${fmtCcy(r.base.ecl)}) tested under ${r.stressed.length} scenario(s). Worst case: ${[...r.stressed].sort((a,b)=>b.notches-a.notches)[0].name} → ${[...r.stressed].sort((a,b)=>b.notches-a.notches)[0].rating} (${[...r.stressed].sort((a,b)=>b.notches-a.notches)[0].notches} notches down).`,
+    agent_instructions:[
+      `Update IFRS 9 ECL provisions using stressed ECL values from this record. Feed into T198 (model_pd_lgd_ead) for re-staging assessment.`,
+      `Re-calculate RWA under stressed ratings using T201 (calculate_basel_rwa) if rating migrates more than 2 notches.`,
+      `If stressed rating breaches BBB−, trigger covenant compliance review via T199 (check_covenant_compliance).`,
+      `Use worst-case stressed capital requirement of ${fmtCcy([...r.stressed].sort((a,b)=>b.capital-a.capital)[0]?.capital || 0)} as ICAAP stress buffer input.`,
+      `Document this stress scenario record in ICAAP/DFAST credit risk section with mandate_id as reference.`,
+    ],
+    last_reviewed:"2025-01-15",
+    source_tool_inputs:{ base_rating:r.base.rating, sector:r.sector, base_pd:r.base.pd, base_ead:r.baseEAD, base_lgd:r.baseLGD, base_rwa:r.base.rwa, active_scenarios:[...activeScenarios] },
+    regulatory_citations:[
+      "EBA Guidelines on ICAAP and ILAAP (EBA/GL/2016/10)",
+      "BIS BCBS 189 (2011) — credit risk stress testing framework",
+      "EBA Stress Test Methodology 2023",
+    ],
+  };
+  AP2Schema.validate(mandate);
+  const blob = new Blob([JSON.stringify(mandate,null,2)],{type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'),{href:url,download:`ap2-t202-stress-${Date.now()}.policy.json`});
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  showExportToast('Policy Mandate JSON downloaded', 'ap2');
+}
+
+/* ── Markdown Export ──────────────────────────────────────── */
+function exportMarkdown() {
+  if (!lastResult) return;
+  const r = lastResult;
+  const d = r.runAt.split('T')[0];
+  const allScenarios = [r.base, ...r.stressed];
+  const headerRow = '| Metric | ' + allScenarios.map(s => s.name).join(' | ') + ' |';
+  const sepRow    = '|---|' + allScenarios.map(()=>'---').join('|') + '|';
+  const rows = [
+    ['Rating',       s => s.rating],
+    ['1-Yr PD',      s => fmtPct(s.pd,3)],
+    ['ECL',          s => fmtCcy(s.ecl)],
+    ['RWA',          s => fmtCcy(s.rwa)],
+    ['Capital (8%)', s => fmtCcy(s.capital)],
+    ['Notch Change', s => s.notches > 0 ? '▼ ' + s.notches : '—'],
+  ].map(([label,fn]) => `| ${label} | ${allScenarios.map(fn).join(' | ')} |`).join('\n');
+
+  const md = `# Credit Stress Testing Memo
+**Tool:** T202 · Credit Stress Testing Workbench · AINumbers.co
+**Date:** ${d} · **Base Rating:** ${r.base.rating} · **Sector:** ${r.sector}
+
+---
+
+## Scenario Comparison
+
+${headerRow}
+${sepRow}
+${rows}
+
+---
+
+## Rating Migration
+
+${r.stressed.map(s => `- **${s.name}:** ${r.base.rating} → **${s.rating}** (${s.notches === 0 ? 'no migration' : '▼ ' + s.notches + ' notch' + (s.notches>1?'es':'')}) — ECL ${fmtCcy(r.base.ecl)} → ${fmtCcy(s.ecl)}`).join('\n')}
+
+---
+
+## Regulatory Citations
+
+1. EBA Guidelines on ICAAP and ILAAP (EBA/GL/2016/10)
+2. BIS BCBS 189 (2011) — credit risk stress testing
+3. EBA Stress Test Methodology 2023
+
+---
+
+*Generated by AINumbers.co T202. Client-side. Zero PII. CC BY 4.0 · Post Oak Labs.*
+`;
+  const blob = new Blob([md],{type:'text/markdown'});
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'),{href:url,download:`t202-stress-memo-${Date.now()}.md`});
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  showExportToast('Markdown downloaded', 'md');
+}
+
+/* ── Export success feedback ──────────────────────────────────── */
+function showExportToast(msg, type) {
+  let el = document.getElementById('exportToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'exportToast';
+    el.className = 'export-toast';
+    document.body.appendChild(el);
+  }
+  const isAp2 = type === 'ap2';
+  el.style.borderLeftColor = isAp2 ? 'var(--green)' : 'var(--teal)';
+  el.style.color = isAp2 ? 'var(--green)' : 'var(--teal)';
+  el.innerHTML = '<span style="font-weight:700">' + (isAp2 ? '{}' : 'MD') + '</span>&nbsp;' + msg;
+  el.classList.add('show');
+  clearTimeout(el._tm);
+  el._tm = setTimeout(function(){ el.classList.remove('show'); }, 2200);
+}
+
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "credit-stress-testing-workbench", "version": "4.0.0", "title": "Credit Stress Testing Workbench", "description": "Apply macro stress scenarios — GDP shock, interest rate move, sector downturn, FX shock — to counterparty credit metrics. Outputs a four-scenario comparison table, credit metric migration across rating notches, Markdown stress memo, and Policy Mandate JSON stress scenario record. Client-side. Zero PII.", "category": "cat-17", "tags": ["Stress Test", "Scenario Analysis", "Rating Migration", "ICAAP", "DFAST", "EBA", "ECL", "Policy Mandate", "export"], "audience": ["risk-officer", "credit-analyst", "capital-management"], "input_schema": {"type": "object", "properties": {"base_rating": {"type": "string", "description": "Current S&P-equivalent rating e.g. BBB"}, "sector": {"type": "string", "enum": ["general", "tech", "healthcare", "utilities", "realestate", "energy", "retail", "financial"]}, "base_pd_pct": {"type": "number", "description": "Base 1-year PD (%)"}, "base_ead": {"type": "number"}, "base_lgd_pct": {"type": "number"}, "base_rwa": {"type": "number"}, "scenarios": {"type": "array", "items": {"type": "object", "properties": {"scenario_id": {"type": "string", "enum": ["mild", "moderate", "severe", "custom"]}, "name": {"type": "string"}, "gdp_shock_pct": {"type": "number"}, "rate_move_bps": {"type": "number"}, "sector_shock_pct": {"type": "number"}, "fx_shock_pct": {"type": "number"}}, "required": ["scenario_id"]}, "minItems": 1}}, "required": ["base_rating", "sector", "base_pd_pct", "base_ead", "base_lgd_pct", "base_rwa", "scenarios"]}, "output_schema": {"type": "object", "properties": {"base": {"type": "object"}, "stressed_scenarios": {"type": "array", "items": {"type": "object", "properties": {"scenario_id": {"type": "string"}, "stressed_rating": {"type": "string"}, "notch_change": {"type": "integer"}, "stressed_pd_pct": {"type": "number"}, "stressed_ecl": {"type": "number"}, "stressed_rwa": {"type": "number"}, "stressed_capital": {"type": "number"}, "ig_breach": {"type": "boolean"}}}}, "ap2_mandate": {"type": "object"}}}, "mcp_tool_definition": {"name": "run_credit_stress_test", "description": "Applies macro stress scenarios to counterparty credit metrics using a sector-calibrated score-degradation model. For each scenario (mild/moderate/severe/custom), computes stressed rating, PD, ECL, RWA, and capital. Flags investment-grade breaches. Use for ICAAP stress documentation, DFAST submissions, and pre-deal scenario analysis. Input base metrics from calculate_credit_risk_rating and model_pd_lgd_ead.", "inputSchema": {"type": "object", "properties": {"base_rating": {"type": "string"}, "sector": {"type": "string"}, "base_pd_pct": {"type": "number"}, "base_ead": {"type": "number"}, "base_lgd_pct": {"type": "number"}, "base_rwa": {"type": "number"}, "scenarios": {"type": "array", "items": {"type": "object"}}}, "required": ["base_rating", "sector", "base_pd_pct", "base_ead", "base_lgd_pct", "base_rwa", "scenarios"]}}, "execution": {"type": "browser-javascript", "entry": "tools/202-credit-stress-testing-workbench.html", "function_name": "runStress", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

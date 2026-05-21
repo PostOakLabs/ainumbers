@@ -1,0 +1,67 @@
+{
+  "tool_id": "cva-calculator",
+  "version": "4.0.0",
+  "title": "CVA Calculator (SA-CCR)",
+  "description": "SA-CCR Basel III CVA engine for non-margined netting sets. Input trade type, notional, maturity, mark-to-market, and collateral to calculate Replacement Cost, Potential Future Exposure, EAD, and CVA capital charge. Supports up to 5 trades per netting set across IR, FX, Credit, Equity, and Commodity asset classes. Client-side. Zero PII.",
+  "category": "cat-17",
+  "tags": ["CVA", "SA-CCR", "Basel III", "BCBS 279", "Derivatives", "RC", "PFE", "EAD", "export"],
+  "audience": ["risk-officer", "treasury", "quant"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "trades": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "asset_class": { "type": "string", "enum": ["ir_usd","ir_eur","ir_gbp","ir_other","fx_g10","fx_em","cr_ig","cr_sg","eq_single","eq_index","cm_energy","cm_metal","cm_agri"] },
+            "direction": { "type": "string", "enum": ["long","short"] },
+            "notional": { "type": "number" },
+            "maturity_years": { "type": "number" },
+            "mtm": { "type": "number", "description": "Mark-to-market value (positive = in-the-money)" }
+          },
+          "required": ["asset_class","direction","notional","maturity_years","mtm"]
+        },
+        "minItems": 1,
+        "maxItems": 5
+      },
+      "collateral": { "type": "number", "description": "Net collateral posted by counterparty ($)" },
+      "netting_agreement": { "type": "boolean" },
+      "counterparty_cva_rw": { "type": "number", "description": "Supervisory CVA risk weight (fraction) e.g. 0.01 = 1%" }
+    },
+    "required": ["trades","collateral","netting_agreement","counterparty_cva_rw"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "RC": { "type": "number", "description": "Replacement Cost ($)" },
+      "aggregate_addon": { "type": "number" },
+      "pfe_multiplier": { "type": "number" },
+      "PFE": { "type": "number", "description": "Potential Future Exposure ($)" },
+      "EAD": { "type": "number", "description": "Exposure at Default ($)" },
+      "cva_capital": { "type": "number", "description": "CVA capital charge ($)" },
+      "trade_addons": { "type": "array" }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "calculate_cva_sa_ccr",
+    "description": "Runs the Basel III SA-CCR calculation for a counterparty derivatives netting set. Computes Replacement Cost, aggregate AddOn, PFE multiplier, EAD (alpha=1.4), and BA-CVA capital charge. Use when a risk agent needs CCR exposure and CVA capital for a derivatives portfolio. Does not produce an AP2 policy mandate — pure calculation output.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "trades": { "type": "array", "items": { "type": "object" } },
+        "collateral": { "type": "number" },
+        "netting_agreement": { "type": "boolean" },
+        "counterparty_cva_rw": { "type": "number" }
+      },
+      "required": ["trades","collateral","netting_agreement","counterparty_cva_rw"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/200-cva-calculator.html",
+    "function_name": "runCVA",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false
+}

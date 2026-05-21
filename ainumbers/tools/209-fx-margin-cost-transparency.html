@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>FX Margin & Cost Transparency Calculator · T209 · AINumbers.co</title>
+<meta name="description" content="Deconstruct FX spreads in real time. Compare up to 3 providers against mid-market rate, calculate implied margin in bps, and benchmark against corridor percentiles. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/209-fx-margin-cost-transparency">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FX Margin & Cost Transparency Calculator · T209","url":"https://ainumbers.co/tools/209-fx-margin-cost-transparency","description":"Deconstruct FX spreads in real time. Compare up to 3 providers against mid-market rate, calculate implied margin in bps, and benchmark against corridor percentiles. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ═══════════════════════════════════════════════════════
+   DESIGN TOKENS — copy verbatim, no hardcoded hex outside :root
+═══════════════════════════════════════════════════════ */
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px; --radius-lg:10px;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+select,input{font-family:'Sora',sans-serif}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+
+/* Grid background — teal tint for Cat-18 */
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* ── RTL support (Arabic) ── */
+[dir="rtl"] .nav-inner       { flex-direction: row-reverse; }
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+[dir="rtl"] .lang-inner      { justify-content: flex-start; }
+[dir="rtl"] .hero-eyebrow    { flex-direction: row-reverse; }
+[dir="rtl"] .tool-grid       { direction: rtl; }
+[dir="rtl"] .panel-label     { text-align: right; }
+[dir="rtl"] .flag-row        { flex-direction: row-reverse; }
+[dir="rtl"] .result-row      { flex-direction: row-reverse; }
+[dir="rtl"] .export-row      { flex-direction: row-reverse; }
+[dir="rtl"] [dir="rtl"] body             { font-family: 'Sora', 'Segoe UI', Tahoma, sans-serif; }
+[dir="rtl"] .run-btn         { letter-spacing: 0; }
+
+/* Lang bar */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+
+/* Nav */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+/* Hero */
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(20,184,166,.06) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.tool-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal)}
+.hero h1{font-size:clamp(1.8rem,3.5vw,2.9rem);color:var(--white);max-width:760px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--teal)}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:660px;line-height:1.85;margin-bottom:1.5rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}.badge-privacy::before{content:'·';color:var(--green)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+
+/* Main layout */
+.main-content{position:relative;z-index:1;padding:3rem 0}
+.tool-layout{display:grid;grid-template-columns:380px 1fr;gap:2rem;align-items:start}
+@media(max-width:840px){.tool-layout{grid-template-columns:1fr}}
+
+/* Panel */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-header{padding:1.1rem 1.5rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal)}
+.panel-body{padding:1.5rem}
+
+/* Form elements */
+.field-group{margin-bottom:1.25rem}
+.field-group:last-child{margin-bottom:0}
+label{display:block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+select,input[type="number"],input[type="text"]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.55rem .75rem;border-radius:var(--radius);font-size:.82rem;transition:border-color .2s;appearance:none;-webkit-appearance:none}
+select:focus,input:focus{outline:none;border-color:var(--teal)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%233A5270' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .75rem center;padding-right:2rem}
+input[type="number"]{-moz-appearance:textfield}
+input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none}
+.field-hint{font-size:.68rem;color:var(--muted);margin-top:.3rem;line-height:1.5}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+
+/* Provider blocks */
+.provider-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;margin-bottom:.75rem}
+.provider-block:last-child{margin-bottom:0}
+.provider-title{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.5rem}
+.provider-title::before{content:'';display:block;width:6px;height:6px;border-radius:50%;background:var(--teal)}
+
+/* Run button */
+.run-btn{width:100%;background:var(--teal);color:var(--bg);border:none;padding:.8rem 1.5rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;font-weight:500;border-radius:var(--radius);margin-top:1.25rem;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:.5rem}
+.run-btn:hover{background:var(--teal-lt)}
+.run-btn:active{transform:scale(.99)}
+
+/* Results panel */
+.results-panel{display:none}
+.results-panel.visible{display:block}
+.results-title{font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--white);margin-bottom:1.25rem}
+
+/* Metric cards grid */
+.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:1.5rem}
+@media(max-width:600px){.metric-grid{grid-template-columns:repeat(2,1fr)}}
+.metric-cell{background:var(--bg-2);padding:1rem 1.25rem}
+.metric-label{font-family:'JetBrains Mono',monospace;font-size:.43rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.metric-value{font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--bright);line-height:1}
+.metric-value.teal{color:var(--teal)}
+.metric-value.gold{color:var(--gold)}
+.metric-value.red{color:var(--red)}
+.metric-value.green{color:var(--green)}
+.metric-sub{font-size:.64rem;color:var(--body);margin-top:.2rem}
+
+/* Provider comparison table */
+.cmp-table-wrap{overflow-x:auto;margin-bottom:1.5rem}
+.cmp-table{width:100%;border-collapse:collapse;font-size:.78rem}
+.cmp-table th{text-align:left;padding:.6rem .85rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.43rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:400;background:var(--bg-3)}
+.cmp-table td{padding:.55rem .85rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.cmp-table tr:last-child td{border-bottom:none}
+.cmp-table tr:hover td{background:rgba(255,255,255,.012)}
+.cmp-table .best{color:var(--green);font-weight:500}
+.cmp-table .worst{color:var(--red)}
+.margin-bar{display:flex;align-items:center;gap:.5rem}
+.margin-fill{height:5px;border-radius:2px;background:var(--teal);min-width:2px;max-width:120px;transition:width .4s ease}
+.margin-fill.warn{background:var(--gold)}
+.margin-fill.bad{background:var(--red)}
+
+/* Benchmark gauge */
+.benchmark-block{background:var(--bg-2);border:1px solid var(--border);padding:1.25rem;margin-bottom:1.5rem;border-radius:var(--radius)}
+.benchmark-title{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.gauge-row{display:flex;align-items:center;gap:1rem;margin-bottom:.6rem}
+.gauge-label{font-size:.72rem;color:var(--body);width:90px;flex-shrink:0}
+.gauge-track{flex:1;height:6px;background:var(--bg-3);border-radius:3px;position:relative;overflow:visible}
+.gauge-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--green),var(--teal),var(--gold),var(--red));transition:width .5s ease}
+.gauge-marker{position:absolute;top:-4px;width:2px;height:14px;background:var(--white);border-radius:1px;transform:translateX(-50%)}
+.gauge-val{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--text);width:55px;text-align:right;flex-shrink:0}
+.percentile-badge{display:inline-flex;align-items:center;gap:.35rem;font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;padding:.2rem .55rem;border-radius:2px;border:1px solid}
+.pct-good{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.3)}
+.pct-mid{background:var(--gold-dim);color:var(--gold);border-color:rgba(212,168,71,.3)}
+.pct-bad{background:var(--red-dim);color:var(--red);border-color:rgba(239,68,68,.3)}
+
+/* Memo block */
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);padding:1.25rem;margin-bottom:1.5rem;border-radius:0 var(--radius) var(--radius) 0}
+.memo-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.6rem}
+.memo-content{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--body);line-height:1.85;white-space:pre-wrap}
+
+/* Error state */
+.error-block{background:var(--red-dim);border:1px solid rgba(239,68,68,.3);padding:.85rem 1.1rem;border-radius:var(--radius);font-size:.78rem;color:var(--red);display:none;margin-bottom:1rem}
+.error-block.visible{display:block}
+
+/* About panel */
+.about-block{background:var(--bg-2);border:1px solid var(--border);padding:1.5rem;border-radius:var(--radius-lg);margin-top:2rem}
+.about-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border)}
+.about-body{font-size:.78rem;color:var(--body);line-height:1.8}
+.about-body p{margin-bottom:.75rem}
+.about-body p:last-child{margin-bottom:0}
+.about-body strong{color:var(--text)}
+.citation-list{margin-top:.75rem;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:.4rem}
+.citation-list li{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);display:flex;gap:.5rem}
+.citation-list li::before{content:attr(data-n);color:var(--teal);flex-shrink:0}
+
+
+/* PII notice */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+/* Cross-link */
+.xlink-block{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--gold);padding:1rem 1.25rem;margin-top:1.5rem;display:flex;align-items:flex-start;gap:.85rem;border-radius:0 var(--radius) var(--radius) 0}
+.xlink-icon{font-family:'JetBrains Mono',monospace;color:var(--gold);font-size:.9rem;flex-shrink:0;margin-top:.1rem}
+.xlink-body{flex:1}
+.xlink-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:.25rem}
+.xlink-title{font-size:.82rem;color:var(--text);margin-bottom:.2rem}
+.xlink-desc{font-size:.72rem;color:var(--body);line-height:1.6}
+.xlink-cta{display:inline-flex;align-items:center;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-top:.35rem;transition:color .15s}
+.xlink-cta::after{content:'→';transition:transform .15s}
+.xlink-cta:hover{color:#e8c060}
+.xlink-cta:hover::after{transform:translateX(3px)}
+
+}
+
+/* ── AP2 Export Button (Cat-17 established pattern) ────────── */
+.ap2-btn-inner{display:flex;flex-direction:column;gap:.05rem;text-align:left}
+.ap2-btn-label{font-size:.5rem;letter-spacing:.09em;text-transform:uppercase}
+.ap2-btn-sub{font-size:.42rem;color:rgba(20,184,166,.55);text-transform:none;letter-spacing:0;font-weight:300;line-height:1}
+.ap2-icon{font-size:.72rem;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-weight:700}
+
+/* ── Export success toast ─────────────────────────────────── */
+.export-toast{
+  position:fixed;bottom:1.5rem;right:1.5rem;
+  background:var(--bg-3);border:1px solid var(--border);
+  border-left:3px solid var(--green);
+  padding:.7rem 1.25rem;font-family:'JetBrains Mono',monospace;
+  font-size:.58rem;color:var(--green);z-index:9999;
+  pointer-events:none;display:flex;align-items:center;gap:.5rem;
+  border-radius:var(--radius);box-shadow:0 4px 24px rgba(0,0,0,.5);
+  opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s
+}
+.export-toast.show{opacity:1;transform:translateY(0)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- LANG BAR -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick='setLang("zh")'>中文</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".2"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".8"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/>
+      </svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/fx-payments-intelligence-hub.html">FX Hub</a><span class="nav-sep">/</span><span>T-209</span></div>
+
+    <a href="../guides/fx-payments-intelligence-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">
+      <span class="tool-eyebrow">T209 · Cat-18 · Cross-Border FX &amp; Payments · Anchor Tool</span>
+    </div>
+    <h1 class="tool-title">See the <em>real cost</em> of every FX quote</h1>
+    <p class="hero-desc">Deconstruct any provider's quoted rate into its component parts — mid-market spread, implied margin in basis points, and all-in cost. Compare up to three providers side by side and benchmark against corridor percentile ranges. Scope: retail and SME FX spreads. For treasury hedging instruments see Tool 76.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-teal">FX Margin · Basis Points</span>
+      <span class="hero-badge badge-gold">Mid-Market Rate</span>
+      <span class="hero-badge badge-teal">50+ Corridors</span>
+      <span class="hero-badge badge-privacy">Zero PII · Client-side</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main-content">
+<div class="container">
+
+  <div class="tool-layout">
+
+    <!-- LEFT: CONFIG PANEL -->
+    <div>
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-label" data-i18n="panel_config">Configuration</div>
+        </div>
+        <div class="panel-body">
+
+          <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+          <!-- Currency pair -->
+          <div class="field-group">
+            <label for="currencyPair" data-i18n="label_currency_pair">Currency Pair</label>
+            <select id="currencyPair" onchange="updateMidMarketHint()">
+              <optgroup label="Major Pairs">
+                <option value="EURUSD" data-mid="1.0842">EUR / USD</option>
+                <option value="GBPUSD" data-mid="1.2715">GBP / USD</option>
+                <option value="USDJPY" data-mid="149.82">USD / JPY</option>
+                <option value="USDCHF" data-mid="0.9023">USD / CHF</option>
+                <option value="AUDUSD" data-mid="0.6438">AUD / USD</option>
+                <option value="USDCAD" data-mid="1.3612">USD / CAD</option>
+                <option value="NZDUSD" data-mid="0.5971">NZD / USD</option>
+              </optgroup>
+              <optgroup label="Cross Pairs">
+                <option value="EURGBP" data-mid="0.8528">EUR / GBP</option>
+                <option value="EURJPY" data-mid="162.44">EUR / JPY</option>
+                <option value="GBPJPY" data-mid="190.41">GBP / JPY</option>
+                <option value="EURCHF" data-mid="0.9781">EUR / CHF</option>
+                <option value="GBPCHF" data-mid="1.1468">GBP / CHF</option>
+                <option value="AUDCAD" data-mid="0.8761">AUD / CAD</option>
+              </optgroup>
+              <optgroup label="Emerging Markets">
+                <option value="USDMXN" data-mid="17.12">USD / MXN</option>
+                <option value="USDBRL" data-mid="4.9721">USD / BRL</option>
+                <option value="USDTRY" data-mid="32.14">USD / TRY</option>
+                <option value="USDINR" data-mid="83.42">USD / INR</option>
+                <option value="USDCNY" data-mid="7.2411">USD / CNY</option>
+                <option value="USDKRW" data-mid="1328.5">USD / KRW</option>
+                <option value="USDZAR" data-mid="18.76">USD / ZAR</option>
+                <option value="USDPLN" data-mid="3.9714">USD / PLN</option>
+                <option value="USDHUF" data-mid="363.2">USD / HUF</option>
+                <option value="USDCZK" data-mid="22.81">USD / CZK</option>
+                <option value="USDDKK" data-mid="6.8812">USD / DKK</option>
+                <option value="USDNOK" data-mid="10.612">USD / NOK</option>
+                <option value="USDSEK" data-mid="10.384">USD / SEK</option>
+                <option value="USDSGD" data-mid="1.3421">USD / SGD</option>
+                <option value="USDHKD" data-mid="7.8201">USD / HKD</option>
+                <option value="USDAED" data-mid="3.6725">USD / AED</option>
+                <option value="USDSAR" data-mid="3.7511">USD / SAR</option>
+                <option value="USDILS" data-mid="3.7024">USD / ILS</option>
+                <option value="USDTHB" data-mid="35.42">USD / THB</option>
+                <option value="USDPHP" data-mid="56.82">USD / PHP</option>
+                <option value="USDIDR" data-mid="15680">USD / IDR</option>
+              </optgroup>
+            </select>
+            <div class="field-hint" id="midHint">Mid-market reference: 1.0842 (indicative — update with live rate for precise analysis)</div>
+          </div>
+
+          <!-- Mid-market rate -->
+          <div class="field-group">
+            <label for="midMarket" data-i18n="label_benchmark">Mid-Market Rate (override)</label>
+            <input type="number" id="midMarket" placeholder="e.g. 1.0842" step="any" min="0">
+            <div class="field-hint">Source your mid-market rate from ECB, Bloomberg, or Reuters. Leave blank to use embedded indicative rate.</div>
+          </div>
+
+          <!-- Transfer amount -->
+          <div class="field-group">
+            <label for="transferAmount">Transfer Amount (base currency)</label>
+            <input type="number" id="transferAmount" placeholder="e.g. 10000" step="any" min="0" value="10000">
+          </div>
+
+          <!-- Providers -->
+          <div class="field-group">
+            <label data-i18n="label_provider">Provider Quoted Rates (up to 3)</label>
+
+            <div class="provider-block">
+              <div class="provider-title">Provider 1</div>
+              <div class="field-row">
+                <div>
+                  <label for="p1name" style="text-transform:none;font-size:.44rem">Name (optional)</label>
+                  <input type="text" id="p1name" placeholder="Bank A">
+                </div>
+                <div>
+                  <label for="p1rate" style="text-transform:none;font-size:.44rem">Quoted Rate</label>
+                  <input type="number" id="p1rate" placeholder="e.g. 1.0710" step="any" min="0">
+                </div>
+              </div>
+            </div>
+
+            <div class="provider-block">
+              <div class="provider-title">Provider 2</div>
+              <div class="field-row">
+                <div>
+                  <label for="p2name" style="text-transform:none;font-size:.44rem">Name (optional)</label>
+                  <input type="text" id="p2name" placeholder="Fintech B">
+                </div>
+                <div>
+                  <label for="p2rate" style="text-transform:none;font-size:.44rem">Quoted Rate</label>
+                  <input type="number" id="p2rate" placeholder="e.g. 1.0760" step="any" min="0">
+                </div>
+              </div>
+            </div>
+
+            <div class="provider-block">
+              <div class="provider-title">Provider 3 <span style="color:var(--muted);font-size:.9em">(optional)</span></div>
+              <div class="field-row">
+                <div>
+                  <label for="p3name" style="text-transform:none;font-size:.44rem">Name (optional)</label>
+                  <input type="text" id="p3name" placeholder="Bank C">
+                </div>
+                <div>
+                  <label for="p3rate" style="text-transform:none;font-size:.44rem">Quoted Rate</label>
+                  <input type="number" id="p3rate" placeholder="e.g. 1.0680" step="any" min="0">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="error-block" id="errorBlock"></div>
+
+          <button class="run-btn" onclick="runAnalysis()" data-i18n="run_btn">Run Analysis →</button>
+
+        </div>
+      </div>
+
+      <!-- Cross-link to Tool 76 -->
+      <div class="xlink-block">
+        <div class="xlink-icon">↗</div>
+        <div class="xlink-body">
+          <div class="xlink-label">Related Tool · Tool 76</div>
+          <div class="xlink-title">FX Hedge Optimizer &amp; All-in Cost Simulator</div>
+          <div class="xlink-desc">T209 covers retail/SME spread deconstruction. For treasury hedging instruments — forwards, NDFs, options, collars — use Tool 76.</div>
+          <a href="../tools/76-fx-hedge-optimizer.html" class="xlink-cta">Open Tool 76</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: RESULTS -->
+    <div>
+
+      <!-- Results -->
+      <div class="results-panel" id="resultsPanel">
+        <div class="results-title" data-i18n="results_title">FX Cost Analysis</div>
+
+        <!-- Summary metrics -->
+        <div class="metric-grid" id="metricGrid"></div>
+
+        <!-- Provider comparison table -->
+        <div class="cmp-table-wrap">
+          <table class="cmp-table" id="cmpTable">
+            <thead>
+              <tr>
+                <th>Provider</th>
+                <th>Quoted Rate</th>
+                <th>Margin (bps)</th>
+                <th>Margin (%)</th>
+                <th>Cost on Amount</th>
+                <th>vs. Best</th>
+              </tr>
+            </thead>
+            <tbody id="cmpBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Corridor benchmark gauge -->
+        <div class="benchmark-block" id="benchmarkBlock"></div>
+
+        <!-- Markdown memo -->
+        <div class="memo-block">
+          <div class="memo-label">Cost Analysis Memo</div>
+          <div class="memo-content" id="memoContent"></div>
+        </div>
+      </div>
+
+      <!-- About panel (always visible) -->
+      <div class="about-block">
+        <div class="about-label" data-i18n="panel_about">About this tool</div>
+        <div class="about-body">
+          <p>T209 decomposes a provider's quoted FX rate into its implied margin — the difference between the quoted exchange rate and the mid-market rate, expressed in <strong>basis points (bps)</strong> and as a percentage. One basis point equals 0.01%.</p>
+          <p>The formula is: <strong>Margin (bps) = [(Mid − Quoted) / Mid] × 10,000</strong> for pairs where a higher quoted rate means more expensive (e.g. USD/MXN). For pairs where higher is better (e.g. EUR/USD), the direction is reversed automatically.</p>
+          <p>Corridor benchmarks are sourced from published G20/FSB cross-border payment cost data (World Bank Remittance Prices Worldwide, BIS CPMI) and represent typical retail/SME market ranges as of Q1 2026. These are indicative, not live market data.</p>
+          <p><strong>Scope:</strong> Retail and SME FX spread analysis only. For corporate treasury hedging instruments (forwards, NDFs, vanilla options, collars) use Tool 76 · FX Hedge Optimizer.</p>
+          <ul class="citation-list">
+            <li data-n="[1]">World Bank Remittance Prices Worldwide, Q4 2025 — corridor cost benchmarks</li>
+            <li data-n="[2]">BIS CPMI — Cross-border payments monitoring framework, April 2024</li>
+            <li data-n="[3]">G20/FSB Cross-border Payments Roadmap — cost target &lt;1% by 2027</li>
+            <li data-n="[4]">ECB Statistical Data Warehouse — EUR reference rates (indicative mid-market)</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- FOOTER -->
+
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/fx-payments-intelligence-hub.html"><span data-i18n="footer.hub_fx_payments_intelligence">FX Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<!-- Toast -->
+<div class="export-toast" id="exportToast">
+  <span style="font-size:.85rem">✓</span>
+  <span id="toastMsg">ap2-t209-fx-margin.policy.json downloaded</span>
+</div>
+
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* PolicyMandate — full validator (Phase 14); AP2Schema internal name retained */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+};
+
+/* ═══════════════════════════════════════════════════════
+   i18n — Stage 2 UI Chrome Translations
+   Regulatory citations and financial codes stay in EN.
+   Tool output content stays in EN (professional B2B audience).
+   UI labels, buttons, and nav translate to all 6 languages.
+═══════════════════════════════════════════════════════ */
+const TRANSLATIONS = {
+  en: {
+    eyebrow:        "T209 · Cat-18 · Cross-Border FX & Payments · Anchor Tool",
+    hero_title:     "See the real cost of every FX quote",
+    hero_desc:      "Deconstruct any provider's quoted rate into its component parts — mid-market spread, implied margin in basis points, and all-in cost. Compare up to three providers side by side and benchmark against corridor percentile ranges. Scope: retail and SME FX spreads. For treasury hedging instruments see Tool 76.",
+    panel_config:   "Configuration",
+    panel_about:    "About this tool",
+    label_currency_pair: "Currency Pair",
+    label_benchmark:     "Mid-Market Rate (override)",
+    label_provider:      "Provider Quoted Rates (up to 3)",
+    run_btn:        "Run Analysis →",
+    results_title:  "FX Cost Analysis",
+    export_ap2:     "Export Policy Mandate",
+    pii_notice:     "🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.",
+    nav_all_tools:  "All 200+ Tools",
+    footer_badge:   "🔒 Zero PII \u00a0 📡 No server calls \u00a0 💻 Client-side",
+    lang_dir:       "ltr",
+  
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-18 Hub',
+  },
+  es: {
+    eyebrow:        "T209 · Cat-18 · FX y Pagos Internacionales · Herramienta Base",
+    hero_title:     "El coste real de cada cotización de divisas",
+    hero_desc:      "Descompone la tasa cotizada de cualquier proveedor en sus componentes: diferencial frente al mercado medio, margen implícito en puntos básicos y coste total. Compara hasta tres proveedores y mide frente a percentiles de corredor.",
+    panel_config:   "Configuración",
+    panel_about:    "Sobre esta herramienta",
+    label_currency_pair: "Par de Divisas",
+    label_benchmark:     "Tipo de Cambio Medio (manual)",
+    label_provider:      "Tipos Cotizados por Proveedor (hasta 3)",
+    run_btn:        "Ejecutar Análisis →",
+    results_title:  "Análisis de Coste FX",
+    export_ap2:     "Exportar Mandato de Política",
+    pii_notice:     "🔒 Todos los datos se procesan localmente en tu navegador. No se transmite ningún dato. No introduzcas datos personales reales.",
+    nav_all_tools:  "Más de 200 herramientas",
+    footer_badge:   "🔒 Sin PII \u00a0 📡 Sin servidor \u00a0 💻 Cliente",
+    lang_dir:       "ltr",
+  
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-18',
+  },
+  fr: {
+    eyebrow:        "T209 · Cat-18 · FX et Paiements Transfrontaliers · Outil Ancre",
+    hero_title:     "Le coût réel de chaque cotation de change",
+    hero_desc:      "Décomposez le taux coté de n'importe quel fournisseur en ses composantes — écart par rapport au cours médian, marge implicite en points de base et coût total. Comparez jusqu'à trois fournisseurs et comparez aux centiles de corridor.",
+    panel_config:   "Configuration",
+    panel_about:    "À propos de cet outil",
+    label_currency_pair: "Paire de Devises",
+    label_benchmark:     "Taux Médian (à saisir)",
+    label_provider:      "Taux Cotés par Fournisseur (jusqu'à 3)",
+    run_btn:        "Lancer l'Analyse →",
+    results_title:  "Analyse des Coûts de Change",
+    export_ap2:     "Exporter Mandat de Politique",
+    pii_notice:     "🔒 Toutes les données sont traitées localement dans votre navigateur. Aucune donnée n'est transmise. N'entrez pas de données personnelles réelles.",
+    nav_all_tools:  "Plus de 200 outils",
+    footer_badge:   "🔒 Zéro PII \u00a0 📡 Pas de serveur \u00a0 💻 Côté client",
+    lang_dir:       "ltr",
+  
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-18',
+  },
+  ar: {
+    eyebrow:        "T209 · الفئة 18 · الصرف الأجنبي والمدفوعات الحدودية · الأداة الأساسية",
+    hero_title:     "التكلفة الحقيقية لكل عرض صرف أجنبي",
+    hero_desc:      "قم بتفكيك سعر الصرف المقتبس من أي مزود إلى مكوناته — الفارق عن سعر السوق، الهامش الضمني بالنقاط الأساسية، والتكلفة الإجمالية. قارن حتى ثلاثة مزودين.",
+    panel_config:   "الإعدادات",
+    panel_about:    "حول هذه الأداة",
+    label_currency_pair: "زوج العملات",
+    label_benchmark:     "سعر السوق المرجعي",
+    label_provider:      "أسعار الصرف المقتبسة (حتى 3)",
+    run_btn:        "تشغيل التحليل →",
+    results_title:  "تحليل تكاليف الصرف الأجنبي",
+    export_ap2:     "تصدير تفويض السياسة",
+    pii_notice:     "🔒 جميع البيانات تُعالج محلياً في متصفحك. لا يتم نقل أي بيانات. لا تدخل بيانات شخصية حقيقية.",
+    nav_all_tools:  "أكثر من 200 أداة",
+    footer_badge:   "🔒 لا بيانات شخصية \u00a0 📡 بدون خادم \u00a0 💻 على المتصفح",
+    lang_dir:       "rtl",
+  
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-18',
+  },
+  pt: {
+    eyebrow:        "T209 · Cat-18 · Câmbio e Pagamentos Internacionais · Ferramenta Base",
+    hero_title:     "O custo real de cada cotação de câmbio",
+    hero_desc:      "Decomponha a taxa cotada por qualquer provedor nos seus componentes — spread em relação ao mercado médio, margem implícita em pontos-base e custo total. Compare até três provedores.",
+    panel_config:   "Configuração",
+    panel_about:    "Sobre esta ferramenta",
+    label_currency_pair: "Par de Moedas",
+    label_benchmark:     "Taxa de Mercado (manual)",
+    label_provider:      "Taxas Cotadas por Provedor (até 3)",
+    run_btn:        "Executar Análise →",
+    results_title:  "Análise de Custos de Câmbio",
+    export_ap2:     "Exportar Mandato de Política",
+    pii_notice:     "🔒 Todos os dados são processados localmente no seu navegador. Nenhum dado é transmitido. Não insira dados pessoais reais.",
+    nav_all_tools:  "Mais de 200 ferramentas",
+    footer_badge:   "🔒 Sem PII \u00a0 📡 Sem servidor \u00a0 💻 Client-side",
+    lang_dir:       "ltr",
+  
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-18',
+  },
+  zh: {
+    eyebrow:        "T209 · 类别18 · 跨境外汇与支付 · 核心工具",
+    hero_title:     "透视每一笔外汇报价的真实成本",
+    hero_desc:      "将任何服务商的报价汇率分解为各组成部分——与中间价的价差、以基点表示的隐含利润率和全额成本。最多比较三家服务商。",
+    panel_config:   "参数配置",
+    panel_about:    "关于本工具",
+    label_currency_pair: "货币对",
+    label_benchmark:     "市场中间价（手动输入）",
+    label_provider:      "服务商报价（最多3家）",
+    run_btn:        "运行分析 →",
+    results_title:  "外汇成本分析",
+    export_ap2:     "导出政策授权书",
+    pii_notice:     "🔒 所有数据在您的浏览器本地处理，不传输任何数据。请勿输入真实个人信息。",
+    nav_all_tools:  "200+ 工具",
+    footer_badge:   "🔒 零个人数据 \u00a0 📡 无服务器调用 \u00a0 💻 纯客户端",
+    lang_dir:       "ltr",
+  
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-18 中心',
+  },
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS['en'];
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`) ||
+              document.querySelector(`.lang-btn[onclick='setLang("${lang}")']`);
+  if (btn) btn.classList.add('active');
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  document.documentElement.dir = t.lang_dir || 'ltr';
+  document.body.dir = t.lang_dir || 'ltr';
+  const apply = (selector, key) => {
+    const el = document.querySelector(selector);
+    if (el && t[key] !== undefined) el.textContent = t[key];
+  };
+  apply('.tool-eyebrow',  'eyebrow');
+  apply('.hero h1',       'hero_title');
+  apply('.hero-desc',     'hero_desc');
+  apply('.pii-notice',    'pii_notice');
+  apply('.run-btn',       'run_btn');
+  apply('.results-title', 'results_title');
+  apply('.nav-cta',       'nav_all_tools');
+  const panelLabels = document.querySelectorAll('.panel-label');
+  const panelKeys   = ['panel_config', 'panel_about'];
+  panelLabels.forEach((el, i) => {
+    if (panelKeys[i] && t[panelKeys[i]]) el.textContent = t[panelKeys[i]];
+  });
+  // Policy Mandate button label
+  const ap2Btn = document.querySelector('.footer-ap2-btn .ap2-btn-label');
+  if (ap2Btn && t['export_ap2']) ap2Btn.textContent = t['export_ap2'];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (t[key] !== undefined) el.textContent = t[key];
+  });
+  const footerBadge = document.querySelector('.footer-pii-badge');
+  if (footerBadge) footerBadge.textContent = t['footer_badge'];
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function initLang() {
+  try {
+    const saved = sessionStorage.getItem('ain_lang');
+    if (saved && TRANSLATIONS[saved]) setLang(saved);
+  } catch(e) {}
+})();
+
+/* ═══════════════════════════════════════════════════════
+   CORRIDOR BENCHMARK DATA
+   Source: World Bank RPW Q4 2025 + BIS CPMI monitoring
+   Ranges represent retail/SME market (10th–90th percentile)
+   Unit: bps margin over mid-market
+═══════════════════════════════════════════════════════ */
+const CORRIDOR_BENCHMARKS = {
+  EURUSD: { p10:  8, p25: 15, p50: 28, p75: 55, p90:  90, label:"EUR/USD · G10" },
+  GBPUSD: { p10:  7, p25: 13, p50: 25, p75: 52, p90:  88, label:"GBP/USD · G10" },
+  USDJPY: { p10: 10, p25: 18, p50: 35, p75: 65, p90: 110, label:"USD/JPY · G10" },
+  USDCHF: { p10:  9, p25: 16, p50: 30, p75: 58, p90:  95, label:"USD/CHF · G10" },
+  AUDUSD: { p10: 12, p25: 20, p50: 38, p75: 70, p90: 120, label:"AUD/USD · G10" },
+  USDCAD: { p10: 10, p25: 18, p50: 32, p75: 62, p90: 105, label:"USD/CAD · G10" },
+  NZDUSD: { p10: 14, p25: 22, p50: 42, p75: 78, p90: 135, label:"NZD/USD · G10" },
+  EURGBP: { p10:  8, p25: 14, p50: 27, p75: 53, p90:  92, label:"EUR/GBP · Cross" },
+  EURJPY: { p10: 12, p25: 20, p50: 38, p75: 72, p90: 125, label:"EUR/JPY · Cross" },
+  GBPJPY: { p10: 14, p25: 24, p50: 45, p75: 85, p90: 148, label:"GBP/JPY · Cross" },
+  EURCHF: { p10: 10, p25: 17, p50: 31, p75: 60, p90: 100, label:"EUR/CHF · Cross" },
+  GBPCHF: { p10: 12, p25: 20, p50: 38, p75: 72, p90: 122, label:"GBP/CHF · Cross" },
+  AUDCAD: { p10: 15, p25: 25, p50: 46, p75: 88, p90: 155, label:"AUD/CAD · Cross" },
+  USDMXN: { p10: 35, p25: 65, p50:130, p75:240, p90: 420, label:"USD/MXN · LATAM" },
+  USDBRL: { p10: 50, p25: 90, p50:175, p75:320, p90: 580, label:"USD/BRL · LATAM" },
+  USDTRY: { p10: 55, p25:100, p50:195, p75:350, p90: 620, label:"USD/TRY · EMEA" },
+  USDINR: { p10: 30, p25: 55, p50:110, p75:200, p90: 360, label:"USD/INR · APAC" },
+  USDCNY: { p10: 20, p25: 38, p50: 72, p75:135, p90: 240, label:"USD/CNY · APAC" },
+  USDKRW: { p10: 25, p25: 45, p50: 88, p75:165, p90: 295, label:"USD/KRW · APAC" },
+  USDZAR: { p10: 45, p25: 82, p50:160, p75:290, p90: 510, label:"USD/ZAR · Africa" },
+  USDPLN: { p10: 18, p25: 32, p50: 60, p75:112, p90: 195, label:"USD/PLN · CEE" },
+  USDHUF: { p10: 22, p25: 40, p50: 76, p75:142, p90: 248, label:"USD/HUF · CEE" },
+  USDCZK: { p10: 20, p25: 36, p50: 68, p75:128, p90: 222, label:"USD/CZK · CEE" },
+  USDDKK: { p10: 10, p25: 18, p50: 35, p75: 65, p90: 112, label:"USD/DKK · Nordic" },
+  USDNOK: { p10: 14, p25: 24, p50: 46, p75: 86, p90: 148, label:"USD/NOK · Nordic" },
+  USDSEK: { p10: 13, p25: 22, p50: 42, p75: 78, p90: 135, label:"USD/SEK · Nordic" },
+  USDSGD: { p10: 12, p25: 20, p50: 38, p75: 72, p90: 124, label:"USD/SGD · APAC" },
+  USDHKD: { p10:  5, p25:  9, p50: 18, p75: 34, p90:  60, label:"USD/HKD · APAC" },
+  USDAED: { p10: 15, p25: 26, p50: 50, p75: 92, p90: 160, label:"USD/AED · MENA" },
+  USDSAR: { p10: 14, p25: 24, p50: 46, p75: 86, p90: 150, label:"USD/SAR · MENA" },
+  USDILS: { p10: 20, p25: 36, p50: 68, p75:126, p90: 220, label:"USD/ILS · MENA" },
+  USDTHB: { p10: 28, p25: 50, p50: 98, p75:182, p90: 320, label:"USD/THB · APAC" },
+  USDPHP: { p10: 32, p25: 58, p50:114, p75:210, p90: 370, label:"USD/PHP · APAC" },
+  USDIDR: { p10: 40, p25: 72, p50:140, p75:258, p90: 455, label:"USD/IDR · APAC" },
+};
+
+/* Pairs where quoted rate direction is inverted (higher quoted = worse for buyer) */
+const INVERTED_PAIRS = new Set([
+  'USDJPY','USDCHF','USDCAD','USDMXN','USDBRL','USDTRY','USDINR','USDCNY',
+  'USDKRW','USDZAR','USDPLN','USDHUF','USDCZK','USDDKK','USDNOK','USDSEK',
+  'USDSGD','USDHKD','USDAED','USDSAR','USDILS','USDTHB','USDPHP','USDIDR',
+  'GBPJPY','EURJPY'
+]);
+
+/* ───────────────────────────────────────────────────────
+   Mid-market hint updater
+─────────────────────────────────────────────────────── */
+function updateMidMarketHint() {
+  const sel = document.getElementById('currencyPair');
+  const opt = sel.options[sel.selectedIndex];
+  const mid = opt.getAttribute('data-mid');
+  const pair = sel.value;
+  const [base, quote] = [pair.slice(0,3), pair.slice(3,6)];
+  document.getElementById('midHint').textContent =
+    `Mid-market reference: ${mid} (indicative — update with live rate for precise analysis)`;
+}
+
+/* ───────────────────────────────────────────────────────
+   Main analysis function
+─────────────────────────────────────────────────────── */
+// Holds last result for Policy Mandate
+let _lastResult = null;
+
+function runAnalysis() {
+  // Clear error
+  const errEl = document.getElementById('errorBlock');
+  errEl.classList.remove('visible');
+  errEl.textContent = '';
+
+  // Gather inputs
+  const pair = document.getElementById('currencyPair').value;
+  const sel  = document.getElementById('currencyPair');
+  const opt  = sel.options[sel.selectedIndex];
+  const embeddedMid = parseFloat(opt.getAttribute('data-mid'));
+  const overrideMid = parseFloat(document.getElementById('midMarket').value);
+  const mid = (!isNaN(overrideMid) && overrideMid > 0) ? overrideMid : embeddedMid;
+  const amount = parseFloat(document.getElementById('transferAmount').value) || 10000;
+
+  // Collect providers
+  const providers = [];
+  for (let i = 1; i <= 3; i++) {
+    const rateVal = parseFloat(document.getElementById(`p${i}rate`).value);
+    if (!isNaN(rateVal) && rateVal > 0) {
+      const name = document.getElementById(`p${i}name`).value.trim() || `Provider ${i}`;
+      providers.push({ name, rate: rateVal });
+    }
+  }
+
+  // Validation
+  if (providers.length < 1) {
+    errEl.textContent = 'Enter at least one provider quoted rate to run the analysis.';
+    errEl.classList.add('visible');
+    return;
+  }
+  if (!mid || mid <= 0) {
+    errEl.textContent = 'Mid-market rate could not be determined. Please enter it manually.';
+    errEl.classList.add('visible');
+    return;
+  }
+
+  // Calculate margins
+  const inverted = INVERTED_PAIRS.has(pair);
+  providers.forEach(p => {
+    // For inverted pairs (e.g. USD/JPY): higher rate means more cost to buyer
+    // Margin = [(Quoted - Mid) / Mid] × 10000 for inverted
+    // For normal pairs (e.g. EUR/USD): lower rate means more cost
+    // Margin = [(Mid - Quoted) / Mid] × 10000
+    if (inverted) {
+      p.marginBps = ((p.rate - mid) / mid) * 10000;
+    } else {
+      p.marginBps = ((mid - p.rate) / mid) * 10000;
+    }
+    p.marginPct = p.marginBps / 100;
+    // Cost in base currency terms
+    p.costAmount = Math.abs(p.marginPct / 100) * amount;
+    p.receivable = inverted
+      ? (amount / p.rate)
+      : (amount * p.rate);
+    p.receivableMid = inverted
+      ? (amount / mid)
+      : (amount * mid);
+    p.costInQuote = Math.abs(p.receivableMid - p.receivable);
+  });
+
+  // Find best (lowest margin) and worst
+  const sortedByMargin = [...providers].sort((a,b) => a.marginBps - b.marginBps);
+  const best = sortedByMargin[0];
+  const worst = sortedByMargin[sortedByMargin.length - 1];
+
+  // Benchmark
+  const bench = CORRIDOR_BENCHMARKS[pair] || CORRIDOR_BENCHMARKS['EURUSD'];
+
+  // Store for Policy Mandate
+  _lastResult = { pair, mid, amount, inverted, providers, bench, bestIdx: 0 };
+
+  // ── Render metric grid ──
+  const [base, quote] = [pair.slice(0,3), pair.slice(3,6)];
+  const g = document.getElementById('metricGrid');
+  g.innerHTML = `
+    <div class="metric-cell">
+      <div class="metric-label">Pair</div>
+      <div class="metric-value teal" style="font-size:1.2rem">${base}/${quote}</div>
+      <div class="metric-sub">Mid: ${mid.toFixed(mid < 10 ? 4 : 2)}</div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-label">Best Margin</div>
+      <div class="metric-value ${best.marginBps <= bench.p25 ? 'green' : best.marginBps <= bench.p50 ? 'teal' : 'gold'}">${best.marginBps.toFixed(1)}<span style="font-size:.9rem;color:var(--body)"> bps</span></div>
+      <div class="metric-sub">${best.name}</div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-label">Providers Compared</div>
+      <div class="metric-value gold">${providers.length}</div>
+      <div class="metric-sub">on ${amount.toLocaleString()} ${base}</div>
+    </div>
+    ${providers.length > 1 ? `
+    <div class="metric-cell">
+      <div class="metric-label">Spread (Best→Worst)</div>
+      <div class="metric-value gold" style="font-size:1.2rem">${(worst.marginBps - best.marginBps).toFixed(1)}<span style="font-size:.85rem;color:var(--body)"> bps</span></div>
+      <div class="metric-sub">${quote} ${(worst.costInQuote - best.costInQuote).toFixed(2)} difference</div>
+    </div>` : ''}
+    <div class="metric-cell">
+      <div class="metric-label">Corridor Median</div>
+      <div class="metric-value" style="font-size:1.2rem;color:var(--text)">${bench.p50}<span style="font-size:.85rem;color:var(--body)"> bps</span></div>
+      <div class="metric-sub">${bench.label}</div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-label">Best Saves vs. Worst</div>
+      <div class="metric-value green" style="font-size:1.2rem">${quote} ${(worst.costInQuote - best.costInQuote).toFixed(2)}</div>
+      <div class="metric-sub">on this transaction</div>
+    </div>
+  `;
+
+  // ── Render comparison table ──
+  const maxMargin = Math.max(...providers.map(p => p.marginBps), bench.p75);
+  const tbody = document.getElementById('cmpBody');
+  tbody.innerHTML = providers.map((p, idx) => {
+    const isBest  = p === best && providers.length > 1;
+    const isWorst = p === worst && providers.length > 1;
+    const barPct  = Math.min(100, (p.marginBps / maxMargin) * 100);
+    const barClass = p.marginBps <= bench.p25 ? '' : p.marginBps <= bench.p50 ? 'warn' : 'bad';
+    const rateStr = p.rate.toFixed(p.rate < 10 ? 4 : (p.rate < 100 ? 3 : 2));
+    return `<tr>
+      <td style="color:var(--bright);font-weight:400">${p.name}</td>
+      <td class="${isBest ? 'best' : isWorst ? 'worst' : ''}">${rateStr}</td>
+      <td>
+        <div class="margin-bar">
+          <span class="${isBest ? 'best' : isWorst ? 'worst' : ''}" style="min-width:38px">${p.marginBps.toFixed(1)}</span>
+          <div class="margin-fill ${barClass}" style="width:${barPct}px"></div>
+        </div>
+      </td>
+      <td class="${isBest ? 'best' : isWorst ? 'worst' : ''}">${p.marginPct.toFixed(3)}%</td>
+      <td>${quote} ${p.costInQuote.toFixed(2)}</td>
+      <td style="color:var(--muted)">${isBest ? '— best' : '+' + (p.costInQuote - best.costInQuote).toFixed(2)}</td>
+    </tr>`;
+  }).join('');
+
+  // ── Render benchmark gauge ──
+  const benchBlock = document.getElementById('benchmarkBlock');
+  // Percentile position for best provider
+  const bestBps = best.marginBps;
+  let percentile, pctClass;
+  if (bestBps <= bench.p10)       { percentile = '<10th'; pctClass = 'pct-good'; }
+  else if (bestBps <= bench.p25)  { percentile = '10–25th'; pctClass = 'pct-good'; }
+  else if (bestBps <= bench.p50)  { percentile = '25–50th'; pctClass = 'pct-mid'; }
+  else if (bestBps <= bench.p75)  { percentile = '50–75th'; pctClass = 'pct-mid'; }
+  else if (bestBps <= bench.p90)  { percentile = '75–90th'; pctClass = 'pct-bad'; }
+  else                             { percentile = '>90th'; pctClass = 'pct-bad'; }
+  // Gauge scale: 0 to p90 × 1.1
+  const scale = bench.p90 * 1.1;
+  function gaugePct(bps) { return Math.min(100, Math.round((bps / scale) * 100)); }
+
+  benchBlock.innerHTML = `
+    <div class="benchmark-title">Corridor Benchmark — ${bench.label} <span style="margin-left:.5rem" class="percentile-badge ${pctClass}">${percentile} percentile</span></div>
+    <div class="gauge-row">
+      <div class="gauge-label" style="font-size:.65rem;color:var(--muted)">P10 · P25 · P50 · P75 · P90</div>
+      <div class="gauge-track">
+        <div class="gauge-fill" style="width:100%"></div>
+        ${[bench.p10, bench.p25, bench.p50, bench.p75, bench.p90].map(v =>
+          `<div class="gauge-marker" style="left:${gaugePct(v)}%"></div>`
+        ).join('')}
+        ${providers.map((p,i) => `<div style="position:absolute;top:-8px;left:${gaugePct(p.marginBps)}%;transform:translateX(-50%);width:10px;height:10px;border-radius:50%;background:${i===0?'var(--teal)':i===1?'var(--gold)':'var(--purple)'};border:2px solid var(--bg);z-index:2" title="${p.name}: ${p.marginBps.toFixed(1)} bps"></div>`).join('')}
+      </div>
+      <div class="gauge-val"></div>
+    </div>
+    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:.75rem">
+      <div style="font-size:.68rem;color:var(--body)">P10 <span style="color:var(--text);font-family:'JetBrains Mono',monospace">${bench.p10} bps</span></div>
+      <div style="font-size:.68rem;color:var(--body)">P25 <span style="color:var(--text);font-family:'JetBrains Mono',monospace">${bench.p25} bps</span></div>
+      <div style="font-size:.68rem;color:var(--body)">P50 <span style="color:var(--text);font-family:'JetBrains Mono',monospace">${bench.p50} bps</span></div>
+      <div style="font-size:.68rem;color:var(--body)">P75 <span style="color:var(--text);font-family:'JetBrains Mono',monospace">${bench.p75} bps</span></div>
+      <div style="font-size:.68rem;color:var(--body)">P90 <span style="color:var(--text);font-family:'JetBrains Mono',monospace">${bench.p90} bps</span></div>
+    </div>
+    <div style="margin-top:.85rem;display:flex;gap:.65rem;flex-wrap:wrap;align-items:center">
+      ${providers.map((p,i) => {
+        const col = i===0?'var(--teal)':i===1?'var(--gold)':'var(--purple)';
+        return `<span style="display:inline-flex;align-items:center;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--body)"><span style="width:8px;height:8px;border-radius:50%;background:${col};display:inline-block"></span>${p.name}: ${p.marginBps.toFixed(1)} bps</span>`;
+      }).join('')}
+    </div>
+  `;
+
+  // ── Render cost memo ──
+  const memoDate = new Date().toISOString().split('T')[0];
+  const memoLines = [
+    `# FX Cost Transparency Memo`,
+    `**Date:** ${memoDate}  `,
+    `**Tool:** T209 · FX Margin & Cost Transparency Calculator · AINumbers.co  `,
+    `**Pair:** ${base}/${quote}  `,
+    `**Mid-Market Rate:** ${mid.toFixed(mid < 10 ? 4 : 2)} (${(!isNaN(overrideMid) && overrideMid > 0) ? 'user-supplied' : 'indicative embedded rate'})  `,
+    `**Transfer Amount:** ${amount.toLocaleString()} ${base}`,
+    ``,
+    `## Provider Comparison`,
+    ...providers.map(p =>
+      `- **${p.name}**: ${p.rate.toFixed(p.rate < 10 ? 4 : 3)} | Margin: ${p.marginBps.toFixed(1)} bps (${p.marginPct.toFixed(3)}%) | Cost: ${quote} ${p.costInQuote.toFixed(2)}`
+    ),
+    ``,
+    `## Corridor Benchmark (${bench.label})`,
+    `- P25: ${bench.p25} bps | P50: ${bench.p50} bps | P75: ${bench.p75} bps`,
+    `- Best provider (${best.name}): **${best.marginBps.toFixed(1)} bps** — ${percentile} percentile`,
+    ``,
+    `## Recommendation`,
+    best.marginBps <= bench.p25
+      ? `${best.name} is in the bottom quartile for this corridor — competitive rate.`
+      : best.marginBps <= bench.p50
+      ? `${best.name} is below median for this corridor — acceptable rate.`
+      : best.marginBps <= bench.p75
+      ? `${best.name} is above median — consider alternative providers or negotiate.`
+      : `${best.name} margin is in the upper quartile — seek alternatives.`,
+    providers.length > 1
+      ? `Switching from worst (${worst.name}, ${worst.marginBps.toFixed(1)} bps) to best (${best.name}, ${best.marginBps.toFixed(1)} bps) saves ${quote} ${(worst.costInQuote - best.costInQuote).toFixed(2)} on this transaction.`
+      : '',
+    ``,
+    `*G20/FSB cross-border cost target: <1% by 2027. Best provider: ${best.marginPct.toFixed(3)}% — ${best.marginPct < 1 ? 'within target' : 'above target'}.*`,
+    ``,
+    `---`,
+    `*Client-side. Zero PII. AINumbers.co · Post Oak Labs · CC BY 4.0*`,
+  ].filter(l => l !== null);
+  document.getElementById('memoContent').textContent = memoLines.join('\n');
+
+  // Show results
+  document.getElementById('resultsPanel').classList.add('visible');
+
+  // Unlock Policy Mandate button
+  const ap2Btn = document.getElementById('ap2ExportBtn');
+  ap2Btn.classList.add('ready');
+  ap2Btn.title = 'For API integration · audit trail';
+
+  // Scroll to results on mobile
+  if (window.innerWidth < 840) {
+    document.getElementById('resultsPanel').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   AP2 JSON Export
+   mandate_type: "fx_policy"
+   Schema: AP2Mandate v1.0
+═══════════════════════════════════════════════════════ */
+function exportAP2() {
+  const btn = document.getElementById('ap2ExportBtn');
+  if (!btn.classList.contains('ready') || !_lastResult) return;
+
+  const r = _lastResult;
+  const ts = new Date().toISOString();
+  const [base, quote] = [r.pair.slice(0,3), r.pair.slice(3,6)];
+  const best = r.providers.reduce((a,b) => a.marginBps < b.marginBps ? a : b);
+  const bench = r.bench;
+
+  /* AP2Mandate v1.0 — fx_policy */
+  const mandate = {
+    ap2_version: "1.0",
+    mandate_id: `T209-${r.pair}-${ts.replace(/[:.]/g,'-').slice(0,19)}`,
+    tool_id: "fx-margin-cost-transparency",
+    tool_version: "1.0.0",
+    generated_at: ts,
+    mandate_type: "fx_policy",
+    regulatory_frameworks: ["G20-FSB-XBORDERPAY-2023", "BIS-CPMI-2024"],
+    effective_date: ts.split('T')[0],
+    review_cadence_days: 90,
+    jurisdiction: "global",
+    payload: {
+      currency_pair: `${base}/${quote}`,
+      mid_market_rate: r.mid,
+      transfer_amount_base: r.amount,
+      analysis_date: ts.split('T')[0],
+      providers: r.providers.map(p => ({
+        name: p.name,
+        quoted_rate: p.rate,
+        margin_bps: parseFloat(p.marginBps.toFixed(2)),
+        margin_pct: parseFloat(p.marginPct.toFixed(4)),
+        cost_in_quote_ccy: parseFloat(p.costInQuote.toFixed(2)),
+      })),
+      best_provider: {
+        name: best.name,
+        margin_bps: parseFloat(best.marginBps.toFixed(2)),
+      },
+      corridor_benchmark: {
+        label: bench.label,
+        p10_bps: bench.p10,
+        p25_bps: bench.p25,
+        p50_bps: bench.p50,
+        p75_bps: bench.p75,
+        p90_bps: bench.p90,
+        source: "World Bank RPW Q4 2025 + BIS CPMI 2024",
+      },
+      g20_fsb_target: {
+        cost_ceiling_pct: 1.0,
+        target_year: 2027,
+        best_provider_within_target: best.marginPct < 1.0,
+      },
+    },
+    compliance_flags: {
+      best_margin_below_p50: best.marginBps <= bench.p50,
+      best_margin_below_g20_target: best.marginPct < 1.0,
+      providers_count: r.providers.length,
+    },
+    metadata: {
+      tool_url: "https://ainumbers.co/tools/209-fx-margin-cost-transparency",
+      category: "cat-18",
+      hub: "fx-payments-intelligence-hub",
+      pii: false,
+      client_side: true,
+      license: "CC BY 4.0",
+    },
+  };
+
+  // Download
+  AP2Schema.validate(mandate);
+  const blob = new Blob([JSON.stringify(mandate, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `ap2-t209-${r.pair.toLowerCase()}-${ts.split('T')[0]}.policy.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  // Toast
+  showToast(`ap2-t209-${r.pair.toLowerCase()}-${ts.split('T')[0]}.json downloaded`);
+}
+
+/* ── Toast helper ─────────────────────────────────────── */
+function showToast(msg) {
+  const toast = document.getElementById('exportToast');
+  document.getElementById('toastMsg').textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2200);
+}
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "fx-margin-cost-transparency", "version": "1.0.0", "title": "FX Margin & Cost Transparency Calculator", "description": "Retail/SME FX margin deconstruction tool. Inputs currency pair, provider quoted rates, and mid-market reference; outputs implied margin in basis points, all-in cost comparison across up to 3 providers, corridor percentile benchmark, and Policy Mandate JSON FX policy mandate. Client-side. Zero PII.", "category": "cat-18", "tags": ["FX", "margin", "basis points", "cross-border", "G20", "FSB", "corridors", "Policy Mandate", "export"], "audience": ["treasury", "payments-engineer", "compliance", "operations"], "input_schema": {"type": "object", "properties": {"currency_pair": {"type": "string", "description": "ISO 4217 currency pair code, e.g. EURUSD, USDMXN", "examples": ["EURUSD", "GBPUSD", "USDMXN", "USDINR"]}, "mid_market_rate": {"type": "number", "description": "Mid-market reference rate. If omitted, embedded indicative rate is used."}, "transfer_amount": {"type": "number", "description": "Transfer amount in base currency"}, "providers": {"type": "array", "description": "1 to 3 provider quoted rates", "items": {"type": "object", "properties": {"name": {"type": "string"}, "quoted_rate": {"type": "number"}}, "required": ["quoted_rate"]}, "minItems": 1, "maxItems": 3}}, "required": ["currency_pair", "providers"]}, "output_schema": {"type": "object", "properties": {"providers": {"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}, "quoted_rate": {"type": "number"}, "margin_bps": {"type": "number"}, "margin_pct": {"type": "number"}, "cost_in_quote_ccy": {"type": "number"}}}}, "best_provider": {"type": "object"}, "corridor_benchmark": {"type": "object"}, "g20_fsb_target": {"type": "object"}, "ap2_mandate": {"type": "object"}}}, "mcp_tool_definition": {"name": "calculate_fx_margin", "description": "Decomposes FX provider quoted rates into implied margin in basis points, compares up to 3 providers, and benchmarks against corridor percentile ranges. Use when a payments agent needs to assess FX spread transparency, compare provider costs, or generate a G20/FSB-aligned FX policy mandate.", "inputSchema": {"type": "object", "properties": {"currency_pair": {"type": "string", "description": "ISO 4217 pair, e.g. EURUSD"}, "mid_market_rate": {"type": "number", "description": "Optional override for mid-market rate"}, "transfer_amount": {"type": "number", "description": "Amount in base currency, default 10000"}, "providers": {"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}, "quoted_rate": {"type": "number"}}, "required": ["quoted_rate"]}}}, "required": ["currency_pair", "providers"]}}, "execution": {"type": "browser-javascript", "entry": "tools/209-fx-margin-cost-transparency.html", "function_name": "runAnalysis", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

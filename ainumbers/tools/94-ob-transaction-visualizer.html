@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tool 94 — Open Banking Transaction Visualizer & Ledger · AINumbers.co</title>
+<meta name="description" content="Paste UK OBReadTransaction6 or FDX v5 JSON and instantly see a sortable ledger, cash flow breakdown, MCC category mapping, running balance chart, and schema sanity checks. Client-side. Zero PII.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.15}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1200px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* NAV */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1200px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-mark-grid{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:32px;height:32px}
+.logo-text{display:flex;flex-direction:column;gap:2px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bg);background:var(--teal);border:1px solid var(--teal);padding:.3rem .85rem;border-radius:6px;transition:all .2s}
+.nav-cta:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+
+/* HERO */
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.7rem,3vw,2.6rem);color:var(--white);max-width:720px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-sub{font-size:.88rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.2rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}.badge-privacy::before{content:'·';color:var(--green)}
+.badge-spec{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+
+/* TOOL SECTION */
+.tool-section{padding:2.5rem 0 4rem;position:relative;z-index:1}
+
+/* TAB BAR */
+.tab-bar{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:2rem;overflow-x:auto}
+.tab-btn{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.14em;text-transform:uppercase;padding:.8rem 1.5rem;background:transparent;color:var(--muted);border:none;border-bottom:2px solid transparent;cursor:pointer;transition:all .2s;white-space:nowrap}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--teal-lt);border-bottom-color:var(--teal);background:rgba(20,184,166,.04)}
+.tab-pane{display:none}.tab-pane.active{display:block;animation:fadeup .2s ease}
+@keyframes fadeup{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* IMPORT PANEL */
+.import-wrap{display:grid;grid-template-columns:1fr 280px;gap:2px;background:var(--border);border:1px solid var(--border);margin-bottom:2rem}
+@media(max-width:860px){.import-wrap{grid-template-columns:1fr}}
+.import-main{background:var(--bg-2);padding:1.5rem}
+.import-side{background:var(--bg-3);padding:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border)}
+textarea{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.7rem .85rem;outline:none;resize:vertical;min-height:220px;line-height:1.7;transition:border-color .2s}
+textarea::placeholder{color:var(--muted)}
+textarea:focus{border-color:var(--teal)}
+select,input[type=text]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.42rem .65rem;outline:none;transition:border-color .2s;-webkit-appearance:none;margin-bottom:.85rem}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a6a8a'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .7rem center;padding-right:2rem;cursor:pointer}
+select:focus,input:focus{border-color:var(--teal)}
+label.flbl{font-size:.74rem;color:var(--text);display:block;margin-bottom:.35rem}
+.fhint{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);display:block;margin-top:.2rem;line-height:1.5}
+
+/* BUTTONS */
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.55rem 1rem;cursor:pointer;transition:all .2s;border:1px solid}
+.btn-primary{background:var(--teal);border-color:var(--teal);color:var(--bg)}
+.btn-primary:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--muted);color:var(--text)}
+.btn-danger{background:transparent;border-color:rgba(239,68,68,.3);color:var(--red)}
+.btn-danger:hover{background:var(--red-dim)}
+.btn-full{width:100%;justify-content:center;display:flex;align-items:center;gap:.5rem}
+.btn-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem;align-items:center}
+
+/* EXAMPLE CHIPS */
+.example-row{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1rem}
+.ex-chip{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;background:var(--bg-4);border:1px solid var(--border-2);color:var(--body);padding:.2rem .55rem;cursor:pointer;transition:all .15s}
+.ex-chip:hover{border-color:var(--teal);color:var(--teal)}
+
+/* KPI BAR */
+.kpi-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-top:2px solid var(--teal);margin-bottom:1.5rem}
+.kc{background:var(--bg-2);padding:.9rem 1.1rem}
+.kl{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.kv{font-family:'DM Serif Display',serif;font-size:1.25rem;color:var(--bright);line-height:1}
+.kv.g{color:var(--green)}.kv.r{color:var(--red)}.kv.w{color:var(--warn)}.kv.t{color:var(--teal)}.kv.gold{color:var(--gold)}
+.ksub{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted);margin-top:.2rem}
+
+/* STATUS BAR */
+.status-bar{display:flex;align-items:center;gap:.75rem;padding:.75rem 1.1rem;border:1px solid;border-radius:var(--radius);margin-bottom:1.25rem;font-size:.78rem}
+.status-bar.ok{border-color:rgba(20,184,166,.25);background:var(--teal-dim);color:var(--teal-lt);border-left:3px solid var(--teal)}
+.status-bar.warn{border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.06);color:var(--warn);border-left:3px solid var(--warn)}
+.status-bar.err{border-color:rgba(239,68,68,.25);background:var(--red-dim);color:var(--red);border-left:3px solid var(--red)}
+.status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;animation:pulse 2s infinite}
+.status-bar.ok .status-dot{background:var(--teal)}
+.status-bar.warn .status-dot{background:var(--warn)}
+.status-bar.err .status-dot{background:var(--red);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* SECTION HEADING */
+.sec-head{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-lt);margin:1.5rem 0 .75rem;display:flex;align-items:center;gap:.6rem}
+.sec-head::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* SANITY CHECKS */
+.check-list{display:flex;flex-direction:column;gap:.4rem;margin-bottom:1.5rem}
+.check-item{display:flex;align-items:flex-start;gap:.75rem;padding:.65rem 1rem;border:1px solid;border-left:3px solid;font-size:.76rem;line-height:1.55}
+.check-item.pass{border-color:rgba(34,197,94,.15);border-left-color:var(--green);background:var(--green-dim)}
+.check-item.warn{border-color:rgba(245,158,11,.15);border-left-color:var(--warn);background:rgba(245,158,11,.06)}
+.check-item.fail{border-color:rgba(239,68,68,.15);border-left-color:var(--red);background:var(--red-dim)}
+.check-icon{font-size:.85rem;flex-shrink:0;margin-top:.05rem}
+.check-msg{color:var(--text)}
+.check-detail{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);margin-top:.2rem}
+
+/* TABLE */
+.table-wrap{overflow-x:auto;margin-bottom:1.5rem}
+table{width:100%;border-collapse:collapse;font-size:.76rem}
+th{font-family:'JetBrains Mono',monospace;font-size:.45rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.65rem .85rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-2);white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{color:var(--teal-lt)}
+th .sort-arrow{display:inline-block;margin-left:.3rem;opacity:.4;font-size:.6rem}
+th.sort-asc .sort-arrow{opacity:1;color:var(--teal)}
+th.sort-desc .sort-arrow{opacity:1;color:var(--teal);transform:rotate(180deg);display:inline-block}
+td{padding:.6rem .85rem;border-bottom:1px solid rgba(30,47,74,.4);vertical-align:middle}
+tr:nth-child(even) td{background:rgba(255,255,255,.013)}
+tr:hover td{background:rgba(20,184,166,.03)}
+.amt-credit{color:var(--green);font-family:'JetBrains Mono',monospace;font-size:.75rem;font-weight:500}
+.amt-debit{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.amt-neutral{color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.bal-col{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text)}
+.date-col{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted)}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.06em;text-transform:uppercase;padding:.15rem .4rem;border-radius:2px;white-space:nowrap;display:inline-block}
+.tag-green{background:var(--green-dim);color:var(--green)}
+.tag-red{background:var(--red-dim);color:var(--red)}
+.tag-teal{background:var(--teal-dim);color:var(--teal)}
+.tag-gold{background:var(--gold-dim);color:var(--gold)}
+.tag-muted{background:var(--bg-3);color:var(--muted);border:1px solid var(--border)}
+.mcc-badge{display:inline-flex;align-items:center;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;background:var(--bg-4);border:1px solid var(--border);padding:.12rem .45rem;color:var(--body);white-space:nowrap}
+
+/* TABLE TOOLBAR */
+.table-toolbar{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem}
+.search-box{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:.38rem .7rem;outline:none;transition:border-color .2s;flex:1;min-width:180px}
+.search-box:focus{border-color:var(--teal)}
+.search-box::placeholder{color:var(--muted)}
+.filter-pills{display:flex;gap:.35rem;flex-wrap:wrap}
+.pill{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.06em;text-transform:uppercase;padding:.22rem .55rem;border:1px solid var(--border);color:var(--muted);background:transparent;cursor:pointer;transition:all .15s}
+.pill:hover{border-color:var(--border-2);color:var(--text)}
+.pill.active{background:var(--teal-dim);border-color:rgba(20,184,166,.4);color:var(--teal)}
+.tbl-count{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);margin-left:auto;white-space:nowrap}
+
+/* CASH FLOW TAB */
+.cf-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:2rem}
+@media(max-width:680px){.cf-grid{grid-template-columns:1fr}}
+.cf-card{background:var(--bg-2);border:1px solid var(--border);padding:1.25rem}
+.cf-card-title{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.75rem}
+.cf-amount{font-family:'DM Serif Display',serif;font-size:1.8rem;line-height:1;margin-bottom:.3rem}
+.cf-sub{font-size:.72rem;color:var(--body)}
+
+/* DONUT CHART */
+.donut-wrap{display:flex;align-items:center;gap:2rem;padding:1.25rem;background:var(--bg-2);border:1px solid var(--border);margin-bottom:1.5rem;flex-wrap:wrap}
+.donut-svg{flex-shrink:0}
+.donut-legend{display:flex;flex-direction:column;gap:.65rem;flex:1}
+.legend-item{display:flex;align-items:center;gap:.65rem;font-size:.78rem}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.legend-label{color:var(--text);flex:1}
+.legend-pct{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--muted)}
+.legend-val{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--bright)}
+
+/* CATEGORY BREAKDOWN */
+.cat-table-wrap{overflow-x:auto;margin-bottom:1.5rem}
+.cat-bar-row{display:flex;align-items:center;gap:.85rem;padding:.55rem .85rem;border-bottom:1px solid rgba(30,47,74,.3)}
+.cat-bar-row:last-child{border-bottom:none}
+.cat-emoji{font-size:1rem;flex-shrink:0;width:24px;text-align:center}
+.cat-name{font-size:.76rem;color:var(--text);flex:1;min-width:120px}
+.cat-bar-wrap{flex:2;height:6px;background:var(--bg-4);position:relative;min-width:80px}
+.cat-bar-fill{height:100%;background:var(--teal);transition:width .4s ease}
+.cat-bar-fill.neg{background:var(--red)}
+.cat-count{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);width:30px;text-align:right}
+.cat-total{font-family:'JetBrains Mono',monospace;font-size:.65rem;width:90px;text-align:right}
+.cat-total.pos{color:var(--green)}.cat-total.neg{color:var(--red)}
+
+/* BALANCE CHART */
+.chart-area{background:var(--bg-2);border:1px solid var(--border);padding:1.25rem;margin-bottom:1.5rem;overflow:hidden}
+.chart-title{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem}
+.chart-svg{width:100%;overflow:visible}
+
+/* MONTHLY SUMMARY */
+.monthly-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:1.5rem}
+.month-card{background:var(--bg-2);padding:1rem 1.1rem}
+.month-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem}
+.month-row{display:flex;justify-content:space-between;align-items:center;font-size:.73rem;margin-bottom:.25rem}
+.month-row-label{color:var(--body)}
+.month-row-val{font-family:'JetBrains Mono',monospace;font-size:.68rem}
+
+/* PRIVACY BAR */
+.priv-bar{display:flex;align-items:center;gap:.6rem;background:rgba(20,184,166,.04);border:1px solid rgba(20,184,166,.12);padding:.55rem .9rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);margin-top:.75rem}
+.priv-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex-shrink:0}
+
+/* EMPTY STATE */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem;text-align:center}
+.empty-icon{font-size:2.5rem;margin-bottom:1rem;opacity:.35}
+.empty-title{font-family:'DM Serif Display',serif;font-size:1.25rem;color:var(--muted);margin-bottom:.5rem}
+.empty-sub{font-size:.78rem;color:var(--muted);max-width:380px;line-height:1.7}
+
+/* COLLAPSIBLE ABOUT */
+.coll-trigger{display:flex;align-items:center;gap:.75rem;cursor:pointer;padding:1rem 0;border-top:1px solid var(--border);user-select:none}
+.coll-lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.coll-icon{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--teal-lt);margin-left:auto;transition:transform .2s}
+.coll-trigger.open .coll-icon{transform:rotate(180deg)}
+.coll-body{display:none;padding:1.5rem;background:var(--bg-2);border:1px solid var(--border);border-top:none}
+.coll-body.open{display:block}
+.coll-body p{font-size:.82rem;color:var(--body);line-height:1.85;margin-bottom:.9rem}
+
+/* FOOTER */
+footer{border-top:1px solid var(--border);padding:2rem 0;margin-top:2rem;position:relative;z-index:1}
+.footer-inner-ai{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:1rem}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.logo-icon-sm{width:28px;height:28px;background:linear-gradient(135deg,var(--teal),#0D9488);border-radius:5px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px;color:var(--bg);font-family:'JetBrains Mono',monospace}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500;color:var(--bright)}
+.footer-links-ai{display:flex;gap:1.5rem}
+.footer-links-ai a{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.52rem;transition:color .15s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;align-items:center;gap:1rem;font-size:.72rem;color:var(--muted)}
+@media(max-width:600px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{flex-direction:column;gap:.4rem},}
+
+/* COPY BUTTON */
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;background:var(--bg-4);border:1px solid var(--border);color:var(--muted);padding:.22rem .55rem;cursor:pointer;transition:all .15s;float:right;margin-left:.5rem}
+.copy-btn:hover{color:var(--teal);border-color:var(--teal-dim)}
+
+/* PRE */
+pre{background:var(--bg);border:1px solid var(--border);border-left:3px solid var(--teal);padding:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;line-height:1.75;color:var(--text);white-space:pre-wrap;word-break:break-word;overflow-x:auto;margin-bottom:1rem;position:relative}
+
+/* RTL support — AIN canonical */
+[dir="rtl"] .lang-bar .lang-inner { flex-direction: row-reverse; ;justify-content:flex-end}
+[dir="rtl"] .nav-inner            { flex-direction: row-reverse; }
+[dir="rtl"] .nav-bc               { flex-direction: row-reverse; }
+[dir="rtl"] .nav-bc-sep           { transform: scaleX(-1); }
+[dir="rtl"] .nav-right            { flex-direction: row-reverse; }
+[dir="rtl"] .hero, [dir="rtl"] .content, [dir="rtl"] .layout { text-align: right; }
+[dir="rtl"] .footer-inner-ai      { flex-direction: row-reverse; }
+[dir="rtl"] .footer-links-ai      { flex-direction: row-reverse; }
+
+/* nav-bc + nav-right — AIN canonical */
+.lang-inner{display:flex;justify-content:flex-end;align-items:center;width:100%;gap:4px}
+.nav-bc{display:flex;align-items:center;gap:.4rem;font-size:.7rem;color:var(--muted);justify-content:center;flex:1}
+.nav-bc a{color:var(--muted);transition:color .2s}.nav-bc a:hover{color:var(--text)}
+.nav-bc-sep{color:var(--border-2);font-size:.65rem}
+.nav-bc-current{font-weight:500}
+.nav-right{display:flex;align-items:center;gap:.4rem;margin-left:auto}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;
+  padding:.25rem .7rem;border:1px solid var(--border);border-radius:var(--radius);
+  background:transparent;color:var(--muted);cursor:pointer;transition:all .2s;white-space:nowrap}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+
+
+/* MCP manifest panel */
+.mcp-section{border-top:1px solid var(--border);padding:2rem 0}
+.mcp-toggle{display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;padding:.75rem 1rem;background:var(--bg-2);border:1px solid var(--border);
+  border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.7rem;
+  color:var(--muted);letter-spacing:.06em}
+.mcp-toggle:hover{border-color:var(--teal);color:var(--teal)}
+.pii-notice{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);
+  border-left:3px solid var(--teal);padding:.75rem 1rem;margin:1rem 0 1.5rem;
+  font-size:.72rem;color:var(--body);line-height:1.6;border-radius:var(--radius)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-body pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;overflow-x:auto;margin:0}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+
+<!-- AIN-reconcile-2026-05-17 -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- NAV -->
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/open-banking-integration-hub.html">Open Banking Hub</a><span class="nav-sep">/</span><span>T-94</span></div>
+    <a href="../guides/open-banking-integration-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<!-- HERO -->
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Tool 94 · Open Banking &amp; APIs</div>
+  <h1 class="tool-title">Transaction JSON<br><em>Visualizer &amp; Ledger</em></h1>
+  <p class="hero-sub">Paste a raw Open Banking API response — UK OBReadTransaction6 or FDX v5 format — and instantly see a sortable ledger, inflow/outflow breakdown, MCC merchant categories, running balance chart, and schema sanity checks. Nothing leaves your browser.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-privacy">Zero PII · Client-Side Only</span>
+    <span class="hero-badge badge-spec">UK OBReadTransaction6 · FDX v5</span>
+    <span class="hero-badge badge-teal">MCC Mapping · Cash Flow Analysis</span>
+  </div>
+</div></div>
+
+<section class="tool-section"><div class="container">
+
+<!-- INPUT TAB BAR -->
+<div class="tab-bar" id="mainTabBar">
+  <button class="tab-btn active" data-tab="tab-input" onclick="switchTab('tab-input',this)">① Import JSON</button>
+  <button class="tab-btn" data-tab="tab-ledger" onclick="switchTab('tab-ledger',this)" id="btn-ledger">② Ledger View</button>
+  <button class="tab-btn" data-tab="tab-cashflow" onclick="switchTab('tab-cashflow',this)" id="btn-cashflow">③ Cash Flow</button>
+  <button class="tab-btn" data-tab="tab-schema" onclick="switchTab('tab-schema',this)">④ Schema Reference</button>
+</div>
+
+<!-- ═══════════ TAB 1: IMPORT ═══════════ -->
+<div id="tab-input" class="tab-pane active">
+  <div class="import-wrap">
+    <div class="import-main">
+      <div class="panel-label">Paste JSON Response</div>
+      <div style="margin-bottom:.75rem;">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:.5rem">Load example:</span>
+        <div class="example-row" style="display:inline-flex;flex-wrap:wrap;gap:.35rem;margin:0">
+          <button class="ex-chip" onclick="loadExample('ob_basic')">UK OB — 8 Transactions</button>
+          <button class="ex-chip" onclick="loadExample('ob_salary')">UK OB — Salary Month</button>
+          <button class="ex-chip" onclick="loadExample('fdx_basic')">FDX v5 — Mixed</button>
+        </div>
+      </div>
+      <textarea id="jsonInput" placeholder='{
+  "Data": {
+    "Transaction": [
+      {
+        "AccountId": "22289",
+        "TransactionId": "TXN001",
+        "BookingDateTime": "2026-01-12T10:30:00+00:00",
+        "Amount": { "Amount": "24.99", "Currency": "GBP" },
+        "CreditDebitIndicator": "Debit",
+        "TransactionInformation": "AMAZON.CO.UK",
+        "MerchantDetails": { "MerchantCategoryCode": "5999" }
+      }
+    ]
+  }
+}'></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="parseAndRender()">▶ Parse &amp; Visualise</button>
+        <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('fileInput').click()">Upload .json</button>
+        <input type="file" id="fileInput" accept=".json,.txt" style="display:none" onchange="handleFile(event)">
+      </div>
+      <div class="priv-bar"><div class="priv-dot"></div>No data leaves your browser. All processing is in-memory. Tab close = data gone.</div>
+    </div>
+    <div class="import-side">
+      <div>
+        <div class="panel-label">Format</div>
+        <label class="flbl">API Standard</label>
+        <select id="formatSelect">
+          <option value="auto">Auto-detect</option>
+          <option value="ob">UK Open Banking (OBReadTransaction6)</option>
+          <option value="fdx">FDX v5</option>
+        </select>
+        <span class="fhint">Auto-detect works for most responses. Select manually if parsing fails.</span>
+      </div>
+      <div>
+        <div class="panel-label" style="margin-top:1rem">Display Options</div>
+        <label class="flbl">Currency Display</label>
+        <select id="currencyDisplay">
+          <option value="symbol">Symbol (£, €, $)</option>
+          <option value="code">ISO Code (GBP, EUR, USD)</option>
+        </select>
+        <label class="flbl" style="margin-top:.5rem">Date Format</label>
+        <select id="dateFormat">
+          <option value="short">12 Jan 2026</option>
+          <option value="iso">2026-01-12</option>
+          <option value="relative">Relative (3 days ago)</option>
+        </select>
+      </div>
+      <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border)">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem">Supported fields</div>
+        <div style="font-size:.68rem;color:var(--body);line-height:1.75">AccountId · TransactionId · BookingDateTime · ValueDateTime · Amount · CreditDebitIndicator · TransactionInformation · MerchantDetails · ProprietaryBankTransactionCode · Balance</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ TAB 2: LEDGER ═══════════ -->
+<div id="tab-ledger" class="tab-pane">
+  <div id="ledger-empty" class="empty-state">
+    <div class="empty-icon">📋</div>
+    <div class="empty-title">No transactions loaded</div>
+    <div class="empty-sub">Paste a JSON response in the Import tab and click Parse &amp; Visualise to see the ledger.</div>
+  </div>
+  <div id="ledger-content" style="display:none">
+    <div id="kpi-bar" class="kpi-bar"></div>
+    <div id="sanity-checks" class="check-list"></div>
+    <div class="sec-head">Transaction Ledger</div>
+    <div class="table-toolbar">
+      <input class="search-box" type="text" id="ledgerSearch" placeholder="Search merchant, amount, reference…" oninput="filterLedger()">
+      <div class="filter-pills" id="typeFilter">
+        <button class="pill active" data-type="all" onclick="setTypeFilter('all',this)">All</button>
+        <button class="pill" data-type="Credit" onclick="setTypeFilter('Credit',this)">Credits</button>
+        <button class="pill" data-type="Debit" onclick="setTypeFilter('Debit',this)">Debits</button>
+      </div>
+      <span class="tbl-count" id="ledgerCount"></span>
+      <button class="btn btn-ghost" style="font-size:.46rem;padding:.35rem .7rem" onclick="exportCSV()">Export CSV</button>
+    </div>
+    <div class="table-wrap"><table id="ledgerTable">
+      <thead><tr>
+        <th onclick="sortTable('date')" id="th-date"># <span class="sort-arrow">↑</span></th>
+        <th onclick="sortTable('date')" >Date <span class="sort-arrow">↑</span></th>
+        <th onclick="sortTable('merchant')">Merchant / Description <span class="sort-arrow">↑</span></th>
+        <th onclick="sortTable('category')">Category <span class="sort-arrow">↑</span></th>
+        <th onclick="sortTable('amount')" style="text-align:right">Amount <span class="sort-arrow">↑</span></th>
+        <th>Type</th>
+        <th onclick="sortTable('balance')" style="text-align:right">Running Balance <span class="sort-arrow">↑</span></th>
+      </tr></thead>
+      <tbody id="ledgerBody"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- ═══════════ TAB 3: CASH FLOW ═══════════ -->
+<div id="tab-cashflow" class="tab-pane">
+  <div id="cashflow-empty" class="empty-state">
+    <div class="empty-icon">📊</div>
+    <div class="empty-title">No data yet</div>
+    <div class="empty-sub">Import a transaction JSON first to see the cash flow analysis.</div>
+  </div>
+  <div id="cashflow-content" style="display:none">
+    <div class="cf-grid" id="cf-summary"></div>
+    <div class="sec-head">Inflow vs Outflow</div>
+    <div class="donut-wrap" id="donut-wrap"></div>
+    <div class="sec-head">Running Balance</div>
+    <div class="chart-area"><div class="chart-title">Account balance over time</div><svg class="chart-svg" id="balanceChart" height="180"></svg></div>
+    <div class="sec-head">Merchant Category Breakdown</div>
+    <div id="cat-breakdown" style="background:var(--bg-2);border:1px solid var(--border);margin-bottom:1.5rem;overflow:hidden"></div>
+    <div class="sec-head" id="monthly-sec-head" style="display:none">Monthly Summary</div>
+    <div class="monthly-grid" id="monthly-grid"></div>
+  </div>
+</div>
+
+<!-- ═══════════ TAB 4: SCHEMA REFERENCE ═══════════ -->
+<div id="tab-schema" class="tab-pane">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem" class="schema-grid">
+    <div>
+      <div class="sec-head">UK OBReadTransaction6 Fields</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead>
+        <tbody id="ob-schema-body"></tbody>
+      </table></div>
+    </div>
+    <div>
+      <div class="sec-head">FDX v5 Transaction Fields</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead>
+        <tbody id="fdx-schema-body"></tbody>
+      </table></div>
+    </div>
+  </div>
+  <div class="sec-head">MCC Code Reference</div>
+  <div class="table-toolbar">
+    <input class="search-box" type="text" id="mccSearch" placeholder="Search MCC code or category name…" oninput="filterMCC()">
+    <span class="tbl-count" id="mccCount"></span>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>MCC</th><th>Category</th><th>Icon</th><th>Risk</th><th>SCA Exemption Note</th></tr></thead>
+    <tbody id="mcc-body"></tbody>
+  </table></div>
+</div>
+
+<!-- ABOUT -->
+<div>
+  <div class="coll-trigger" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
+    <span class="coll-lbl">About This Tool</span>
+    <span class="coll-icon">▼</span>
+  </div>
+  <div class="coll-body">
+    <p><strong style="color:var(--bright)">What it does:</strong> Parses raw Open Banking JSON responses from UK CMA9 ASPSPs (OBReadTransaction6 schema) or US FDX v5 data providers, and renders a clean sortable ledger with running balance, MCC-based merchant categorisation, cash flow donut chart, and a schema sanity check panel that flags missing mandatory fields and data quality issues.</p>
+    <p><strong style="color:var(--bright)">Who it's for:</strong> Fintech developers debugging Open Banking API integrations, QA engineers validating ASPSP responses, product managers reviewing account data quality, and compliance teams auditing transaction enrichment pipelines.</p>
+    <p><strong style="color:var(--bright)">Data privacy:</strong> All parsing runs in your browser using native JSON.parse(). Nothing is sent to any server. The page stores no cookies and uses no analytics. Closing the tab clears all data.</p>
+    <p><strong style="color:var(--bright)">Related tools:</strong> Tool 10 (API Explorer + Rate Limit Simulator) · Tool 16 (IBAN Validator + BIC Lookup) · Tool 17 (ISO 20022 Message Validator) · Tool 19 (SCA Exemption Calculator)</p>
+    <p style="margin-bottom:0"><strong style="color:var(--bright)">Built by:</strong> Post Oak Labs · <a href="../index.html" style="color:var(--teal-lt)">AINumbers.co</a> · CC BY 4.0</p>
+  </div>
+</div>
+
+</div></section>
+
+
+<!-- MANIFEST SECTION -->
+<!-- FOOTER -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ═══════════════════════════════════════
+   DATA: MCC MAP
+═══════════════════════════════════════ */
+const MCC_MAP = {
+  '4111':{ name:'Local/Suburban Transit',      emoji:'🚇', risk:'low',  scaNote:'Low-value exemption commonly applied' },
+  '4121':{ name:'Taxicabs / Rideshare',         emoji:'🚕', risk:'low',  scaNote:'Low-value exemption often applies <€30' },
+  '4131':{ name:'Bus Lines',                    emoji:'🚌', risk:'low',  scaNote:'Low-value exemption commonly applied' },
+  '4814':{ name:'Telephone Services',           emoji:'📱', risk:'low',  scaNote:'Recurring — trusted beneficiary may apply' },
+  '4900':{ name:'Utilities (Electric/Gas)',     emoji:'💡', risk:'low',  scaNote:'Recurring — trusted beneficiary may apply' },
+  '5411':{ name:'Grocery Stores / Supermarkets',emoji:'🛒', risk:'low',  scaNote:'TRA or low-value exemption often applicable' },
+  '5441':{ name:'Candy / Confectionery',        emoji:'🍬', risk:'low',  scaNote:'Low-value exemption' },
+  '5499':{ name:'Food Stores',                  emoji:'🥗', risk:'low',  scaNote:'Low-value exemption' },
+  '5533':{ name:'Auto Parts & Supplies',        emoji:'🔧', risk:'med',  scaNote:'Standard SCA required' },
+  '5541':{ name:'Service Stations / Petrol',    emoji:'⛽', risk:'low',  scaNote:'Low-value exemption commonly applied' },
+  '5712':{ name:'Furniture / Home Furnishings', emoji:'🛋️',  risk:'med',  scaNote:'Standard SCA required above €30' },
+  '5732':{ name:'Electronics Stores',           emoji:'🔌', risk:'med',  scaNote:'Standard SCA typically required' },
+  '5812':{ name:'Eating Places / Restaurants',  emoji:'🍽️',  risk:'low',  scaNote:'Low-value TRA exemption often applicable' },
+  '5813':{ name:'Bars / Cocktail Lounges',      emoji:'🍺', risk:'low',  scaNote:'Low-value exemption' },
+  '5912':{ name:'Drug Stores / Pharmacies',     emoji:'💊', risk:'low',  scaNote:'Low-value exemption applicable' },
+  '5940':{ name:'Sporting Goods',               emoji:'⚽', risk:'low',  scaNote:'Low-value exemption under €30' },
+  '5944':{ name:'Jewellery / Watches',          emoji:'💎', risk:'high', scaNote:'High-value — standard SCA required' },
+  '5945':{ name:'Hobby / Toy Shops',            emoji:'🧸', risk:'low',  scaNote:'Low-value exemption' },
+  '5999':{ name:'Retail (Misc.)',               emoji:'🛍️',  risk:'med',  scaNote:'Standard SCA above €30' },
+  '6011':{ name:'ATM Cash Withdrawal',          emoji:'💵', risk:'high', scaNote:'Standard SCA required; no exemption' },
+  '6012':{ name:'Financial Institution (Loans)',emoji:'🏦', risk:'high', scaNote:'SCA required; TRA exemption excluded' },
+  '6211':{ name:'Security Brokers / Dealers',   emoji:'📈', risk:'high', scaNote:'SCA required; TRA exemption excluded' },
+  '7011':{ name:'Hotels / Lodging',             emoji:'🏨', risk:'med',  scaNote:'Standard SCA; delayed charge rules apply' },
+  '7372':{ name:'Computer Software / SaaS',     emoji:'💻', risk:'low',  scaNote:'Recurring — trusted beneficiary may apply' },
+  '7374':{ name:'Data Processing',              emoji:'🖥️',  risk:'low',  scaNote:'Recurring B2B — corporate exemption may apply' },
+  '7512':{ name:'Car Rental',                   emoji:'🚗', risk:'med',  scaNote:'Delayed charge; standard SCA required' },
+  '7922':{ name:'Ticketing / Events',           emoji:'🎟️',  risk:'med',  scaNote:'Standard SCA above €30' },
+  '7995':{ name:'Gambling',                     emoji:'🎰', risk:'high', scaNote:'SCA required; TRA exemption EXCLUDED' },
+  '8011':{ name:'Doctors / Physicians',         emoji:'🩺', risk:'low',  scaNote:'Low-value exemption' },
+  '8049':{ name:'Chiropractors / Therapists',   emoji:'🏥', risk:'low',  scaNote:'Low-value exemption' },
+  '8062':{ name:'Hospitals',                    emoji:'🏥', risk:'med',  scaNote:'Standard SCA above €30' },
+  '8099':{ name:'Health & Beauty Services',     emoji:'💅', risk:'low',  scaNote:'Low-value exemption under €30' },
+  '8211':{ name:'Elementary / Secondary Schools',emoji:'🏫',risk:'low',  scaNote:'Recurring — trusted beneficiary may apply' },
+  '8220':{ name:'Colleges / Universities',      emoji:'🎓', risk:'low',  scaNote:'Recurring — trusted beneficiary may apply' },
+  '8641':{ name:'Civic / Social Organizations', emoji:'🤝', risk:'low',  scaNote:'Low-value exemption' },
+  '9311':{ name:'Tax Payments',                 emoji:'🧾', risk:'med',  scaNote:'Standard SCA; government payment' },
+};
+
+const MCC_COLORS = {
+  low:  { tag:'tag-green', label:'Low' },
+  med:  { tag:'tag-gold',  label:'Medium' },
+  high: { tag:'tag-red',   label:'High' },
+};
+
+/* ═══════════════════════════════════════
+   DATA: SCHEMA DEFINITIONS
+═══════════════════════════════════════ */
+const OB_SCHEMA = [
+  { field:'AccountId',               type:'String (Max40)',  req:true,  note:'Identifies the account.' },
+  { field:'TransactionId',           type:'String (Max40)',  req:false, note:'Unique transaction identifier.' },
+  { field:'TransactionReference',    type:'String (Max35)',  req:false, note:'Unique reference for the transaction.' },
+  { field:'StatementReference',      type:'Array',          req:false, note:'Links to statement entries.' },
+  { field:'CreditDebitIndicator',    type:'Enum',           req:true,  note:'Credit or Debit.' },
+  { field:'Status',                  type:'Enum',           req:true,  note:'Booked, Pending.' },
+  { field:'BookingDateTime',         type:'ISODateTime',    req:true,  note:'Date/time transaction was booked.' },
+  { field:'ValueDateTime',           type:'ISODateTime',    req:false, note:'Value date/time.' },
+  { field:'TransactionInformation',  type:'String (Max500)', req:false, note:'Merchant name / narrative.' },
+  { field:'Amount',                  type:'OBActiveOrHistoric CurrencyAndAmount', req:true, note:'Amount + Currency.' },
+  { field:'ChargeAmount',            type:'OBActiveOrHistoric CurrencyAndAmount', req:false, note:'Charges applied.' },
+  { field:'CurrencyExchange',        type:'OBCurrencyExchange5', req:false, note:'FX details.' },
+  { field:'BankTransactionCode',     type:'OBBankTransactionCode1', req:false, note:'ISO 20022 bank code.' },
+  { field:'ProprietaryBankTransactionCode', type:'Object', req:false, note:'Scheme-specific code.' },
+  { field:'Balance',                 type:'OBTransactionCashBalance', req:false, note:'Running balance.' },
+  { field:'MerchantDetails',         type:'Object',         req:false, note:'Name + MCC code.' },
+  { field:'CreditorAgent',           type:'OBBranchAndFinancialInstitutionIdentification6', req:false, note:'Payee bank.' },
+  { field:'CreditorAccount',         type:'OBCashAccount6', req:false, note:'Payee account.' },
+  { field:'DebtorAgent',             type:'OBBranchAndFinancialInstitutionIdentification6', req:false, note:'Payer bank.' },
+  { field:'DebtorAccount',           type:'OBCashAccount6', req:false, note:'Payer account.' },
+  { field:'CardInstrument',          type:'OBTransactionCardInstrument1', req:false, note:'Card details.' },
+  { field:'SupplementaryData',       type:'Object',         req:false, note:'Extension data.' },
+];
+
+const FDX_SCHEMA = [
+  { field:'transactionId',           type:'String',         req:false, note:'Unique identifier.' },
+  { field:'referenceTransactionId',  type:'String',         req:false, note:'Linked transaction ref.' },
+  { field:'postedTimestamp',         type:'Timestamp',      req:false, note:'Posted date/time (ISO 8601).' },
+  { field:'transactionTimestamp',    type:'Timestamp',      req:false, note:'Transaction date.' },
+  { field:'description',             type:'String',         req:false, note:'Narrative description.' },
+  { field:'memo',                    type:'String',         req:false, note:'Additional memo.' },
+  { field:'amount',                  type:'Decimal',        req:true,  note:'Transaction amount.' },
+  { field:'foreignAmount',           type:'Decimal',        req:false, note:'Original foreign amount.' },
+  { field:'foreignCurrency',         type:'ISO4217',        req:false, note:'Foreign currency code.' },
+  { field:'debitCreditMemo',         type:'Enum',           req:false, note:'DEBIT / CREDIT / MEMO.' },
+  { field:'category',                type:'String',         req:false, note:'FI-assigned category.' },
+  { field:'subcategory',             type:'String',         req:false, note:'FI-assigned subcategory.' },
+  { field:'payee',                   type:'Object',         req:false, note:'Payee name + address.' },
+  { field:'checkNumber',             type:'String',         req:false, note:'Check number if applicable.' },
+  { field:'wireTransfer',            type:'Object',         req:false, note:'Wire transfer details.' },
+  { field:'merchant',                type:'Object',         req:false, note:'Merchant name + category.' },
+  { field:'status',                  type:'Enum',           req:false, note:'PENDING / POSTED / MEMO.' },
+  { field:'lines',                   type:'Array',          req:false, note:'Sub-line item breakdown.' },
+  { field:'image',                   type:'Object',         req:false, note:'Receipt image ref.' },
+];
+
+/* ═══════════════════════════════════════
+   DATA: EXAMPLE JSON PAYLOADS
+═══════════════════════════════════════ */
+const EXAMPLES = {
+  ob_basic: JSON.stringify({
+    "Data": {
+      "Transaction": [
+        { "AccountId": "22289", "TransactionId": "TXN001", "BookingDateTime": "2026-01-12T17:22:00+00:00", "ValueDateTime": "2026-01-12T17:22:00+00:00", "Amount": { "Amount": "24.99", "Currency": "GBP" }, "CreditDebitIndicator": "Debit", "Status": "Booked", "TransactionInformation": "AMAZON.CO.UK", "MerchantDetails": { "MerchantName": "Amazon", "MerchantCategoryCode": "5999" }, "Balance": { "Amount": { "Amount": "1205.01", "Currency": "GBP" }, "CreditDebitIndicator": "Credit", "Type": "InterimAvailable" } },
+        { "AccountId": "22289", "TransactionId": "TXN002", "BookingDateTime": "2026-01-11T09:00:00+00:00", "ValueDateTime": "2026-01-11T09:00:00+00:00", "Amount": { "Amount": "3200.00", "Currency": "GBP" }, "CreditDebitIndicator": "Credit", "Status": "Booked", "TransactionInformation": "EMPLOYER PAYROLL REF:JAN-2026", "Balance": { "Amount": { "Amount": "1230.00", "Currency": "GBP" }, "CreditDebitIndicator": "Credit", "Type": "InterimAvailable" } },
+        { "AccountId": "22289", "TransactionId": "TXN003", "BookingDateTime": "2026-01-10T12:45:00+00:00", "Amount": { "Amount": "67.50", "Currency": "GBP" }, "CreditDebitIndicator": "Debit", "Status": "Booked", "TransactionInformation": "TESCO SUPERSTORE", "MerchantDetails": { "MerchantName": "Tesco", "MerchantCategoryCode": "5411" }, "Balance": { "Amount": { "Amount": "1475.50", "Currency": "GBP" }, "CreditDebitIndicator": "Credit", "Type": "InterimAvailable" } },
+        { "AccountId": "22289", "TransactionId": "TXN004", "BookingDateTime": "2026-01-09T19:30:00+00:00", "Amount": { "Amount": "34.20", "Currency": "GBP" }, "CreditDebitIndicator": "Debit", "Status": "Booked", "TransactionInformation": "NANDOS RESTAURANT", "MerchantDetails": { "MerchantName": "Nando's", "MerchantCategoryCode": "5812" }, "Balance": { "Amount": { "Amount": "1543.00", "Currency": "GBP" }, "CreditDebitIndicator": "Credit", "Type": "InterimAvailable" } },
+        { "AccountId": "22289", "TransactionId": "TXN005", "BookingDateTime": "2026-01-08T08:05:00+00:00", "Amount": { "Amount": "3.50", "Currency": "GBP" }, "CreditDebitIndicator": "Debit", "Status": "Booked", "TransactionInformation": "TFL TRAVEL CHARGE", "MerchantDetails": { "MerchantCategoryCode": "4111" }, "Balance": { "Amount": { "Amount": "1577.20", "Currency": "GBP" }, "CreditDebitIndicator": "Credit", "Type": "InterimAvailable" } },
+        { "AccountId": "22289", "TransactionId": "TXN006", "BookingDateTime": "2026-01-07T14:10:00+00:00", "Amount": { "Amount": "14.99", "Currency": "GBP" }, "CreditDebitIndicator": "Debit", "Status": "Booked", "TransactionInformation": "NETFLIX.COM", "MerchantDetails": { "MerchantCategoryCode": "7372" }, "Balance": { "Amount": { "Amount": "1580.70", "Currency": "GBP" }, "CreditDebitIndicator": "Credit", "Type": "InterimAvailable" } },
+        { "AccountId": "22289", "TransactionId": "TXN007", "BookingDateTime": "2026-01-06T10:00:00+00:00", "Amount": { "Amount": "850.00", "Currency": "GBP" }, "CreditDebitIndicator": "Debit", "Status": "Booked", "TransactionInformation": "LANDLORD RENT JAN 2026", "Balance": { "Amount": { "Amount": "1595.69", "Currency": "GBP" }, "CreditDebitIndicator": "Credit", "Type": "InterimAvailable" } },
+        { "AccountId": "22289", "TransactionId": "TXN008", "BookingDateTime": "2026-01-05T16:55:00+00:00", "Amount": { "Amount": "45.00", "Currency": "GBP" }, "CreditDebitIndicator": "Debit", "Status": "Booked", "TransactionInformation": "BP PETROL STATION", "MerchantDetails": { "MerchantCategoryCode": "5541" }, "Balance": { "Amount": { "Amount": "2445.69", "Currency": "GBP" }, "CreditDebitIndicator": "Credit", "Type": "InterimAvailable" } }
+      ]
+    }
+  }, null, 2),
+
+  ob_salary: JSON.stringify({
+    "Data": {
+      "Transaction": [
+        { "AccountId": "55512", "TransactionId": "S001", "BookingDateTime": "2026-01-28T09:00:00+00:00", "Amount": { "Amount": "4800.00", "Currency": "GBP" }, "CreditDebitIndicator": "Credit", "Status": "Booked", "TransactionInformation": "ACME CORP LTD SALARY JAN26" },
+        { "AccountId": "55512", "TransactionId": "S002", "BookingDateTime": "2026-01-26T00:00:00+00:00", "Amount": { "Amount": "1250.00", "Currency": "GBP" }, "CreditDebitIndicator": "Debit", "Status": "Booked", "TransactionInformation": "DIRECT DEBIT MORTGAGE HSBC" },
+        { "AccountId": "55512", "TransactionId": "S003", "BookingDateTime": "2026-01-24T13:22:00+00:00", "Amount": { "Amount": "89.50", "Currency": "GBP" }, "CreditDebitIndicator": "Debit", "Status": "Booked", "TransactionInformation": "SAINSBURYS SUPERMARKETS", "MerchantDetails": { "MerchantCategoryCode": "5411" } },
+        { "AccountId": "55512", "TransactionId": "S004", "BookingDateTime": "2026-01-20T19:45:00+00:00", "Amount": { "Amount": "56.80", "Currency": "GBP" }, "CreditDebitIndicator": "Debit", "Status": "Booked", "TransactionInformation": "HONEST BURGERS BRIXTON", "MerchantDetails": { "MerchantCategoryCode": "5812" } },
+        { "AccountId": "55512", "TransactionId": "S005", "BookingDateTime": "2026-01-18T10:30:00+00:00", "Amount": { "Amount": "12.99", "Currency": "GBP" }, "CreditDebitIndicator": "Debit", "Status": "Booked", "TransactionInformation": "SPOTIFY PREMIUM", "MerchantDetails": { "MerchantCategoryCode": "7372" } },
+        { "AccountId": "55512", "TransactionId": "S006", "BookingDateTime": "2026-01-15T08:00:00+00:00", "Amount": { "Amount": "320.00", "Currency": "GBP" }, "CreditDebitIndicator": "Debit", "Status": "Booked", "TransactionInformation": "COUNCIL TAX JAN26" },
+        { "AccountId": "55512", "TransactionId": "S007", "BookingDateTime": "2026-01-12T14:55:00+00:00", "Amount": { "Amount": "200.00", "Currency": "GBP" }, "CreditDebitIndicator": "Debit", "Status": "Booked", "TransactionInformation": "ATM WITHDRAWAL NATWEST", "MerchantDetails": { "MerchantCategoryCode": "6011" } },
+        { "AccountId": "55512", "TransactionId": "S008", "BookingDateTime": "2026-01-10T11:00:00+00:00", "Amount": { "Amount": "75.00", "Currency": "GBP" }, "CreditDebitIndicator": "Debit", "Status": "Booked", "TransactionInformation": "EDF ENERGY DD", "MerchantDetails": { "MerchantCategoryCode": "4900" } },
+        { "AccountId": "55512", "TransactionId": "S009", "BookingDateTime": "2026-01-08T09:30:00+00:00", "Amount": { "Amount": "250.00", "Currency": "GBP" }, "CreditDebitIndicator": "Credit", "Status": "Booked", "TransactionInformation": "FREELANCE INV-045" },
+        { "AccountId": "55512", "TransactionId": "S010", "BookingDateTime": "2026-01-05T17:20:00+00:00", "Amount": { "Amount": "34.99", "Currency": "GBP" }, "CreditDebitIndicator": "Debit", "Status": "Booked", "TransactionInformation": "BOOTS PHARMACY", "MerchantDetails": { "MerchantCategoryCode": "5912" } }
+      ]
+    }
+  }, null, 2),
+
+  fdx_basic: JSON.stringify({
+    "transactions": [
+      { "transactionId": "FDX001", "postedTimestamp": "2026-01-12T15:00:00Z", "description": "WHOLE FOODS MKT #4512", "amount": 87.23, "debitCreditMemo": "DEBIT", "merchant": { "name": "Whole Foods Market", "merchantCategoryCode": "5411" }, "status": "POSTED" },
+      { "transactionId": "FDX002", "postedTimestamp": "2026-01-11T09:00:00Z", "description": "ACH DEPOSIT EMPLOYER PAYROLL", "amount": 4200.00, "debitCreditMemo": "CREDIT", "status": "POSTED" },
+      { "transactionId": "FDX003", "postedTimestamp": "2026-01-10T20:12:00Z", "description": "UBER* TRIP", "amount": 18.40, "debitCreditMemo": "DEBIT", "merchant": { "merchantCategoryCode": "4121" }, "status": "POSTED" },
+      { "transactionId": "FDX004", "postedTimestamp": "2026-01-09T13:45:00Z", "description": "AMAZON PRIME", "amount": 14.99, "debitCreditMemo": "DEBIT", "merchant": { "merchantCategoryCode": "7372" }, "status": "POSTED" },
+      { "transactionId": "FDX005", "postedTimestamp": "2026-01-08T10:00:00Z", "description": "SHELL OIL 0123456789", "amount": 62.10, "debitCreditMemo": "DEBIT", "merchant": { "merchantCategoryCode": "5541" }, "status": "POSTED" },
+      { "transactionId": "FDX006", "postedTimestamp": "2026-01-07T19:30:00Z", "description": "CHIPOTLE #1482", "amount": 23.75, "debitCreditMemo": "DEBIT", "merchant": { "merchantCategoryCode": "5812" }, "status": "POSTED" }
+    ]
+  }, null, 2),
+};
+
+/* ═══════════════════════════════════════
+   STATE
+═══════════════════════════════════════ */
+let parsedTxns = [];
+let sortCol = 'date';
+let sortDir = 'desc';
+let typeFilter = 'all';
+
+/* ═══════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════ */
+function fmtAmt(amount, currency='GBP', indicator='Debit') {
+  const n = parseFloat(amount) || 0;
+  const dispMode = document.getElementById('currencyDisplay').value;
+  const sym = dispMode === 'symbol' ? getCurrencySymbol(currency) : (currency + ' ');
+  return sym + n.toFixed(2);
+}
+function getCurrencySymbol(code) {
+  const m = { GBP:'£', EUR:'€', USD:'$', AUD:'A$', CAD:'C$', CHF:'CHF ', SEK:'kr ', NOK:'kr ', DKK:'kr ' };
+  return m[code] || (code + ' ');
+}
+function fmtDate(dt) {
+  if (!dt) return '—';
+  const d = new Date(dt);
+  if (isNaN(d)) return dt;
+  const mode = document.getElementById('dateFormat').value;
+  if (mode === 'iso') return d.toISOString().slice(0, 10);
+  if (mode === 'relative') {
+    const diff = Math.floor((Date.now() - d) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Yesterday';
+    if (diff < 7) return diff + ' days ago';
+    return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+  }
+  return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+}
+function getMCC(code) {
+  return MCC_MAP[code] || { name:'Unknown Category', emoji:'🏷️', risk:'med', scaNote:'Standard SCA applies' };
+}
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ═══════════════════════════════════════
+   TAB SWITCHING
+═══════════════════════════════════════ */
+function switchTab(tabId, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  btn.classList.add('active');
+}
+
+/* ═══════════════════════════════════════
+   LOAD EXAMPLE
+═══════════════════════════════════════ */
+function loadExample(key) {
+  document.getElementById('jsonInput').value = EXAMPLES[key];
+  if (key === 'fdx_basic') document.getElementById('formatSelect').value = 'fdx';
+  else document.getElementById('formatSelect').value = 'ob';
+}
+
+function handleFile(e) {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => { document.getElementById('jsonInput').value = ev.target.result; };
+  r.readAsText(f);
+}
+
+function clearAll() {
+  document.getElementById('jsonInput').value = '';
+  parsedTxns = [];
+  document.getElementById('ledger-empty').style.display = '';
+  document.getElementById('ledger-content').style.display = 'none';
+  document.getElementById('cashflow-empty').style.display = '';
+  document.getElementById('cashflow-content').style.display = 'none';
+}
+
+/* ═══════════════════════════════════════
+   PARSE
+═══════════════════════════════════════ */
+function parseAndRender() {
+  const raw = document.getElementById('jsonInput').value.trim();
+  if (!raw) { alert('Please paste a JSON response first.'); return; }
+
+  let data;
+  try { data = JSON.parse(raw); }
+  catch(e) { alert('JSON parse error: ' + e.message); return; }
+
+  const fmt = document.getElementById('formatSelect').value;
+  let txns = [];
+
+  // Auto-detect or use selection
+  if (fmt === 'ob' || (fmt === 'auto' && data.Data?.Transaction)) {
+    txns = normaliseOB(data.Data?.Transaction || []);
+  } else if (fmt === 'fdx' || (fmt === 'auto' && data.transactions)) {
+    txns = normaliseFDX(data.transactions || []);
+  } else if (fmt === 'auto') {
+    // Try various shapes
+    const arr = data.Data?.Transaction || data.transactions || data.data?.transactions || data.items || (Array.isArray(data) ? data : null);
+    if (!arr) { alert('Could not find transaction array. Try selecting format manually.'); return; }
+    if (arr[0]?.BookingDateTime || arr[0]?.bookingDateTime) txns = normaliseOB(arr);
+    else txns = normaliseFDX(arr);
+  }
+
+  parsedTxns = txns;
+  computeRunningBalance();
+  renderLedger();
+  renderCashFlow();
+  switchTab('tab-ledger', document.getElementById('btn-ledger'));
+}
+
+function normaliseOB(arr) {
+  return arr.map((t, i) => ({
+    id: t.TransactionId || t.transactionId || ('TXN' + (i+1)),
+    date: t.BookingDateTime || t.bookingDateTime || t.ValueDateTime || '',
+    merchant: t.TransactionInformation || t.transactionInformation || t.MerchantDetails?.MerchantName || '',
+    mcc: t.MerchantDetails?.MerchantCategoryCode || t.merchantDetails?.merchantCategoryCode || '',
+    amount: parseFloat(t.Amount?.Amount || t.amount?.amount || 0),
+    currency: t.Amount?.Currency || t.amount?.currency || 'GBP',
+    type: t.CreditDebitIndicator || t.creditDebitIndicator || 'Debit',
+    status: t.Status || t.status || 'Booked',
+    balanceAmt: parseFloat(t.Balance?.Amount?.Amount || t.balance?.amount?.amount || 0) || null,
+    balanceType: t.Balance?.Type || t.balance?.type || '',
+    ref: t.TransactionReference || t.transactionReference || '',
+    raw: t,
+  }));
+}
+
+function normaliseFDX(arr) {
+  return arr.map((t, i) => ({
+    id: t.transactionId || ('TXN' + (i+1)),
+    date: t.postedTimestamp || t.transactionTimestamp || '',
+    merchant: t.description || t.memo || t.merchant?.name || '',
+    mcc: t.merchant?.merchantCategoryCode || t.merchantCategoryCode || '',
+    amount: Math.abs(parseFloat(t.amount || 0)),
+    currency: t.foreignCurrency || 'USD',
+    type: (t.debitCreditMemo || 'DEBIT').charAt(0).toUpperCase() + (t.debitCreditMemo || 'DEBIT').slice(1).toLowerCase().replace('debit','Debit').replace('credit','Credit'),
+    status: t.status || 'Posted',
+    balanceAmt: null,
+    balanceType: '',
+    ref: t.referenceTransactionId || '',
+    raw: t,
+  }));
+}
+
+function computeRunningBalance() {
+  // Sort by date ascending for balance calc
+  const sorted = [...parsedTxns].sort((a,b) => new Date(a.date) - new Date(b.date));
+  // Use provided balance if available on last txn, else compute from 0
+  let bal = 0;
+  const lastWithBal = sorted.slice().reverse().find(t => t.balanceAmt !== null && t.balanceAmt > 0);
+  if (lastWithBal) {
+    // Work backwards from the last known balance
+    let running = lastWithBal.balanceAmt;
+    const revSorted = [...sorted].reverse();
+    let found = false;
+    for (const t of revSorted) {
+      t.runningBalance = running;
+      if (!found && t.id === lastWithBal.id) { found = true; continue; }
+      if (found) {
+        const next = revSorted[revSorted.indexOf(t) - 1];
+        if (next) {
+          running = running + (next.type === 'Debit' ? next.amount : -next.amount);
+        }
+      }
+    }
+    // Recompute forward from first balance
+    let startBal = sorted[0]?.runningBalance || 0;
+    if (sorted[0]?.balanceAmt) startBal = sorted[0].balanceAmt;
+    let rb = startBal;
+    for (const t of sorted) {
+      if (t.type === 'Debit') rb -= t.amount;
+      else rb += t.amount;
+      t.computedBalance = rb;
+    }
+    // Use provided balance where available, else computed
+    for (const t of parsedTxns) {
+      const match = sorted.find(s => s.id === t.id);
+      t.runningBalance = match?.balanceAmt ?? match?.computedBalance ?? 0;
+    }
+  } else {
+    let rb = 0;
+    for (const t of sorted) {
+      if (t.type === 'Debit') rb -= t.amount;
+      else rb += t.amount;
+      t.runningBalance = rb;
+    }
+    for (const t of parsedTxns) {
+      const match = sorted.find(s => s.id === t.id);
+      t.runningBalance = match?.runningBalance ?? 0;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════
+   SANITY CHECKS
+═══════════════════════════════════════ */
+function runSanityChecks(txns) {
+  const checks = [];
+
+  const missingAccId = txns.filter(t => !t.raw.AccountId && !t.raw.accountId).length;
+  checks.push({
+    type: missingAccId ? 'fail' : 'pass',
+    icon: missingAccId ? '✗' : '✓',
+    msg: missingAccId ? `AccountId missing on ${missingAccId} transaction(s)` : 'AccountId present on all transactions',
+    detail: 'Required field per OBReadTransaction6 schema.'
+  });
+
+  const missingDt = txns.filter(t => !t.date).length;
+  checks.push({
+    type: missingDt ? 'fail' : 'pass',
+    icon: missingDt ? '✗' : '✓',
+    msg: missingDt ? `BookingDateTime missing on ${missingDt} transaction(s)` : 'BookingDateTime present on all transactions',
+    detail: 'Required for chronological ordering and statement reconciliation.'
+  });
+
+  const missingAmt = txns.filter(t => isNaN(t.amount) || t.amount <= 0).length;
+  checks.push({
+    type: missingAmt ? 'fail' : 'pass',
+    icon: missingAmt ? '✗' : '✓',
+    msg: missingAmt ? `Amount missing or zero on ${missingAmt} transaction(s)` : 'All transaction amounts are valid and non-zero',
+    detail: 'Amount must be a positive decimal with Currency attribute.'
+  });
+
+  const futureDt = txns.filter(t => t.date && new Date(t.date) > new Date()).length;
+  if (futureDt > 0) checks.push({ type:'warn', icon:'⚠', msg:`${futureDt} transaction(s) have future BookingDateTime`, detail:'Future-dated booked transactions may indicate a data quality issue.' });
+
+  const dupIds = txns.map(t => t.id).filter((v,i,a) => a.indexOf(v) !== i);
+  if (dupIds.length) checks.push({ type:'warn', icon:'⚠', msg:`Duplicate TransactionId detected: ${[...new Set(dupIds)].slice(0,3).join(', ')}`, detail:'TransactionIds should be unique per account per rolling period.' });
+
+  const currencies = [...new Set(txns.map(t => t.currency))];
+  if (currencies.length > 1) checks.push({ type:'warn', icon:'⚠', msg:`Mixed currencies detected: ${currencies.join(', ')}`, detail:'Cash flow totals may not be meaningful across currencies. Amounts are summed without FX conversion.' });
+
+  const noMerchant = txns.filter(t => !t.merchant).length;
+  if (noMerchant > 0) checks.push({ type:'warn', icon:'⚠', msg:`${noMerchant} transaction(s) missing TransactionInformation / merchant name`, detail:'Omitting narrative makes reconciliation and MCC enrichment difficult.' });
+
+  const withMCC = txns.filter(t => t.mcc).length;
+  if (withMCC < txns.length && withMCC > 0) checks.push({ type:'warn', icon:'⚠', msg:`${txns.length - withMCC} transaction(s) missing MerchantCategoryCode`, detail:'MCC enables category analysis and SCA exemption eligibility checks.' });
+
+  if (txns.length === 0) checks.push({ type:'fail', icon:'✗', msg:'No transactions found in the JSON response', detail:'Verify the JSON structure matches OBReadTransaction6 or FDX v5 format.' });
+
+  return checks;
+}
+
+/* ═══════════════════════════════════════
+   RENDER LEDGER
+═══════════════════════════════════════ */
+function renderLedger() {
+  if (!parsedTxns.length) return;
+  document.getElementById('ledger-empty').style.display = 'none';
+  document.getElementById('ledger-content').style.display = '';
+
+  // KPIs
+  const credits = parsedTxns.filter(t => t.type === 'Credit');
+  const debits  = parsedTxns.filter(t => t.type !== 'Credit');
+  const totalIn  = credits.reduce((s,t) => s + t.amount, 0);
+  const totalOut = debits.reduce((s,t) => s + t.amount, 0);
+  const net = totalIn - totalOut;
+  const currency = parsedTxns[0]?.currency || 'GBP';
+  const sym = getCurrencySymbol(currency);
+
+  document.getElementById('kpi-bar').innerHTML = `
+    <div class="kc"><div class="kl">Transactions</div><div class="kv t">${parsedTxns.length}</div></div>
+    <div class="kc"><div class="kl">Total Inflows</div><div class="kv g">${sym}${totalIn.toFixed(2)}</div></div>
+    <div class="kc"><div class="kl">Total Outflows</div><div class="kv r">${sym}${totalOut.toFixed(2)}</div></div>
+    <div class="kc"><div class="kl">Net Position</div><div class="kv ${net>=0?'g':'r'}">${net>=0?'+':''}${sym}${Math.abs(net).toFixed(2)}</div></div>
+    <div class="kc"><div class="kl">Date Range</div><div class="kv gold" style="font-size:.85rem">${getDateRange()}</div></div>
+    <div class="kc"><div class="kl">Avg Transaction</div><div class="kv">${sym}${(parsedTxns.reduce((s,t)=>s+t.amount,0)/parsedTxns.length).toFixed(2)}</div></div>`;
+
+  // Sanity checks
+  const checks = runSanityChecks(parsedTxns);
+  document.getElementById('sanity-checks').innerHTML = checks.map(c => `
+    <div class="check-item ${c.type}">
+      <span class="check-icon">${c.icon}</span>
+      <div><div class="check-msg">${escHtml(c.msg)}</div><div class="check-detail">${escHtml(c.detail)}</div></div>
+    </div>`).join('');
+
+  filterLedger();
+}
+
+function getDateRange() {
+  const dates = parsedTxns.filter(t=>t.date).map(t=>new Date(t.date)).filter(d=>!isNaN(d));
+  if (!dates.length) return '—';
+  const min = new Date(Math.min(...dates));
+  const max = new Date(Math.max(...dates));
+  if (min.toDateString() === max.toDateString()) return fmtDate(min.toISOString());
+  return fmtDate(min.toISOString()) + ' – ' + fmtDate(max.toISOString());
+}
+
+function setTypeFilter(type, btn) {
+  typeFilter = type;
+  document.querySelectorAll('#typeFilter .pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  filterLedger();
+}
+
+function filterLedger() {
+  const q = (document.getElementById('ledgerSearch').value || '').toLowerCase();
+  let rows = [...parsedTxns];
+
+  // Sort
+  rows.sort((a,b) => {
+    let va, vb;
+    if (sortCol === 'date')     { va = new Date(a.date); vb = new Date(b.date); }
+    else if (sortCol === 'amount') { va = a.amount; vb = b.amount; }
+    else if (sortCol === 'merchant') { va = a.merchant.toLowerCase(); vb = b.merchant.toLowerCase(); }
+    else if (sortCol === 'category') { va = getMCC(a.mcc).name; vb = getMCC(b.mcc).name; }
+    else if (sortCol === 'balance') { va = a.runningBalance; vb = b.runningBalance; }
+    else { va = 0; vb = 0; }
+    if (va < vb) return sortDir === 'asc' ? -1 : 1;
+    if (va > vb) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  // Filter
+  if (typeFilter !== 'all') rows = rows.filter(t => t.type === typeFilter);
+  if (q) rows = rows.filter(t =>
+    t.merchant.toLowerCase().includes(q) ||
+    t.amount.toString().includes(q) ||
+    t.id.toLowerCase().includes(q) ||
+    t.ref.toLowerCase().includes(q) ||
+    getMCC(t.mcc).name.toLowerCase().includes(q)
+  );
+
+  document.getElementById('ledgerCount').textContent = `${rows.length} of ${parsedTxns.length}`;
+  const currency = parsedTxns[0]?.currency || 'GBP';
+  const sym = getCurrencySymbol(currency);
+
+  document.getElementById('ledgerBody').innerHTML = rows.map((t,i) => {
+    const mcc = getMCC(t.mcc);
+    const isCredit = t.type === 'Credit';
+    const amtClass = isCredit ? 'amt-credit' : 'amt-debit';
+    const amtSign  = isCredit ? '+' : '-';
+    return `<tr>
+      <td class="date-col" style="color:var(--muted);font-size:.65rem">${i+1}</td>
+      <td class="date-col">${escHtml(fmtDate(t.date))}</td>
+      <td><div style="font-size:.78rem;color:var(--bright)">${escHtml(t.merchant||'—')}</div>${t.id?`<div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)">${escHtml(t.id)}</div>`:''}</td>
+      <td><span class="mcc-badge">${mcc.emoji} ${escHtml(mcc.name)}${t.mcc?` <span style="color:var(--muted);font-size:.44rem">${escHtml(t.mcc)}</span>`:''}</span></td>
+      <td style="text-align:right"><span class="${amtClass}">${amtSign}${sym}${t.amount.toFixed(2)}</span></td>
+      <td><span class="tag ${isCredit?'tag-green':'tag-red'}">${escHtml(t.type)}</span></td>
+      <td style="text-align:right" class="bal-col">${t.runningBalance ? sym + Math.abs(t.runningBalance).toFixed(2) : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function sortTable(col) {
+  if (sortCol === col) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+  else { sortCol = col; sortDir = 'desc'; }
+  filterLedger();
+}
+
+/* ═══════════════════════════════════════
+   EXPORT CSV
+═══════════════════════════════════════ */
+function exportCSV() {
+  if (!parsedTxns.length) return;
+  const rows = [['#','Date','Merchant','MCC','Category','Amount','Type','Currency','Running Balance','Transaction ID']];
+  parsedTxns.forEach((t,i) => {
+    const mcc = getMCC(t.mcc);
+    rows.push([i+1, t.date, `"${t.merchant.replace(/"/g,'""')}"`, t.mcc, `"${mcc.name}"`, t.amount.toFixed(2), t.type, t.currency, t.runningBalance?.toFixed(2)||'', t.id]);
+  });
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'ob-transactions-' + Date.now() + '.csv'; a.click();
+}
+
+/* ═══════════════════════════════════════
+   RENDER CASH FLOW TAB
+═══════════════════════════════════════ */
+function renderCashFlow() {
+  if (!parsedTxns.length) return;
+  document.getElementById('cashflow-empty').style.display = 'none';
+  document.getElementById('cashflow-content').style.display = '';
+
+  const credits = parsedTxns.filter(t => t.type === 'Credit');
+  const debits  = parsedTxns.filter(t => t.type !== 'Credit');
+  const totalIn  = credits.reduce((s,t) => s + t.amount, 0);
+  const totalOut = debits.reduce((s,t) => s + t.amount, 0);
+  const net = totalIn - totalOut;
+  const currency = parsedTxns[0]?.currency || 'GBP';
+  const sym = getCurrencySymbol(currency);
+
+  // Summary cards
+  document.getElementById('cf-summary').innerHTML = `
+    <div class="cf-card"><div class="cf-card-title">Total Inflows</div><div class="cf-amount" style="color:var(--green)">${sym}${totalIn.toFixed(2)}</div><div class="cf-sub">${credits.length} credit transaction${credits.length!==1?'s':''}</div></div>
+    <div class="cf-card"><div class="cf-card-title">Total Outflows</div><div class="cf-amount" style="color:var(--red)">${sym}${totalOut.toFixed(2)}</div><div class="cf-sub">${debits.length} debit transaction${debits.length!==1?'s':''}</div></div>
+    <div class="cf-card"><div class="cf-card-title">Net Position</div><div class="cf-amount" style="color:${net>=0?'var(--teal-lt)':'var(--warn)'}">${net>=0?'+':''}${sym}${net.toFixed(2)}</div><div class="cf-sub">${net>=0?'Net positive cash flow':'Net negative cash flow'}</div></div>
+    <div class="cf-card"><div class="cf-card-title">Largest Single Transaction</div><div class="cf-amount" style="font-size:1.4rem;color:var(--gold)">${sym}${Math.max(...parsedTxns.map(t=>t.amount)).toFixed(2)}</div><div class="cf-sub">${parsedTxns.find(t=>t.amount===Math.max(...parsedTxns.map(x=>x.amount)))?.merchant||'—'}</div></div>`;
+
+  // Donut chart SVG
+  const donutR = 60, cx = 80, cy = 80, strokeW = 22;
+  const total = totalIn + totalOut;
+  const inPct = total > 0 ? totalIn / total : 0.5;
+  const outPct = 1 - inPct;
+  const circ = 2 * Math.PI * donutR;
+  const inDash  = inPct  * circ;
+  const outDash = outPct * circ;
+  document.getElementById('donut-wrap').innerHTML = `
+    <svg class="donut-svg" width="160" height="160" viewBox="0 0 160 160">
+      <circle cx="${cx}" cy="${cy}" r="${donutR}" fill="none" stroke="var(--bg-4)" stroke-width="${strokeW}"/>
+      <circle cx="${cx}" cy="${cy}" r="${donutR}" fill="none" stroke="var(--green)" stroke-width="${strokeW}"
+        stroke-dasharray="${inDash} ${circ}" stroke-dashoffset="${circ/4}" stroke-linecap="butt" style="transition:stroke-dasharray .5s"/>
+      <circle cx="${cx}" cy="${cy}" r="${donutR}" fill="none" stroke="var(--red)" stroke-width="${strokeW}"
+        stroke-dasharray="${outDash} ${circ}" stroke-dashoffset="${circ/4 - inDash}" stroke-linecap="butt" style="transition:stroke-dasharray .5s"/>
+      <text x="${cx}" y="${cy-8}" text-anchor="middle" font-family="DM Serif Display,serif" font-size="14" fill="var(--bright)">${sym}${(net>=0?net:-net).toFixed(0)}</text>
+      <text x="${cx}" y="${cy+10}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7" fill="var(--muted)" letter-spacing="1">${net>=0?'NET IN':'NET OUT'}</text>
+    </svg>
+    <div class="donut-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div><span class="legend-label">Inflows (Credits)</span><span class="legend-pct">${(inPct*100).toFixed(1)}%</span><span class="legend-val">${sym}${totalIn.toFixed(2)}</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div><span class="legend-label">Outflows (Debits)</span><span class="legend-pct">${(outPct*100).toFixed(1)}%</span><span class="legend-val">${sym}${totalOut.toFixed(2)}</span></div>
+      <div class="legend-item" style="margin-top:.35rem;padding-top:.6rem;border-top:1px solid var(--border)"><div class="legend-dot" style="background:var(--teal)"></div><span class="legend-label">Net Position</span><span class="legend-pct">&nbsp;</span><span class="legend-val" style="color:${net>=0?'var(--teal-lt)':'var(--warn)'}">${net>=0?'+':''}${sym}${net.toFixed(2)}</span></div>
+    </div>`;
+
+  // Balance chart SVG
+  renderBalanceChart(sym);
+
+  // Category breakdown
+  renderCategoryBreakdown(sym);
+
+  // Monthly summary
+  renderMonthlySummary(sym);
+}
+
+function renderBalanceChart(sym) {
+  const sorted = [...parsedTxns].filter(t=>t.date).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  if (sorted.length < 2) { document.getElementById('balanceChart').innerHTML = '<text x="10" y="90" font-family="JetBrains Mono,monospace" font-size="10" fill="#3A5270">Not enough data points for chart</text>'; return; }
+
+  const vals = sorted.map(t=>t.runningBalance||0);
+  const minV = Math.min(...vals), maxV = Math.max(...vals);
+  const range = maxV - minV || 1;
+  const W = 900, H = 160, PAD = { l:60, r:20, t:20, b:30 };
+  const gW = W - PAD.l - PAD.r, gH = H - PAD.t - PAD.b;
+
+  const pts = sorted.map((t,i) => {
+    const x = PAD.l + (i / (sorted.length-1)) * gW;
+    const y = PAD.t + gH - ((vals[i] - minV) / range) * gH;
+    return { x, y, t };
+  });
+
+  const line = pts.map((p,i)=>(i===0?`M${p.x},${p.y}`:`L${p.x},${p.y}`)).join(' ');
+  const area = line + ` L${pts[pts.length-1].x},${PAD.t+gH} L${pts[0].x},${PAD.t+gH} Z`;
+
+  const yGridLines = 4;
+  const gridHTML = Array.from({length:yGridLines+1}).map((_,i) => {
+    const yPos = PAD.t + (i/yGridLines)*gH;
+    const val = maxV - (i/yGridLines)*range;
+    return `<line x1="${PAD.l}" y1="${yPos}" x2="${W-PAD.r}" y2="${yPos}" stroke="rgba(30,47,74,.6)" stroke-dasharray="3,3"/>
+    <text x="${PAD.l-6}" y="${yPos+4}" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="8" fill="#3A5270">${sym}${Math.abs(val).toFixed(0)}</text>`;
+  }).join('');
+
+  const zeroY = PAD.t + gH - ((0 - minV)/range)*gH;
+  const zeroLine = (minV < 0 && maxV > 0) ? `<line x1="${PAD.l}" y1="${zeroY}" x2="${W-PAD.r}" y2="${zeroY}" stroke="rgba(239,68,68,.4)" stroke-dasharray="4,2"/>` : '';
+
+  // Date labels (first, last, middle)
+  const labelIdx = [0, Math.floor(sorted.length/2), sorted.length-1];
+  const dateLabels = labelIdx.map(i => `<text x="${pts[i].x}" y="${H}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="#3A5270">${sorted[i].date.slice(0,10)}</text>`).join('');
+
+  document.getElementById('balanceChart').setAttribute('viewBox', `0 0 ${W} ${H}`);
+  document.getElementById('balanceChart').innerHTML = `
+    <defs><linearGradient id="balGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#14B8A6" stop-opacity=".25"/><stop offset="100%" stop-color="#14B8A6" stop-opacity=".01"/></linearGradient></defs>
+    ${gridHTML}${zeroLine}
+    <path d="${area}" fill="url(#balGrad)"/>
+    <path d="${line}" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${pts.filter((_,i)=>i===0||i===pts.length-1||pts.length<=15).map(p=>`<circle cx="${p.x}" cy="${p.y}" r="3" fill="var(--teal)" stroke="var(--bg-2)" stroke-width="1.5"/>`).join('')}
+    ${dateLabels}`;
+}
+
+function renderCategoryBreakdown(sym) {
+  const byMCC = {};
+  parsedTxns.forEach(t => {
+    const key = t.mcc || 'unknown';
+    if (!byMCC[key]) byMCC[key] = { mcc:key, mccInfo:getMCC(key), credits:0, debits:0, count:0 };
+    if (t.type === 'Credit') byMCC[key].credits += t.amount;
+    else byMCC[key].debits += t.amount;
+    byMCC[key].count++;
+  });
+
+  const cats = Object.values(byMCC).sort((a,b) => (b.debits+b.credits) - (a.debits+a.credits));
+  const maxAmt = Math.max(...cats.map(c => c.debits + c.credits));
+
+  document.getElementById('cat-breakdown').innerHTML = cats.map(c => {
+    const total = c.debits + c.credits;
+    const net = c.credits - c.debits;
+    const isNet = c.credits > c.debits;
+    const pct = (total / maxAmt * 100).toFixed(0);
+    return `<div class="cat-bar-row">
+      <div class="cat-emoji">${c.mccInfo.emoji}</div>
+      <div class="cat-name">${escHtml(c.mccInfo.name)}${c.mcc&&c.mcc!=='unknown'?` <span style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)">${c.mcc}</span>`:''}</div>
+      <div class="cat-bar-wrap"><div class="cat-bar-fill ${isNet?'':'neg'}" style="width:${pct}%"></div></div>
+      <div class="cat-count" style="font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted)">${c.count}</div>
+      <div class="cat-total ${isNet?'pos':'neg'}">${net>=0?'+':''}${sym}${Math.abs(net).toFixed(2)}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderMonthlySummary(sym) {
+  const byMonth = {};
+  parsedTxns.forEach(t => {
+    if (!t.date) return;
+    const key = t.date.slice(0, 7); // YYYY-MM
+    if (!byMonth[key]) byMonth[key] = { credits:0, debits:0, count:0 };
+    if (t.type === 'Credit') byMonth[key].credits += t.amount;
+    else byMonth[key].debits += t.amount;
+    byMonth[key].count++;
+  });
+  const months = Object.keys(byMonth).sort();
+  if (months.length <= 1) {
+    document.getElementById('monthly-sec-head').style.display = 'none';
+    document.getElementById('monthly-grid').innerHTML = '';
+    return;
+  }
+  document.getElementById('monthly-sec-head').style.display = '';
+  document.getElementById('monthly-grid').innerHTML = months.map(m => {
+    const d = byMonth[m];
+    const net = d.credits - d.debits;
+    const label = new Date(m + '-15').toLocaleDateString('en-GB', { month:'short', year:'numeric' });
+    return `<div class="month-card">
+      <div class="month-label">${label} · ${d.count} txns</div>
+      <div class="month-row"><span class="month-row-label">Inflows</span><span class="month-row-val" style="color:var(--green)">+${sym}${d.credits.toFixed(2)}</span></div>
+      <div class="month-row"><span class="month-row-label">Outflows</span><span class="month-row-val" style="color:var(--red)">-${sym}${d.debits.toFixed(2)}</span></div>
+      <div class="month-row" style="margin-top:.4rem;padding-top:.4rem;border-top:1px solid var(--border)"><span class="month-row-label" style="font-weight:500;color:var(--text)">Net</span><span class="month-row-val" style="color:${net>=0?'var(--teal-lt)':'var(--warn)'}">${net>=0?'+':''}${sym}${net.toFixed(2)}</span></div>
+    </div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════
+   SCHEMA REFERENCE TAB
+═══════════════════════════════════════ */
+function renderSchemaTab() {
+  document.getElementById('ob-schema-body').innerHTML = OB_SCHEMA.map(f => `<tr>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--teal)">${escHtml(f.field)}</td>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--body)">${escHtml(f.type)}</td>
+    <td><span class="tag ${f.req?'tag-green':'tag-muted'}">${f.req?'Yes':'No'}</span></td>
+    <td style="font-size:.7rem;color:var(--body)">${escHtml(f.note)}</td>
+  </tr>`).join('');
+
+  document.getElementById('fdx-schema-body').innerHTML = FDX_SCHEMA.map(f => `<tr>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--teal)">${escHtml(f.field)}</td>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--body)">${escHtml(f.type)}</td>
+    <td><span class="tag ${f.req?'tag-green':'tag-muted'}">${f.req?'Yes':'No'}</span></td>
+    <td style="font-size:.7rem;color:var(--body)">${escHtml(f.note)}</td>
+  </tr>`).join('');
+
+  renderMCCTable();
+}
+
+function renderMCCTable() {
+  const q = (document.getElementById('mccSearch')?.value || '').toLowerCase();
+  const entries = Object.entries(MCC_MAP).filter(([code, m]) =>
+    !q || code.includes(q) || m.name.toLowerCase().includes(q) || m.risk.includes(q)
+  );
+  document.getElementById('mccCount').textContent = `${entries.length} of ${Object.keys(MCC_MAP).length} codes`;
+  document.getElementById('mcc-body').innerHTML = entries.map(([code, m]) => {
+    const rc = MCC_COLORS[m.risk];
+    return `<tr>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--teal-lt)">${code}</td>
+      <td style="font-size:.76rem;color:var(--bright)">${escHtml(m.name)}</td>
+      <td style="font-size:1.1rem">${m.emoji}</td>
+      <td><span class="tag ${rc.tag}">${rc.label}</span></td>
+      <td style="font-size:.7rem;color:var(--body)">${escHtml(m.scaNote)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterMCC() { renderMCCTable(); }
+
+/* ═══════════════════════════════════════
+   RESPONSIVE SCHEMA GRID
+═══════════════════════════════════════ */
+function checkSchemaGrid() {
+  const grid = document.querySelector('.schema-grid');
+  if (!grid) return;
+  if (window.innerWidth < 860) grid.style.gridTemplateColumns = '1fr';
+  else grid.style.gridTemplateColumns = '1fr 1fr';
+}
+
+/* ═══════════════════════════════════════
+   INIT
+═══════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  renderSchemaTab();
+  checkSchemaGrid();
+  window.addEventListener('resize', checkSchemaGrid);
+
+  // Drag & drop on textarea
+  const ta = document.getElementById('jsonInput');
+  ta.addEventListener('dragover', e => { e.preventDefault(); ta.style.borderColor='var(--teal)'; });
+  ta.addEventListener('dragleave', () => { ta.style.borderColor=''; });
+  ta.addEventListener('drop', e => {
+    e.preventDefault(); ta.style.borderColor='';
+    const f = e.dataTransfer.files[0];
+    if (f) { const r = new FileReader(); r.onload = ev => { ta.value = ev.target.result; }; r.readAsText(f); }
+  });
+});
+var MANIFEST=JSON.parse('{"tool_id": "ob-transaction-visualizer", "version": "1.0.0", "title": "Tool 94 — Open Banking Transaction Visualizer & Ledger", "description": "Paste UK OBReadTransaction6 or FDX v5 JSON and instantly see a sortable ledger, cash flow breakdown, MCC category mapping, running balance chart, and schema sanity checks. Client-side. Zero PII.", "category": "open-banking-integration", "tags": ["Tool", "Open", "Banking", "Transaction", "Visualizer"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"jsonInput": {"type": "string"}, "fileInput": {"type": "string"}, "formatSelect": {"type": "string"}, "currencyDisplay": {"type": "string"}, "dateFormat": {"type": "string"}, "ledgerSearch": {"type": "string"}, "mccSearch": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "ob_transaction_visualizer", "description": "Run Tool 94 — Open Banking Transaction Visualizer & Ledger. Paste UK OBReadTransaction6 or FDX v5 JSON and instantly see a sortable ledger, cash flow breakdown, MCC category mapping, running balance chart, and schema sanity checks. Client-side. Zero PII.", "inputSchema": {"type": "object", "properties": {"jsonInput": {"type": "string"}, "fileInput": {"type": "string"}, "formatSelect": {"type": "string"}, "currencyDisplay": {"type": "string"}, "dateFormat": {"type": "string"}, "ledgerSearch": {"type": "string"}, "mccSearch": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/94-ob-transaction-visualizer.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+</script>
+
+<script>
+/* AIN canonical i18n — reconcile-2026-05-17 */
+const TRANSLATIONS = {
+  en: {
+    "nav.alltools": "All Tools",
+    "nav.hub": "← Open Banking Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-5 · Open Banking · T94",
+    "hero.badge.privacy": "Zero PII · Client-side",
+    "hero.badge.reviewed": "Last Reviewed:",
+    "footer.alltools": "All Tools",
+    "footer.hub": "Open Banking Hub",
+    "footer.sitemap": "Sitemap",
+    "footer.contact": "Contact",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Zero PII \u00a0 📡 No server calls \u00a0 💻 Client-side",
+    "pii.banner": "🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only."
+  },
+  es: {
+    "nav.alltools": "Todas las herramientas",
+    "nav.hub": "← Open Banking Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-5 · Open Banking · T94",
+    "hero.badge.privacy": "Sin PII · Solo cliente",
+    "hero.badge.reviewed": "Última revisión:",
+    "footer.alltools": "Todas las herramientas",
+    "footer.hub": "Open Banking Hub",
+    "footer.sitemap": "Mapa del sitio",
+    "footer.contact": "Contacto",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Sin PII \u00a0 📡 Sin llamadas de servidor \u00a0 💻 Solo cliente",
+    "pii.banner": "🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No ingrese datos personales reales — use entradas sintéticas o anonimizadas."
+  },
+  fr: {
+    "nav.alltools": "Tous les outils",
+    "nav.hub": "← Open Banking Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-5 · Open Banking · T94",
+    "hero.badge.privacy": "Zéro PII · Côté client",
+    "hero.badge.reviewed": "Dernière révision :",
+    "footer.alltools": "Tous les outils",
+    "footer.hub": "Open Banking Hub",
+    "footer.sitemap": "Plan du site",
+    "footer.contact": "Contact",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Zéro PII \u00a0 📡 Aucun appel serveur \u00a0 💻 Côté client",
+    "pii.banner": "🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n'est transmise. N'entrez pas de données personnelles réelles — utilisez des entrées synthétiques ou anonymisées."
+  },
+  ar: {
+    "nav.alltools": "جميع الأدوات",
+    "nav.hub": "→ Open Banking Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-5 · Open Banking · T94",
+    "hero.badge.privacy": "بدون بيانات شخصية · من جهة العميل",
+    "hero.badge.reviewed": "آخر مراجعة:",
+    "footer.alltools": "جميع الأدوات",
+    "footer.hub": "Open Banking Hub",
+    "footer.sitemap": "خريطة الموقع",
+    "footer.contact": "اتصل بنا",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 بدون بيانات شخصية \u00a0 📡 بدون اتصالات خادم \u00a0 💻 من جهة العميل",
+    "pii.banner": "🔒 تتم معالجة جميع المدخلات محليًا في متصفحك. لا يتم نقل أي بيانات. لا تُدخل بيانات شخصية حقيقية — استخدم مدخلات اصطناعية أو مجهولة الهوية فقط.",
+    "lang_dir": "rtl"
+  },
+  pt: {
+    "nav.alltools": "Todas as ferramentas",
+    "nav.hub": "← Open Banking Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-5 · Open Banking · T94",
+    "hero.badge.privacy": "Zero PII · Lado do cliente",
+    "hero.badge.reviewed": "Última revisão:",
+    "footer.alltools": "Todas as ferramentas",
+    "footer.hub": "Open Banking Hub",
+    "footer.sitemap": "Mapa do site",
+    "footer.contact": "Contato",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 Zero PII \u00a0 📡 Sem chamadas de servidor \u00a0 💻 Lado do cliente",
+    "pii.banner": "🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido. Não insira dados pessoais reais — use entradas sintéticas ou anonimizadas."
+  },
+  zh: {
+    "nav.alltools": "所有工具",
+    "nav.hub": "← Open Banking Hub",
+    "nav.manifest": "manifest.json",
+    "hero.eyebrow": "Cat-5 · Open Banking · T94",
+    "hero.badge.privacy": "零PII · 客户端",
+    "hero.badge.reviewed": "最后审查：",
+    "footer.alltools": "所有工具",
+    "footer.hub": "Open Banking Hub",
+    "footer.sitemap": "网站地图",
+    "footer.contact": "联系我们",
+    "footer.cc": "CC BY 4.0 · Post Oak Labs",
+    "footer.privacy": "🔒 零PII \u00a0 📡 无服务器调用 \u00a0 💻 客户端",
+    "pii.banner": "🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。请勿输入真实个人数据——仅使用合成或匿名输入。"
+  }
+};
+
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key] !== undefined) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector('.lang-btn[data-lang="' + lang + '"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function initLang() {
+  let saved = 'en';
+  try { saved = sessionStorage.getItem('ain_lang') || 'en'; } catch(e) {}
+  if (TRANSLATIONS[saved]) setLang(saved);
+})();
+
+function scrollMfst() {
+  const s = document.getElementById('mfstSec');
+  if (s) s.scrollIntoView({behavior:'smooth', block:'start'});
+}
+</script>
+</body>
+</html>

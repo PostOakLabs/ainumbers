@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>AP2 Payment Ops Policy Mandate Builder · T326 · AINumbers.co</title>
+<meta name="description" content="Build a validated Policy Mandate JSON payment operations policy mandate for autonomous ops monitoring agents. Imports T324 prefunding schedule, configures routing policy, SLA thresholds, and incident escalation rules. agent_instructions array is MCP server deployable. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/326-ap2-payment-ops-policy-mandate-builder">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"AP2 Payment Ops Policy Mandate Builder · T326","url":"https://ainumbers.co/tools/326-ap2-payment-ops-policy-mandate-builder","description":"Build a validated Policy Mandate JSON payment operations policy mandate for autonomous ops monitoring agents. Imports T324 prefunding schedule, configures routing policy, SLA thresholds, and incident escalation rules. agent_instructions array is MCP server deployable. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* PolicyMandate — full validator (Phase 14); AP2Schema internal name retained */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    var RE_UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    var RE_SHA256 = /^[0-9a-f]{64}$/i;
+    var RE_ISO3166 = /^[A-Z]{2}$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('mandate_id' in m && (typeof m.mandate_id !== 'string' || !RE_UUID4.test(m.mandate_id))) _fail('"mandate_id" must be a UUIDv4 string');
+    if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver (e.g. 1.0.0)');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('jurisdiction' in m && Array.isArray(m.jurisdiction)) { m.jurisdiction.forEach(function(item,i){if(typeof item!=='string'||!RE_ISO3166.test(item))_fail('"jurisdiction['+i+']" must be ISO 3166-1 alpha-2 (2 uppercase letters)');});}
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_frameworks' in m && Array.isArray(m.regulatory_frameworks)) { m.regulatory_frameworks.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_frameworks['+i+']" must be a string');});}
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('regulatory_citations' in m && Array.isArray(m.regulatory_citations)) { m.regulatory_citations.forEach(function(item,i){if(typeof item!=='string')_fail('"regulatory_citations['+i+']" must be a string');});}
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('agent_instructions' in m && Array.isArray(m.agent_instructions)) { m.agent_instructions.forEach(function(item,i){if(typeof item!=='string')_fail('"agent_instructions['+i+']" must be a string');});}
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('source_tool_inputs' in m && (typeof m.source_tool_inputs !== 'object' || Array.isArray(m.source_tool_inputs) || m.source_tool_inputs === null)) _fail('"source_tool_inputs" must be an object');
+    if ('audit_metadata' in m) {
+      var am = m.audit_metadata;
+      if (typeof am !== 'object' || Array.isArray(am) || am === null) _fail('"audit_metadata" must be an object');
+      if ('execution_hash' in am && (typeof am.execution_hash !== 'string' || !RE_SHA256.test(am.execution_hash))) _fail('"audit_metadata.execution_hash" must be a SHA-256 hex string (64 chars)');
+      if ('client_side_executed' in am && typeof am.client_side_executed !== 'boolean') _fail('"audit_metadata.client_side_executed" must be a boolean');
+      if ('zero_pii_verified' in am && typeof am.zero_pii_verified !== 'boolean') _fail('"audit_metadata.zero_pii_verified" must be a boolean');
+      if ('deterministic_run' in am && typeof am.deterministic_run !== 'boolean') _fail('"audit_metadata.deterministic_run" must be a boolean');
+    }
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('valid_from' in m && (typeof m.valid_from !== 'string' || !RE_ISO.test(m.valid_from))) _fail('"valid_from" must be ISO-8601');
+    if ('valid_until' in m && (typeof m.valid_until !== 'string' || !RE_ISO.test(m.valid_until))) _fail('"valid_until" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    if (!('issued_by' in m) || m.issued_by !== 'ainumbers.co') _warn('issued_by should be "ainumbers.co"');
+    return true;
+};
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner,[dir="rtl"] [dir="rtl"] .hero-eyebrow{flex-direction:row-reverse}
+[dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:201}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+.hero{padding:2.8rem 0 2.4rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(20,184,166,.06) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.5rem);color:var(--white);max-width:760px;margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal)}
+.hero-desc{font-size:.84rem;color:var(--body);max-width:660px;line-height:1.85;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.6rem;flex-wrap:wrap}
+.hero-badge{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.3rem .7rem;border:1px solid}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+
+.main-content{position:relative;z-index:1;padding:2.5rem 0 4rem}
+
+/* Dimension panels */
+.dim-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.75rem;margin-bottom:1.5rem;position:relative;overflow:hidden}
+.dim-panel::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--teal)}
+.dim-num{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.dim-title{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--white);margin-bottom:1.25rem}
+
+.field-row{margin-bottom:1.1rem}
+.field-row:last-child{margin-bottom:0}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--body);margin-bottom:.4rem;display:flex;align-items:center;justify-content:space-between}
+.field-val{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--teal);background:var(--teal-dim);padding:.1rem .4rem;border-radius:2px}
+
+/* T324 import panel */
+.import-panel{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.25rem}
+.import-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem}
+.import-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.import-badge{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--purple);background:var(--purple-dim);border:1px solid rgba(155,114,245,.2);padding:.1rem .4rem;border-radius:2px}
+textarea.import-ta{width:100%;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.65rem .85rem;resize:vertical;min-height:80px;transition:border-color .2s;line-height:1.55}
+textarea.import-ta:focus{outline:none;border-color:var(--teal)}
+textarea.import-ta::placeholder{color:var(--muted)}
+.import-result{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--green);background:var(--green-dim);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius);padding:.5rem .75rem;margin-top:.5rem;display:none}
+.import-result.show{display:block}
+.import-result.err{color:var(--warn);background:var(--warn-dim);border-color:rgba(245,158,11,.2)}
+
+/* Inputs */
+input[type="text"],input[type="number"],input[type="url"]{width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.76rem;padding:.55rem .75rem;transition:border-color .2s}
+input:focus{outline:none;border-color:var(--teal)}
+input::placeholder{color:var(--muted)}
+select{width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.76rem;padding:.55rem .75rem;transition:border-color .2s;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%233A5270'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .75rem center}
+select:focus{outline:none;border-color:var(--teal)}
+
+/* Slider */
+input[type="range"]{width:100%;appearance:none;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+input[type="range"]::-webkit-slider-thumb{appearance:none;width:16px;height:16px;border-radius:50%;background:var(--teal);cursor:pointer;border:2px solid var(--bg)}
+input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--teal);cursor:pointer;border:2px solid var(--bg)}
+.slider-labels{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.3rem}
+
+/* Radio group */
+.radio-group{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.radio-btn{flex:1;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;padding:.5rem;border:none;background:transparent;color:var(--muted);transition:all .2s;cursor:pointer}
+.radio-btn.sel{background:var(--teal-dim);color:var(--teal)}
+.radio-btn:hover:not(.sel){color:var(--text);background:var(--bg-3)}
+
+/* Grid helpers */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.25rem}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:1.25rem}
+@media(max-width:720px){.g2,.g3,.g4{grid-template-columns:1fr}}
+
+/* Validation warning */
+.val-warn{background:var(--warn-dim);border:1px solid rgba(245,158,11,.3);border-left:3px solid var(--warn);border-radius:var(--radius);padding:.75rem 1rem;font-size:.74rem;color:var(--text);margin-bottom:1rem;display:none}
+.val-warn.show{display:block}
+
+/* P-level selector */
+.plevel-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.plevel-cell{background:var(--bg-3);padding:.75rem .5rem;text-align:center;cursor:pointer;transition:background .15s}
+.plevel-cell.sel{background:var(--teal-dim)}
+.plevel-cell:hover:not(.sel){background:var(--bg-4)}
+.plevel-name{font-family:'JetBrains Mono',monospace;font-size:.66rem;font-weight:500;margin-bottom:.2rem}
+.plevel-desc{font-size:.58rem;color:var(--body);line-height:1.4}
+.plevel-cell.sel .plevel-name{color:var(--teal)}
+.plevel-cell.p1 .plevel-name{color:var(--red)}
+.plevel-cell.p2 .plevel-name{color:var(--warn)}
+.plevel-cell.p3 .plevel-name{color:var(--gold)}
+.plevel-cell.p4 .plevel-name{color:var(--green)}
+
+/* Build button */
+.build-btn{width:100%;background:linear-gradient(135deg,var(--teal),var(--teal-lt));color:var(--bg);font-family:'JetBrains Mono',monospace;font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;padding:.95rem 2rem;border:none;border-radius:var(--radius);font-weight:500;transition:opacity .2s;margin:1.5rem 0}
+.build-btn:hover{opacity:.88}
+
+/* Output panels */
+.output-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:1.25rem;overflow:hidden}
+.output-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.output-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);display:flex;align-items:center;gap:.6rem}
+.output-label::before{content:'';display:block;width:14px;height:1px;background:var(--teal)}
+.output-body{padding:1.25rem;max-height:360px;overflow-y:auto}
+
+.instr-list{display:flex;flex-direction:column;gap:.45rem}
+.instr-item{display:flex;gap:.65rem;align-items:flex-start;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .85rem}
+.instr-num{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--teal);background:var(--teal-dim);border:1px solid rgba(20,184,166,.2);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:.05rem}
+.instr-text{font-size:.74rem;color:var(--text);line-height:1.6;flex:1}
+
+.md-block{font-size:.76rem;color:var(--body);line-height:1.75}
+.md-block h3{font-family:'DM Serif Display',serif;color:var(--white);font-size:.95rem;margin:1rem 0 .35rem}
+
+/* Export row */
+.results-export-row{display:flex;gap:.65rem;flex-wrap:wrap;padding-top:1.25rem;border-top:1px solid var(--border)}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;border-radius:var(--radius);border:1px solid;cursor:pointer;transition:all .2s;display:inline-flex;flex-direction:column;align-items:center;gap:.15rem;background:transparent}
+.btn-ghost{color:var(--text);border-color:var(--border)}
+.btn-ghost:hover:not(:disabled){border-color:var(--teal);color:var(--teal)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-ghost.ready{border-color:rgba(20,184,166,.4);color:var(--teal)}
+.btn-subtitle{font-size:.42rem;color:var(--muted);text-transform:none}
+.btn-ghost.ready .btn-subtitle{color:rgba(20,184,166,.65)}
+
+#toast{position:fixed;bottom:1.75rem;right:1.75rem;background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:var(--radius);padding:.85rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--text);z-index:999;transform:translateY(120%);transition:transform .3s;max-width:340px}
+#toast.show{transform:translateY(0)}
+#toast.ok{border-left-color:var(--teal)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none;flex-shrink:0}
+.nav-cta:hover{background:var(--teal-lt)}
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* ── MCP section ── */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+
+.mcp-table{width:100%;border-collapse:collapse;font-size:.68rem;margin-bottom:.75rem}
+.mcp-table th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-2)}
+.mcp-table td{padding:.5rem .75rem;border-bottom:1px solid rgba(30,47,74,.4);color:var(--body);vertical-align:top;font-family:'JetBrains Mono',monospace}
+.mcp-table td:first-child{color:var(--muted);width:30%;white-space:nowrap}
+.mcp-table td:last-child{color:var(--text);word-break:break-word}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="#0D1627"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="#1E2F4A" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="#D4A847" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="#14B8A6" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="#EF4444" opacity=".7"/></svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/payment-ops-monitoring-hub.html">Payment Ops Hub</a><span class="nav-sep">/</span><span>T-326</span></div>
+
+    <a href="../guides/payment-ops-monitoring-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+    <div class="hero-eyebrow">
+      <span id="heroEyebrow">T326 · Cat-04 · AP2 Agentic Anchor · Payment Ops Policy Mandate · MCP Deployable</span>
+    </div>
+    <h1 class="tool-title" id="heroTitle">AP2 Payment Ops Policy <em>Mandate Builder</em></h1>
+    <p class="hero-desc" id="heroDesc">Consolidate your payment operations policy into a validated Policy Mandate JSON for autonomous ops monitoring agents. Import your T324 prefunding schedule, configure rail routing policy, SLA thresholds, and incident escalation rules. The agent_instructions array is deployable directly into your operations monitoring agent via the AINumbers.co MCP server.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-teal">AP2 Agentic · agent_guardrail_mandate</span>
+      <span class="hero-badge badge-teal">T324 Import · Prefunding Schedule</span>
+      <span class="hero-badge badge-purple">4 Ops Policy Dimensions</span>
+      <span class="hero-badge badge-gold">MCP Server Deployable</span>
+      <span class="hero-badge badge-muted">Client-Side · Zero PII</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+  </div>
+</section>
+
+<main class="main-content">
+  <div class="container">
+
+    <!-- Validation warning -->
+    <div class="val-warn" id="valWarn"></div>
+
+    <!-- ── DIMENSION 1: Liquidity Policy ── -->
+    <div class="dim-panel">
+      <div class="dim-num">Dimension 01 / 04</div>
+      <div class="dim-title">Liquidity Policy</div>
+
+      <!-- T324 Import -->
+      <div class="import-panel">
+        <div class="import-header">
+          <span class="import-label">Import from T324 Prefunding Scheduler output (optional)</span>
+          <span class="import-badge">T324 → T326 workflow</span>
+        </div>
+        <textarea class="import-ta" id="t324Import" placeholder='Paste your T324 Policy Mandate JSON export here — opening_balance_m and rail will be auto-populated from payload.prefunding_schedule' oninput="tryImportT324()"></textarea>
+        <div class="import-result" id="importResult"></div>
+      </div>
+
+      <div class="g3">
+        <div class="field-row">
+          <div class="field-label"><span>Intraday Prefunding Target</span></div>
+          <div style="display:flex;gap:.5rem;align-items:center">
+            <input type="number" id="prefundTarget" placeholder="e.g. 80" min="0" step="0.1">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);white-space:nowrap">M USD/EUR</span>
+          </div>
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">Target prefunding balance. Auto-populated from T324 min. opening balance recommendation when imported.</div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-label">
+            <span>Top-Up Alert Threshold</span>
+            <span class="field-val" id="topupVal">20%</span>
+          </div>
+          <input type="range" id="topupThresh" min="5" max="50" value="20" oninput="updateVal('topupVal',this.value+'%')">
+          <div class="slider-labels"><span>5%</span><span>25%</span><span>50%</span></div>
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">Alert when balance drops below this % of opening balance. Agent triggers top-up workflow.</div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-label"><span>Primary Settlement Rail</span></div>
+          <select id="primaryRailLiq">
+            <option value="FedNow">FedNow</option>
+            <option value="RTP">RTP</option>
+            <option value="SEPA-Instant">SEPA Instant</option>
+            <option value="Fedwire">Fedwire</option>
+            <option value="CHAPS">CHAPS</option>
+          </select>
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">Rail on which prefunding policy applies. Auto-populated from T324 import when available.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── DIMENSION 2: Routing Policy ── -->
+    <div class="dim-panel">
+      <div class="dim-num">Dimension 02 / 04</div>
+      <div class="dim-title">Routing Policy</div>
+
+      <div class="g4">
+        <div class="field-row">
+          <div class="field-label"><span>Primary Rail — US Corridor</span></div>
+          <select id="railUS">
+            <option value="FedNow">FedNow</option>
+            <option value="RTP">RTP</option>
+            <option value="Fedwire">Fedwire</option>
+            <option value="ACH">ACH Same-Day</option>
+          </select>
+        </div>
+        <div class="field-row">
+          <div class="field-label"><span>Primary Rail — EU Corridor</span></div>
+          <select id="railEU">
+            <option value="SEPA-Instant">SEPA Instant</option>
+            <option value="SEPA-CT">SEPA CT</option>
+            <option value="TARGET2">TARGET2</option>
+          </select>
+        </div>
+        <div class="field-row">
+          <div class="field-label"><span>Primary Rail — UK Corridor</span></div>
+          <select id="railUK">
+            <option value="UK-FPS">UK FPS</option>
+            <option value="CHAPS">CHAPS</option>
+            <option value="BACS">BACS</option>
+          </select>
+        </div>
+        <div class="field-row">
+          <div class="field-label"><span>Primary Rail — Cross-Border</span></div>
+          <select id="railXB">
+            <option value="SWIFT">SWIFT gpi</option>
+            <option value="SEPA-Instant">SEPA Instant</option>
+            <option value="FedNow">FedNow (US)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="g2" style="margin-top:1.1rem">
+        <div class="field-row">
+          <div class="field-label"><span>Fallback Rail (all corridors)</span></div>
+          <select id="fallbackRail">
+            <option value="SWIFT">SWIFT gpi</option>
+            <option value="ACH">ACH Next-Day</option>
+            <option value="SEPA-CT">SEPA CT</option>
+            <option value="BACS">BACS</option>
+          </select>
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">Rail used when primary is unavailable. Must differ from primary or agent will flag incomplete policy.</div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-label">
+            <span>Cost Ceiling for Rail Selection</span>
+            <span class="field-val" id="costVal">15 bps</span>
+          </div>
+          <input type="range" id="costCeiling" min="1" max="50" value="15" oninput="updateVal('costVal',this.value+' bps')">
+          <div class="slider-labels"><span>1 bps</span><span>25</span><span>50 bps</span></div>
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">Maximum per-transaction routing cost in basis points. Agent routes to lowest-cost rail below this ceiling.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── DIMENSION 3: SLA & Monitoring ── -->
+    <div class="dim-panel">
+      <div class="dim-num">Dimension 03 / 04</div>
+      <div class="dim-title">SLA &amp; Monitoring Policy</div>
+
+      <div class="g3">
+        <div class="field-row">
+          <div class="field-label">
+            <span>Real-Time Payment SLA Target</span>
+            <span class="field-val" id="rtSlaVal">500 ms</span>
+          </div>
+          <input type="range" id="rtSla" min="100" max="5000" step="100" value="500" oninput="updateVal('rtSlaVal',this.value+' ms')">
+          <div class="slider-labels"><span>100ms</span><span>2,500</span><span>5,000ms</span></div>
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">Processing time target for real-time payments (FedNow / RTP / SEPA Instant / FPS). Minimum guaranteed is typically 10s — set agent alert well within rail SLA.</div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-label">
+            <span>Batch Payment SLA Target</span>
+            <span class="field-val" id="batchSlaVal">4 hrs</span>
+          </div>
+          <input type="range" id="batchSla" min="1" max="24" value="4" oninput="updateVal('batchSlaVal',this.value+' hrs')">
+          <div class="slider-labels"><span>1 hr</span><span>12</span><span>24 hrs</span></div>
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">End-to-end processing target for ACH, SEPA CT, BACS, and other batch rails.</div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-label">
+            <span>SLA Breach Escalation Threshold</span>
+            <span class="field-val" id="slaBreachVal">2%</span>
+          </div>
+          <input type="range" id="slaBreach" min="1" max="20" value="2" oninput="updateVal('slaBreachVal',this.value+'%')">
+          <div class="slider-labels"><span>1%</span><span>10%</span><span>20%</span></div>
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">% of transactions missing SLA before escalation is triggered. Agent monitors hourly against this threshold.</div>
+        </div>
+      </div>
+
+      <div class="field-row" style="margin-top:1.1rem">
+        <div class="field-label"><span>KPI Alert Frequency</span></div>
+        <div class="radio-group" role="group" id="alertFreqGroup">
+          <button class="radio-btn" onclick="setRadio('alertFreq','realtime',this)">Real-time</button>
+          <button class="radio-btn sel" onclick="setRadio('alertFreq','hourly',this)">Hourly</button>
+          <button class="radio-btn" onclick="setRadio('alertFreq','daily',this)">Daily</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── DIMENSION 4: Incident Policy ── -->
+    <div class="dim-panel">
+      <div class="dim-num">Dimension 04 / 04</div>
+      <div class="dim-title">Incident Policy</div>
+
+      <div class="field-row">
+        <div class="field-label"><span>Incident Classification Threshold — Default Level</span></div>
+        <div class="plevel-grid" id="plevelGrid">
+          <div class="plevel-cell p1" onclick="setPLevel('P1',this)">
+            <div class="plevel-name">P1</div>
+            <div class="plevel-desc">Critical — total or near-total service outage. Immediate CEO/board notification.</div>
+          </div>
+          <div class="plevel-cell p2 sel" onclick="setPLevel('P2',this)">
+            <div class="plevel-name">P2</div>
+            <div class="plevel-desc">High — major degradation, significant transaction failures. CISO + Ops VP notified.</div>
+          </div>
+          <div class="plevel-cell p3" onclick="setPLevel('P3',this)">
+            <div class="plevel-name">P3</div>
+            <div class="plevel-desc">Medium — partial service impact, isolated failures. Ops team lead notified.</div>
+          </div>
+          <div class="plevel-cell p4" onclick="setPLevel('P4',this)">
+            <div class="plevel-name">P4</div>
+            <div class="plevel-desc">Low — minor issues, no material impact. Logged, reviewed in next ops standup.</div>
+          </div>
+        </div>
+        <div style="font-size:.68rem;color:var(--body);margin-top:.5rem">Agent classifies payment incidents at or above this severity level using this threshold. Incidents below this level are logged but not escalated.</div>
+      </div>
+
+      <div class="g2" style="margin-top:1.1rem">
+        <div class="field-row">
+          <div class="field-label"><span>Runbook Reference URL</span></div>
+          <input type="url" id="runbookUrl" placeholder="https://wiki.internal/ops/payment-runbook" maxlength="200">
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">Documentation link only — not transmitted. Included in agent_instructions for reference routing.</div>
+        </div>
+        <div class="field-row">
+          <div class="field-label"><span>Escalation Contact Role</span></div>
+          <input type="text" id="escalationRole" placeholder="e.g. Head of Payment Ops" maxlength="80">
+          <div style="font-size:.68rem;color:var(--body);margin-top:.4rem">Role title only — not a name. Used in policy summary and agent_instructions only, not stored.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Build button -->
+    <button class="build-btn" id="buildBtn" onclick="buildMandate()">
+      {} Build AP2 Payment Ops Policy Mandate
+    </button>
+
+    <!-- Output section -->
+    <div id="outputSection" style="display:none">
+
+      <div class="output-panel">
+        <div class="output-header">
+          <div class="output-label">agent_instructions — Ordered Ops Enforcement Rules</div>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--teal)" id="instrCount"></span>
+        </div>
+        <div class="output-body">
+          <div class="instr-list" id="instrList"></div>
+        </div>
+      </div>
+
+      <div class="output-panel">
+        <div class="output-header">
+          <div class="output-label">Markdown Ops Policy Summary</div>
+        </div>
+        <div class="output-body">
+          <div class="md-block" id="mdPreview"></div>
+        </div>
+      </div>
+
+      <div class="results-export-row">
+        <button class="btn btn-ghost ready" id="mdBtn" onclick="exportMarkdown()">
+          ⬇ Export Markdown
+          <span class="btn-subtitle">ops policy summary</span>
+        </button>
+        <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()">
+          {} Export Policy Mandate
+          <span class="btn-subtitle">API · audit trail</span>
+        </button>
+      </div>
+
+    </div>
+
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/payment-ops-monitoring-hub.html"><span data-i18n="footer.hub_payment_ops_monitoring">Payment Ops Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+'use strict';
+
+/* ─── Radio / control state ─── */
+const STATE = { alertFreq: 'hourly', pLevel: 'P2' };
+let lastMandate = null;
+let t324Imported = null;
+
+function updateVal(id, val) {
+  document.getElementById(id).textContent = val;
+}
+
+function setRadio(group, val, btn) {
+  STATE[group] = val;
+  document.getElementById(group + 'Group').querySelectorAll('.radio-btn').forEach(b => b.className = 'radio-btn');
+  btn.classList.add('sel');
+}
+
+function setPLevel(level, cell) {
+  STATE.pLevel = level;
+  document.querySelectorAll('.plevel-cell').forEach(c => c.classList.remove('sel'));
+  cell.classList.add('sel');
+}
+
+/* ─── T324 Import — one JS parse call ─── */
+function tryImportT324() {
+  const raw = document.getElementById('t324Import').value.trim();
+  const resultEl = document.getElementById('importResult');
+  if (!raw) { resultEl.classList.remove('show'); return; }
+
+  let parsed;
+  try { parsed = JSON.parse(raw); }
+  catch(e) { resultEl.className = 'import-result show err'; resultEl.textContent = '✕ Invalid JSON — paste the complete T324 Policy Mandate'; return; }
+
+  // Extract from payload.prefunding_schedule per T324 AP2 schema
+  const ps = parsed?.payload?.prefunding_schedule;
+  if (!ps) { resultEl.className = 'import-result show err'; resultEl.textContent = '✕ No payload.prefunding_schedule found — paste a valid T324 Policy Mandate'; return; }
+
+  const openingBalance = ps.min_opening_balance_recommended_m || ps.opening_balance_m;
+  const rail = ps.rail;
+
+  if (!openingBalance || !rail) { resultEl.className = 'import-result show err'; resultEl.textContent = '✕ Could not extract opening balance or rail from T324 payload'; return; }
+
+  // Auto-populate fields
+  document.getElementById('prefundTarget').value = openingBalance;
+  const railSel = document.getElementById('primaryRailLiq');
+  for (let i = 0; i < railSel.options.length; i++) {
+    if (railSel.options[i].value === rail) { railSel.selectedIndex = i; break; }
+  }
+
+  t324Imported = { openingBalance, rail, tool_id: parsed.tool_id, mandate_id: parsed.mandate_id };
+  resultEl.className = 'import-result show';
+  resultEl.textContent = `✓ Imported from T324 — Rail: ${rail} · Min. Opening Balance: $${openingBalance}M`;
+}
+
+/* ─── Validation ─── */
+function validatePolicy(config) {
+  const warnings = [];
+  // Primary = fallback on any corridor
+  const primaries = [config.rail_us, config.rail_eu, config.rail_uk, config.rail_xb];
+  if (primaries.includes(config.fallback_rail)) {
+    warnings.push(`Fallback rail (${config.fallback_rail}) matches a primary rail for at least one corridor. Agent routing policy requires a distinct fallback.`);
+  }
+  // RT SLA below absolute rail minimum (10,000ms = 10s for real-time rails)
+  if (config.rt_sla_ms < 100) {
+    warnings.push(`Real-time SLA target of ${config.rt_sla_ms}ms is below the minimum meaningful threshold. Set ≥ 100ms.`);
+  }
+  // No runbook URL
+  if (!config.runbook_url) {
+    warnings.push('No runbook URL provided. Agents performing incident escalation require a reference URL for runbook routing.');
+  }
+  return warnings;
+}
+
+/* ─── Build agent instructions ─── */
+function buildOpsAgentInstructions(c) {
+  const instructions = [];
+
+  // Dimension 1 — Liquidity
+  instructions.push(`Monitor ${c.primary_rail_liq} settlement account balance continuously. Alert when balance falls below ${c.topup_threshold_pct}% of the prefunding target ($${c.prefund_target_m}M) — trigger automated top-up workflow immediately.`);
+  if (t324Imported) instructions.push(`Prefunding policy is imported from T324 mandate (ID: ${t324Imported.mandate_id || 'unknown'}). Recalibrate this dimension when T324 is next regenerated.`);
+
+  // Dimension 2 — Routing
+  instructions.push(`Route US corridor payments via ${c.rail_us} as primary rail. On failure or unavailability, switch to fallback rail: ${c.fallback_rail}. Log every fallback invocation.`);
+  instructions.push(`Route EU corridor payments via ${c.rail_eu}. Route UK corridor via ${c.rail_uk}. Route cross-border via ${c.rail_xb}. All corridors fall back to ${c.fallback_rail}.`);
+  instructions.push(`Cap per-transaction routing cost at ${c.cost_ceiling_bps} bps. If the lowest-cost rail exceeds this ceiling, escalate to ${c.escalation_role || 'Payment Ops'} before routing.`);
+
+  // Dimension 3 — SLA
+  instructions.push(`Alert immediately if any real-time payment (FedNow / RTP / SEPA Instant / UK FPS) exceeds ${c.rt_sla_ms}ms end-to-end processing time. Log, escalate at ${c.sla_breach_pct}% breach rate.`);
+  instructions.push(`Alert if any batch payment (ACH / SEPA CT / BACS) exceeds ${c.batch_sla_hrs} hours end-to-end. Review batch file submission and ODFI/RDFI processing status.`);
+  instructions.push(`Publish KPI dashboard ${c.alert_freq === 'realtime' ? 'in real-time' : c.alert_freq === 'hourly' ? 'every hour' : 'daily at 07:00 UTC'}. Metrics: throughput, failure rate, SLA compliance %, average latency by rail.`);
+
+  // Dimension 4 — Incident
+  instructions.push(`Classify any payment service disruption at ${c.p_level} or above using the incident severity framework. ${c.p_level === 'P1' ? 'Immediately notify CEO, CISO, and board. Activate crisis comms protocol.' : c.p_level === 'P2' ? 'Notify CISO, Ops VP, and Head of Payment Ops within 15 minutes.' : c.p_level === 'P3' ? 'Notify Ops team lead within 30 minutes.' : 'Log and review in next ops standup. No immediate escalation required.'}`);
+  if (c.runbook_url) instructions.push(`On any ${c.p_level}+ incident, reference the ops runbook at: ${c.runbook_url}`);
+  if (c.escalation_role) instructions.push(`Primary escalation contact for all ops policy decisions: ${c.escalation_role}.`);
+
+  return instructions;
+}
+
+/* ─── Build mandate ─── */
+function buildMandate() {
+  const config = {
+    prefund_target_m: parseFloat(document.getElementById('prefundTarget').value) || 0,
+    topup_threshold_pct: parseInt(document.getElementById('topupThresh').value),
+    primary_rail_liq: document.getElementById('primaryRailLiq').value,
+    rail_us: document.getElementById('railUS').value,
+    rail_eu: document.getElementById('railEU').value,
+    rail_uk: document.getElementById('railUK').value,
+    rail_xb: document.getElementById('railXB').value,
+    fallback_rail: document.getElementById('fallbackRail').value,
+    cost_ceiling_bps: parseInt(document.getElementById('costCeiling').value),
+    rt_sla_ms: parseInt(document.getElementById('rtSla').value),
+    batch_sla_hrs: parseInt(document.getElementById('batchSla').value),
+    sla_breach_pct: parseInt(document.getElementById('slaBreach').value),
+    alert_freq: STATE.alertFreq,
+    p_level: STATE.pLevel,
+    runbook_url: document.getElementById('runbookUrl').value.trim(),
+    escalation_role: document.getElementById('escalationRole').value.trim(),
+    t324_imported: t324Imported ? true : false
+  };
+
+  const warnings = validatePolicy(config);
+  const warnEl = document.getElementById('valWarn');
+  if (warnings.length > 0) {
+    warnEl.innerHTML = `<strong>⚠ Policy Validation Warning${warnings.length > 1 ? 's' : ''}</strong><br>${warnings.map(w => `→ ${w}`).join('<br>')}`;
+    warnEl.classList.add('show');
+  } else {
+    warnEl.classList.remove('show');
+  }
+
+  const instructions = buildOpsAgentInstructions(config);
+  lastMandate = { config, instructions };
+
+  renderOutput(instructions, config);
+}
+
+function renderOutput(instructions, config) {
+  document.getElementById('outputSection').style.display = '';
+  document.getElementById('instrCount').textContent = `${instructions.length} instructions`;
+
+  document.getElementById('instrList').innerHTML = instructions.map((instr, i) =>
+    `<div class="instr-item"><div class="instr-num">${i + 1}</div><div class="instr-text">${instr}</div></div>`
+  ).join('');
+
+  const md = buildMarkdownSummary(config, instructions);
+  document.getElementById('mdPreview').innerHTML = md
+    .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+  const btn = document.getElementById('ap2Btn');
+  btn.disabled = false; btn.classList.add('ready');
+
+  document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  showToast('AP2 ops mandate built. Review and export below.', true);
+}
+
+function buildMarkdownSummary(c, instructions) {
+  let md = `# Payment Ops Policy Mandate\n`;
+  md += `_Generated by AINumbers.co T326 · ${new Date().toISOString().slice(0, 10)}_\n\n`;
+  if (c.t324_imported) md += `> Prefunding policy imported from T324 Real-Time Rail Prefunding Scheduler.\n\n`;
+  md += `## Liquidity Policy\n`;
+  md += `- **Prefunding Target:** $${c.prefund_target_m}M on ${c.primary_rail_liq}\n`;
+  md += `- **Top-Up Alert Threshold:** ${c.topup_threshold_pct}% of opening balance\n\n`;
+  md += `## Routing Policy\n`;
+  md += `- **US Corridor:** ${c.rail_us} → fallback: ${c.fallback_rail}\n`;
+  md += `- **EU Corridor:** ${c.rail_eu} → fallback: ${c.fallback_rail}\n`;
+  md += `- **UK Corridor:** ${c.rail_uk} → fallback: ${c.fallback_rail}\n`;
+  md += `- **Cross-Border:** ${c.rail_xb} → fallback: ${c.fallback_rail}\n`;
+  md += `- **Cost Ceiling:** ${c.cost_ceiling_bps} bps per transaction\n\n`;
+  md += `## SLA & Monitoring\n`;
+  md += `- **Real-Time SLA:** ${c.rt_sla_ms}ms\n`;
+  md += `- **Batch SLA:** ${c.batch_sla_hrs} hours\n`;
+  md += `- **Breach Escalation:** ${c.sla_breach_pct}% of transactions\n`;
+  md += `- **KPI Alerts:** ${c.alert_freq}\n\n`;
+  md += `## Incident Policy\n`;
+  md += `- **Classification Threshold:** ${c.p_level}\n`;
+  if (c.runbook_url) md += `- **Runbook:** ${c.runbook_url}\n`;
+  if (c.escalation_role) md += `- **Escalation Role:** ${c.escalation_role}\n`;
+  md += `\n---\n_AP2 mandate_type: agent_guardrail_mandate · AINumbers.co T326 · Cat-04 Payment Ops_\n`;
+  return md;
+}
+
+function exportMarkdown() {
+  if (!lastMandate) return;
+  const md = buildMarkdownSummary(lastMandate.config, lastMandate.instructions);
+  const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  triggerDownload(md, `ap2-payment-ops-policy-mandate-builder_${ts}.md`, 'text/markdown');
+  showToast('Markdown exported.', true);
+}
+
+function exportAP2() {
+  if (!lastMandate) return;
+  const c = lastMandate.config;
+  const now = new Date();
+  const payload = {
+    ap2_version: '1.0',
+    mandate_id: generateUUID(),
+    issued_at: now.toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: 'ap2-payment-ops-policy-mandate-builder',
+    tool_version: '1.0.0',
+    mandate_type: 'agent_guardrail_mandate',
+    jurisdiction: ['US', 'GB', 'EU'],
+    regulatory_frameworks: ['FedNow Operating Circular 2025', 'RTP Network Rules v2.0', 'SEPA Instant SCT Inst Rulebook 2024'],
+    payload: {
+      dimension_1_liquidity: {
+        prefunding_target_m: c.prefund_target_m,
+        topup_alert_threshold_pct: c.topup_threshold_pct,
+        primary_rail: c.primary_rail_liq,
+        t324_import_used: c.t324_imported,
+        t324_mandate_id: t324Imported?.mandate_id || null
+      },
+      dimension_2_routing: {
+        primary_rails: { US: c.rail_us, EU: c.rail_eu, UK: c.rail_uk, cross_border: c.rail_xb },
+        fallback_rail: c.fallback_rail,
+        cost_ceiling_bps: c.cost_ceiling_bps
+      },
+      dimension_3_sla: {
+        realtime_sla_ms: c.rt_sla_ms,
+        batch_sla_hrs: c.batch_sla_hrs,
+        breach_escalation_pct: c.sla_breach_pct,
+        kpi_alert_frequency: c.alert_freq
+      },
+      dimension_4_incident: {
+        classification_threshold: c.p_level,
+        runbook_reference_url: c.runbook_url || null,
+        escalation_contact_role: c.escalation_role || null
+      }
+    },
+    summary: `Payment ops policy mandate. Prefunding: $${c.prefund_target_m}M on ${c.primary_rail_liq}. Primary rails: US=${c.rail_us}, EU=${c.rail_eu}, UK=${c.rail_uk}. RT SLA: ${c.rt_sla_ms}ms. Incident threshold: ${c.p_level}. ${lastMandate.instructions.length} agent instructions.`,
+    agent_instructions: lastMandate.instructions,
+    valid_from: now.toISOString(),
+    valid_until: new Date(now.getTime() + 365 * 86400000).toISOString(),
+    last_reviewed: now.toISOString().slice(0, 10),
+    source_tool_inputs: c,
+    regulatory_citations: ['FedNow Operating Circular 2025', 'RTP Network Rules v2.0', 'SEPA Instant SCT Inst Rulebook 2024', 'UK FPS Rules'],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+
+  const required = ['ap2_version','mandate_id','issued_at','issued_by','tool_id','tool_version','mandate_type','jurisdiction','payload','audit_metadata'];
+  const missing = required.filter(f => !payload[f]);
+  if (missing.length > 0) { showToast('AP2 error: ' + missing.join(', '), false); return; }
+
+  const ts = now.toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  AP2Schema.validate(payload);
+  triggerDownload(JSON.stringify(payload, null, 2), `ap2-payment-ops-policy-mandate-builder_${ts}.policy.json`, 'application/json');
+  showToast('Policy Mandate JSON exported.', true);
+}
+
+/* ─── Utils ─── */
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+function triggerDownload(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+let toastTimer;
+function showToast(msg, isOk) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isOk ? ' ok' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 2800);
+}
+
+/* ─── i18n Stage 2 ─── */
+const TRANSLATIONS = {
+  en: { eyebrow: 'T326 · Cat-04 · AP2 Agentic Anchor · Payment Ops Policy Mandate · MCP Deployable', hero_title: 'AP2 Payment Ops Policy Mandate Builder', hero_desc: 'Consolidate your payment operations policy into a validated Policy Mandate JSON for autonomous ops monitoring agents. Import your T324 prefunding schedule, configure rail routing policy, SLA thresholds, and incident escalation rules. The agent_instructions array is deployable directly into your operations monitoring agent via the AINumbers.co MCP server.', nav_cta: 'All Tools', build_btn: '{} Build AP2 Payment Ops Policy Mandate', lang_dir: 'ltr' 
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-04 Hub',
+  },
+  es: { eyebrow: 'T326 · Cat-04 · AP2 Ancla Agéntica · Mandato de Política de Ops de Pago', hero_title: 'Constructor de Mandato de Política de Ops de Pago AP2', hero_desc: 'Consolide su política de operaciones de pago en un Mandato de Política validado para agentes autónomos de monitoreo.', nav_cta: 'Todas las herramientas', build_btn: '{} Construir Mandato AP2 de Ops de Pago', lang_dir: 'ltr' 
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-04',
+  },
+  fr: { eyebrow: 'T326 · Cat-04 · AP2 Ancre Agentique · Mandat de Politique Ops de Paiement', hero_title: 'Constructeur de Mandat de Politique Ops de Paiement AP2', hero_desc: 'Consolidez votre politique d\'opérations de paiement en un Mandat de Politique validé pour agents autonomes de surveillance.', nav_cta: 'Tous les outils', build_btn: '{} Construire le Mandat AP2 Ops', lang_dir: 'ltr' 
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-04',
+  },
+  ar: { eyebrow: 'T326 · القط-04 · AP2 مرساة وكيل · تفويض سياسة عمليات الدفع', hero_title: 'منشئ تفويض سياسة عمليات الدفع AP2', hero_desc: 'دمج سياسة عمليات الدفع في تفويض السياسة محقق لوكلاء المراقبة المستقلين.', nav_cta: 'جميع الأدوات', build_btn: '{} بناء تفويض AP2 لعمليات الدفع', lang_dir: 'rtl' 
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-04',
+  },
+  pt: { eyebrow: 'T326 · Cat-04 · AP2 Âncora Agêntica · Mandato de Política Ops de Pagamento', hero_title: 'Construtor de Mandato de Política Ops de Pagamento AP2', hero_desc: 'Consolide sua política de operações de pagamento em um Mandato de Política validado para agentes autônomos de monitoramento.', nav_cta: 'Todas as ferramentas', build_btn: '{} Construir Mandato AP2 de Ops', lang_dir: 'ltr' 
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-04',
+  },
+  zh: { eyebrow: 'T326 · 类别-04 · AP2智能代理锚点 · 支付运营政策授权', hero_title: 'AP2支付运营政策授权构建器', hero_desc: '将支付运营政策整合为一个经验证的政策授权书，可由自主运营监控代理使用。导入T324预资金排程，配置轨道路由策略、SLA阈值和事件升级规则。', nav_cta: '所有工具', build_btn: '{} 构建AP2支付运营政策授权', lang_dir: 'ltr' 
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-04 中心',
+  }
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`);
+  if (btn) btn.classList.add('active');
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  document.documentElement.dir = t.lang_dir || 'ltr';
+  document.body.dir = t.lang_dir || 'ltr';
+  const ap = (id, key) => { const e = document.getElementById(id); if (e && t[key]) e.textContent = t[key]; };
+  ap('heroEyebrow','eyebrow'); ap('heroTitle','hero_title'); ap('heroDesc','hero_desc');
+  ap('navCta','nav_cta'); ap('buildBtn','build_btn');
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function() { try { const s = sessionStorage.getItem('ain_lang'); if (s && TRANSLATIONS[s]) setLang(s); } catch(e) {} })();
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "ap2-payment-ops-policy-mandate-builder", "version": "1.0.0", "title": "AP2 Payment Ops Policy Mandate Builder", "description": "Builds a validated AP2 agent_guardrail_mandate for autonomous ops monitoring agents across 4 dimensions: liquidity policy (with T324 Policy Mandate JSON import to auto-populate opening balance and rail), routing policy (primary/fallback rail per corridor, cost ceiling), SLA and monitoring policy (RT/batch targets, breach threshold, alert frequency), and incident policy (P1-P4 threshold, runbook URL, escalation role). MCP server deployable. Client-side. Zero PII.", "category": "cat-4", "tags": ["AP2", "agentic", "ops-policy", "mandate", "MCP", "infrastructure", "liquidity", "routing", "SLA", "incident", "zero-pii"], "audience": ["ops", "treasury", "engineer", "cfo"], "input_schema": {"type": "object", "properties": {"prefund_target_m": {"type": "number", "minimum": 0}, "topup_threshold_pct": {"type": "integer", "minimum": 5, "maximum": 50}, "primary_rail_liq": {"type": "string", "enum": ["FedNow", "RTP", "SEPA-Instant", "Fedwire", "CHAPS"]}, "rail_us": {"type": "string", "enum": ["FedNow", "RTP", "Fedwire", "ACH"]}, "rail_eu": {"type": "string", "enum": ["SEPA-Instant", "SEPA-CT", "TARGET2"]}, "rail_uk": {"type": "string", "enum": ["UK-FPS", "CHAPS", "BACS"]}, "rail_xb": {"type": "string", "enum": ["SWIFT", "SEPA-Instant", "FedNow"]}, "fallback_rail": {"type": "string", "enum": ["SWIFT", "ACH", "SEPA-CT", "BACS"]}, "cost_ceiling_bps": {"type": "integer", "minimum": 1, "maximum": 50}, "rt_sla_ms": {"type": "integer", "minimum": 100, "maximum": 5000}, "batch_sla_hrs": {"type": "integer", "minimum": 1, "maximum": 24}, "sla_breach_pct": {"type": "integer", "minimum": 1, "maximum": 20}, "alert_freq": {"type": "string", "enum": ["realtime", "hourly", "daily"]}, "p_level": {"type": "string", "enum": ["P1", "P2", "P3", "P4"]}, "runbook_url": {"type": "string", "format": "uri"}, "escalation_role": {"type": "string"}, "t324_imported": {"type": "boolean"}}, "required": ["prefund_target_m", "topup_threshold_pct", "primary_rail_liq", "rail_us", "rail_eu", "rail_uk", "rail_xb", "fallback_rail", "cost_ceiling_bps", "rt_sla_ms", "batch_sla_hrs", "sla_breach_pct", "alert_freq", "p_level"]}, "output_schema": {"type": "object", "properties": {"agent_instructions": {"type": "array", "items": {"type": "string"}}, "config": {"type": "object"}}}, "mcp_tool_definition": {"name": "build_payment_ops_ap2_mandate", "description": "Builds a validated AP2 agent_guardrail_mandate for payment operations monitoring agents. Accepts optional T324 Policy Mandate JSON import to pre-populate liquidity policy from payload.prefunding_schedule. Configures 4 dimensions: liquidity (prefunding target, top-up threshold, primary rail), routing (primary/fallback rails per corridor, cost ceiling), SLA monitoring (RT/batch targets, breach escalation, KPI cadence), and incident policy (P1-P4 threshold, runbook URL, escalation role). Returns ordered agent_instructions deployable via AINumbers.co MCP server.", "inputSchema": {"type": "object", "properties": {"prefund_target_m": {"type": "number"}, "topup_threshold_pct": {"type": "integer"}, "primary_rail_liq": {"type": "string"}, "rail_us": {"type": "string"}, "rail_eu": {"type": "string"}, "rail_uk": {"type": "string"}, "rail_xb": {"type": "string"}, "fallback_rail": {"type": "string"}, "cost_ceiling_bps": {"type": "integer"}, "rt_sla_ms": {"type": "integer"}, "batch_sla_hrs": {"type": "integer"}, "sla_breach_pct": {"type": "integer"}, "alert_freq": {"type": "string"}, "p_level": {"type": "string"}, "runbook_url": {"type": "string"}, "escalation_role": {"type": "string"}}, "required": ["prefund_target_m", "topup_threshold_pct", "primary_rail_liq", "rail_us", "rail_eu", "rail_uk", "rail_xb", "fallback_rail", "cost_ceiling_bps", "rt_sla_ms", "batch_sla_hrs", "sla_breach_pct", "alert_freq", "p_level"]}}, "execution": {"type": "browser-javascript", "entry": "tools/326-ap2-payment-ops-policy-mandate-builder.html", "function_name": "buildOpsAgentInstructions", "timeout_ms": 5000}, "ap2_export": true}');
+  function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Three-Fund Portfolio Builder · pf-134 · AINumbers.co</title>
+<meta name="description" content="Build a three-fund lazy portfolio with Vanguard, Fidelity, or Schwab funds. Risk-based presets, custom allocation sliders, 40-year projection, expense ratio impact, and rebalancing guide. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/pf-134-three-fund-portfolio-builder.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Three-Fund Portfolio Builder","url":"https://ainumbers.co/tools/pf-134-three-fund-portfolio-builder.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "three-fund-portfolio-builder",
+  "version": "1.0.0",
+  "title": "Three-Fund Portfolio Builder",
+  "description": "Builds a three-fund lazy portfolio using Vanguard, Fidelity, or Schwab funds with risk-based presets, custom allocation sliders, 40-year projection, and rebalancing guide.",
+  "category": "cat-13",
+  "tags": ["three-fund","lazy portfolio","index fund","Vanguard","Fidelity","Schwab","FIRE","allocation"],
+  "audience": ["investor","FIRE","retail","advisor"],
+  "input_schema": {"type":"object","properties":{"provider":{"type":"string"},"us_equity":{"type":"number"},"international":{"type":"number"},"bonds":{"type":"number"},"balance":{"type":"number"},"monthly_contribution":{"type":"number"}},"required":["provider","us_equity"]},
+  "output_schema": {"type":"object","properties":{"projected_value":{"type":"number"},"expense_ratio":{"type":"number"},"memo":{"type":"string"}}},
+  "mcp_tool_definition": {"name":"build_three_fund_portfolio","description":"Builds a three-fund portfolio and projects 40-year growth with expense ratio impact.","inputSchema":{"type":"object","properties":{"provider":{"type":"string","enum":["vanguard","fidelity","schwab"]},"us_equity":{"type":"number"},"balance":{"type":"number"},"monthly_contribution":{"type":"number"}},"required":["provider"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/pf-134-three-fund-portfolio-builder.html","function_name":"buildPortfolio","timeout_ms":2000},
+  "ap2_export": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px;--accent:var(--teal);--accent-dim:var(--teal-dim);--accent-lt:var(--teal-lt);--surface:var(--bg-2);--card:var(--bg-3)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+[dir=rtl] .lang-inner{justify-content:flex-start}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;z-index:101;position:relative}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--accent);color:var(--accent)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--accent)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--accent)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--accent)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.badge-plain{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1.25rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+/* AIN-canon-2026-05-17 */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:600px){.grid-2{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px}
+.card-title{font-family:'DM Serif Display',serif;font-size:17px;color:#fff;margin-bottom:18px}
+label{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px}
+input[type=number],input[type=text],select{width:100%;background:#0d1928;border:1px solid var(--border);color:var(--text);font-family:'Sora',sans-serif;font-size:14px;padding:9px 12px;border-radius:8px;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--accent)}
+.form-group{margin-bottom:14px}
+.field-hint{font-size:11px;color:var(--muted);margin-top:4px}
+input[type=range]{width:100%;accent-color:var(--accent);margin:4px 0}
+.pill-group{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.pill-group label{display:flex;align-items:center;gap:6px;background:#0d1928;border:1px solid var(--border);border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;font-weight:400;color:var(--text);text-transform:none;letter-spacing:0;transition:all .2s;white-space:nowrap}
+.pill-group input{accent-color:var(--accent)}
+.pill-group label:has(input:checked){border-color:var(--accent);background:rgba(20,184,166,.10);color:var(--accent)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 24px;border-radius:8px;font-family:'Sora',sans-serif;font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{filter:brightness(1.1)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+#results{display:none}
+/* fund cards */
+.fund-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px}
+@media(max-width:600px){.fund-row{grid-template-columns:1fr}}
+.fund-card{background:#0d1928;border:1px solid var(--border);border-radius:12px;padding:16px}
+.fund-pct{font-family:'DM Serif Display',serif;font-size:32px;color:var(--accent)}
+.fund-name{font-weight:600;color:#fff;font-size:14px;margin-top:2px}
+.fund-ticker{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);margin-top:2px}
+.fund-amount{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--green);margin-top:6px}
+.fund-er{font-size:11px;color:var(--muted);margin-top:4px}
+/* allocation bar */
+.alloc-bar{display:flex;height:20px;border-radius:8px;overflow:hidden;margin-bottom:20px}
+.alloc-seg{height:100%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;transition:flex .4s}
+/* projection table */
+.proj-table{width:100%;border-collapse:collapse;font-size:13px}
+.proj-table th{background:#0d1928;color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.7px;padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
+.proj-table td{padding:8px 10px;border-bottom:1px solid rgba(30,48,72,.5);font-family:'JetBrains Mono',monospace}
+.proj-table tr:hover td{background:rgba(20,184,166,.03)}
+/* metric row */
+.metric-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:20px}
+.metric-card{background:#0d1928;border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+.metric-val{font-family:'DM Serif Display',serif;font-size:22px;color:var(--accent)}
+.metric-val.green{color:var(--green)}.metric-val.gold{color:var(--gold)}
+.metric-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-top:4px}
+/* rebalance */
+.rebal-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(30,48,72,.4);font-size:13px}
+.rebal-item:last-child{border-bottom:none}
+/* disclaimer */
+.disclaimer{background:rgba(212,168,71,.07);border:1px solid rgba(212,168,71,.2);border-radius:8px;padding:12px 16px;font-size:12px;color:#94a3b8;margin-bottom:20px}
+.cite-list li{font-size:12px;color:var(--muted);margin-bottom:4px;list-style:none;padding-left:22px;position:relative}
+.cite-list li::before{content:attr(data-n);position:absolute;left:0;color:var(--accent);font-weight:700}
+.results-export-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px;padding-top:20px;border-top:1px solid var(--border)}
+#memo-out{display:none;background:#0a1220;border:1px solid var(--border);border-radius:8px;padding:16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#94a3b8;white-space:pre-wrap;word-break:break-word;max-height:420px;overflow-y:auto;margin-top:16px}
+#mcp-panel{display:none;background:#0a1220;border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#94a3b8;white-space:pre}
+.mcp-toggle{background:none;border:1px solid var(--border);color:var(--muted);font-size:11px;padding:4px 12px;border-radius:4px;cursor:pointer;font-family:'Sora',sans-serif}
+.mcp-toggle:hover{border-color:var(--accent);color:var(--accent)}
+</style>
+</head>
+<body>
+
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/pf-hub.html">Personal Finance Hub</a><span class="nav-sep">/</span><span>pf-134</span></div>
+  <a href="../guides/pf-hub.html" class="nav-cta">Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-13 · pf-134 · Personal Finance &amp; FIRE</div>
+  <h1>Three-Fund Portfolio <em>Builder</em></h1>
+  <p class="hero-desc">Build a lazy three-fund portfolio with Vanguard, Fidelity, or Schwab funds. Choose from risk-based presets or set custom allocations. Projects 40-year growth, shows expense ratio drag, and provides a rebalancing guide. Client-side. Zero PII.</p>
+  <div class="hero-badges">
+    <span class="badge badge-plain badge-teal">Index Funds</span>
+    <span class="badge badge-plain badge-gold">40-Year Projection</span>
+    <span class="badge badge-plain badge-green">Zero PII</span>
+    <span class="badge badge-plain badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+<div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="disclaimer">
+    ⚠️ <strong>Educational purposes only.</strong> Past returns are not indicative of future results. This tool uses historical averages for illustration only. Consult a qualified financial advisor before making investment decisions.
+  </div>
+
+  <!-- Portfolio Setup -->
+  <div class="card">
+    <div class="card-title">💼 <span data-i18n="setup_title">Portfolio Setup</span></div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label data-i18n="lbl_balance">Current Portfolio Balance ($)</label>
+        <input type="number" id="balance" value="50000" min="0"/>
+      </div>
+      <div class="form-group">
+        <label data-i18n="lbl_monthly">Monthly Contribution ($)</label>
+        <input type="number" id="monthly" value="500" min="0"/>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label data-i18n="lbl_horizon">Investment Horizon (years)</label>
+        <input type="number" id="horizon" value="30" min="1" max="50"/>
+      </div>
+      <div class="form-group">
+        <label data-i18n="lbl_account">Account Type</label>
+        <select id="accountType">
+          <option value="taxable">Taxable Brokerage</option>
+          <option value="roth">Roth IRA / Roth 401(k)</option>
+          <option value="trad">Traditional IRA / 401(k)</option>
+          <option value="hsa">HSA</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label data-i18n="lbl_provider">Fund Provider</label>
+      <div class="pill-group">
+        <label><input type="radio" name="provider" value="vanguard" checked/> Vanguard</label>
+        <label><input type="radio" name="provider" value="fidelity"/> Fidelity</label>
+        <label><input type="radio" name="provider" value="schwab"/> Schwab</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Allocation -->
+  <div class="card">
+    <div class="card-title">📊 <span data-i18n="alloc_title">Asset Allocation</span></div>
+
+    <div class="form-group">
+      <label data-i18n="lbl_risk">Risk Profile</label>
+      <div class="pill-group">
+        <label><input type="radio" name="risk" value="conservative"/> <span data-i18n="conservative">Conservative (20/10/70)</span></label>
+        <label><input type="radio" name="risk" value="moderate" checked/> <span data-i18n="moderate">Moderate (50/30/20)</span></label>
+        <label><input type="radio" name="risk" value="aggressive"/> <span data-i18n="aggressive">Aggressive (60/30/10)</span></label>
+        <label><input type="radio" name="risk" value="equity_heavy"/> <span data-i18n="equity_heavy">Equity Heavy (70/20/10)</span></label>
+        <label><input type="radio" name="risk" value="custom"/> <span data-i18n="custom">Custom</span></label>
+      </div>
+    </div>
+
+    <div id="customSliders" style="display:none">
+      <div class="form-group">
+        <label>US Total Market: <span id="usPctLabel">60</span>%</label>
+        <input type="range" id="usSlider" min="0" max="100" value="60" oninput="syncSliders('us')"/>
+      </div>
+      <div class="form-group">
+        <label>International: <span id="intlPctLabel">30</span>%</label>
+        <input type="range" id="intlSlider" min="0" max="100" value="30" oninput="syncSliders('intl')"/>
+      </div>
+      <div class="form-group">
+        <label>Bonds: <span id="bondPctLabel">10</span>%</label>
+        <input type="range" id="bondSlider" min="0" max="100" value="10" oninput="syncSliders('bond')"/>
+      </div>
+      <div id="sliderTotal" style="font-size:12px;color:var(--muted);text-align:right"></div>
+    </div>
+
+    <div class="form-group" style="margin-top:8px">
+      <label data-i18n="lbl_rebal">Rebalancing Frequency</label>
+      <div class="pill-group">
+        <label><input type="radio" name="rebal" value="annual" checked/> <span data-i18n="annual">Annual</span></label>
+        <label><input type="radio" name="rebal" value="quarterly"/> <span data-i18n="quarterly">Quarterly</span></label>
+        <label><input type="radio" name="rebal" value="threshold"/> <span data-i18n="threshold">5% Drift Threshold</span></label>
+        <label><input type="radio" name="rebal" value="never"/> <span data-i18n="never">Never</span></label>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label data-i18n="lbl_inflation">Expected Inflation Rate (%)</label>
+      <input type="number" id="inflRate" value="3.0" min="0" max="20" step="0.1"/>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-bottom:28px">
+    <button class="btn btn-primary" onclick="buildPortfolio()" data-i18n="build_btn">🏗️ Build Portfolio</button>
+  </div>
+
+  <!-- Results -->
+  <div id="results">
+
+    <!-- Fund Allocation Cards -->
+    <div class="card">
+      <div class="card-title">🏦 <span data-i18n="funds_title">Your Three Funds</span></div>
+      <div class="alloc-bar" id="allocBar"></div>
+      <div class="fund-row" id="fundCards"></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px" id="erLine"></div>
+    </div>
+
+    <!-- Projection Metrics -->
+    <div class="card">
+      <div class="card-title">📈 <span data-i18n="proj_title">Growth Projection</span></div>
+      <div class="metric-row" id="projMetrics"></div>
+      <div style="overflow-x:auto;margin-top:12px">
+        <table class="proj-table">
+          <thead>
+            <tr>
+              <th data-i18n="th_year">Year</th>
+              <th data-i18n="th_contrib">Contributed ($)</th>
+              <th data-i18n="th_nom_val">Nominal Value ($)</th>
+              <th data-i18n="th_real_val">Real Value (today $)</th>
+              <th data-i18n="th_gain">Total Gain ($)</th>
+            </tr>
+          </thead>
+          <tbody id="projBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Rebalancing Guide -->
+    <div class="card">
+      <div class="card-title">🔄 <span data-i18n="rebal_title">Rebalancing Guide</span></div>
+      <div id="rebalGuide"></div>
+    </div>
+
+    <!-- References -->
+    <div class="card">
+      <div class="card-title">📚 <span data-i18n="ref_title">References</span></div>
+      <ul class="cite-list">
+        <li data-n="[1]">Bogle, J.C. "The Little Book of Common Sense Investing," 2007 — three-fund passive portfolio philosophy.</li>
+        <li data-n="[2]">Vanguard Research, "Vanguard's Framework for Constructing Diversified Portfolios," 2019.</li>
+        <li data-n="[3]">Fama, E.F. &amp; French, K.R. "Common risk factors in the returns on stocks and bonds," JFE, 1993.</li>
+        <li data-n="[4]">Morningstar, "Expense Ratio Data — Broad-Market Index Funds," 2024 avg: VTI 0.03%, VXUS 0.07%, BND 0.03%.</li>
+        <li data-n="[5]">Siegel, J. "Stocks for the Long Run," 8th ed. 2023 — long-run US equity real return ~6.7% p.a.</li>
+      </ul>
+    </div>
+
+    <div class="results-export-row">
+      <button class="btn btn-ghost" onclick="copyMemo()" data-i18n="export_md">📋 Copy Memo</button>
+    </div>
+    <div id="memo-out"></div>
+  </div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+  <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+</section>
+
+</div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html" data-i18n="footer.alltools">All Tools</a>
+      <a href="../guides/pf-hub.html" data-i18n="footer.hub">Personal Finance Hub</a>
+      <a href="../sitemap.html" data-i18n="footer.sitemap">Sitemap</a>
+      <a href="../contact.html" data-i18n="footer.contact">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span>
+      <span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+var TRANSLATIONS={
+  en:{tag:"Personal Finance · Portfolio · pf-134",h1:"Three-Fund Portfolio Builder",sub:"Build a Bogleheads-style three-fund index portfolio sized to your risk tolerance and time horizon.",setup_title:"Portfolio Setup",lbl_balance:"Current Portfolio Balance ($)",lbl_monthly:"Monthly Contribution ($)",lbl_horizon:"Investment Horizon (years)",lbl_account:"Account Type",lbl_provider:"Fund Provider",alloc_title:"Asset Allocation",lbl_risk:"Risk Profile",conservative:"Conservative (20/10/70)",moderate:"Moderate (50/30/20)",aggressive:"Aggressive (60/30/10)",equity_heavy:"Equity Heavy (70/20/10)",custom:"Custom",lbl_rebal:"Rebalancing Frequency",annual:"Annual",quarterly:"Quarterly",threshold:"5% Drift Threshold",never:"Never",lbl_inflation:"Expected Inflation Rate (%)",build_btn:"🏗️ Build Portfolio",funds_title:"Your Three Funds",proj_title:"Growth Projection",th_year:"Year",th_contrib:"Contributed ($)",th_nom_val:"Nominal Value ($)",th_real_val:"Real Value (today $)",th_gain:"Total Gain ($)",rebal_title:"Rebalancing Guide",ref_title:"References",export_md:"📋 Copy Memo",nav_home:"Home",nav_hub:"Personal Finance Hub"},
+  es:{tag:"Finanzas · Cartera · pf-134",h1:"Constructor de Cartera de Tres Fondos",sub:"Construya una cartera de índice de tres fondos al estilo Bogleheads.",build_btn:"🏗️ Construir Cartera",export_md:"📋 Copiar Memo"},
+  fr:{tag:"Finance · Portefeuille · pf-134",h1:"Constructeur de Portefeuille à Trois Fonds",sub:"Construisez un portefeuille indiciel à trois fonds de style Bogleheads.",build_btn:"🏗️ Construire le Portefeuille",export_md:"📋 Copier le Mémo"},
+  ar:{tag:"مالية · محفظة · pf-134",h1:"بناء محفظة الصناديق الثلاثة",sub:"ابنِ محفظة مؤشر من ثلاثة صناديق على غرار Bogleheads.",build_btn:"🏗️ بناء المحفظة",export_md:"📋 نسخ المذكرة"},
+  pt:{tag:"Finanças · Carteira · pf-134",h1:"Construtor de Carteira de Três Fundos",sub:"Construa uma carteira de índice de três fundos ao estilo Bogleheads.",build_btn:"🏗️ Construir Carteira",export_md:"📋 Copiar Memo"},
+  zh:{tag:"个人理财 · 组合 · pf-134",h1:"三基金投资组合构建器",sub:"构建Bogleheads风格的三基金指数投资组合——美国全市场、国际和债券。",build_btn:"🏗️ 构建投资组合",export_md:"📋 复制备忘录"}
+};
+var currentLang='en';
+function setLang(l){
+  currentLang=l;sessionStorage.setItem('ain_lang',l);
+  document.documentElement.lang=l;document.documentElement.dir=(l==='ar')?'rtl':'ltr';
+  var d=TRANSLATIONS[l]||TRANSLATIONS['en'];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var k=el.getAttribute('data-i18n');
+    if(d[k])el.textContent=d[k];else if(TRANSLATIONS['en'][k])el.textContent=TRANSLATIONS['en'][k];
+  });
+  document.querySelectorAll('.lang-btn').forEach(function(b){
+    b.classList.toggle('active',b.getAttribute('data-lang')===l);
+  });
+}
+(function(){setLang(sessionStorage.getItem('ain_lang')||'en');})();
+
+/* ── risk presets ── */
+var PRESETS={
+  conservative:{us:20,intl:10,bond:70},
+  moderate:{us:50,intl:30,bond:20},
+  aggressive:{us:60,intl:30,bond:10},
+  equity_heavy:{us:70,intl:20,bond:10}
+};
+
+document.querySelectorAll('input[name=risk]').forEach(function(r){
+  r.addEventListener('change',function(){
+    var isCustom=r.value==='custom';
+    document.getElementById('customSliders').style.display=isCustom?'block':'none';
+  });
+});
+
+function syncSliders(changed){
+  var us=parseInt(document.getElementById('usSlider').value);
+  var intl=parseInt(document.getElementById('intlSlider').value);
+  var bond=parseInt(document.getElementById('bondSlider').value);
+  var total=us+intl+bond;
+  document.getElementById('usPctLabel').textContent=us;
+  document.getElementById('intlPctLabel').textContent=intl;
+  document.getElementById('bondPctLabel').textContent=bond;
+  var c=total===100?'var(--green)':total>100?'var(--red)':'var(--gold)';
+  document.getElementById('sliderTotal').innerHTML='Total: <strong style="color:'+c+'">'+total+'%</strong>'+(total!==100?' (must sum to 100%)':'');
+}
+
+/* ── fund data ── */
+var FUNDS={
+  vanguard:{
+    us:{name:'Vanguard Total Stock Market',ticker:'VTI',er:0.03,ret:10.2},
+    intl:{name:'Vanguard Total Intl Stock',ticker:'VXUS',er:0.07,ret:7.5},
+    bond:{name:'Vanguard Total Bond Market',ticker:'BND',er:0.03,ret:4.2}
+  },
+  fidelity:{
+    us:{name:'Fidelity ZERO Total Market',ticker:'FZROX',er:0.0,ret:10.2},
+    intl:{name:'Fidelity ZERO Intl Index',ticker:'FZILX',er:0.0,ret:7.5},
+    bond:{name:'Fidelity US Bond Index',ticker:'FXNAX',er:0.025,ret:4.2}
+  },
+  schwab:{
+    us:{name:'Schwab Total Stock Market',ticker:'SWTSX',er:0.03,ret:10.2},
+    intl:{name:'Schwab Intl Equity ETF',ticker:'SCHF',er:0.06,ret:7.5},
+    bond:{name:'Schwab US Aggregate Bond',ticker:'SCHZ',er:0.03,ret:4.2}
+  }
+};
+
+function fmt(n){return '$'+Math.round(n).toLocaleString();}
+function fmtK(n){
+  if(n>=1e6)return '$'+(n/1e6).toFixed(2)+'M';
+  if(n>=1e3)return '$'+(n/1e3).toFixed(0)+'K';
+  return '$'+n.toFixed(0);
+}
+
+function buildPortfolio(){
+  var balance=parseFloat(document.getElementById('balance').value)||0;
+  var monthly=parseFloat(document.getElementById('monthly').value)||0;
+  var horizon=parseInt(document.getElementById('horizon').value)||30;
+  var provider=document.querySelector('input[name=provider]:checked').value;
+  var risk=document.querySelector('input[name=risk]:checked').value;
+  var rebal=document.querySelector('input[name=rebal]:checked').value;
+  var inflRate=parseFloat(document.getElementById('inflRate').value)||3;
+
+  var alloc;
+  if(risk==='custom'){
+    alloc={us:parseInt(document.getElementById('usSlider').value),intl:parseInt(document.getElementById('intlSlider').value),bond:parseInt(document.getElementById('bondSlider').value)};
+    if(alloc.us+alloc.intl+alloc.bond!==100){alert('Custom allocation must sum to 100%.');return;}
+  } else {
+    alloc=PRESETS[risk];
+  }
+
+  var funds=FUNDS[provider];
+  var usAmt=balance*alloc.us/100;
+  var intlAmt=balance*alloc.intl/100;
+  var bondAmt=balance*alloc.bond/100;
+
+  /* blended return & expense */
+  var blendedRet=(alloc.us/100*funds.us.ret)+(alloc.intl/100*funds.intl.ret)+(alloc.bond/100*funds.bond.ret);
+  var blendedER=(alloc.us/100*funds.us.er)+(alloc.intl/100*funds.intl.er)+(alloc.bond/100*funds.bond.er);
+  var netRet=blendedRet-blendedER;
+
+  /* allocation bar */
+  document.getElementById('allocBar').innerHTML=
+    '<div class="alloc-seg" style="flex:'+(alloc.us/100)+';background:var(--teal)">'+(alloc.us>8?alloc.us+'% US':'')+'</div>'+
+    '<div class="alloc-seg" style="flex:'+(alloc.intl/100)+';background:#1a7a6e">'+(alloc.intl>8?alloc.intl+'% Intl':'')+'</div>'+
+    '<div class="alloc-seg" style="flex:'+(alloc.bond/100)+';background:#0d4a44">'+(alloc.bond>8?alloc.bond+'% Bonds':'')+'</div>';
+
+  /* fund cards */
+  var cardData=[
+    {fund:funds.us,pct:alloc.us,amt:usAmt,monthlyAmt:monthly*alloc.us/100},
+    {fund:funds.intl,pct:alloc.intl,amt:intlAmt,monthlyAmt:monthly*alloc.intl/100},
+    {fund:funds.bond,pct:alloc.bond,amt:bondAmt,monthlyAmt:monthly*alloc.bond/100},
+  ];
+  document.getElementById('fundCards').innerHTML=cardData.map(function(c){
+    return '<div class="fund-card">'+
+      '<div class="fund-pct">'+c.pct+'%</div>'+
+      '<div class="fund-name">'+c.fund.name+'</div>'+
+      '<div class="fund-ticker">'+c.fund.ticker+' &nbsp;·&nbsp; ER: '+(c.fund.er===0?'0.00':''+c.fund.er.toFixed(3))+'%</div>'+
+      '<div class="fund-amount">'+fmt(c.amt)+' invested</div>'+
+      '<div class="fund-er">Monthly: '+fmt(c.monthlyAmt)+' &nbsp;·&nbsp; Exp. return: ~'+c.fund.ret+'%/yr</div>'+
+    '</div>';
+  }).join('');
+  document.getElementById('erLine').textContent='B

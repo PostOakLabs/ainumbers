@@ -1,0 +1,129 @@
+{
+  "tool_id": "psr-reimbursement-workflow-builder",
+  "version": "1.0.0",
+  "title": "PSR APP Fraud Reimbursement Operational Workflow Builder",
+  "description": "Generates a step-by-step claim assessment and operational decision workflow for UK PSR mandatory APP fraud reimbursement (October 2024 — PS24/3). Covers £85,000 cap calculation, gross negligence checklist (6 indicators), 50/50 sending/receiving PSP liability split, 5-business-day settlement clock, consumer vulnerability handling, dispute escalation path, and inter-PSP recovery claim. Outputs operational decision playbook, 5-day timeline, and AP2 JSON claims handling mandate. Operational workflow scope only — distinct from Tool 26 (strategic liability modelling). Client-side. Zero PII.",
+  "category": "cat-21",
+  "tags": [
+    "UK PSR",
+    "APP fraud",
+    "authorised push payment",
+    "reimbursement",
+    "PS24/3",
+    "Specific Direction 18",
+    "Faster Payments",
+    "gross negligence",
+    "consumer vulnerability",
+    "PSP liability split",
+    "claims workflow",
+    "AP2",
+    "export",
+    "FOS"
+  ],
+  "audience": ["compliance", "operations", "fraud analyst", "customer service", "BSA officer"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "claim_amount_gbp": {
+        "type": "number",
+        "minimum": 0.01,
+        "description": "Total amount claimed by the consumer as APP fraud loss (£GBP)"
+      },
+      "fraud_type": {
+        "type": "string",
+        "enum": ["purchase", "investment", "romance", "impersonation_bank", "impersonation_police", "impersonation_hmrc", "ceo_mandate", "advance_fee", "other"],
+        "description": "APP fraud / scam typology"
+      },
+      "consumer_vulnerability": {
+        "type": "string",
+        "enum": ["no", "yes", "potential"],
+        "description": "Consumer vulnerability status — confirmed vulnerable consumers receive zero excess and enhanced care"
+      },
+      "account_type": {
+        "type": "string",
+        "enum": ["personal", "business", "charity"]
+      },
+      "sending_psp_type": {
+        "type": "string",
+        "enum": ["bank", "building_society", "emi", "payment_institution"]
+      },
+      "excess_configured_gbp": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "PSP-configured excess amount (£0–£100 maximum per PSR Specific Direction 18)"
+      },
+      "receiving_psp_identified": {
+        "type": "boolean",
+        "description": "Whether the receiving PSP has been identified via FPS transaction records"
+      },
+      "gross_negligence_indicators": {
+        "type": "object",
+        "description": "Assessment of 6 PSR gross negligence indicators — values: 'yes' | 'no' | 'unknown'",
+        "properties": {
+          "ignored_specific_warning":         { "type": "string", "enum": ["yes", "no", "unknown"] },
+          "overrode_payment_block":            { "type": "string", "enum": ["yes", "no", "unknown"] },
+          "shared_credentials_otp":            { "type": "string", "enum": ["yes", "no", "unknown"] },
+          "multiple_payments_despite_warnings":{ "type": "string", "enum": ["yes", "no", "unknown"] },
+          "reported_outside_13_months":        { "type": "string", "enum": ["yes", "no", "unknown"] },
+          "first_party_fraud_indicators":      { "type": "string", "enum": ["yes", "no", "unknown"] }
+        }
+      }
+    },
+    "required": ["claim_amount_gbp", "fraud_type", "consumer_vulnerability", "gross_negligence_indicators"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "decision": {
+        "type": "string",
+        "enum": ["reimburse-full", "reimburse-excess", "refer", "reject"],
+        "description": "Claim outcome decision"
+      },
+      "consumer_reimbursement_gbp": { "type": "number", "description": "Amount to credit to consumer account" },
+      "sending_psp_liability_gbp":  { "type": "number", "description": "Sending PSP net liability (50% of reimbursable)" },
+      "receiving_psp_recovery_gbp": { "type": "number", "description": "Amount recoverable from receiving PSP (50% of reimbursable)" },
+      "psr_cap_applied":            { "type": "boolean" },
+      "excess_applied_gbp":         { "type": "number" },
+      "settlement_deadline_business_days": { "type": "integer" },
+      "playbook_steps":             { "type": "array", "items": { "type": "string" } },
+      "timeline":                   { "type": "array" },
+      "agent_instructions":         { "type": "array", "items": { "type": "string" } },
+      "ap2_mandate":                { "type": "object" }
+    },
+    "required": ["decision", "consumer_reimbursement_gbp", "sending_psp_liability_gbp", "ap2_mandate"]
+  },
+  "mcp_tool_definition": {
+    "name": "build_psr_reimbursement_workflow",
+    "description": "Generates an operational APP fraud reimbursement decision workflow under UK PSR PS24/3 (October 2024). Returns the claim decision (reimburse/refer/reject), consumer reimbursement amount, sending/receiving PSP liability split, 5-business-day settlement timeline, and an AP2 JSON compliance mandate. Use when a PSP operations agent needs to assess a UK Faster Payments APP fraud claim, apply the £85,000 cap, evaluate gross negligence, and generate an operational decision playbook. Distinct from Tool 26 (strategic portfolio-level liability modelling).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "claim_amount_gbp": { "type": "number" },
+        "fraud_type": { "type": "string", "enum": ["purchase","investment","romance","impersonation_bank","impersonation_police","impersonation_hmrc","ceo_mandate","advance_fee","other"] },
+        "consumer_vulnerability": { "type": "string", "enum": ["no","yes","potential"] },
+        "excess_configured_gbp": { "type": "number", "minimum": 0, "maximum": 100 },
+        "receiving_psp_identified": { "type": "boolean" },
+        "gross_negligence_indicators": {
+          "type": "object",
+          "properties": {
+            "ignored_specific_warning":          { "type": "string", "enum": ["yes","no","unknown"] },
+            "overrode_payment_block":             { "type": "string", "enum": ["yes","no","unknown"] },
+            "shared_credentials_otp":             { "type": "string", "enum": ["yes","no","unknown"] },
+            "multiple_payments_despite_warnings": { "type": "string", "enum": ["yes","no","unknown"] },
+            "reported_outside_13_months":         { "type": "string", "enum": ["yes","no","unknown"] },
+            "first_party_fraud_indicators":       { "type": "string", "enum": ["yes","no","unknown"] }
+          }
+        }
+      },
+      "required": ["claim_amount_gbp", "fraud_type", "consumer_vulnerability", "gross_negligence_indicators"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/257-psr-reimbursement-workflow-builder.html",
+    "function_name": "buildPSRReimbursementWorkflow",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true
+}

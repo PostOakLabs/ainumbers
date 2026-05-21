@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>T199 · Financial Covenant Compliance Checker · AINumbers.co</title>
+<meta name="description" content="Input covenant terms and current financial metrics to check compliance and calculate headroom to breach. Covers leverage, interest cover, liquidity, and custom covenants. Stress-test headroom under revenue and margin shocks. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/199-financial-covenant-compliance-checker">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Financial Covenant Compliance Checker","url":"https://ainumbers.co/tools/199-financial-covenant-compliance-checker","description":"Input covenant terms and current financial metrics to check compliance and calculate headroom to breach. Covers leverage, interest cover, liquidity, and custom covenants. Stress-test headroom under revenue and margin shocks. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* Edu disclaimer (canonical §9.3) */
+.edu-disclaimer {
+  border: 1px solid var(--warn);
+  border-left: 3px solid var(--warn);
+  background: rgba(245, 158, 11, 0.06);
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  font-size: 0.76rem;
+  color: var(--body);
+  line-height: 1.7;
+  border-radius: var(--radius);
+}
+.edu-disclaimer-label {
+  display: block;
+  color: var(--warn);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(212,168,71,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(212,168,71,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* RTL */
+[dir="rtl"] .nav-inner{flex-direction:row-reverse}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+[dir="rtl"] .lang-inner{justify-content:flex-start}
+[dir="rtl"] [dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+[dir="rtl"] .run-btn{letter-spacing:0}
+
+/* Lang bar */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+/* Nav */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+/* Hero */
+.hero{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:360px;height:360px;background:radial-gradient(circle,rgba(212,168,71,.06) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:.9rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--gold)}
+.tool-eyebrow{color:var(--gold)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.5rem);color:var(--white);max-width:700px;margin-bottom:.65rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.85rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.6rem;flex-wrap:wrap}
+.hero-badge{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.28rem .65rem;border:1px solid}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+
+/* Layout */
+.main-content{position:relative;z-index:1;padding:2.5rem 0 1rem}
+.tool-layout{display:grid;grid-template-columns:1fr 320px;gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:1.5rem}
+@media(max-width:820px){.tool-layout{grid-template-columns:1fr}}
+.panel{background:var(--bg-2);padding:1.75rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.section-divider{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:.4rem;margin:.25rem 0 1rem}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+/* Covenant builder */
+.covenant-list{display:flex;flex-direction:column;gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:1rem}
+.covenant-row{background:var(--bg-3);padding:.85rem 1rem;display:grid;grid-template-columns:180px 60px 110px 110px 120px 32px;gap:.5rem;align-items:center}
+@media(max-width:720px){.covenant-row{grid-template-columns:1fr 1fr;row-gap:.5rem}}
+.covenant-row-header{background:var(--bg-4);padding:.45rem 1rem;display:grid;grid-template-columns:180px 60px 110px 110px 120px 32px;gap:.5rem}
+@media(max-width:720px){.covenant-row-header{display:none}}
+.col-header{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+select.cov-type,select.cov-dir,input.cov-threshold,input.cov-actual,select.cov-maint{background:var(--bg-2);border:1px solid var(--border);color:var(--bright);padding:.38rem .55rem;font-family:'JetBrains Mono',monospace;font-size:.68rem;border-radius:var(--radius);width:100%;-webkit-appearance:none;transition:border-color .2s}
+select.cov-type:focus,select.cov-dir:focus,input.cov-threshold:focus,input.cov-actual:focus,select.cov-maint:focus{outline:none;border-color:var(--gold)}
+select option{background:var(--bg-3)}
+.cov-remove{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius);width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:.8rem;transition:all .2s;flex-shrink:0}
+.cov-remove:hover{border-color:var(--red);color:var(--red)}
+.btn-add-covenant{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);background:transparent;border:1px solid rgba(20,184,166,.3);padding:.4rem .85rem;border-radius:var(--radius);display:inline-flex;align-items:center;gap:.4rem;transition:all .2s;margin-bottom:1.5rem}
+.btn-add-covenant:hover{border-color:var(--teal);background:var(--teal-dim)}
+
+/* Stress inputs */
+.stress-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem}
+@media(max-width:560px){.stress-grid{grid-template-columns:1fr}}
+label.field-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text);display:block;margin-bottom:.35rem}
+label.field-label .hint{font-size:.46rem;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:300}
+select.field-select,input.field-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.5rem .75rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;border-radius:var(--radius);width:100%;transition:border-color .2s;-webkit-appearance:none}
+select.field-select:focus,input.field-input:focus{outline:none;border-color:var(--gold)}
+.field-sub{font-size:.65rem;color:var(--muted);line-height:1.5;margin-top:.3rem}
+.run-btn{width:100%;background:var(--gold);color:var(--bg);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;padding:.85rem 1.5rem;border:none;border-radius:var(--radius);font-weight:500;transition:all .2s;margin-top:.5rem}
+.run-btn:hover{opacity:.88;transform:translateY(-1px)}
+
+/* About panel */
+.about-block{border-bottom:1px solid var(--border);padding-bottom:1rem;margin-bottom:1rem}
+.about-block:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.about-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.about-text{font-size:.74rem;color:var(--body);line-height:1.7}
+.about-text strong{color:var(--text)}
+.cov-type-ref{display:flex;flex-direction:column;gap:2px;margin-top:.5rem}
+.cov-ref-row{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);padding:.2rem .5rem;display:flex;justify-content:space-between}
+.cov-ref-row span:first-child{color:var(--text)}
+
+.last-reviewed::before{content:'⏱';font-size:.6rem}
+
+/* Results */
+.results-panel{background:var(--bg-2);border:1px solid var(--border);margin-bottom:1.5rem;display:none}
+.results-panel.visible{display:block}
+.results-header{padding:1.25rem 1.75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem}
+.results-title-el{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
+.results-body{padding:1.75rem}
+
+/* Summary chips */
+.summary-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:2rem}
+@media(max-width:600px){.summary-strip{grid-template-columns:repeat(2,1fr)}}
+.summary-cell{background:var(--bg-3);padding:1rem 1.25rem}
+.summary-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.summary-value{font-family:'DM Serif Display',serif;font-size:1.7rem;line-height:1}
+.sv-pass{color:var(--green)}.sv-breach{color:var(--red)}.sv-warn{color:var(--warn)}.sv-neutral{color:var(--bright)}
+.summary-sub{font-size:.62rem;color:var(--body);margin-top:.2rem}
+
+/* Compliance table */
+.compliance-table{width:100%;border-collapse:collapse;margin-bottom:2rem}
+.compliance-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.6rem .85rem;border-bottom:1px solid var(--border-2);text-align:left;font-weight:400}
+.compliance-table td{padding:.7rem .85rem;border-bottom:1px solid var(--border);font-size:.78rem;vertical-align:middle}
+.compliance-table tr:last-child td{border-bottom:none}
+.compliance-table tr:hover td{background:rgba(255,255,255,.012)}
+.cov-name-cell{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--bright)}
+.cov-thresh{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text)}
+.cov-actual-val{font-family:'JetBrains Mono',monospace;font-size:.68rem}
+.status-chip{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;padding:.18rem .55rem;border-radius:2px;display:inline-block;white-space:nowrap}
+.chip-pass{background:var(--green-dim);color:var(--green)}
+.chip-breach{background:var(--red-dim);color:var(--red)}
+.chip-warn{background:var(--warn-dim);color:var(--warn)}
+.headroom-bar-wrap{width:90px;height:5px;background:var(--bg-4);border-radius:3px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:.4rem}
+.headroom-bar{height:100%;border-radius:3px}
+.bar-safe{background:var(--green)}.bar-tight{background:var(--warn)}.bar-breach{background:var(--red)}
+.headroom-pct{font-family:'JetBrains Mono',monospace;font-size:.58rem}
+.maint-badge{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.08em;padding:.1rem .35rem;background:var(--bg-4);border:1px solid var(--border);color:var(--muted)}
+
+/* Stress table */
+.stress-section-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.85rem}
+.stress-table{width:100%;border-collapse:collapse;margin-bottom:2rem}
+.stress-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .85rem;border-bottom:1px solid var(--border-2);text-align:left;font-weight:400}
+.stress-table td{padding:.6rem .85rem;border-bottom:1px solid var(--border);font-size:.75rem;font-family:'JetBrains Mono',monospace;vertical-align:middle}
+.stress-table tr:last-child td{border-bottom:none}
+.stress-table tr:hover td{background:rgba(255,255,255,.012)}
+.stress-pass{color:var(--green)}.stress-breach{color:var(--red)}.stress-tight{color:var(--warn)}
+
+/* Rationale */
+.rationale-block{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);padding:1.25rem 1.5rem;margin-bottom:2rem}
+.rationale-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem}
+.rationale-text{font-size:.82rem;color:var(--text);line-height:1.8}
+.rationale-text strong{color:var(--bright)}
+
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;padding-top:1.25rem;border-top:1px solid var(--border)}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;border-radius:var(--radius);border:1px solid;cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;transition:all .2s;background:transparent}
+.btn-export-md{color:var(--teal);border-color:rgba(20,184,166,.35)}
+.btn-export-md:hover{border-color:var(--teal);background:var(--teal-dim)}
+
+}
+
+/* ── Export button enhancements ─────────────────────────────── */
+.ap2-btn-inner{display:flex;flex-direction:column;gap:.05rem;text-align:left}
+.ap2-btn-label{font-size:.5rem;letter-spacing:.09em;text-transform:uppercase}
+.ap2-btn-sub{font-size:.42rem;color:rgba(212,168,71,.55);text-transform:none;letter-spacing:0;font-weight:300;line-height:1}
+.ap2-icon{font-size:.72rem;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-weight:700}
+.md-badge{font-size:.44rem;background:var(--teal-dim);color:var(--teal);border:1px solid rgba(20,184,166,.3);padding:.1rem .35rem;border-radius:2px;font-weight:600;letter-spacing:.04em;margin-right:.3rem;flex-shrink:0}
+/* ── Export success toast ────────────────────────────────────── */
+.export-toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--green);padding:.7rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--green);z-index:9999;pointer-events:none;display:flex;align-items:center;gap:.5rem;border-radius:var(--radius);box-shadow:0 4px 24px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s}
+.export-toast.show{opacity:1;transform:translateY(0)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-body pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;overflow-x:auto;margin:0}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- LANG BAR -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick='setLang("zh")'>中文</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--gold)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".7"/>
+      </svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/counterparty-credit-risk-hub.html">Credit Risk Hub</a><span class="nav-sep">/</span><span>T-199</span></div>
+
+    <a href="../guides/counterparty-credit-risk-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">
+      <span class="tool-eyebrow">T199 · Cat-17 · Counterparty Credit Risk · Covenants</span>
+    </div>
+    <h1 class="tool-title">Financial Covenant <em>Compliance Checker</em></h1>
+    <p class="hero-desc">Input covenant terms and current financial metrics to check compliance and calculate headroom to breach. Covers leverage, interest cover, liquidity, and custom covenants — maintenance and incurrence types. Stress-test headroom under revenue and margin shock scenarios. Outputs compliance table, breach distances, Markdown memo, and Policy Mandate JSON covenant monitoring record.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-gold">Covenants</span>
+      <span class="hero-badge badge-teal">Headroom Analysis</span>
+      <span class="hero-badge badge-gold">LMA · ISDA Standard</span>
+      <span class="hero-badge badge-muted">Zero PII · Client-side</span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main-content">
+<div class="container">
+
+  <div class="tool-layout">
+
+    <!-- CONFIG PANEL -->
+    <div class="panel">
+      <div class="panel-label">Configuration</div>
+
+      <div class="pii-notice">
+  <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+</div>
+  <!-- Edu disclaimer (canonical §9.3) -->
+  <div class="edu-disclaimer">
+    <strong class="edu-disclaimer-label" data-i18n="disclaimer.label">Educational Use Only</strong>
+    <span data-i18n="disclaimer.body">This tool provides a self-assessment / educational framework for internal planning purposes only. It is not a regulatory audit, legal advice, or a substitute for a formal compliance review by a qualified advisor. Verify all interpretations against the official source text and applicable RTS/ITS/guidance published by the relevant authority.</span>
+  </div>
+
+
+      <!-- Covenant builder -->
+      <div class="section-divider">Covenant Terms <span style="color:var(--body);text-transform:none;letter-spacing:0;font-weight:300;font-size:.6rem;font-family:'Sora',sans-serif"> — configure up to 6 covenants</span></div>
+
+      <div class="covenant-row-header">
+        <div class="col-header">Covenant Type</div>
+        <div class="col-header">Direction</div>
+        <div class="col-header">Threshold</div>
+        <div class="col-header">Actual (LTM)</div>
+        <div class="col-header">Test Type</div>
+        <div class="col-header"></div>
+      </div>
+
+      <div class="covenant-list" id="covenantList"></div>
+
+      <button class="btn-add-covenant" onclick="addCovenant()" id="addCovBtn">+ Add Covenant</button>
+
+      <!-- Stress test -->
+      <div class="section-divider">Stress Test Scenarios <span style="color:var(--body);text-transform:none;letter-spacing:0;font-weight:300;font-size:.6rem;font-family:'Sora',sans-serif"> — EBITDA-based covenants only</span></div>
+
+      <div class="stress-grid">
+        <div>
+          <label class="field-label" data-i18n="label_shock">Revenue Shock <span class="hint">— scenario</span></label>
+          <select class="field-select" id="revenueShock">
+            <option value="0">No shock (base case)</option>
+            <option value="0.10">−10% revenue decline</option>
+            <option value="0.20" selected>−20% revenue decline</option>
+            <option value="0.30">−30% revenue decline</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Margin Compression <span class="hint">— EBITDA pts</span></label>
+          <select class="field-select" id="marginShock">
+            <option value="0">No compression</option>
+            <option value="2">−2pp EBITDA margin</option>
+            <option value="4" selected>−4pp EBITDA margin</option>
+            <option value="7">−7pp EBITDA margin</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-sub" style="margin-bottom:1.5rem">Stress scenarios scale EBITDA-dependent covenant actuals (leverage, coverage, EBITDA floor). Liquidity and balance-sheet covenants stress separately via balance sheet shock if applicable.</div>
+
+      <button class="run-btn" onclick="runChecker()" data-i18n="run_btn">Run Analysis →</button>
+    </div>
+
+    <!-- ABOUT PANEL -->
+    <div class="panel">
+      <div class="panel-label">About This Tool</div>
+
+      <div class="about-block">
+        <div class="about-label">Covenant Types</div>
+        <div class="cov-type-ref">
+          <div class="cov-ref-row"><span>Net Debt / EBITDA</span><span>≤ threshold</span></div>
+          <div class="cov-ref-row"><span>EBITDA / Interest</span><span>≥ threshold</span></div>
+          <div class="cov-ref-row"><span>EBITDA / Fixed Charge</span><span>≥ threshold</span></div>
+          <div class="cov-ref-row"><span>Minimum EBITDA</span><span>≥ threshold</span></div>
+          <div class="cov-ref-row"><span>Minimum Liquidity</span><span>≥ threshold</span></div>
+          <div class="cov-ref-row"><span>Debt / Equity</span><span>≤ threshold</span></div>
+          <div class="cov-ref-row"><span>Current Ratio</span><span>≥ threshold</span></div>
+          <div class="cov-ref-row"><span>Capex Limit</span><span>≤ threshold</span></div>
+        </div>
+      </div>
+
+      <div class="about-block">
+        <div class="about-label">Maintenance vs. Incurrence</div>
+        <div class="about-text"><strong>Maintenance:</strong> Tested on each reporting date (typically quarterly). Breach is an immediate event of default — most common in bank loans.<br><br><strong>Incurrence:</strong> Only tested when the borrower takes a specific action (new debt, dividend). Breach blocks the action but doesn't trigger default on existing debt — typical in high-yield bonds.</div>
+      </div>
+
+      <div class="about-block">
+        <div class="about-label">Headroom Tiers</div>
+        <div class="about-text">
+          <span style="color:var(--green)">■</span> <strong style="color:var(--text)">Safe</strong> — headroom ≥ 20% of threshold<br>
+          <span style="color:var(--warn)">■</span> <strong style="color:var(--text)">Tight</strong> — headroom 5–20%<br>
+          <span style="color:var(--red)">■</span> <strong style="color:var(--text)">Breach</strong> — covenant violated
+        </div>
+      </div>
+
+      <div class="about-block">
+        <div class="about-label">Limitations</div>
+        <div class="about-text">This tool uses current LTM actuals and linear projections under stress. It does not model seasonality, covenant step-downs, cure rights, or waiver mechanics. Always review the full facility agreement for precise covenant definitions.</div>
+      </div>
+
+      </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2025-01-15</span></span>
+
+  </div><!-- /tool-layout -->
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+    <div class="results-header">
+      <div class="results-title-el">Compliance Results</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--muted)" id="runMeta"></div>
+    </div>
+    <div class="results-body">
+
+      <div class="summary-strip" id="summaryStrip"></div>
+
+      <!-- Base case compliance -->
+      <div class="stress-section-label">Base Case — Covenant Compliance</div>
+      <table class="compliance-table">
+        <thead>
+          <tr>
+            <th>Covenant</th>
+            <th>Threshold</th>
+            <th>Actual (LTM)</th>
+            <th>Status</th>
+            <th>Headroom</th>
+            <th>Type</th>
+          </tr>
+        </thead>
+        <tbody id="complianceBody"></tbody>
+      </table>
+
+      <!-- Stress results -->
+      <div class="stress-section-label" id="stressLabel"></div>
+      <table class="stress-table" id="stressTable">
+        <thead>
+          <tr>
+            <th>Covenant</th>
+            <th>Base Actual</th>
+            <th>Stressed Actual</th>
+            <th>Threshold</th>
+            <th>Stressed Status</th>
+            <th>Headroom Change</th>
+          </tr>
+        </thead>
+        <tbody id="stressBody"></tbody>
+      </table>
+
+      <!-- Rationale -->
+      <div class="rationale-block">
+        <div class="rationale-label">Compliance Rationale & Monitoring Notes</div>
+        <div class="rationale-text" id="rationaleText"></div>
+      </div>
+
+      <div class="results-export-row">
+        <button class="btn-export btn-export-md" onclick="exportMarkdown()"><span class="md-badge">MD</span><span class="md-btn-text">Export Markdown</span></button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/counterparty-credit-risk-hub.html"><span data-i18n="footer.hub_counterparty_credit_risk">CCR Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* AP2Schema — full validator (PM17; wired into cohort C) */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+if (typeof AP2Schema.validate !== 'function') {
+  AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    return true;
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   T199 · Financial Covenant Compliance Checker
+   Methodology: threshold vs. actual → headroom → stress projection
+   AP2 mandate_type: compliance_control
+   Client-side. Zero PII. Zero external calls.
+═══════════════════════════════════════════════════════════════ */
+
+/* ── i18n ─────────────────────────────────────────────────── */
+const TRANSLATIONS = {
+  en:{ eyebrow:"T199 · Cat-17 · Counterparty Credit Risk · Covenants", hero_title:"Financial Covenant Compliance Checker", hero_desc:"Input covenant terms and current financial metrics to check compliance and calculate headroom to breach. Covers leverage, interest cover, liquidity, and custom covenants. Stress-test headroom under revenue and margin shock scenarios.", panel_config:"Configuration", panel_about:"About This Tool", label_covenant_type:"Covenant Type", label_threshold:"Threshold", label_current_metric:"Actual (LTM)", label_shock:"Revenue Shock", run_btn:"Run Analysis →", results_title:"Compliance Results", export_ap2:"Export Policy Mandate", export_md:"⬇ Export Markdown", pii_notice:"🔒 All inputs are processed locally in your browser. No data is transmitted. Use synthetic or anonymised financial data only.", last_reviewed:"Last Reviewed", nav_all_tools:"All Tools", lang_dir:"ltr" 
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-17 Hub',
+  },
+  es:{ eyebrow:"T199 · Cat-17 · Riesgo de Crédito · Covenants", hero_title:"Verificador de Cumplimiento de Covenants", hero_desc:"Ingrese los términos de covenants y métricas financieras actuales para verificar el cumplimiento y calcular el margen hasta incumplimiento.", panel_config:"Configuración", panel_about:"Acerca de esta herramienta", label_covenant_type:"Tipo de Covenant", label_threshold:"Umbral", label_current_metric:"Real (LTM)", label_shock:"Choque de Ingresos", run_btn:"Ejecutar Análisis →", results_title:"Resultados de Cumplimiento", export_ap2:"Exportar Mandato de Política", export_md:"⬇ Exportar Markdown", pii_notice:"🔒 Todos los datos se procesan localmente. No se transmite ningún dato.", last_reviewed:"Última Revisión", nav_all_tools:"Todas las Herramientas", lang_dir:"ltr" 
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-17',
+  },
+  fr:{ eyebrow:"T199 · Cat-17 · Risque de Crédit · Covenants", hero_title:"Vérificateur de Conformité des Covenants", hero_desc:"Saisissez les termes des covenants et les métriques financières actuelles pour vérifier la conformité et calculer la marge avant rupture.", panel_config:"Configuration", panel_about:"À propos de cet outil", label_covenant_type:"Type de Covenant", label_threshold:"Seuil", label_current_metric:"Réel (LTM)", label_shock:"Choc de Revenus", run_btn:"Lancer l'Analyse →", results_title:"Résultats de Conformité", export_ap2:"Exporter Mandat de Politique", export_md:"⬇ Exporter Markdown", pii_notice:"🔒 Toutes les données sont traitées localement. Aucune donnée n'est transmise.", last_reviewed:"Dernière Révision", nav_all_tools:"Tous les Outils", lang_dir:"ltr" 
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-17',
+  },
+  ar:{ eyebrow:"T199 · القسم 17 · مخاطر الائتمان · الشروط المالية", hero_title:"مدقق الامتثال للشروط المالية", hero_desc:"أدخل شروط الاتفاقية والمقاييس المالية الحالية للتحقق من الامتثال وحساب هامش الأمان.", panel_config:"الإعدادات", panel_about:"حول هذه الأداة", label_covenant_type:"نوع الشرط", label_threshold:"العتبة", label_current_metric:"الفعلي (LTM)", label_shock:"صدمة الإيرادات", run_btn:"تشغيل التحليل →", results_title:"نتائج الامتثال", export_ap2:"تصدير تفويض السياسة", export_md:"⬇ تصدير Markdown", pii_notice:"🔒 تتم معالجة جميع المدخلات محليًا.", last_reviewed:"آخر مراجعة", nav_all_tools:"جميع الأدوات", lang_dir:"rtl" 
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-17',
+  },
+  pt:{ eyebrow:"T199 · Cat-17 · Risco de Crédito · Covenants", hero_title:"Verificador de Conformidade de Covenants", hero_desc:"Insira os termos dos covenants e métricas financeiras actuais para verificar conformidade e calcular margem até incumprimento.", panel_config:"Configuração", panel_about:"Sobre esta ferramenta", label_covenant_type:"Tipo de Covenant", label_threshold:"Limiar", label_current_metric:"Real (LTM)", label_shock:"Choque de Receitas", run_btn:"Executar Análise →", results_title:"Resultados de Conformidade", export_ap2:"Exportar Mandato de Política", export_md:"⬇ Exportar Markdown", pii_notice:"🔒 Todos os dados são processados localmente.", last_reviewed:"Última Revisão", nav_all_tools:"Todas as Ferramentas", lang_dir:"ltr" 
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-17',
+  },
+  zh:{ eyebrow:"T199 · 第17类 · 交易对手信用风险 · 财务契约", hero_title:"财务契约合规检查器", hero_desc:"输入契约条款和当前财务指标，检查合规性并计算违约前的缓冲空间。覆盖杠杆、利息覆盖、流动性及自定义契约。", panel_config:"配置", panel_about:"关于本工具", label_covenant_type:"契约类型", label_threshold:"阈值", label_current_metric:"实际值（LTM）", label_shock:"收入冲击", run_btn:"运行分析 →", results_title:"合规结果", export_ap2:"导出政策授权书", export_md:"⬇ 导出 Markdown", pii_notice:"🔒 所有输入均在您的浏览器中本地处理。", last_reviewed:"最近审核", nav_all_tools:"全部工具", lang_dir:"ltr" 
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-17 中心',
+  },
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`) || document.querySelector(`.lang-btn[onclick='setLang("${lang}")']`);
+  if (btn) btn.classList.add('active');
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  document.documentElement.dir = t.lang_dir || 'ltr';
+  document.body.dir = t.lang_dir || 'ltr';
+  const ap = (sel, key) => { const el = document.querySelector(sel); if (el && t[key]) el.textContent = t[key]; };
+  ap('.tool-eyebrow','eyebrow'); ap('.hero h1','hero_title'); ap('.hero-desc','hero_desc');
+  ap('.pii-notice','pii_notice'); ap('.run-btn','run_btn'); ap('.results-title-el','results_title'); ap('.nav-cta','nav_all_tools');
+  const panels = document.querySelectorAll('.panel-label');
+  ['panel_config','panel_about'].forEach((k,i) => { if (panels[i] && t[k]) panels[i].textContent = t[k]; });
+  document.querySelectorAll('[data-i18n]').forEach(el => { const k = el.getAttribute('data-i18n'); if (t[k]) el.textContent = t[k]; });
+  document.querySelectorAll('.btn-export-md').forEach(function(b){ if(t.export_md){ var s=b.querySelector('.md-btn-text'); if(s) s.textContent=t.export_md.replace('⬇ ',''); } });
+  const ap2btn = document.getElementById('footerAp2Btn');
+  if (ap2btn && t.export_ap2) { const lbl=ap2btn.querySelector('.ap2-btn-label'); if(lbl) lbl.textContent=t.export_ap2; }
+  const lr = document.querySelector('.last-reviewed');
+  if (lr) { const d = lr.textContent.match(/\d{4}-\d{2}-\d{2}/); if (d) lr.textContent = `⏱ ${t.last_reviewed} ${d[0]}`; }
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){ try { const s = sessionStorage.getItem('ain_lang'); if (s && TRANSLATIONS[s]) setLang(s); } catch(e){} })();
+
+/* ── Covenant definitions ─────────────────────────────────── */
+const COV_TYPES = [
+  { id:'nd_eb',   label:'Net Debt / EBITDA',      dir:'lte', unit:'×',  ebitdaLinked:true  },
+  { id:'eb_int',  label:'EBITDA / Interest',       dir:'gte', unit:'×',  ebitdaLinked:true  },
+  { id:'fccr',    label:'EBITDA / Fixed Charge',   dir:'gte', unit:'×',  ebitdaLinked:true  },
+  { id:'min_eb',  label:'Minimum EBITDA',          dir:'gte', unit:'$',  ebitdaLinked:true  },
+  { id:'min_liq', label:'Minimum Liquidity',       dir:'gte', unit:'$',  ebitdaLinked:false },
+  { id:'de',      label:'Debt / Equity',           dir:'lte', unit:'%',  ebitdaLinked:false },
+  { id:'cr',      label:'Current Ratio',           dir:'gte', unit:'×',  ebitdaLinked:false },
+  { id:'capex',   label:'Capex Limit',             dir:'lte', unit:'$',  ebitdaLinked:false },
+];
+
+const COV_DIR_DEFAULT = Object.fromEntries(COV_TYPES.map(c => [c.id, c.dir]));
+let covenantRows = [];
+let rowId = 0;
+let lastResult = null;
+
+/* ── Covenant row management ──────────────────────────────── */
+function addCovenant(preset) {
+  if (covenantRows.length >= 6) return;
+  const id = ++rowId;
+  const p = preset || { type:'nd_eb', threshold:'', actual:'', maint:'maintenance' };
+  covenantRows.push({ id, ...p });
+  renderCovenantRows();
+  if (covenantRows.length >= 6) document.getElementById('addCovBtn').style.display = 'none';
+}
+
+function removeCovenant(id) {
+  covenantRows = covenantRows.filter(r => r.id !== id);
+  renderCovenantRows();
+  document.getElementById('addCovBtn').style.display = '';
+}
+
+function renderCovenantRows() {
+  const list = document.getElementById('covenantList');
+  if (covenantRows.length === 0) {
+    list.innerHTML = '<div style="padding:1rem;font-family:\'JetBrains Mono\',monospace;font-size:.58rem;color:var(--muted);text-align:center">No covenants configured — click + Add Covenant</div>';
+    return;
+  }
+  list.innerHTML = covenantRows.map(row => {
+    const defDir = COV_DIR_DEFAULT[row.type] || 'lte';
+    return `<div class="covenant-row" id="crow-${row.id}">
+      <select class="cov-type" onchange="updateRowType(${row.id},this.value)">
+        ${COV_TYPES.map(c => `<option value="${c.id}" ${c.id===row.type?'selected':''}>${c.label}</option>`).join('')}
+      </select>
+      <select class="cov-dir" id="dir-${row.id}">
+        <option value="lte" ${(row.dir||defDir)==='lte'?'selected':''}>≤</option>
+        <option value="gte" ${(row.dir||defDir)==='gte'?'selected':''}>≥</option>
+      </select>
+      <input class="cov-threshold" type="number" placeholder="Threshold" step="any" value="${row.threshold||''}">
+      <input class="cov-actual" type="number" placeholder="Actual" step="any" value="${row.actual||''}">
+      <select class="cov-maint">
+        <option value="maintenance" ${row.maint==='maintenance'?'selected':''}>Maintenance</option>
+        <option value="incurrence" ${row.maint==='incurrence'?'selected':''}>Incurrence</option>
+      </select>
+      <button class="cov-remove" onclick="removeCovenant(${row.id})" title="Remove">×</button>
+    </div>`;
+  }).join('');
+}
+
+function updateRowType(id, newType) {
+  const row = covenantRows.find(r => r.id === id);
+  if (row) {
+    row.type = newType;
+    const dirEl = document.getElementById('dir-' + id);
+    if (dirEl) dirEl.value = COV_DIR_DEFAULT[newType] || 'lte';
+  }
+}
+
+/* Seed with 3 typical covenants on load */
+addCovenant({ type:'nd_eb',  threshold:'4.5', actual:'3.2', maint:'maintenance' });
+addCovenant({ type:'eb_int', threshold:'3.0', actual:'5.1', maint:'maintenance' });
+addCovenant({ type:'min_liq',threshold:'5000000', actual:'8500000', maint:'maintenance' });
+
+/* ── Compliance logic ─────────────────────────────────────── */
+function checkCovenant(dir, threshold, actual) {
+  if (dir === 'lte') return actual <= threshold;
+  return actual >= threshold;
+}
+
+function headroom(dir, threshold, actual) {
+  return dir === 'lte' ? threshold - actual : actual - threshold;
+}
+
+function headroomPct(dir, threshold, actual) {
+  if (threshold === 0) return 0;
+  return (headroom(dir, threshold, actual) / Math.abs(threshold)) * 100;
+}
+
+function stressActual(typeId, actual, revShock, marginPts) {
+  const cov = COV_TYPES.find(c => c.id === typeId);
+  if (!cov || !cov.ebitdaLinked) return actual;
+  // Approximate EBITDA stress: revenue drops revShock, margin compresses marginPts
+  // EBITDA ≈ Revenue × margin → stressed EBITDA drops proportionally
+  const ebitdaFactor = (1 - revShock) * (1 - marginPts / 100);
+  if (typeId === 'nd_eb') {
+    // Net Debt/EBITDA: EBITDA shrinks → ratio worsens (increases)
+    return actual / ebitdaFactor;
+  }
+  if (typeId === 'eb_int' || typeId === 'fccr') {
+    // Coverage: EBITDA shrinks → coverage worsens (decreases)
+    return actual * ebitdaFactor;
+  }
+  if (typeId === 'min_eb') {
+    // Minimum EBITDA: absolute EBITDA shrinks
+    return actual * ebitdaFactor;
+  }
+  return actual;
+}
+
+/* ── Main checker ─────────────────────────────────────────── */
+function runChecker() {
+  // Read rows from DOM
+  const listEl = document.getElementById('covenantList');
+  const domRows = listEl.querySelectorAll('.covenant-row');
+  if (domRows.length === 0) { alert('Please add at least one covenant before running.'); return; }
+
+  const revShock   = parseFloat(document.getElementById('revenueShock').value);
+  const marginPts  = parseFloat(document.getElementById('marginShock').value);
+
+  const covenants = [];
+  let valid = true;
+  domRows.forEach((el, i) => {
+    const type      = el.querySelector('.cov-type').value;
+    const dir       = el.querySelector('.cov-dir').value;
+    const threshold = parseFloat(el.querySelector('.cov-threshold').value);
+    const actual    = parseFloat(el.querySelector('.cov-actual').value);
+    const maint     = el.querySelector('.cov-maint').value;
+    if (isNaN(threshold) || isNaN(actual)) { valid = false; return; }
+    const covDef = COV_TYPES.find(c => c.id === type);
+    covenants.push({ type, dir, threshold, actual, maint, label: covDef?.label || type, unit: covDef?.unit || '' });
+  });
+
+  if (!valid) { alert('Please fill in all Threshold and Actual values for every covenant row.'); return; }
+
+  // Base case results
+  const results = covenants.map(c => {
+    const pass    = checkCovenant(c.dir, c.threshold, c.actual);
+    const hw      = headroom(c.dir, c.threshold, c.actual);
+    const hwPct   = headroomPct(c.dir, c.threshold, c.actual);
+    const stressed = stressActual(c.type, c.actual, revShock, marginPts);
+    const stressPass = checkCovenant(c.dir, c.threshold, stressed);
+    const stressHw   = headroom(c.dir, c.threshold, stressed);
+    const stressHwPct = headroomPct(c.dir, c.threshold, stressed);
+    return { ...c, pass, hw, hwPct, stressed, stressPass, stressHw, stressHwPct };
+  });
+
+  const breaches       = results.filter(r => !r.pass).length;
+  const stressBreaches = results.filter(r => !r.stressPass).length;
+  const tightCount     = results.filter(r => r.pass && r.hwPct < 20 && r.hwPct >= 5).length;
+  const minHeadroom    = Math.min(...results.filter(r => r.pass).map(r => r.hwPct));
+
+  lastResult = { covenants, results, revShock, marginPts, breaches, stressBreaches, tightCount, minHeadroom, runAt: new Date().toISOString() };
+
+  renderResults();
+  const _ab=document.getElementById('footerAp2Btn'); _ab.classList.add('ready'); _ab.title='For API integration · audit trail';
+}
+
+/* ── Render ───────────────────────────────────────────────── */
+function fmtVal(v, unit) {
+  if (unit === '$') return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v);
+  if (unit === '%') return v.toFixed(1) + '%';
+  return v.toFixed(2) + '×';
+}
+
+function renderResults() {
+  const r = lastResult;
+
+  // Summary
+  const allPass = r.breaches === 0;
+  document.getElementById('summaryStrip').innerHTML = `
+    <div class="summary-cell"><div class="summary-label">Covenants Tested</div><div class="summary-value sv-neutral">${r.results.length}</div><div class="summary-sub">Base case</div></div>
+    <div class="summary-cell"><div class="summary-label">Breaches</div><div class="summary-value ${r.breaches>0?'sv-breach':'sv-pass'}">${r.breaches}</div><div class="summary-sub">${r.breaches===0?'All covenants met':'Action required'}</div></div>
+    <div class="summary-cell"><div class="summary-label">Tight Covenants</div><div class="summary-value ${r.tightCount>0?'sv-warn':'sv-pass'}">${r.tightCount}</div><div class="summary-sub">Headroom 5–20%</div></div>
+    <div class="summary-cell"><div class="summary-label">Stressed Breaches</div><div class="summary-value ${r.stressBreaches>r.breaches?'sv-warn':r.stressBreaches>0?'sv-breach':'sv-pass'}">${r.stressBreaches}</div><div class="summary-sub">Under shock scenario</div></div>
+  `;
+
+  // Compliance table
+  document.getElementById('complianceBody').innerHTML = r.results.map(c => {
+    const tier = !c.pass ? 'breach' : c.hwPct < 20 ? 'tight' : 'safe';
+    const barW = Math.min(100, Math.max(0, c.hwPct));
+    const actualColor = c.pass ? 'var(--green)' : 'var(--red)';
+    const dirSym = c.dir === 'lte' ? '≤' : '≥';
+    return `<tr>
+      <td class="cov-name-cell">${c.label}</td>
+      <td class="cov-thresh">${dirSym} ${fmtVal(c.threshold, c.unit)}</td>
+      <td class="cov-actual-val" style="color:${actualColor}">${fmtVal(c.actual, c.unit)}</td>
+      <td><span class="status-chip ${tier==='breach'?'chip-breach':tier==='tight'?'chip-warn':'chip-pass'}">${tier==='breach'?'BREACH':tier==='tight'?'TIGHT':'PASS'}</span></td>
+      <td>
+        <div class="headroom-bar-wrap"><div class="headroom-bar bar-${tier}" style="width:${Math.min(100,barW)}%"></div></div>
+        <span class="headroom-pct" style="color:${tier==='breach'?'var(--red)':tier==='tight'?'var(--warn)':'var(--green)'}">${c.pass ? c.hwPct.toFixed(1)+'%' : '—'}</span>
+      </td>
+      <td><span class="maint-badge">${c.maint}</span></td>
+    </tr>`;
+  }).join('');
+
+  // Stress table
+  const shockDesc = `${Math.round(r.revShock*100)}% revenue decline, −${r.marginPts}pp EBITDA margin`;
+  document.getElementById('stressLabel').textContent = `Stress Scenario — ${r.revShock > 0 || r.marginPts > 0 ? shockDesc : 'No shock applied (base case)'}`;
+  document.getElementById('stressBody').innerHTML = r.results.map(c => {
+    const baseHwPct   = c.pass ? c.hwPct.toFixed(1)+'%' : '—';
+    const stressTier  = !c.stressPass ? 'breach' : c.stressHwPct < 20 ? 'tight' : 'safe';
+    const delta       = c.stressHwPct - c.hwPct;
+    const cov = COV_TYPES.find(x => x.id === c.type);
+    const isLinked = cov?.ebitdaLinked;
+    return `<tr>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--bright)">${c.label}</td>
+      <td class="${c.pass?'stress-pass':'stress-breach'}">${fmtVal(c.actual, c.unit)}</td>
+      <td class="${c.stressPass?'stress-pass':'stress-breach'}">${isLinked ? fmtVal(c.stressed, c.unit) : fmtVal(c.actual, c.unit) + ' (unaffected)'}</td>
+      <td style="color:var(--text)">${c.dir==='lte'?'≤':'≥'} ${fmtVal(c.threshold, c.unit)}</td>
+      <td><span class="status-chip ${stressTier==='breach'?'chip-breach':stressTier==='tight'?'chip-warn':'chip-pass'}">${stressTier==='breach'?'BREACH':stressTier==='tight'?'TIGHT':'PASS'}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:${delta<-5?'var(--red)':delta<0?'var(--warn)':'var(--muted)'}">${isLinked ? (delta >= 0 ? '+' : '') + delta.toFixed(1) + 'pp' : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  // Rationale
+  const breachNames = r.results.filter(x => !x.pass).map(x => x.label);
+  const tightNames  = r.results.filter(x => x.pass && x.hwPct < 20).map(x => x.label);
+  const newBreaches = r.results.filter(x => x.pass && !x.stressPass).map(x => x.label);
+  let rat = '';
+  if (r.breaches === 0) rat += `<strong>All ${r.results.length} covenants pass</strong> under the base case. `;
+  else rat += `<strong>${r.breaches} covenant${r.breaches>1?'s':''} in breach</strong>: ${breachNames.join(', ')}. These represent events of default on maintenance covenants — immediate lender notification and waiver discussion required. `;
+  if (tightNames.length) rat += `<strong>Tight covenants (headroom &lt;20%):</strong> ${tightNames.join(', ')} — monitor closely at next reporting date. `;
+  if (r.revShock > 0 || r.marginPts > 0) {
+    if (newBreaches.length) rat += `<strong>Stress scenario introduces ${newBreaches.length} new breach${newBreaches.length>1?'es':''}:</strong> ${newBreaches.join(', ')}. Consider requesting covenant headroom amendments or building additional liquidity buffer ahead of a potential downturn. `;
+    else if (r.stressBreaches === 0) rat += `<strong>Stress scenario (${shockDesc}):</strong> all covenants continue to pass — portfolio is resilient to the modelled scenario. `;
+  }
+  rat += `<strong>Recommended actions:</strong> ${r.breaches>0 ? 'Engage lenders immediately for waiver on breached covenants. ' : ''}${tightNames.length ? 'Review headroom improvement plan for tight covenants. ' : ''}${newBreaches.length ? 'Model covenant headroom under amended facility terms. ' : ''}Run T202 (Credit Stress Testing Workbench) for full macro scenario analysis.`;
+  document.getElementById('rationaleText').innerHTML = rat;
+
+  document.getElementById('runMeta').textContent = new Date().toLocaleTimeString();
+  const panel = document.getElementById('resultsPanel');
+  panel.classList.add('visible');
+  panel.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+/* ── AP2 Export ───────────────────────────────────────────── */
+function exportAP2() {
+  if (!lastResult) return;
+  const r = lastResult;
+  const mandate = {
+    ap2_version:"1.0", mandate_id:crypto.randomUUID(), issued_at:new Date().toISOString(),
+    issued_by:"ainumbers.co", tool_id:"financial-covenant-compliance-checker", tool_version:"4.0.0",
+    mandate_type:"compliance_control",
+    jurisdiction:["global"],
+    regulatory_frameworks:["LMA Standard","ISDA 2002 Master Agreement","Basel III"],
+    payload:{
+      covenants_tested: r.results.length,
+      base_case_breaches: r.breaches,
+      stress_breaches: r.stressBreaches,
+      tight_covenants: r.tightCount,
+      overall_status: r.breaches === 0 ? "compliant" : "breach",
+      stress_revenue_shock_pct: r.revShock * 100,
+      stress_margin_compression_pp: r.marginPts,
+      covenant_detail: r.results.map(c => ({
+        covenant: c.label,
+        direction: c.dir,
+        threshold: c.threshold,
+        actual_ltm: c.actual,
+        headroom_pct: parseFloat(c.hwPct.toFixed(2)),
+        status: c.pass ? "pass" : "breach",
+        tier: !c.pass ? "breach" : c.hwPct < 20 ? "tight" : "safe",
+        test_type: c.maint,
+        stressed_actual: parseFloat(c.stressed.toFixed(4)),
+        stressed_status: c.stressPass ? "pass" : "breach",
+      })),
+    },
+    summary: `Covenant compliance check: ${r.results.length} covenants tested, ${r.breaches} breach${r.breaches!==1?'es':''} in base case. ${r.stressBreaches} breach${r.stressBreaches!==1?'es':''} under stress (${Math.round(r.revShock*100)}% revenue decline, −${r.marginPts}pp margin). Overall status: ${r.breaches===0?'COMPLIANT':'BREACH'}.`,
+    agent_instructions: [
+      r.breaches > 0
+        ? `URGENT: ${r.breaches} covenant${r.breaches>1?'s are':' is'} in breach — initiate lender notification process immediately. Do not execute any restricted payments or additional debt incurrence.`
+        : `All covenants are compliant at the current reporting date. Continue standard quarterly monitoring cycle.`,
+      r.tightCount > 0
+        ? `${r.tightCount} covenant${r.tightCount>1?'s have':' has'} headroom below 20% — escalate to credit committee for headroom improvement review.`
+        : `No covenants are in the tight zone (all headroom ≥ 20% where applicable).`,
+      r.stressBreaches > r.breaches
+        ? `Stress scenario produces ${r.stressBreaches - r.breaches} additional breach${r.stressBreaches-r.breaches>1?'es':''}. Recommend requesting covenant amendment or waiver in advance of any downside scenario.`
+        : `Stress scenario does not produce additional breaches beyond base case.`,
+      `Feed breach data and headroom metrics into T202 (run_credit_stress_test) for full macro scenario impact assessment.`,
+      `If maintenance covenants are in breach, feed event-of-default status into T197 (calculate_credit_risk_rating) for rating downgrade assessment.`,
+    ],
+    last_reviewed: "2025-01-15",
+    source_tool_inputs: {
+      covenants: r.covenants.map(c=>({type:c.type,dir:c.dir,threshold:c.threshold,actual:c.actual,maint:c.maint})),
+      stress: { revenue_shock: r.revShock, margin_pts: r.marginPts },
+    },
+    regulatory_citations: [
+      "LMA Standard Form Leveraged Facilities Agreement — covenant definitions and headroom conventions",
+      "ISDA 2002 Master Agreement — cross-default provisions",
+      "Basel III: BIS BCBS 189 — covenant breach as credit event trigger",
+    ],
+  };
+  AP2Schema.validate(mandate);
+  const blob = new Blob([JSON.stringify(mandate,null,2)],{type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'),{href:url,download:`ap2-t199-covenant-compliance-${Date.now()}.policy.json`});
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  showExportToast('Policy Mandate JSON downloaded', 'ap2');
+}
+
+/* ── Markdown Export ──────────────────────────────────────── */
+function exportMarkdown() {
+  if (!lastResult) return;
+  const r = lastResult;
+  const d = r.runAt.split('T')[0];
+  const rows = r.results.map(c => {
+    const tier = !c.pass?'BREACH':c.hwPct<20?'TIGHT':'PASS';
+    return `| ${c.label.padEnd(25)} | ${(c.dir==='lte'?'≤ ':'>= ')+fmtVal(c.threshold,c.unit)} | ${fmtVal(c.actual,c.unit)} | ${tier} | ${c.pass?c.hwPct.toFixed(1)+'%':'—'} | ${c.maint} |`;
+  }).join('\n');
+  const md = `# Financial Covenant Compliance Memo
+**Tool:** T199 · Financial Covenant Compliance Checker · AINumbers.co
+**Date:** ${d}
+**Overall Status:** ${r.breaches===0?'✅ COMPLIANT':'⚠️ BREACH'}
+
+---
+
+## Summary
+
+| Metric | Value |
+|---|---|
+| Covenants Tested | ${r.results.length} |
+| Base Case Breaches | **${r.breaches}** |
+| Tight Covenants (headroom <20%) | ${r.tightCount} |
+| Stressed Breaches | ${r.stressBreaches} |
+| Stress Scenario | ${Math.round(r.revShock*100)}% revenue decline, −${r.marginPts}pp EBITDA margin |
+
+---
+
+## Covenant Compliance Table
+
+| Covenant | Threshold | Actual (LTM) | Status | Headroom | Test Type |
+|---|---|---|---|---|---|
+${rows}
+
+---
+
+## Stress Analysis
+
+Scenario: ${Math.round(r.revShock*100)}% revenue decline with −${r.marginPts}pp EBITDA margin compression applied to EBITDA-linked covenants.
+
+${r.results.filter(c=>c.stressPass!==c.pass||c.stressHwPct!==c.hwPct).map(c=>`- **${c.label}:** Base ${fmtVal(c.actual,c.unit)} → Stressed ${fmtVal(c.stressed,c.unit)} — ${c.stressPass?'PASS':'BREACH'} (headroom ${c.stressHwPct.toFixed(1)}%)`).join('\n') || '- No EBITDA-linked covenants affected by stress scenario.'}
+
+---
+
+## Regulatory Citations
+
+1. LMA Standard Form Leveraged Facilities Agreement — covenant definitions and headroom conventions
+2. ISDA 2002 Master Agreement — cross-default provisions
+3. Basel III: BIS BCBS 189 — covenant breach as credit event trigger
+
+---
+
+*Generated by AINumbers.co T199. Client-side. Zero PII. CC BY 4.0 · Post Oak Labs.*
+`;
+  const blob = new Blob([md],{type:'text/markdown'});
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'),{href:url,download:`t199-covenant-compliance-${Date.now()}.md`});
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  showExportToast('Markdown downloaded', 'md');
+}
+
+/* ── Export success feedback ──────────────────────────────────── */
+function showExportToast(msg, type) {
+  let el = document.getElementById('exportToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'exportToast';
+    el.className = 'export-toast';
+    document.body.appendChild(el);
+  }
+  const isAp2 = type === 'ap2';
+  el.style.borderLeftColor = isAp2 ? 'var(--green)' : 'var(--teal)';
+  el.style.color = isAp2 ? 'var(--green)' : 'var(--teal)';
+  el.innerHTML = '<span style="font-weight:700">' + (isAp2 ? '{}' : 'MD') + '</span>&nbsp;' + msg;
+  el.classList.add('show');
+  clearTimeout(el._tm);
+  el._tm = setTimeout(function(){ el.classList.remove('show'); }, 2200);
+}
+
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "financial-covenant-compliance-checker", "version": "4.0.0", "title": "Financial Covenant Compliance Checker", "description": "Input covenant terms and current financial metrics to check compliance and calculate headroom to breach. Covers leverage, interest cover, liquidity, and custom covenants with maintenance vs incurrence classification. Stress-tests headroom under revenue and margin shocks. Client-side. Zero PII.", "category": "cat-17", "tags": ["Covenants", "Headroom", "LMA", "ISDA", "Stress Test", "EBITDA", "Policy Mandate", "export"], "audience": ["credit-analyst", "relationship-manager", "risk-officer"], "input_schema": {"type": "object", "properties": {"covenants": {"type": "array", "items": {"type": "object", "properties": {"type": {"type": "string", "enum": ["nd_eb", "eb_int", "fccr", "min_eb", "min_liq", "de", "cr", "capex"]}, "direction": {"type": "string", "enum": ["lte", "gte"]}, "threshold": {"type": "number"}, "actual_ltm": {"type": "number"}, "test_type": {"type": "string", "enum": ["maintenance", "incurrence"]}}, "required": ["type", "direction", "threshold", "actual_ltm", "test_type"]}, "minItems": 1, "maxItems": 6}, "revenue_shock": {"type": "number", "description": "Revenue shock fraction e.g. 0.20 = 20% decline"}, "margin_compression_pp": {"type": "number", "description": "EBITDA margin compression in percentage points"}}, "required": ["covenants", "revenue_shock", "margin_compression_pp"]}, "output_schema": {"type": "object", "properties": {"covenants_tested": {"type": "integer"}, "base_case_breaches": {"type": "integer"}, "stress_breaches": {"type": "integer"}, "tight_covenants": {"type": "integer"}, "overall_status": {"type": "string", "enum": ["compliant", "breach"]}, "covenant_detail": {"type": "array"}, "ap2_mandate": {"type": "object"}}}, "mcp_tool_definition": {"name": "check_covenant_compliance", "description": "Checks financial covenant compliance against current LTM metrics, calculates headroom to breach as a percentage, and stress-tests headroom under revenue and EBITDA margin shocks. Covers Net Debt/EBITDA, EBITDA/Interest, minimum liquidity, and other LMA/ISDA standard covenant types. Use after calculate_credit_risk_rating to verify covenant standing before facility drawdown or credit committee.", "inputSchema": {"type": "object", "properties": {"covenants": {"type": "array", "items": {"type": "object"}}, "revenue_shock": {"type": "number"}, "margin_compression_pp": {"type": "number"}}, "required": ["covenants", "revenue_shock", "margin_compression_pp"]}}, "execution": {"type": "browser-javascript", "entry": "tools/199-financial-covenant-compliance-checker.html", "function_name": "runChecker", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>T203 · RAROC Loan Pricing Model · AINumbers.co</title>
+<meta name="description" content="Model risk-adjusted return on capital for loan pricing. Inputs: loan amount, margin, fees, cost of funds, expected loss (from T198), capital allocation (from T201), and operating cost. Outputs RAROC, economic profit/loss, minimum margin for target RAROC, and Policy Mandate JSON loan pricing record. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/203-raroc-loan-pricing-model">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"RAROC Loan Pricing Model","url":"https://ainumbers.co/tools/203-raroc-loan-pricing-model","description":"Model risk-adjusted return on capital for loan pricing. Inputs: loan amount, margin, fees, cost of funds, expected loss (from T198), capital allocation (from T201), and operating cost. Outputs RAROC, economic profit/loss, minimum margin for target RAROC, and Policy Mandate JSON loan pricing record. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(212,168,71,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(212,168,71,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+[dir="rtl"] .nav-inner{flex-direction:row-reverse}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}
+.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+[dir="rtl"] .lang-inner{justify-content:flex-start}
+[dir="rtl"] [dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+[dir="rtl"] .run-btn{letter-spacing:0}
+
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+
+.hero{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:360px;height:360px;background:radial-gradient(circle,rgba(212,168,71,.06) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:.9rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--gold)}
+.tool-eyebrow{color:var(--gold)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.5rem);color:var(--white);max-width:700px;margin-bottom:.65rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.85rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.6rem;flex-wrap:wrap}
+.hero-badge{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.28rem .65rem;border:1px solid}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+
+.main-content{position:relative;z-index:1;padding:2.5rem 0 1rem}
+.tool-layout{display:grid;grid-template-columns:1fr 320px;gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:1.5rem}
+@media(max-width:820px){.tool-layout{grid-template-columns:1fr}}
+.panel{background:var(--bg-2);padding:1.75rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.section-divider{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:.4rem;margin:.25rem 0 1rem}
+
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+@media(max-width:560px){.field-row{grid-template-columns:1fr}}
+.field{margin-bottom:1rem}
+label.fl{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text);display:block;margin-bottom:.35rem}
+label.fl .hint{font-size:.46rem;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:300}
+select.fs,input.fi{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.5rem .75rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;border-radius:var(--radius);width:100%;-webkit-appearance:none;transition:border-color .2s}
+select.fs:focus,input.fi:focus{outline:none;border-color:var(--gold)}
+.field-sub{font-size:.65rem;color:var(--muted);line-height:1.5;margin-top:.3rem}
+
+.run-btn{width:100%;background:var(--gold);color:var(--bg);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;padding:.85rem 1.5rem;border:none;border-radius:var(--radius);font-weight:500;transition:all .2s;margin-top:.5rem}
+.run-btn:hover{opacity:.88;transform:translateY(-1px)}
+
+.about-block{border-bottom:1px solid var(--border);padding-bottom:1rem;margin-bottom:1rem}
+.about-block:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.about-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.about-text{font-size:.74rem;color:var(--body);line-height:1.7}
+.about-text strong{color:var(--text)}
+.formula-chain{background:var(--bg-3);border:1px solid var(--border);padding:.75rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--teal);line-height:2;margin-top:.5rem}
+.formula-chain .fcomment{color:var(--muted);font-size:.52rem}
+
+/* Results */
+.results-panel{background:var(--bg-2);border:1px solid var(--border);margin-bottom:1.5rem;display:none}
+.results-panel.visible{display:block}
+.results-header{padding:1.25rem 1.75rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem}
+.results-title-el{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
+.results-body{padding:1.75rem}
+
+/* Verdict banner */
+.verdict-banner{padding:1.5rem 2rem;margin-bottom:2rem;display:flex;align-items:center;justify-content:space-between;gap:2rem;flex-wrap:wrap;border:1px solid}
+.verdict-banner.above{background:var(--green-dim);border-color:rgba(34,197,94,.3)}
+.verdict-banner.below{background:var(--red-dim);border-color:rgba(239,68,68,.3)}
+.verdict-icon{font-size:1.8rem;flex-shrink:0}
+.verdict-main{flex:1}
+.verdict-title{font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--white)}
+.verdict-sub{font-size:.78rem;color:var(--body);margin-top:.2rem}
+.verdict-raroc{text-align:right;flex-shrink:0}
+.raroc-big{font-family:'DM Serif Display',serif;font-size:2.8rem;line-height:1}
+.raroc-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:.2rem}
+
+/* Key metrics */
+.metrics-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:2rem}
+@media(max-width:700px){.metrics-strip{grid-template-columns:repeat(3,1fr)}}
+.m-cell{background:var(--bg-3);padding:.9rem 1rem}
+.m-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.m-value{font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--bright);line-height:1}
+.m-value.gold{color:var(--gold)}.m-value.teal{color:var(--teal)}.m-value.red{color:var(--red)}.m-value.green{color:var(--green)}.m-value.warn{color:var(--warn)}
+.m-sub{font-size:.58rem;color:var(--body);margin-top:.2rem}
+
+/* P&L waterfall */
+.sec-lbl{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.85rem}
+.waterfall{display:flex;flex-direction:column;gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:2rem}
+.wf-row{background:var(--bg-3);display:grid;grid-template-columns:1fr 140px 140px;align-items:center;padding:.65rem 1rem}
+.wf-row.subtotal{background:var(--bg-4)}
+.wf-row.total{background:var(--gold-dim)}
+.wf-label{font-size:.76rem;color:var(--text);display:flex;align-items:center;gap:.5rem}
+.wf-label .wf-icon{font-size:.9rem;opacity:.7}
+.wf-indent{padding-left:1.25rem;color:var(--body)}
+.wf-amount{font-family:'JetBrains Mono',monospace;font-size:.72rem;text-align:right}
+.wf-pct{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);text-align:right}
+.wf-positive{color:var(--green)}
+.wf-negative{color:var(--red)}
+.wf-neutral{color:var(--text)}
+.wf-gold{color:var(--gold);font-weight:500}
+
+/* Minimum margin callout */
+.min-margin-box{background:var(--bg-3);border:1px solid var(--border);border-left:4px solid var(--gold);padding:1.25rem 1.5rem;margin-bottom:2rem;display:grid;grid-template-columns:1fr auto;gap:1.5rem;align-items:center}
+@media(max-width:600px){.min-margin-box{grid-template-columns:1fr}}
+.mm-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+.mm-desc{font-size:.78rem;color:var(--body);line-height:1.6}
+.mm-value{text-align:right}
+.mm-bps{font-family:'DM Serif Display',serif;font-size:2rem;color:var(--gold);line-height:1}
+.mm-bps-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);margin-top:.15rem;text-align:right}
+
+/* Sensitivity table */
+.sens-table{width:100%;border-collapse:collapse;margin-bottom:2rem}
+.sens-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border-2);text-align:left;font-weight:400}
+.sens-table td{padding:.6rem .75rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.68rem;vertical-align:middle}
+.sens-table tr:last-child td{border-bottom:none}
+.sens-table tr.current-row td{background:var(--gold-dim)}
+.sens-above{color:var(--green)}.sens-below{color:var(--red)}.sens-current{color:var(--gold)}
+
+/* Rationale */
+.rationale-block{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);padding:1.25rem 1.5rem;margin-bottom:2rem}
+.rationale-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem}
+.rationale-text{font-size:.82rem;color:var(--text);line-height:1.8}
+.rationale-text strong{color:var(--bright)}
+
+.results-export-row{display:flex;gap:.75rem;padding-top:1.25rem;border-top:1px solid var(--border)}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;border-radius:var(--radius);border:1px solid;cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;transition:all .2s;background:transparent}
+.btn-export-md{color:var(--teal);border-color:rgba(20,184,166,.35)}
+.btn-export-md:hover{border-color:var(--teal);background:var(--teal-dim)}
+
+}
+
+/* ── Export button enhancements ─────────────────────────────── */
+.ap2-btn-inner{display:flex;flex-direction:column;gap:.05rem;text-align:left}
+.ap2-btn-label{font-size:.5rem;letter-spacing:.09em;text-transform:uppercase}
+.ap2-btn-sub{font-size:.42rem;color:rgba(212,168,71,.55);text-transform:none;letter-spacing:0;font-weight:300;line-height:1}
+.ap2-icon{font-size:.72rem;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-weight:700}
+.md-badge{font-size:.44rem;background:var(--teal-dim);color:var(--teal);border:1px solid rgba(20,184,166,.3);padding:.1rem .35rem;border-radius:2px;font-weight:600;letter-spacing:.04em;margin-right:.3rem;flex-shrink:0}
+/* ── Export success toast ────────────────────────────────────── */
+.export-toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--green);padding:.7rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--green);z-index:9999;pointer-events:none;display:flex;align-items:center;gap:.5rem;border-radius:var(--radius);box-shadow:0 4px 24px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s}
+.export-toast.show{opacity:1;transform:translateY(0)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+/* 5D-nav-bc-v1 */
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem .9rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.5rem}
+</style>
+<!-- /* Phase15-nav-footer */ -->
+<!-- /* Phase19-pii-lr */ -->
+<!-- /* Phase20-nav-trail */ -->
+<!-- AIN-canon-2026-05-17 -->
+</head>
+<body>
+
+<!-- LANG BAR -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick='setLang("zh")'>中文</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--gold)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".7"/>
+      </svg>
+      <div class="logo-text">
+        <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+      </div>
+    </a>
+    <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/counterparty-credit-risk-hub.html">Credit Risk Hub</a><span class="nav-sep">/</span><span>T-203</span></div>
+
+    <a href="../guides/counterparty-credit-risk-hub.html" class="nav-right nav-cta">Hub &#8594;</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+    <div class="hero-eyebrow">
+      <span class="tool-eyebrow">T203 · Cat-17 · Counterparty Credit Risk · Loan Pricing</span>
+    </div>
+    <h1 class="tool-title">RAROC <em>Loan Pricing Model</em></h1>
+    <p class="hero-desc">Model risk-adjusted return on capital for loan and facility pricing. Inputs: loan amount, margin, fees, cost of funds, expected loss (from T198), capital allocation (from T201), and operating cost. Outputs RAROC vs. hurdle rate verdict, economic profit/loss, P&amp;L waterfall, minimum margin calculation, and margin sensitivity table.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-gold">RAROC</span>
+      <span class="hero-badge badge-teal">Economic Profit</span>
+      <span class="hero-badge badge-purple">Risk-Adjusted Return</span>
+      <span class="hero-badge badge-muted">Zero PII · Client-side</span>
+    </div>
+    <span class="hero-badge badge-muted"><span data-i18n="hero.badge.last_reviewed">Last Reviewed · 2026-05-12</span></span>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main-content">
+<div class="container">
+
+  <div class="tool-layout">
+
+    <!-- CONFIG PANEL -->
+    <div class="panel">
+      <div class="panel-label">Configuration</div>
+
+      <!-- Loan parameters -->
+      <div class="section-divider">Facility Structure</div>
+      <div class="field-row">
+        <div>
+          <label class="fl" data-i18n="label_loan_amount">Loan / Facility Amount <span class="hint">($)</span></label>
+          <input class="fi" id="loanAmount" type="number" placeholder="e.g. 10000000" step="100000" min="0" value="10000000">
+        </div>
+        <div>
+          <label class="fl">Maturity <span class="hint">(years)</span></label>
+          <input class="fi" id="maturity" type="number" placeholder="e.g. 3" step="0.25" min="0.25" max="30" value="3">
+        </div>
+      </div>
+      <div class="field-row">
+        <div>
+          <label class="fl" data-i18n="label_margin">All-In Margin <span class="hint">(bps)</span></label>
+          <input class="fi" id="margin" type="number" placeholder="e.g. 250" step="5" min="0" value="250">
+          <div class="field-sub">Spread over reference rate (SOFR/EURIBOR etc.).</div>
+        </div>
+        <div>
+          <label class="fl" data-i18n="label_cost_of_funds">Cost of Funds <span class="hint">(bps)</span></label>
+          <input class="fi" id="cof" type="number" placeholder="e.g. 80" step="5" min="0" value="80">
+          <div class="field-sub">Bank's internal funding cost over reference rate.</div>
+        </div>
+      </div>
+      <div class="field-row">
+        <div>
+          <label class="fl">Upfront Fee <span class="hint">(% of facility)</span></label>
+          <input class="fi" id="upfrontFee" type="number" placeholder="e.g. 0.75" step="0.05" min="0" max="10" value="0.75">
+        </div>
+        <div>
+          <label class="fl">Annual Agency / Commitment Fee <span class="hint">(%)</span></label>
+          <input class="fi" id="annualFee" type="number" placeholder="e.g. 0.25" step="0.05" min="0" max="5" value="0.25">
+        </div>
+      </div>
+
+      <!-- Credit & capital inputs -->
+      <div class="section-divider">Credit &amp; Capital Inputs <span style="color:var(--body);text-transform:none;letter-spacing:0;font-weight:300;font-size:.6rem;font-family:'Sora',sans-serif"> — from T198 / T201</span></div>
+      <div class="field-row">
+        <div>
+          <label class="fl">Expected Loss (EL) <span class="hint">(annual $)</span></label>
+          <input class="fi" id="expectedLoss" type="number" placeholder="e.g. 13500" step="100" min="0" value="13500">
+          <div class="field-sub">From T198: annual PD × LGD × EAD.</div>
+        </div>
+        <div>
+          <label class="fl">RWA <span class="hint">($) — from T201</span></label>
+          <input class="fi" id="rwa" type="number" placeholder="e.g. 7500000" step="100000" min="0" value="7500000">
+        </div>
+      </div>
+      <div class="field-row">
+        <div>
+          <label class="fl">CET1 Capital Ratio <span class="hint">(% held)</span></label>
+          <input class="fi" id="cet1Ratio" type="number" placeholder="e.g. 12" step="0.5" min="4.5" max="30" value="12">
+          <div class="field-sub">CET1 ratio the bank allocates against this RWA. Minimum regulatory 4.5%.</div>
+        </div>
+        <div>
+          <label class="fl">Operating Cost <span class="hint">(% of loan p.a.)</span></label>
+          <input class="fi" id="opexRatio" type="number" placeholder="e.g. 0.20" step="0.05" min="0" max="5" value="0.20">
+          <div class="field-sub">Allocated origination, servicing, and overhead costs per annum.</div>
+        </div>
+      </div>
+
+      <!-- Hurdle rate -->
+      <div class="section-divider">Hurdle Rate</div>
+      <div class="field-row">
+        <div>
+          <label class="fl" data-i18n="label_hurdle_rate">Target RAROC <span class="hint">(% hurdle)</span></label>
+          <input class="fi" id="hurdleRate" type="number" placeholder="e.g. 12" step="0.5" min="0" max="100" value="12">
+          <div class="field-sub">Minimum RAROC to approve the facility. Typically 10–15% for corporate lending.</div>
+        </div>
+        <div>
+          <label class="fl">Cost of Equity <span class="hint">(% CAPM)</span></label>
+          <input class="fi" id="coe" type="number" placeholder="e.g. 10" step="0.5" min="0" max="30" value="10">
+          <div class="field-sub">Used to compute economic profit (EVA). Typically CAPM-derived.</div>
+        </div>
+      </div>
+
+      <button class="run-btn" onclick="runRAROC()" data-i18n="run_btn">Run Analysis →</button>
+    </div>
+
+    <!-- ABOUT PANEL -->
+    <div class="panel">
+      <div class="panel-label">About This Tool</div>
+
+      <div class="about-block">
+        <div class="about-label">RAROC Formula Chain</div>
+        <div class="formula-chain">
+NII   = (Margin − CoF) × Loan<br>
+Fees  = Upfront/M + Annual Fee<br>
+<span class="fcomment">────────────────────────</span><br>
+Rev   = NII + Fees<br>
+− EL  = PD × LGD × EAD<br>
+− OpEx= % × Loan<br>
+<span class="fcomment">────────────────────────</span><br>
+RANI  = Rev − EL − OpEx<br>
+EC    = RWA × CET1%<br>
+RAROC = RANI / EC × 100<br>
+<span class="fcomment">────────────────────────</span><br>
+EP    = RANI − CoE × EC
+        </div>
+      </div>
+
+      <div class="about-block">
+        <div class="about-label">Economic Profit (EP)</div>
+        <div class="about-text">EP = RANI − (Cost of Equity × Economic Capital). Positive EP = the deal creates value above the cost of capital. Negative EP = the deal destroys shareholder value even if RAROC is positive.</div>
+      </div>
+
+      <div class="about-block">
+        <div class="about-label">Minimum Margin</div>
+        <div class="about-text">The minimum all-in margin (bps) at which RAROC equals the hurdle rate. This is the floor below which the deal should not be approved without additional fee income, collateral, or volume compensation.</div>
+      </div>
+
+      <div class="about-block">
+        <div class="about-label">Workflow Integration</div>
+        <div class="about-text">Feed outputs from <strong>T198</strong> (Expected Loss), <strong>T201</strong> (RWA), and <strong>T197</strong> (rating/sector) into this tool for an end-to-end credit decision model. Run <strong>T202</strong> first to stress-test RAROC under adverse scenarios.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+    <div class="results-header">
+      <div class="results-title-el">RAROC Pricing Results</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--muted)" id="runMeta"></div>
+    </div>
+    <div class="results-body">
+
+      <!-- Verdict -->
+      <div class="verdict-banner" id="verdictBanner">
+        <div class="verdict-icon" id="verdictIcon"></div>
+        <div class="verdict-main">
+          <div class="verdict-title" id="verdictTitle"></div>
+          <div class="verdict-sub" id="verdictSub"></div>
+        </div>
+        <div class="verdict-raroc">
+          <div class="raroc-big" id="rarocBig"></div>
+          <div class="raroc-label">RAROC vs <span id="hurdleLabel"></span> hurdle</div>
+        </div>
+      </div>
+
+      <!-- Key metrics -->
+      <div class="metrics-strip" id="metricsStrip"></div>
+
+      <!-- P&L waterfall -->
+      <div class="sec-lbl">Annual P&amp;L Waterfall</div>
+      <div class="waterfall" id="waterfall"></div>
+
+      <!-- Minimum margin callout -->
+      <div class="min-margin-box" id="minMarginBox">
+        <div>
+          <div class="mm-label">Minimum Margin to Meet Hurdle Rate</div>
+          <div class="mm-desc" id="minMarginDesc"></div>
+        </div>
+        <div class="mm-value">
+          <div class="mm-bps" id="minMarginBps"></div>
+          <div class="mm-bps-label">bps all-in margin</div>
+        </div>
+      </div>
+
+      <!-- Sensitivity table -->
+      <div class="sec-lbl">Margin Sensitivity — RAROC at ±150bps</div>
+      <table class="sens-table">
+        <thead>
+          <tr>
+            <th>All-In Margin (bps)</th>
+            <th>Net Spread (bps)</th>
+            <th>NII (annual)</th>
+            <th>RANI</th>
+            <th>RAROC</th>
+            <th>vs. Hurdle</th>
+            <th>Economic Profit</th>
+          </tr>
+        </thead>
+        <tbody id="sensBody"></tbody>
+      </table>
+
+      <!-- Rationale -->
+      <div class="rationale-block">
+        <div class="rationale-label">Pricing Commentary</div>
+        <div class="rationale-text" id="rationaleText"></div>
+      </div>
+
+      <div class="results-export-row">
+        <button class="btn-export btn-export-md" onclick="exportMarkdown()"><span class="md-badge">MD</span><span class="md-btn-text">Export Markdown</span></button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- FOOTER -->
+
+<!-- FOOTER -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/counterparty-credit-risk-hub.html"><span data-i18n="footer.hub_counterparty_credit_risk">CCR Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* AINPolicyMandate T6 sweep — Phase 14 */
+
+/* AINPolicyMandate T5 sweep — Phase 14 */
+
+/* AINPolicyMandate sweep — PM18d/Phase 14 */
+
+/* AP2Schema — full validator (PM17; wired into cohort C) */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+if (typeof AP2Schema.validate !== 'function') {
+  AP2Schema.validate = function(m) {
+    var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+    var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{if(typeof console!=='undefined'&&console.warn)console.warn('[AP2Schema]',msg);}catch(e){}}
+    if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+    if (typeof m.tool_id !== 'string' && typeof m.mandate_id !== 'string') _fail('missing identity field (tool_id or mandate_id)');
+    if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+    if ('jurisdiction' in m && !Array.isArray(m.jurisdiction)) _fail('"jurisdiction" must be an array');
+    if ('regulatory_frameworks' in m && !Array.isArray(m.regulatory_frameworks)) _fail('"regulatory_frameworks" must be an array');
+    if ('regulatory_citations' in m && !Array.isArray(m.regulatory_citations)) _fail('"regulatory_citations" must be an array');
+    if ('agent_instructions' in m && !Array.isArray(m.agent_instructions)) _fail('"agent_instructions" must be an array');
+    if ('policy_parameters' in m && (typeof m.policy_parameters !== 'object' || Array.isArray(m.policy_parameters) || m.policy_parameters === null)) _fail('"policy_parameters" must be an object');
+    if ('output_payload' in m && (typeof m.output_payload !== 'object' || Array.isArray(m.output_payload) || m.output_payload === null)) _fail('"output_payload" must be an object');
+    if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+    if ('issued_at' in m && (typeof m.issued_at !== 'string' || !RE_ISO.test(m.issued_at))) _fail('"issued_at" must be ISO-8601');
+    if ('generated_at' in m && (typeof m.generated_at !== 'string' || !RE_ISO.test(m.generated_at))) _fail('"generated_at" must be ISO-8601');
+    if ('last_reviewed' in m && (typeof m.last_reviewed !== 'string' || !RE_ISO.test(m.last_reviewed))) _fail('"last_reviewed" must be ISO-8601');
+    if ('ap2_version' in m && (typeof m.ap2_version !== 'string' || !RE_VER.test(m.ap2_version))) _fail('"ap2_version" must be semver (e.g. 1.0 or 1.0.0)');
+    if (!('ap2_version' in m)) _warn('missing recommended field: ap2_version');
+    if (!('issued_at' in m) && !('generated_at' in m)) _warn('missing recommended timestamp: issued_at or generated_at');
+    if (!('summary' in m)) _warn('missing recommended field: summary');
+    return true;
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   T203 · RAROC Loan Pricing Model
+   Methodology: NII + Fees − EL − OpEx = RANI; RANI / EC = RAROC
+   ap2_export: true — loan pricing record mandate
+   Client-side. Zero PII. Zero external calls.
+═══════════════════════════════════════════════════════════════ */
+
+const TRANSLATIONS = {
+  en:{ eyebrow:"T203 · Cat-17 · Counterparty Credit Risk · Loan Pricing", hero_title:"RAROC Loan Pricing Model", hero_desc:"Model risk-adjusted return on capital for loan and facility pricing. Inputs: loan amount, margin, fees, cost of funds, expected loss (from T198), capital allocation (from T201), and operating cost.", panel_config:"Configuration", panel_about:"About This Tool", label_loan_amount:"Loan / Facility Amount", label_margin:"All-In Margin (bps)", label_cost_of_funds:"Cost of Funds (bps)", label_hurdle_rate:"Target RAROC (%)", run_btn:"Run Analysis →", results_title:"RAROC Pricing Results", export_ap2:"Export Policy Mandate", export_md:"⬇ Export Markdown", last_reviewed:"Last Reviewed", nav_all_tools:"All Tools", lang_dir:"ltr" 
+    'nav.alltools': 'All Tools',
+    'nav.manifest': 'Manifest',
+    'nav.hub': '← Cat-17 Hub',
+  },
+  es:{ eyebrow:"T203 · Cat-17 · Riesgo de Crédito · Precio de Préstamo", hero_title:"Modelo de Precio de Préstamo RAROC", hero_desc:"Modele el retorno ajustado por riesgo sobre el capital para precios de préstamos.", panel_config:"Configuración", panel_about:"Acerca de esta herramienta", label_loan_amount:"Monto del Préstamo ($)", label_margin:"Margen Total (pbs)", label_cost_of_funds:"Costo de Fondos (pbs)", label_hurdle_rate:"RAROC Objetivo (%)", run_btn:"Ejecutar Análisis →", results_title:"Resultados RAROC", export_ap2:"Exportar Mandato de Política", export_md:"⬇ Exportar Markdown", last_reviewed:"Última Revisión", nav_all_tools:"Todas las Herramientas", lang_dir:"ltr" 
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.manifest': 'Manifiesto',
+    'nav.hub': '← Centro Cat-17',
+  },
+  fr:{ eyebrow:"T203 · Cat-17 · Risque de Crédit · Tarification", hero_title:"Modèle de Tarification RAROC", hero_desc:"Modélisez le rendement ajusté au risque sur le capital pour la tarification des prêts.", panel_config:"Configuration", panel_about:"À propos", label_loan_amount:"Montant du Prêt ($)", label_margin:"Marge Totale (bps)", label_cost_of_funds:"Coût de Financement (bps)", label_hurdle_rate:"RAROC Cible (%)", run_btn:"Lancer l'Analyse →", results_title:"Résultats RAROC", export_ap2:"Exporter Mandat de Politique", export_md:"⬇ Exporter Markdown", last_reviewed:"Dernière Révision", nav_all_tools:"Tous les Outils", lang_dir:"ltr" 
+    'nav.alltools': 'Tous les Outils',
+    'nav.manifest': 'Manifeste',
+    'nav.hub': '← Centre Cat-17',
+  },
+  ar:{ eyebrow:"T203 · القسم 17 · مخاطر الائتمان · تسعير القروض", hero_title:"نموذج تسعير القروض RAROC", hero_desc:"نمذجة العائد المعدّل بالمخاطر على رأس المال لتسعير القروض والتسهيلات.", panel_config:"الإعدادات", panel_about:"حول هذه الأداة", label_loan_amount:"مبلغ القرض ($)", label_margin:"الهامش الإجمالي (نقطة أساس)", label_cost_of_funds:"تكلفة التمويل (نقطة أساس)", label_hurdle_rate:"RAROC المستهدف (%)", run_btn:"تشغيل التحليل →", results_title:"نتائج RAROC", export_ap2:"تصدير تفويض السياسة", export_md:"⬇ تصدير Markdown", last_reviewed:"آخر مراجعة", nav_all_tools:"جميع الأدوات", lang_dir:"rtl" 
+    'nav.alltools': 'جميع الأدوات',
+    'nav.manifest': 'بيان',
+    'nav.hub': '← مركز Cat-17',
+  },
+  pt:{ eyebrow:"T203 · Cat-17 · Risco de Crédito · Preço de Empréstimo", hero_title:"Modelo de Preço de Empréstimo RAROC", hero_desc:"Modele o retorno ajustado ao risco sobre o capital para preços de empréstimos e facilidades.", panel_config:"Configuração", panel_about:"Sobre esta ferramenta", label_loan_amount:"Montante do Empréstimo ($)", label_margin:"Margem Total (bps)", label_cost_of_funds:"Custo de Fundos (bps)", label_hurdle_rate:"RAROC Alvo (%)", run_btn:"Executar Análise →", results_title:"Resultados RAROC", export_ap2:"Exportar Mandato de Política", export_md:"⬇ Exportar Markdown", last_reviewed:"Última Revisão", nav_all_tools:"Todas as Ferramentas", lang_dir:"ltr" 
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.manifest': 'Manifesto',
+    'nav.hub': '← Central Cat-17',
+  },
+  zh:{ eyebrow:"T203 · 第17类 · 交易对手信用风险 · 贷款定价", hero_title:"RAROC贷款定价模型", hero_desc:"对贷款和授信设施进行风险调整资本回报率建模，输入贷款金额、利差、手续费、资金成本、预期损失和资本分配。", panel_config:"配置", panel_about:"关于本工具", label_loan_amount:"贷款/授信金额（$）", label_margin:"全价利差（bp）", label_cost_of_funds:"资金成本（bp）", label_hurdle_rate:"目标RAROC（%）", run_btn:"运行分析 →", results_title:"RAROC定价结果", export_ap2:"导出政策授权书", export_md:"⬇ 导出 Markdown", last_reviewed:"最近审核", nav_all_tools:"全部工具", lang_dir:"ltr" 
+    'nav.alltools': '所有工具',
+    'nav.manifest': '清单',
+    'nav.hub': '← Cat-17 中心',
+  },
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`) || document.querySelector(`.lang-btn[onclick='setLang("${lang}")']`);
+  if (btn) btn.classList.add('active');
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
+  document.documentElement.dir = t.lang_dir || 'ltr';
+  document.body.dir = t.lang_dir || 'ltr';
+  const ap = (sel,key) => { const el = document.querySelector(sel); if (el && t[key]) el.textContent = t[key]; };
+  ap('.tool-eyebrow','eyebrow'); ap('.hero h1','hero_title'); ap('.hero-desc','hero_desc');
+  ap('.run-btn','run_btn'); ap('.results-title-el','results_title'); ap('.nav-cta','nav_all_tools');
+  const panels = document.querySelectorAll('.panel-label');
+  ['panel_config','panel_about'].forEach((k,i)=>{ if(panels[i]&&t[k]) panels[i].textContent=t[k]; });
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ const k=el.getAttribute('data-i18n'); if(t[k]) el.textContent=t[k]; });
+  document.querySelectorAll('.btn-export-md').forEach(function(b){ if(t.export_md){ var s=b.querySelector('.md-btn-text'); if(s) s.textContent=t.export_md.replace('⬇ ',''); } });
+  const ap2btn = document.getElementById('footerAp2Btn');
+  if (ap2btn && t.export_ap2) { const lbl=ap2btn.querySelector('.ap2-btn-label'); if(lbl) lbl.textContent=t.export_ap2; }
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){ try { const s = sessionStorage.getItem('ain_lang'); if (s && TRANSLATIONS[s]) setLang(s); } catch(e){} })();
+
+let lastResult = null;
+
+/* ── RAROC Engine ─────────────────────────────────────────── */
+function calcRAROC(loan, marginBps, cofBps, upfrontFee, annualFee, el, rwa, cet1Pct, opexPct, hurdlePct, coePct, maturity) {
+  const netSpreadBps = marginBps - cofBps;
+  const nii         = (netSpreadBps / 10000) * loan;                  // annual NII
+  const annFeeInc   = (annualFee / 100) * loan;                       // annual fee
+  const upfrontAnn  = (upfrontFee / 100) * loan / maturity;           // annualised upfront
+  const feeInc      = annFeeInc + upfrontAnn;
+  const totalRev    = nii + feeInc;
+  const opex        = (opexPct / 100) * loan;
+  const rani        = totalRev - el - opex;
+  const ec          = rwa * (cet1Pct / 100);
+  const raroc       = ec > 0 ? (rani / ec) * 100 : 0;
+  const ep          = rani - (coePct / 100) * ec;                      // Economic Profit
+  const hurdle      = hurdlePct;
+  const spread      = raroc - hurdle;
+  // Minimum margin to hit hurdle
+  const targetRANI  = (hurdlePct / 100) * ec;
+  const minNII      = targetRANI + el + opex - feeInc;
+  const minMarginBps = Math.max(0, (minNII / loan) * 10000 + cofBps);
+  return { nii, annFeeInc, upfrontAnn, feeInc, totalRev, el, opex, rani, ec, raroc, ep, spread, minMarginBps, netSpreadBps };
+}
+
+function runRAROC() {
+  const loan       = parseFloat(document.getElementById('loanAmount').value);
+  const margin     = parseFloat(document.getElementById('margin').value);
+  const cof        = parseFloat(document.getElementById('cof').value);
+  const upfront    = parseFloat(document.getElementById('upfrontFee').value);
+  const annual     = parseFloat(document.getElementById('annualFee').value);
+  const el         = parseFloat(document.getElementById('expectedLoss').value);
+  const rwa        = parseFloat(document.getElementById('rwa').value);
+  const cet1       = parseFloat(document.getElementById('cet1Ratio').value);
+  const opex       = parseFloat(document.getElementById('opexRatio').value);
+  const hurdle     = parseFloat(document.getElementById('hurdleRate').value);
+  const coe        = parseFloat(document.getElementById('coe').value);
+  const maturity   = parseFloat(document.getElementById('maturity').value);
+
+  if ([loan,margin,cof,upfront,annual,el,rwa,cet1,opex,hurdle,coe,maturity].some(v=>isNaN(v)||v<0)) {
+    alert('Please fill in all fields with valid values.'); return;
+  }
+
+  const r = calcRAROC(loan, margin, cof, upfront, annual, el, rwa, cet1, opex, hurdle, coe, maturity);
+
+  // Sensitivity: margin from (min_margin - 100bps) to (margin + 150bps) in 50bps steps
+  const sensPts = [];
+  const baseM = Math.round(margin / 50) * 50; // round to nearest 50
+  for (let m = Math.max(0, baseM - 150); m <= baseM + 150; m += 50) {
+    const sr = calcRAROC(loan, m, cof, upfront, annual, el, rwa, cet1, opex, hurdle, coe, maturity);
+    sensPts.push({ margin: m, ...sr, isCurrent: m === Math.round(margin / 50) * 50 });
+  }
+
+  lastResult = { loan, margin, cof, upfront, annual, el, rwa, cet1, opex, hurdle, coe, maturity, r, sensPts, runAt: new Date().toISOString() };
+  renderResults();
+  const _ab=document.getElementById('footerAp2Btn'); _ab.classList.add('ready'); _ab.title='For API integration · audit trail';
+}
+
+/* ── Render ───────────────────────────────────────────────── */
+function fmtCcy(n) { return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n); }
+function fmtPct(n,dp=2) { return n.toFixed(dp) + '%'; }
+function fmtBps(n) { return Math.round(n) + ' bps'; }
+
+function renderResults() {
+  const { loan, margin, cof, hurdle, coe, r } = lastResult;
+  const above = r.raroc >= hurdle;
+
+  // Verdict
+  const banner = document.getElementById('verdictBanner');
+  banner.className = 'verdict-banner ' + (above ? 'above' : 'below');
+  document.getElementById('verdictIcon').textContent  = above ? '✅' : '⚠️';
+  document.getElementById('verdictTitle').textContent = above ? 'Above Hurdle Rate — Deal Approved' : 'Below Hurdle Rate — Deal Rejected';
+  document.getElementById('verdictSub').textContent   = above
+    ? `RAROC of ${fmtPct(r.raroc)} exceeds the ${fmtPct(hurdle)} target by ${fmtPct(r.spread)} — this facility creates economic value.`
+    : `RAROC of ${fmtPct(r.raroc)} is ${fmtPct(-r.spread)} below the ${fmtPct(hurdle)} hurdle — re-price or restructure before approval.`;
+  document.getElementById('rarocBig').style.color   = above ? 'var(--green)' : 'var(--red)';
+  document.getElementById('rarocBig').textContent   = fmtPct(r.raroc, 1);
+  document.getElementById('hurdleLabel').textContent = fmtPct(hurdle, 0);
+
+  // Metrics strip
+  document.getElementById('metricsStrip').innerHTML = `
+    <div class="m-cell"><div class="m-label">RAROC</div><div class="m-value ${above?'green':'red'}">${fmtPct(r.raroc,1)}</div><div class="m-sub">vs ${fmtPct(hurdle,0)} hurdle</div></div>
+    <div class="m-cell"><div class="m-label">Economic Capital</div><div class="m-value teal">${fmtCcy(r.ec)}</div><div class="m-sub">RWA × ${fmtPct(lastResult.cet1,0)} CET1</div></div>
+    <div class="m-cell"><div class="m-label">RANI (annual)</div><div class="m-value ${r.rani>=0?'gold':'red'}">${fmtCcy(r.rani)}</div><div class="m-sub">Risk-adj. net income</div></div>
+    <div class="m-cell"><div class="m-label">Economic Profit</div><div class="m-value ${r.ep>=0?'green':'red'}">${fmtCcy(r.ep)}</div><div class="m-sub">vs ${fmtPct(coe,0)} CoE</div></div>
+    <div class="m-cell"><div class="m-label">Net Spread</div><div class="m-value gold">${fmtBps(r.netSpreadBps)}</div><div class="m-sub">Margin − CoF</div></div>
+  `;
+
+  // Waterfall
+  const wfPct = n => (n / loan * 100).toFixed(3) + '% of loan';
+  document.getElementById('waterfall').innerHTML = [
+    { label:'Net Interest Income (NII)',   amount:r.nii,      pct:wfPct(r.nii),       cls:'wf-positive', icon:'💰', indent:false },
+    { label:'Fee Income (annualised)',     amount:r.feeInc,   pct:wfPct(r.feeInc),    cls:'wf-positive', icon:'📋', indent:true  },
+    { label:'Total Revenue',              amount:r.totalRev, pct:wfPct(r.totalRev),  cls:'wf-gold',     icon:'',   indent:false, sub:true },
+    { label:'Less: Expected Loss (EL)',   amount:-r.el,       pct:wfPct(r.el),        cls:'wf-negative', icon:'📉', indent:true  },
+    { label:'Less: Operating Costs',      amount:-r.opex,     pct:wfPct(r.opex),      cls:'wf-negative', icon:'⚙️', indent:true  },
+    { label:'RANI (Risk-Adj. Net Income)',amount:r.rani,      pct:wfPct(r.rani),      cls:r.rani>=0?'wf-gold':'wf-negative', icon:'', indent:false, sub:true },
+    { label:'Economic Capital (EC)',      amount:r.ec,        pct:'RWA × CET1%',      cls:'wf-neutral',  icon:'🏦', indent:false  },
+    { label:'RAROC = RANI / EC',          amount:null,        pct:fmtPct(r.raroc,2),  cls:above?'wf-positive':'wf-negative', icon:'📊', indent:false, total:true },
+  ].map(row => `
+    <div class="wf-row${row.sub?' subtotal':''}${row.total?' total':''}">
+      <div class="wf-label ${row.indent?'wf-indent':''}"><span class="wf-icon">${row.icon}</span>${row.label}</div>
+      <div class="wf-amount ${row.cls}">${row.amount !== null ? fmtCcy(row.amount) : ''}</div>
+      <div class="wf-pct">${row.pct}</div>
+    </div>`).join('');
+
+  // Minimum margin
+  document.getElementById('minMarginBps').textContent = Math.round(r.minMarginBps);
+  document.getElementById('minMarginDesc').innerHTML =
+    `At the current ${fmtPct(hurdle,0)} hurdle rate, the facility requires an all-in margin of at least <strong>${Math.round(r.minMarginBps)} bps</strong> to be approved. ` +
+    (margin >= r.minMarginBps
+      ? `Current pricing of ${margin} bps is <strong style="color:var(--green)">${Math.round(margin - r.minMarginBps)} bps above the minimum</strong>.`
+      : `Current pricing of ${margin} bps is <strong style="color:var(--red)">${Math.round(r.minMarginBps - margin)} bps short</strong> — re-price or add fee income.`);
+
+  // Sensitivity
+  document.getElementById('sensBody').innerHTML = lastResult.sensPts.map(pt => {
+    const cls = pt.isCurrent ? 'sens-current' : pt.raroc >= hurdle ? 'sens-above' : 'sens-below';
+    return `<tr${pt.isCurrent?' class="current-row"':''}>
+      <td class="${cls}">${pt.margin} bps${pt.isCurrent?' ◀':''}</td>
+      <td>${pt.netSpreadBps} bps</td>
+      <td>${fmtCcy(pt.nii)}</td>
+      <td class="${pt.rani>=0?'sens-above':'sens-below'}">${fmtCcy(pt.rani)}</td>
+      <td class="${cls}">${fmtPct(pt.raroc,1)}</td>
+      <td class="${pt.raroc>=hurdle?'sens-above':'sens-below'}">${pt.raroc>=hurdle?'+':''}${fmtPct(pt.raroc-hurdle,1)}</td>
+      <td class="${pt.ep>=0?'sens-above':'sens-below'}">${fmtCcy(pt.ep)}</td>
+    </tr>`;
+  }).join('');
+
+  // Rationale
+  const roeNII = (r.nii / loan * 100).toFixed(3);
+  document.getElementById('rationaleText').innerHTML =
+    `All-in margin of <strong>${margin} bps</strong> over a cost of funds of <strong>${cof} bps</strong> generates a net spread of <strong>${fmtBps(r.netSpreadBps)}</strong> and annual NII of <strong>${fmtCcy(r.nii)}</strong> (${roeNII}% of loan). After fees, expected loss of ${fmtCcy(r.el)}, and operating costs of ${fmtCcy(r.opex)}, RANI is <strong>${fmtCcy(r.rani)}</strong>.
+    Against economic capital of <strong>${fmtCcy(r.ec)}</strong> (RWA ${fmtCcy(lastResult.rwa)} × ${fmtPct(lastResult.cet1,0)} CET1), RAROC is <strong>${fmtPct(r.raroc,2)}</strong> — <strong>${above?'above':'below'} the ${fmtPct(hurdle,0)} hurdle</strong> by ${fmtPct(Math.abs(r.spread),2)}.
+    Economic profit of <strong>${fmtCcy(r.ep)}</strong> ${r.ep >= 0 ? 'confirms the deal creates value above the cost of equity' : 'is negative — the deal destroys shareholder value even if RAROC is positive'}.
+    ${above ? '' : `<strong>To reach the hurdle:</strong> increase all-in margin to at least ${Math.round(r.minMarginBps)} bps, add ${fmtCcy(((hurdle/100)*r.ec - r.rani))} additional annual income, or reduce expected loss / operating costs. `}
+    <strong>Sensitivity:</strong> every 50 bps increase in margin adds approximately ${fmtCcy(0.005 * loan / lastResult.maturity * lastResult.maturity)} to RANI and ${fmtPct((0.005 * loan) / r.ec * 100, 1)} to RAROC.`;
+
+  document.getElementById('runMeta').textContent = new Date().toLocaleTimeString();
+  const panel = document.getElementById('resultsPanel');
+  panel.classList.add('visible');
+  panel.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+/* ── AP2 Export ───────────────────────────────────────────── */
+function exportAP2() {
+  if (!lastResult) return;
+  const { loan, margin, cof, upfront, annual, el, rwa, cet1, opex, hurdle, coe, maturity, r, runAt } = lastResult;
+  const above = r.raroc >= hurdle;
+  const mandate = {
+    ap2_version:"1.0", mandate_id:crypto.randomUUID(), issued_at:new Date().toISOString(),
+    issued_by:"ainumbers.co", tool_id:"raroc-loan-pricing-model", tool_version:"4.0.0",
+    mandate_type:"credit_assessment",
+    jurisdiction:["global"],
+    regulatory_frameworks:["Basel III","IFRS 9","ICAAP"],
+    payload:{
+      loan_amount: loan,
+      maturity_years: maturity,
+      all_in_margin_bps: margin,
+      cost_of_funds_bps: cof,
+      net_spread_bps: r.netSpreadBps,
+      upfront_fee_pct: upfront,
+      annual_fee_pct: annual,
+      expected_loss_annual: parseFloat(r.el.toFixed(2)),
+      rwa: rwa,
+      economic_capital: parseFloat(r.ec.toFixed(2)),
+      cet1_ratio_pct: cet1,
+      opex_ratio_pct: opex,
+      net_interest_income: parseFloat(r.nii.toFixed(2)),
+      fee_income_annualised: parseFloat(r.feeInc.toFixed(2)),
+      total_revenue: parseFloat(r.totalRev.toFixed(2)),
+      rani: parseFloat(r.rani.toFixed(2)),
+      raroc_pct: parseFloat(r.raroc.toFixed(4)),
+      hurdle_rate_pct: hurdle,
+      raroc_vs_hurdle_pct: parseFloat(r.spread.toFixed(4)),
+      economic_profit: parseFloat(r.ep.toFixed(2)),
+      cost_of_equity_pct: coe,
+      minimum_margin_bps: parseFloat(r.minMarginBps.toFixed(1)),
+      deal_verdict: above ? "approved" : "rejected",
+    },
+    summary: `RAROC loan pricing: ${fmtPct(r.raroc,2)} vs ${fmtPct(hurdle,0)} hurdle — ${above?'APPROVED':'REJECTED'}. All-in margin ${margin} bps on ${fmtCcy(loan)} facility. RANI ${fmtCcy(r.rani)}, Economic Profit ${fmtCcy(r.ep)}. Minimum margin to hit hurdle: ${Math.round(r.minMarginBps)} bps.`,
+    agent_instructions:[
+      above
+        ? `Facility priced above hurdle rate (${fmtPct(r.raroc,2)} RAROC vs ${fmtPct(hurdle,0)} target). Proceed with credit approval workflow.`
+        : `Facility is ${fmtPct(-r.spread,2)} below hurdle rate. Do NOT approve at current pricing. Re-price to minimum ${Math.round(r.minMarginBps)} bps or restructure the facility.`,
+      `Allocate economic capital of ${fmtCcy(r.ec)} against this facility in the capital management system (RWA ${fmtCcy(rwa)} × ${fmtPct(cet1,0)} CET1).`,
+      `Book annual IFRS 9 ECL provision of ${fmtCcy(el)} against this facility.`,
+      `Record RANI of ${fmtCcy(r.rani)} as the annual risk-adjusted contribution from this counterparty for performance management.`,
+      `Review pricing at next annual credit review or if T197 rating or T202 stress scenario triggers a rating change of ≥2 notches.`,
+    ],
+    last_reviewed:"2025-01-15",
+    source_tool_inputs:{ loan, margin, cof, upfront_fee:upfront, annual_fee:annual, expected_loss:el, rwa, cet1_ratio:cet1, opex_ratio:opex, hurdle_rate:hurdle, cost_of_equity:coe, maturity },
+    regulatory_citations:[
+      "Basel III: BIS BCBS 189 — RAROC capital allocation framework",
+      "IFRS 9: IASB (2014) — ECL provisioning",
+      "EBA Guidelines on ICAAP (EBA/GL/2016/10) — economic capital allocation",
+    ],
+  };
+  AP2Schema.validate(mandate);
+  const blob = new Blob([JSON.stringify(mandate,null,2)],{type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'),{href:url,download:`ap2-t203-raroc-pricing-${Date.now()}.policy.json`});
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  showExportToast('Policy Mandate JSON downloaded', 'ap2');
+}
+
+/* ── Markdown Export ──────────────────────────────────────── */
+function exportMarkdown() {
+  if (!lastResult) return;
+  const { loan, margin, cof, hurdle, coe, r, maturity, cet1, runAt } = lastResult;
+  const d = runAt.split('T')[0];
+  const above = r.raroc >= hurdle;
+  const md = `# RAROC Loan Pricing Memo
+**Tool:** T203 · RAROC Loan Pricing Model · AINumbers.co
+**Date:** ${d} · **Verdict:** ${above ? '✅ APPROVED' : '⚠️ REJECTED'}
+
+---
+
+## Summary
+
+| Metric | Value |
+|---|---|
+| Loan Amount | ${fmtCcy(loan)} |
+| Maturity | ${maturity} years |
+| All-In Margin | **${margin} bps** |
+| Cost of Funds | ${cof} bps |
+| Net Spread | **${fmtBps(r.netSpreadBps)}** |
+| RAROC | **${fmtPct(r.raroc, 2)}** |
+| Hurdle Rate | ${fmtPct(hurdle, 0)} |
+| RAROC vs Hurdle | ${r.spread >= 0 ? '+' : ''}${fmtPct(r.spread, 2)} |
+| Economic Profit | **${fmtCcy(r.ep)}** |
+| Minimum Margin | **${Math.round(r.minMarginBps)} bps** |
+
+---
+
+## Annual P&L Waterfall
+
+| Line | Amount | % of Loan |
+|---|---|---|
+| Net Interest Income | ${fmtCcy(r.nii)} | ${(r.nii/loan*100).toFixed(3)}% |
+| Fee Income (annualised) | ${fmtCcy(r.feeInc)} | ${(r.feeInc/loan*100).toFixed(3)}% |
+| **Total Revenue** | **${fmtCcy(r.totalRev)}** | ${(r.totalRev/loan*100).toFixed(3)}% |
+| Less: Expected Loss | −${fmtCcy(r.el)} | |
+| Less: Operating Costs | −${fmtCcy(r.opex)} | |
+| **RANI** | **${fmtCcy(r.rani)}** | |
+| Economic Capital | ${fmtCcy(r.ec)} | |
+| **RAROC** | **${fmtPct(r.raroc, 2)}** | |
+
+---
+
+## Regulatory Citations
+
+1. Basel III: BIS BCBS 189 — RAROC capital allocation framework
+2. IFRS 9: IASB (2014) — ECL provisioning
+3. EBA Guidelines on ICAAP (EBA/GL/2016/10)
+
+---
+
+*Generated by AINumbers.co T203. Client-side. Zero PII. CC BY 4.0 · Post Oak Labs.*
+`;
+  const blob = new Blob([md],{type:'text/markdown'});
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'),{href:url,download:`t203-raroc-pricing-${Date.now()}.md`});
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  showExportToast('Markdown downloaded', 'md');
+}
+
+/* ── Export success feedback ──────────────────────────────────── */
+function showExportToast(msg, type) {
+  let el = document.getElementById('exportToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'exportToast';
+    el.className = 'export-toast';
+    document.body.appendChild(el);
+  }
+  const isAp2 = type === 'ap2';
+  el.style.borderLeftColor = isAp2 ? 'var(--green)' : 'var(--teal)';
+  el.style.color = isAp2 ? 'var(--green)' : 'var(--teal)';
+  el.innerHTML = '<span style="font-weight:700">' + (isAp2 ? '{}' : 'MD') + '</span>&nbsp;' + msg;
+  el.classList.add('show');
+  clearTimeout(el._tm);
+  el._tm = setTimeout(function(){ el.classList.remove('show'); }, 2200);
+}
+
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "raroc-loan-pricing-model", "version": "4.0.0", "title": "RAROC Loan Pricing Model", "description": "Model risk-adjusted return on capital for loan and facility pricing. Inputs: loan amount, margin, fees, cost of funds, expected loss (from T198), capital allocation (from T201), and operating cost. Outputs RAROC vs hurdle rate verdict, economic profit/loss, minimum margin calculation, and Policy Mandate JSON loan pricing record. Client-side. Zero PII.", "category": "cat-17", "tags": ["RAROC", "Loan Pricing", "Economic Profit", "ICAAP", "Capital Allocation", "Policy Mandate", "export"], "audience": ["relationship-manager", "credit-analyst", "capital-management"], "input_schema": {"type": "object", "properties": {"loan_amount": {"type": "number"}, "maturity_years": {"type": "number"}, "all_in_margin_bps": {"type": "number", "description": "All-in margin over reference rate (bps)"}, "cost_of_funds_bps": {"type": "number", "description": "Bank internal funding cost over reference rate (bps)"}, "upfront_fee_pct": {"type": "number", "description": "Upfront fee as % of facility"}, "annual_fee_pct": {"type": "number", "description": "Annual agency/commitment fee as % of facility"}, "expected_loss_annual": {"type": "number", "description": "Annual expected loss ($) — from T198"}, "rwa": {"type": "number", "description": "Risk-Weighted Assets ($) — from T201"}, "cet1_ratio_pct": {"type": "number", "description": "CET1 capital ratio held against this RWA (%)"}, "opex_ratio_pct": {"type": "number", "description": "Operating cost as % of loan p.a."}, "hurdle_rate_pct": {"type": "number", "description": "Target RAROC hurdle rate (%)"}, "cost_of_equity_pct": {"type": "number", "description": "CAPM cost of equity for Economic Profit (%)"}}, "required": ["loan_amount", "maturity_years", "all_in_margin_bps", "cost_of_funds_bps", "upfront_fee_pct", "annual_fee_pct", "expected_loss_annual", "rwa", "cet1_ratio_pct", "opex_ratio_pct", "hurdle_rate_pct", "cost_of_equity_pct"]}, "output_schema": {"type": "object", "properties": {"nii": {"type": "number", "description": "Annual Net Interest Income ($)"}, "fee_income_annualised": {"type": "number"}, "rani": {"type": "number", "description": "Risk-Adjusted Net Income ($)"}, "economic_capital": {"type": "number"}, "raroc_pct": {"type": "number"}, "hurdle_rate_pct": {"type": "number"}, "raroc_vs_hurdle_pct": {"type": "number"}, "economic_profit": {"type": "number"}, "minimum_margin_bps": {"type": "number"}, "deal_verdict": {"type": "string", "enum": ["approved", "rejected"]}, "ap2_mandate": {"type": "object"}}}, "mcp_tool_definition": {"name": "model_raroc_loan_pricing", "description": "Computes RAROC, economic profit, and minimum margin for a loan or credit facility. Takes margin, fees, cost of funds, expected loss (from model_pd_lgd_ead), and RWA (from calculate_basel_rwa) as inputs. Returns a deal verdict (approved/rejected vs hurdle), P&L waterfall, and the minimum bps margin required to meet the hurdle. Use as the final step in the Cat-17 credit workflow before deal approval.", "inputSchema": {"type": "object", "properties": {"loan_amount": {"type": "number"}, "maturity_years": {"type": "number"}, "all_in_margin_bps": {"type": "number"}, "cost_of_funds_bps": {"type": "number"}, "upfront_fee_pct": {"type": "number"}, "annual_fee_pct": {"type": "number"}, "expected_loss_annual": {"type": "number"}, "rwa": {"type": "number"}, "cet1_ratio_pct": {"type": "number"}, "opex_ratio_pct": {"type": "number"}, "hurdle_rate_pct": {"type": "number"}, "cost_of_equity_pct": {"type": "number"}}, "required": ["loan_amount", "maturity_years", "all_in_margin_bps", "cost_of_funds_bps", "upfront_fee_pct", "annual_fee_pct", "expected_loss_annual", "rwa", "cet1_ratio_pct", "opex_ratio_pct", "hurdle_rate_pct", "cost_of_equity_pct"]}}, "execution": {"type": "browser-javascript", "entry": "tools/203-raroc-loan-pricing-model.html", "function_name": "runRAROC", "timeout_ms": 5000}, "ap2_export": true}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
+  function copyMfst(){
+    var s = JSON.stringify(MANIFEST, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s);
+    }
+  }
+  function scrollMfst(){
+    var el = document.getElementById("mfstSec");
+    if(el) el.scrollIntoView({behavior:"smooth"});
+  }
+</script>
+</body>
+</html>
