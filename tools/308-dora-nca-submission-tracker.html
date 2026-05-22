@@ -348,4 +348,264 @@ var TRANSLATIONS={
   es:{tag:"DORA · Informes NCA · T308",h1:"Rastreador de Plazos de Envíos NCA DORA",sub:"Rastree todos los envíos obligatorios DORA a su NCA.",gen_btn:"📋 Generar Rastreador",export_pm:"⬇ Mandato de Política JSON",export_md:"📄 Rastreador Markdown"},
   fr:{tag:"DORA · Rapports NCA · T308",h1:"Suivi des Délais de Soumission NCA DORA",sub:"Suivez tous les dépôts DORA obligatoires auprès de votre NCA.",gen_btn:"📋 Générer le Suivi",export_pm:"⬇ Mandat Politique JSON",export_md:"📄 Suivi Markdown"},
   ar:{tag:"DORA · تقارير NCA · T308",h1:"متتبع مواعيد تقديم NCA في DORA",sub:"تتبع جميع تقديمات DORA الإلزامية إلى السلطة المختصة.",gen_btn:"📋 إنشاء المتتبع",export_pm:"⬇ تفويض السياسة JSON",export_md:"📄 متتبع Markdown"},
-  pt:{tag:"DORA · Relatórios NCA · T308",h1:"Rastreador de
+  pt:{tag:"DORA · Relatórios NCA · T308",h1:"Rastreador de Prazos de Submissão NCA DORA",sub:"Rastreie todos os envios obrigatórios DORA para o seu NCA.",gen_btn:"📋 Gerar Rastreador",export_pm:"⬇ Mandato de Política JSON",export_md:"📄 Rastreador Markdown"},
+  zh:{tag:"DORA · NCA 报告 · T308",h1:"DORA NCA 提交截止日期跟踪器",sub:"跟踪向主管当局提交的所有DORA强制性报告——事件报告、注册册、TLPT证明和合规文件。",gen_btn:"📋 生成截止日期跟踪器",export_pm:"⬇ 政策授权 JSON",export_md:"📄 Markdown 跟踪器"}
+};
+var currentLang='en';
+function setLang(l){
+  currentLang=l;sessionStorage.setItem('ain_lang',l);
+  document.documentElement.lang=l;document.documentElement.dir=(l==='ar')?'rtl':'ltr';
+  var d=TRANSLATIONS[l]||TRANSLATIONS['en'];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var k=el.getAttribute('data-i18n');
+    if(d[k])el.textContent=d[k];else if(TRANSLATIONS['en'][k])el.textContent=TRANSLATIONS['en'][k];
+  });
+  document.querySelectorAll('.lang-btn').forEach(function(b){
+    b.classList.toggle('active',b.getAttribute('data-lang')===l);
+  });
+}
+(function(){
+  /* default dates to today / today + 1 year */
+  var today=new Date();
+  var fmt=function(d){return d.toISOString().split('T')[0];};
+  document.getElementById('incidentDate').value=fmt(today);
+  var fy=new Date(today);fy.setMonth(11);fy.setDate(31);
+  document.getElementById('fyEnd').value=fmt(fy);
+  var tlpt=new Date(today);tlpt.setFullYear(tlpt.getFullYear()-1);
+  document.getElementById('lastTlptDate').value=fmt(tlpt);
+  setLang(sessionStorage.getItem('ain_lang')||'en');
+})();
+
+function addDays(d,n){var r=new Date(d);r.setDate(r.getDate()+n);return r;}
+function addHours(d,n){var r=new Date(d);r.setTime(r.getTime()+n*3600000);return r;}
+function addMonths(d,n){var r=new Date(d);r.setMonth(r.getMonth()+n);return r;}
+function addYears(d,n){var r=new Date(d);r.setFullYear(r.getFullYear()+n);return r;}
+function fmtDate(d){if(!d)return '—';return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});}
+function daysUntil(d){return Math.round((d-new Date())/(1000*60*60*24));}
+
+var allDeadlines=[];
+
+function generateTracker(){
+  var entityName=document.getElementById('entityName').value||'[Entity]';
+  var nca=document.getElementById('nca').value;
+  var entityType=document.getElementById('entityType').value;
+  var doraClass=document.getElementById('doraClass').value;
+  var incidentDateStr=document.getElementById('incidentDate').value;
+  var fyEndStr=document.getElementById('fyEnd').value;
+  var lastTlptStr=document.getElementById('lastTlptDate').value;
+  var tpspCount=parseInt(document.getElementById('tpspCount').value)||0;
+
+  var incidentDate=incidentDateStr?new Date(incidentDateStr):new Date();
+  var fyEnd=fyEndStr?new Date(fyEndStr):new Date(new Date().getFullYear(),11,31);
+  var lastTlpt=lastTlptStr?new Date(lastTlptStr):null;
+  var tlptRequired=(doraClass==='significant');
+  var today=new Date();
+
+  /* ── build deadlines array ── */
+  var deadlines=[];
+
+  /* INCIDENT REPORTING */
+  deadlines.push({
+    name:'Initial ICT Incident Notification',article:'Art. 20(1)(a)',deadline:addHours(incidentDate,4),format:'Electronic via NCA portal (ITS template)',type:'incident',
+    desc:'First notification to '+nca+' within 4 hours of classifying as major incident'
+  });
+  deadlines.push({
+    name:'Intermediate Incident Report',article:'Art. 20(1)(b)',deadline:addHours(incidentDate,72),format:'ITS Report Form — intermediate update',type:'incident',
+    desc:'Detailed update within 72 hours; include root cause analysis if known'
+  });
+  deadlines.push({
+    name:'Final Incident Report',article:'Art. 20(1)(c)',deadline:addMonths(incidentDate,1),format:'ITS Final Report — complete RCA & remediation',type:'incident',
+    desc:'Full report: root cause, impact, remediation completed, lessons learned'
+  });
+  if(doraClass==='significant'){
+    deadlines.push({
+      name:'Significant Cyber Threat Voluntary Notification',article:'Art. 19(2)',deadline:addDays(incidentDate,3),format:'Voluntary — NCA notification form',type:'incident',
+      desc:'Significant cyber threats (not full incidents) may be notified voluntarily to '+nca
+    });
+  }
+
+  /* REGISTERS */
+  deadlines.push({
+    name:'ICT Third-Party Register — Initial Setup',article:'Art. 28(3)',deadline:new Date('2025-01-17'),format:'Internal register; NCA request on demand',type:'register',
+    desc:'Register of all '+tpspCount+' ICT third-party arrangements must be complete and up to date'
+  });
+  deadlines.push({
+    name:'ICT Third-Party Register — Annual Review',article:'Art. 28(3)',deadline:fyEnd,format:'Internal register review; updated to NCA',type:'register',
+    desc:'Annual review of ICT third-party register; update for any new/terminated arrangements'
+  });
+  deadlines.push({
+    name:'Critical ICT Provider Report to Lead Overseer',article:'Art. 29(1)',deadline:addMonths(new Date(fyEnd.getFullYear(),0,1),6),format:'ESA standard form',type:'register',
+    desc:'Financial entities using critical ICT TPSPs (CTPPs) must support lead overseer access'
+  });
+
+  /* TESTING */
+  deadlines.push({
+    name:'Annual ICT Testing Programme — Documentation',article:'Art. 25(1)',deadline:new Date(today.getFullYear(),(today.getMonth()<1?0:0),31),format:'Internal policy document; board approved',type:'testing',
+    desc:'Annual testing programme must be approved by management body at start of each year'
+  });
+  if(tlptRequired){
+    var nextTlpt=lastTlpt?addYears(lastTlpt,3):addYears(today,0);
+    deadlines.push({
+      name:'TLPT Programme Submission to '+nca,article:'Art. 26(3)',deadline:addMonths(nextTlpt,-3),format:'TLPT scope document; NCA notification',type:'testing',
+      desc:'Notify '+nca+' of TLPT scope and tester 3 months before planned start'
+    });
+    deadlines.push({
+      name:'TLPT Results Attestation to '+nca,article:'Art. 26(8)',deadline:addMonths(nextTlpt,3),format:'TLPT final report & NCA attestation form',type:'testing',
+      desc:'Submit TLPT results and remediation plan to '+nca+' within 3 months of test completion'
+    });
+  }
+
+  /* ANNUAL / ONGOING */
+  deadlines.push({
+    name:'ICT Risk Assessment — Annual Update',article:'Art. 6(5)',deadline:fyEnd,format:'Internal ICT risk register; management sign-off',type:'annual',
+    desc:'Annual review and update of ICT risk assessment; management body approval required'
+  });
+  deadlines.push({
+    name:'Business Continuity Policy — Annual Review',article:'Art. 11(1)',deadline:fyEnd,format:'BCMP document; board approved',type:'annual',
+    desc:'Annual review of ICT business continuity management policy; DR/BCP test results incorporated'
+  });
+  deadlines.push({
+    name:'ICT Security Awareness Training — Completion',article:'Art. 13(6)',deadline:new Date(today.getFullYear(),11,31),format:'Training records; HR/compliance sign-off',type:'annual',
+    desc:'All staff must complete ICT security awareness training; specialist training for ICT roles'
+  });
+  if(doraClass!=='simplified'&&doraClass!=='micro'){
+    deadlines.push({
+      name:'ICT Audit Report to Supervisory Board',article:'Art. 6(6)',deadline:addMonths(new Date(fyEnd.getFullYear(),0,1),4),format:'Audit report — internal or external',type:'annual',
+      desc:'Results of ICT audit to be reported to supervisory function (if applicable) by Q1'
+    });
+  }
+
+  allDeadlines=deadlines;
+
+  /* ── status calculation ── */
+  function getStatus(d){
+    var du=daysUntil(d);
+    if(du<0)return {label:'OVERDUE',cls:'badge-red',rowCls:'overdue',days:Math.abs(du)+' days ago'};
+    if(du<=7)return {label:'DUE SOON',cls:'badge-red',rowCls:'due-soon',days:'in '+du+'d'};
+    if(du<=30)return {label:'UPCOMING',cls:'badge-gold',rowCls:'due-soon',days:'in '+du+'d'};
+    return {label:'OK',cls:'badge-green',rowCls:'',days:'in '+du+'d'};
+  }
+
+  /* ── summary metrics ── */
+  var overdue=deadlines.filter(function(d){return daysUntil(d.deadline)<0;}).length;
+  var dueSoon=deadlines.filter(function(d){var du=daysUntil(d.deadline);return du>=0&&du<=30;}).length;
+  var upcoming=deadlines.filter(function(d){return daysUntil(d.deadline)>30;}).length;
+  document.getElementById('summaryMetrics').innerHTML=[
+    {val:deadlines.length.toString(),label:'Total Submissions',cls:''},
+    {val:overdue.toString(),label:'Overdue',cls:overdue>0?'red':'green'},
+    {val:dueSoon.toString(),label:'Due ≤ 30 days',cls:dueSoon>0?'gold':''},
+    {val:upcoming.toString(),label:'Upcoming',cls:'green'},
+    {val:tpspCount.toString(),label:'ICT TPSPs in Register',cls:''},
+  ].map(function(m){
+    return '<div class="metric-card"><div class="metric-val '+m.cls+'">'+m.val+'</div><div class="metric-label">'+m.label+'</div></div>';
+  }).join('');
+
+  /* ── deadline table ── */
+  renderTable('all');
+
+  /* ── register checklist ── */
+  var regFields=[
+    {field:'(a) Name of ICT third-party service provider',required:true},
+    {field:'(b) Nature of ICT services and functions supported',required:true},
+    {field:'(c) Identification of critical or important functions',required:true},
+    {field:'(d) Date of start and end of contractual arrangement',required:true},
+    {field:'(e) Governing law of the contractual arrangement',required:true},
+    {field:'(f) Identification of the lead overseer (if CTPP)',required:false},
+    {field:'(g) Sub-outsourcing arrangements (sub-processors)',required:true},
+    {field:'(h) Location of data storage and processing',required:true},
+    {field:'(i) Audit rights and access provisions',required:true},
+    {field:'(j) Termination rights and exit strategy',required:true},
+  ];
+  document.getElementById('regChecklist').innerHTML='<div style="font-size:13px;color:var(--muted);margin-bottom:10px">Register covers <strong style="color:#fff">'+tpspCount+'</strong> ICT third-party arrangements. Each must contain:</div>'+
+    regFields.map(function(f){
+      return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid rgba(30,48,72,.4)">'+
+        '<span style="color:var(--green);flex-shrink:0;font-size:14px">'+(f.required?'✓':'○')+'</span>'+
+        '<span style="font-size:13px;color:'+(f.required?'var(--text)':'var(--muted)')+'">'+f.field+
+        (f.required?'<span style="margin-left:8px" class="badge badge-red" style="font-size:10px">Required</span>':'')+'</span>'+
+      '</div>';
+    }).join('');
+
+  window._trackResult={entityName,nca,entityType,doraClass,incidentDate,fyEnd,lastTlpt,tpspCount,tlptRequired,deadlines,overdue,dueSoon};
+  document.getElementById('results').style.display='block';
+  document.getElementById('memo-out').style.display='none';
+}
+
+function renderTable(filter){
+  var rows=allDeadlines.filter(function(d){return filter==='all'||d.type===filter;});
+  var today=new Date();
+  function getStatus(d){
+    var du=Math.round((d-today)/(1000*60*60*24));
+    if(du<0)return {label:'OVERDUE',cls:'badge-red',rowCls:'overdue'};
+    if(du<=7)return {label:'DUE SOON',cls:'badge-red',rowCls:'due-soon'};
+    if(du<=30)return {label:'UPCOMING',cls:'badge-gold',rowCls:'due-soon'};
+    return {label:'OK',cls:'badge-green',rowCls:''};
+  }
+  var typeBadge={'incident':'badge-red','register':'badge-teal','testing':'badge-gold','annual':'badge-purple'};
+  document.getElementById('deadlineBody').innerHTML=rows.map(function(d){
+    var s=getStatus(d.deadline);
+    var du=Math.round((d.deadline-today)/(1000*60*60*24));
+    var duStr=du<0?Math.abs(du)+'d ago':'in '+(du===0?'today':du+'d');
+    return '<tr class="'+s.rowCls+'">'+
+      '<td><div style="font-weight:500;color:#fff">'+d.name+'</div><div style="font-size:11px;color:var(--muted);margin-top:2px">'+d.desc+'</div></td>'+
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:12px;color:var(--accent);white-space:nowrap">'+d.article+'</td>'+
+      '<td style="white-space:nowrap"><div style="font-weight:500">'+fmtDate(d.deadline)+'</div><div style="font-size:11px;color:var(--muted)">'+duStr+'</div></td>'+
+      '<td style="font-size:12px;color:var(--muted)">'+d.format+'</td>'+
+      '<td><span class="badge '+s.cls+'">'+s.label+'</span></td>'+
+      '<td><span class="badge '+(typeBadge[d.type]||'badge-purple')+'">'+d.type+'</span></td>'+
+    '</tr>';
+  }).join('');
+}
+
+function filterTable(f,btn){
+  document.querySelectorAll('.filter-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  renderTable(f);
+}
+
+var AP2='1.0';
+function buildMandate(){
+  var r=window._trackResult;if(!r)return null;
+  return {
+    schema:'AINumbers-PolicyMandate-v'+AP2,tool_id:'T308',tool_name:'DORA NCA Submission Deadline Tracker',
+    generated:new Date().toISOString(),
+    inputs:{entity_name:r.entityName,nca:r.nca,entity_type:r.entityType,dora_class:r.doraClass,incident_date:r.incidentDate.toISOString().split('T')[0],fy_end:r.fyEnd.toISOString().split('T')[0],tpsp_count:r.tpspCount,tlpt_required:r.tlptRequired},
+    outputs:{total_submissions:r.deadlines.length,overdue_count:r.overdue,due_soon_count:r.dueSoon},
+    policy_mandates:r.deadlines.map(function(d,i){
+      return {id:'NCA-'+String(i+1).padStart(2,'0'),requirement:d.name,deadline:fmtDate(d.deadline),article:d.article,type:d.type,format:d.format};
+    })
+  };
+}
+
+function exportPolicyMandate(){
+  var m=buildMandate();if(!m){alert('Generate the tracker first.');return;}
+  var blob=new Blob([JSON.stringify(m,null,2)],{type:'application/json'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');a.href=url;a.download='T308-dora-nca-tracker-'+Date.now()+'.policy-mandate.json';a.click();URL.revokeObjectURL(url);
+}
+
+function toggleMemo(){
+  var r=window._trackResult;if(!r){alert('Generate the tracker first.');return;}
+  var el=document.getElementById('memo-out');
+  if(el.style.display==='block'){el.style.display='none';return;}
+  var m=buildMandate();
+  var md='# DORA NCA Submission Tracker — '+r.entityName+'\n\n'+
+    '**Generated:** '+new Date().toLocaleString()+'\n**NCA:** '+r.nca+'\n**Tool:** T308 · AINumbers.co\n\n---\n\n'+
+    '## Summary\n\n- Total Submissions: '+r.deadlines.length+'\n- Overdue: '+r.overdue+'\n- Due ≤30 days: '+r.dueSoon+'\n\n'+
+    '## Submission Deadlines\n\n| Ref | Submission | Article | Deadline | Status |\n|---|---|---|---|---|\n'+
+    m.policy_mandates.map(function(p){
+      var du=Math.round((new Date(p.deadline)-new Date())/(1000*60*60*24));
+      var status=du<0?'OVERDUE':du<=30?'DUE SOON':'OK';
+      return '| '+p.id+' | '+p.requirement+' | '+p.article+' | '+p.deadline+' | '+status+' |';
+    }).join('\n')+'\n\n'+
+    '---\n*AINumbers.co T308 — CC BY 4.0. Not legal advice. Verify deadlines with '+r.nca+'.*\n';
+  el.textContent=md;el.style.display='block';
+  if(navigator.clipboard)navigator.clipboard.writeText(md).catch(function(){});
+}
+
+function toggleMcp(){var p=document.getElementById('mcp-panel');p.style.display=p.style.display==='block'?'none':'block';}
+
+var MANIFEST={"tool_id":"dora-nca-submission-tracker","version":"1.0.0","title":"DORA NCA Submission Tracker","description":"Tracks all DORA NCA submission deadlines: incident reports, ICT third-party registers, resilience testing schedules, and annual reviews. Auto-calculates dates from reference inputs.","category":"cat-22","tags":["DORA","NCA","submission","deadlines","incident","register","TLPT","Article19","Article28"],"audience":["compliance","risk","ops","legal"],"mcp_tool_definition":{"name":"track_dora_nca_submissions","description":"Calculates all DORA NCA submission deadlines from reference dates.","inputSchema":{"type":"object","properties":{"incident_date":{"type":"string","format":"date"},"fy_end":{"type":"string","format":"date"}},"required":["fy_end"]}},"execution":{"type":"browser-javascript","entry":"tools/308-dora-nca-submission-tracker.html","function_name":"generateTracker","timeout_ms":2000},"ap2_export":false};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+</body>
+</html>

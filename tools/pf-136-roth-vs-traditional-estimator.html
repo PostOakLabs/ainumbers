@@ -458,4 +458,161 @@ function runComparison(){
 
   /* Break-even: at what retirement tax rate does Trad = Roth after tax? */
   /* rothBal = tradBal*(1-rBreakEven) => rBreakEven = 1 - rothBal/tradBal */
-  /* Since rothBal==tradBal here (same contributions, sam
+  /* Since rothBal==tradBal here (same contributions, same return), breakeven = currentMarginal */
+  var breakEvenRate=currentMarginal; /* If retirement rate < current → Trad wins; if > current → Roth wins */
+
+  /* ── RMD impact ── */
+  var rmdTotalTax=0;
+  if(includeRmd){
+    var rmdBal=tradBal;
+    var rmdAge=retireAge;
+    var rmdStartAge=73;
+    while(rmdAge<rmdStartAge&&rmdAge<retireAge+withdrawalYrs){
+      rmdBal*=(1+annualReturn*0.5); /* some growth during early retirement */
+      rmdAge++;
+    }
+    for(var ra=rmdStartAge;ra<retireAge+withdrawalYrs&&ra<=100;ra++){
+      var div=RMD_TABLE[ra]||6.4;
+      var rmdAmt=rmdBal/div;
+      var rmdTax=rmdAmt*totalStateAndFed;
+      rmdTotalTax+=rmdTax;
+      rmdBal-=rmdAmt;
+    }
+  }
+
+  /* ── winner ── */
+  var winner;
+  if(rothAfterTax>tradAfterTax+rmdTotalTax*0.5){winner='roth';}
+  else if(tradAfterTax+rmdTotalTax*0.5<rothAfterTax){winner='trad';}
+  else{winner='tie';}
+  /* Simple rule: if retirement rate < current marginal → Traditional wins; if higher → Roth wins */
+  if(retireMarginal<currentMarginal)winner='trad';
+  else if(retireMarginal>currentMarginal)winner='roth';
+  else winner='tie';
+
+  /* ── render comparison cards ── */
+  var cards=document.getElementById('compareCards');
+  cards.innerHTML=
+    '<div class="compare-card roth'+(winner==='roth'?' winner':'')+'">'+
+      '<div class="compare-label">Roth IRA / Roth 401(k)</div>'+
+      '<div class="compare-val">'+fmtK(rothAfterTax)+'</div>'+
+      '<div class="compare-sub">After-tax value at retirement</div>'+
+      (winner==='roth'?'<div class="winner-badge">✓ Recommended for You</div>':'')+
+    '</div>'+
+    '<div class="compare-card trad'+(winner==='trad'?' winner':'')+'">'+
+      '<div class="compare-label">Traditional IRA / 401(k)</div>'+
+      '<div class="compare-val">'+fmtK(tradAfterTax)+'</div>'+
+      '<div class="compare-sub">After-tax value at retirement</div>'+
+      (winner==='trad'?'<div class="winner-badge">✓ Recommended for You</div>':'')+
+    '</div>';
+
+  /* ── verdict ── */
+  var verdictCls=winner==='roth'?'roth-wins':winner==='trad'?'trad-wins':'tie';
+  var verdictText;
+  if(winner==='roth'){
+    verdictText='<strong style="color:var(--roth)">Roth likely wins</strong> for your situation. Your current marginal tax rate ('+Math.round(currentMarginal*100)+'%) is <em>lower than or equal to</em> your projected retirement rate ('+Math.round(retireMarginal*100)+'%). Paying taxes now (Roth) costs less than paying in retirement (Traditional). Additionally, Roth IRAs have no required minimum distributions, giving you more flexibility.';
+  } else if(winner==='trad'){
+    verdictText='<strong style="color:var(--trad)">Traditional likely wins</strong> for your situation. Your current marginal tax rate ('+Math.round(currentMarginal*100)+'%) is <em>higher than</em> your projected retirement rate ('+Math.round(retireMarginal*100)+'%). Deferring taxes now and paying at a lower rate in retirement produces a better outcome. The upfront tax deduction compounds over '+horizon+' years.';
+  } else {
+    verdictText='<strong style="color:var(--gold)">Near-toss-up.</strong> Your current and projected retirement marginal rates are similar ('+(Math.round(currentMarginal*100))+'%). Consider diversifying between both account types for tax flexibility in retirement — a combination Roth + Traditional hedge protects against future tax rate changes.';
+  }
+  document.getElementById('verdictBox').innerHTML='<div class="verdict-box '+verdictCls+'"><div style="font-size:14px;color:var(--text)">'+verdictText+'</div></div>';
+
+  /* ── metrics ── */
+  document.getElementById('metricsRow').innerHTML=[
+    {val:Math.round(currentMarginal*100)+'%',label:'Current Marginal Rate',cls:''},
+    {val:Math.round(retireMarginal*100)+'%',label:'Retirement Marginal Rate',cls:'trad'},
+    {val:fmtK(tradTaxSaved),label:'Trad Tax Saved (accumulation)',cls:''},
+    {val:fmtK(tradTaxOnWithdraw),label:'Trad Tax Owed (retirement)',cls:'gold'},
+    {val:fmtK(rmdTotalTax),label:'RMD Tax Impact',cls:rmdTotalTax>5000?'gold':''},
+    {val:(breakEvenRate*100).toFixed(1)+'%',label:'Roth Break-even Rate',cls:''},
+  ].map(function(m){
+    return '<div class="metric-card"><div class="metric-val '+m.cls+'">'+m.val+'</div><div class="metric-label">'+m.label+'</div></div>';
+  }).join('');
+
+  /* breakdown comparison */
+  document.getElementById('breakdownList').innerHTML=[
+    {label:'Pre-tax contribution',roth:'No (after-tax)',trad:'Yes'},
+    {label:'Current tax on contribution',roth:fmt(annualContrib*currentMarginal)+'/yr',trad:'$0/yr (deferred)'},
+    {label:'Growth',roth:'Tax-free',trad:'Tax-deferred'},
+    {label:'Withdrawal tax (retirement)',roth:'$0',trad:fmt(tradTaxOnWithdraw)},
+    {label:'Required Minimum Distributions',roth:'None',trad:'From age 73'},
+    {label:'Estate planning flexibility',roth:'Excellent (heirs inherit tax-free)',trad:'Moderate (heirs pay income tax)'},
+  ].map(function(r){
+    return '<div class="bk-row"><span class="bk-label">'+r.label+'</span><span class="bk-roth">'+r.roth+'</span><span class="bk-trad">'+r.trad+'</span></div>';
+  }).join('');
+
+  /* ── year-by-year table ── */
+  var rows=[];
+  var rb=existing,tb=existing;
+  for(var y2=0;y2<=horizon;y2++){
+    if(y2>0){rb=(rb+annualContrib)*(1+annualReturn);tb=(tb+annualContrib)*(1+annualReturn);}
+    var curAge=age+y2;
+    var ra=rb; /* roth = no tax on withdrawal */
+    var ta=tb*(1-totalStateAndFed);
+    rows.push({age:curAge,roth:rb,trad:tb,rothAt:ra,tradAt:ta,adv:ra>ta?'ROTH':ra<ta?'TRAD':'TIE'});
+  }
+  var displayRows=rows.filter(function(r){return (r.age-age)%5===0||r.age===retireAge||r.age===age;});
+  document.getElementById('projBody').innerHTML=displayRows.map(function(r){
+    var aColor=r.adv==='ROTH'?'var(--roth)':r.adv==='TRAD'?'var(--trad)':'var(--muted)';
+    return '<tr><td>'+r.age+'</td><td style="color:var(--roth)">'+fmtK(r.roth)+'</td><td style="color:var(--trad)">'+fmtK(r.trad)+'</td>'+
+      '<td style="color:var(--roth)">'+fmtK(r.rothAt)+'</td><td style="color:var(--trad)">'+fmtK(r.tradAt)+'</td>'+
+      '<td style="color:'+aColor+';font-weight:700">'+r.adv+'</td></tr>';
+  }).join('');
+
+  /* ── qualitative factors ── */
+  var factors=[
+    {icon:'📈',title:'Tax rate trajectory',desc:'If you expect to be in a higher bracket in retirement (e.g. growing wealth, FIRE early retirement with part-time income), Roth wins. If you expect lower income in retirement, Traditional wins.'},
+    {icon:'🧬',title:'Time horizon',desc:'Longer horizon ('+horizon+' years) amplifies the compounding advantage of tax-free Roth growth. Shorter horizons favour Traditional if you are in a high bracket now.'},
+    {icon:'🏛️',title:'State tax changes',desc:'If you plan to move to a lower-tax or no-income-tax state in retirement (e.g. TX, FL, WA), Traditional becomes more attractive.'},
+    {icon:'📜',title:'RMD flexibility',desc:'Roth IRAs have no RMDs, giving greater estate planning flexibility and allowing more of your portfolio to continue growing tax-free after age 73.'},
+    {icon:'🔄',title:'Roth conversion ladder',desc:'Traditional accounts can be converted to Roth during low-income years (e.g. early retirement gap years between 59½ and Social Security). This strategy can capture the best of both worlds.'},
+    {icon:'💼',title:'Employer match',desc:'If your employer matches 401(k) contributions, always contribute at least enough to capture the match first — regardless of Roth vs Traditional choice.'},
+  ];
+  document.getElementById('factorsOut').innerHTML=factors.map(function(f){
+    return '<div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid rgba(30,48,72,.4)">'+
+      '<span style="font-size:20px;flex-shrink:0">'+f.icon+'</span>'+
+      '<div><div style="font-weight:600;color:#fff;font-size:13px;margin-bottom:3px">'+f.title+'</div>'+
+      '<div style="font-size:13px;color:var(--muted)">'+f.desc+'</div></div></div>';
+  }).join('');
+
+  window._rvaResult={age,retireAge,horizon,currentMarginal,retireMarginal,rothAfterTax,tradAfterTax,tradTaxSaved,tradTaxOnWithdraw,rmdTotalTax,winner,breakEvenRate,annualContrib,existing,grossIncome,retireIncome,stateTax};
+  document.getElementById('results').style.display='block';
+  document.getElementById('memo-out').style.display='none';
+}
+
+function copyMemo(){
+  var r=window._rvaResult;if(!r){alert('Run the comparison first.');return;}
+  var el=document.getElementById('memo-out');
+  if(el.style.display==='block'){el.style.display='none';return;}
+  var rec=r.winner==='roth'?'**Roth IRA / 401(k) recommended**':r.winner==='trad'?'**Traditional IRA / 401(k) recommended**':'**Consider both (tax diversification)**';
+  var md='# Roth vs Traditional IRA Comparison\n\n'+
+    '**Generated:** '+new Date().toLocaleString()+'\n**Tool:** pf-136 · AINumbers.co\n\n---\n\n'+
+    '## Summary\n\n'+rec+'\n\n'+
+    '| Factor | Value |\n|---|---|\n'+
+    '| Current Age | '+r.age+' |\n'+
+    '| Retirement Age | '+r.retireAge+' |\n'+
+    '| Investment Horizon | '+r.horizon+' years |\n'+
+    '| Current Marginal Rate | '+(r.currentMarginal*100).toFixed(0)+'% |\n'+
+    '| Projected Retirement Rate | '+(r.retireMarginal*100).toFixed(0)+'% |\n'+
+    '| Break-even Rate | '+(r.breakEvenRate*100).toFixed(1)+'% |\n\n'+
+    '## At-Retirement Values\n\n'+
+    '| Account | After-Tax Value |\n|---|---|\n'+
+    '| Roth | $'+Math.round(r.rothAfterTax).toLocaleString()+' |\n'+
+    '| Traditional | $'+Math.round(r.tradAfterTax).toLocaleString()+' |\n\n'+
+    '## Tax Impact\n\n'+
+    '- Traditional tax deduction (accumulation): $'+Math.round(r.tradTaxSaved).toLocaleString()+'\n'+
+    '- Traditional tax owed at withdrawal: $'+Math.round(r.tradTaxOnWithdraw).toLocaleString()+'\n'+
+    '- RMD estimated tax: $'+Math.round(r.rmdTotalTax).toLocaleString()+'\n\n'+
+    '---\n*AINumbers.co pf-136 — CC BY 4.0. Educational only. Not financial or tax advice.*\n';
+  el.textContent=md;el.style.display='block';
+  if(navigator.clipboard)navigator.clipboard.writeText(md).then(function(){}).catch(function(){});
+}
+
+function toggleMcp(){var p=document.getElementById('mcp-panel');p.style.display=p.style.display==='block'?'none':'block';}
+
+var MANIFEST={"tool_id":"roth-vs-traditional-estimator","version":"1.0.0","title":"Roth vs Traditional IRA Estimator","description":"Compares Roth vs Traditional IRA/401k using 2024 federal tax brackets, projected retirement wealth, RMD impact, and break-even tax rate analysis.","category":"cat-13","tags":["Roth IRA","Traditional IRA","401k","tax","retirement","FIRE","RMD","Roth conversion"],"audience":["investor","FIRE","retail","advisor"],"mcp_tool_definition":{"name":"estimate_roth_vs_traditional","description":"Compares Roth vs Traditional IRA projected after-tax wealth using 2024 tax brackets.","inputSchema":{"type":"object","properties":{"current_income":{"type":"number"},"filing_status":{"type":"string","enum":["single","mfj","mfs","hoh"]},"annual_contribution":{"type":"number"},"years_to_retirement":{"type":"number"}},"required":["current_income","annual_contribution"]}},"execution":{"type":"browser-javascript","entry":"tools/pf-136-roth-vs-traditional-estimator.html","function_name":"runComparison","timeout_ms":2000},"ap2_export":false};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+</body>
+</html>

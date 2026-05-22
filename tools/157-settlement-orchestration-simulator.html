@@ -439,4 +439,157 @@ function runSim(){
   /* metrics */
   var metrics=[
     {val:fmt(grossObligation),label:'Gross Obligation',cls:''},
-    {val:fmt(netObligation),label:'Net Settlement',cls:'green
+    {val:fmt(netObligation),label:'Net Settlement',cls:'green'},
+    {val:pct(effectiveNetRatio),label:'Netting Efficiency',cls:'gold'},
+    {val:fmt(liqRequired),label:'Liquidity Needed',cls:''},
+    {val:failedTxns.toString(),label:'Failed Txns',cls:failedTxns>5?'red':''},
+    {val:pct(effScore),label:'Settlement Score',cls:effScore>=80?'green':effScore>=60?'gold':'red'},
+  ];
+  document.getElementById('metricsRow').innerHTML=metrics.map(function(m){
+    return '<div class="metric-card"><div class="metric-val '+m.cls+'">'+m.val+'</div><div class="metric-label">'+m.label+'</div></div>';
+  }).join('');
+
+  var barColor=effScore>=80?'var(--green)':effScore>=60?'var(--gold)':'var(--red)';
+  var eb=document.getElementById('effBar');
+  eb.style.width=effScore+'%';eb.style.background=barColor;eb.textContent=effScore.toFixed(0)+'%';
+
+  var notes={
+    RTGS:'RTGS provides immediate finality with no credit exposure, but requires full pre-funded liquidity for each transaction. Best for high-value, time-critical payments.',
+    DNS:'Deferred Net Settlement reduces liquidity requirements through netting, but introduces intraday credit exposure until the net is settled. Suitable for high-volume, lower-value flows.',
+    Hybrid:'Hybrid architecture routes high-value/urgent transactions via RTGS and batches lower-priority flows through DNS — optimising both liquidity and risk.',
+    CLS:'CLS eliminates FX settlement risk through PvP synchronisation across 18 CLS currencies. Achieves >96% netting efficiency for eligible currency pairs.'
+  };
+  document.getElementById('methodNote').textContent=notes[method]||'';
+
+  /* timeline */
+  var timeslots;
+  if(batchFreq==='eod'){
+    timeslots=[
+      {t:'08:00',type:'info',title:'Payments Accepted',sub:'All transactions queued for EOD batch — '+totalTxns+' items'},
+      {t:'12:00',type:'info',title:'Queue Status',sub:Math.round(totalTxns*0.6)+' items queued; '+Math.round(totalTxns*0.4)+' still arriving'},
+      {t:'15:30',type:failedTxns>0?'warn':'info',title:'Pre-batch Validation',sub:failedTxns>0?failedTxns+' items flagged for review':'All items validated'},
+      {t:'16:00',type:'ok',title:'Netting Calculation',sub:'Obligation: '+fmt(grossObligation)+' → '+fmt(netObligation)+' ('+pct(effectiveNetRatio)+' netting)'},
+      {t:'16:30',type:'ok',title:'Liquidity Sweep',sub:'Participants prefund net positions; buffer: '+fmt(liqRequired-netObligation)},
+      {t:'17:00',type:failedTxns>3?'fail':'ok',title:'Batch Settlement',sub:'Net settled: '+fmt(netObligation)+'; fails: '+failedTxns},
+      {t:'17:30',type:'ok',title:'Retry Processing',sub:retryAttempts+' retry cycles; delay: '+retryDelay+'min each; max latency: '+((retryAttempts*retryDelay)/60).toFixed(1)+'h'},
+      {t:'18:00',type:'ok',title:'Final Confirmation',sub:'Settlement complete. Score: '+pct(effScore)},
+    ];
+  } else if(batchFreq==='realtime'){
+    timeslots=[
+      {t:'08:00',type:'info',title:'Settlement Opens',sub:'System ready; liquidity buffers loaded'},
+      {t:'08:01',type:'ok',title:'First Transactions Settled',sub:'Continuous gross settlement begins — '+ccy+' '+fmt(grossObligation/8)},
+      {t:'10:30',type:failedTxns>0?'warn':'ok',title:'Mid-morning Checkpoint',sub:failedTxns>0?failedTxns+' transactions queued for retry':'All transactions settling normally'},
+      {t:'12:00',type:'ok',title:'Noon Liquidity Sweep',sub:'Recycled intraday liquidity; net position: '+fmt(netObligation*0.5)},
+      {t:'14:00',type:'ok',title:'Netting Run (Intraday)',sub:'Net saving so far: '+fmt(netSaving*0.7)},
+      {t:'16:00',type:failedTxns>2?'fail':'ok',title:'Cut-off Approaching',sub:failedTxns>2?failedTxns+' unresolved fails escalated':'Normal operations'},
+      {t:'17:00',type:'ok',title:'Settlement Close',sub:'Final gross: '+fmt(grossObligation)+' → Net: '+fmt(netObligation)},
+      {t:'17:30',type:'ok',title:'EOD Reconciliation',sub:'Efficiency: '+pct(effScore)+' | Fails resolved: '+Math.round(failedTxns*0.85)+'/'+failedTxns},
+    ];
+  } else {
+    var batchCount=batchFreq==='5min'?96:batchFreq==='hourly'?8:3;
+    var batchVal=grossObligation/batchCount;
+    timeslots=[
+      {t:'08:00',type:'info',title:'First Batch Opens',sub:'Batch #1 of '+batchCount+' — '+fmt(batchVal)+' gross value'},
+      {t:'09:00',type:'ok',title:'Batch #1 Settled',sub:'Net: '+fmt(batchVal*(1-effectiveNetRatio/100))+'; fails: '+Math.round(failedTxns/batchCount)},
+      {t:'11:00',type:failedTxns>0?'warn':'ok',title:'Mid-session Checkpoint',sub:failedTxns>0?'Retry queue has '+Math.round(failedTxns*0.4)+' items':'All batches processing normally'},
+      {t:'12:00',type:'ok',title:'Noon Liquidity Report',sub:'Settled: '+fmt(grossObligation*0.5)+' gross / '+fmt(netObligation*0.5)+' net'},
+      {t:'14:30',type:'ok',title:'Afternoon Batches',sub:'Batches #'+Math.round(batchCount*0.5)+' – #'+Math.round(batchCount*0.75)+' complete'},
+      {t:'16:00',type:failedTxns>3?'fail':'ok',title:'Late-day Review',sub:failedTxns>3?'Escalating '+Math.round(failedTxns*0.3)+' persistent fails':'On track for clean close'},
+      {t:'17:00',type:'ok',title:'Final Batch',sub:'Batch #'+batchCount+' settled — cumulative net: '+fmt(netObligation)},
+      {t:'17:30',type:'ok',title:'EOD Reconciliation',sub:'Efficiency: '+pct(effScore)+' | Score: '+effScore.toFixed(0)+'/100'},
+    ];
+  }
+  document.getElementById('tlContainer').innerHTML=timeslots.map(function(r){
+    return '<div class="tl-row"><div class="tl-time">'+r.t+'</div><div class="tl-dot '+r.type+'"></div><div class="tl-body"><strong>'+r.title+'</strong><br/><span class="tl-sub">'+r.sub+'</span></div></div>';
+  }).join('');
+
+  /* leg table */
+  document.getElementById('legBody').innerHTML=legData.map(function(l){
+    var sb=l.fail?'<span class="badge badge-red">FAIL</span>':'<span class="badge badge-green">OK</span>';
+    var rb=l.retries>0?'<span class="badge badge-gold">×'+l.retries+'</span>':'—';
+    var sp=netting!=='none'?' <span style="color:var(--green);font-size:11px">('+pct(effectiveNetRatio)+')</span>':'';
+    return '<tr><td>'+l.id+'</td><td>'+fmt(l.gross)+'</td><td>'+fmt(l.net)+sp+'</td><td>'+fmt(l.saving)+'</td><td>'+sb+'</td><td>'+rb+'</td></tr>';
+  }).join('');
+
+  /* liquidity analysis */
+  document.getElementById('liqAnalysis').innerHTML='<div class="grid-2">'+
+    '<div style="background:#0d1928;border-radius:8px;padding:14px">'+
+      '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Minimum Requirement</div>'+
+      '<table style="width:100%;font-size:13px">'+
+        '<tr><td style="color:var(--muted);padding:4px 0">Gross Obligation</td><td style="text-align:right;font-family:\'JetBrains Mono\',monospace">'+fmt(grossObligation)+'</td></tr>'+
+        '<tr><td style="color:var(--muted);padding:4px 0">Netting Reduction</td><td style="text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--green)">− '+fmt(netSaving)+'</td></tr>'+
+        '<tr><td style="color:var(--muted);padding:4px 0">Net Obligation</td><td style="text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--accent)">'+fmt(netObligation)+'</td></tr>'+
+        '<tr style="border-top:1px solid var(--border)"><td style="color:var(--muted);padding:6px 0 2px">+ Buffer ('+liqBuf+'%)</td><td style="text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--gold)">'+fmt(liqRequired-netObligation)+'</td></tr>'+
+        '<tr><td style="padding:2px 0;font-weight:600">Total Prefund</td><td style="text-align:right;font-family:\'JetBrains Mono\',monospace;font-weight:700;color:#fff">'+fmt(liqRequired)+'</td></tr>'+
+      '</table>'+
+    '</div>'+
+    '<div style="background:#0d1928;border-radius:8px;padding:14px">'+
+      '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Fail/Retry Impact</div>'+
+      '<table style="width:100%;font-size:13px">'+
+        '<tr><td style="color:var(--muted);padding:4px 0">Total Transactions</td><td style="text-align:right;font-family:\'JetBrains Mono\',monospace">'+totalTxns.toLocaleString()+'</td></tr>'+
+        '<tr><td style="color:var(--muted);padding:4px 0">Failed Transactions</td><td style="text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--red)">'+failedTxns+'</td></tr>'+
+        '<tr><td style="color:var(--muted);padding:4px 0">Value at Risk</td><td style="text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--red)">'+fmt(failedValue)+'</td></tr>'+
+        '<tr><td style="color:var(--muted);padding:4px 0">Max Retry Latency</td><td style="text-align:right;font-family:\'JetBrains Mono\',monospace">'+((retryAttempts*retryDelay)/60).toFixed(1)+' hrs</td></tr>'+
+        '<tr><td style="color:var(--muted);padding:4px 0">Est. Retry Cost</td><td style="text-align:right;font-family:\'JetBrains Mono\',monospace;color:var(--gold)">'+fmt(retryCost)+'</td></tr>'+
+      '</table>'+
+    '</div>'+
+  '</div>';
+
+  window._simResult={scenario,ccy,method,batchFreq,netting,legs,grossObligation,netObligation,effectiveNetRatio,liqRequired,failedTxns,totalTxns,effScore,legData,settlWindow,retryAttempts,retryDelay,failRate,liqBuf,retryCost,netSaving};
+  document.getElementById('results').style.display='block';
+  document.getElementById('memo-out').style.display='none';
+}
+
+var AP2='1.0';
+function buildMandate(){
+  var r=window._simResult;if(!r)return null;
+  return {
+    schema:'AINumbers-PolicyMandate-v'+AP2,tool_id:'T157',tool_name:'Settlement Orchestration Simulator',
+    generated:new Date().toISOString(),
+    inputs:{scenario:r.scenario,currency:r.ccy,settlement_method:r.method,batch_frequency:r.batchFreq,netting_type:r.netting,legs:r.legs,daily_volume_usd:r.grossObligation,fail_rate_pct:r.failRate,liquidity_buffer_pct:r.liqBuf,settlement_window_hrs:r.settlWindow,retry_attempts:r.retryAttempts,retry_delay_min:r.retryDelay},
+    outputs:{gross_obligation_usd:r.grossObligation,net_obligation_usd:r.netObligation,netting_efficiency_pct:r.effectiveNetRatio,liquidity_required_usd:r.liqRequired,failed_transactions:r.failedTxns,total_transactions:r.totalTxns,settlement_efficiency_score:r.effScore,estimated_retry_cost_usd:r.retryCost},
+    policy_mandates:[
+      {id:'SOC-01',requirement:'Prefunded liquidity must meet or exceed '+r.ccy+' '+Math.round(r.liqRequired).toLocaleString(),priority:'CRITICAL',basis:'PFMI Principle 7'},
+      {id:'SOC-02',requirement:'Settlement finality within '+r.settlWindow+' hours of cut-off',priority:'HIGH',basis:'PFMI Principle 8'},
+      {id:'SOC-03',requirement:'Fail rate must not exceed 5%; current: '+r.failRate+'%',priority:r.failRate>5?'BREACH':'MET',basis:'CPMI Settlement Efficiency Guidelines'},
+      {id:'SOC-04',requirement:'Retry logic must resolve 95% of fails within '+r.retryAttempts+' attempts ('+((r.retryAttempts*r.retryDelay)/60).toFixed(1)+'h max)',priority:'HIGH',basis:'Internal SLA'},
+      {id:'SOC-05',requirement:'Netting efficiency ≥50% for DNS/Hybrid; achieved: '+r.effectiveNetRatio.toFixed(1)+'%',priority:(r.netting!=='none'&&r.effectiveNetRatio<50)?'BREACH':'MET',basis:'PFMI Principle 5'}
+    ],
+    settlement_efficiency_rating:r.effScore>=80?'GOOD':r.effScore>=60?'ADEQUATE':'NEEDS_IMPROVEMENT'
+  };
+}
+
+function exportPolicyMandate(){
+  var m=buildMandate();if(!m){alert('Run the simulation first.');return;}
+  var blob=new Blob([JSON.stringify(m,null,2)],{type:'application/json'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');a.href=url;a.download='T157-settlement-'+Date.now()+'.policy-mandate.json';a.click();URL.revokeObjectURL(url);
+}
+
+function toggleMemo(){
+  var r=window._simResult;if(!r){alert('Run the simulation first.');return;}
+  var el=document.getElementById('memo-out');
+  if(el.style.display==='block'){el.style.display='none';return;}
+  var m=buildMandate();
+  var md='# Settlement Orchestration Memo — '+r.scenario+'\n\n'+
+    '**Generated:** '+new Date().toLocaleString()+'\n**Tool:** T157 · AINumbers.co\n\n---\n\n'+
+    '## Parameters\n\n| Parameter | Value |\n|---|---|\n'+
+    '| Currency | '+r.ccy+' |\n| Method | '+r.method+' |\n| Batch | '+r.batchFreq+' |\n| Netting | '+r.netting+' |\n| Legs | '+r.legs+' |\n| Window | '+r.settlWindow+'h |\n\n'+
+    '## Results\n\n| Metric | Value |\n|---|---|\n'+
+    '| Gross Obligation | '+r.ccy+' '+Math.round(r.grossObligation).toLocaleString()+' |\n'+
+    '| Net Obligation | '+r.ccy+' '+Math.round(r.netObligation).toLocaleString()+' |\n'+
+    '| Netting Efficiency | '+r.effectiveNetRatio.toFixed(1)+'% |\n'+
+    '| Liquidity Required | '+r.ccy+' '+Math.round(r.liqRequired).toLocaleString()+' |\n'+
+    '| Failed Txns | '+r.failedTxns+' / '+r.totalTxns+' |\n'+
+    '| Settlement Score | '+r.effScore.toFixed(1)+'/100 |\n\n'+
+    '## Policy Mandates\n\n'+m.policy_mandates.map(function(p){return '- **'+p.id+'** ['+p.priority+']: '+p.requirement+' *('+p.basis+')*';}).join('\n')+'\n\n'+
+    '---\n*AINumbers.co T157 — CC BY 4.0. Not financial or legal advice.*\n';
+  el.textContent=md;el.style.display='block';
+  if(navigator.clipboard)navigator.clipboard.writeText(md).catch(function(){});
+}
+
+var MANIFEST={"tool_id":"settlement-orchestration-simulator","version":"1.0.0","title":"Settlement Orchestration Simulator","description":"Models multi-leg payment settlement flows with batch timing, netting, cut-off windows, and fail/retry logic. Quantifies liquidity requirements and settlement efficiency.","category":"cat-14","tags":["settlement","orchestration","payments","netting","RTGS","DNS","batch","liquidity"],"audience":["treasury","payments","ops","risk"],"mcp_tool_definition":{"name":"simulate_settlement_orchestration","description":"Simulates multi-leg payment settlement flows across RTGS, DNS, CLS, and Hybrid methods.","inputSchema":{"type":"object","properties":{"legs":{"type":"number","description":"Number of payment legs"},"settlement_method":{"type":"string","enum":["RTGS","DNS","CLS","Hybrid"]},"netting_ratio":{"type":"number","description":"Netting ratio as decimal (e.g. 0.7)"}},"required":["legs"]}},"execution":{"type":"browser-javascript","entry":"tools/157-settlement-orchestration-simulator.html","function_name":"runSim","timeout_ms":2000},"ap2_export":false};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+</body>
+</html>

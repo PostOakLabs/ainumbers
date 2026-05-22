@@ -421,4 +421,179 @@ function getChecked(gridId){
 
 function designProgramme(){
   var entityName=document.getElementById('entityName').value||'[Entity]';
-  var entityType=document.getElementById('entityTy
+  var entityType=document.getElementById('entityType').value;
+  var doraClass=document.getElementById('doraClass').value;
+  var totalAssets=parseFloat(document.getElementById('totalAssets').value)||0;
+  var nca=document.getElementById('nca').value;
+  var scope=getChecked('scopeGrid');
+  var ctppCount=parseInt(document.getElementById('ctppCount').value)||0;
+  var lastPen=parseFloat(document.getElementById('lastPenTest').value)||0;
+  var lastTlpt=parseFloat(document.getElementById('lastTlpt').value)||0;
+  var maturity=document.getElementById('maturity').value;
+  var incidents=parseInt(document.getElementById('incidentCount').value)||0;
+
+  /* determine TLPT obligation */
+  var tlptRequired=(doraClass==='significant')||(totalAssets>=30)||(entityType==='ccip');
+  var isMicro=(doraClass==='micro');
+  var hasTiber=(nca==='ECB'||nca==='BaFin'||nca==='DNB'||nca==='ACPR'||nca==='Banca_Italia'||nca==='NBB');
+
+  /* build programme tiers */
+  var basicTests=[
+    {text:'Vulnerability assessments & scans — all ICT systems',type:'required'},
+    {text:'Network security testing (firewall rules, segmentation)',type:'required'},
+    {text:'Application penetration testing — customer-facing systems',type:'required'},
+    {text:'Source code analysis for critical applications',type:'warn'},
+    {text:'Open-source risk analysis (OSA)',type:'required'},
+    {text:'Business continuity / DR testing — failover validation',type:'required'},
+    {text:'Physical security testing (data centre access controls)',type:''},
+  ];
+  if(scope.includes('cloud_services'))basicTests.push({text:'Cloud configuration review & security benchmarking (CIS/CSA CCM)',type:'warn'});
+  if(scope.includes('third_party_ict'))basicTests.push({text:'ICT third-party penetration test participation / right-to-audit',type:'required'});
+  if(scope.includes('api_gateway'))basicTests.push({text:'API security testing — OWASP API Top 10',type:'warn'});
+
+  var advTests=[
+    {text:'Red team exercise — internal or with specialist provider',type:'warn'},
+    {text:'Social engineering & phishing simulation (staff awareness)',type:''},
+    {text:'Purple team collaboration — real-time attacker/defender',type:'warn'},
+    {text:'Tabletop crisis simulation — incident response scenario',type:'required'},
+    {text:'Supply chain attack simulation — third-party ICT compromise',type:'warn'},
+    {text:'Insider threat scenario testing',type:''},
+  ];
+
+  var tlptTests=[
+    {text:'Threat Intelligence (TI) phase — collect & analyse targeted threat landscape',type:'required'},
+    {text:'Red team testing — covert, no advance warning to operations team',type:'required'},
+    {text:'Closure & remediation — debrief with NCA-recognised report',type:'required'},
+    {text:'Blue team assessment — defensive capability evaluation',type:'required'},
+    {text:'Pooled TLPT option — if multiple entities share same CTPP',type:'warn'},
+    {text:'NCA notification & test result attestation within 3 months',type:'required'},
+  ];
+
+  /* render programme cards */
+  var progHtml='';
+  progHtml+='<div class="tier-card basic"><div class="tier-name">Tier 1 — Basic ICT Testing</div><div class="tier-sub">DORA Article 25 | Mandatory for all entities | Annual</div>';
+  progHtml+='<ul class="test-list">'+basicTests.map(function(t){return '<li class="'+t.type+'">'+t.text+'</li>';}).join('')+'</ul></div>';
+
+  if(!isMicro){
+    progHtml+='<div class="tier-card advanced"><div class="tier-name">Tier 2 — Advanced Testing</div><div class="tier-sub">DORA Article 25(3) | Recommended for significant entities | Bi-annual</div>';
+    progHtml+='<ul class="test-list">'+advTests.map(function(t){return '<li class="'+t.type+'">'+t.text+'</li>';}).join('')+'</ul></div>';
+  }
+
+  if(tlptRequired){
+    var tlptLabel=hasTiber?'TLPT / TIBER-EU':'TLPT — Threat-Led Penetration Test';
+    progHtml+='<div class="tier-card tlpt"><div class="tier-name">Tier 3 — '+tlptLabel+'</div><div class="tier-sub">DORA Article 26 | Mandatory for significant entities | Every 3 years</div>';
+    progHtml+='<ul class="test-list">'+tlptTests.map(function(t){return '<li class="'+t.type+'">'+t.text+'</li>';}).join('')+'</ul></div>';
+  }
+
+  document.getElementById('programmeOut').innerHTML=progHtml;
+
+  /* 3-year schedule */
+  var rows=[];
+  rows.push({test:'Vulnerability Assessment',freq:'Annual',scope:'All ICT systems',art:'Art. 25',y1:'✓',y2:'✓',y3:'✓',c:'badge-green'});
+  rows.push({test:'Application Pentest',freq:'Annual',scope:'CIF applications',art:'Art. 25',y1:'✓',y2:'✓',y3:'✓',c:'badge-green'});
+  rows.push({test:'Network Security Test',freq:'Annual',scope:'Network perimeter',art:'Art. 25',y1:'✓',y2:'✓',y3:'✓',c:'badge-green'});
+  rows.push({test:'BC/DR Failover Test',freq:'Annual',scope:'Critical systems',art:'Art. 25',y1:'✓',y2:'✓',y3:'✓',c:'badge-teal'});
+  if(!isMicro){
+    rows.push({test:'Red Team Exercise',freq:'Bi-annual',scope:'Selected CIFs',art:'Art. 25(3)',y1:'✓',y2:'—',y3:'✓',c:'badge-gold'});
+    rows.push({test:'Tabletop Scenario',freq:'Annual',scope:'Management + IT',art:'Art. 25(3)',y1:'✓',y2:'✓',y3:'✓',c:'badge-gold'});
+    rows.push({test:'Supply Chain Simulation',freq:'Annual',scope:'CTPPs',art:'Art. 25(3)',y1:'✓',y2:'✓',y3:'✓',c:'badge-gold'});
+  }
+  if(scope.includes('cloud_services'))rows.push({test:'Cloud Config Review',freq:'Annual',scope:'Cloud providers',art:'Art. 25',y1:'✓',y2:'✓',y3:'✓',c:'badge-purple'});
+  if(tlptRequired)rows.push({test:hasTiber?'TIBER-EU TLPT':'TLPT',freq:'Every 3 years',scope:'All CIFs',art:'Art. 26',y1:'✓',y2:'—',y3:'—',c:'badge-red'});
+
+  document.getElementById('schedBody').innerHTML=rows.map(function(r){
+    return '<tr><td>'+r.test+'</td><td><span class="badge '+r.c+'">'+r.freq+'</span></td><td style="font-size:12px;color:var(--muted)">'+r.scope+'</td><td style="font-family:\'JetBrains Mono\',monospace;font-size:12px;color:var(--accent)">'+r.art+'</td><td style="text-align:center">'+r.y1+'</td><td style="text-align:center">'+r.y2+'</td><td style="text-align:center">'+r.y3+'</td></tr>';
+  }).join('');
+
+  /* mandates */
+  var mandates=[
+    {id:'DRT-01',text:'Annual ICT testing programme must be documented and approved by management body (Art. 25(1))',priority:isMicro?'SIMPLIFIED':'MANDATORY',basis:'DORA Art. 25'},
+    {id:'DRT-02',text:'Testing must cover all critical or important functions and supporting ICT assets',priority:'MANDATORY',basis:'DORA Art. 25(2)'},
+    {id:'DRT-03',text:'Vulnerabilities identified must be remediated promptly; residual risks communicated to management',priority:'MANDATORY',basis:'DORA Art. 25(5)'},
+    {id:'DRT-04',text:tlptRequired?'TLPT mandatory every 3 years; results communicated to NCA ('+nca+') within 3 months':'TLPT not required for this entity classification',priority:tlptRequired?'MANDATORY':'NOT_APPLICABLE',basis:'DORA Art. 26'},
+    {id:'DRT-05',text:'ICT third-party providers ('+ctppCount+' CTPPs) must be included in scope or subject to equivalent testing',priority:'MANDATORY',basis:'DORA Art. 26(6)'},
+    {id:'DRT-06',text:'Testers must satisfy qualification and independence requirements under Art. 27; internal testers allowed for basic tests',priority:'MANDATORY',basis:'DORA Art. 27'},
+    {id:'DRT-07',text:'Testing results and remediation plans must be retained for minimum 5 years',priority:'MANDATORY',basis:'DORA Art. 13(5)'},
+  ];
+  if(incidents>2)mandates.push({id:'DRT-08',text:incidents+' major ICT incidents reported — enhanced testing scope recommended; review incident-triggered testing obligations',priority:'ENHANCED',basis:'DORA Art. 17(3)'});
+
+  document.getElementById('mandateOut').innerHTML=mandates.map(function(m){
+    var bc=m.priority==='MANDATORY'?'badge-red':m.priority==='ENHANCED'?'badge-gold':m.priority==='SIMPLIFIED'?'badge-teal':'badge-purple';
+    return '<div class="mandate-item"><div class="mandate-header"><span class="mandate-id">'+m.id+'</span><span class="badge '+bc+'">'+m.priority+'</span></div><div class="mandate-body">'+m.text+'</div><div class="mandate-meta">Basis: '+m.basis+'</div></div>';
+  }).join('');
+
+  /* TLPT steps (conditional) */
+  if(tlptRequired){
+    var tibLabel=hasTiber?'TIBER-EU':'TLPT (DORA RTS 2024/1772)';
+    var steps=[
+      {phase:'Phase 1 — Preparation',desc:'Engage NCA ('+nca+'); appoint Lead Overseer contact; scope agreement; appoint certified red team provider (Art. 27); brief management body.'},
+      {phase:'Phase 2 — Threat Intelligence',desc:'Commission targeted threat intelligence (TTI) report covering the entity\'s specific threat actors, TTPs, and vulnerabilities — typically 4–6 weeks.'},
+      {phase:'Phase 3 — Red Team Testing',desc:'Covert red team engagement — no advance warning to operational security team. Duration: typically 8–14 weeks depending on scope.'},
+      {phase:'Phase 4 — Closure',desc:'Debrief with management; produce remediation plan; submit attestation to NCA within 3 months of test completion; update ICT risk register.'},
+      {phase:'Phase 5 — Remediation Validation',desc:'Track and validate remediation of findings; re-test critical findings; update next-cycle testing baseline.'},
+    ];
+    document.getElementById('tlptSteps').innerHTML=steps.map(function(s){
+      return '<div style="background:#0d1928;border-radius:8px;padding:14px;margin-bottom:8px"><div style="font-weight:700;color:var(--accent);font-size:13px;margin-bottom:6px">'+s.phase+'</div><div style="font-size:13px;color:var(--text)">'+s.desc+'</div></div>';
+    }).join('');
+    document.getElementById('tlptPanel').style.display='block';
+  } else {
+    document.getElementById('tlptPanel').style.display='none';
+  }
+
+  /* store for export */
+  window._drtResult={entityName,entityType,doraClass,totalAssets,nca,scope,ctppCount,lastPen,lastTlpt,maturity,incidents,tlptRequired,hasTiber,mandates,rows};
+  document.getElementById('results').style.display='block';
+  document.getElementById('memo-out').style.display='none';
+}
+
+var AP2='1.0';
+function buildMandate(){
+  var r=window._drtResult;if(!r)return null;
+  return {
+    schema:'AINumbers-PolicyMandate-v'+AP2,tool_id:'T304',tool_name:'DORA Resilience Testing Programme Designer',
+    generated:new Date().toISOString(),
+    inputs:{entity_name:r.entityName,entity_type:r.entityType,dora_classification:r.doraClass,total_assets_eur_bn:r.totalAssets,nca:r.nca,ict_scope:r.scope,ctpp_count:r.ctppCount,last_pentest_yrs:r.lastPen,last_tlpt_yrs:r.lastTlpt,maturity:r.maturity,major_incidents:r.incidents},
+    outputs:{tlpt_required:r.tlptRequired,tiber_eu_applicable:r.hasTiber,testing_tiers:r.tlptRequired?3:r.doraClass==='micro'?1:2,schedule_activities:r.rows.length},
+    policy_mandates:r.mandates.map(function(m){return {id:m.id,requirement:m.text,priority:m.priority,basis:m.basis};}),
+    dora_compliance_summary:{basic_testing_required:true,advanced_testing_required:r.doraClass!=='micro',tlpt_required:r.tlptRequired,next_tlpt_due:r.tlptRequired?(r.lastTlpt===0?'Immediate':Math.round(3-r.lastTlpt)+' years'):'N/A'}
+  };
+}
+
+function exportPolicyMandate(){
+  var m=buildMandate();if(!m){alert('Design the programme first.');return;}
+  var blob=new Blob([JSON.stringify(m,null,2)],{type:'application/json'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');a.href=url;a.download='T304-dora-testing-'+Date.now()+'.policy-mandate.json';a.click();URL.revokeObjectURL(url);
+}
+
+function toggleMemo(){
+  var r=window._drtResult;if(!r){alert('Design the programme first.');return;}
+  var el=document.getElementById('memo-out');
+  if(el.style.display==='block'){el.style.display='none';return;}
+  var m=buildMandate();
+  var md='# DORA Resilience Testing Programme — '+r.entityName+'\n\n'+
+    '**Generated:** '+new Date().toLocaleString()+'\n**Tool:** T304 · AINumbers.co\n\n---\n\n'+
+    '## Entity Profile\n\n| Field | Value |\n|---|---|\n'+
+    '| Entity Type | '+r.entityType+' |\n'+
+    '| DORA Class | '+r.doraClass+' |\n'+
+    '| Assets | €'+r.totalAssets+'B |\n'+
+    '| NCA | '+r.nca+' |\n'+
+    '| Maturity | '+r.maturity+' |\n'+
+    '| CTPPs | '+r.ctppCount+' |\n\n'+
+    '## Programme Summary\n\n'+
+    '- Testing Tiers: '+(r.tlptRequired?3:r.doraClass==='micro'?1:2)+'\n'+
+    '- TLPT Required: '+r.tlptRequired+'\n'+
+    '- TIBER-EU Applicable: '+r.hasTiber+'\n\n'+
+    '## Policy Mandates\n\n'+m.policy_mandates.map(function(p){return '- **'+p.id+'** ['+p.priority+']: '+p.requirement+' *('+p.basis+')*';}).join('\n')+'\n\n'+
+    '---\n*AINumbers.co T304 — CC BY 4.0. Not legal advice. Consult your NCA.*\n';
+  el.textContent=md;el.style.display='block';
+  if(navigator.clipboard)navigator.clipboard.writeText(md).catch(function(){});
+}
+
+function toggleMcp(){var p=document.getElementById('mcp-panel');p.style.display=p.style.display==='block'?'none':'block';}
+
+var MANIFEST={"tool_id":"dora-resilience-testing-designer","version":"1.0.0","title":"DORA Resilience Testing Programme Designer","description":"Designs a DORA-compliant 3-tier ICT resilience testing programme with entity classification, testing scope, 3-year schedule, and TLPT/TIBER-EU guidance.","category":"cat-22","tags":["DORA","resilience","testing","TLPT","TIBER-EU","ICT","Article26","penetration testing"],"audience":["compliance","risk","CISO","ops"],"mcp_tool_definition":{"name":"design_dora_resilience_testing","description":"Designs a DORA ICT resilience testing programme with 3-tier classification and 3-year schedule.","inputSchema":{"type":"object","properties":{"entity_type":{"type":"string"},"annual_revenue_eur":{"type":"number"}},"required":["entity_type"]}},"execution":{"type":"browser-javascript","entry":"tools/304-dora-resilience-testing-designer.html","function_name":"designProgramme","timeout_ms":2000},"ap2_export":true};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+</body>
+</html>

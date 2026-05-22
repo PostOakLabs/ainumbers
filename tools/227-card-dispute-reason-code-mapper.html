@@ -287,4 +287,376 @@ const CODES = {
      arb:'Common in DCC disputes. Acquirer must prove cardholder consented to DCC before transaction.'},
     {code:'12.4',cat:'Processing Error',title:'Incorrect Account Number',
      docs:['Proof transaction was applied to correct account','Authorization record with account number','System logs'],
-     issuer:'120 days from transaction processing date'
+     issuer:'120 days from transaction processing date',acquirer:'45 days from chargeback',
+     arb:'Acquirer must show correct account was charged per authorization. Reconcile with auth data.'},
+    {code:'12.5',cat:'Processing Error',title:'Incorrect Amount',
+     docs:['Sales receipt matching transaction amount','Cardholder acknowledgment of amount','Till receipt or e-receipt'],
+     issuer:'120 days from transaction processing date',acquirer:'45 days from chargeback',
+     arb:'Acquirer must match amount on receipt to charged amount. Partial credit may resolve without representment.'},
+    {code:'12.6',cat:'Processing Error',title:'Duplicate Processing / Paid by Other Means',
+     docs:['Evidence only one transaction was processed','Proof alternate payment method was used','Settlement records showing single charge'],
+     issuer:'120 days from transaction processing date',acquirer:'45 days from chargeback',
+     arb:'Acquirer must prove single processing. If paid by other means, show card was refunded or not charged.'},
+    {code:'12.7',cat:'Processing Error',title:'Invalid Data',
+     docs:['Corrected transaction data','Proof submitted data was valid','Authorization record'],
+     issuer:'120 days from transaction processing date',acquirer:'45 days from chargeback',
+     arb:'Used when invalid data causes processing failure. Acquirer must demonstrate valid data was submitted.'},
+    // Category 13: Consumer Disputes
+    {code:'13.1',cat:'Consumer Dispute',title:'Merchandise/Services Not Received',
+     docs:['Signed delivery confirmation with date','Tracking number with delivery status','Proof of digital delivery (IP log, download record)','Cardholder communication acknowledging receipt'],
+     issuer:'120 days from expected delivery date',acquirer:'45 days from chargeback',
+     arb:'Most common dispute type. Acquirer must prove delivery to cardholder address. Signature confirmation strongly preferred.'},
+    {code:'13.2',cat:'Consumer Dispute',title:'Cancelled Recurring Transaction',
+     docs:['Proof cancellation notice was not received','Terms and conditions showing cancellation policy','Evidence subscription was not cancelled before charge','Communication log'],
+     issuer:'120 days from transaction processing date',acquirer:'45 days from chargeback',
+     arb:'Acquirer must prove subscription was active and cancellation not received. Written cancellation overrides.'},
+    {code:'13.3',cat:'Consumer Dispute',title:'Not as Described or Defective Merchandise',
+     docs:['Product description matching what was delivered','Photos/evidence merchandise matches description','Return policy and evidence return was rejected','Communication with cardholder about the dispute'],
+     issuer:'120 days from transaction processing date',acquirer:'45 days from chargeback',
+     arb:'Acquirer must show product matched description. If defective, show return policy and any remediation offered.'},
+    {code:'13.4',cat:'Consumer Dispute',title:'Counterfeit Merchandise',
+     docs:['Authenticity certificates or brand partner confirmation','Evidence product is genuine','Third-party authentication if applicable'],
+     issuer:'120 days from transaction processing date',acquirer:'45 days from chargeback',
+     arb:'High burden on acquirer. Authenticity documentation from manufacturer/brand required.'},
+    {code:'13.5',cat:'Consumer Dispute',title:'Misrepresentation',
+     docs:['Accurate product/service description as marketed','Marketing materials matching actual product','Evidence cardholder received what was advertised'],
+     issuer:'120 days from transaction processing date',acquirer:'45 days from chargeback',
+     arb:'Acquirer must show marketing was accurate. Screenshots of website/ads at time of purchase helpful.'},
+    {code:'13.6',cat:'Consumer Dispute',title:'Credit Not Processed',
+     docs:['Proof credit was issued and settlement date','Credit confirmation number','Bank statement showing credit posting','Alternative remedy evidence'],
+     issuer:'120 days from transaction processing date',acquirer:'45 days from chargeback',
+     arb:'If credit issued, acquirer must prove it was processed within 5 business days. Otherwise credit must be issued.'},
+    {code:'13.7',cat:'Consumer Dispute',title:'Cancelled Merchandise/Services',
+     docs:['Evidence services/merchandise not cancelled','Cancellation policy accepted by cardholder','No-cancellation terms signed at booking','Proof of partial delivery'],
+     issuer:'120 days from transaction processing date',acquirer:'45 days from chargeback',
+     arb:'Applies to travel, events, subscriptions. Acquirer must show valid no-cancellation policy or partial delivery.'},
+    {code:'13.8',cat:'Consumer Dispute',title:'Original Credit Transaction Not Accepted',
+     docs:['Proof original credit transaction was accepted','Account confirmation','Settlement records'],
+     issuer:'120 days from original credit date',acquirer:'45 days from chargeback',
+     arb:'Occurs when a push credit is disputed. Rare — acquirer must show credit was accepted by issuer.'},
+    {code:'13.9',cat:'Consumer Dispute',title:'Non-Receipt of Cash or Load Transaction Value',
+     docs:['ATM/terminal journal showing cash dispensed','Proof of load confirmation','Error log if dispense failure','Partial dispense evidence'],
+     issuer:'120 days from transaction processing date',acquirer:'45 days from chargeback',
+     arb:'Acquirer must provide ATM journal proving full cash dispensed. Partial dispense = partial credit owed.'},
+  ],
+  mc: [
+    {code:'4808',cat:'Authorization',title:'Authorization-Related Chargeback',
+     docs:['Valid authorization approval code','Auth response log showing approval','Evidence auth was obtained before transaction','Proof of cardholder identity'],
+     issuer:'90 days from transaction date',acquirer:'45 days from chargeback',
+     arb:'Covers multiple auth failures: expired auth, no auth, declined auth. Acquirer must supply valid approval code.'},
+    {code:'4831',cat:'Processing Error',title:'Incorrect Transaction Amount',
+     docs:['Sales receipt matching transaction amount','Cardholder signed acknowledgment of amount','E-receipt or order confirmation'],
+     issuer:'90 days from transaction date',acquirer:'45 days from chargeback',
+     arb:'Acquirer must show receipt matching charged amount. Partial credit may be offered without representment.'},
+    {code:'4834',cat:'Processing Error',title:'Duplicate Processing or Paid by Other Means',
+     docs:['Proof only one transaction was processed','Evidence alternate payment was not used','Settlement/batch records showing single charge'],
+     issuer:'90 days from transaction date',acquirer:'45 days from chargeback',
+     arb:'Acquirer proves single processing via settlement records. If paid by cash/other card, acquirer owes full credit.'},
+    {code:'4837',cat:'Fraud',title:'No Cardholder Authorization',
+     docs:['Signed receipt or e-signature','3DS/SecureCode authentication data','AVS/CVC2 match confirmation','IP, device, and velocity data for CNP','Delivery confirmation to billing address'],
+     issuer:'90 days from transaction date',acquirer:'45 days from chargeback',
+     arb:'Primary fraud chargeback. For CNP, SecureCode authentication shifts liability to issuer. AVS/CVC alone insufficient.'},
+    {code:'4840',cat:'Fraud',title:'Fraudulent Processing of Transaction',
+     docs:['Evidence merchant did not participate in fraud','Transaction records showing normal processing','Proof cardholder authorized the charge'],
+     issuer:'90 days from transaction date',acquirer:'45 days from chargeback',
+     arb:'Merchant/acquirer accused of fraud. Must demonstrate legitimate transaction. Serious — may involve Mastercard investigation.'},
+    {code:'4841',cat:'Consumer Dispute',title:'Cancelled Recurring or Digital Goods Transaction',
+     docs:['Proof cancellation was not received before billing','Clear T&Cs accepted by cardholder','Subscription active status records','Communication log with cardholder'],
+     issuer:'90 days from transaction date',acquirer:'45 days from chargeback',
+     arb:'Acquirer must show subscription was active and cancellation request not received. All digital goods must show ToS.'},
+    {code:'4842',cat:'Processing Error',title:'Late Presentment',
+     docs:['Proof presentment within 7 days (card-absent) or 30 days (card-present)','Batch submission records','Authorization date vs. presentment date'],
+     issuer:'90 days from transaction date',acquirer:'45 days from chargeback',
+     arb:'Acquirer must show timely presentment. Late presentment usually unwinnable — process transactions promptly.'},
+    {code:'4846',cat:'Processing Error',title:'Incorrect Currency Code',
+     docs:['Cardholder DCC consent documentation','Currency disclosure receipt','DCC terminal records'],
+     issuer:'90 days from transaction date',acquirer:'45 days from chargeback',
+     arb:'DCC disputes. Acquirer must prove explicit cardholder consent before DCC was applied.'},
+    {code:'4847',cat:'Authorization',title:'Exceeds Floor Limit — Not Authorized',
+     docs:['Authorization approval code','Evidence floor limit did not apply','Auth log'],
+     issuer:'90 days from transaction date',acquirer:'45 days from chargeback',
+     arb:'Very rare — floor limits near-obsolete. Acquirer should always obtain electronic authorization.'},
+    {code:'4849',cat:'Fraud',title:'Questionable Merchant Activity',
+     docs:['Evidence of legitimate merchant activity','Business registration records','Proof cardholder received goods/services','No evidence of collusion or bust-out fraud'],
+     issuer:'Per Mastercard notification',acquirer:'Per Mastercard notification',
+     arb:'Mastercard-initiated for suspected merchant fraud. Acquirer must demonstrate merchant legitimacy.'},
+    {code:'4853',cat:'Consumer Dispute',title:'Cardholder Dispute — Not as Described or Defective',
+     docs:['Accurate product/service description as sold','Evidence goods matched description','Return policy and any resolution offered','Photos of product delivered'],
+     issuer:'90 days from transaction date',acquirer:'45 days from chargeback',
+     arb:'Acquirer proves product matched description or return policy was offered. Cardholder refusal of return weakens claim.'},
+    {code:'4854',cat:'Consumer Dispute',title:'Cardholder Dispute — Not Elsewhere Classified',
+     docs:['Evidence dispute does not qualify under another code','Proof of legitimate transaction','Cardholder communication'],
+     issuer:'90 days from transaction date',acquirer:'45 days from chargeback',
+     arb:'Catch-all dispute code. Acquirer should provide all available transaction evidence.'},
+    {code:'4855',cat:'Consumer Dispute',title:'Goods or Services Not Provided',
+     docs:['Signed delivery confirmation','Tracking with delivered status','Digital delivery log (IP/timestamp)','Proof of service completion'],
+     issuer:'90 days from expected delivery date',acquirer:'45 days from chargeback',
+     arb:'Highest-volume dispute type. Proof of delivery to billing address with signature is strongest defense.'},
+    {code:'4859',cat:'Consumer Dispute',title:'Addendum / No-Show Hotel Charge',
+     docs:['Signed no-show policy at booking','Cancellation policy acceptance','Proof cancellation deadline was not met','Hotel registry showing no check-in'],
+     issuer:'90 days from transaction date',acquirer:'45 days from chargeback',
+     arb:'Hotels must show signed no-show policy. Cancellation policy must be disclosed before booking is complete.'},
+    {code:'4860',cat:'Consumer Dispute',title:'Credit Not Processed',
+     docs:['Credit transaction record with date','Proof credit posted within 5 business days','Credit confirmation to cardholder'],
+     issuer:'90 days from transaction date',acquirer:'45 days from chargeback',
+     arb:'If credit issued, must show it was processed promptly. Unissued credit must be credited immediately.'},
+    {code:'4870',cat:'Fraud',title:'Chip Liability Shift — Counterfeit Fraud',
+     docs:['EMV chip transaction data','Proof chip-enabled terminal used','Cardholder verification method record'],
+     issuer:'120 days from transaction date',acquirer:'45 days from chargeback',
+     arb:'Liability shifts to non-chip party. If chip card swiped (not dipped), acquirer liable. Must prove chip was used.'},
+    {code:'4871',cat:'Fraud',title:'Chip Liability Shift — PIN Not Processed (Lost/Stolen)',
+     docs:['Proof of chip+PIN transaction','PIN verification record from terminal','EMV transaction data'],
+     issuer:'120 days from transaction date',acquirer:'45 days from chargeback',
+     arb:'Applies to lost/stolen card disputes. Acquirer must prove chip+PIN used — chip-only without PIN insufficient.'},
+    {code:'4999',cat:'Processing Error',title:'Domestic Chargeback Dispute',
+     docs:['Applicable local scheme documentation','Country-specific dispute evidence'],
+     issuer:'Per local scheme rules',acquirer:'Per local scheme rules',
+     arb:'Used for local/domestic transactions under local MC rules. Refer to country-specific Mastercard guidelines.'},
+  ],
+  amex: [
+    {code:'C02',cat:'Credit/Returns',title:'Credit Not Processed',
+     docs:['Proof credit was issued and settlement date','Credit reference number','Bank statement if available'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Merchant must show credit was issued and settlement date. If not issued, must process immediately.'},
+    {code:'C04',cat:'Goods/Services',title:'Goods/Services Returned or Refused',
+     docs:['Evidence return not received or refused','Return policy disclosed at time of purchase','Tracking showing no return received'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Merchant must prove return was not received or return policy prohibits it. Cardholder refusal to return is key.'},
+    {code:'C05',cat:'Goods/Services',title:'Goods/Services Cancelled',
+     docs:['Proof cancellation was not received','Cancellation policy accepted by cardholder','T&Cs with no-cancellation clause','Communication log'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Merchant must show valid no-cancellation policy or that services were delivered as agreed.'},
+    {code:'C08',cat:'Goods/Services',title:'Goods/Services Not Received or Only Partially Received',
+     docs:['Signed delivery confirmation','Tracking with delivery status','Digital delivery log','Proof of service completion or partial delivery credit'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Merchant must prove delivery. Partial delivery requires partial credit. Signature strongly preferred.'},
+    {code:'C14',cat:'Processing Error',title:'Paid by Other Means',
+     docs:['Proof card was not used as payment','Evidence alternate payment method confirmed','Refund issued if card was also charged'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Merchant must show card was not the method of payment or that a refund was issued.'},
+    {code:'C18',cat:'Goods/Services',title:'"No Show" Hotel Charge',
+     docs:['Signed no-show policy at time of booking','Cancellation policy disclosure','Evidence cancellation deadline was not met','Reservation records'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Hotel must show signed no-show policy disclosed at booking. Cancellation policy must be explicit and agreed.'},
+    {code:'C28',cat:'Recurring',title:'Cancelled Recurring Billing',
+     docs:['Proof cancellation was not received','Active subscription records','T&Cs accepted by cardholder','Communication log showing no cancellation request'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Merchant must show subscription was active and cancellation not requested. Written cancellation notice overrides.'},
+    {code:'C31',cat:'Goods/Services',title:'Goods/Services Not as Described',
+     docs:['Accurate product/service description as marketed','Evidence goods matched description','Photos or documentation of product','Return policy and any remedy offered'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Merchant must show product matched description or return/replacement was offered.'},
+    {code:'C32',cat:'Goods/Services',title:'Goods/Services Damaged or Defective',
+     docs:['Evidence product was not defective at shipping','Quality control records','Return policy and replacement offer','Third-party quality certification if applicable'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Merchant must show goods were not defective. Offer of repair/replacement without full credit may be accepted.'},
+    {code:'FR2',cat:'Fraud',title:'Fraud — Full Recourse Programme',
+     docs:['Amex notification of programme enrollment','Remediation plan','Fraud reduction evidence'],
+     issuer:'N/A',acquirer:'Per Amex notification',
+     arb:'Amex-initiated. Merchant in full-recourse programme has no chargeback rights. Remediation required to exit.'},
+    {code:'FR4',cat:'Fraud',title:'Immediate Chargeback Programme',
+     docs:['Amex notification','Fraud pattern evidence','Remediation actions taken'],
+     issuer:'N/A',acquirer:'Per Amex notification',
+     arb:'Immediate chargeback without inquiry. Merchant must contact Amex directly to address.'},
+    {code:'FR6',cat:'Fraud',title:'Partial Immediate Chargeback Programme',
+     docs:['Amex notification','Evidence of partial legitimate transaction','Fraud pattern explanation'],
+     issuer:'N/A',acquirer:'Per Amex notification',
+     arb:'Partial amount charged back immediately. Only the fraud portion is disputed.'},
+    {code:'M10',cat:'Vehicle Rental',title:'Vehicle Rental — Capital Damages',
+     docs:['Signed rental agreement authorizing damage charges','Damage assessment report','Photographic evidence of damage','Police report if applicable'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Rental company must show signed authority to charge for damages and documented damage assessment.'},
+    {code:'M49',cat:'Vehicle Rental',title:'Vehicle Rental — Theft or Loss of Use',
+     docs:['Signed rental agreement','Police report','Loss-of-use calculation method disclosure','Evidence of theft or extended unavailability'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Rental company must show signed agreement covering theft/loss-of-use charges with clear calculation methodology.'},
+    {code:'P01',cat:'Processing Error',title:'Unassigned Card Number',
+     docs:['Proof of valid Amex card number at transaction time','Authorization record','Account verification'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Merchant/acquirer must verify valid Amex account number was charged.'},
+    {code:'P03',cat:'Processing Error',title:'Credit Processed as Charge',
+     docs:['Correct transaction type documentation','Proof credit not processed as debit','Correction transaction record'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Merchant must show correct transaction code was submitted or process correcting credit immediately.'},
+    {code:'P04',cat:'Processing Error',title:'Charge Processed as Credit',
+     docs:['Proof charge was correctly submitted','Transaction record showing correct code','Authorization for original charge'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Merchant must show correct transaction type or accept the corrected posting.'},
+    {code:'P05',cat:'Processing Error',title:'Incorrect Charge Amount',
+     docs:['Sales receipt matching transaction amount','Order confirmation','Signed authorization for correct amount'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Merchant must show receipt or order matching the charged amount exactly.'},
+    {code:'P07',cat:'Processing Error',title:'Late Submission',
+     docs:['Proof submission within 7 days of transaction','Batch submission records','System logs with timestamps'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Amex requires submission within 7 days. Late submission is generally unwinnable.'},
+    {code:'P08',cat:'Processing Error',title:'Duplicate Charge',
+     docs:['Settlement records showing single charge','System logs showing one transaction','Evidence second charge was error','Refund of duplicate issued'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Merchant must prove single charge or issue immediate credit for duplicate.'},
+    {code:'P22',cat:'Processing Error',title:'Non-Matching Account Number',
+     docs:['Correct account number confirmation','Auth record with matching account','System reconciliation'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Merchant must reconcile charged account with authorized account.'},
+    {code:'P23',cat:'Processing Error',title:'Currency Discrepancy',
+     docs:['DCC consent documentation','Currency disclosure at point of sale','Receipt showing agreed currency'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Merchant must show cardholder agreed to currency before charge was applied.'},
+    {code:'R03',cat:'Inquiry',title:'Insufficient Reply',
+     docs:['Complete response to original inquiry','All required documentation resubmitted','Proof of timely response'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Merchant did not respond or respond fully to Amex inquiry. Submit complete documentation immediately.'},
+    {code:'R13',cat:'Inquiry',title:'No Reply',
+     docs:['Evidence of timely inquiry response','Proof response was submitted','Original inquiry reference number'],
+     issuer:'N/A',acquirer:'20 days from inquiry',
+     arb:'Merchant failed to reply to Amex inquiry. Submit complete documentation to dispute the chargeback.'},
+  ]
+};
+
+/* ── LOOKUP & RENDER ────────────────────────────────────── */
+let currentScheme = 'all';
+
+function findCode(code, scheme) {
+  const q = code.trim().toUpperCase();
+  const sources = scheme === 'all' ? ['visa','mc','amex'] : [scheme];
+  for (const s of sources) {
+    const match = CODES[s].find(c => c.code.toUpperCase() === q);
+    if (match) return {scheme: s, ...match};
+  }
+  return null;
+}
+
+function schemeLabel(s) { return {visa:'Visa VDR',mc:'MC MDR',amex:'Amex CMG'}[s]||s; }
+function schemePill(s) { return {visa:'sp-visa',mc:'sp-mc',amex:'sp-amex'}[s]||''; }
+
+function renderCard(entry) {
+  const card = document.getElementById('refCard');
+  if (!entry) {
+    card.innerHTML = `<div class="not-found">No match found for that code. Check the spelling or try browsing below.</div>`;
+    card.classList.add('show');
+    return;
+  }
+  card.classList.add('show');
+  card.innerHTML = `
+    <div class="card-header">
+      <div>
+        <span class="code-badge">${entry.code}</span>
+        <span class="scheme-pill ${schemePill(entry.scheme)}">${schemeLabel(entry.scheme)}</span>
+      </div>
+      <div class="code-meta">
+        <div class="code-title">${entry.title}</div>
+        <div class="code-cat">Category: ${entry.cat}</div>
+      </div>
+    </div>
+    <div class="detail-grid">
+      <div>
+        <div class="detail-section-title">Required Response Documentation</div>
+        <ul class="doc-list">${entry.docs.map(d=>`<li>${d}</li>`).join('')}</ul>
+      </div>
+      <div>
+        <div class="detail-section-title">Deadlines</div>
+        <div class="time-grid">
+          <div class="time-cell">
+            <div class="time-label">Issuer Filing</div>
+            <div class="time-value" style="font-size:.68rem;color:var(--text)">${entry.issuer}</div>
+          </div>
+          <div class="time-cell" style="margin-top:.75rem">
+            <div class="time-label">Acquirer Rebuttal</div>
+            <div class="time-value" style="font-size:.68rem;color:var(--text)">${entry.acquirer}</div>
+          </div>
+        </div>
+        <div style="margin-top:1rem">
+          <div class="detail-section-title">Arbitration Notes</div>
+          <div class="arb-block">${entry.arb}</div>
+        </div>
+      </div>
+    </div>
+    <div class="cta-block">
+      <div class="cta-text"><strong>Building a representment?</strong> Use Tool 41 — Chargeback Representment Builder — to assemble your evidence package for this code.</div>
+      <a href="../tools/41-chargeback-representment-builder.html" class="cta-btn">Open T41 &#8594;</a>
+    </div>`;
+}
+
+function lookupCode() {
+  const code = document.getElementById('codeInput').value;
+  const scheme = document.getElementById('schemeSelect').value;
+  renderCard(findCode(code, scheme));
+}
+
+function liveSearch() {
+  const q = document.getElementById('codeInput').value.trim();
+  if (q.length >= 2) {
+    const scheme = document.getElementById('schemeSelect').value;
+    const match = findCode(q, scheme);
+    if (match) renderCard(match);
+  }
+  renderBrowse();
+}
+
+function setSchemeTab(scheme, btn) {
+  currentScheme = scheme;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderBrowse();
+}
+
+function renderBrowse() {
+  const filterScheme = currentScheme !== 'all' ? currentScheme : document.getElementById('schemeSelect').value;
+  const q = document.getElementById('codeInput').value.trim().toUpperCase();
+  let items = [];
+  const schemes = filterScheme === 'all' ? ['visa','mc','amex'] : [filterScheme];
+  for (const s of schemes) {
+    CODES[s].forEach(c => {
+      if (!q || c.code.toUpperCase().includes(q) || c.title.toUpperCase().includes(q) || c.cat.toUpperCase().includes(q)) {
+        items.push({scheme:s,...c});
+      }
+    });
+  }
+  const grid = document.getElementById('codeGrid');
+  if (!items.length) { grid.innerHTML = `<div class="not-found">No codes match your filter.</div>`; return; }
+  grid.innerHTML = items.map(c=>`
+    <div class="code-chip" onclick="selectChip('${c.code}','${c.scheme}')">
+      <span class="chip-code">${c.code}</span>
+      <span class="chip-scheme">${schemeLabel(c.scheme)} · ${c.cat}</span>
+      <span class="chip-title">${c.title}</span>
+    </div>`).join('');
+}
+
+function selectChip(code, scheme) {
+  document.getElementById('codeInput').value = code;
+  document.getElementById('schemeSelect').value = scheme;
+  renderCard(findCode(code, scheme));
+  window.scrollTo({top: document.getElementById('refCard').getBoundingClientRect().top + window.scrollY - 80, behavior:'smooth'});
+}
+
+/* ── i18n ───────────────────────────────────────────────── */
+const TRANSLATIONS = {
+  en: {'search.title':'Reason Code Lookup','browse.title':'Browse All Reason Codes','btn.lookup':'Look Up →','footer.alltools':'All Tools','footer.hub':'Scheme Hub','footer.sitemap':'Sitemap','footer.contact':'Contact','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Zero PII   📡 No server calls   💻 Client-side'},
+  es: {'search.title':'Búsqueda de Código de Razón','browse.title':'Ver Todos los Códigos','btn.lookup':'Buscar →','footer.alltools':'Todas las Herramientas','footer.hub':'Centro de Esquemas','footer.sitemap':'Mapa del Sitio','footer.contact':'Contacto','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Cero PII   📡 Sin llamadas   💻 Cliente'},
+  fr: {'search.title':'Recherche de Code Motif','browse.title':'Parcourir Tous les Codes','btn.lookup':'Rechercher →','footer.alltools':'Tous les Outils','footer.hub':'Hub des Schémas','footer.sitemap':'Plan du Site','footer.contact':'Contact','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Zéro PII   📡 Aucun appel   💻 Client'},
+  ar: {'search.title':'البحث عن رمز السبب','browse.title':'تصفح جميع الرموز','btn.lookup':'بحث ←','footer.alltools':'جميع الأدوات','footer.hub':'مركز المخططات','footer.sitemap':'خريطة الموقع','footer.contact':'تواصل','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 بدون PII   📡 بلا طلبات   💻 محلي'},
+  pt: {'search.title':'Pesquisa de Código de Motivo','browse.title':'Ver Todos os Códigos','btn.lookup':'Pesquisar →','footer.alltools':'Todas as Ferramentas','footer.hub':'Hub de Esquemas','footer.sitemap':'Mapa do Site','footer.contact':'Contato','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Sem PII   📡 Sem chamadas   💻 Cliente'},
+  zh: {'search.title':'原因代码查询','browse.title':'浏览所有原因代码','btn.lookup':'查询 →','footer.alltools':'所有工具','footer.hub':'方案中心','footer.sitemap':'网站地图','footer.contact':'联系我们','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 零PII   📡 无服务器调用   💻 本地运行'}
+};
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  const d = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => { const k=el.getAttribute('data-i18n'); if(d[k]) el.textContent=d[k]; });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const ab = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (ab) ab.classList.add('active');
+  document.documentElement.setAttribute('dir', lang==='ar'?'rtl':'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){try{const s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+
+/* ── Manifest toggle ────────────────────────────────────── */
+var MANIFEST = {"tool_id":"card-dispute-reason-code-mapper","version":"1.0.0","title":"Card Dispute & Chargeback Reason Code Mapper","description":"Instant reference for Visa VDR, Mastercard MDR, and Amex CMG dispute reason codes with required docs, deadlines, and arbitration rules.","category":"cat-19","tags":["chargeback","dispute","Visa","Mastercard","Amex","reason code","representment"],"audience":["ops","risk","compliance","product"],"mcp_tool_definition":{"name":"lookup_dispute_reason_code","description":"Returns required docs, deadlines, and arbitration rules for a Visa, Mastercard, or Amex dispute reason code.","inputSchema":{"type":"object","properties":{"scheme":{"type":"string","enum":["visa","mc","amex"]},"code":{"type":"string"}},"required":["scheme","code"]}},"execution":{"type":"browser-javascript","entry":"tools/227-card-dispute-reason-code-mapper.html","function_name":"lookupCode","timeout_ms":1000},"ap2_export":false};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+
+/* Init */
+renderBrowse();
+</script>
+</body>
+</html>

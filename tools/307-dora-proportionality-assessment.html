@@ -378,4 +378,188 @@ var TRANSLATIONS={
   en:{tag:"DORA · Articles 3 & 4 · T307",h1:"DORA Proportionality Assessment Tool",sub:"Classify your entity under DORA's proportionality framework and map your specific obligations.",entity_title:"Entity Details",lbl_name:"Entity Name (optional)",lbl_type:"Entity Type (DORA Annex)",quant_title:"Quantitative Thresholds",quant_sub:"DORA Article 4 criteria for simplified ICT risk management.",lbl_total_assets:"Total Assets (€ million)",hint_assets:"Microenterprise: <€10M | Art. 4 simplified: <€5B",lbl_revenue:"Annual Net Revenue (€ million)",hint_revenue:"Microenterprise: <€2M; Small/medium: <€40M",lbl_employees:"Number of Employees",hint_employees:"Microenterprise: <10; Small: <50; Medium: <250",lbl_aum:"AUM / Notional Managed (€ billion)",hint_aum:"For investment firms — 0 if not applicable",qual_title:"Qualitative Factors (Article 4(1))",lbl_systemic:"Systemic Importance",lbl_interconnect:"Interconnectedness Level",lbl_cross_border:"Cross-Border Activity",lbl_ict_complexity:"ICT Complexity",lbl_ctpp:"Critical ICT Third-Party Providers",lbl_passporting:"Passporting / EBA Register Listed",run_btn:"⚖️ Run Proportionality Assessment",criteria_title:"DORA Article 4 Criteria Scorecard",obl_title:"Applicable DORA Obligations",scores_title:"Proportionality Dimension Scores",ref_title:"References",export_pm:"⬇ Policy Mandate JSON",export_md:"📄 Markdown Report",nav_home:"Home",nav_hub:"DORA Hub"},
   es:{tag:"DORA · Artículos 3 y 4 · T307",h1:"Herramienta de Evaluación de Proporcionalidad DORA",sub:"Clasifique su entidad bajo el marco de proporcionalidad DORA.",run_btn:"⚖️ Ejecutar Evaluación",export_pm:"⬇ Mandato de Política JSON",export_md:"📄 Informe Markdown"},
   fr:{tag:"DORA · Articles 3 et 4 · T307",h1:"Outil d'Évaluation de Proportionnalité DORA",sub:"Classez votre entité dans le cadre de proportionnalité DORA.",run_btn:"⚖️ Lancer l'Évaluation",export_pm:"⬇ Mandat Politique JSON",export_md:"📄 Rapport Markdown"},
-  ar:{tag:"DORA · المواد 3 و4 · T307",h1:"أداة
+  ar:{tag:"DORA · المواد 3 و4 · T307",h1:"أداة تقييم التناسب DORA",sub:"صنف كيانك ضمن إطار التناسب DORA.",run_btn:"⚖️ تشغيل التقييم",export_pm:"⬇ تفويض السياسة JSON",export_md:"📄 تقرير Markdown"},
+  pt:{tag:"DORA · Artigos 3 e 4 · T307",h1:"Ferramenta de Avaliação de Proporcionalidade DORA",sub:"Classifique a sua entidade no âmbito da proporcionalidade DORA.",run_btn:"⚖️ Executar Avaliação",export_pm:"⬇ Mandato de Política JSON",export_md:"📄 Relatório Markdown"},
+  zh:{tag:"DORA · 第3&4条 · T307",h1:"DORA 比例原则评估工具",sub:"根据DORA比例原则框架对您的机构进行分类，并映射您的具体义务。",run_btn:"⚖️ 运行比例评估",export_pm:"⬇ 政策授权 JSON",export_md:"📄 Markdown 报告"}
+};
+var currentLang='en';
+function setLang(l){
+  currentLang=l;sessionStorage.setItem('ain_lang',l);
+  document.documentElement.lang=l;document.documentElement.dir=(l==='ar')?'rtl':'ltr';
+  var d=TRANSLATIONS[l]||TRANSLATIONS['en'];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var k=el.getAttribute('data-i18n');
+    if(d[k])el.textContent=d[k];else if(TRANSLATIONS['en'][k])el.textContent=TRANSLATIONS['en'][k];
+  });
+  document.querySelectorAll('.lang-btn').forEach(function(b){
+    b.classList.toggle('active',b.getAttribute('data-lang')===l);
+  });
+}
+(function(){setLang(sessionStorage.getItem('ain_lang')||'en');})();
+
+function runAssessment(){
+  var entityName=document.getElementById('entityName').value||'[Entity]';
+  var entityType=document.getElementById('entityType').value;
+  var totalAssets=parseFloat(document.getElementById('totalAssets').value)||0; /* in €M */
+  var revenue=parseFloat(document.getElementById('annualRevenue').value)||0;
+  var employees=parseInt(document.getElementById('employees').value)||0;
+  var aum=parseFloat(document.getElementById('aum').value)||0; /* in €B */
+  var systemic=document.getElementById('systemic').value;
+  var interconnect=document.getElementById('interconnect').value;
+  var crossBorder=document.getElementById('crossBorder').value;
+  var ictComplexity=document.getElementById('ictComplexity').value;
+  var ctppCount=parseInt(document.getElementById('ctppCount').value)||0;
+  var passporting=document.getElementById('passporting').value==='yes';
+
+  /* ── classification logic ── */
+  /* DORA Article 4(2) — microenterprise criteria (ALL must be met) */
+  var isMicroSize=(employees<10)&&(revenue<2)&&(totalAssets<10);
+  /* DORA Article 4(1) — simplified criteria (any one route) */
+  var isSmallSize=(employees<250)&&(revenue<40)&&(totalAssets<5000);
+  var isSmallInsurance=(entityType==='insurance_small');
+  var isSmallInvestment=(entityType==='investment_firm_small')&&(aum<1.2);
+  var simplifiedByType=['account_info','crowdfund','payment_inst','emoney_inst'].includes(entityType);
+  var simplifiedBySize=isSmallSize&&!['credit_inst','ccip','csd','trading_venue'].includes(entityType);
+  var simplifiedBySector=isSmallInsurance||isSmallInvestment||simplifiedByType;
+
+  /* overrides for full regime */
+  var fullOverride=(systemic==='g_sib')||(systemic==='si_ecb')||(interconnect==='high')||
+    (entityType==='ccip')||(entityType==='csd')||(entityType==='trade_repo')||
+    (totalAssets>=5000)||(aum>=17)||(passporting&&entityType==='credit_inst');
+
+  var classification='full';
+  if(!fullOverride&&isMicroSize) classification='micro';
+  else if(!fullOverride&&(simplifiedBySize||simplifiedBySector)) classification='simplified';
+  else classification='full';
+
+  /* ── criteria scorecard ── */
+  var criteria=[
+    {criterion:'Total Assets (€ million)',value:'€'+totalAssets.toLocaleString()+'M',threshold:'Micro: <€10M | Simplified: <€5,000M',status:totalAssets<10?'micro':totalAssets<5000?'simplified':'full'},
+    {criterion:'Annual Revenue (€ million)',value:'€'+revenue.toLocaleString()+'M',threshold:'Micro: <€2M | Simplified: <€40M',status:revenue<2?'micro':revenue<40?'simplified':'full'},
+    {criterion:'Employees',value:employees.toLocaleString(),threshold:'Micro: <10 | Small: <50 | Medium: <250',status:employees<10?'micro':employees<250?'simplified':'full'},
+    {criterion:'AUM / Notional (€ billion)',value:aum>0?'€'+aum+'B':'N/A',threshold:'AIFM threshold: €1.2B / €5B',status:aum===0?'na':aum<1.2?'simplified':'full'},
+    {criterion:'Systemic Importance',value:systemic,threshold:'G-SIB / O-SII → full regime',status:systemic==='none'?'simplified':systemic==='domestic'?'simplified':'full'},
+    {criterion:'Interconnectedness',value:interconnect,threshold:'High interconnect → full regime',status:interconnect==='low'?'micro':interconnect==='medium'?'simplified':'full'},
+    {criterion:'Cross-Border Activity',value:crossBorder,threshold:'Global ops may indicate full regime',status:crossBorder==='domestic'?'micro':crossBorder==='global'?'full':'simplified'},
+    {criterion:'ICT Complexity',value:ictComplexity,threshold:'Very complex → full regime',status:ictComplexity==='simple'?'micro':ictComplexity==='very_complex'?'full':'simplified'},
+    {criterion:'Critical ICT TPSPs',value:ctppCount.toString(),threshold:'>5 CTPPs → enhanced scrutiny',status:ctppCount===0?'simplified':ctppCount>5?'full':'simplified'},
+    {criterion:'Entity Type override',value:entityType,threshold:'CCPs, CSDs, trading venues → full',status:['ccip','csd','trading_venue','trade_repo'].includes(entityType)?'full':'simplified'},
+  ];
+
+  var sc=document.getElementById('criteriaOut');
+  sc.innerHTML='<div style="overflow-x:auto"><table class="crit-table"><thead><tr>'+
+    '<th>Criterion</th><th>Your Value</th><th>Threshold</th><th>Indication</th>'+
+    '</tr></thead><tbody>'+
+    criteria.map(function(c){
+      var bc=c.status==='micro'?'badge-teal':c.status==='simplified'?'badge-gold':c.status==='na'?'badge-purple':'badge-red';
+      var bl=c.status==='micro'?'Micro':c.status==='simplified'?'Simplified':c.status==='na'?'N/A':'Full';
+      return '<tr><td style="font-weight:500;color:#fff">'+c.criterion+'</td><td style="font-family:\'JetBrains Mono\',monospace;font-size:12px">'+c.value+'</td><td style="font-size:12px;color:var(--muted)">'+c.threshold+'</td><td><span class="badge '+bc+'">'+bl+'</span></td></tr>';
+    }).join('')+
+    '</tbody></table></div>';
+
+  /* ── classification display ── */
+  var clsCls=classification==='micro'?'micro':classification==='simplified'?'simplified':'full';
+  var clsTitle=classification==='micro'?'Microenterprise Regime':classification==='simplified'?'Simplified ICT Risk Framework':'Full DORA ICT Risk Framework';
+  var clsSub=classification==='micro'?
+    'As a microenterprise, you benefit from the most streamlined DORA provisions. DORA Art. 4(2): proportionate application of ICT risk management policies.':
+    classification==='simplified'?
+    'You qualify for the simplified ICT risk management framework under DORA Art. 16 and the related RTS (EU) 2024/1774.':
+    'You are subject to the full DORA ICT risk management framework under Chapter II (Articles 5–16).';
+  document.getElementById('classResult').innerHTML='<div class="class-result '+clsCls+'"><div class="class-label">'+clsTitle+'</div><div class="class-sub">'+clsSub+'</div></div>';
+
+  /* ── obligations ── */
+  var baseObl=[
+    {icon:'📋',title:'ICT Risk Management Framework',sub:classification==='full'?'Full framework (Art. 5–16): governance, strategy, policies, continuity, testing, reporting':classification==='simplified'?'Simplified framework (Art. 16): streamlined policies, proportionate controls':'Proportionate ICT policies with NCA discretion',badge:'MANDATORY'},
+    {icon:'🚨',title:'ICT Incident Reporting',sub:'Major ICT incidents: classify, report to NCA within DORA RTS timelines (initial: 4h, intermediate: 72h, final: 1 month)',badge:'MANDATORY'},
+    {icon:'🔗',title:'ICT Third-Party Risk Management',sub:ctppCount>0?'Register of '+ctppCount+' ICT third-party arrangements required; contractual clauses per Art. 30':'No CTPPs identified; basic register still recommended',badge:ctppCount>0?'MANDATORY':'RECOMMENDED'},
+    {icon:'🛡️',title:'Digital Operational Resilience Testing',sub:classification==='full'?'Annual basic testing + TLPT every 3 years (if significant)':classification==='simplified'?'Annual basic testing required; TLPT not mandatory unless NCA requires':'Basic ICT testing with NCA-agreed scope',badge:classification==='full'?'FULL':'SIMPLIFIED'},
+    {icon:'📤',title:'Information Sharing',sub:'Voluntary cyber threat information sharing with other financial entities and NCAs permitted and encouraged under Art. 45',badge:'OPTIONAL'},
+  ];
+  if(classification==='full'){
+    baseObl.push({icon:'📊',title:'ICT Risk Appetite & Strategy',sub:'Management body must approve ICT risk strategy; define risk tolerance; annual review required',badge:'MANDATORY'});
+    baseObl.push({icon:'🔄',title:'Business Continuity & DR Policy',sub:'Documented BCMP/DRP covering all critical ICT systems; annual testing; RTO/RPO targets defined',badge:'MANDATORY'});
+  }
+  if(passporting||crossBorder!=='domestic'){
+    baseObl.push({icon:'🌍',title:'Cross-Border NCA Coordination',sub:'Lead/host NCA cooperation required; DORA does not change prudential supervision — consult home NCA for DORA coordination',badge:'APPLICABLE'});
+  }
+
+  var bcMap={'MANDATORY':'badge-red','SIMPLIFIED':'badge-gold','RECOMMENDED':'badge-teal','OPTIONAL':'badge-purple','APPLICABLE':'badge-purple','FULL':'badge-red'};
+  document.getElementById('oblOut').innerHTML=baseObl.map(function(o){
+    return '<div class="obl-item"><div class="obl-icon">'+o.icon+'</div><div class="obl-body"><div class="obl-title">'+o.title+'</div><div class="obl-sub">'+o.sub+'</div><div class="obl-badge"><span class="badge '+(bcMap[o.badge]||'badge-purple')+'">'+o.badge+'</span></div></div></div>';
+  }).join('');
+
+  /* ── dimension scores ── */
+  var sizeScore=Math.min(100,totalAssets/50);
+  var complexityScore={'simple':15,'moderate':45,'complex':75,'very_complex':95}[ictComplexity]||50;
+  var interconnectScore={'low':10,'medium':50,'high':90}[interconnect]||50;
+  var crossBorderScore={'domestic':10,'limited':35,'eu_wide':65,'global':90}[crossBorder]||40;
+  var systemicScore={'none':5,'domestic':40,'si_ecb':80,'g_sib':100}[systemic]||5;
+
+  var dims=[
+    {label:'Size / Assets',score:sizeScore,color:'var(--teal)'},
+    {label:'ICT Complexity',score:complexityScore,color:'var(--gold)'},
+    {label:'Interconnectedness',score:interconnectScore,color:'var(--red)'},
+    {label:'Cross-Border Activity',score:crossBorderScore,color:'var(--purple)'},
+    {label:'Systemic Importance',score:systemicScore,color:'var(--red)'},
+  ];
+  document.getElementById('scoresOut').innerHTML='<div style="margin-bottom:8px;font-size:12px;color:var(--muted)">Higher score = more likely to face full DORA regime</div>'+
+    dims.map(function(d){
+      return '<div class="score-row"><div class="score-label">'+d.label+'</div>'+
+        '<div class="score-bar-wrap"><div class="score-bar-fill" style="width:'+Math.min(100,d.score.toFixed(0))+'%;background:'+d.color+'"></div></div>'+
+        '<div class="score-val">'+Math.min(100,d.score).toFixed(0)+'</div></div>';
+    }).join('');
+
+  window._propResult={entityName,entityType,totalAssets,revenue,employees,aum,systemic,interconnect,crossBorder,ictComplexity,ctppCount,passporting,classification,criteria,baseObl};
+  document.getElementById('results').style.display='block';
+  document.getElementById('memo-out').style.display='none';
+}
+
+var AP2='1.0';
+function buildMandate(){
+  var r=window._propResult;if(!r)return null;
+  return {
+    schema:'AINumbers-PolicyMandate-v'+AP2,tool_id:'T307',tool_name:'DORA Proportionality Assessment Tool',
+    generated:new Date().toISOString(),
+    inputs:{entity_name:r.entityName,entity_type:r.entityType,total_assets_eur_m:r.totalAssets,revenue_eur_m:r.revenue,employees:r.employees,aum_eur_bn:r.aum,systemic:r.systemic,interconnect:r.interconnect,cross_border:r.crossBorder,ict_complexity:r.ictComplexity,ctpp_count:r.ctppCount,passporting:r.passporting},
+    outputs:{classification:r.classification,classification_description:r.classification==='micro'?'Microenterprise Regime':r.classification==='simplified'?'Simplified ICT Risk Framework':'Full DORA ICT Risk Framework'},
+    policy_mandates:r.baseObl.map(function(o,i){
+      return {id:'DPA-'+String(i+1).padStart(2,'0'),requirement:o.title+': '+o.sub,priority:o.badge,basis:'DORA Art. 3–16'};
+    })
+  };
+}
+
+function exportPolicyMandate(){
+  var m=buildMandate();if(!m){alert('Run the assessment first.');return;}
+  var blob=new Blob([JSON.stringify(m,null,2)],{type:'application/json'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');a.href=url;a.download='T307-dora-proportionality-'+Date.now()+'.policy-mandate.json';a.click();URL.revokeObjectURL(url);
+}
+
+function toggleMemo(){
+  var r=window._propResult;if(!r){alert('Run the assessment first.');return;}
+  var el=document.getElementById('memo-out');
+  if(el.style.display==='block'){el.style.display='none';return;}
+  var m=buildMandate();
+  var md='# DORA Proportionality Assessment — '+r.entityName+'\n\n'+
+    '**Generated:** '+new Date().toLocaleString()+'\n**Tool:** T307 · AINumbers.co\n\n---\n\n'+
+    '## Classification Result\n\n**'+m.outputs.classification_description+'**\n\n'+
+    'DORA regime: `'+r.classification.toUpperCase()+'`\n\n'+
+    '## Entity Profile\n\n| Field | Value |\n|---|---|\n'+
+    '| Type | '+r.entityType+' |\n'+
+    '| Assets | €'+r.totalAssets+'M |\n'+
+    '| Revenue | €'+r.revenue+'M |\n'+
+    '| Employees | '+r.employees+' |\n'+
+    '| Systemic | '+r.systemic+' |\n'+
+    '| ICT Complexity | '+r.ictComplexity+' |\n\n'+
+    '## Applicable Obligations\n\n'+
+    m.policy_mandates.map(function(p){return '- **'+p.id+'** ['+p.priority+']: '+p.requirement;}).join('\n')+'\n\n'+
+    '---\n*AINumbers.co T307 — CC BY 4.0. Not legal advice.*\n';
+  el.textContent=md;el.style.display='block';
+  if(navigator.clipboard)navigator.clipboard.writeText(md).catch(function(){});
+}
+
+var MANIFEST={"tool_id":"dora-proportionality-assessment","version":"1.0.0","title":"DORA Proportionality Assessment","description":"Classifies entities under DORA Article 3/4 proportionality: full, simplified, or micro regime. Maps quantitative thresholds and qualitative factors to specific obligations.","category":"cat-22","tags":["DORA","proportionality","Article3","Article4","simplified","micro","ICT","compliance"],"audience":["compliance","risk","legal","CFO"],"mcp_tool_definition":{"name":"assess_dora_proportionality","description":"Classifies an entity under DORA proportionality criteria and maps applicable obligations.","inputSchema":{"type":"object","properties":{"total_assets_eur":{"type":"number"},"annual_revenue_eur":{"type":"number"},"employees":{"type":"number"}},"required":["total_assets_eur"]}},"execution":{"type":"browser-javascript","entry":"tools/307-dora-proportionality-assessment.html","function_name":"runAssessment","timeout_ms":2000},"ap2_export":true};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+</body>
+</html>
