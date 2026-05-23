@@ -6,8 +6,50 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  # ── Pre-flight checks (run before touching the server) ─────────────────────
+  preflight:
+    name: Pre-flight checks
     runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🔍 Index sync — verify all tools are on the homepage
+        # Fails the build if any tool in tools/ has no card in index.html
+        # (unless it's in the INTENTIONAL_OMISSIONS list in the script).
+        # To suppress a false positive: add the filename to INTENTIONAL_OMISSIONS
+        # in scripts/check_index_sync.py and commit that change.
+        run: python scripts/check_index_sync.py --strict --no-color
+
+      - name: 📋 Tool count summary
+        run: |
+          TOOL_COUNT=$(ls tools/*.html 2>/dev/null | wc -l)
+          GUIDE_COUNT=$(ls guides/*.html 2>/dev/null | wc -l)
+          MANIFEST_COUNT=$(ls *.manifest.json 2>/dev/null | wc -l)
+          echo "🔢 Tools: $TOOL_COUNT | Guides: $GUIDE_COUNT | Manifests: $MANIFEST_COUNT"
+
+      - name: 🔒 Line-ending guard — confirm no CRLF in committed HTML/JSON
+        # Catches accidental CRLF commits that cause phantom diffs on re-push.
+        # .gitattributes enforces LF, but this step gives a visible CI signal
+        # if a file slips through (e.g. committed before .gitattributes existed).
+        run: |
+          BAD=$(git ls-files '*.html' '*.json' '*.yml' '*.js' '*.css' \
+                | xargs grep -rlP '\r' 2>/dev/null || true)
+          if [ -n "$BAD" ]; then
+            echo "⚠️  CRLF line endings detected in:"
+            echo "$BAD"
+            echo ""
+            echo "Run: git add --renormalize . && git commit -m 'chore: normalise line endings'"
+            echo "(This is a warning — deploy will still proceed)"
+          else
+            echo "✅ All text files use LF line endings"
+          fi
+
+  # ── Deploy (only runs if preflight passes) ─────────────────────────────────
+  deploy:
+    name: Deploy to DreamHost
+    runs-on: ubuntu-latest
+    needs: preflight
     steps:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
@@ -15,14 +57,14 @@ jobs:
       - name: 🔐 Setup SSH Key & Host
         run: |
           mkdir -p ~/.ssh
-          # Strip Windows line endings and write clean key
+          # Strip Windows line endings from the key before writing
           echo "${{ secrets.DH_SSH_KEY }}" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.DH_SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
-          
-          # Verification (safe, does not expose key)
-          echo "Key header: $(head -1 ~/.ssh/deploy_key)"
-          echo "Key footer: $(tail -1 ~/.ssh/deploy_key)"
+
+          # Verification (safe — does not expose key content)
+          echo "Key header : $(head -1 ~/.ssh/deploy_key)"
+          echo "Key footer : $(tail -1 ~/.ssh/deploy_key)"
           echo "Permissions: $(stat -c %a ~/.ssh/deploy_key)"
 
       - name: 🚀 Sync to DreamHost via rsync
@@ -31,6 +73,8 @@ jobs:
             -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no" \
             --exclude='.git/' \
             --exclude='.github/' \
+            --exclude='.gitattributes' \
+            --exclude='scripts/' \
             --exclude='*.md' \
             --exclude='specs/' \
             --exclude='CONTRACT.md' \
@@ -40,6 +84,38 @@ jobs:
             --exclude='node_modules/' \
             --exclude='.DS_Store' \
             --exclude='Thumbs.db' \
+            --exclude='reconciled/' \
             ./ ${{ secrets.DH_SSH_USER }}@${{ secrets.DH_SSH_HOST }}:${{ secrets.DH_WEB_ROOT }}/
-            
+
           echo "✅ rsync completed successfully."
+
+      - name: 🌐 Smoke test — homepage responds
+        # A lightweight check that the site root returns HTTP 200 after deploy.
+        # Set DH_SITE_URL secret to your domain, e.g. https://ainumbers.co
+        run: |
+          if [ -z "${{ secrets.DH_SITE_URL }}" ]; then
+            echo "ℹ️  DH_SITE_URL secret not set — skipping smoke test"
+            echo "   Add it in GitHub → Settings → Secrets → Actions"
+            exit 0
+          fi
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 15 "${{ secrets.DH_SITE_URL }}")
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "301" ] || [ "$HTTP_CODE" = "302" ]; then
+            echo "✅ Site responded with HTTP $HTTP_CODE"
+          else
+            echo "❌ Site returned HTTP $HTTP_CODE — deploy may have failed"
+            exit 1
+          fi
+
+      - name: 📊 Deploy summary
+        run: |
+          TOOL_COUNT=$(ls tools/*.html 2>/dev/null | wc -l)
+          GUIDE_COUNT=$(ls guides/*.html 2>/dev/null | wc -l)
+          echo "## Deploy complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------:|" >> $GITHUB_STEP_SUMMARY
+          echo "| Tools deployed | $TOOL_COUNT |" >> $GITHUB_STEP_SUMMARY
+          echo "| Guides deployed | $GUIDE_COUNT |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
