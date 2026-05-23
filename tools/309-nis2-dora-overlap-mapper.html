@@ -240,6 +240,40 @@ if (typeof AP2Schema.validate !== 'function') {
   };
 }
 
+/* ══ NIS2 / DORA control-overlap matrix ══
+   Maps cybersecurity & operational-resilience controls across DORA
+   (Regulation (EU) 2022/2554) and the NIS2 Directive (EU) 2022/2555).
+   overlap: 'shared' (both regulate it), 'dora-only', 'nis2-only',
+   'ai-overlap' (EU AI Act, Regulation (EU) 2024/1689, also applies).
+   doraGoesFurther: DORA imposes a stricter / more prescriptive obligation.
+   DORA is lex specialis to NIS2 for financial entities (NIS2 Art. 4;
+   DORA Recital 16). */
+const CONTROL_MATRIX = [
+  { area: 'ICT / cybersecurity risk-management framework', overlap: 'shared', doraRef: 'DORA Art. 5–6', nis2Ref: 'NIS2 Art. 21', doraGoesFurther: true, note: 'DORA mandates a documented framework reviewed at least annually; NIS2 sets an all-hazards baseline.' },
+  { area: 'Governance & management-body accountability', overlap: 'shared', doraRef: 'DORA Art. 5', nis2Ref: 'NIS2 Art. 20', doraGoesFurther: true, note: 'Both impose board accountability; DORA assigns explicit, detailed management-body duties.' },
+  { area: 'ICT security policies & procedures', overlap: 'shared', doraRef: 'DORA Art. 9', nis2Ref: 'NIS2 Art. 21(2)(i)', doraGoesFurther: false, note: 'Comparable baseline obligation to maintain documented security policies.' },
+  { area: 'ICT asset management & classification', overlap: 'shared', doraRef: 'DORA Art. 8', nis2Ref: 'NIS2 Art. 21(2)(a)', doraGoesFurther: false, note: 'Both require asset identification; one inventory satisfies both regimes.' },
+  { area: 'Incident detection & monitoring', overlap: 'shared', doraRef: 'DORA Art. 10', nis2Ref: 'NIS2 Art. 21(2)(b)', doraGoesFurther: false, note: 'Comparable requirement for anomaly-detection mechanisms.' },
+  { area: 'Incident handling & response', overlap: 'shared', doraRef: 'DORA Art. 17', nis2Ref: 'NIS2 Art. 21(2)(b)', doraGoesFurther: true, note: 'DORA prescribes a granular ICT-incident management process.' },
+  { area: 'Incident classification & reporting to authorities', overlap: 'shared', doraRef: 'DORA Art. 18–19', nis2Ref: 'NIS2 Art. 23', doraGoesFurther: true, note: 'DORA fixes harmonised initial / intermediate / final reports on RTS timelines.' },
+  { area: 'Business continuity & crisis management', overlap: 'shared', doraRef: 'DORA Art. 11', nis2Ref: 'NIS2 Art. 21(2)(c)', doraGoesFurther: true, note: 'DORA mandates an ICT business-continuity policy plus crisis-communication plans.' },
+  { area: 'Backup & disaster recovery', overlap: 'shared', doraRef: 'DORA Art. 12', nis2Ref: 'NIS2 Art. 21(2)(c)', doraGoesFurther: false, note: 'Both require backup and recovery; a single capability satisfies each.' },
+  { area: 'Supply-chain / third-party ICT risk', overlap: 'shared', doraRef: 'DORA Art. 28–30', nis2Ref: 'NIS2 Art. 21(2)(d)', doraGoesFurther: true, note: 'DORA imposes detailed contractual clauses, exit strategies and concentration-risk rules.' },
+  { area: 'Vulnerability handling', overlap: 'shared', doraRef: 'DORA Art. 10', nis2Ref: 'NIS2 Art. 21(2)(e)', doraGoesFurther: false, note: 'Both require vulnerability identification and handling.' },
+  { area: 'Encryption & cryptography', overlap: 'shared', doraRef: 'DORA Art. 9', nis2Ref: 'NIS2 Art. 21(2)(h)', doraGoesFurther: false, note: 'Comparable requirement for cryptography and encryption policy.' },
+  { area: 'Access control & authentication (MFA)', overlap: 'shared', doraRef: 'DORA Art. 9', nis2Ref: 'NIS2 Art. 21(2)(j)', doraGoesFurther: false, note: 'Both require strong authentication and access management.' },
+  { area: 'Cyber hygiene & security awareness training', overlap: 'shared', doraRef: 'DORA Art. 13', nis2Ref: 'NIS2 Art. 21(2)(g)', doraGoesFurther: false, note: 'Both mandate basic cyber-hygiene practices and staff training.' },
+  { area: 'Human-resources security', overlap: 'shared', doraRef: 'DORA Art. 9', nis2Ref: 'NIS2 Art. 21(2)(i)', doraGoesFurther: false, note: 'NIS2 names HR security explicitly; DORA covers it via ICT security policies.' },
+  { area: 'Resilience testing & effectiveness assessment', overlap: 'shared', doraRef: 'DORA Art. 24–25', nis2Ref: 'NIS2 Art. 21(2)(f)', doraGoesFurther: true, note: 'DORA requires a structured testing programme; NIS2 only an effectiveness assessment.' },
+  { area: 'Threat-led penetration testing (TLPT)', overlap: 'dora-only', doraRef: 'DORA Art. 26–27', nis2Ref: 'N/A', doraGoesFurther: false, note: 'Mandatory TLPT every three years for significant entities — no NIS2 equivalent.' },
+  { area: 'Register of information on ICT third parties', overlap: 'dora-only', doraRef: 'DORA Art. 28(3)', nis2Ref: 'N/A', doraGoesFurther: false, note: 'Entities must keep and submit a structured register of all ICT contractual arrangements.' },
+  { area: 'Oversight of critical ICT third-party providers', overlap: 'dora-only', doraRef: 'DORA Art. 31–44', nis2Ref: 'N/A', doraGoesFurther: false, note: 'The ESA-run Oversight Framework designates and supervises critical providers.' },
+  { area: 'Entity registration with national authorities', overlap: 'nis2-only', doraRef: 'N/A', nis2Ref: 'NIS2 Art. 3', doraGoesFurther: false, note: 'NIS2 requires Member-State lists of essential and important entities; DORA scopes entities by type.' },
+  { area: 'Coordinated vulnerability disclosure & EU registry', overlap: 'nis2-only', doraRef: 'N/A', nis2Ref: 'NIS2 Art. 12', doraGoesFurther: false, note: 'The CVD framework and ENISA-run EU vulnerability registry are NIS2 horizontal mechanisms.' },
+  { area: 'AI systems supporting ICT risk functions', overlap: 'ai-overlap', doraRef: 'DORA Art. 6 & 28', nis2Ref: 'N/A', doraGoesFurther: false, note: 'Where high-risk AI supports critical ICT functions, EU AI Act Art. 9 risk-management and Art. 15 accuracy / robustness / cybersecurity obligations also apply.' },
+  { area: 'AI-driven ICT incident & serious-malfunction reporting', overlap: 'ai-overlap', doraRef: 'DORA Art. 19', nis2Ref: 'N/A', doraGoesFurther: false, note: 'An AI-driven ICT incident can trigger DORA Art. 19, NIS2 Art. 23 and EU AI Act Art. 73 serious-incident reporting at once.' }
+];
+
 let lastRes309 = null;
 
 function mapOverlap() {
