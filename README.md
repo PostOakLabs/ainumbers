@@ -1,11 +1,16 @@
 # AINumbers.co — Fintech Intelligence Suite
-> 200+ deterministic, browser-based tools for payments engineers, ops teams, treasury analysts, and compliance professionals.  
+
+> 272 deterministic, browser-based tools for payments engineers, ops teams, treasury analysts, and compliance professionals.  
 > Built by [Post Oak Labs](https://postoaklabs.com) · [Live Suite](https://ainumbers.co)
 
 🔒 **Zero PII** · 📡 **Zero APIs** · 💻 **Client-Side Only** · 🌍 **6-Language i18n** · 📜 **CC BY 4.0**
 
-## 🎯 What This Is
+---
+
+## What This Is
+
 A privacy-first, deterministic intelligence suite covering:
+
 - A2A rail optimization & cost modeling
 - ISO 20022 message validation & migration
 - Open banking consent, SCA, & FAPI compliance
@@ -14,42 +19,60 @@ A privacy-first, deterministic intelligence suite covering:
 - DORA, PSD3, MiCA, & regulatory change management
 - Rule-based agent policy guardrails & AP2 mandate exports
 
-## ⚙️ Architecture
-- **Single-file tools:** Each lives in `/tools/` with fully inline CSS/JS. No build step, no dependencies.
+## Repository Structure
+
+```
+ainumbers/
+├── index.html          ← Homepage (272 tool cards)
+├── tools/              ← 272 self-contained tool pages
+├── guides/             ← 19 topic hub pages
+├── manifests/          ← MCP manifest JSON (one per tool)
+├── mcp/                ← MCP server catalog & registry
+├── scripts/            ← CI validation scripts
+└── .github/workflows/  ← Deploy pipeline (preflight → rsync → smoke test)
+```
+
+## Architecture
+
+- **Single-file tools:** Each lives in `tools/` with fully inline CSS/JS. No build step, no dependencies.
 - **Deterministic execution:** Rule-based math, schema validation, static reference tables. Bit-for-bit reproducible outputs.
-- **MCP-ready:** Every tool ships with `manifest.json` for auto-discovery. External agents consume `suite-registry.json`.
-- **AP2-compliant exports:** Machine-readable policy mandates + Markdown audit trails. Validated before download.
-- **Stage 2 i18n:** Full UI chrome translation across `EN · ES · FR · AR · PT · 中文` with RTL support.
+- **MCP-ready:** Every tool ships with a manifest in `manifests/` for auto-discovery by external agents.
+- **AP2-compliant exports:** Machine-readable policy mandates + Markdown audit trails, validated before download.
+- **i18n:** Full UI chrome translation across `EN · ES · FR · AR · PT · 中文` with RTL support.
 
-## 📖 Technical Specifications
-- **Build Contract & SSOT:** `CONTRACT.md` (read before contributing or generating tools)
-- **Legacy Specs:** Archived in `/specs/legacy/` for historical reference only
-- **MCP Specification:** Aligned with [Model Context Protocol v1+](https://modelcontextprotocol.io)
-- **AP2 Schema:** `ap2-mandate-v1.0` (human + machine consumable)
+## Technical Specifications
 
-## 🔄 Workflow
-1. **Build:** Use Claude/LLM with `CLAUDE.md` auto-load + `CONTRACT.md` context
-2. **Validate:** Run `npm run lint:manifests` & `npm run test:ap2-exports`
-3. **Deploy:** Static upload to DreamHost / Cloudflare Pages / GitHub Pages
-4. **Verify:** Test live at `https://ainumbers.co/tools/[tool-slug].html`
+| Item | Detail |
+|------|--------|
+| Build contract | `CONTRACT.md` (SSOT — read before modifying or generating tools) |
+| Storage | `sessionStorage` for `ain_lang` UI preference only. No `localStorage`, cookies, or IndexedDB. |
+| Network | Zero `fetch`, CDN, WebWorker, or external API calls after page load |
+| Export format | AP2 v1.0 (`ap2-mandate-v1.0`) — human + machine readable |
+| MCP protocol | Aligned with [Model Context Protocol v1+](https://modelcontextprotocol.io) |
+| License | CC BY 4.0 |
 
-## 📦 Adding a Tool
-1. Create `tools/XX-{kebab-slug}.html` (single self-contained file)
-2. Add `tools/XX-{kebab-slug}/manifest.json` per `CONTRACT.md` §2.2
-3. Update `index.html` grid, sidebar badge, and MCP summary table
-4. Commit, push, and deploy. Verify pre-flight checklist in `CONTRACT.md` §6.1
+## Deploy Pipeline
 
-## 🤝 Contributing
-- Open an issue or PR on GitHub
-- Follow deterministic, auditable logic standards
-- Include citation footnotes for regulatory/financial claims
-- Never introduce external dependencies, PII collection, or async logic
-- All changes must comply with `CONTRACT.md`
+Every push to `main` runs:
 
-## 🔗 Links
+1. **Pre-flight** — index sync check (every tool has a homepage card), CRLF guard
+2. **Deploy** — rsync to DreamHost (excludes `.git/`, `scripts/`, `*.md`, etc.)
+3. **Smoke test** — HTTP 200 check against live domain
+
+## Adding a Tool
+
+1. Create `tools/XX-{kebab-slug}.html` (single self-contained file per `CONTRACT.md`)
+2. Add `manifests/XX-{kebab-slug}.manifest.json` per `CONTRACT.md` §2.2
+3. Add a card to `index.html`
+4. Push — CI validates and deploys automatically
+
+## Links
+
 - [Live Suite](https://ainumbers.co)
 - [Post Oak Labs](https://postoaklabs.com)
 - [Open Banking Hub](https://ainumbers.co/guides/open-banking-integration-hub.html)
 - [RBE Deterministic Suite](https://ainumbers.co/guides/rbe-deterministic-suite-hub.html)
+
+---
 
 © Post Oak Labs · CC BY 4.0 · May 2026
