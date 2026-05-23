@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>Working Capital Cycle Optimizer & CCC Stress Lab · Tool 89 · AINumbers.co</title>
 <meta name="description" content="Model the Cash Conversion Cycle (DSO + DIO − DPO) across AR/AP/Inventory aging ledgers. Paste or upload CSV aging reports, run 1,000+ deterministic scenario permutations, and project 30-day intraday cash gaps. Exports a CFO-ready Markdown memo, SVG waterfall chart, and Policy Mandate JSON. Client-side. Zero PII.">
 <meta name="robots" content="index, follow">
@@ -704,9 +704,9 @@ const AP2Schema = {
     return true;
 }};
 
-// ── Worker (Blob pattern) ──────────────────────────────────────────────────────
-const workerCode = `
-self.onmessage = function(e) {
+// ── Sync computation (replaces WebWorker — zero-Worker contract) ──────────────
+function _runWCComputation(inputData) {
+  const { ar, ap, inv, scenario, seed } = inputData;
   const { ar, ap, inv, scenario, seed } = e.data;
   let s = seed >>> 0;
   function seededRand() {
@@ -744,7 +744,7 @@ self.onmessage = function(e) {
     baseBalance = baseBalance + avgDailyRevenue - (ap.outstanding / 30);
     projection.push({ day: day + 1, balance: Math.round(balance), base: Math.round(baseBalance) });
   }
-  self.postMessage({
+  return ({
     baseCCC, scenCCC, cashReleased, wcCost,
     permutations: permutations.slice(0, 10),
     projection,
@@ -752,10 +752,15 @@ self.onmessage = function(e) {
     avgDailyRevenue,
     rank1: permutations[0]
   });
+}
+const worker = {
+  onmessage: null,
+  postMessage: function(data) {
+    const result = _runWCComputation(data);
+    const _cb = this.onmessage;
+    if (_cb) setTimeout(function(){ _cb({data: result}); }, 0);
+  }
 };
-`;
-const workerBlob = new Blob([workerCode], { type: 'application/javascript' });
-const worker = new Worker(URL.createObjectURL(workerBlob));
 
 // ── State ──────────────────────────────────────────────────────────────────────
 let lastResult = null;
