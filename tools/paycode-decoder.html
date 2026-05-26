@@ -1014,18 +1014,7 @@ footer { border-top: 1px solid var(--border); padding: 1.75rem 1.5rem; margin-to
 
 <!-- AIN-reconcile-2026-05-17 -->
 <!-- AIN-canon-2026-05-17 -->
-<script>
-/* AIN CONTRACT: sessionStorage permitted only for ain_lang.
-   All other keys are intercepted and kept in-memory for this session. */
-(function(){
-  var _mem={};
-  var _ss=window.sessionStorage;
-  var _set=_ss.setItem.bind(_ss),_get=_ss.getItem.bind(_ss),_rm=_ss.removeItem.bind(_ss);
-  _ss.setItem=function(k,v){if(k==='ain_lang')return _set(k,v);_mem[k]=String(v);};
-  _ss.getItem=function(k){if(k==='ain_lang')return _get(k);return Object.prototype.hasOwnProperty.call(_mem,k)?_mem[k]:null;};
-  _ss.removeItem=function(k){if(k==='ain_lang')return _rm(k);delete _mem[k];};
-})();
-</script>
+
 </head>
 <body>
 
@@ -3860,18 +3849,18 @@ function switchTab(name) {
 ═══════════════════════════════════════════════════════════════ */
 function saveRecent(entry) {
   try {
-    let recent = JSON.parse(sessionStorage.getItem('paycode_recent') || '[]');
+    let recent = JSON.parse((_ainStore['paycode_recent'] ?? null) || '[]');
     recent = recent.filter(r => r.input !== entry.id);
     recent.unshift({input: entry.id, label: entry.full_name, timestamp: Date.now()});
     if (recent.length > 8) recent = recent.slice(0, 8);
-    sessionStorage.setItem('paycode_recent', JSON.stringify(recent));
+    _ainStore['paycode_recent'] = JSON.stringify(recent);
     renderRecent();
   } catch(e) {}
 }
 
 function renderRecent() {
   try {
-    const recent = JSON.parse(sessionStorage.getItem('paycode_recent') || '[]');
+    const recent = JSON.parse((_ainStore['paycode_recent'] ?? null) || '[]');
     const bar = document.getElementById('recentBar');
     if (!recent.length) { bar.classList.remove('visible'); return; }
     bar.classList.add('visible');
@@ -3886,15 +3875,15 @@ function renderRecent() {
 
 function removeRecent(id) {
   try {
-    let recent = JSON.parse(sessionStorage.getItem('paycode_recent') || '[]');
+    let recent = JSON.parse((_ainStore['paycode_recent'] ?? null) || '[]');
     recent = recent.filter(r => r.input !== id);
-    sessionStorage.setItem('paycode_recent', JSON.stringify(recent));
+    _ainStore['paycode_recent'] = JSON.stringify(recent);
     renderRecent();
   } catch(e) {}
 }
 
 function clearRecent() {
-  try { sessionStorage.removeItem('paycode_recent'); renderRecent(); } catch(e) {}
+  try { (delete _ainStore['paycode_recent']); renderRecent(); } catch(e) {}
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -4116,7 +4105,7 @@ const REQ_KEY = 'paycode_requests';
 const REQ_MAX = 200;
 
 function loadRequests() {
-  try { return JSON.parse(sessionStorage.getItem(REQ_KEY) || '[]'); } catch { return []; }
+  try { return JSON.parse((_ainStore[REQ_KEY] ?? null) || '[]'); } catch { return []; }
 }
 
 function saveRequest(code, rail, context) {
@@ -4135,7 +4124,7 @@ function saveRequest(code, rail, context) {
   };
   const updated = [req, ...loadRequests()].slice(0, REQ_MAX);
   try {
-    sessionStorage.setItem(REQ_KEY, JSON.stringify(updated));
+    _ainStore[REQ_KEY] = JSON.stringify(updated);
     return true;
   } catch {
     return false;
@@ -4241,7 +4230,7 @@ function adminExport() {
 
 function adminClear() {
   if (!confirm('Clear all logged requests from session? This cannot be undone.')) return;
-  try { sessionStorage.removeItem(REQ_KEY); } catch {}
+  try { (delete _ainStore[REQ_KEY]); } catch {}
   renderAdminTable();
 }
 
@@ -4259,6 +4248,9 @@ document.getElementById('codeInput').addEventListener('keydown', (e) => {
 renderRecent();
 handleHash();
 window.addEventListener('hashchange', handleHash);
+/* AIN CONTRACT §2: in-memory store for non-ain_lang session state */
+var _ainStore = {};
+
 var MANIFEST=JSON.parse('{"tool_id": "paycode-decoder", "version": "1.0.0", "title": "PayCode Decoder — ISO 20022, SWIFT MT, ACH, FedNow", "description": "Paste any payment code for instant plain-English explanations, MT↔MX mappings, flow diagrams, and test XML. Covers ISO 20022, SWIFT MT, ACH R-codes, FedNow, SEPA, UETR, IBAN. No API. No PII. Works offline.", "category": "fintech", "tags": ["PayCode", "Decoder", "ISO", "SWIFT", "ACH"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "paycode_decoder", "description": "Run PayCode Decoder — ISO 20022, SWIFT MT, ACH, FedNow. Paste any payment code for instant plain-English explanations, MT↔MX mappings, flow diagrams, and test XML. Covers ISO 20022, SWIFT MT, ACH R-codes, FedNow, SEPA, UETR, IBAN. No API. No PII. Works off", "inputSchema": {"type": "object", "properties": {}}}, "execution": {"type": "browser-javascript", "entry": "tools/paycode-decoder.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
 function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
 </script>

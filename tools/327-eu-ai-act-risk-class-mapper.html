@@ -18,7 +18,7 @@
   "category": "cat-compliance",
   "tags": ["EU AI Act","Article 6","Annex III","high-risk AI","GPAI","RegTech","AI governance","financial services","credit scoring","AML"],
   "audience": ["compliance","product","engineer"],
-  "ap2_export": false
+  "ap2_export": true
 }
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -207,6 +207,11 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem
 .mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
 .mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
 .mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+/* AP2 export row */
+.results-export-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;background:var(--bg-3);border:1px solid var(--border);border-top:2px solid var(--teal);border-radius:var(--radius);padding:.75rem 1rem;margin-top:1rem}
+.results-export-row .export-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.ap2ExportBtn{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;background:var(--teal);color:#000;border:none;padding:.38rem 1rem;border-radius:var(--radius);font-weight:600;transition:background .2s;white-space:nowrap}
+.ap2ExportBtn:hover{background:var(--teal-lt)}
 </style>
 <!-- /* Phase15-nav-footer */ -->
 <!-- /* Phase19-pii-lr */ -->
@@ -742,10 +747,27 @@ function classify(){
           </div>
           <div class="brief-block" id="briefBlock">${brief}</div>
         </div>
+
+        <!-- AP2 export row -->
+        <div class="results-export-row">
+          <span class="export-label">Policy Mandate Export · AP2 v1.0 · JSON + Markdown</span>
+          <button class="ap2ExportBtn" id="ap2ExportBtn" onclick="exportAP2()">⬇ Download AP2 Export</button>
+        </div>
       </div>
     </div>`;
 
   window._brief = brief;
+  // Cache AP2-exportable result
+  window._ap2Result = {
+    risk: uc.risk, riskLabel: meta.label, label: uc.label, cat: uc.cat,
+    annexRef: uc.annexRef || null, articleRef: uc.articleRef || null,
+    deadline: uc.deadline || null,
+    obligations: (uc.risk === 'high' ? HIGH_RISK_OBLIGATIONS.map(o => o.art + ': ' + o.title) :
+                  (uc.risk === 'gpai' || uc.risk === 'gpai_systemic') ? GPAI_OBLIGATIONS.map(o => o.art + ': ' + o.title) :
+                  uc.risk === 'limited' ? ['Art. 50: Transparency Disclosure', 'Art. 50: No Deception'] :
+                  uc.risk === 'minimal' ? ['Art. 5: Prohibition Screening Passed'] :
+                  ['Art. 5: Prohibited — cannot be placed on market']),
+  };
   document.getElementById('resultPanel').scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
@@ -1009,9 +1031,58 @@ function setLang(lang) {
   try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
 }
 (function(){ try { var s = sessionStorage.getItem('ain_lang'); if (s && TRANSLATIONS[s]) setLang(s); } catch(e) {} })();
+
+// ════════════════════════════════════════════════════════════════════════
+// AP2 POLICY MANDATE EXPORT — Tier 1 (JSON + Markdown)
+// ════════════════════════════════════════════════════════════════════════
+function exportAP2(){
+  if (!window._ap2Result) { alert('Run a classification first.'); return; }
+  var r = window._ap2Result;
+  var today = new Date().toISOString().split('T')[0];
+  var ap2 = {
+    ap2_version: '1.0',
+    schema: 'policy_mandate',
+    tool_id: 'eu-ai-act-risk-class-mapper',
+    tool_version: '1.0.0',
+    generated: today,
+    source: 'AINumbers.co T327 · postoaklabs.com',
+    license: 'CC BY 4.0',
+    pii: false,
+    result: {
+      risk_tier: r.risk,
+      risk_label: r.riskLabel,
+      use_case: r.label,
+      use_case_category: r.cat,
+      article_6_basis: r.annexRef ? ('EU AI Act Article 6 + ' + r.annexRef) : 'EU AI Act Article 5 / Article 50',
+      annex_iii_category: r.annexRef || 'N/A',
+      legal_article: r.articleRef || 'N/A',
+      enforcement_deadline: r.deadline || 'N/A',
+      compliance_obligations: r.obligations,
+    },
+    brief_md: window._brief || '',
+  };
+  // Download JSON
+  var jBlob = new Blob([JSON.stringify(ap2, null, 2)], {type:'application/json'});
+  var jUrl = URL.createObjectURL(jBlob);
+  var a1 = document.createElement('a'); a1.href = jUrl;
+  a1.download = 'eu-ai-act-risk-' + r.risk + '-' + today + '.ap2.json';
+  document.body.appendChild(a1); a1.click(); document.body.removeChild(a1);
+  URL.revokeObjectURL(jUrl);
+  // Download Markdown (short delay so both downloads register)
+  setTimeout(function(){
+    var mBlob = new Blob([window._brief || ''], {type:'text/markdown'});
+    var mUrl = URL.createObjectURL(mBlob);
+    var a2 = document.createElement('a'); a2.href = mUrl;
+    a2.download = 'eu-ai-act-risk-' + r.risk + '-' + today + '.md';
+    document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
+    URL.revokeObjectURL(mUrl);
+  }, 250);
+  var btn = document.getElementById('ap2ExportBtn');
+  if(btn){ btn.textContent = '✓ Downloaded'; setTimeout(function(){ btn.textContent = '⬇ Download AP2 Export'; }, 3000); }
+}
 </script><!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
 <script>
-  var MANIFEST = JSON.parse('{"tool_id": "eu-ai-act-risk-class-mapper", "version": "1.0.0", "title": "EU AI Act Article 6 Risk-Class Mapper · Financial Services", "description": "Classify your financial-services AI system under EU AI Act Annex III. Identifies Unacceptable, High-Risk, Limited, and Minimal risk tiers with Article 6 legal basis, compliance obligations, and enforcement deadlines. Browser-based, zero PII.", "category": "regulatory-compliance-consent", "tags": ["Art. 5 Prohibited · Live Feb 2026", "GPAI Art. 53 · 2 Aug 2026", "Annex III High-Risk · 2 Aug 2027", "Penalty: €35M / 7% turnover", "Zero PII · Client-Side"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"useCaseCategory": {"type": "string"}, "useCaseSelect": {"type": "string"}, "sysDesc": {"type": "string"}, "q_natural_person": {"type": "string"}, "q_binding": {"type": "string"}, "q_regulated": {"type": "string"}, "q_member_state": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "eu_ai_act_risk_class_mapper", "description": "Run EU AI Act Article 6 Risk-Class Mapper · Financial Services. Classify your financial-services AI system under EU AI Act Annex III. Identifies Unacceptable, High-Risk, Limited, and Minimal risk tiers with Article 6 legal basis, compliance obligations, and enforc", "inputSchema": {"type": "object", "properties": {"useCaseCategory": {"type": "string"}, "useCaseSelect": {"type": "string"}, "sysDesc": {"type": "string"}, "q_natural_person": {"type": "string"}, "q_binding": {"type": "string"}, "q_regulated": {"type": "string"}, "q_member_state": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/327-eu-ai-act-risk-class-mapper.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
+  var MANIFEST = JSON.parse('{"tool_id": "eu-ai-act-risk-class-mapper", "version": "1.0.0", "title": "EU AI Act Article 6 Risk-Class Mapper · Financial Services", "description": "Classify your financial-services AI system under EU AI Act Annex III. Identifies Unacceptable, High-Risk, Limited, and Minimal risk tiers with Article 6 legal basis, compliance obligations, and enforcement deadlines. Browser-based, zero PII.", "category": "regulatory-compliance-consent", "tags": ["Art. 5 Prohibited · Live Feb 2026", "GPAI Art. 53 · 2 Aug 2026", "Annex III High-Risk · 2 Aug 2027", "Penalty: €35M / 7% turnover", "Zero PII · Client-Side"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {"useCaseCategory": {"type": "string"}, "useCaseSelect": {"type": "string"}, "sysDesc": {"type": "string"}, "q_natural_person": {"type": "string"}, "q_binding": {"type": "string"}, "q_regulated": {"type": "string"}, "q_member_state": {"type": "string"}}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "eu_ai_act_risk_class_mapper", "description": "Run EU AI Act Article 6 Risk-Class Mapper · Financial Services. Classify your financial-services AI system under EU AI Act Annex III. Identifies Unacceptable, High-Risk, Limited, and Minimal risk tiers with Article 6 legal basis, compliance obligations, and enforc", "inputSchema": {"type": "object", "properties": {"useCaseCategory": {"type": "string"}, "useCaseSelect": {"type": "string"}, "sysDesc": {"type": "string"}, "q_natural_person": {"type": "string"}, "q_binding": {"type": "string"}, "q_regulated": {"type": "string"}, "q_member_state": {"type": "string"}}}}, "execution": {"type": "browser-javascript", "entry": "tools/327-eu-ai-act-risk-class-mapper.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": true}');
     function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
   function copyMfst(){
     var s = JSON.stringify(MANIFEST, null, 2);

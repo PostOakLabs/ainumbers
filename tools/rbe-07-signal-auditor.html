@@ -567,8 +567,8 @@ footer { border-top: 1px solid var(--border); padding: 1.75rem 1.5rem; margin-to
   color:var(--muted);letter-spacing:.06em}
 .mcp-toggle:hover{border-color:var(--teal);color:var(--teal)}
 .pii-notice{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);
-  border-left:3px solid var(--teal);padding:.75rem 1rem;margin:1rem 0 1.5rem;
-  font-size:.72rem;color:var(--body);line-height:1.6;border-radius:var(--radius)}
+  border-top:3px solid var(--teal);padding:.75rem 1rem;margin:1rem 0 1.5rem;
+  font-size:.72rem;color:var(--body);line-height:1.6;border-radius:var(--radius);text-align:center}
 .mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
 .mfst-btn:hover{background:var(--bg-3)}
 .mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
@@ -578,18 +578,7 @@ footer { border-top: 1px solid var(--border); padding: 1.75rem 1.5rem; margin-to
 
 <!-- AIN-reconcile-2026-05-17 -->
 <!-- AIN-canon-2026-05-17 -->
-<script>
-/* AIN CONTRACT: sessionStorage permitted only for ain_lang.
-   All other keys are intercepted and kept in-memory for this session. */
-(function(){
-  var _mem={};
-  var _ss=window.sessionStorage;
-  var _set=_ss.setItem.bind(_ss),_get=_ss.getItem.bind(_ss),_rm=_ss.removeItem.bind(_ss);
-  _ss.setItem=function(k,v){if(k==='ain_lang')return _set(k,v);_mem[k]=String(v);};
-  _ss.getItem=function(k){if(k==='ain_lang')return _get(k);return Object.prototype.hasOwnProperty.call(_mem,k)?_mem[k]:null;};
-  _ss.removeItem=function(k){if(k==='ain_lang')return _rm(k);delete _mem[k];};
-})();
-</script>
+
 </head>
 <body>
 
@@ -656,6 +645,9 @@ footer { border-top: 1px solid var(--border); padding: 1.75rem 1.5rem; margin-to
       <strong>Fully offline.</strong> All parsing and audit logic runs entirely in your browser using deterministic JavaScript. No data is transmitted anywhere — no API calls, no server, no telemetry.
     </div>
   </div>
+</div>
+<div class="pii-notice">
+  <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
 </div>
 
 <!-- ══════════════════════════════════════
@@ -1822,7 +1814,7 @@ function escapeHTML(str) {
 ──────────────────────────────────── */
 function saveRecentAudit(strategy, auditResults, rawInput) {
   try {
-    const recent = JSON.parse(sessionStorage.getItem('pol_recent_audits') || '[]');
+    const recent = JSON.parse((_ainStore['pol_recent_audits'] ?? null) || '[]');
     const entry = {
       id: Date.now(),
       timestamp: new Date().toISOString(),
@@ -1831,14 +1823,14 @@ function saveRecentAudit(strategy, auditResults, rawInput) {
       strategy: JSON.stringify(strategy)
     };
     recent.unshift(entry);
-    sessionStorage.setItem('pol_recent_audits', JSON.stringify(recent.slice(0, 5)));
+    _ainStore['pol_recent_audits'] = JSON.stringify(recent.slice(0, 5))
     renderRecentAudits();
   } catch {}
 }
 
 function renderRecentAudits() {
   try {
-    const recent = JSON.parse(sessionStorage.getItem('pol_recent_audits') || '[]');
+    const recent = JSON.parse((_ainStore['pol_recent_audits'] ?? null) || '[]');
     const container = document.getElementById('recent-audits');
     const list = document.getElementById('recent-list');
     if (recent.length === 0) { container.classList.remove('visible'); return; }
@@ -1853,7 +1845,7 @@ function renderRecentAudits() {
 
 window.loadRecentAudit = function(id) {
   try {
-    const recent = JSON.parse(sessionStorage.getItem('pol_recent_audits') || '[]');
+    const recent = JSON.parse((_ainStore['pol_recent_audits'] ?? null) || '[]');
     const entry = recent.find(r => r.id == id);
     if (!entry) return;
     const strategy = JSON.parse(entry.strategy);
@@ -2115,7 +2107,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Recent audits
   document.getElementById('clear-recent').addEventListener('click', function() {
-    sessionStorage.removeItem('pol_recent_audits');
+    (delete _ainStore['pol_recent_audits']);
     document.getElementById('recent-audits').classList.remove('visible');
   });
 
@@ -2126,6 +2118,9 @@ document.addEventListener('DOMContentLoaded', function() {
   handleRoute();
 });
 
+
+/* AIN CONTRACT §2: non-ain_lang session state lives here, never in real sessionStorage */
+var _ainStore = {};
 
 var MANIFEST=JSON.parse('{"tool_id": "rbe-07-signal-auditor", "version": "1.0.0", "title": "AI·07 Agent Signal Integrity Auditor", "description": "Stress-test your trading signal logic before you backtest it. Catch look-ahead bias, overfitting, and fee blindness in seconds — entirely in your browser.", "category": "fintech", "tags": ["Agent", "Signal", "Integrity", "Auditor"], "audience": ["compliance", "risk", "treasury", "fintech"], "input_schema": {"type": "object", "properties": {}}, "output_schema": {"type": "object", "properties": {}}, "mcp_tool_definition": {"name": "rbe_07_signal_auditor", "description": "Run AI·07 Agent Signal Integrity Auditor. Stress-test your trading signal logic before you backtest it. Catch look-ahead bias, overfitting, and fee blindness in seconds — entirely in your browser.", "inputSchema": {"type": "object", "properties": {}}}, "execution": {"type": "browser-javascript", "entry": "tools/rbe-07-signal-auditor.html", "function_name": "runTool", "timeout_ms": 5000}, "ap2_export": false}');
 function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='\u25b2';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='\u25bc';}}
@@ -2147,8 +2142,36 @@ const TRANSLATIONS = {
     "footer.contact": "Contact",
     "footer.cc": "CC BY 4.0 · Post Oak Labs",
     "footer.privacy": "🔒 Zero PII \u00a0 📡 No server calls \u00a0 💻 Client-side",
-    "pii.banner": "🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only."
-  },
+    "pii.banner": "🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.",
+    "nav.home": "Home",
+    "nav.a2a": "A2A Payments",
+    "nav.glossary": "Glossary",
+    "nav.tools": "Tools",
+    "nav.contact": "Contact",
+    "footer.a2a": "A2A Payments",
+    "footer.glossary": "Glossary",
+    "footer.home": "Home",
+    "badge.zeropii": "Zero PII · Client-Side Only",
+    "badge.zeropii2": "Zero PII · 100% Client-Side",
+    "about.trigger": "About This Tool",
+    "about.trigger2": "About This Tool ▾",
+    "about.privacy": "Privacy Statement",
+    "priv.body": "All processing happens in your browser. No data is transmitted to any server. No analytics, no cookies, no telemetry. Your inputs never leave your device.",
+    "btn.reset": "↺ Reset",
+    "btn.clear": "↺ Clear",
+    "btn.exportcsv": "↓ CSV",
+    "btn.exportjson": "↓ JSON",
+    "btn.markdown": "↓ Markdown",
+    "btn.print": "⎙ Print",
+    "btn.copy": "Copy",
+    "btn.alltools": "← All Tools",
+    "lbl.selectopt": "— Select —",
+    "lbl.jurisdiction": "Jurisdiction",
+    "lbl.currency": "Currency",
+    "lbl.amount": "Amount",
+    "tai07.hero_eyebrow": "RBE · 07 | AINumbers.co × BanZhuan.ai · Agent Signal Integrity Auditor",
+    "tai07.h1": "Agent Signal Integrity Auditor",
+    "tai07.hero_sub": "Stress-test your trading strategy logic before it touches BanZhuan's backtest engine. Catch look-ahead bias, overfitting signals, and regime-specific fragility."  },
   es: {
     "nav.alltools": "Todas las herramientas",
     "nav.hub": "← RBE Suite Hub",
@@ -2162,8 +2185,36 @@ const TRANSLATIONS = {
     "footer.contact": "Contacto",
     "footer.cc": "CC BY 4.0 · Post Oak Labs",
     "footer.privacy": "🔒 Sin PII \u00a0 📡 Sin llamadas de servidor \u00a0 💻 Solo cliente",
-    "pii.banner": "🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No ingrese datos personales reales — use entradas sintéticas o anonimizadas."
-  },
+    "pii.banner": "🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No ingrese datos personales reales — use entradas sintéticas o anonimizadas.",
+    "nav.home": "Inicio",
+    "nav.a2a": "Pagos A2A",
+    "nav.glossary": "Glosario",
+    "nav.tools": "Herramientas",
+    "nav.contact": "Contacto",
+    "footer.a2a": "Pagos A2A",
+    "footer.glossary": "Glosario",
+    "footer.home": "Inicio",
+    "badge.zeropii": "Sin PII · Solo del Lado del Cliente",
+    "badge.zeropii2": "Sin PII · 100% del Lado del Cliente",
+    "about.trigger": "Acerca de Esta Herramienta",
+    "about.trigger2": "Acerca de Esta Herramienta ▾",
+    "about.privacy": "Declaración de Privacidad",
+    "priv.body": "Todo el procesamiento ocurre en su navegador. No se transmiten datos a ningún servidor. Sin análisis, sin cookies, sin telemetría. Sus datos nunca salen de su dispositivo.",
+    "btn.reset": "↺ Restablecer",
+    "btn.clear": "↺ Limpiar",
+    "btn.exportcsv": "↓ CSV",
+    "btn.exportjson": "↓ JSON",
+    "btn.markdown": "↓ Markdown",
+    "btn.print": "⎙ Imprimir",
+    "btn.copy": "Copiar",
+    "btn.alltools": "← Todas las Herramientas",
+    "lbl.selectopt": "— Seleccionar —",
+    "lbl.jurisdiction": "Jurisdicción",
+    "lbl.currency": "Moneda",
+    "lbl.amount": "Monto",
+    "tai07.hero_eyebrow": "RBE · 07 | AINumbers.co × BanZhuan.ai · Auditor de Integridad de Señal de Agente",
+    "tai07.h1": "Auditor de Integridad de Señal de Agente",
+    "tai07.hero_sub": "Pruebe de estrés la lógica de su estrategia de trading antes de llegar al motor de backtesting de BanZhuan. Detecte sesgo de anticipación y señales sobreajustadas."  },
   fr: {
     "nav.alltools": "Tous les outils",
     "nav.hub": "← RBE Suite Hub",
@@ -2177,8 +2228,36 @@ const TRANSLATIONS = {
     "footer.contact": "Contact",
     "footer.cc": "CC BY 4.0 · Post Oak Labs",
     "footer.privacy": "🔒 Zéro PII \u00a0 📡 Aucun appel serveur \u00a0 💻 Côté client",
-    "pii.banner": "🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n'est transmise. N'entrez pas de données personnelles réelles — utilisez des entrées synthétiques ou anonymisées."
-  },
+    "pii.banner": "🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n'est transmise. N'entrez pas de données personnelles réelles — utilisez des entrées synthétiques ou anonymisées.",
+    "nav.home": "Accueil",
+    "nav.a2a": "Paiements A2A",
+    "nav.glossary": "Glossaire",
+    "nav.tools": "Outils",
+    "nav.contact": "Contact",
+    "footer.a2a": "Paiements A2A",
+    "footer.glossary": "Glossaire",
+    "footer.home": "Accueil",
+    "badge.zeropii": "Zéro PII · Côté Client Uniquement",
+    "badge.zeropii2": "Zéro PII · 100% Côté Client",
+    "about.trigger": "À Propos de Cet Outil",
+    "about.trigger2": "À Propos de Cet Outil ▾",
+    "about.privacy": "Déclaration de Confidentialité",
+    "priv.body": "Tout le traitement s'effectue dans votre navigateur. Aucune donnée n'est transmise à un serveur. Pas d'analyse, pas de cookies, pas de télémétrie. Vos entrées ne quittent jamais votre appareil.",
+    "btn.reset": "↺ Réinitialiser",
+    "btn.clear": "↺ Effacer",
+    "btn.exportcsv": "↓ CSV",
+    "btn.exportjson": "↓ JSON",
+    "btn.markdown": "↓ Markdown",
+    "btn.print": "⎙ Imprimer",
+    "btn.copy": "Copier",
+    "btn.alltools": "← Tous les Outils",
+    "lbl.selectopt": "— Sélectionner —",
+    "lbl.jurisdiction": "Juridiction",
+    "lbl.currency": "Devise",
+    "lbl.amount": "Montant",
+    "tai07.hero_eyebrow": "RBE · 07 | AINumbers.co × BanZhuan.ai · Auditeur d'Intégrité de Signal d'Agent",
+    "tai07.h1": "Auditeur d'Intégrité de Signal d'Agent",
+    "tai07.hero_sub": "Testez la logique de votre stratégie de trading avant qu'elle atteigne le moteur de backtest de BanZhuan. Détectez le biais d'anticipation et les signaux surajustés."  },
   ar: {
     "nav.alltools": "جميع الأدوات",
     "nav.hub": "→ RBE Suite Hub",
@@ -2193,8 +2272,36 @@ const TRANSLATIONS = {
     "footer.cc": "CC BY 4.0 · Post Oak Labs",
     "footer.privacy": "🔒 بدون بيانات شخصية \u00a0 📡 بدون اتصالات خادم \u00a0 💻 من جهة العميل",
     "pii.banner": "🔒 تتم معالجة جميع المدخلات محليًا في متصفحك. لا يتم نقل أي بيانات. لا تُدخل بيانات شخصية حقيقية — استخدم مدخلات اصطناعية أو مجهولة الهوية فقط.",
-    "lang_dir": "rtl"
-  },
+    "lang_dir": "rtl",
+    "nav.home": "الرئيسية",
+    "nav.a2a": "مدفوعات A2A",
+    "nav.glossary": "المصطلحات",
+    "nav.tools": "الأدوات",
+    "nav.contact": "اتصل بنا",
+    "footer.a2a": "مدفوعات A2A",
+    "footer.glossary": "المصطلحات",
+    "footer.home": "الرئيسية",
+    "badge.zeropii": "بدون بيانات شخصية · من جانب العميل فقط",
+    "badge.zeropii2": "بدون PII · 100% من جانب العميل",
+    "about.trigger": "حول هذه الأداة",
+    "about.trigger2": "حول هذه الأداة ▾",
+    "about.privacy": "بيان الخصوصية",
+    "priv.body": "تتم جميع المعالجة في متصفحك. لا يتم إرسال أي بيانات إلى أي خادم. بدون تحليلات، بدون ملفات تعريف الارتباط، بدون بيانات استخدام. مدخلاتك لا تغادر جهازك أبدًا.",
+    "btn.reset": "↺ إعادة تعيين",
+    "btn.clear": "↺ مسح",
+    "btn.exportcsv": "↓ CSV",
+    "btn.exportjson": "↓ JSON",
+    "btn.markdown": "↓ Markdown",
+    "btn.print": "⎙ طباعة",
+    "btn.copy": "نسخ",
+    "btn.alltools": "← جميع الأدوات",
+    "lbl.selectopt": "— اختر —",
+    "lbl.jurisdiction": "الاختصاص القضائي",
+    "lbl.currency": "العملة",
+    "lbl.amount": "المبلغ",
+    "tai07.hero_eyebrow": "RBE · 07 | AINumbers.co × BanZhuan.ai · مدقق سلامة إشارة الوكيل",
+    "tai07.h1": "مدقق سلامة إشارة الوكيل",
+    "tai07.hero_sub": "اختبر ضغط منطق استراتيجية التداول قبل وصوله إلى محرك الاختبار الخلفي لـ BanZhuan. اكتشف تحيز التطلع للأمام والإشارات المفرطة في التوافق."  },
   pt: {
     "nav.alltools": "Todas as ferramentas",
     "nav.hub": "← RBE Suite Hub",
@@ -2208,8 +2315,36 @@ const TRANSLATIONS = {
     "footer.contact": "Contato",
     "footer.cc": "CC BY 4.0 · Post Oak Labs",
     "footer.privacy": "🔒 Zero PII \u00a0 📡 Sem chamadas de servidor \u00a0 💻 Lado do cliente",
-    "pii.banner": "🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido. Não insira dados pessoais reais — use entradas sintéticas ou anonimizadas."
-  },
+    "pii.banner": "🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido. Não insira dados pessoais reais — use entradas sintéticas ou anonimizadas.",
+    "nav.home": "Início",
+    "nav.a2a": "Pagamentos A2A",
+    "nav.glossary": "Glossário",
+    "nav.tools": "Ferramentas",
+    "nav.contact": "Contato",
+    "footer.a2a": "Pagamentos A2A",
+    "footer.glossary": "Glossário",
+    "footer.home": "Início",
+    "badge.zeropii": "Zero PII · Somente Lado do Cliente",
+    "badge.zeropii2": "Zero PII · 100% Lado do Cliente",
+    "about.trigger": "Sobre Esta Ferramenta",
+    "about.trigger2": "Sobre Esta Ferramenta ▾",
+    "about.privacy": "Declaração de Privacidade",
+    "priv.body": "Todo o processamento ocorre no seu navegador. Nenhum dado é transmitido a qualquer servidor. Sem análises, sem cookies, sem telemetria. Suas entradas nunca saem do seu dispositivo.",
+    "btn.reset": "↺ Redefinir",
+    "btn.clear": "↺ Limpar",
+    "btn.exportcsv": "↓ CSV",
+    "btn.exportjson": "↓ JSON",
+    "btn.markdown": "↓ Markdown",
+    "btn.print": "⎙ Imprimir",
+    "btn.copy": "Copiar",
+    "btn.alltools": "← Todas as Ferramentas",
+    "lbl.selectopt": "— Selecionar —",
+    "lbl.jurisdiction": "Jurisdição",
+    "lbl.currency": "Moeda",
+    "lbl.amount": "Valor",
+    "tai07.hero_eyebrow": "RBE · 07 | AINumbers.co × BanZhuan.ai · Auditor de Integridade de Sinal de Agente",
+    "tai07.h1": "Auditor de Integridade de Sinal de Agente",
+    "tai07.hero_sub": "Teste de estresse a lógica de sua estratégia de trading antes de chegar ao motor de backtesting da BanZhuan. Detecte viés de antecipação e sinais sobreajustados."  },
   zh: {
     "nav.alltools": "所有工具",
     "nav.hub": "← RBE Suite Hub",
@@ -2223,8 +2358,36 @@ const TRANSLATIONS = {
     "footer.contact": "联系我们",
     "footer.cc": "CC BY 4.0 · Post Oak Labs",
     "footer.privacy": "🔒 零PII \u00a0 📡 无服务器调用 \u00a0 💻 客户端",
-    "pii.banner": "🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。请勿输入真实个人数据——仅使用合成或匿名输入。"
-  }
+    "pii.banner": "🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。请勿输入真实个人数据——仅使用合成或匿名输入。",
+    "nav.home": "首页",
+    "nav.a2a": "A2A 支付",
+    "nav.glossary": "术语表",
+    "nav.tools": "工具",
+    "nav.contact": "联系我们",
+    "footer.a2a": "A2A 支付",
+    "footer.glossary": "术语表",
+    "footer.home": "首页",
+    "badge.zeropii": "零隐私数据 · 仅限客户端",
+    "badge.zeropii2": "零PII · 100% 客户端",
+    "about.trigger": "关于此工具",
+    "about.trigger2": "关于此工具 ▾",
+    "about.privacy": "隐私声明",
+    "priv.body": "所有处理均在您的浏览器中完成。不向任何服务器传输数据。无分析、无Cookie、无遥测。您的输入永远不会离开您的设备。",
+    "btn.reset": "↺ 重置",
+    "btn.clear": "↺ 清除",
+    "btn.exportcsv": "↓ CSV",
+    "btn.exportjson": "↓ JSON",
+    "btn.markdown": "↓ Markdown",
+    "btn.print": "⎙ 打印",
+    "btn.copy": "复制",
+    "btn.alltools": "← 所有工具",
+    "lbl.selectopt": "— 请选择 —",
+    "lbl.jurisdiction": "司法管辖区",
+    "lbl.currency": "货币",
+    "lbl.amount": "金额",
+    "tai07.hero_eyebrow": "RBE · 07 | AINumbers.co × BanZhuan.ai · 代理信号完整性审计器",
+    "tai07.h1": "代理信号完整性审计器",
+    "tai07.hero_sub": "在您的交易策略逻辑到达BanZhuan回测引擎之前进行压力测试。捕捉前瞻偏差、过拟合信号和特定机制脆弱性。"  }
 };
 
 function setLang(lang) {
