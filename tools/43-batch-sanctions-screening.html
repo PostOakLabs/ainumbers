@@ -437,12 +437,24 @@ window.runSanctionsScreenBatch=function(inp){
   return records.map((r,i)=>({ref_id:r.ref_id||String(i+1),...screenOne(r.name,lists,threshold,algorithm,include_aliases)}));
 };
 
-async function runScreen(){
+// Pre-read CSV file on selection (FileReader callback) — avoids async in runScreen()
+let _csvText=null;
+(function(){
+  const inp=document.getElementById('csvFile');
+  if(inp) inp.addEventListener('change',function(e){
+    const f=e.target.files[0];
+    if(!f){_csvText=null;return;}
+    const reader=new FileReader();
+    reader.onload=function(ev){_csvText=ev.target.result;};
+    reader.readAsText(f);
+  });
+})();
+function runScreen(){
   const mode=document.getElementById('inputMode').value,thresh=parseInt(document.getElementById('threshold').value),alg=document.getElementById('algo').value,incA=document.getElementById('optA').checked,lists=Object.keys(AL).filter(k=>AL[k]);
   if(!lists.length){toast2('Select at least one list.','r');return}
   let recs=[];
   if(mode==='paste'){const raw=document.getElementById('pasteData').value.trim();if(!raw){toast2('Enter at least one name.','r');return}recs=raw.split('\n').map(l=>l.trim()).filter(Boolean).map(n=>({name:n}))}
-  else if(mode==='csv'){const f=document.getElementById('csvFile').files[0];if(!f){toast2('Upload a CSV file.','r');return}const txt=await f.text();const lines=txt.split('\n').filter(Boolean);const hdr=lines[0].toLowerCase().split(',');const ni=hdr.findIndex(h=>h.includes('name'));if(ni<0){toast2('CSV must have a name column.','r');return}recs=lines.slice(1).map(l=>{const c=l.split(',');return{name:(c[ni]||'').replace(/"/g,'').trim()}}).filter(r=>r.name)}
+  else if(mode==='csv'){if(!_csvText){toast2('Upload a CSV file first.','r');return}const txt=_csvText;const lines=txt.split('\n').filter(Boolean);const hdr=lines[0].toLowerCase().split(',');const ni=hdr.findIndex(h=>h.includes('name'));if(ni<0){toast2('CSV must have a name column.','r');return}recs=lines.slice(1).map(l=>{const c=l.split(',');return{name:(c[ni]||'').replace(/"/g,'').trim()}}).filter(r=>r.name)}
   if(recs.length>500){toast2('Max 500 records.','r');return}if(!recs.length){toast2('No records to screen.','r');return}
   results=[];triage={};expanded=new Set();
   document.getElementById('runBtn').disabled=true;document.getElementById('emptyState').style.display='none';document.getElementById('rContent').style.display='none';document.getElementById('pw').style.display='block';document.getElementById('exportRow').style.display='none';
@@ -450,7 +462,6 @@ async function runScreen(){
     const chunk=recs.slice(i,i+20);
     for(const r of chunk){const res=screenOne(r.name,lists,thresh,alg,incA);res.ref_id=r.ref_id||String(results.length+1);results.push(res)}
     const pct=Math.round(results.length/recs.length*100);document.getElementById('pf').style.width=pct+'%';document.getElementById('pl').textContent='Processing '+results.length+' / '+recs.length+'…';
-    await new Promise(r=>setTimeout(r,0));
   }
   document.getElementById('pw').style.display='none';document.getElementById('runBtn').disabled=false;
   meta={timestamp:new Date().toISOString(),records:recs.length,lists,threshold:thresh,algorithm:alg};

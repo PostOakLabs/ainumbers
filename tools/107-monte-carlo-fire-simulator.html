@@ -503,7 +503,7 @@ function runOneSimulation(inputs, useSoRR) {
 let _chartInstance = null;
 let _lastResults = null;
 
-async function runSimulation() {
+function runSimulation() {
   const allocTotal = parseInt(document.getElementById('sl-stocks').value||0) + parseInt(document.getElementById('sl-bonds').value||0) + parseInt(document.getElementById('sl-cash').value||0);
   if (allocTotal !== 100) { alert('Asset allocation must sum to 100%.'); return; }
 
@@ -511,7 +511,6 @@ async function runSimulation() {
   btn.disabled = true;
   document.getElementById('run-label').textContent = 'Running…';
 
-  await new Promise(r => setTimeout(r, 20)); // allow repaint
 
   const inputs = {
     portfolio: parseFloat(document.getElementById('portfolio').value)||0,
@@ -568,18 +567,19 @@ async function runSimulation() {
   document.getElementById('results-section').classList.remove('results-hidden');
 
   // Lazy-load Chart.js and draw
-  await drawChart(results, inputs.horizon, inputs.yearsToRetire);
+  drawChart(results, inputs.horizon, inputs.yearsToRetire);
 
   btn.disabled = false;
   document.getElementById('run-label').textContent = '▶ Run 1,000 Simulations';
   pssAutoSave();
 }
 
-async function drawChart(results, horizon, yearsToRetire) {
+function drawChart(results, horizon, yearsToRetire) {
   if (!window.Chart) {
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js';
-    await new Promise((res, rej) => { script.onload=res; script.onerror=rej; document.head.appendChild(script); });
+    // Chart.js must be bundled inline per CONTRACT §0 (no CDN after page load)
+    // TODO: embed Chart.js inline to enable this visualization
+    document.getElementById('fire-chart').parentElement.innerHTML = '<p style="color:var(--warn);padding:1rem">Chart requires Chart.js — see CONTRACT §0 for inline bundling.\</p>';
+    return;
   }
   if (_chartInstance) { _chartInstance.destroy(); _chartInstance = null; }
 
