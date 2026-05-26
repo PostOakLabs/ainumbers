@@ -4,6 +4,11 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run preflight checks only — skip the deploy step'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -50,11 +55,54 @@ jobs:
             echo "✅ All text files use LF line endings"
           fi
 
-  # ── Deploy (only runs if preflight passes) ─────────────────────────────────
+      - name: 🗂 Manifest parity check — warn if manifest count exceeds tool count
+        # Orphaned .manifest.json files (no matching tool HTML) inflate the count
+        # and indicate a cleanup is needed. Emits a warning but does not fail the build.
+        run: |
+          TOOLS=$(ls tools/*.html 2>/dev/null | wc -l)
+          MFSTS=$(ls manifests/*.manifest.json 2>/dev/null | wc -l)
+          echo "📦 Tools: $TOOLS | Manifests: $MFSTS"
+          if [ "$MFSTS" -gt "$TOOLS" ]; then
+            ORPHANS=$((MFSTS - TOOLS))
+            echo "⚠️  $ORPHANS orphaned manifest(s) detected — manifests/ has more files than tools/"
+            echo "   Run: diff <(ls manifests/*.manifest.json | sed 's|manifests/||;s|\.manifest\.json||') \\"
+            echo "            <(ls tools/*.html | sed 's|tools/||;s|\.html||') | grep '^<'"
+            echo "   to identify which manifests have no matching tool."
+            echo "(This is a warning — deploy will still proceed)"
+          else
+            echo "✅ Manifest count is within bounds"
+          fi
+
+      - name: 📦 mfstSec presence check — every tool must include the manifest panel
+        # Fails the build if any tool in tools/ is missing the mfstSec section.
+        # This ensures every tool exposes its AP2 manifest.json to end users.
+        # To intentionally exclude a tool, add it to the OMIT list below.
+        run: |
+          OMIT=""  # space-separated filenames to skip, e.g. "tools/foo.html tools/bar.html"
+          MISSING=""
+          for f in tools/*.html; do
+            # Skip intentionally omitted files
+            if echo "$OMIT" | grep -qw "$f"; then continue; fi
+            if ! grep -q "mfstSec" "$f"; then
+              MISSING="$MISSING\n  $f"
+            fi
+          done
+          if [ -n "$MISSING" ]; then
+            echo "❌ The following tools are missing the mfstSec manifest panel:"
+            printf "$MISSING\n"
+            echo ""
+            echo "Add the standard <section id=\"mfstSec\"> block before </footer> in each file."
+            exit 1
+          else
+            echo "✅ All tools contain the mfstSec manifest panel"
+          fi
+
+  # ── Deploy (only runs if preflight passes and dry_run is not set) ─────────
   deploy:
     name: Deploy to DreamHost
     runs-on: ubuntu-latest
     needs: preflight
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.dry_run }}
     steps:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4

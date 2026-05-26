@@ -612,7 +612,7 @@ footer { border-top: 1px solid var(--border); padding: 1.75rem 1.5rem; margin-to
       <span class="nav-bc-sep">›</span>
       <span class="nav-bc-current" style="color:var(--teal)">T98</span>
     </div>
-    <div class="nav-right"><a href="../index.html" class="nav-cta">All Tools &#8594;</a></div>
+    <div class="nav-right"><a href="../guides/open-banking-integration-hub.html" class="nav-cta">Hub &#8594;</a></div>
   </div>
 </nav>
 
@@ -636,18 +636,44 @@ footer { border-top: 1px solid var(--border); padding: 1.75rem 1.5rem; margin-to
 <!-- MAIN -->
 <div class="main-wrap">
 
+  <!-- PARSE HISTORY PANEL -->
+  <div id="history-panel" style="display:none;margin-bottom:1.25rem;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 1rem;background:var(--bg-3);border-bottom:1px solid var(--border)">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted)">Session History</span>
+      <button class="btn-ghost" style="padding:0.2rem 0.5rem;font-size:0.45rem" onclick="parseHistory=[];renderHistory()">Clear</button>
+    </div>
+    <div id="history-list" style="display:flex;gap:0.5rem;padding:0.6rem 1rem;overflow-x:auto;flex-wrap:nowrap"></div>
+  </div>
+
   <!-- TABS -->
   <div class="tab-bar">
     <button class="tab-btn active" onclick="switchTab('tab-validate', this)">① Single Validator</button>
     <button class="tab-btn" onclick="switchTab('tab-batch', this)">② Batch Validation</button>
     <button class="tab-btn" onclick="switchTab('tab-reference', this)">③ Message Reference</button>
     <button class="tab-btn" onclick="switchTab('tab-fields', this)">④ Field Explorer</button>
+    <button class="tab-btn" onclick="switchTab('tab-identifiers', this)">⑤ Identifiers</button>
+    <button class="tab-btn" onclick="switchTab('tab-mt103', this)">⑥ MT103 Map</button>
+    <button class="tab-btn" onclick="switchTab('tab-diff', this)">⑦ Diff</button>
   </div>
 
   <!-- ═══════════════════════════════════════════
        TAB 1 — SINGLE VALIDATOR
   ═══════════════════════════════════════════ -->
   <div id="tab-validate" class="tab-content active">
+
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;flex-wrap:wrap">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:0.52rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted)">Scheme Overlay:</span>
+      <select id="scheme-select" style="width:auto;font-size:0.7rem;padding:0.3rem 0.65rem;background:var(--bg-3);border:1px solid var(--border);color:var(--text);border-radius:var(--radius)">
+        <option value="">Generic ISO 20022</option>
+        <option value="sepa-sct">SEPA SCT (EPC125-05)</option>
+        <option value="sepa-sct-inst">SEPA SCT Inst (EPC004-16)</option>
+        <option value="swift-cbpr">SWIFT CBPR+ (Nov 2025)</option>
+        <option value="fednow">FedNow</option>
+        <option value="t2">T2 / TARGET2</option>
+        <option value="chaps">UK CHAPS</option>
+      </select>
+      <span style="font-size:0.72rem;color:var(--muted)">Layer scheme-specific rules on top of base ISO 20022 validation</span>
+    </div>
 
     <div class="example-bar">
       <span class="example-label">Load Example:</span>
@@ -755,6 +781,125 @@ footer { border-top: 1px solid var(--border); padding: 1.75rem 1.5rem; margin-to
     </div>
 
     <div id="field-result" style="display:none;"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       TAB 5 — IDENTIFIERS (IBAN / BIC)
+  ═══════════════════════════════════════════ -->
+  <div id="tab-identifiers" class="tab-content">
+    <p style="font-size:0.82rem;color:var(--body);margin-bottom:1.5rem;line-height:1.7">
+      Validate IBANs with full modulo-97 checksum computation and BIC/SWIFT codes with structural decomposition. Everything runs in your browser — no external lookup.
+    </p>
+
+    <!-- IBAN -->
+    <div class="collapsible" style="margin-bottom:1.25rem">
+      <button class="collapsible-trigger" onclick="toggleCollapsible(this)" style="background:var(--bg-3)">
+        <span>IBAN Validator &amp; Decomposer</span><span class="collapsible-arrow">▼</span>
+      </button>
+      <div class="collapsible-body open">
+        <div class="input-group">
+          <label class="input-label">IBAN <span class="input-hint">(spaces are stripped automatically)</span></label>
+          <input type="text" id="iban-input" placeholder="DE89 3704 0044 0532 0130 00" style="font-family:'JetBrains Mono',monospace;letter-spacing:0.06em">
+        </div>
+        <div class="btn-row">
+          <button class="btn-primary" onclick="validateIBAN()">▶ Validate IBAN</button>
+          <button class="btn-ghost" onclick="document.getElementById('iban-input').value='DE89370400440532013000';validateIBAN()">Load DE Example</button>
+          <button class="btn-ghost" onclick="document.getElementById('iban-input').value='GB29NWBK60161331926819';validateIBAN()">Load GB Example</button>
+          <button class="btn-ghost" onclick="document.getElementById('iban-input').value='FR7630006000011234567890189';validateIBAN()">Load FR Example</button>
+        </div>
+        <div id="iban-result" style="margin-top:1.25rem;display:none"></div>
+      </div>
+    </div>
+
+    <!-- BIC -->
+    <div class="collapsible">
+      <button class="collapsible-trigger" onclick="toggleCollapsible(this)" style="background:var(--bg-3)">
+        <span>BIC / SWIFT Code Validator</span><span class="collapsible-arrow">▼</span>
+      </button>
+      <div class="collapsible-body open">
+        <div class="input-group">
+          <label class="input-label">BIC / SWIFT Code</label>
+          <input type="text" id="bic-input" placeholder="DEUTDEDB or NWBKGB2LXXX" style="font-family:'JetBrains Mono',monospace;letter-spacing:0.1em">
+        </div>
+        <div class="btn-row">
+          <button class="btn-primary" onclick="validateBIC()">▶ Validate BIC</button>
+          <button class="btn-ghost" onclick="document.getElementById('bic-input').value='DEUTDEDB';validateBIC()">Deutsche Bank</button>
+          <button class="btn-ghost" onclick="document.getElementById('bic-input').value='NWBKGB2L';validateBIC()">NatWest</button>
+          <button class="btn-ghost" onclick="document.getElementById('bic-input').value='SOGEFRPP';validateBIC()">Société Générale</button>
+        </div>
+        <div id="bic-result" style="margin-top:1.25rem;display:none"></div>
+      </div>
+    </div>
+
+    <div class="privacy-notice" style="margin-top:1.25rem">
+      <div class="privacy-dot"></div>
+      <span>All validation runs client-side using embedded algorithms. No IBAN or BIC is transmitted anywhere.</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       TAB 6 — MT103 → pacs.008 FIELD MAP
+  ═══════════════════════════════════════════ -->
+  <div id="tab-mt103" class="tab-content">
+    <p style="font-size:0.82rem;color:var(--body);margin-bottom:1.5rem;line-height:1.7">
+      Paste a legacy SWIFT MT103 message to map each field tag to its ISO 20022 pacs.008.001.08 equivalent — with migration notes for each. Essential reference during the CBPR+ migration.
+    </p>
+
+    <div class="example-bar">
+      <span class="example-label">Load Example:</span>
+      <button class="btn-ghost" onclick="loadMT103Example()">MT103 Sample</button>
+      <button class="btn-ghost" onclick="document.getElementById('mt103-input').value='';document.getElementById('mt103-results').style.display='none'">Clear</button>
+    </div>
+
+    <div class="input-group">
+      <label class="input-label">Paste MT103 Message <span class="input-hint">(one field per line, tag format :NNA: value)</span></label>
+      <textarea id="mt103-input" style="min-height:220px;font-family:'JetBrains Mono',monospace;font-size:0.72rem" placeholder=":20:MSGREF001&#10;:23B:CRED&#10;:32A:260112EUR12500,00&#10;:50K:ACME CORP GMBH&#10;:57A:NWBKGB2L&#10;:59:/GB29NWBK60161331926819&#10;BETA FINANCIAL SERVICES&#10;:70:Invoice INV-2026-0042&#10;:71A:SHA"></textarea>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-primary" onclick="mapMT103()">▶ Map to pacs.008</button>
+    </div>
+
+    <div class="privacy-notice" style="margin:1rem 0">
+      <div class="privacy-dot"></div>
+      <span>MT103 parsing runs entirely in your browser. No message content is transmitted.</span>
+    </div>
+
+    <div id="mt103-results" style="display:none;margin-top:1.25rem"></div>
+
+    <!-- Full reference table always visible -->
+    <div style="margin-top:2rem">
+      <div class="section-head">Complete MT103 → pacs.008 Field Reference</div>
+      <div style="overflow-x:auto">
+        <table class="batch-table" id="mt103-ref-table"></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       TAB 7 — SIDE-BY-SIDE DIFF
+  ═══════════════════════════════════════════ -->
+  <div id="tab-diff" class="tab-content">
+    <p style="font-size:0.82rem;color:var(--body);margin-bottom:1.5rem;line-height:1.7">
+      Paste two ISO 20022 XML messages to compare their structure. Useful for upgrade testing, regression checks, or comparing two versions of the same payment.
+    </p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+      <div class="input-group" style="margin-bottom:0">
+        <label class="input-label">Message A</label>
+        <textarea id="diff-a" style="min-height:180px;font-family:'JetBrains Mono',monospace;font-size:0.68rem" placeholder="Paste first XML message..."></textarea>
+      </div>
+      <div class="input-group" style="margin-bottom:0">
+        <label class="input-label">Message B</label>
+        <textarea id="diff-b" style="min-height:180px;font-family:'JetBrains Mono',monospace;font-size:0.68rem" placeholder="Paste second XML message..."></textarea>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="diffMessages()">▶ Compare Messages</button>
+      <button class="btn-ghost" onclick="loadDiffExample()">Load Example Pair</button>
+      <button class="btn-ghost" onclick="document.getElementById('diff-a').value='';document.getElementById('diff-b').value='';document.getElementById('diff-results').style.display='none'">Clear</button>
+    </div>
+    <div class="privacy-notice" style="margin:1rem 0"><div class="privacy-dot"></div><span>Both messages are compared locally. Nothing is transmitted.</span></div>
+    <div id="diff-results" style="display:none;margin-top:1.25rem"></div>
   </div>
 
   <!-- ABOUT COLLAPSIBLE -->
@@ -1446,9 +1591,98 @@ const NS_MAP = {
 };
 
 /* ═══════════════════════════════════════════
+   DATA — IBAN FORMATS & COUNTRY NAMES
+═══════════════════════════════════════════ */
+const IBAN_FORMATS = {
+  AL:28,AD:24,AT:20,AZ:28,BH:22,BY:28,BE:16,BA:20,BR:29,BG:22,
+  CR:22,HR:21,CY:28,CZ:24,DK:18,DO:28,EG:29,SV:28,EE:20,FI:18,
+  FR:27,GE:22,DE:22,GI:23,GR:27,GT:28,HU:28,IS:26,IQ:23,IE:22,
+  IL:23,IT:27,JO:30,KZ:20,XK:20,KW:30,LV:21,LB:28,LI:21,LT:20,
+  LU:20,MT:31,MR:27,MU:30,MD:24,MC:27,ME:22,NL:18,MK:19,NO:15,
+  PK:24,PS:29,PL:28,PT:25,QA:29,RO:24,LC:32,SM:27,ST:25,SA:24,
+  RS:22,SC:31,SK:24,SI:19,ES:24,SE:24,CH:21,TL:23,TN:24,TR:26,
+  UA:29,AE:23,GB:22,VA:22,VG:24
+};
+const IBAN_COUNTRY_NAMES = {
+  DE:'Germany',GB:'United Kingdom',FR:'France',ES:'Spain',IT:'Italy',
+  NL:'Netherlands',BE:'Belgium',AT:'Austria',CH:'Switzerland',SE:'Sweden',
+  NO:'Norway',DK:'Denmark',FI:'Finland',PL:'Poland',PT:'Portugal',
+  IE:'Ireland',CZ:'Czech Republic',HU:'Hungary',RO:'Romania',SK:'Slovakia',
+  SI:'Slovenia',HR:'Croatia',LT:'Lithuania',LV:'Latvia',EE:'Estonia',
+  LU:'Luxembourg',MT:'Malta',CY:'Cyprus',GR:'Greece',BG:'Bulgaria',
+  SA:'Saudi Arabia',AE:'UAE',QA:'Qatar',BH:'Bahrain',KW:'Kuwait',
+  TR:'Turkey',IL:'Israel',ZA:'South Africa',BR:'Brazil',MU:'Mauritius'
+};
+
+/* ═══════════════════════════════════════════
+   DATA — MT103 → pacs.008 FIELD MAP
+═══════════════════════════════════════════ */
+const MT103_FIELD_MAP = [
+  { tag:':20:', name:'Sender\'s Reference', pacs008Path:'GrpHdr/MsgId', iso20022Name:'Message Identification', notes:'Unique reference assigned by sender. Max 16 chars in MT, max 35 chars in ISO 20022.' },
+  { tag:':23B:', name:'Bank Operation Code', pacs008Path:'(scheme context)', iso20022Name:'N/A — CRED = standard credit transfer', notes:'CRED is the standard value. In pacs.008 this is implied by the message type itself.' },
+  { tag:':32A:', name:'Value Date / Currency / Amount', pacs008Path:'CdtTrfTxInf/IntrBkSttlmDt + IntrBkSttlmAmt', iso20022Name:'Interbank Settlement Date + Amount', notes:'32A combines date, currency, and amount. In pacs.008 these are separate elements.' },
+  { tag:':33B:', name:'Currency / Instructed Amount', pacs008Path:'CdtTrfTxInf/InstdAmt', iso20022Name:'Instructed Amount', notes:'Amount instructed by the originator, which may differ from settlement amount after charges.' },
+  { tag:':50A:', name:'Ordering Customer (with IBAN/BIC)', pacs008Path:'CdtTrfTxInf/Dbtr + DbtrAcct/Id/IBAN + DbtrAgt/FinInstnId/BICFI', iso20022Name:'Debtor + Debtor Account + Debtor Agent', notes:'MT field 50A uses the account number. ISO 20022 separates party identity, account, and agent.' },
+  { tag:':50K:', name:'Ordering Customer (name/address)', pacs008Path:'CdtTrfTxInf/Dbtr/Nm + Dbtr/PstlAdr', iso20022Name:'Debtor Name + Postal Address', notes:'Name-and-address format. Maps to Dbtr/Nm and Dbtr/PstlAdr in pacs.008.' },
+  { tag:':52A:', name:'Ordering Institution (BIC)', pacs008Path:'CdtTrfTxInf/DbtrAgt/FinInstnId/BICFI', iso20022Name:'Debtor Agent BIC', notes:'The bank of the ordering customer. Mandatory for SWIFT CBPR+.' },
+  { tag:':52D:', name:'Ordering Institution (name)', pacs008Path:'CdtTrfTxInf/DbtrAgt/FinInstnId/Nm', iso20022Name:'Debtor Agent Name', notes:'Used when BIC is not available. CBPR+ prefers BICFI over name.' },
+  { tag:':53A:', name:'Sender\'s Correspondent (BIC)', pacs008Path:'CdtTrfTxInf/IntrmyAgt1/FinInstnId/BICFI', iso20022Name:'Intermediary Agent 1', notes:'First intermediary in the payment chain. Used for nostro/correspondent routing.' },
+  { tag:':53B:', name:'Sender\'s Correspondent (account)', pacs008Path:'CdtTrfTxInf/IntrmyAgt1Acct/Id', iso20022Name:'Intermediary Agent 1 Account', notes:'Account at the sender\'s correspondent bank.' },
+  { tag:':54A:', name:'Receiver\'s Correspondent (BIC)', pacs008Path:'CdtTrfTxInf/IntrmyAgt2/FinInstnId/BICFI', iso20022Name:'Intermediary Agent 2', notes:'Second intermediary. Used in longer payment chains (e.g., US dollar clearing).' },
+  { tag:':56A:', name:'Intermediary Institution (BIC)', pacs008Path:'CdtTrfTxInf/IntrmyAgt1/FinInstnId/BICFI', iso20022Name:'Intermediary Agent', notes:'Alternative intermediary tag. Maps to IntrmyAgt1 in pacs.008.' },
+  { tag:':57A:', name:'Account with Institution (BIC)', pacs008Path:'CdtTrfTxInf/CdtrAgt/FinInstnId/BICFI', iso20022Name:'Creditor Agent BIC', notes:'The bank where the beneficiary holds their account. Critical for routing.' },
+  { tag:':57D:', name:'Account with Institution (name)', pacs008Path:'CdtTrfTxInf/CdtrAgt/FinInstnId/Nm', iso20022Name:'Creditor Agent Name', notes:'Used when BIC is not available.' },
+  { tag:':59:', name:'Beneficiary Customer (IBAN)', pacs008Path:'CdtTrfTxInf/Cdtr/Nm + CdtrAcct/Id/IBAN', iso20022Name:'Creditor Name + Creditor Account IBAN', notes:'Name and account number of the beneficiary. IBAN mandatory for SEPA; CBPR+ accepts other formats.' },
+  { tag:':59A:', name:'Beneficiary Customer (BIC/account)', pacs008Path:'CdtTrfTxInf/Cdtr + CdtrAcct/Id', iso20022Name:'Creditor + Creditor Account', notes:'BIC-based beneficiary identification.' },
+  { tag:':70:', name:'Remittance Information', pacs008Path:'CdtTrfTxInf/RmtInf/Ustrd', iso20022Name:'Unstructured Remittance Information', notes:'Free-text payment reference. Max 140 chars. Maps to Ustrd; structured version maps to Strd.' },
+  { tag:':71A:', name:'Details of Charges', pacs008Path:'CdtTrfTxInf/ChrgBr', iso20022Name:'Charge Bearer', notes:'BEN → CRED (creditor pays all charges). OUR → DEBT (debtor pays all charges). SHA → SHAR (shared). SEPA requires SLEV.' },
+  { tag:':72:', name:'Sender to Receiver Information', pacs008Path:'CdtTrfTxInf/InstrForCdtrAgt or InstrForNxtAgt', iso20022Name:'Instruction for Creditor Agent / Next Agent', notes:'Free-form instruction codes. Common codes: /ACC/ → InstrForCdtrAgt, /BNF/ → beneficiary info.' },
+  { tag:':77B:', name:'Regulatory Reporting', pacs008Path:'CdtTrfTxInf/RgltryRptg', iso20022Name:'Regulatory Reporting', notes:'Regulatory details for cross-border payments. Maps to RgltryRptg/Dtls/Cd + Inf in pacs.008.' },
+];
+
+/* ═══════════════════════════════════════════
+   DATA — SCHEME RULES
+═══════════════════════════════════════════ */
+const SCHEME_RULES = {
+  'sepa-sct': [
+    { rule: 'ChrgBr must be SLEV', severity: 'error', check: (nodes) => { const n = nodes.find(x=>x.name==='ChrgBr'); return !n || n.value === 'SLEV'; }, fix: 'Set ChrgBr to SLEV for SEPA SCT payments.' },
+    { rule: 'SttlmMtd must not be INDA or INGA', severity: 'error', check: (nodes) => { const n = nodes.find(x=>x.name==='SttlmMtd'); return !n || !['INDA','INGA'].includes(n.value); }, fix: 'Use CLRG for SEPA settlement method.' },
+    { rule: 'Creditor Account must use IBAN', severity: 'error', check: (nodes) => nodes.some(x=>x.name==='IBAN'), fix: 'Add CdtrAcct/Id/IBAN — IBAN is mandatory for SEPA SCT.' },
+    { rule: 'Execution within D+1 business day', severity: 'warn', check: () => true, fix: 'Verify execution date is within D+1 per SEPA SCT Rulebook §4.4.' },
+  ],
+  'sepa-sct-inst': [
+    { rule: 'ChrgBr must be SLEV', severity: 'error', check: (nodes) => { const n = nodes.find(x=>x.name==='ChrgBr'); return !n || n.value === 'SLEV'; }, fix: 'Set ChrgBr to SLEV.' },
+    { rule: 'Creditor Account must use IBAN', severity: 'error', check: (nodes) => nodes.some(x=>x.name==='IBAN'), fix: 'IBAN mandatory for SCT Inst.' },
+    { rule: 'Max amount €100,000 per transaction', severity: 'warn', check: (nodes) => { const n = nodes.find(x=>x.name==='IntrBkSttlmAmt'||x.name==='InstdAmt'); return !n || parseFloat(n.value) <= 100000; }, fix: 'SCT Inst has a scheme maximum of €100,000 per payment.' },
+    { rule: 'Settlement within 10 seconds required', severity: 'warn', check: () => true, fix: 'Ensure your infrastructure can process within the 10-second execution window.' },
+  ],
+  'swift-cbpr': [
+    { rule: 'Debtor Agent BIC (BICFI) mandatory', severity: 'error', check: (nodes) => nodes.some(x=>x.name==='BICFI'), fix: 'BICFI is mandatory under SWIFT CBPR+ — add DbtrAgt/FinInstnId/BICFI.' },
+    { rule: 'Creditor Agent BIC (BICFI) mandatory', severity: 'error', check: (nodes) => { const bics = nodes.filter(x=>x.name==='BICFI'); return bics.length >= 2; }, fix: 'Both debtor and creditor agent BICs required for CBPR+.' },
+    { rule: 'End-to-End ID must not be NOTPROVIDED', severity: 'warn', check: (nodes) => { const n = nodes.find(x=>x.name==='EndToEndId'); return !n || n.value !== 'NOTPROVIDED'; }, fix: 'Provide a genuine end-to-end reference. NOTPROVIDED is deprecated in CBPR+.' },
+    { rule: 'LEI or BIC required for initiating party', severity: 'warn', check: () => true, fix: 'Ensure InitgPty includes either a BIC or LEI identifier under CBPR+ requirements.' },
+  ],
+  'fednow': [
+    { rule: 'Creditor Account required', severity: 'error', check: (nodes) => nodes.some(x=>x.name==='IBAN'||x.name==='Othr'), fix: 'CdtrAcct/Id is mandatory for FedNow.' },
+    { rule: 'SttlmMtd should be CLRG', severity: 'warn', check: (nodes) => { const n = nodes.find(x=>x.name==='SttlmMtd'); return !n || n.value === 'CLRG'; }, fix: 'FedNow uses CLRG as settlement method.' },
+    { rule: 'Max amount $500,000 per transaction', severity: 'warn', check: (nodes) => { const n = nodes.find(x=>x.name==='IntrBkSttlmAmt'||x.name==='InstdAmt'); return !n || parseFloat(n.value) <= 500000; }, fix: 'FedNow per-transaction limit is $500,000 (subject to network participant limits).' },
+  ],
+  't2': [
+    { rule: 'TtlIntrBkSttlmAmt recommended for batch', severity: 'warn', check: () => true, fix: 'T2 RTGS expects TtlIntrBkSttlmAmt in batch messages for settlement reconciliation.' },
+    { rule: 'SttlmMtd should be CLRG for T2 settlement', severity: 'warn', check: (nodes) => { const n = nodes.find(x=>x.name==='SttlmMtd'); return !n || n.value === 'CLRG'; }, fix: 'T2 uses CLRG (clearing system) as standard settlement method.' },
+  ],
+  'chaps': [
+    { rule: 'Debtor Agent BIC mandatory', severity: 'error', check: (nodes) => nodes.some(x=>x.name==='BICFI'), fix: 'BICFI is mandatory under UK CHAPS.' },
+    { rule: 'SortCode + Account or IBAN required', severity: 'warn', check: (nodes) => nodes.some(x=>x.name==='IBAN'||x.name==='Othr'), fix: 'UK payments require either IBAN or Othr/Id/BBAN (SortCode+AccountNumber).' },
+  ],
+};
+
+/* ═══════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════ */
 let activeCatFilter = 'all';
+let lastBatchResults = [];
+let parseHistory = [];
 
 /* ═══════════════════════════════════════════
    TAB SWITCHING
@@ -1460,6 +1694,7 @@ function switchTab(id, btn) {
   btn.classList.add('active');
   if (id === 'tab-reference') renderMsgGrid();
   if (id === 'tab-fields') renderQuickPaths();
+  if (id === 'tab-mt103') renderMT103RefTable();
 }
 
 /* ═══════════════════════════════════════════
@@ -1573,6 +1808,14 @@ function clearAll() {
 function validateMessage() {
   const xmlStr = document.getElementById('xml-input').value.trim();
   const container = document.getElementById('validate-results');
+  // Store in session history (last 10)
+  if (xmlStr) {
+    const ns2 = detectNamespace(xmlStr);
+    const mt2 = ns2 ? NS_MAP[ns2] : null;
+    parseHistory.unshift({ ts: new Date().toLocaleTimeString(), msgType: mt2 || 'Unknown', snippet: xmlStr.slice(0,80) });
+    if (parseHistory.length > 10) parseHistory.pop();
+    renderHistory();
+  }
   container.style.display = 'block';
   container.innerHTML = '';
   if (!xmlStr) { container.innerHTML = '<div class="warn-item"><div class="error-rule">Please paste an ISO 20022 XML message first.</div></div>'; return; }
@@ -1623,6 +1866,20 @@ function validateMessage() {
           errors.push({ path: n.name, rule: `Value exceeds maximum length of ${max} characters (actual: ${n.value.length})`, fix: `Truncate the value to ${max} characters maximum.` });
         }
       });
+    });
+  }
+
+  const schemeId = document.getElementById('scheme-select') ? document.getElementById('scheme-select').value : '';
+  const schemeRules = schemeId ? SCHEME_RULES[schemeId] : null;
+  const schemeErrors = [], schemeWarns = [];
+  if (schemeRules) {
+    const leafVals = nodes.filter(n=>n.value);
+    schemeRules.forEach(r => {
+      const pass = r.check(leafVals);
+      if (!pass) {
+        if (r.severity === 'error') schemeErrors.push({ path: schemeId.toUpperCase() + ' Rule', rule: r.rule, fix: r.fix });
+        else schemeWarns.push({ path: schemeId.toUpperCase() + ' Advisory', rule: r.rule, fix: r.fix });
+      }
     });
   }
 
@@ -1717,6 +1974,15 @@ function validateMessage() {
     ${warnings.length > 0 ? `
     <div class="section-head" style="color:var(--gold-lt); margin-top:1.5rem;">Conditional Warnings (${warnings.length})</div>
     ${warnings.map(w=>`<div class="warn-item"><div class="error-path">${w.path}</div><div class="error-rule">${w.rule}</div><div class="error-fix">${w.fix}</div></div>`).join('')}
+    ` : ''}
+
+    ${schemeErrors.length > 0 ? `
+    <div class="section-head" style="color:var(--red-lt);margin-top:1.5rem;">Scheme Errors — ${schemeId.toUpperCase()} (${schemeErrors.length})</div>
+    ${schemeErrors.map(e=>`<div class="error-item"><div class="error-path">${e.path}</div><div class="error-rule">${e.rule}</div><div class="error-fix">Fix: ${e.fix}</div></div>`).join('')}
+    ` : ''}
+    ${schemeWarns.length > 0 ? `
+    <div class="section-head" style="color:var(--gold-lt);margin-top:1rem;">Scheme Advisories — ${schemeId.toUpperCase()} (${schemeWarns.length})</div>
+    ${schemeWarns.map(w=>`<div class="warn-item"><div class="error-path">${w.path}</div><div class="error-rule">${w.rule}</div><div class="error-fix">${w.fix}</div></div>`).join('')}
     ` : ''}
 
     <!-- Raw XML -->
@@ -1846,6 +2112,7 @@ function validateBatch() {
     }
   });
 
+  lastBatchResults = results;
   const totalValid = results.filter(r=>r.status==='valid').length;
   const totalInvalid = results.filter(r=>r.status==='invalid').length;
   const totalWarn = results.filter(r=>r.status==='warning').length;
@@ -1873,7 +2140,7 @@ function validateBatch() {
       <div class="stat-block"><div class="stat-num accent">${types}</div><div class="stat-label">Msg Types</div></div>
     </div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:0.75rem;">
-      <button class="btn-secondary" onclick="exportBatchCSV(${JSON.stringify(results).replace(/"/g,'&quot;')})">Export CSV</button>
+      <button class="btn-secondary" onclick="exportBatchCSV()">Export CSV</button>
     </div>
     <div style="overflow-x:auto;">
       <table class="batch-table">
@@ -1890,9 +2157,9 @@ function validateBatch() {
     </div>`;
 }
 
-function exportBatchCSV(data) {
+function exportBatchCSV() {
   try {
-    const results = typeof data === 'string' ? JSON.parse(data) : data;
+    const results = lastBatchResults;
     const header = '#,Message Type,Name,Transactions,Amount,Currency,Status,Errors,Warnings\n';
     const rows = results.map(r=>`${r.idx},"${r.msgType}","${r.name}",${r.nbOfTxs},${r.amount},${r.currency},${r.status},${r.errors},${r.warnings}`).join('\n');
     const blob = new Blob([header+rows], {type:'text/csv'});
@@ -2040,9 +2307,285 @@ function lookupField() {
 }
 
 /* ═══════════════════════════════════════════
+   TAB 5 — IBAN / BIC VALIDATORS
+═══════════════════════════════════════════ */
+function validateIBAN() {
+  const raw = document.getElementById('iban-input').value.replace(/\s/g,'').toUpperCase();
+  const out = document.getElementById('iban-result');
+  out.style.display = 'block';
+  if (!raw) { out.innerHTML = '<div class="warn-item"><div class="error-rule">Enter an IBAN.</div></div>'; return; }
+  const country = raw.slice(0,2);
+  const checkDigits = raw.slice(2,4);
+  const bban = raw.slice(4);
+  const expectedLen = IBAN_FORMATS[country];
+  const countryName = IBAN_COUNTRY_NAMES[country] || 'Unknown country';
+  const lenOk = expectedLen ? raw.length === expectedLen : null;
+
+  // Modulo-97 check
+  const rearranged = raw.slice(4) + raw.slice(0,4);
+  const numeric = rearranged.split('').map(c => isNaN(c) ? (c.charCodeAt(0)-55).toString() : c).join('');
+  let remainder = 0;
+  for (let i = 0; i < numeric.length; i++) { remainder = (remainder * 10 + parseInt(numeric[i])) % 97; }
+  const mod97Ok = remainder === 1;
+
+  const valid = mod97Ok && (lenOk !== false);
+  const statusClass = valid ? '' : 'invalid';
+  const statusIcon = valid ? '✓ Valid IBAN' : '❌ Invalid IBAN';
+
+  out.innerHTML = `
+    <div class="result-status-bar ${statusClass}" style="margin-bottom:1.25rem">
+      <div class="status-dot"></div>
+      <div class="status-text"><strong>${statusIcon}</strong></div>
+      <div class="status-meta">${raw.slice(0,2)} · ${raw.length} chars</div>
+    </div>
+    <div class="comp-grid comp-grid-3">
+      <div class="info-card"><div class="card-label">Country</div><div class="card-value">${countryName} (${country})</div></div>
+      <div class="info-card"><div class="card-label">Check Digits</div><div class="card-value" style="color:${mod97Ok?'var(--green-lt)':'var(--red-lt)'}">${checkDigits} ${mod97Ok?'✓':'✗'}</div></div>
+      <div class="info-card"><div class="card-label">Expected Length</div><div class="card-value">${expectedLen||'Unknown'} ${lenOk===true?'✓':lenOk===false?`✗ (got ${raw.length})`:'—'}</div></div>
+      <div class="info-card"><div class="card-label">BBAN</div><div class="card-value" style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--teal)">${bban}</div></div>
+      <div class="info-card"><div class="card-label">Modulo-97 Result</div><div class="card-value">${remainder} ${mod97Ok?'(must be 1 ✓)':'(must be 1 ✗)'}</div></div>
+      <div class="info-card"><div class="card-label">Formatted</div><div class="card-value" style="font-family:'JetBrains Mono',monospace;font-size:0.7rem">${raw.match(/.{1,4}/g).join(' ')}</div></div>
+    </div>
+    <div style="font-size:0.72rem;color:var(--muted);margin-top:0.75rem;font-family:'JetBrains Mono',monospace;">
+      Rearranged for mod-97: <span style="color:var(--body)">${rearranged.slice(0,20)}…</span> → numeric → mod 97 = <strong style="color:${mod97Ok?'var(--green-lt)':'var(--red-lt)'}">${remainder}</strong>
+    </div>`;
+}
+
+function validateBIC() {
+  const raw = document.getElementById('bic-input').value.replace(/\s/g,'').toUpperCase();
+  const out = document.getElementById('bic-result');
+  out.style.display = 'block';
+  if (!raw) { out.innerHTML = '<div class="warn-item"><div class="error-rule">Enter a BIC/SWIFT code.</div></div>'; return; }
+  const len = raw.length;
+  const valid8 = len === 8, valid11 = len === 11;
+  const valid = valid8 || valid11;
+  const instCode = raw.slice(0,4);
+  const countryCode = raw.slice(4,6);
+  const locationCode = raw.slice(6,8);
+  const branchCode = len === 11 ? raw.slice(8) : '(8-char — HQ implied)';
+  const formatValid = /^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(raw);
+  const countryName = IBAN_COUNTRY_NAMES[countryCode] || 'Unknown';
+  const statusClass = formatValid ? '' : 'invalid';
+  out.innerHTML = `
+    <div class="result-status-bar ${statusClass}" style="margin-bottom:1.25rem">
+      <div class="status-dot"></div>
+      <div class="status-text"><strong>${formatValid?'✓ Valid BIC':'❌ Invalid BIC'}</strong></div>
+      <div class="status-meta">${len === 8 ? '8-char (HQ)' : len === 11 ? '11-char (branch)' : `${len}-char (invalid)`}</div>
+    </div>
+    <div class="comp-grid comp-grid-3">
+      <div class="info-card"><div class="card-label">Institution Code</div><div class="card-value" style="font-family:'JetBrains Mono',monospace;color:var(--teal)">${instCode}</div><div class="card-path">4 alpha chars — identifies bank</div></div>
+      <div class="info-card"><div class="card-label">Country Code</div><div class="card-value">${countryCode} — ${countryName}</div><div class="card-path">ISO 3166-1 alpha-2</div></div>
+      <div class="info-card"><div class="card-label">Location Code</div><div class="card-value" style="font-family:'JetBrains Mono',monospace;color:var(--gold)">${locationCode}</div><div class="card-path">City / passive participant if '1' suffix</div></div>
+      <div class="info-card"><div class="card-label">Branch Code</div><div class="card-value" style="font-family:'JetBrains Mono',monospace">${branchCode}</div><div class="card-path">'XXX' = primary office</div></div>
+      <div class="info-card"><div class="card-label">Format</div><div class="card-value">${formatValid?'✓ Valid':'✗ Invalid'} — ${len}-char</div></div>
+      <div class="info-card"><div class="card-label">Full BIC</div><div class="card-value" style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:var(--bright)">${raw}</div></div>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════
+   TAB 6 — MT103 MAPPER
+═══════════════════════════════════════════ */
+function loadMT103Example() {
+  document.getElementById('mt103-input').value =
+`:20:MSGREF-20260112-001
+:23B:CRED
+:32A:260112EUR12500,00
+:50K:/DE89370400440532013000
+ACME CORP GMBH
+FRANKFURT AM MAIN
+:52A:DEUTDEDB
+:57A:NWBKGB2L
+:59:/GB29NWBK60161331926819
+BETA FINANCIAL SERVICES SA
+LONDON
+:70:Invoice INV-2026-0042 Q4 services
+:71A:SHA
+:72:/BNF/REFERENCE 2026-Q4`;
+  mapMT103();
+}
+
+function mapMT103() {
+  const raw = document.getElementById('mt103-input').value.trim();
+  const out = document.getElementById('mt103-results');
+  out.style.display = 'block';
+  if (!raw) { out.innerHTML = '<div class="warn-item"><div class="error-rule">Paste an MT103 message first.</div></div>'; return; }
+
+  // Parse MT103 fields
+  const fieldRegex = /:(\d{2}[A-Z]?):([\s\S]*?)(?=:\d{2}[A-Z]?:|$)/g;
+  const parsed = [];
+  let m;
+  while ((m = fieldRegex.exec(raw)) !== null) {
+    parsed.push({ tag: ':' + m[1] + ':', value: m[2].trim() });
+  }
+
+  if (!parsed.length) {
+    out.innerHTML = '<div class="warn-item"><div class="error-rule">No recognised MT103 field tags found. Ensure each field starts on a new line with format :NNA:value.</div></div>';
+    return;
+  }
+
+  const rows = parsed.map(f => {
+    const def = MT103_FIELD_MAP.find(d => d.tag === f.tag);
+    const valueDisplay = f.value.replace(/\n/g,'<br>');
+    if (def) {
+      return `<tr>
+        <td style="font-family:'JetBrains Mono',monospace;color:var(--gold);white-space:nowrap">${def.tag}</td>
+        <td style="font-size:0.72rem;color:var(--text)">${def.name}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--teal)">${def.pacs008Path}</td>
+        <td style="font-size:0.72rem;color:var(--body)">${valueDisplay}</td>
+        <td style="font-size:0.68rem;color:var(--muted);font-style:italic">${def.notes}</td>
+      </tr>`;
+    } else {
+      return `<tr>
+        <td style="font-family:'JetBrains Mono',monospace;color:var(--muted)">${f.tag}</td>
+        <td style="color:var(--muted);font-size:0.72rem">Unknown tag</td>
+        <td style="color:var(--muted)">—</td>
+        <td style="font-size:0.72rem;color:var(--body)">${valueDisplay}</td>
+        <td style="font-size:0.68rem;color:var(--muted)">Tag not in MT103 standard map</td>
+      </tr>`;
+    }
+  }).join('');
+
+  out.innerHTML = `
+    <div class="result-status-bar" style="margin-bottom:1.25rem">
+      <div class="status-dot"></div>
+      <div class="status-text"><strong>${parsed.length} field(s) mapped</strong></div>
+      <div class="status-meta">${parsed.filter(f=>MT103_FIELD_MAP.find(d=>d.tag===f.tag)).length} recognised · ${parsed.filter(f=>!MT103_FIELD_MAP.find(d=>d.tag===f.tag)).length} unknown</div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="batch-table">
+        <thead><tr>
+          <th>MT Tag</th><th>MT Field Name</th><th>pacs.008 Path</th><th>Value</th><th>Migration Note</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function renderMT103RefTable() {
+  const tbl = document.getElementById('mt103-ref-table');
+  if (!tbl) return;
+  tbl.innerHTML = `<thead><tr>
+    <th>MT Tag</th><th>MT Field Name</th><th>ISO 20022 pacs.008 Path</th><th>ISO 20022 Element</th><th>Migration Notes</th>
+  </tr></thead><tbody>${MT103_FIELD_MAP.map(f=>`<tr>
+    <td style="font-family:'JetBrains Mono',monospace;color:var(--gold);white-space:nowrap">${f.tag}</td>
+    <td style="font-size:0.75rem">${f.name}</td>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--teal)">${f.pacs008Path}</td>
+    <td style="font-size:0.72rem;color:var(--text)">${f.iso20022Name}</td>
+    <td style="font-size:0.68rem;color:var(--muted);font-style:italic">${f.notes}</td>
+  </tr>`).join('')}</tbody>`;
+}
+
+/* ═══════════════════════════════════════════
+   TAB 7 — DIFF
+═══════════════════════════════════════════ */
+function loadDiffExample() {
+  document.getElementById('diff-a').value = EXAMPLES.pacs008;
+  // Slightly modified version for B
+  document.getElementById('diff-b').value = EXAMPLES.pacs008
+    .replace('MSGID-20260112-001','MSGID-20260112-002')
+    .replace('12500.00','15000.00')
+    .replace('SLEV','SHA')
+    .replace('E2E-ACME-20260112-001','E2E-ACME-20260112-002');
+  diffMessages();
+}
+
+function diffMessages() {
+  const xmlA = document.getElementById('diff-a').value.trim();
+  const xmlB = document.getElementById('diff-b').value.trim();
+  const out = document.getElementById('diff-results');
+  out.style.display = 'block';
+  if (!xmlA || !xmlB) { out.innerHTML = '<div class="warn-item"><div class="error-rule">Paste both messages to compare.</div></div>'; return; }
+  let docA, docB;
+  try { docA = parseXML(xmlA); } catch(e) { out.innerHTML = `<div class="error-item"><div class="error-path">Message A</div><div class="error-rule">Parse error: ${e.message}</div></div>`; return; }
+  try { docB = parseXML(xmlB); } catch(e) { out.innerHTML = `<div class="error-item"><div class="error-path">Message B</div><div class="error-rule">Parse error: ${e.message}</div></div>`; return; }
+
+  const nodesA = getAllNodes(docA).filter(n=>n.value);
+  const nodesB = getAllNodes(docB).filter(n=>n.value);
+  const mapA = {}, mapB = {};
+  nodesA.forEach(n => { mapA[n.name] = (mapA[n.name] || []); mapA[n.name].push(n.value); });
+  nodesB.forEach(n => { mapB[n.name] = (mapB[n.name] || []); mapB[n.name].push(n.value); });
+
+  const allKeys = [...new Set([...Object.keys(mapA), ...Object.keys(mapB)])].sort();
+  const same = [], changed = [], onlyA = [], onlyB = [];
+  allKeys.forEach(k => {
+    const a = (mapA[k]||[]).join(', '), b = (mapB[k]||[]).join(', ');
+    if (!mapA[k]) onlyB.push({k,b});
+    else if (!mapB[k]) onlyA.push({k,a});
+    else if (a === b) same.push({k,a});
+    else changed.push({k,a,b});
+  });
+
+  const typeA = detectNamespace(xmlA) ? NS_MAP[detectNamespace(xmlA)] || 'Unknown' : 'Unknown';
+  const typeB = detectNamespace(xmlB) ? NS_MAP[detectNamespace(xmlB)] || 'Unknown' : 'Unknown';
+
+  out.innerHTML = `
+    <div class="stats-banner" style="grid-template-columns:repeat(5,1fr)">
+      <div class="stat-block"><div class="stat-num gold">${changed.length}</div><div class="stat-label">Changed</div></div>
+      <div class="stat-block"><div class="stat-num red">${onlyA.length}</div><div class="stat-label">Only in A</div></div>
+      <div class="stat-block"><div class="stat-num accent">${onlyB.length}</div><div class="stat-label">Only in B</div></div>
+      <div class="stat-block"><div class="stat-num green">${same.length}</div><div class="stat-label">Identical</div></div>
+      <div class="stat-block"><div class="stat-num">${allKeys.length}</div><div class="stat-label">Total Fields</div></div>
+    </div>
+    <div class="comp-grid" style="margin:1rem 0 1.5rem">
+      <div class="info-card"><div class="card-label">Message A Type</div><div class="card-value" style="color:var(--teal)">${typeA}</div></div>
+      <div class="info-card"><div class="card-label">Message B Type</div><div class="card-value" style="color:var(--gold)">${typeB}</div></div>
+    </div>
+    ${changed.length ? `<div class="section-head" style="color:var(--gold-lt)">Changed Values (${changed.length})</div>
+    <div style="overflow-x:auto;margin-bottom:1.5rem"><table class="batch-table"><thead><tr><th>Field</th><th style="color:var(--teal)">Message A</th><th style="color:var(--gold)">Message B</th></tr></thead>
+    <tbody>${changed.map(c=>`<tr><td style="font-family:'JetBrains Mono',monospace;color:var(--text)">${c.k}</td><td style="color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:0.72rem">${c.a}</td><td style="color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:0.72rem">${c.b}</td></tr>`).join('')}
+    </tbody></table></div>` : ''}
+    ${onlyA.length ? `<div class="section-head" style="color:var(--red-lt)">Only in Message A (${onlyA.length})</div>
+    <div style="overflow-x:auto;margin-bottom:1.5rem"><table class="batch-table"><thead><tr><th>Field</th><th>Value</th></tr></thead>
+    <tbody>${onlyA.map(c=>`<tr><td style="font-family:'JetBrains Mono',monospace;color:var(--muted)">${c.k}</td><td style="color:var(--body);font-size:0.72rem">${c.a}</td></tr>`).join('')}
+    </tbody></table></div>` : ''}
+    ${onlyB.length ? `<div class="section-head" style="color:var(--accent)">Only in Message B (${onlyB.length})</div>
+    <div style="overflow-x:auto;margin-bottom:1.5rem"><table class="batch-table"><thead><tr><th>Field</th><th>Value</th></tr></thead>
+    <tbody>${onlyB.map(c=>`<tr><td style="font-family:'JetBrains Mono',monospace;color:var(--muted)">${c.k}</td><td style="color:var(--body);font-size:0.72rem">${c.b}</td></tr>`).join('')}
+    </tbody></table></div>` : ''}
+    <div class="collapsible" style="margin-top:1rem">
+      <button class="collapsible-trigger" onclick="toggleCollapsible(this)"><span>Identical Fields (${same.length})</span><span class="collapsible-arrow">▼</span></button>
+      <div class="collapsible-body">
+        <table class="batch-table"><thead><tr><th>Field</th><th>Value (same in both)</th></tr></thead>
+        <tbody>${same.map(c=>`<tr><td style="font-family:'JetBrains Mono',monospace;color:var(--muted);font-size:0.65rem">${c.k}</td><td style="color:var(--body);font-size:0.68rem">${c.a}</td></tr>`).join('')}
+        </tbody></table>
+      </div>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════
+   PARSE HISTORY
+═══════════════════════════════════════════ */
+function renderHistory() {
+  const panel = document.getElementById('history-panel');
+  const list = document.getElementById('history-list');
+  if (!panel || !list) return;
+  if (!parseHistory.length) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  list.innerHTML = parseHistory.map((h,i) => `
+    <div onclick="loadHistoryItem(${i})" style="flex-shrink:0;cursor:pointer;padding:0.35rem 0.75rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-2);transition:border-color 0.15s" onmouseover="this.style.borderColor='var(--teal)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.52rem;color:var(--teal)">${h.msgType}</div>
+      <div style="font-size:0.6rem;color:var(--muted)">${h.ts}</div>
+    </div>`).join('');
+}
+
+function loadHistoryItem(i) {
+  if (!parseHistory[i]) return;
+  const container = document.getElementById('validate-results');
+  if (container) {
+    const note = document.createElement('div');
+    note.className = 'warn-item';
+    note.style.cssText = 'margin-bottom:0.5rem;';
+    note.innerHTML = `<div class="error-rule">History: ${parseHistory[i].msgType} validated at ${parseHistory[i].ts}. Re-paste the original XML to re-validate.</div>`;
+    container.prepend(note);
+    setTimeout(() => note.remove(), 3000);
+  }
+}
+
+/* ═══════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
+  renderHistory();
   // Drag & drop on textarea
   const ta = document.getElementById('xml-input');
   if (ta) {
