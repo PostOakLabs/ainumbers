@@ -62,4 +62,16 @@ ainumbers/
 - **22** tool categories
 - All tools client-side, zero PII, zero network calls after page load
 
+## 🔀 Git Workflow
+
+- **Never run `git` commands via bash.** The Cowork bash sandbox uses a virtiofs mount that corrupts the git index on Windows — `git add` and `git commit` will fail or stage the wrong files.
+- **Always provide a PowerShell commit command** at the end of any session that modifies files, in this exact form:
+  ```powershell
+  cd C:\dev\Claude\Projects\AINumbers\repo
+  git add <specific files or -A>
+  git commit -m "your message"
+  git push
+  ```
+- Scope `git add` to the specific files changed where possible; use `-A` only when the full working tree is intentional.
+
 **Hard Stop:** If any constraint conflicts with legacy specs (`00-master-rules...`, `06-remaining-spec...`, `Manifest JSON AP2 placement.md`), follow `CONTRACT.md`.
