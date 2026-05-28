@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>ISO 20022 Cutover Workflow · AINumbers.co</title>
+<meta name="description" content="Three-tool guided workflow for ISO 20022 migration: data truncation audit, migration readiness scoring, and cross-rail compatibility checking (CBPR+, SEPA, FedNow, CHAPS). All client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/guides/iso20022-cutover-workflow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="ISO 20022 Cutover Workflow · AINumbers.co">
+<meta property="og:description" content="Run T77 → T101 → T254 in sequence: audit legacy data for truncation risk, score migration readiness, then check cross-rail compatibility for CBPR+/SEPA/FedNow. Browser-based. Zero PII.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"HowTo","name":"ISO 20022 Cutover Workflow","url":"https://ainumbers.co/guides/iso20022-cutover-workflow","description":"Three-step workflow for ISO 20022 migration readiness using three free browser-based tools.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"step":[{"@type":"HowToStep","name":"ISO 20022 Data Truncation Audit","url":"https://ainumbers.co/tools/77-iso-truncation-auditor.html"},{"@type":"HowToStep","name":"ISO 20022 Migration Readiness Scoring","url":"https://ainumbers.co/tools/101-iso20022-migration-scorer.html"},{"@type":"HowToStep","name":"Cross-Rail Message Compatibility Check","url":"https://ainumbers.co/tools/254-iso20022-cross-rail-compatibility.html"}]}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ── DESIGN TOKENS ── */
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--warn:#F59E0B;
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;
+  /* accent = purple for tech/migration theme */
+  --accent:var(--purple);--accent-dim:var(--purple-dim);--accent-lt:var(--purple-lt);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:960px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.013) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.013) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* ── LANG BAR ── */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:960px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--purple);color:var(--purple)}
+
+/* ── NAV ── */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:960px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--purple)}.logo-co{color:var(--muted);font-size:.8rem}
+.logo-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);line-height:1}
+.nav-links{display:flex;align-items:center;gap:1rem}
+.nav-link{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--body);transition:color .2s}
+.nav-link:hover{color:var(--purple)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bg);background:var(--purple);border:1px solid var(--purple);padding:.3rem .85rem;border-radius:6px;transition:all .2s}
+.nav-cta:hover{opacity:.85}
+
+/* ── HERO ── */
+.hero{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:380px;height:380px;background:radial-gradient(circle,rgba(155,114,245,.06) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--purple);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.7rem,3.2vw,2.6rem);color:var(--white);max-width:700px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--purple-lt)}
+.hero-desc{font-size:.87rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.5rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1.25rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.3rem .7rem;border:1px solid}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.pii-notice{display:flex;align-items:flex-start;gap:.75rem;padding:.75rem 1rem;background:rgba(155,114,245,.06);border:1px solid rgba(155,114,245,.2);border-radius:var(--radius);font-size:.72rem;color:var(--body);line-height:1.5}
+.pii-notice svg{flex-shrink:0;margin-top:.1rem;opacity:.7}
+
+/* ── FLOW BAR ── */
+.flow-bar{display:flex;align-items:flex-start;margin:2.5rem 0 3rem;overflow-x:auto;padding:.25rem 0 .75rem;gap:0;position:relative;z-index:1}
+.flow-item{flex:1;min-width:120px;display:flex;flex-direction:column;align-items:center;position:relative;text-align:center;gap:.35rem;padding:0 .5rem}
+.flow-item:not(:last-child)::after{content:'';position:absolute;top:14px;left:calc(50% + 17px);right:calc(-50% + 17px);height:1px;background:linear-gradient(90deg,var(--purple),rgba(155,114,245,.2));z-index:0}
+.flow-dot{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.55rem;font-weight:500;position:relative;z-index:1;flex-shrink:0;background:var(--purple);color:var(--bg)}
+.flow-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-top:.15rem}
+.flow-name{font-size:.7rem;color:var(--bright);font-weight:500;line-height:1.3}
+@media(max-width:580px){.flow-item:not(:last-child)::after{display:none}.flow-bar{gap:.75rem}}
+
+/* ── STEPS ── */
+.steps{display:flex;flex-direction:column;gap:0;position:relative;z-index:1;padding-bottom:3rem}
+.step-block{display:flex;gap:2rem;padding:2.5rem 0;border-bottom:1px solid var(--border)}
+.step-block:last-child{border-bottom:none}
+.step-num-col{flex-shrink:0;width:56px;display:flex;flex-direction:column;align-items:center;gap:.5rem}
+.step-num{font-family:'DM Serif Display',serif;font-size:2.8rem;color:rgba(155,114,245,.18);line-height:1;letter-spacing:-.03em}
+.step-line{width:1px;flex:1;background:linear-gradient(180deg,rgba(155,114,245,.3),transparent);min-height:2rem}
+.step-body{flex:1;min-width:0}
+.step-head{display:flex;align-items:flex-start;gap:.75rem;flex-wrap:wrap;margin-bottom:.85rem}
+.step-tid{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid rgba(155,114,245,.3);color:var(--purple);border-radius:3px}
+.step-badges{display:flex;gap:.35rem;flex-wrap:wrap}
+.step-badge{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .45rem;border-radius:3px}
+.sb-purple{background:rgba(155,114,245,.1);color:var(--purple)}
+.sb-model{background:rgba(212,168,71,.1);color:var(--gold)}
+.sb-engine{background:rgba(20,184,166,.1);color:var(--teal)}
+.sb-output{background:rgba(34,197,94,.1);color:var(--green)}
+.step-body h3{font-family:'Sora',sans-serif;font-size:1.05rem;font-weight:500;color:var(--white);line-height:1.3;margin-bottom:.6rem}
+.step-desc{font-size:.83rem;color:var(--body);line-height:1.75;margin-bottom:1rem}
+.step-io{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1.25rem}
+@media(max-width:580px){.step-io{grid-template-columns:1fr}}
+.io-box{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .85rem}
+.io-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:.35rem}
+.io-label-in{color:var(--muted)}
+.io-label-out{color:var(--purple)}
+.io-text{font-size:.75rem;color:var(--body);line-height:1.55}
+.step-cta{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--purple);padding:.45rem 1.1rem;border-radius:var(--radius);transition:opacity .2s}
+.step-cta:hover{opacity:.85}
+.step-cta svg{transition:transform .2s}
+.step-cta:hover svg{transform:translateX(3px)}
+
+/* ── RELATED ── */
+.related-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem 2rem;margin-bottom:3rem;position:relative;z-index:1}
+.related-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.6rem}
+.related-heading{font-size:1.1rem;color:var(--white);margin-bottom:.5rem}
+.related-desc{font-size:.8rem;color:var(--body);line-height:1.7;margin-bottom:1rem}
+.related-links{display:flex;gap:.75rem;flex-wrap:wrap}
+.related-link{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;padding:.3rem .8rem;border:1px solid var(--border);color:var(--body);border-radius:var(--radius);transition:all .2s}
+.related-link:hover{border-color:var(--purple);color:var(--purple)}
+.related-link.primary{border-color:rgba(155,114,245,.4);color:var(--purple)}
+.related-link.primary:hover{background:var(--purple-dim)}
+
+/* ── FOOTER ── */
+footer{border-top:1px solid var(--border);padding:1.75rem 2rem;position:relative;z-index:1}
+.footer-inner-ai{max-width:960px;margin:0 auto;display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);flex-wrap:wrap}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+</style>
+</head>
+<body>
+
+<!-- ── LANG BAR ── -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<!-- ── NAV ── -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <div class="logo-text">
+        <span class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">.co</span></span>
+        <span class="logo-tag">Numbers</span>
+      </div>
+    </a>
+    <div class="nav-links">
+      <a href="../index.html" class="nav-link" data-i18n="nav_home">Home</a>
+      <a href="payment-scheme-network-hub.html" class="nav-link" data-i18n="nav_hub">Payments Hub</a>
+      <a href="https://postoaklabs.com/demos/iso20022-migration-readiness-scorer.html" class="nav-cta" target="_blank" rel="noopener" data-i18n="nav_demo">POL Demo →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── HERO ── -->
+<div class="hero">
+  <div class="container">
+    <div class="hero-eyebrow" data-i18n="hero_eyebrow">Guided Workflow · ISO 20022 Migration</div>
+    <h1 data-i18n="hero_h1">Legacy Data Audit to <em>CBPR+ Cutover</em></h1>
+    <p class="hero-desc" data-i18n="hero_desc">Run three tools in sequence to audit legacy message fields for truncation risk, score your overall migration readiness with a SWIFT CBPR+ and CHAPS-aligned roadmap, and validate cross-rail message compatibility across CBPR+, SEPA, FedNow, and RTP — the complete pre-cutover validation chain.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-purple" data-i18n="badge_steps">3 Tools · Ordered Sequence</span>
+      <span class="hero-badge badge-gold" data-i18n="badge_time">~45 min end-to-end</span>
+      <span class="hero-badge badge-green" data-i18n="badge_privacy">Client-side · Zero PII</span>
+    </div>
+    <div class="pii-notice">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <span>🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── FLOW BAR ── -->
+<div class="container">
+  <div class="flow-bar">
+    <div class="flow-item">
+      <div class="flow-dot">1</div>
+      <div class="flow-label">T77</div>
+      <div class="flow-name" data-i18n="flow1">Truncation Audit</div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-dot">2</div>
+      <div class="flow-label">T101</div>
+      <div class="flow-name" data-i18n="flow2">Migration Readiness</div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-dot">3</div>
+      <div class="flow-label">T254</div>
+      <div class="flow-name" data-i18n="flow3">Cross-Rail Check</div>
+    </div>
+  </div>
+
+  <!-- ── STEPS ── -->
+  <div class="steps">
+
+    <!-- Step 1 -->
+    <div class="step-block">
+      <div class="step-num-col">
+        <div class="step-num">01</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-head">
+          <span class="step-tid">T77</span>
+          <div class="step-badges">
+            <span class="step-badge sb-purple" data-i18n="s1b1">Truncation</span>
+            <span class="step-badge sb-engine" data-i18n="s1b2">SWIFT CBPR+</span>
+          </div>
+        </div>
+        <h3 data-i18n="s1_title">ISO 20022 Data Truncation &amp; Address Auditor</h3>
+        <p class="step-desc" data-i18n="s1_desc">The most common ISO 20022 migration failure is data truncation — legacy MT message fields silently losing character data when mapped to the richer ISO 20022 XML schema. Structured addresses that fit inside MT field 50 (34 characters) may overflow the ISO 20022 PostalAddress or Party fields without generating an explicit error. This auditor analyses your legacy message field samples and flags truncation risk by field type (name, address, reference, remittance information) before you commit to any mapping specification. Truncation findings must be resolved before scoring readiness in Step 2.</p>
+        <div class="step-io">
+          <div class="io-box">
+            <div class="io-label io-label-in" data-i18n="input_label">↳ Inputs</div>
+            <div class="io-text" data-i18n="s1_in">Sample legacy MT field values (MT103 fields 50, 59, 70, 77B; MT202 fields 52A, 56A, 57A, 58A), address structures, remittance information samples, BIC/IBAN coverage statistics.</div>
+          </div>
+          <div class="io-box">
+            <div class="io-label io-label-out" data-i18n="output_label">→ Outputs to Step 2</div>
+            <div class="io-text" data-i18n="s1_out">Truncation risk map by field type, high-risk field list, address standardisation requirement, character overflow rate — risk findings feed directly into migration readiness scoring in Step 2.</div>
+          </div>
+        </div>
+        <a href="../tools/77-iso-truncation-auditor.html" class="step-cta" data-i18n="open_tool">Open Tool <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="step-block">
+      <div class="step-num-col">
+        <div class="step-num">02</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-head">
+          <span class="step-tid">T101</span>
+          <div class="step-badges">
+            <span class="step-badge sb-model" data-i18n="s2b1">Readiness Score</span>
+            <span class="step-badge sb-purple" data-i18n="s2b2">CBPR+ / CHAPS</span>
+          </div>
+        </div>
+        <h3 data-i18n="s2_title">ISO 20022 Migration Readiness Scorer</h3>
+        <p class="step-desc" data-i18n="s2_desc">With truncation risks from Step 1 identified, this tool provides a comprehensive migration readiness score across seven dimensions: data quality (incorporating truncation findings), message mapping completeness, coexistence period strategy, counterparty readiness, testing coverage, operational resilience, and regulatory compliance. The output is a SWIFT CBPR+ and CHAPS-aligned readiness roadmap with red/amber/green (RAG) status per dimension and a prioritised remediation workplan. The readiness score also calibrates which cross-rail scenarios require compatibility validation in Step 3.</p>
+        <div class="step-io">
+          <div class="io-box">
+            <div class="io-label io-label-in" data-i18n="input_label">↳ Inputs from Step 1</div>
+            <div class="io-text" data-i18n="s2_in">Truncation risk findings from Step 1, message mapping inventory, coexistence period start date, counterparty ISO 20022 readiness declarations, testing environment status, MX message type coverage.</div>
+          </div>
+          <div class="io-box">
+            <div class="io-label io-label-out" data-i18n="output_label">→ Outputs to Step 3</div>
+            <div class="io-text" data-i18n="s2_out">Readiness score (0–100) per dimension, RAG status, prioritised remediation workplan, cross-rail scope (which rails require compatibility validation) — scope feeds Step 3 cross-rail check.</div>
+          </div>
+        </div>
+        <a href="../tools/101-iso20022-migration-scorer.html" class="step-cta" data-i18n="open_tool">Open Tool <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="step-block">
+      <div class="step-num-col">
+        <div class="step-num">03</div>
+      </div>
+      <div class="step-body">
+        <div class="step-head">
+          <span class="step-tid">T254</span>
+          <div class="step-badges">
+            <span class="step-badge sb-purple" data-i18n="s3b1">Cross-Rail</span>
+            <span class="step-badge sb-output" data-i18n="s3b2">Compatibility</span>
+          </div>
+        </div>
+        <h3 data-i18n="s3_title">ISO 20022 Cross-Rail Message Compatibility Checker</h3>
+        <p class="step-desc" data-i18n="s3_desc">ISO 20022 is not a single standard — it fragments across implementations: SWIFT CBPR+ (cross-border), SEPA Credit Transfer and Direct Debit (eurozone), FedNow (US), RTP (TCH), CHAPS (UK), and others each use different message versions, character sets, and mandatory field rules. A payment chain that crosses rails requires translation or mapping at each handoff point. This checker validates your MX message payloads against the specific implementation rules of each target rail, identifying field-level incompatibilities that would cause rejection at the receiving institution's gateway.</p>
+        <div class="step-io">
+          <div class="io-box">
+            <div class="io-label io-label-in" data-i18n="input_label">↳ Inputs from Step 2</div>
+            <div class="io-text" data-i18n="s3_in">Cross-rail scope from Step 2 (which rails are in scope), MX message type samples (pacs.008, pacs.009, camt.056, pain.001), source and target rail selection, payment corridor geography.</div>
+          </div>
+          <div class="io-box">
+            <div class="io-label io-label-out" data-i18n="output_label">→ Final Output</div>
+            <div class="io-text" data-i18n="s3_out">Cross-rail compatibility matrix (rail-by-rail pass / fail / warning), field-level incompatibility list, translation gap analysis, recommended remediation — cutover-ready validation report.</div>
+          </div>
+        </div>
+        <a href="../tools/254-iso20022-cross-rail-compatibility.html" class="step-cta" data-i18n="open_tool">Open Tool <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+      </div>
+    </div>
+
+  </div><!-- /steps -->
+
+  <!-- ── RELATED ── -->
+  <div class="related-section">
+    <div class="related-label" data-i18n="related_label">See Also</div>
+    <h2 class="related-heading" data-i18n="related_heading">Related Hubs &amp; Demos</h2>
+    <p class="related-desc" data-i18n="related_desc">Explore the payment scheme and network tool collection or see the ISO 20022 migration scorer in action in the Post Oak Labs interactive demo.</p>
+    <div class="related-links">
+      <a href="https://postoaklabs.com/demos/iso20022-migration-readiness-scorer.html" class="related-link primary" target="_blank" rel="noopener" data-i18n="related_pol1">POL Demo: ISO 20022 Migration Readiness Scorer ↗</a>
+      <a href="https://postoaklabs.com/demos/global-real-time-rails-comparator.html" class="related-link primary" target="_blank" rel="noopener" data-i18n="related_pol2">POL Demo: Real-Time Rails Comparator ↗</a>
+      <a href="payment-scheme-network-hub.html" class="related-link" data-i18n="related_hub">Payment Scheme &amp; Network Hub</a>
+      <a href="../index.html" class="related-link" data-i18n="related_all">All 300+ Tools →</a>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <div class="footer-badge-ai">
+        <span style="color:var(--purple);font-weight:500">AI<span style="color:var(--muted)">.co</span> Numbers</span>
+        <span>300+ free fintech tools · CC BY 4.0</span>
+      </div>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html" data-i18n="nav_home">Home</a>
+      <a href="payment-scheme-network-hub.html">Payments Hub</a>
+      <a href="https://postoaklabs.com/demos/iso20022-migration-readiness-scorer.html" target="_blank" rel="noopener">POL Showcase</a>
+      <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+const TRANSLATIONS = {
+  en:{
+    nav_home:'Home',nav_hub:'Payments Hub',nav_demo:'POL Demo →',
+    hero_eyebrow:'Guided Workflow · ISO 20022 Migration',
+    hero_h1:'Legacy Data Audit to CBPR+ Cutover',
+    hero_desc:'Run three tools in sequence to audit legacy message fields for truncation risk, score your overall migration readiness with a SWIFT CBPR+ and CHAPS-aligned roadmap, and validate cross-rail message compatibility across CBPR+, SEPA, FedNow, and RTP — the complete pre-cutover validation chain.',
+    badge_steps:'3 Tools · Ordered Sequence',badge_time:'~45 min end-to-end',badge_privacy:'Client-side · Zero PII',
+    flow1:'Truncation Audit',flow2:'Migration Readiness',flow3:'Cross-Rail Check',
+    input_label:'↳ Inputs',output_label:'→ Outputs',open_tool:'Open Tool',
+    s1b1:'Truncation',s1b2:'SWIFT CBPR+',
+    s1_title:'ISO 20022 Data Truncation & Address Auditor',
+    s1_desc:'The most common ISO 20022 migration failure is data truncation — legacy MT message fields silently losing character data when mapped to the richer ISO 20022 XML schema. This auditor analyses your legacy message field samples and flags truncation risk by field type (name, address, reference, remittance information) before you commit to any mapping specification.',
+    s1_in:'Sample legacy MT field values (MT103 fields 50, 59, 70, 77B; MT202 fields 52A–58A), address structures, remittance information samples, BIC/IBAN coverage statistics.',
+    s1_out:'Truncation risk map by field type, high-risk field list, address standardisation requirement, character overflow rate — feeds into migration readiness scoring in Step 2.',
+    s2b1:'Readiness Score',s2b2:'CBPR+ / CHAPS',
+    s2_title:'ISO 20022 Migration Readiness Scorer',
+    s2_desc:'With truncation risks from Step 1 identified, this tool provides a comprehensive migration readiness score across seven dimensions: data quality, message mapping completeness, coexistence strategy, counterparty readiness, testing coverage, operational resilience, and regulatory compliance.',
+    s2_in:'Truncation risk findings from Step 1, message mapping inventory, coexistence start date, counterparty readiness declarations, testing environment status, MX message type coverage.',
+    s2_out:'Readiness score (0–100) per dimension, RAG status, prioritised remediation workplan, cross-rail scope — scope feeds Step 3 cross-rail compatibility check.',
+    s3b1:'Cross-Rail',s3b2:'Compatibility',
+    s3_title:'ISO 20022 Cross-Rail Message Compatibility Checker',
+    s3_desc:'ISO 20022 fragments across implementations — SWIFT CBPR+, SEPA, FedNow, RTP, CHAPS each use different message versions, character sets, and mandatory field rules. A payment chain crossing rails requires translation at each handoff. This checker validates MX payloads against each target rail\'s specific implementation rules, identifying field-level incompatibilities that would cause rejection.',
+    s3_in:'Cross-rail scope from Step 2, MX message type samples (pacs.008, pacs.009, camt.056, pain.001), source and target rail selection, payment corridor geography.',
+    s3_out:'Cross-rail compatibility matrix (rail-by-rail pass / fail / warning), field-level incompatibility list, translation gap analysis, recommended remediation.',
+    related_label:'See Also',related_heading:'Related Hubs & Demos',
+    related_desc:'Explore the payment scheme and network tool collection or see the ISO 20022 migration scorer in action in the Post Oak Labs interactive demo.',
+    related_pol1:'POL Demo: ISO 20022 Migration Readiness Scorer ↗',related_pol2:'POL Demo: Real-Time Rails Comparator ↗',related_hub:'Payment Scheme & Network Hub',related_all:'All 300+ Tools →'
+  },
+  es:{
+    nav_home:'Inicio',nav_hub:'Hub de Pagos',nav_demo:'Demo POL →',
+    hero_eyebrow:'Flujo de Trabajo Guiado · Migración ISO 20022',
+    hero_h1:'De la Auditoría de Datos Heredados al Cambio CBPR+',
+    hero_desc:'Ejecuta tres herramientas en secuencia para auditar campos de mensajes heredados por riesgo de truncamiento, puntuar la preparación general de migración y validar la compatibilidad de mensajes entre rieles CBPR+, SEPA, FedNow y RTP.',
+    badge_steps:'3 Herramientas · Secuencia Ordenada',badge_time:'~45 min en total',badge_privacy:'Local · Sin PII',
+    flow1:'Auditoría de Truncamiento',flow2:'Preparación para Migración',flow3:'Verificación Multi-Rail',
+    input_label:'↳ Entradas',output_label:'→ Salidas',open_tool:'Abrir Herramienta',
+    s1b1:'Truncamiento',s1b2:'SWIFT CBPR+',
+    s1_title:'Auditor de Truncamiento de Datos y Direcciones ISO 20022',
+    s1_desc:'El fallo más común en la migración ISO 20022 es el truncamiento de datos — los campos de mensajes MT heredados pierden silenciosamente datos de caracteres al mapear al esquema XML ISO 20022 más rico. Este auditor analiza muestras de campos de mensajes heredados y señala el riesgo de truncamiento por tipo de campo.',
+    s1_in:'Valores de campo MT heredados de muestra (MT103 campos 50, 59, 70, 77B; MT202 campos 52A–58A), estructuras de dirección, muestras de información de remesa, estadísticas de cobertura BIC/IBAN.',
+    s1_out:'Mapa de riesgo de truncamiento por tipo de campo, lista de campos de alto riesgo, requisito de estandarización de dirección, tasa de desbordamiento de caracteres.',
+    s2b1:'Puntuación de Preparación',s2b2:'CBPR+ / CHAPS',
+    s2_title:'Calificador de Preparación para Migración ISO 20022',
+    s2_desc:'Con los riesgos de truncamiento del Paso 1 identificados, esta herramienta proporciona una puntuación integral de preparación de migración en siete dimensiones: calidad de datos, completitud del mapeo de mensajes, estrategia de coexistencia, preparación de contrapartes, cobertura de pruebas, resiliencia operacional y cumplimiento regulatorio.',
+    s2_in:'Hallazgos de riesgo de truncamiento del Paso 1, inventario de mapeo de mensajes, fecha de inicio del período de coexistencia, declaraciones de preparación de contrapartes, estado del entorno de pruebas.',
+    s2_out:'Puntuación de preparación (0–100) por dimensión, estado RAG, plan de trabajo de remediación priorizado, alcance multi-rail.',
+    s3b1:'Multi-Rail',s3b2:'Compatibilidad',
+    s3_title:'Verificador de Compatibilidad de Mensajes ISO 20022 Multi-Rail',
+    s3_desc:'ISO 20022 se fragmenta entre implementaciones — SWIFT CBPR+, SEPA, FedNow, RTP, CHAPS cada uno usa diferentes versiones de mensajes, conjuntos de caracteres y reglas de campos obligatorios. Una cadena de pagos que cruza rieles requiere traducción en cada punto de transferencia.',
+    s3_in:'Alcance multi-rail del Paso 2, muestras de tipos de mensajes MX (pacs.008, pacs.009, camt.056, pain.001), selección de riel de origen y destino, geografía del corredor de pagos.',
+    s3_out:'Matriz de compatibilidad multi-rail (aprobado / fallido / advertencia por riel), lista de incompatibilidades a nivel de campo, análisis de brechas de traducción, remediación recomendada.',
+    related_label:'Ver También',related_heading:'Hubs y Demos Relacionados',
+    related_desc:'Explore la colección de herramientas de esquemas y redes de pago o vea el calificador de preparación ISO 20022 en acción en la demo de Post Oak Labs.',
+    related_pol1:'Demo POL: Calificador de Preparación ISO 20022 ↗',related_pol2:'Demo POL: Comparador de Rails en Tiempo Real ↗',related_hub:'Hub de Esquemas y Redes de Pago',related_all:'Todas las 300+ Herramientas →'
+  },
+  fr:{
+    nav_home:'Accueil',nav_hub:'Hub Paiements',nav_demo:'Démo POL →',
+    hero_eyebrow:'Flux de Travail Guidé · Migration ISO 20022',
+    hero_h1:'De l\'Audit des Données Héritées à la Bascule CBPR+',
+    hero_desc:'Exécutez trois outils en séquence pour auditer les champs de messages hérités pour le risque de troncature, noter la préparation globale à la migration et valider la compatibilité des messages entre les rails CBPR+, SEPA, FedNow et RTP.',
+    badge_steps:'3 Outils · Séquence Ordonnée',badge_time:'~45 min au total',badge_privacy:'Local · Zéro PII',
+    flow1:'Audit Troncature',flow2:'Préparation Migration',flow3:'Vérification Multi-Rail',
+    input_label:'↳ Entrées',output_label:'→ Sorties',open_tool:'Ouvrir l\'Outil',
+    s1b1:'Troncature',s1b2:'SWIFT CBPR+',
+    s1_title:'Auditeur de Troncature de Données et d\'Adresses ISO 20022',
+    s1_desc:'L\'échec le plus courant de la migration ISO 20022 est la troncature de données — les champs de messages MT hérités perdent silencieusement des données de caractères lors du mappage au schéma XML ISO 20022 plus riche. Cet auditeur analyse vos échantillons de champs de messages hérités et signale le risque de troncature par type de champ.',
+    s1_in:'Valeurs de champs MT hérités (MT103 champs 50, 59, 70, 77B ; MT202 champs 52A–58A), structures d\'adresses, échantillons d\'informations de remise, statistiques de couverture BIC/IBAN.',
+    s1_out:'Carte des risques de troncature par type de champ, liste des champs à haut risque, exigence de standardisation des adresses, taux de débordement de caractères.',
+    s2b1:'Score de Préparation',s2b2:'CBPR+ / CHAPS',
+    s2_title:'Évaluateur de Préparation à la Migration ISO 20022',
+    s2_desc:'Avec les risques de troncature de l\'Étape 1 identifiés, cet outil fournit un score complet de préparation à la migration sur sept dimensions : qualité des données, complétude du mappage, stratégie de coexistence, préparation des contreparties, couverture des tests, résilience opérationnelle et conformité réglementaire.',
+    s2_in:'Résultats de risque de troncature de l\'Étape 1, inventaire de mappage, date de début de coexistence, déclarations de préparation des contreparties, état de l\'environnement de test.',
+    s2_out:'Score de préparation (0–100) par dimension, statut RAG, plan de remédiation priorisé, portée multi-rail.',
+    s3b1:'Multi-Rail',s3b2:'Compatibilité',
+    s3_title:'Vérificateur de Compatibilité de Messages ISO 20022 Multi-Rail',
+    s3_desc:'ISO 20022 se fragmente entre les implémentations — SWIFT CBPR+, SEPA, FedNow, RTP, CHAPS utilisent chacun des versions de messages, des jeux de caractères et des règles de champs obligatoires différents. Ce vérificateur valide vos payloads MX contre les règles d\'implémentation spécifiques de chaque rail cible.',
+    s3_in:'Portée multi-rail de l\'Étape 2, échantillons de types de messages MX (pacs.008, pacs.009, camt.056, pain.001), sélection du rail source et cible, géographie du corridor.',
+    s3_out:'Matrice de compatibilité multi-rail (réussi / échoué / avertissement par rail), liste des incompatibilités au niveau des champs, analyse des lacunes de traduction.',
+    related_label:'Voir Aussi',related_heading:'Hubs et Démos Connexes',
+    related_desc:'Explorez la collection d\'outils de schémas et réseaux de paiement ou voyez l\'évaluateur de préparation ISO 20022 en action dans la démo de Post Oak Labs.',
+    related_pol1:'Démo POL : Évaluateur de Préparation ISO 20022 ↗',related_pol2:'Démo POL : Comparateur de Rails Temps Réel ↗',related_hub:'Hub Schémas et Réseaux de Paiement',related_all:'Tous les 300+ Outils →'
+  },
+  ar:{
+    nav_home:'الرئيسية',nav_hub:'مركز المدفوعات',nav_demo:'عرض POL →',
+    hero_eyebrow:'سير عمل موجّه · هجرة ISO 20022',
+    hero_h1:'من تدقيق البيانات القديمة إلى التحول CBPR+',
+    hero_desc:'قم بتشغيل ثلاثة أدوات بالتسلسل لتدقيق حقول الرسائل القديمة لمخاطر الاقتطاع، وتسجيل استعداد الهجرة الإجمالي، والتحقق من توافق الرسائل عبر CBPR+ وSEPA وFedNow وRTP.',
+    badge_steps:'3 أدوات · تسلسل منظم',badge_time:'~45 دقيقة إجمالاً',badge_privacy:'محلي · لا PII',
+    flow1:'تدقيق الاقتطاع',flow2:'استعداد الهجرة',flow3:'فحص متعدد السكك',
+    input_label:'↳ المدخلات',output_label:'→ المخرجات',open_tool:'فتح الأداة',
+    s1b1:'الاقتطاع',s1b2:'SWIFT CBPR+',
+    s1_title:'مدقق اقتطاع بيانات ISO 20022 والعناوين',
+    s1_desc:'الفشل الأكثر شيوعاً في هجرة ISO 20022 هو اقتطاع البيانات — حقول رسائل MT القديمة تفقد بيانات الأحرف بصمت عند رسمها على مخطط XML ISO 20022 الأغنى. يحلل هذا المدقق عينات حقول رسائلك القديمة ويضع علامة على مخاطر الاقتطاع حسب نوع الحقل.',
+    s1_in:'قيم حقول MT القديمة النموذجية (MT103 حقول 50 و59 و70 و77B؛ MT202 حقول 52A-58A)، هياكل العناوين، عينات معلومات التحويل، إحصائيات تغطية BIC/IBAN.',
+    s1_out:'خريطة مخاطر الاقتطاع حسب نوع الحقل، قائمة الحقول عالية المخاطر، متطلب توحيد العنوان، معدل تجاوز الأحرف.',
+    s2b1:'درجة الاستعداد',s2b2:'CBPR+ / CHAPS',
+    s2_title:'مقيّم استعداد هجرة ISO 20022',
+    s2_desc:'مع تحديد مخاطر الاقتطاع من الخطوة 1، توفر هذه الأداة درجة شاملة لاستعداد الهجرة عبر سبعة أبعاد: جودة البيانات، واكتمال رسم الرسائل، واستراتيجية التعايش، واستعداد الأطراف المقابلة، وتغطية الاختبارات، والمرونة التشغيلية، والامتثال التنظيمي.',
+    s2_in:'نتائج مخاطر الاقتطاع من الخطوة 1، مخزون رسم الرسائل، تاريخ بدء فترة التعايش، تصريحات استعداد الأطراف المقابلة، حالة بيئة الاختبار.',
+    s2_out:'درجة الاستعداد (0–100) لكل بُعد، حالة RAG، خطة عمل الإصلاح ذات الأولوية، نطاق متعدد السكك.',
+    s3b1:'متعدد السكك',s3b2:'التوافق',
+    s3_title:'مدقق توافق رسائل ISO 20022 متعدد السكك',
+    s3_desc:'يتجزأ ISO 20022 عبر التطبيقات — SWIFT CBPR+ وSEPA وFedNow وRTP وCHAPS يستخدم كل منها إصدارات رسائل مختلفة ومجموعات أحرف وقواعد حقول إلزامية. سلسلة دفع تعبر السكك تتطلب ترجمة في كل نقطة تسليم.',
+    s3_in:'نطاق متعدد السكك من الخطوة 2، عينات أنواع رسائل MX (pacs.008 وpacs.009 وcamt.056 وpain.001)، تحديد السكة المصدر والهدف، جغرافيا ممر الدفع.',
+    s3_out:'مصفوفة التوافق متعدد السكك (ناجح / فاشل / تحذير لكل سكة)، قائمة عدم التوافق على مستوى الحقل، تحليل الثغرات الترجمية، الإصلاح الموصى به.',
+    related_label:'انظر أيضاً',related_heading:'المحاور والعروض التوضيحية ذات الصلة',
+    related_desc:'استكشف مجموعة أدوات مخططات الدفع والشبكة أو شاهد مقيّم استعداد ISO 20022 في العمل في عرض Post Oak Labs.',
+    related_pol1:'عرض POL: مقيّم استعداد هجرة ISO 20022 ↗',related_pol2:'عرض POL: مقارن السكك الفورية ↗',related_hub:'مركز مخططات وشبكات الدفع',related_all:'جميع الأدوات 300+ →'
+  },
+  pt:{
+    nav_home:'Início',nav_hub:'Hub de Pagamentos',nav_demo:'Demo POL →',
+    hero_eyebrow:'Fluxo de Trabalho Guiado · Migração ISO 20022',
+    hero_h1:'Da Auditoria de Dados Legados ao Corte CBPR+',
+    hero_desc:'Execute três ferramentas em sequência para auditar campos de mensagens legados por risco de truncamento, pontuar a prontidão geral de migração e validar a compatibilidade de mensagens entre trilhos CBPR+, SEPA, FedNow e RTP.',
+    badge_steps:'3 Ferramentas · Sequência Ordenada',badge_time:'~45 min no total',badge_privacy:'Local · Zero PII',
+    flow1:'Auditoria de Truncamento',flow2:'Prontidão de Migração',flow3:'Verificação Multi-Trilho',
+    input_label:'↳ Entradas',output_label:'→ Saídas',open_tool:'Abrir Ferramenta',
+    s1b1:'Truncamento',s1b2:'SWIFT CBPR+',
+    s1_title:'Auditor de Truncamento de Dados e Endereços ISO 20022',
+    s1_desc:'A falha mais comum na migração ISO 20022 é o truncamento de dados — campos de mensagens MT legados perdendo silenciosamente dados de caracteres ao mapear para o esquema XML ISO 20022 mais rico. Este auditor analisa amostras de campos de mensagens legados e sinaliza o risco de truncamento por tipo de campo.',
+    s1_in:'Valores de campos MT legados (MT103 campos 50, 59, 70, 77B; MT202 campos 52A–58A), estruturas de endereço, amostras de informações de remessa, estatísticas de cobertura BIC/IBAN.',
+    s1_out:'Mapa de risco de truncamento por tipo de campo, lista de campos de alto risco, requisito de padronização de endereço, taxa de estouro de caracteres.',
+    s2b1:'Pontuação de Prontidão',s2b2:'CBPR+ / CHAPS',
+    s2_title:'Avaliador de Prontidão para Migração ISO 20022',
+    s2_desc:'Com os riscos de truncamento do Passo 1 identificados, esta ferramenta fornece uma pontuação abrangente de prontidão de migração em sete dimensões: qualidade de dados, completude do mapeamento, estratégia de coexistência, prontidão de contrapartes, cobertura de testes, resiliência operacional e conformidade regulatória.',
+    s2_in:'Resultados de risco de truncamento do Passo 1, inventário de mapeamento de mensagens, data de início de coexistência, declarações de prontidão de contrapartes, status do ambiente de teste.',
+    s2_out:'Pontuação de prontidão (0–100) por dimensão, status RAG, plano de remediação priorizado, escopo multi-trilho.',
+    s3b1:'Multi-Trilho',s3b2:'Compatibilidade',
+    s3_title:'Verificador de Compatibilidade de Mensagens ISO 20022 Multi-Trilho',
+    s3_desc:'ISO 20022 fragmenta entre implementações — SWIFT CBPR+, SEPA, FedNow, RTP, CHAPS cada um usa versões de mensagens, conjuntos de caracteres e regras de campos obrigatórios diferentes. Este verificador valida seus payloads MX contra as regras de implementação específicas de cada trilho alvo.',
+    s3_in:'Escopo multi-trilho do Passo 2, amostras de tipos de mensagens MX (pacs.008, pacs.009, camt.056, pain.001), seleção de trilho de origem e destino, geografia do corredor de pagamentos.',
+    s3_out:'Matriz de compatibilidade multi-trilho (aprovado / reprovado / aviso por trilho), lista de incompatibilidades em nível de campo, análise de lacunas de tradução.',
+    related_label:'Ver Também',related_heading:'Hubs e Demos Relacionados',
+    related_desc:'Explore a coleção de ferramentas de esquemas e redes de pagamento ou veja o avaliador de migração ISO 20022 em ação na demo do Post Oak Labs.',
+    related_pol1:'Demo POL: Avaliador de Prontidão ISO 20022 ↗',related_pol2:'Demo POL: Comparador de Trilhos em Tempo Real ↗',related_hub:'Hub de Esquemas e Redes de Pagamento',related_all:'Todas as 300+ Ferramentas →'
+  },
+  zh:{
+    nav_home:'首页',nav_hub:'支付专题中心',nav_demo:'POL演示 →',
+    hero_eyebrow:'引导式工作流 · ISO 20022迁移',
+    hero_h1:'从遗留数据审计到CBPR+切换',
+    hero_desc:'按顺序运行三个工具：审计遗留报文字段的截断风险，以SWIFT CBPR+和CHAPS对齐路线图评估整体迁移准备就绪情况，并验证CBPR+、SEPA、FedNow和RTP间的跨轨道报文兼容性——切换前完整的验证链。',
+    badge_steps:'3个工具 · 有序序列',badge_time:'全程约45分钟',badge_privacy:'本地运行 · 零PII',
+    flow1:'截断审计',flow2:'迁移准备',flow3:'跨轨道检查',
+    input_label:'↳ 输入',output_label:'→ 输出',open_tool:'打开工具',
+    s1b1:'截断',s1b2:'SWIFT CBPR+',
+    s1_title:'ISO 20022数据截断与地址审计器',
+    s1_desc:'ISO 20022迁移最常见的失败是数据截断——遗留MT报文字段在映射到更丰富的ISO 20022 XML模式时静默地丢失字符数据。该审计器分析您的遗留报文字段样本，并按字段类型（姓名、地址、参考、汇款信息）标记截断风险，在您确定任何映射规范之前完成。',
+    s1_in:'遗留MT字段样本值（MT103字段50、59、70、77B；MT202字段52A-58A）、地址结构、汇款信息样本、BIC/IBAN覆盖率统计。',
+    s1_out:'按字段类型的截断风险图、高风险字段列表、地址标准化要求、字符溢出率——风险发现直接输入第2步迁移准备就绪评分。',
+    s2b1:'准备就绪评分',s2b2:'CBPR+ / CHAPS',
+    s2_title:'ISO 20022迁移准备就绪评分器',
+    s2_desc:'识别出第1步的截断风险后，该工具在七个维度上提供全面的迁移准备就绪评分：数据质量（包含截断发现）、报文映射完整性、共存期策略、交易对手准备就绪、测试覆盖率、运营弹性和监管合规性。',
+    s2_in:'第1步的截断风险发现、报文映射清单、共存开始日期、交易对手准备就绪声明、测试环境状态、MX报文类型覆盖范围。',
+    s2_out:'每个维度的准备就绪评分（0–100）、红/黄/绿（RAG）状态、优先级修复工作计划、跨轨道范围——范围输入第3步跨轨道兼容性检查。',
+    s3b1:'跨轨道',s3b2:'兼容性',
+    s3_title:'ISO 20022跨轨道报文兼容性检查器',
+    s3_desc:'ISO 20022在各实现中是碎片化的——SWIFT CBPR+、SEPA、FedNow、RTP、CHAPS各自使用不同的报文版本、字符集和强制字段规则。跨轨道的支付链在每个交接点都需要翻译或映射。该检查器根据每个目标轨道的特定实现规则验证您的MX报文载荷。',
+    s3_in:'第2步的跨轨道范围、MX报文类型样本（pacs.008、pacs.009、camt.056、pain.001）、源和目标轨道选择、支付走廊地区。',
+    s3_out:'跨轨道兼容性矩阵（按轨道的通过/失败/警告）、字段级不兼容列表、翻译缺口分析、推荐修复——切换就绪验证报告。',
+    related_label:'另请参阅',related_heading:'相关专题中心与演示',
+    related_desc:'探索支付计划和网络工具集，或在Post Oak Labs互动演示中查看ISO 20022迁移评分器的实际运作。',
+    related_pol1:'POL演示：ISO 20022迁移准备就绪评分器 ↗',related_pol2:'POL演示：实时轨道比较器 ↗',related_hub:'支付计划与网络专题中心',related_all:'全部300+工具 →'
+  }
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang];
+  if (!t) return;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+  document.documentElement.lang = lang;
+  document.documentElement.dir = (lang === 'ar') ? 'rtl' : 'ltr';
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const k = el.dataset.i18n;
+    if (t[k]) el.textContent = t[k];
+  });
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function() {
+  try {
+    const saved = sessionStorage.getItem('ain_lang');
+    if (saved && TRANSLATIONS[saved]) setLang(saved);
+  } catch(e) {}
+})();
+</script>
+</body>
+</html>

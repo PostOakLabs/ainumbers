@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Treasury Corridor Workflow · AINumbers.co</title>
+<meta name="description" content="Three-tool guided workflow for cross-border treasury optimisation: FX netting simulation, hedge optimisation, and corridor savings modelling. All client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/guides/treasury-corridor-workflow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Treasury Corridor Workflow · AINumbers.co">
+<meta property="og:description" content="Run T105 → T76 → T23 in sequence: simulate FX netting savings, optimise hedge strategy for residual exposure, then model full corridor economics. Browser-based. Zero PII.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"HowTo","name":"Treasury Corridor Workflow","url":"https://ainumbers.co/guides/treasury-corridor-workflow","description":"Three-step workflow for cross-border treasury optimisation using three free browser-based tools.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"step":[{"@type":"HowToStep","name":"Cross-Border FX Netting Simulation","url":"https://ainumbers.co/tools/105-fx-netting-simulator.html"},{"@type":"HowToStep","name":"FX Hedge Optimisation","url":"https://ainumbers.co/tools/76-fx-hedge-optimizer.html"},{"@type":"HowToStep","name":"Corridor Savings Modelling","url":"https://ainumbers.co/tools/23-corridor-savings-calc.html"}]}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ── DESIGN TOKENS ── */
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--gold-lt:#F0C040;
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--warn:#F59E0B;
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  /* accent = gold for treasury/FX theme */
+  --accent:var(--gold);--accent-dim:var(--gold-dim);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:960px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(212,168,71,.014) 1px,transparent 1px),linear-gradient(90deg,rgba(212,168,71,.014) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* ── LANG BAR ── */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:960px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+/* ── NAV ── */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:960px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--gold)}.logo-co{color:var(--muted);font-size:.8rem}
+.logo-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);line-height:1}
+.nav-links{display:flex;align-items:center;gap:1rem}
+.nav-link{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--body);transition:color .2s}
+.nav-link:hover{color:var(--gold)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bg);background:var(--gold);border:1px solid var(--gold);padding:.3rem .85rem;border-radius:6px;transition:all .2s}
+.nav-cta:hover{opacity:.85}
+
+/* ── HERO ── */
+.hero{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:380px;height:380px;background:radial-gradient(circle,rgba(212,168,71,.06) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--gold)}
+.hero h1{font-size:clamp(1.7rem,3.2vw,2.6rem);color:var(--white);max-width:700px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--gold-lt)}
+.hero-desc{font-size:.87rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.5rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1.25rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.3rem .7rem;border:1px solid}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.pii-notice{display:flex;align-items:flex-start;gap:.75rem;padding:.75rem 1rem;background:rgba(212,168,71,.06);border:1px solid rgba(212,168,71,.2);border-radius:var(--radius);font-size:.72rem;color:var(--body);line-height:1.5}
+.pii-notice svg{flex-shrink:0;margin-top:.1rem;opacity:.7}
+
+/* ── FLOW BAR ── */
+.flow-bar{display:flex;align-items:flex-start;margin:2.5rem 0 3rem;overflow-x:auto;padding:.25rem 0 .75rem;gap:0;position:relative;z-index:1}
+.flow-item{flex:1;min-width:120px;display:flex;flex-direction:column;align-items:center;position:relative;text-align:center;gap:.35rem;padding:0 .5rem}
+.flow-item:not(:last-child)::after{content:'';position:absolute;top:14px;left:calc(50% + 17px);right:calc(-50% + 17px);height:1px;background:linear-gradient(90deg,var(--gold),rgba(212,168,71,.2));z-index:0}
+.flow-dot{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.55rem;font-weight:500;position:relative;z-index:1;flex-shrink:0;background:var(--gold);color:var(--bg)}
+.flow-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-top:.15rem}
+.flow-name{font-size:.7rem;color:var(--bright);font-weight:500;line-height:1.3}
+@media(max-width:580px){.flow-item:not(:last-child)::after{display:none}.flow-bar{gap:.75rem}}
+
+/* ── STEPS ── */
+.steps{display:flex;flex-direction:column;gap:0;position:relative;z-index:1;padding-bottom:3rem}
+.step-block{display:flex;gap:2rem;padding:2.5rem 0;border-bottom:1px solid var(--border)}
+.step-block:last-child{border-bottom:none}
+.step-num-col{flex-shrink:0;width:56px;display:flex;flex-direction:column;align-items:center;gap:.5rem}
+.step-num{font-family:'DM Serif Display',serif;font-size:2.8rem;color:rgba(212,168,71,.18);line-height:1;letter-spacing:-.03em}
+.step-line{width:1px;flex:1;background:linear-gradient(180deg,rgba(212,168,71,.3),transparent);min-height:2rem}
+.step-body{flex:1;min-width:0}
+.step-head{display:flex;align-items:flex-start;gap:.75rem;flex-wrap:wrap;margin-bottom:.85rem}
+.step-tid{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid rgba(212,168,71,.3);color:var(--gold);border-radius:3px}
+.step-badges{display:flex;gap:.35rem;flex-wrap:wrap}
+.step-badge{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .45rem;border-radius:3px}
+.sb-model{background:rgba(212,168,71,.1);color:var(--gold)}
+.sb-engine{background:rgba(155,114,245,.1);color:var(--purple)}
+.sb-output{background:rgba(34,197,94,.1);color:var(--green)}
+.sb-teal{background:rgba(20,184,166,.1);color:var(--teal)}
+.step-body h3{font-family:'Sora',sans-serif;font-size:1.05rem;font-weight:500;color:var(--white);line-height:1.3;margin-bottom:.6rem}
+.step-desc{font-size:.83rem;color:var(--body);line-height:1.75;margin-bottom:1rem}
+.step-io{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1.25rem}
+@media(max-width:580px){.step-io{grid-template-columns:1fr}}
+.io-box{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .85rem}
+.io-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:.35rem}
+.io-label-in{color:var(--muted)}
+.io-label-out{color:var(--gold)}
+.io-text{font-size:.75rem;color:var(--body);line-height:1.55}
+.step-cta{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--gold);padding:.45rem 1.1rem;border-radius:var(--radius);transition:opacity .2s}
+.step-cta:hover{opacity:.85}
+.step-cta svg{transition:transform .2s}
+.step-cta:hover svg{transform:translateX(3px)}
+
+/* ── RELATED ── */
+.related-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem 2rem;margin-bottom:3rem;position:relative;z-index:1}
+.related-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.6rem}
+.related-heading{font-size:1.1rem;color:var(--white);margin-bottom:.5rem}
+.related-desc{font-size:.8rem;color:var(--body);line-height:1.7;margin-bottom:1rem}
+.related-links{display:flex;gap:.75rem;flex-wrap:wrap}
+.related-link{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;padding:.3rem .8rem;border:1px solid var(--border);color:var(--body);border-radius:var(--radius);transition:all .2s}
+.related-link:hover{border-color:var(--gold);color:var(--gold)}
+.related-link.primary{border-color:rgba(212,168,71,.4);color:var(--gold)}
+.related-link.primary:hover{background:var(--gold-dim)}
+
+/* ── FOOTER ── */
+footer{border-top:1px solid var(--border);padding:1.75rem 2rem;position:relative;z-index:1}
+.footer-inner-ai{max-width:960px;margin:0 auto;display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);flex-wrap:wrap}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+</style>
+</head>
+<body>
+
+<!-- ── LANG BAR ── -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<!-- ── NAV ── -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <div class="logo-text">
+        <span class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">.co</span></span>
+        <span class="logo-tag">Numbers</span>
+      </div>
+    </a>
+    <div class="nav-links">
+      <a href="../index.html" class="nav-link" data-i18n="nav_home">Home</a>
+      <a href="treasury-liquidity-hub.html" class="nav-link" data-i18n="nav_hub">Treasury Hub</a>
+      <a href="https://postoaklabs.com/demos/cross-border-fx-netting-simulator.html" class="nav-cta" target="_blank" rel="noopener" data-i18n="nav_demo">POL Demo →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── HERO ── -->
+<div class="hero">
+  <div class="container">
+    <div class="hero-eyebrow" data-i18n="hero_eyebrow">Guided Workflow · Treasury &amp; FX</div>
+    <h1 data-i18n="hero_h1">FX Netting to <em>Corridor Economics</em></h1>
+    <p class="hero-desc" data-i18n="hero_desc">Run three tools in sequence to find netting savings across corridor legs, optimise hedge strategy for the residual exposure, and model full corridor economics — the complete analytical chain from raw FX exposure to a deployable treasury playbook.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-gold" data-i18n="badge_steps">3 Tools · Ordered Sequence</span>
+      <span class="hero-badge badge-teal" data-i18n="badge_time">~30 min end-to-end</span>
+      <span class="hero-badge badge-green" data-i18n="badge_privacy">Client-side · Zero PII</span>
+    </div>
+    <div class="pii-notice">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <span>🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── FLOW BAR ── -->
+<div class="container">
+  <div class="flow-bar">
+    <div class="flow-item">
+      <div class="flow-dot">1</div>
+      <div class="flow-label">T105</div>
+      <div class="flow-name" data-i18n="flow1">FX Netting Sim.</div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-dot">2</div>
+      <div class="flow-label">T76</div>
+      <div class="flow-name" data-i18n="flow2">Hedge Optimizer</div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-dot">3</div>
+      <div class="flow-label">T23</div>
+      <div class="flow-name" data-i18n="flow3">Corridor Savings</div>
+    </div>
+  </div>
+
+  <!-- ── STEPS ── -->
+  <div class="steps">
+
+    <!-- Step 1 -->
+    <div class="step-block">
+      <div class="step-num-col">
+        <div class="step-num">01</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-head">
+          <span class="step-tid">T105</span>
+          <div class="step-badges">
+            <span class="step-badge sb-model" data-i18n="s1b1">FX Netting</span>
+            <span class="step-badge sb-engine" data-i18n="s1b2">Multilateral</span>
+          </div>
+        </div>
+        <h3 data-i18n="s1_title">Cross-Border FX Netting Simulator</h3>
+        <p class="step-desc" data-i18n="s1_desc">Before hedging or optimising a corridor, you need to know your actual net exposure — which means netting bilateral FX flows across all counterparty legs. This simulator takes your gross bilateral payment flows (currency pairs, notional amounts, settlement dates) and computes the multilateral net position that would result from netting, quantifying the capital efficiency and spread savings versus a gross settlement approach. In multi-currency corridors, netting can reduce gross FX turnover by 40–70% before a single hedge is placed.</p>
+        <div class="step-io">
+          <div class="io-box">
+            <div class="io-label io-label-in" data-i18n="input_label">↳ Inputs</div>
+            <div class="io-text" data-i18n="s1_in">Bilateral FX payment flows (currency pairs, notional, settlement dates), counterparty list, netting agreement eligibility, settlement cycle (T+0, T+1, T+2).</div>
+          </div>
+          <div class="io-box">
+            <div class="io-label io-label-out" data-i18n="output_label">→ Outputs to Step 2</div>
+            <div class="io-text" data-i18n="s1_out">Net residual exposure per currency pair after netting, netting efficiency ratio, gross-to-net reduction — the residual exposure is the input to hedge optimisation in Step 2.</div>
+          </div>
+        </div>
+        <a href="../tools/105-fx-netting-simulator.html" class="step-cta" data-i18n="open_tool">Open Tool <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="step-block">
+      <div class="step-num-col">
+        <div class="step-num">02</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-head">
+          <span class="step-tid">T76</span>
+          <div class="step-badges">
+            <span class="step-badge sb-model" data-i18n="s2b1">Hedge Strategy</span>
+            <span class="step-badge sb-engine" data-i18n="s2b2">All-in Cost</span>
+          </div>
+        </div>
+        <h3 data-i18n="s2_title">FX Hedge Optimizer &amp; All-in Cost Simulator</h3>
+        <p class="step-desc" data-i18n="s2_desc">Once the net residual exposure from Step 1 is established, this tool optimises the hedge strategy for that residual position. It models forwards, NDFs, options, and swap overlays across your corridor currency pairs, computing the all-in cost per unit for each hedging instrument (bid-ask, forward points, option premium, rollover cost). The goal is to identify the minimum-cost hedge that meets your treasury policy's risk tolerance — the all-in cost figure then feeds directly into corridor economics in Step 3.</p>
+        <div class="step-io">
+          <div class="io-box">
+            <div class="io-label io-label-in" data-i18n="input_label">↳ Inputs from Step 1</div>
+            <div class="io-text" data-i18n="s2_in">Net residual exposure per pair from Step 1, hedge tenor (30 / 60 / 90 day), instrument preference (forward / NDF / option / swap), risk tolerance (hedge ratio), corridor currency pairs.</div>
+          </div>
+          <div class="io-box">
+            <div class="io-label io-label-out" data-i18n="output_label">→ Outputs to Step 3</div>
+            <div class="io-text" data-i18n="s2_out">Recommended hedge instrument mix, all-in cost per unit (bps), cost breakdown (spread + forward points + premium + rollover) — feeds into full corridor economics in Step 3.</div>
+          </div>
+        </div>
+        <a href="../tools/76-fx-hedge-optimizer.html" class="step-cta" data-i18n="open_tool">Open Tool <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="step-block">
+      <div class="step-num-col">
+        <div class="step-num">03</div>
+      </div>
+      <div class="step-body">
+        <div class="step-head">
+          <span class="step-tid">T23</span>
+          <div class="step-badges">
+            <span class="step-badge sb-output" data-i18n="s3b1">Corridor Model</span>
+            <span class="step-badge sb-teal" data-i18n="s3b2">Economics</span>
+          </div>
+        </div>
+        <h3 data-i18n="s3_title">Cross-Border Corridor Savings Calculator</h3>
+        <p class="step-desc" data-i18n="s3_desc">The final step closes the economics loop. This tool takes the netting savings from Step 1 and the hedged all-in FX cost from Step 2, then models full corridor economics versus baseline (correspondent banking / SWIFT MT). It quantifies total savings from netting efficiency, hedge cost reduction versus spot, nostro optimisation, and settlement finality improvement — producing a single corridor economics report suitable for treasury committee presentation or RFP benchmarking.</p>
+        <div class="step-io">
+          <div class="io-box">
+            <div class="io-label io-label-in" data-i18n="input_label">↳ Inputs from Steps 1–2</div>
+            <div class="io-text" data-i18n="s3_in">Netting savings and efficiency ratio from Step 1, all-in hedge cost per unit from Step 2, corridor volume (monthly notional), current correspondent banking cost baseline, settlement days.</div>
+          </div>
+          <div class="io-box">
+            <div class="io-label io-label-out" data-i18n="output_label">→ Final Output</div>
+            <div class="io-text" data-i18n="s3_out">Total corridor savings (bps and USD equivalent), savings attribution (netting / hedge / nostro / finality), cost versus correspondent baseline — treasury committee-ready economics report.</div>
+          </div>
+        </div>
+        <a href="../tools/23-corridor-savings-calc.html" class="step-cta" data-i18n="open_tool">Open Tool <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+      </div>
+    </div>
+
+  </div><!-- /steps -->
+
+  <!-- ── RELATED ── -->
+  <div class="related-section">
+    <div class="related-label" data-i18n="related_label">See Also</div>
+    <h2 class="related-heading" data-i18n="related_heading">Related Hubs &amp; Demos</h2>
+    <p class="related-desc" data-i18n="related_desc">Explore the full treasury and FX tool suite or see the FX netting simulator in action in the Post Oak Labs interactive demo.</p>
+    <div class="related-links">
+      <a href="https://postoaklabs.com/demos/cross-border-fx-netting-simulator.html" class="related-link primary" target="_blank" rel="noopener" data-i18n="related_pol">POL Demo: Cross-Border FX Netting Simulator ↗</a>
+      <a href="treasury-liquidity-hub.html" class="related-link" data-i18n="related_hub">Treasury &amp; Liquidity Hub</a>
+      <a href="fx-payments-intelligence-hub.html" class="related-link" data-i18n="related_fx">FX &amp; Payments Intelligence Hub</a>
+      <a href="../index.html" class="related-link" data-i18n="related_all">All 300+ Tools →</a>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <div class="footer-badge-ai">
+        <span style="color:var(--gold);font-weight:500">AI<span style="color:var(--muted)">.co</span> Numbers</span>
+        <span>300+ free fintech tools · CC BY 4.0</span>
+      </div>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html" data-i18n="nav_home">Home</a>
+      <a href="treasury-liquidity-hub.html">Treasury Hub</a>
+      <a href="https://postoaklabs.com/demos/cross-border-fx-netting-simulator.html" target="_blank" rel="noopener">POL Showcase</a>
+      <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+const TRANSLATIONS = {
+  en:{
+    nav_home:'Home',nav_hub:'Treasury Hub',nav_demo:'POL Demo →',
+    hero_eyebrow:'Guided Workflow · Treasury & FX',
+    hero_h1:'FX Netting to Corridor Economics',
+    hero_desc:'Run three tools in sequence to find netting savings across corridor legs, optimise hedge strategy for the residual exposure, and model full corridor economics — the complete analytical chain from raw FX exposure to a deployable treasury playbook.',
+    badge_steps:'3 Tools · Ordered Sequence',badge_time:'~30 min end-to-end',badge_privacy:'Client-side · Zero PII',
+    flow1:'FX Netting Sim.',flow2:'Hedge Optimizer',flow3:'Corridor Savings',
+    input_label:'↳ Inputs',output_label:'→ Outputs',open_tool:'Open Tool',
+    s1b1:'FX Netting',s1b2:'Multilateral',
+    s1_title:'Cross-Border FX Netting Simulator',
+    s1_desc:'Before hedging or optimising a corridor, you need to know your actual net exposure. This simulator takes gross bilateral payment flows and computes the multilateral net position, quantifying capital efficiency and spread savings versus gross settlement. In multi-currency corridors, netting can reduce gross FX turnover by 40–70% before a single hedge is placed.',
+    s1_in:'Bilateral FX payment flows (currency pairs, notional, settlement dates), counterparty list, netting agreement eligibility, settlement cycle.',
+    s1_out:'Net residual exposure per currency pair after netting, netting efficiency ratio, gross-to-net reduction — the residual exposure feeds hedge optimisation in Step 2.',
+    s2b1:'Hedge Strategy',s2b2:'All-in Cost',
+    s2_title:'FX Hedge Optimizer & All-in Cost Simulator',
+    s2_desc:'Once net residual exposure from Step 1 is established, this tool optimises the hedge strategy for that residual position. It models forwards, NDFs, options, and swap overlays, computing the all-in cost per unit for each instrument. The goal: minimum-cost hedge that meets your treasury policy risk tolerance.',
+    s2_in:'Net residual exposure from Step 1, hedge tenor, instrument preference (forward / NDF / option / swap), risk tolerance (hedge ratio), corridor currency pairs.',
+    s2_out:'Recommended hedge instrument mix, all-in cost per unit (bps), cost breakdown (spread + forward points + premium + rollover) — feeds into corridor economics in Step 3.',
+    s3b1:'Corridor Model',s3b2:'Economics',
+    s3_title:'Cross-Border Corridor Savings Calculator',
+    s3_desc:'The final step closes the economics loop. Takes netting savings from Step 1 and hedged all-in FX cost from Step 2, then models full corridor economics versus baseline (correspondent banking / SWIFT MT). Produces a treasury committee-ready economics report.',
+    s3_in:'Netting savings from Step 1, all-in hedge cost from Step 2, corridor volume (monthly notional), current correspondent banking cost baseline, settlement days.',
+    s3_out:'Total corridor savings (bps and USD equivalent), savings attribution (netting / hedge / nostro / finality), cost vs. correspondent baseline.',
+    related_label:'See Also',related_heading:'Related Hubs & Demos',
+    related_desc:'Explore the full treasury and FX tool suite or see the FX netting simulator in action in the Post Oak Labs interactive demo.',
+    related_pol:'POL Demo: Cross-Border FX Netting Simulator ↗',related_hub:'Treasury & Liquidity Hub',related_fx:'FX & Payments Intelligence Hub',related_all:'All 300+ Tools →'
+  },
+  es:{
+    nav_home:'Inicio',nav_hub:'Hub de Tesorería',nav_demo:'Demo POL →',
+    hero_eyebrow:'Flujo de Trabajo Guiado · Tesorería y FX',
+    hero_h1:'De la Compensación FX a la Economía del Corredor',
+    hero_desc:'Ejecuta tres herramientas en secuencia para encontrar ahorros de compensación, optimizar la estrategia de cobertura para la exposición residual y modelar la economía completa del corredor.',
+    badge_steps:'3 Herramientas · Secuencia Ordenada',badge_time:'~30 min en total',badge_privacy:'Local · Sin PII',
+    flow1:'Sim. Compensación FX',flow2:'Optimizador de Cobertura',flow3:'Ahorros del Corredor',
+    input_label:'↳ Entradas',output_label:'→ Salidas',open_tool:'Abrir Herramienta',
+    s1b1:'Compensación FX',s1b2:'Multilateral',
+    s1_title:'Simulador de Compensación FX Transfronteriza',
+    s1_desc:'Antes de cubrir u optimizar un corredor, necesitas conocer tu exposición neta real. Este simulador toma flujos de pagos bilaterales brutos y calcula la posición neta multilateral, cuantificando la eficiencia de capital y los ahorros en spread frente a la liquidación bruta.',
+    s1_in:'Flujos de pago FX bilaterales (pares de divisas, nocional, fechas de liquidación), lista de contrapartes, elegibilidad del acuerdo de compensación, ciclo de liquidación.',
+    s1_out:'Exposición neta residual por par de divisas después de la compensación, ratio de eficiencia de compensación, reducción bruto-neto.',
+    s2b1:'Estrategia de Cobertura',s2b2:'Costo Total',
+    s2_title:'Optimizador de Cobertura FX y Simulador de Costo Total',
+    s2_desc:'Una vez establecida la exposición residual neta del Paso 1, esta herramienta optimiza la estrategia de cobertura para esa posición. Modela forwards, NDFs, opciones y superposiciones de swap, calculando el costo total por unidad para cada instrumento.',
+    s2_in:'Exposición residual neta del Paso 1, tenor de cobertura, preferencia de instrumento (forward / NDF / opción / swap), tolerancia al riesgo, pares de divisas del corredor.',
+    s2_out:'Mix de instrumentos de cobertura recomendado, costo total por unidad (bps), desglose de costos.',
+    s3b1:'Modelo de Corredor',s3b2:'Economía',
+    s3_title:'Calculadora de Ahorros del Corredor Transfronterizo',
+    s3_desc:'El paso final cierra el ciclo económico. Toma los ahorros de compensación del Paso 1 y el costo FX cubierto del Paso 2, luego modela la economía completa del corredor frente a la línea base (banca corresponsal / SWIFT MT).',
+    s3_in:'Ahorros de compensación del Paso 1, costo de cobertura total del Paso 2, volumen del corredor, línea base de costo de banca corresponsal, días de liquidación.',
+    s3_out:'Ahorros totales del corredor (bps y equivalente USD), atribución de ahorros, costo vs. línea base corresponsal.',
+    related_label:'Ver También',related_heading:'Hubs y Demos Relacionados',
+    related_desc:'Explore la suite completa de herramientas de tesorería y FX o vea el simulador de compensación FX en acción en la demo de Post Oak Labs.',
+    related_pol:'Demo POL: Simulador de Compensación FX ↗',related_hub:'Hub de Tesorería y Liquidez',related_fx:'Hub de FX e Inteligencia de Pagos',related_all:'Todas las 300+ Herramientas →'
+  },
+  fr:{
+    nav_home:'Accueil',nav_hub:'Hub Trésorerie',nav_demo:'Démo POL →',
+    hero_eyebrow:'Flux de Travail Guidé · Trésorerie et FX',
+    hero_h1:'Du Netting FX à l\'Économie du Corridor',
+    hero_desc:'Exécutez trois outils en séquence pour trouver les économies de compensation, optimiser la stratégie de couverture pour l\'exposition résiduelle et modéliser l\'économie complète du corridor.',
+    badge_steps:'3 Outils · Séquence Ordonnée',badge_time:'~30 min au total',badge_privacy:'Local · Zéro PII',
+    flow1:'Sim. Netting FX',flow2:'Optimiseur de Couverture',flow3:'Économies Corridor',
+    input_label:'↳ Entrées',output_label:'→ Sorties',open_tool:'Ouvrir l\'Outil',
+    s1b1:'Netting FX',s1b2:'Multilatéral',
+    s1_title:'Simulateur de Netting FX Transfrontalier',
+    s1_desc:'Avant de couvrir ou d\'optimiser un corridor, vous devez connaître votre exposition nette réelle. Ce simulateur prend les flux de paiements bilatéraux bruts et calcule la position nette multilatérale, quantifiant l\'efficacité du capital et les économies de spread.',
+    s1_in:'Flux de paiements FX bilatéraux (paires de devises, notionnel, dates de règlement), liste de contreparties, éligibilité de l\'accord de compensation, cycle de règlement.',
+    s1_out:'Exposition résiduelle nette par paire de devises après compensation, ratio d\'efficacité de netting, réduction brut-net.',
+    s2b1:'Stratégie de Couverture',s2b2:'Coût Global',
+    s2_title:'Optimiseur de Couverture FX et Simulateur de Coût Global',
+    s2_desc:'Une fois l\'exposition résiduelle nette de l\'Étape 1 établie, cet outil optimise la stratégie de couverture pour cette position résiduelle. Il modèle les forwards, NDFs, options et swaps en calculant le coût global par unité.',
+    s2_in:'Exposition résiduelle nette de l\'Étape 1, tenor de couverture, préférence d\'instrument (forward / NDF / option / swap), tolérance au risque, paires de devises du corridor.',
+    s2_out:'Mix d\'instruments de couverture recommandé, coût global par unité (bps), ventilation des coûts.',
+    s3b1:'Modèle Corridor',s3b2:'Économie',
+    s3_title:'Calculateur d\'Économies du Corridor Transfrontalier',
+    s3_desc:'L\'étape finale boucle le cycle économique. Prend les économies de compensation de l\'Étape 1 et le coût FX couvert de l\'Étape 2, puis modélise l\'économie complète du corridor par rapport à la base (banque correspondante / SWIFT MT).',
+    s3_in:'Économies de compensation de l\'Étape 1, coût de couverture global de l\'Étape 2, volume du corridor, base de coût bancaire correspondant, jours de règlement.',
+    s3_out:'Économies totales du corridor (bps et équivalent USD), attribution des économies, coût vs. base correspondante.',
+    related_label:'Voir Aussi',related_heading:'Hubs et Démos Connexes',
+    related_desc:'Explorez la suite complète d\'outils de trésorerie et FX ou voyez le simulateur de netting FX en action dans la démo de Post Oak Labs.',
+    related_pol:'Démo POL : Simulateur de Netting FX ↗',related_hub:'Hub Trésorerie et Liquidité',related_fx:'Hub FX et Intelligence de Paiements',related_all:'Tous les 300+ Outils →'
+  },
+  ar:{
+    nav_home:'الرئيسية',nav_hub:'مركز الخزينة',nav_demo:'عرض POL →',
+    hero_eyebrow:'سير عمل موجّه · الخزينة والعملات الأجنبية',
+    hero_h1:'من المقاصة الفوركس إلى اقتصاديات الممر',
+    hero_desc:'قم بتشغيل ثلاثة أدوات بالتسلسل لإيجاد وفورات المقاصة عبر أرجل الممر، وتحسين استراتيجية التحوط للتعرض المتبقي، ونمذجة اقتصاديات الممر الكاملة.',
+    badge_steps:'3 أدوات · تسلسل منظم',badge_time:'~30 دقيقة إجمالاً',badge_privacy:'محلي · لا PII',
+    flow1:'محاكاة مقاصة FX',flow2:'محسّن التحوط',flow3:'وفورات الممر',
+    input_label:'↳ المدخلات',output_label:'→ المخرجات',open_tool:'فتح الأداة',
+    s1b1:'مقاصة FX',s1b2:'متعدد الأطراف',
+    s1_title:'محاكي مقاصة FX عبر الحدود',
+    s1_desc:'قبل التحوط أو تحسين الممر، تحتاج إلى معرفة تعرضك الصافي الفعلي. يأخذ هذا المحاكي تدفقات الدفع الثنائية الإجمالية ويحسب المركز الصافي متعدد الأطراف، مقيساً كفاءة رأس المال ووفورات الانتشار.',
+    s1_in:'تدفقات دفع FX الثنائية (أزواج العملات، الاسمي، تواريخ التسوية)، قائمة الأطراف المقابلة، أهلية اتفاقية المقاصة، دورة التسوية.',
+    s1_out:'التعرض الصافي المتبقي لكل زوج عملات بعد المقاصة، نسبة كفاءة المقاصة، تخفيض الإجمالي إلى الصافي.',
+    s2b1:'استراتيجية التحوط',s2b2:'التكلفة الإجمالية',
+    s2_title:'محسّن التحوط FX ومحاكي التكلفة الإجمالية',
+    s2_desc:'بمجرد تحديد صافي التعرض المتبقي من الخطوة 1، تعمل هذه الأداة على تحسين استراتيجية التحوط لتلك الوضعية. تنمذج العقود الآجلة وNDFs والخيارات وتبادلات المبادلة، محسوبةً التكلفة الإجمالية لكل وحدة لكل أداة.',
+    s2_in:'صافي التعرض المتبقي من الخطوة 1، مدة التحوط، تفضيل الأداة (آجل / NDF / خيار / مبادلة)، تحمّل المخاطر، أزواج عملات الممر.',
+    s2_out:'مزيج أدوات التحوط الموصى به، التكلفة الإجمالية لكل وحدة (نقاط أساس)، تفصيل التكاليف.',
+    s3b1:'نموذج الممر',s3b2:'الاقتصاديات',
+    s3_title:'حاسبة وفورات الممر عبر الحدود',
+    s3_desc:'الخطوة الأخيرة تُغلق الحلقة الاقتصادية. تأخذ وفورات المقاصة من الخطوة 1 وتكلفة FX المحوطة من الخطوة 2، ثم تنمذج اقتصاديات الممر الكاملة مقارنةً بالخط الأساسي (البنوك المراسلة / SWIFT MT).',
+    s3_in:'وفورات المقاصة من الخطوة 1، تكلفة التحوط الإجمالية من الخطوة 2، حجم الممر، خط أساس تكلفة البنوك المراسلة، أيام التسوية.',
+    s3_out:'إجمالي وفورات الممر (نقاط أساس ومعادل USD)، توزيع الوفورات، التكلفة مقابل الخط الأساسي المراسل.',
+    related_label:'انظر أيضاً',related_heading:'المحاور والعروض التوضيحية ذات الصلة',
+    related_desc:'استكشف مجموعة أدوات الخزينة والعملات الأجنبية الكاملة أو شاهد محاكي المقاصة FX في العمل في عرض Post Oak Labs.',
+    related_pol:'عرض POL: محاكي مقاصة FX عبر الحدود ↗',related_hub:'مركز الخزينة والسيولة',related_fx:'مركز استخبارات FX والمدفوعات',related_all:'جميع الأدوات 300+ →'
+  },
+  pt:{
+    nav_home:'Início',nav_hub:'Hub de Tesouraria',nav_demo:'Demo POL →',
+    hero_eyebrow:'Fluxo de Trabalho Guiado · Tesouraria e FX',
+    hero_h1:'Do Netting FX à Economia do Corredor',
+    hero_desc:'Execute três ferramentas em sequência para encontrar economias de compensação, otimizar a estratégia de hedge para exposição residual e modelar a economia completa do corredor.',
+    badge_steps:'3 Ferramentas · Sequência Ordenada',badge_time:'~30 min no total',badge_privacy:'Local · Zero PII',
+    flow1:'Sim. Netting FX',flow2:'Otimizador de Hedge',flow3:'Economias do Corredor',
+    input_label:'↳ Entradas',output_label:'→ Saídas',open_tool:'Abrir Ferramenta',
+    s1b1:'Netting FX',s1b2:'Multilateral',
+    s1_title:'Simulador de Netting FX Transfronteiriço',
+    s1_desc:'Antes de fazer hedge ou otimizar um corredor, você precisa conhecer sua exposição líquida real. Este simulador pega fluxos de pagamento bilaterais brutos e computa a posição líquida multilateral, quantificando eficiência de capital e economias de spread.',
+    s1_in:'Fluxos de pagamento FX bilaterais (pares de moedas, nocional, datas de liquidação), lista de contrapartes, elegibilidade de acordo de compensação, ciclo de liquidação.',
+    s1_out:'Exposição residual líquida por par de moedas após netting, taxa de eficiência de netting, redução bruto-líquido.',
+    s2b1:'Estratégia de Hedge',s2b2:'Custo Total',
+    s2_title:'Otimizador de Hedge FX e Simulador de Custo Total',
+    s2_desc:'Uma vez estabelecida a exposição residual líquida do Passo 1, esta ferramenta otimiza a estratégia de hedge para essa posição residual. Modela forwards, NDFs, opções e swap overlays, calculando o custo total por unidade para cada instrumento.',
+    s2_in:'Exposição residual líquida do Passo 1, tenor do hedge, preferência de instrumento (forward / NDF / opção / swap), tolerância ao risco, pares de moedas do corredor.',
+    s2_out:'Mix de instrumentos de hedge recomendado, custo total por unidade (bps), detalhamento de custos.',
+    s3b1:'Modelo de Corredor',s3b2:'Economia',
+    s3_title:'Calculadora de Economias do Corredor Transfronteiriço',
+    s3_desc:'A etapa final fecha o ciclo econômico. Pega as economias de netting do Passo 1 e o custo FX com hedge do Passo 2, depois modela a economia completa do corredor versus baseline (banco correspondente / SWIFT MT).',
+    s3_in:'Economias de netting do Passo 1, custo de hedge total do Passo 2, volume do corredor, baseline de custo bancário correspondente, dias de liquidação.',
+    s3_out:'Economias totais do corredor (bps e equivalente USD), atribuição de economias, custo vs. baseline correspondente.',
+    related_label:'Ver Também',related_heading:'Hubs e Demos Relacionados',
+    related_desc:'Explore o conjunto completo de ferramentas de tesouraria e FX ou veja o simulador de netting FX em ação na demo do Post Oak Labs.',
+    related_pol:'Demo POL: Simulador de Netting FX ↗',related_hub:'Hub de Tesouraria e Liquidez',related_fx:'Hub de FX e Inteligência de Pagamentos',related_all:'Todas as 300+ Ferramentas →'
+  },
+  zh:{
+    nav_home:'首页',nav_hub:'资金管理专题中心',nav_demo:'POL演示 →',
+    hero_eyebrow:'引导式工作流 · 资金管理与外汇',
+    hero_h1:'从外汇轧差到走廊经济学',
+    hero_desc:'按顺序运行三个工具，找出走廊各腿的轧差节省，优化剩余敞口的套保策略，并建模完整的走廊经济学——从原始外汇敞口到可部署的资金管理手册的完整分析链。',
+    badge_steps:'3个工具 · 有序序列',badge_time:'全程约30分钟',badge_privacy:'本地运行 · 零PII',
+    flow1:'外汇轧差模拟',flow2:'套保优化器',flow3:'走廊节省',
+    input_label:'↳ 输入',output_label:'→ 输出',open_tool:'打开工具',
+    s1b1:'外汇轧差',s1b2:'多边',
+    s1_title:'跨境外汇轧差模拟器',
+    s1_desc:'在对走廊进行套保或优化之前，您需要了解实际净敞口——这意味着对所有交易对手腿的双边外汇流量进行轧差。该模拟器获取您的总双边支付流量并计算轧差后的多边净头寸，量化资本效率和相对于总清算方式的价差节省。',
+    s1_in:'双边外汇支付流量（货币对、名义金额、结算日期）、交易对手列表、轧差协议资格、结算周期。',
+    s1_out:'轧差后每个货币对的净剩余敞口、轧差效率比、总净减少量——剩余敞口是第2步套保优化的输入。',
+    s2b1:'套保策略',s2b2:'全包含成本',
+    s2_title:'外汇套保优化器与全包含成本模拟器',
+    s2_desc:'一旦确定了第1步的净剩余敞口，该工具就会为该剩余头寸优化套保策略。它对远期、NDF、期权和掉期叠加进行建模，计算每个套保工具的全包含每单位成本（买卖价差、远期点数、期权溢价、滚动成本）。',
+    s2_in:'第1步的净剩余敞口、套保期限（30/60/90天）、工具偏好（远期/NDF/期权/掉期）、风险承受度（套保比率）、走廊货币对。',
+    s2_out:'推荐套保工具组合、每单位全包含成本（基点）、成本分解（价差+远期点数+溢价+滚动成本）——输入第3步走廊经济学。',
+    s3b1:'走廊模型',s3b2:'经济学',
+    s3_title:'跨境走廊节省计算器',
+    s3_desc:'最后一步完成经济学闭环。采用第1步的轧差节省和第2步的套保全包含外汇成本，然后相对于基准（代理银行/SWIFT MT）建模完整的走廊经济学，产生适合资金管理委员会呈报的经济学报告。',
+    s3_in:'第1步的轧差节省和效率比、第2步的每单位全包含套保成本、走廊量（月度名义金额）、当前代理银行成本基准、结算天数。',
+    s3_out:'走廊总节省（基点和等值美元）、节省归因（轧差/套保/nostro/最终性）、相对代理行基准的成本——资金管理委员会就绪的经济学报告。',
+    related_label:'另请参阅',related_heading:'相关专题中心与演示',
+    related_desc:'探索完整的资金管理和外汇工具套件，或在Post Oak Labs互动演示中查看外汇轧差模拟器的实际运作。',
+    related_pol:'POL演示：跨境外汇轧差模拟器 ↗',related_hub:'资金管理与流动性专题中心',related_fx:'外汇与支付智能专题中心',related_all:'全部300+工具 →'
+  }
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang];
+  if (!t) return;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+  document.documentElement.lang = lang;
+  document.documentElement.dir = (lang === 'ar') ? 'rtl' : 'ltr';
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const k = el.dataset.i18n;
+    if (t[k]) el.textContent = t[k];
+  });
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function() {
+  try {
+    const saved = sessionStorage.getItem('ain_lang');
+    if (saved && TRANSLATIONS[saved]) setLang(saved);
+  } catch(e) {}
+})();
+</script>
+</body>
+</html>
