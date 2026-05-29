@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>4% Rule Safe Withdrawal Rate Calculator · AINumbers.co</title>
+<meta name="description" content="Model whether your retirement portfolio can sustain a given withdrawal rate. Goes beyond the simple 4% rule — models portfolio composition, inflation, sequence risk, and four market scenarios. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/170-safe-withdrawal-rate-calculator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"4% Rule Safe Withdrawal Rate Calculator","url":"https://ainumbers.co/tools/170-safe-withdrawal-rate-calculator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "safe-withdrawal-rate-calculator",
+  "version": "1.0.0",
+  "title": "4% Rule Safe Withdrawal Rate Calculator",
+  "description": "Models whether a retirement portfolio can sustain a given withdrawal rate. Goes beyond the simple 4% rule to show how portfolio composition, inflation, and sequence risk affect the actual safe rate.",
+  "category": "cat-10",
+  "tags": ["safe withdrawal rate","4% rule","FIRE","retirement","SWR","sequence risk","Guyton-Klinger"],
+  "audience": ["individual","advisor","planner"],
+  "input_schema": {"type":"object","properties":{"portfolio_value":{"type":"number"},"annual_withdrawal":{"type":"number"},"horizon_years":{"type":"number"},"allocation":{"type":"string"},"inflation_pct":{"type":"number"},"additional_income":{"type":"number"},"strategy":{"type":"string"}},"required":["portfolio_value","annual_withdrawal","horizon_years"]},
+  "output_schema": {"type":"object","properties":{"swr_pct":{"type":"number"},"fire_number":{"type":"number"},"survival_probability_pct":{"type":"number"},"years_to_depletion":{"type":"number"},"real_value_at_30yr":{"type":"number"},"verdict":{"type":"string"}}},
+  "mcp_tool_definition": {"name":"calculate_safe_withdrawal_rate","description":"Calculates safe withdrawal rate, FIRE number, survival probability, and scenario analysis for a retirement portfolio.","inputSchema":{"type":"object","properties":{"portfolio_value":{"type":"number","description":"Current portfolio value in USD"},"annual_withdrawal":{"type":"number","description":"Planned annual withdrawal in USD"},"horizon_years":{"type":"number","description":"Retirement horizon in years"},"allocation":{"type":"string","description":"Portfolio allocation preset"},"inflation_pct":{"type":"number","description":"Assumed annual inflation rate"},"additional_income":{"type":"number","description":"Annual income from Social Security or pension"},"strategy":{"type":"string","description":"Withdrawal strategy"}},"required":["portfolio_value","annual_withdrawal","horizon_years"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/170-safe-withdrawal-rate-calculator.html","function_name":"runCalculator","timeout_ms":1000},
+  "ap2_export": true
+}
+-->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- AIN-canon-2026-05-17 -->
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --purple-lt:#B794F4;
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased;padding-bottom:32px}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button,input,select{font-family:'Sora',sans-serif;cursor:pointer}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* ── Lang bar ─── */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:0 1.5rem;height:34px;display:flex;align-items:center;width:100%;position:relative;z-index:300}
+.lang-inner{max-width:1100px;margin:0 auto;display:flex;gap:0;align-items:center;width:100%;justify-content:flex-end}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;background:transparent;border:1px solid transparent;color:var(--muted);padding:.3rem .7rem;cursor:pointer;text-transform:uppercase;transition:color .2s,border-color .2s;border-radius:3px}
+.lang-btn:hover{color:var(--text);border-color:var(--border)}
+.lang-btn.active{color:var(--teal);border-color:var(--teal)}
+
+/* ── Nav ─── */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:1rem}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.4rem;justify-content:center;flex-wrap:wrap}
+.nav-bc a{color:var(--body);transition:color .2s}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem;justify-self:end}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;transition:background .2s}
+.nav-cta:hover{background:var(--teal-lt)}
+
+/* ── Hero ─── */
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+.hero{padding:2.25rem 0 1.75rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.6rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:20px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.55rem,3vw,2.2rem);color:var(--white);margin-bottom:.5rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:.85rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.28rem .65rem;border:1px solid;border-radius:3px}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+
+/* ── PII notice ─── */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+
+/* ── Scope note ─── */
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.25rem;color:var(--body)}
+.scope-note strong{color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;text-transform:uppercase}
+
+/* ── Tool layout ─── */
+.tool-body{position:relative;z-index:1;padding:1.75rem 0 3rem}
+.tool-grid{display:grid;grid-template-columns:320px 1fr;gap:1.5rem;align-items:start}
+@media(max-width:860px){.tool-grid{grid-template-columns:1fr}}
+
+/* ── Config panel (sticky left) ─── */
+.config-panel{position:sticky;top:68px;display:flex;flex-direction:column;gap:1rem}
+@media(max-width:860px){.config-panel{position:static}}
+.config-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.config-header{padding:.65rem 1rem;background:var(--bg-3);border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+.config-body{padding:1rem}
+
+/* ── Form fields ─── */
+.field{margin-bottom:.85rem}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:.65rem;color:var(--body);margin-bottom:.25rem}
+.field input,.field select{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);padding:.4rem .65rem;font-size:.75rem;border-radius:4px;outline:none;transition:border-color .15s;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--teal)}
+.field select{cursor:pointer}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--teal);margin-top:.22rem;min-height:.9rem}
+
+/* ── Run button ─── */
+.run-btn{width:100%;background:var(--teal);color:var(--bg);border:none;padding:.65rem 1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.25rem}
+.run-btn:hover{background:var(--teal-lt)}
+
+/* ── Output panel ─── */
+.output-panel{display:flex;flex-direction:column;gap:1.25rem}
+
+/* ── KPI bar ─── */
+.kpi-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+@media(max-width:640px){.kpi-bar{grid-template-columns:repeat(2,1fr)}}
+.kpi-cell{background:var(--bg-2);padding:.9rem .75rem;text-align:center}
+.kpi-label{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.kpi-value{font-family:'DM Serif Display',serif;font-size:1.35rem;line-height:1.1;color:var(--white)}
+.kpi-value.good{color:var(--green)}
+.kpi-value.warn{color:var(--warn)}
+.kpi-value.danger{color:var(--red)}
+.kpi-sub{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.18rem}
+
+/* ── Out section card ─── */
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-card-header{padding:.65rem 1.1rem;background:var(--bg-3);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.out-card-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-card-body{padding:1.1rem}
+
+/* ── Tables ─── */
+.data-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.data-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.data-table td{padding:.48rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:rgba(255,255,255,.015)}
+.verdict-safe{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border-radius:3px;border:1px solid;color:var(--green);border-color:rgba(34,197,94,.35);background:var(--green-dim)}
+.verdict-caution{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border-radius:3px;border:1px solid;color:var(--warn);border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.08)}
+.verdict-danger{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border-radius:3px;border:1px solid;color:var(--red);border-color:rgba(239,68,68,.35);background:var(--red-dim)}
+
+/* ── Guardrails card ─── */
+.guardrails-card{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--gold);border-radius:var(--radius);padding:.85rem 1rem;font-size:.73rem;color:var(--text);line-height:1.7}
+.guardrails-card h4{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:.6rem}
+.guardrails-rule{display:flex;align-items:flex-start;gap:.6rem;margin-bottom:.45rem;font-size:.7rem}
+.guardrails-rule:last-child{margin-bottom:0}
+.gk-dot{width:6px;height:6px;border-radius:50%;background:var(--gold);flex-shrink:0;margin-top:.45rem}
+
+/* ── FIRE number grid ─── */
+.fire-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem}
+@media(max-width:540px){.fire-grid{grid-template-columns:repeat(2,1fr)}}
+.fire-cell{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .5rem;text-align:center}
+.fire-cell.highlight{border-color:var(--teal);background:var(--teal-dim)}
+.fire-rate{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.fire-amount{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--bright);line-height:1.1}
+.fire-cell.highlight .fire-rate{color:var(--teal)}
+.fire-cell.highlight .fire-amount{color:var(--teal-lt)}
+
+/* ── Export row ─── */
+.results-export-row{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;padding:.9rem 1.1rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);margin-top:.25rem}
+.results-export-row span{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.ap2-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;background:var(--teal);color:var(--bg);border:none;padding:.42rem 1rem;border-radius:4px;transition:background .2s;font-weight:600}
+.ap2-btn:hover{background:var(--teal-lt)}
+
+/* ── Placeholder state ─── */
+.placeholder-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3.5rem 2rem;text-align:center;gap:.75rem;color:var(--muted)}
+.placeholder-icon{font-size:2.5rem;opacity:.4}
+.placeholder-state p{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;line-height:1.6}
+
+/* ── MCP accordion ─── */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+
+/* ── Footer ─── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+
+/* RTL adjustments for Arabic */
+[dir="rtl"] .hero-eyebrow::before{display:none}
+[dir="rtl"] .hero-eyebrow::after{content:'';display:block;width:20px;height:1px;background:var(--teal)}
+[dir="rtl"] .scope-note,.config-card,.out-card{border-left:none}
+[dir="rtl"] .scope-note{border-right:3px solid var(--gold)}
+[dir="rtl"] .guardrails-card{border-left:none;border-right:3px solid var(--gold)}
+[dir="rtl"] .pii-notice{border-left:none;border-right:3px solid var(--teal)}
+[dir="rtl"] .footer-links-ai{flex-direction:row-reverse}
+</style>
+</head>
+<body>
+
+<!-- ── LANG BAR ── -->
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<!-- ── NAV ── -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+    </a>
+    <div class="nav-bc">
+      <a href="../index.html">All Tools</a>
+      <span class="nav-sep">/</span>
+      <a href="../guides/personal-finance-hub.html">Personal Finance Hub</a>
+      <span class="nav-sep">/</span>
+      <span class="nav-bc-current">T-170</span>
+    </div>
+    <div class="nav-right">
+      <a href="../guides/personal-finance-hub.html" class="nav-cta">Hub &#8594;</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── HERO ── -->
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-10 · T170 · Personal Finance</div>
+  <div class="hero-meta">
+    <span class="hero-badge badge-muted"><span>v1.0</span></span>
+    <span class="hero-badge badge-green">Zero PII</span>
+    <span class="hero-badge badge-teal">Client-Side</span>
+    <span class="hero-badge badge-warn">Educational</span>
+  </div>
+  <h1>4% Rule Safe Withdrawal Rate <em>Calculator</em></h1>
+  <p class="hero-desc">Model whether your retirement portfolio can sustain a planned withdrawal rate. Goes beyond the simple 4% rule — runs four market scenarios side-by-side, models inflation erosion, sequence of returns risk, and Guyton-Klinger guardrails. Zero API. Zero PII. No sign-up.</p>
+</div></div>
+
+<!-- ── TOOL BODY ── -->
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+  <div class="scope-note">
+    <strong data-i18n="scope.label">Scope &amp; reliance &mdash;</strong>
+    <span data-i18n="scope.body"> Runs entirely in your browser for modeling and educational purposes. Return assumptions are based on historical averages and are not predictive of future performance. This tool does not constitute financial advice. Verify all parameters and consult a qualified adviser before making retirement planning decisions. Deterministic logic &middot; no inference &middot; zero PII &middot; CC BY 4.0.</span>
+  </div>
+
+  <div class="tool-grid">
+
+    <!-- ── LEFT: CONFIG PANEL ── -->
+    <div class="config-panel">
+
+      <div class="config-card">
+        <div class="config-header" data-i18n="config.portfolio.title">Portfolio &amp; Withdrawal</div>
+        <div class="config-body">
+          <div class="field">
+            <label data-i18n="label.portfolio_value">Current portfolio value ($)</label>
+            <input type="number" id="portfolioValue" value="1000000" min="1" step="1000" oninput="onInputChange()">
+          </div>
+          <div class="field">
+            <label data-i18n="label.annual_withdrawal">Planned annual withdrawal ($)</label>
+            <input type="number" id="annualWithdrawal" value="40000" min="0" step="500" oninput="onInputChange()">
+            <div class="field-hint" id="swrHint">SWR: 4.00%</div>
+          </div>
+          <div class="field">
+            <label data-i18n="label.horizon">Retirement horizon (years)</label>
+            <input type="number" id="horizonYears" value="30" min="10" max="50" step="1" oninput="onInputChange()">
+          </div>
+          <div class="field">
+            <label data-i18n="label.additional_income">Additional income — SS / pension ($/yr)</label>
+            <input type="number" id="additionalIncome" value="0" min="0" step="500" oninput="onInputChange()">
+          </div>
+        </div>
+      </div>
+
+      <div class="config-card">
+        <div class="config-header" data-i18n="config.market.title">Market &amp; Strategy</div>
+        <div class="config-body">
+          <div class="field">
+            <label data-i18n="label.allocation">Portfolio allocation</label>
+            <select id="allocation" onchange="onInputChange()">
+              <option value="bonds100">100% Bonds</option>
+              <option value="stocks40_bonds60">40% Stocks / 60% Bonds</option>
+              <option value="stocks60_bonds40" selected>60% Stocks / 40% Bonds (60/40)</option>
+              <option value="stocks80_bonds20">80% Stocks / 20% Bonds</option>
+              <option value="stocks100">100% Stocks</option>
+            </select>
+          </div>
+          <div class="field">
+            <label data-i18n="label.inflation">Inflation rate (%)</label>
+            <input type="number" id="inflationRate" value="3" min="0" max="15" step="0.1" oninput="onInputChange()">
+          </div>
+          <div class="field">
+            <label data-i18n="label.strategy">Withdrawal strategy</label>
+            <select id="strategy" onchange="onInputChange()">
+              <option value="fixed_nominal">Fixed Nominal</option>
+              <option value="inflation_adjusted" selected>Inflation-Adjusted</option>
+              <option value="guardrails">Guardrails (Guyton-Klinger)</option>
+              <option value="dynamic_pct">Dynamic (% of portfolio)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <button class="run-btn" onclick="runCalculator()" data-i18n="btn.run">&#9654; Run Analysis</button>
+
+    </div><!-- end config-panel -->
+
+    <!-- ── RIGHT: OUTPUT PANEL ── -->
+    <div class="output-panel" id="outputPanel">
+      <div class="out-card" style="background:var(--bg-2)">
+        <div class="placeholder-state">
+          <div class="placeholder-icon">&#128200;</div>
+          <p data-i18n="placeholder.text">Configure your inputs and click<br>Run Analysis to see results</p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end tool-grid -->
+
+</div></div>
+
+<!-- ── MCP / MANIFEST ACCORDION ── -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1rem">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()">
+        <span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span>
+        <span id="mfstArr" style="color:var(--muted)">&#9660;</span>
+      </button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/>
+      </svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/personal-finance-hub.html"><span data-i18n="footer.hub">Personal Finance Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+      <a href="https://postoaklabs.com/demos/personal-finance-retirement-simulator.html" target="_blank" rel="noopener" data-i18n="footer.showcase">POL Showcase</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ============================================================
+   T170 — 4% Rule Safe Withdrawal Rate Calculator
+   AIN-canon-2026-05-17 · v1.0 · CC BY 4.0
+   Zero PII · Zero fetch · sessionStorage(ain_lang) only
+   ============================================================ */
+
+// ── i18n ──────────────────────────────────────────────────────
+var TRANSLATIONS = {
+  en: {
+    'pii.banner': '🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.',
+    'scope.label': 'Scope & reliance —',
+    'scope.body': ' Runs entirely in your browser for modeling and educational purposes. Return assumptions are based on historical averages and are not predictive of future performance. This tool does not constitute financial advice. Verify all parameters and consult a qualified adviser before making retirement planning decisions. Deterministic logic · no inference · zero PII · CC BY 4.0.',
+    'config.portfolio.title': 'Portfolio & Withdrawal',
+    'config.market.title': 'Market & Strategy',
+    'label.portfolio_value': 'Current portfolio value ($)',
+    'label.annual_withdrawal': 'Planned annual withdrawal ($)',
+    'label.horizon': 'Retirement horizon (years)',
+    'label.additional_income': 'Additional income — SS / pension ($/yr)',
+    'label.allocation': 'Portfolio allocation',
+    'label.inflation': 'Inflation rate (%)',
+    'label.strategy': 'Withdrawal strategy',
+    'btn.run': '▶ Run Analysis',
+    'placeholder.text': 'Configure your inputs and click\nRun Analysis to see results',
+    'footer.alltools': 'All Tools',
+    'footer.hub': 'Personal Finance Hub',
+    'footer.sitemap': 'Sitemap',
+    'footer.contact': 'Contact',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy': '🔒 Zero PII   📡 No server calls   💻 Client-side',
+    'kpi.swr': 'Your SWR',
+    'kpi.fire': 'FIRE Number',
+    'kpi.prob': 'Survival Probability',
+    'kpi.years': 'Years Portfolio Lasts',
+    'kpi.real': 'Real Value at 30yr',
+    'section.scenarios': 'SWR Scenarios',
+    'section.guardrails': 'Guyton-Klinger Guardrails',
+    'section.fire': 'FIRE Number at Various SWRs',
+    'section.inflation': 'Inflation Erosion Table',
+    'col.scenario': 'Scenario',
+    'col.swr': 'SWR Used',
+    'col.years': 'Years Portfolio Lasts',
+    'col.balance': 'Balance at Year 30',
+    'col.verdict': 'Verdict',
+    'col.rate': 'SWR Rate',
+    'col.fire_num': 'FIRE Number',
+    'col.year': 'Year',
+    'col.nominal': 'Nominal Withdrawal',
+    'col.real_val': 'Real Value (today\'s $)',
+    'col.pct_eroded': '% Purchasing Power Lost',
+    'scenario.bull': 'Bull Market',
+    'scenario.base': 'Base Case',
+    'scenario.bear': 'Bear Market',
+    'scenario.stress': 'Stress (SoRR)',
+    'verdict.safe': 'Safe',
+    'verdict.caution': 'Caution',
+    'verdict.danger': 'Danger',
+    'export.label': 'Policy Mandate export (AP2 v1.0 JSON)',
+    'export.btn': '⬇ Download AP2 JSON',
+    'gk.title': 'Guyton-Klinger Rules Applied',
+    'gk.upper': 'Upper guardrail: if portfolio value rises 20%+ above baseline, increase withdrawal by 10%.',
+    'gk.lower': 'Lower guardrail: if portfolio value falls 20%+ below baseline, decrease withdrawal by 10%.',
+    'gk.floor': 'Floor rule: withdrawals may not fall below 90% of the initial real withdrawal amount.',
+    'gk.cap': 'Capital preservation rule: no withdrawal increase in years where the portfolio would be lower than at retirement start.',
+    'gk.note': 'Guardrails are modeled as a 10% adjustment band around the fixed nominal withdrawal at each evaluation. The simulation applies adjustments annually.',
+    'fire.your_target': '← your target'
+  },
+  es: {
+    'pii.banner': '🔒 Todos los datos se procesan localmente en su navegador. No se transmite información. No ingrese datos personales reales — use datos sintéticos o anonimizados.',
+    'scope.label': 'Alcance y uso —',
+    'scope.body': ' Se ejecuta completamente en su navegador con fines de modelado y educación. Los supuestos de rendimiento se basan en promedios históricos y no son predictivos. Esta herramienta no constituye asesoramiento financiero. Verifique todos los parámetros y consulte a un asesor calificado antes de tomar decisiones de planificación de jubilación.',
+    'config.portfolio.title': 'Portafolio y Retiros',
+    'config.market.title': 'Mercado y Estrategia',
+    'label.portfolio_value': 'Valor actual del portafolio ($)',
+    'label.annual_withdrawal': 'Retiro anual planificado ($)',
+    'label.horizon': 'Horizonte de jubilación (años)',
+    'label.additional_income': 'Ingreso adicional — SS / pensión ($/año)',
+    'label.allocation': 'Asignación de portafolio',
+    'label.inflation': 'Tasa de inflación (%)',
+    'label.strategy': 'Estrategia de retiro',
+    'btn.run': '▶ Ejecutar Análisis',
+    'footer.alltools': 'Todas las Herramientas',
+    'footer.hub': 'Centro de Finanzas Personales',
+    'footer.sitemap': 'Mapa del Sitio',
+    'footer.contact': 'Contacto',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'kpi.swr': 'Tu TRS',
+    'kpi.fire': 'Número FIRE',
+    'kpi.prob': 'Prob. Supervivencia',
+    'kpi.years': 'Años del Portafolio',
+    'kpi.real': 'Valor Real año 30',
+    'section.scenarios': 'Escenarios TRS',
+    'section.guardrails': 'Barandillas Guyton-Klinger',
+    'section.fire': 'Número FIRE por Tasa',
+    'section.inflation': 'Erosión por Inflación',
+    'scenario.bull': 'Mercado Alcista',
+    'scenario.base': 'Caso Base',
+    'scenario.bear': 'Mercado Bajista',
+    'scenario.stress': 'Estrés (SoRR)',
+    'verdict.safe': 'Seguro',
+    'verdict.caution': 'Precaución',
+    'verdict.danger': 'Peligro',
+    'export.btn': '⬇ Descargar AP2 JSON',
+    'export.label': 'Exportar Mandato de Política (AP2 v1.0 JSON)'
+  },
+  fr: {
+    'pii.banner': '🔒 Toutes les données sont traitées localement dans votre navigateur. Aucune donnée n\'est transmise. N\'entrez pas de données personnelles réelles — utilisez des données synthétiques ou anonymisées.',
+    'scope.label': 'Portée et utilisation —',
+    'scope.body': ' S\'exécute entièrement dans votre navigateur à des fins de modélisation et d\'éducation. Les hypothèses de rendement sont basées sur des moyennes historiques et ne sont pas prédictives. Cet outil ne constitue pas un conseil financier. Consultez un conseiller qualifié avant de prendre des décisions de planification de la retraite.',
+    'config.portfolio.title': 'Portefeuille et Retraits',
+    'config.market.title': 'Marché et Stratégie',
+    'label.portfolio_value': 'Valeur actuelle du portefeuille ($)',
+    'label.annual_withdrawal': 'Retrait annuel prévu ($)',
+    'label.horizon': 'Horizon de retraite (ans)',
+    'label.additional_income': 'Revenu complémentaire — SS / retraite ($/an)',
+    'label.allocation': 'Allocation du portefeuille',
+    'label.inflation': 'Taux d\'inflation (%)',
+    'label.strategy': 'Stratégie de retrait',
+    'btn.run': '▶ Lancer l\'Analyse',
+    'footer.alltools': 'Tous les Outils',
+    'footer.hub': 'Hub Finance Personnelle',
+    'footer.sitemap': 'Plan du Site',
+    'footer.contact': 'Contact',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'kpi.swr': 'Votre TRS',
+    'kpi.fire': 'Nombre FIRE',
+    'kpi.prob': 'Prob. Survie',
+    'kpi.years': 'Années du Portefeuille',
+    'kpi.real': 'Valeur Réelle an 30',
+    'section.scenarios': 'Scénarios TRS',
+    'section.guardrails': 'Garde-fous Guyton-Klinger',
+    'section.fire': 'Nombre FIRE par Taux',
+    'section.inflation': 'Érosion par l\'Inflation',
+    'scenario.bull': 'Marché Haussier',
+    'scenario.base': 'Cas de Base',
+    'scenario.bear': 'Marché Baissier',
+    'scenario.stress': 'Stress (SoRR)',
+    'verdict.safe': 'Sûr',
+    'verdict.caution': 'Prudence',
+    'verdict.danger': 'Danger',
+    'export.btn': '⬇ Télécharger AP2 JSON',
+    'export.label': 'Export Mandat Politique (AP2 v1.0 JSON)'
+  },
+  ar: {
+    'pii.banner': '🔒 تتم معالجة جميع البيانات محليًا في متصفحك. لا يتم نقل أي بيانات. لا تُدخل بيانات شخصية حقيقية — استخدم بيانات اصطناعية أو مجهولة الهوية فقط.',
+    'scope.label': 'النطاق والاستخدام —',
+    'scope.body': ' يعمل بالكامل في متصفحك لأغراض النمذجة والتعليم. افتراضات العائد مبنية على متوسطات تاريخية وليست تنبؤية. هذه الأداة لا تمثل مشورة مالية.',
+    'config.portfolio.title': 'المحفظة والسحوبات',
+    'config.market.title': 'السوق والاستراتيجية',
+    'label.portfolio_value': 'القيمة الحالية للمحفظة ($)',
+    'label.annual_withdrawal': 'السحب السنوي المخطط ($)',
+    'label.horizon': 'أفق التقاعد (سنوات)',
+    'label.additional_income': 'دخل إضافي — ضمان اجتماعي / معاش ($/سنة)',
+    'label.allocation': 'توزيع المحفظة',
+    'label.inflation': 'معدل التضخم (%)',
+    'label.strategy': 'استراتيجية السحب',
+    'btn.run': '▶ تشغيل التحليل',
+    'footer.alltools': 'جميع الأدوات',
+    'footer.hub': 'مركز التمويل الشخصي',
+    'footer.sitemap': 'خريطة الموقع',
+    'footer.contact': 'تواصل معنا',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'kpi.swr': 'معدل السحب الآمن',
+    'kpi.fire': 'رقم FIRE',
+    'kpi.prob': 'احتمالية البقاء',
+    'kpi.years': 'سنوات المحفظة',
+    'kpi.real': 'القيمة الحقيقية سنة 30',
+    'scenario.bull': 'سوق صاعد',
+    'scenario.base': 'الحالة الأساسية',
+    'scenario.bear': 'سوق هابط',
+    'scenario.stress': 'إجهاد (SoRR)',
+    'verdict.safe': 'آمن',
+    'verdict.caution': 'تحذير',
+    'verdict.danger': 'خطر'
+  },
+  pt: {
+    'pii.banner': '🔒 Todos os dados são processados localmente no seu navegador. Nenhum dado é transmitido. Não insira dados pessoais reais — use dados sintéticos ou anonimizados.',
+    'scope.label': 'Escopo e uso —',
+    'scope.body': ' Executa inteiramente no seu navegador para fins de modelagem e educação. Os retornos assumidos baseiam-se em médias históricas e não são preditivos. Esta ferramenta não constitui aconselhamento financeiro.',
+    'config.portfolio.title': 'Portfólio e Saques',
+    'config.market.title': 'Mercado e Estratégia',
+    'label.portfolio_value': 'Valor atual do portfólio ($)',
+    'label.annual_withdrawal': 'Saque anual planejado ($)',
+    'label.horizon': 'Horizonte de aposentadoria (anos)',
+    'label.additional_income': 'Renda adicional — SS / pensão ($/ano)',
+    'label.allocation': 'Alocação do portfólio',
+    'label.inflation': 'Taxa de inflação (%)',
+    'label.strategy': 'Estratégia de saque',
+    'btn.run': '▶ Executar Análise',
+    'footer.alltools': 'Todas as Ferramentas',
+    'footer.hub': 'Centro de Finanças Pessoais',
+    'footer.sitemap': 'Mapa do Site',
+    'footer.contact': 'Contato',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'kpi.swr': 'Sua TRS',
+    'kpi.fire': 'Número FIRE',
+    'kpi.prob': 'Prob. Sobrevivência',
+    'kpi.years': 'Anos do Portfólio',
+    'kpi.real': 'Valor Real ano 30',
+    'scenario.bull': 'Mercado em Alta',
+    'scenario.base': 'Caso Base',
+    'scenario.bear': 'Mercado em Baixa',
+    'scenario.stress': 'Estresse (SoRR)',
+    'verdict.safe': 'Seguro',
+    'verdict.caution': 'Cautela',
+    'verdict.danger': 'Perigo',
+    'export.btn': '⬇ Baixar AP2 JSON',
+    'export.label': 'Exportar Mandato de Política (AP2 v1.0 JSON)'
+  },
+  zh: {
+    'pii.banner': '🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。请勿输入真实个人数据 — 仅使用合成或匿名数据。',
+    'scope.label': '范围与用途 —',
+    'scope.body': ' 完全在您的浏览器中运行，用于建模和教育目的。回报假设基于历史平均值，不具预测性。本工具不构成财务建议。',
+    'config.portfolio.title': '投资组合与提款',
+    'config.market.title': '市场与策略',
+    'label.portfolio_value': '当前投资组合价值（$）',
+    'label.annual_withdrawal': '计划年度提款（$）',
+    'label.horizon': '退休期限（年）',
+    'label.additional_income': '额外收入 — 社保 / 养老金（$/年）',
+    'label.allocation': '投资组合配置',
+    'label.inflation': '通胀率（%）',
+    'label.strategy': '提款策略',
+    'btn.run': '▶ 运行分析',
+    'footer.alltools': '所有工具',
+    'footer.hub': '个人理财中心',
+    'footer.sitemap': '网站地图',
+    'footer.contact': '联系我们',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs',
+    'kpi.swr': '安全提款率',
+    'kpi.fire': 'FIRE数字',
+    'kpi.prob': '存活概率',
+    'kpi.years': '投资组合持续年数',
+    'kpi.real': '第30年实际价值',
+    'scenario.bull': '牛市',
+    'scenario.base': '基准情景',
+    'scenario.bear': '熊市',
+    'scenario.stress': '压力（SoRR）',
+    'verdict.safe': '安全',
+    'verdict.caution': '谨慎',
+    'verdict.danger': '危险',
+    'export.btn': '⬇ 下载 AP2 JSON',
+    'export.label': '政策授权导出（AP2 v1.0 JSON）'
+  }
+};
+
+var currentLang = 'en';
+
+function t(key) {
+  var d = TRANSLATIONS[currentLang] || TRANSLATIONS['en'];
+  var e = TRANSLATIONS['en'];
+  return d[key] || e[key] || key;
+}
+
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  currentLang = lang;
+  var dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    var key = el.getAttribute('data-i18n');
+    var val = dict[key] || (TRANSLATIONS['en'] && TRANSLATIONS['en'][key]);
+    if (val !== undefined) el.textContent = val;
+  });
+  document.querySelectorAll('.lang-btn').forEach(function(b) { b.classList.remove('active'); });
+  var active = document.querySelector('.lang-btn[data-lang="' + lang + '"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+  // Re-render results if present
+  if (document.getElementById('kpiBar')) runCalculator();
+}
+(function() {
+  try { var s = sessionStorage.getItem('ain_lang'); if (s) setLang(s); } catch(e) {}
+})();
+
+// ── Math helpers ──────────────────────────────────────────────
+
+// Portfolio allocation real return assumptions (nominal minus ~2% long-run inflation base)
+var ALLOC_RETURNS = {
+  bonds100:           { bull: 0.030, base: 0.010, bear: -0.010, stress_late: 0.010 },
+  stocks40_bonds60:   { bull: 0.050, base: 0.030, bear: 0.005,  stress_late: 0.030 },
+  stocks60_bonds40:   { bull: 0.060, base: 0.040, bear: 0.015,  stress_late: 0.040 },
+  stocks80_bonds20:   { bull: 0.075, base: 0.050, bear: 0.020,  stress_late: 0.050 },
+  stocks100:          { bull: 0.090, base: 0.060, bear: 0.025,  stress_late: 0.060 }
+};
+
+// Base survival probability at 4% / 30yr per allocation (historical research proxies)
+// Source: Bengen 1994, Trinity Study, Kitces research
+var BASE_SURVIVAL = {
+  bonds100:         { p4_30: 0.60 },
+  stocks40_bonds60: { p4_30: 0.80 },
+  stocks60_bonds40: { p4_30: 0.87 },
+  stocks80_bonds20: { p4_30: 0.91 },
+  stocks100:        { p4_30: 0.85 }  // higher return but more variance
+};
+
+function fmt$(n) {
+  if (n === Infinity || !isFinite(n)) return '&#8734;';
+  var neg = n < 0;
+  var abs = Math.abs(n);
+  var s;
+  if (abs >= 1e9) s = '$' + (abs / 1e9).toFixed(1) + 'B';
+  else if (abs >= 1e6) s = '$' + (abs / 1e6).toFixed(2) + 'M';
+  else if (abs >= 1e3) s = '$' + Math.round(abs).toLocaleString('en-US');
+  else s = '$' + Math.round(abs).toLocaleString('en-US');
+  return (neg ? '-' : '') + s;
+}
+
+function fmtPct(n) {
+  return n.toFixed(2) + '%';
+}
+
+function calcWithdrawal(baseW, year, inflation, strategy, balance, initialBalance) {
+  var inf = inflation / 100;
+  if (strategy === 'fixed_nominal') return baseW;
+  if (strategy === 'inflation_adjusted') return baseW * Math.pow(1 + inf, year);
+  if (strategy === 'dynamic_pct') {
+    // withdraw as a fixed % of current balance (using initial SWR %)
+    var pct = baseW / initialBalance;
+    return balance * pct;
+  }
+  if (strategy === 'guardrails') {
+    // simplified: inflation-adjusted with 10% band adjustment per year
+    return baseW * Math.pow(1 + inf, year);
+  }
+  return baseW;
+}
+
+/**
+ * Simulate portfolio depletion year-by-year.
+ * Returns { yearsLast, balanceAt30, balanceAtHorizon }
+ * realReturn: annual real return (already net of inflation for non-inflation strategies)
+ * If stress: first 5 years use stressReturn, then lateReturn
+ */
+function simulatePortfolio(portfolio, annualWithdrawal, additionalIncome, horizon, realReturn, strategy, inflation, stressReturn, lateReturn) {
+  var bal = portfolio;
+  var initialBal = portfolio;
+  var yearsLast = 0;
+  var balAt30 = null;
+  var inf = inflation / 100;
+
+  for (var yr = 0; yr < horizon; yr++) {
+    var ret = (stressReturn !== undefined && lateReturn !== undefined)
+      ? (yr < 5 ? stressReturn : lateReturn)
+      : realReturn;
+
+    // Effective withdrawal (net additional income)
+    var w = calcWithdrawal(annualWithdrawal, yr, inflation, strategy, bal, initialBal);
+    var netW = Math.max(0, w - additionalIncome);
+
+    // Growth first (start of year), then withdrawal
+    bal = bal * (1 + ret) - netW;
+
+    if (yr === 29) balAt30 = bal; // index 29 = end of year 30
+
+    if (bal <= 0) {
+      yearsLast = yr + 1; // depleted partway through year yr+1
+      break;
+    }
+    yearsLast = yr + 2; // will last at least through next year
+  }
+  if (bal > 0) yearsLast = horizon + 1; // survived full horizon, cap display
+  if (balAt30 === null) balAt30 = bal; // horizon < 30
+
+  return {
+    yearsLast: Math.min(yearsLast, horizon),
+    survived: bal > 0,
+    balanceAt30: balAt30,
+    balanceAtHorizon: bal
+  };
+}
+
+/**
+ * Estimate survival probability for a given SWR and allocation.
+ * Uses calibrated adjustments around the historical 4%/30yr baselines.
+ */
+function estimateSurvivalProbability(swr, horizon, alloc, strategy) {
+  var base = (BASE_SURVIVAL[alloc] || BASE_SURVIVAL['stocks60_bonds40']).p4_30;
+  // Adjust for SWR: each 0.5% above 4% cuts ~8pp; each 0.5% below adds ~5pp
+  var swrDelta = swr - 4.0;
+  var adjustment = swrDelta * (-16); // pp per 1% SWR increase
+  // Adjust for horizon: 30yr is baseline; add 5pp per 10yr shorter, subtract 7pp per 10yr longer
+  var horizonDelta = (30 - horizon) / 10;
+  var horizonAdj = horizonDelta * 5;
+  // Strategy bonus: guardrails and dynamic improve survival ~5-8pp
+  var stratBonus = (strategy === 'guardrails' || strategy === 'dynamic_pct') ? 6 : 0;
+  var p = base + adjustment / 100 + horizonAdj / 100 + stratBonus / 100;
+  return Math.min(0.99, Math.max(0.02, p));
+}
+
+function getVerdict(swr, probSurvival) {
+  if (probSurvival >= 0.85 && swr <= 4.5) return 'safe';
+  if (probSurvival >= 0.70) return 'caution';
+  return 'danger';
+}
+
+// ── Input change (live SWR hint) ───────────────────────────────
+function onInputChange() {
+  var pv = parseFloat(document.getElementById('portfolioValue').value) || 0;
+  var aw = parseFloat(document.getElementById('annualWithdrawal').value) || 0;
+  var hint = document.getElementById('swrHint');
+  if (pv > 0) {
+    var swr = (aw / pv) * 100;
+    hint.textContent = 'SWR: ' + swr.toFixed(2) + '%';
+    hint.style.color = swr <= 4 ? 'var(--green)' : swr <= 5 ? 'var(--warn)' : 'var(--red)';
+  } else {
+    hint.textContent = '';
+  }
+}
+
+// ── Main calculator ────────────────────────────────────────────
+function runCalculator() {
+  var portfolio   = parseFloat(document.getElementById('portfolioValue').value)   || 1000000;
+  var withdrawal  = parseFloat(document.getElementById('annualWithdrawal').value)  || 40000;
+  var horizon     = parseInt(document.getElementById('horizonYears').value)         || 30;
+  var addIncome   = parseFloat(document.getElementById('additionalIncome').value)   || 0;
+  var alloc       = document.getElementById('allocation').value;
+  var inflation   = parseFloat(document.getElementById('inflationRate').value)      || 3;
+  var strategy    = document.getElementById('strategy').value;
+
+  var swr = (withdrawal / portfolio) * 100;
+  var fireNumber = withdrawal / 0.04; // FIRE at 4%
+  var returns = ALLOC_RETURNS[alloc] || ALLOC_RETURNS['stocks60_bonds40'];
+
+  // ── Scenarios ──
+  var scenarios = [
+    {
+      key: 'bull',
+      label: t('scenario.bull'),
+      ret: returns.bull,
+      result: simulatePortfolio(portfolio, withdrawal, addIncome, horizon, returns.bull, strategy, inflation)
+    },
+    {
+      key: 'base',
+      label: t('scenario.base'),
+      ret: returns.base,
+      result: simulatePortfolio(portfolio, withdrawal, addIncome, horizon, returns.base, strategy, inflation)
+    },
+    {
+      key: 'bear',
+      label: t('scenario.bear'),
+      ret: returns.bear,
+      result: simulatePortfolio(portfolio, withdrawal, addIncome, horizon, returns.bear, strategy, inflation)
+    },
+    {
+      key: 'stress',
+      label: t('scenario.stress'),
+      ret: returns.stress_late,
+      result: simulatePortfolio(portfolio, withdrawal, addIncome, horizon, returns.base, strategy, inflation, -0.005, returns.stress_late)
+    }
+  ];
+
+  // ── KPIs ──
+  var baseResult = scenarios[1].result;
+  var probSurvival = estimateSurvivalProbability(swr, horizon, alloc, strategy);
+  var realValueAt30 = baseResult.balanceAt30;
+  var verdict = getVerdict(swr, probSurvival);
+
+  // ── Render ──
+  var panel = document.getElementById('outputPanel');
+  panel.innerHTML = buildOutput(swr, fireNumber, probSurvival, baseResult.yearsLast, realValueAt30, scenarios, withdrawal, portfolio, inflation, horizon, strategy, alloc, portfolio, verdict, addIncome);
+
+  // Wire up AP2 export
+  var exportBtn = document.getElementById('ap2ExportBtn');
+  if (exportBtn) {
+    exportBtn.onclick = function() {
+      downloadAP2({
+        portfolio_value: portfolio,
+        annual_withdrawal: withdrawal,
+        swr_pct: swr,
+        horizon_years: horizon,
+        allocation: alloc,
+        inflation_pct: inflation,
+        strategy: strategy
+      }, {
+        base_case_years_to_depletion: baseResult.yearsLast,
+        real_value_at_30yr: realValueAt30,
+        implied_fire_number: fireNumber,
+        survival_probability_pct: Math.round(probSurvival * 100)
+      }, verdict);
+    };
+  }
+
+  // Update manifest code
+  updateMfst();
+}
+
+// ── Output HTML builder ────────────────────────────────────────
+function buildOutput(swr, fireNum, probSurvival, baseYears, realVal30, scenarios, withdrawal, portfolio, inflation, horizon, strategy, alloc, initialPortfolio, verdict, addIncome) {
+  var html = '';
+
+  // KPI bar
+  var swrClass = swr <= 4 ? 'good' : swr <= 5 ? 'warn' : 'danger';
+  var probClass = probSurvival >= 0.85 ? 'good' : probSurvival >= 0.70 ? 'warn' : 'danger';
+  var yearsClass = baseYears >= horizon ? 'good' : baseYears >= horizon * 0.7 ? 'warn' : 'danger';
+  var realClass = realVal30 > 0 ? 'good' : 'danger';
+  var baseYearsLabel = baseYears >= horizon ? horizon + '+ yrs' : baseYears + ' yrs';
+
+  html += '<div id="kpiBar" class="kpi-bar">';
+  html += kpiCell(t('kpi.swr'), '<span class="kpi-value ' + swrClass + '">' + fmtPct(swr) + '</span>', 'vs 4% rule');
+  html += kpiCell(t('kpi.fire'), '<span class="kpi-value">' + fmt$(fireNum) + '</span>', 'at 4.0% SWR');
+  html += kpiCell(t('kpi.prob'), '<span class="kpi-value ' + probClass + '">' + Math.round(probSurvival * 100) + '%</span>', horizon + '-yr horizon');
+  html += kpiCell(t('kpi.years'), '<span class="kpi-value ' + yearsClass + '">' + baseYearsLabel + '</span>', 'base case');
+  html += kpiCell(t('kpi.real'), '<span class="kpi-value ' + realClass + '">' + fmt$(realVal30) + '</span>', 'base case');
+  html += '</div>';
+
+  // Scenarios table
+  html += '<div class="out-card">';
+  html += '<div class="out-card-header"><span class="out-card-title">' + t('section.scenarios') + '</span></div>';
+  html += '<div class="out-card-body">';
+  html += '<table class="data-table"><thead><tr>';
+  html += '<th>' + t('col.scenario') + '</th>';
+  html += '<th>' + t('col.swr') + '</th>';
+  html += '<th>' + t('col.years') + '</th>';
+  html += '<th>' + t('col.balance') + '</th>';
+  html += '<th>' + t('col.verdict') + '</th>';
+  html += '</tr></thead><tbody>';
+
+  scenarios.forEach(function(sc) {
+    var scenarioSWR = swr; // same inputs, different return environment
+    var sv = estimateSurvivalProbability(swr, horizon, alloc, strategy);
+    // Adjust survival per scenario
+    if (sc.key === 'bull') sv = Math.min(0.99, sv + 0.08);
+    if (sc.key === 'bear') sv = Math.max(0.02, sv - 0.18);
+    if (sc.key === 'stress') sv = Math.max(0.02, sv - 0.22);
+    var v = getVerdict(scenarioSWR, sv);
+    var yLabel = sc.result.survived ? (horizon + '+') : String(sc.result.yearsLast);
+    html += '<tr>';
+    html += '<td style="color:var(--bright);font-weight:500">' + sc.label + '</td>';
+    html += '<td style="font-family:\'JetBrains Mono\',monospace">' + fmtPct(scenarioSWR) + '</td>';
+    html += '<td style="font-family:\'JetBrains Mono\',monospace">' + yLabel + '</td>';
+    html += '<td style="font-family:\'JetBrains Mono\',monospace">' + fmt$(sc.result.balanceAt30) + '</td>';
+    html += '<td>' + verdictBadge(v) + '</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  html += '</div></div>';
+
+  // Guardrails card (if strategy = guardrails)
+  if (strategy === 'guardrails') {
+    html += '<div class="out-card">';
+    html += '<div class="out-card-header"><span class="out-card-title">' + t('section.guardrails') + '</span></div>';
+    html += '<div class="out-card-body">';
+    html += '<div class="guardrails-card">';
+    html += '<h4>' + t('gk.title') + '</h4>';
+    html += gkRule(t('gk.upper'));
+    html += gkRule(t('gk.lower'));
+    html += gkRule(t('gk.floor'));
+    html += gkRule(t('gk.cap'));
+    html += '<p style="margin-top:.6rem;font-size:.68rem;color:var(--muted)">' + t('gk.note') + '</p>';
+    html += '</div>';
+    html += '</div></div>';
+  }
+
+  // FIRE number at various SWRs
+  var targetSWR = parseFloat(swr.toFixed(1));
+  var fireRates = [3.0, 3.5, 4.0, 4.5, 5.0];
+  html += '<div class="out-card">';
+  html += '<div class="out-card-header"><span class="out-card-title">' + t('section.fire') + '</span></div>';
+  html += '<div class="out-card-body">';
+  html += '<div class="fire-grid">';
+  fireRates.forEach(function(r) {
+    var fn = withdrawal / (r / 100);
+    var isActive = Math.abs(r - parseFloat(swr.toFixed(1))) < 0.4;
+    html += '<div class="fire-cell' + (isActive ? ' highlight' : '') + '">';
+    html += '<div class="fire-rate">' + r.toFixed(1) + '%' + (isActive ? ' &#8592;' : '') + '</div>';
+    html += '<div class="fire-amount">' + fmt$(fn) + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  html += '<p style="font-family:\'JetBrains Mono\',monospace;font-size:.52rem;color:var(--muted);margin-top:.75rem">FIRE Number = Annual Withdrawal &divide; SWR · Highlighted = closest to your current rate</p>';
+  html += '</div></div>';
+
+  // Inflation erosion table
+  var inflYears = [5, 10, 15, 20, 25, 30];
+  html += '<div class="out-card">';
+  html += '<div class="out-card-header"><span class="out-card-title">' + t('section.inflation') + '</span></div>';
+  html += '<div class="out-card-body">';
+  html += '<table class="data-table"><thead><tr>';
+  html += '<th>' + t('col.year') + '</th>';
+  html += '<th>' + t('col.nominal') + '</th>';
+  html += '<th>' + t('col.real_val') + '</th>';
+  html += '<th>' + t('col.pct_eroded') + '</th>';
+  html += '</tr></thead><tbody>';
+  var inf = inflation / 100;
+  inflYears.forEach(function(yr) {
+    var inflAdj = withdrawal * Math.pow(1 + inf, yr);
+    var realPurchasing = withdrawal / Math.pow(1 + inf, yr);
+    var pctLost = (1 - 1 / Math.pow(1 + inf, yr)) * 100;
+    html += '<tr>';
+    html += '<td style="font-family:\'JetBrains Mono\',monospace">Year ' + yr + '</td>';
+    html += '<td style="font-family:\'JetBrains Mono\',monospace">' + fmt$(inflAdj) + '</td>';
+    html += '<td style="font-family:\'JetBrains Mono\',monospace;color:var(--warn)">' + fmt$(realPurchasing) + '</td>';
+    html += '<td style="font-family:\'JetBrains Mono\',monospace;color:var(--red)">' + pctLost.toFixed(1) + '%</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  html += '<p style="font-family:\'JetBrains Mono\',monospace;font-size:.52rem;color:var(--muted);margin-top:.65rem">Nominal withdrawal shown as inflation-adjusted amount needed to maintain purchasing power. Real value column shows what today\'s ' + fmt$(withdrawal) + ' buys in future dollars at ' + inflation + '% p.a.</p>';
+  html += '</div></div>';
+
+  // AP2 Export row
+  html += '<div class="results-export-row">';
+  html += '<span>' + t('export.label') + '</span>';
+  html += '<button class="ap2-btn" id="ap2ExportBtn">' + t('export.btn') + '</button>';
+  html += '</div>';
+
+  return html;
+}
+
+function kpiCell(label, valueHtml, sub) {
+  return '<div class="kpi-cell"><div class="kpi-label">' + label + '</div>' + valueHtml + '<div class="kpi-sub">' + sub + '</div></div>';
+}
+
+function verdictBadge(v) {
+  if (v === 'safe')    return '<span class="verdict-safe">'    + t('verdict.safe')    + '</span>';
+  if (v === 'caution') return '<span class="verdict-caution">' + t('verdict.caution') + '</span>';
+  return '<span class="verdict-danger">' + t('verdict.danger') + '</span>';
+}
+
+function gkRule(text) {
+  return '<div class="guardrails-rule"><div class="gk-dot"></div><span>' + text + '</span></div>';
+}
+
+// ── AP2 export ─────────────────────────────────────────────────
+function downloadAP2(inputs, outputs, verdict) {
+  var payload = {
+    schema: 'ap2-v1.0',
+    tool: 'T170 Safe Withdrawal Rate Calculator',
+    generated: new Date().toISOString().slice(0, 10),
+    inputs: inputs,
+    outputs: outputs,
+    verdict: verdict.charAt(0).toUpperCase() + verdict.slice(1),
+    constraints: [
+      'Zero PII',
+      'Educational use only — not financial advice',
+      'Historical return data is indicative, not predictive',
+      'CC BY 4.0'
+    ]
+  };
+  // Validate required fields before download
+  var valid = payload.schema === 'ap2-v1.0' &&
+              typeof payload.inputs.portfolio_value === 'number' &&
+              typeof payload.inputs.swr_pct === 'number' &&
+              ['Safe','Caution','Danger'].indexOf(payload.verdict) > -1;
+  if (!valid) {
+    alert('AP2 schema validation failed. Please re-run the analysis before exporting.');
+    return;
+  }
+  var json = JSON.stringify(payload, null, 2);
+  var blob = new Blob([json], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'T170-safe-withdrawal-rate-ap2.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── MCP manifest accordion ─────────────────────────────────────
+function toggleMfst() {
+  var body = document.getElementById('mfstBody');
+  var arr  = document.getElementById('mfstArr');
+  var open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  arr.innerHTML = open ? '&#9660;' : '&#9650;';
+  if (!open) updateMfst();
+}
+
+function updateMfst() {
+  var pv  = parseFloat(document.getElementById('portfolioValue').value)  || 1000000;
+  var aw  = parseFloat(document.getElementById('annualWithdrawal').value) || 40000;
+  var hy  = parseInt(document.getElementById('horizonYears').value)        || 30;
+  var swr = ((aw / pv) * 100).toFixed(2);
+  var code = document.getElementById('mfstCode');
+  if (!code) return;
+  code.textContent = JSON.stringify({
+    "tool_id": "safe-withdrawal-rate-calculator",
+    "version": "1.0.0",
+    "title": "4% Rule Safe Withdrawal Rate Calculator",
+    "ap2_schema": "ap2-v1.0",
+    "sample_call": {
+      "portfolio_value": pv,
+      "annual_withdrawal": aw,
+      "swr_pct": parseFloat(swr),
+      "horizon_years": hy,
+      "allocation": document.getElementById('allocation').value,
+      "inflation_pct": parseFloat(document.getElementById('inflationRate').value) || 3,
+      "strategy": document.getElementById('strategy').value
+    },
+    "constraints": ["Zero PII", "Educational use only", "CC BY 4.0"]
+  }, null, 2);
+}
+
+// ── Init ───────────────────────────────────────────────────────
+onInputChange();
+// Auto-run on load with defaults
+runCalculator();
+</script>
+</body>
+</html>

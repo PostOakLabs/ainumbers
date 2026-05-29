@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Roth vs. Traditional Conversion Estimator · AINumbers.co</title>
+<meta name="description" content="Model the tax impact and long-term benefit of converting traditional IRA or 401k funds to Roth. Breakeven age, bracket analysis, and net lifetime advantage — all client-side, zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/169-roth-traditional-conversion-estimator.html">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Roth vs. Traditional Conversion Estimator","url":"https://ainumbers.co/tools/169-roth-traditional-conversion-estimator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<!-- manifest.json
+{
+  "tool_id": "roth-traditional-conversion-estimator",
+  "version": "1.0.0",
+  "title": "Roth vs. Traditional Conversion Estimator",
+  "description": "Models the tax impact and long-term benefit of converting traditional IRA/401k to Roth. Outputs breakeven age, bracket analysis, and net lifetime advantage. Zero PII. Client-side.",
+  "category": "cat-10",
+  "tags": ["Roth","IRA","401k","conversion","tax planning","retirement","personal finance"],
+  "audience": ["individual","advisor","planner"],
+  "input_schema": {"type":"object","properties":{"current_age":{"type":"number"},"retirement_age":{"type":"number"},"conversion_amount":{"type":"number"},"current_tax_rate_pct":{"type":"number"},"expected_retirement_tax_rate_pct":{"type":"number"},"expected_return_pct":{"type":"number"},"state_tax_rate_pct":{"type":"number"}},"required":["current_age","retirement_age","conversion_amount","current_tax_rate_pct","expected_retirement_tax_rate_pct","expected_return_pct"]},
+  "output_schema": {"type":"object","properties":{"tax_cost_now":{"type":"number"},"roth_balance_at_retirement":{"type":"number"},"traditional_after_tax_at_retirement":{"type":"number"},"net_advantage_roth":{"type":"number"},"breakeven_age":{"type":"number"},"verdict":{"type":"string"}}},
+  "mcp_tool_definition": {"name":"estimate_roth_conversion","description":"Estimates tax impact and long-term benefit of converting traditional IRA/401k to Roth. Returns breakeven age, bracket analysis, and net lifetime advantage.","inputSchema":{"type":"object","properties":{"current_age":{"type":"number"},"retirement_age":{"type":"number"},"conversion_amount":{"type":"number"},"current_tax_rate_pct":{"type":"number"},"expected_retirement_tax_rate_pct":{"type":"number"},"expected_return_pct":{"type":"number"},"state_tax_rate_pct":{"type":"number"}},"required":["current_age","retirement_age","conversion_amount","current_tax_rate_pct","expected_retirement_tax_rate_pct","expected_return_pct"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/169-roth-traditional-conversion-estimator.html","function_name":"runEstimator","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- AIN-canon-2026-05-17 -->
+<style>
+/* ── RESET & TOKENS ─────────────────────────────────── */
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855;
+  --muted:#3A5270; --body:#6888A8; --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.1);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12); --purple-lt:#B794F4;
+  --radius:6px; --radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased;padding-bottom:24px}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button,input,select{font-family:'Sora',sans-serif;cursor:pointer}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.018) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* ── LANG BAR ─────────────────────────────────────── */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+
+/* ── NAV ─────────────────────────────────────────── */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:1rem}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center;justify-self:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem;justify-self:end}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+
+/* ── HERO ─────────────────────────────────────────── */
+.hero{padding:2rem 0 1.75rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.6rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.tool-title{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.5rem}
+.tool-title em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+
+/* ── PII NOTICE ─────────────────────────────────── */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+
+/* ── SCOPE NOTE ─────────────────────────────────── */
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.25rem;color:#9aa7b8}
+.scope-note strong{color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase}
+
+/* ── TOOL GRID (sticky left panel) ──────────────── */
+.tool-body{position:relative;z-index:1;padding:1.75rem 0 4rem}
+.tool-grid{display:grid;grid-template-columns:320px 1fr;gap:1.5rem;align-items:start}
+@media(max-width:860px){.tool-grid{grid-template-columns:1fr}}
+[dir="rtl"] .tool-grid{direction:rtl}
+
+/* ── CONFIG PANEL ─────────────────────────────── */
+.config-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;position:sticky;top:68px}
+.panel-section-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.panel-row{margin-bottom:.9rem}
+.panel-row label{font-size:.68rem;color:var(--body);display:block;margin-bottom:.25rem;font-weight:400}
+.panel-row input[type="number"],
+.panel-row select{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.4rem .65rem;border-radius:4px;outline:none;transition:border-color .15s;-moz-appearance:textfield;-webkit-appearance:none;appearance:none}
+.panel-row input[type="number"]::-webkit-inner-spin-button,
+.panel-row input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none}
+.panel-row input[type="number"]:focus,
+.panel-row select:focus{border-color:var(--teal)}
+.panel-row select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%233A5270'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .65rem center;padding-right:1.8rem;cursor:pointer}
+.panel-divider{border:none;border-top:1px solid var(--border);margin:.85rem 0}
+.calc-hint{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);padding:.35rem .55rem;background:var(--bg-3);border:1px solid var(--border);border-radius:3px;margin-bottom:.9rem}
+.calc-hint span{color:var(--teal-lt)}
+
+/* ── RUN BUTTON ──────────────────────────────── */
+.run-btn{width:100%;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.16em;text-transform:uppercase;background:var(--teal);color:var(--bg);border:none;padding:.75rem 1.5rem;border-radius:4px;cursor:pointer;transition:background .2s;margin-top:.25rem;font-weight:600}
+.run-btn:hover{background:var(--teal-lt)}
+.run-btn:disabled{opacity:.5;cursor:wait}
+
+/* ── OUTPUT PANEL ──────────────────────────── */
+.output-panel{display:flex;flex-direction:column;gap:1rem}
+
+/* ── PLACEHOLDER (pre-run) ──────────────────── */
+.placeholder{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:3rem 2rem;text-align:center}
+.placeholder-icon{font-size:2rem;margin-bottom:.75rem;opacity:.4}
+.placeholder-text{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+/* ── KPI BAR ─────────────────────────────── */
+.kpi-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+@media(max-width:700px){.kpi-bar{grid-template-columns:repeat(2,1fr)}}
+.kpi-cell{background:var(--bg-2);padding:.9rem .75rem;text-align:center}
+.kpi-label{font-family:'JetBrains Mono',monospace;font-size:.4rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem;line-height:1.3}
+.kpi-value{font-family:'DM Serif Display',serif;font-size:1.15rem;line-height:1;color:var(--bright)}
+.kpi-value.val-red{color:var(--red)}
+.kpi-value.val-green{color:var(--green)}
+.kpi-value.val-gold{color:var(--gold)}
+.kpi-value.val-teal{color:var(--teal-lt)}
+.kpi-value.val-purple{color:var(--purple-lt)}
+.kpi-sub{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted);margin-top:.2rem}
+
+/* ── OUT SECTION CARDS ─────────────────── */
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-card-header{padding:.7rem 1rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-card-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+.out-card-body{padding:1rem}
+
+/* ── COMPARISON TABLE ─────────────────── */
+.cmp-table{width:100%;border-collapse:collapse;font-size:.74rem}
+.cmp-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400}
+.cmp-table th.col-roth{color:var(--teal)}
+.cmp-table th.col-trad{color:var(--gold)}
+.cmp-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.cmp-table tr:last-child td{border-bottom:none}
+.cmp-table tr:hover td{background:var(--bg-3)}
+.cmp-table td.row-label{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);width:180px}
+.cmp-table td.val-roth{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--teal-lt)}
+.cmp-table td.val-trad{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--gold)}
+.cmp-table td.val-winner{font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:600}
+
+/* ── BRACKET CARD ─────────────────────── */
+.bracket-row{display:flex;align-items:center;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.bracket-row:last-child{border-bottom:none}
+.bracket-label{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted)}
+.bracket-value{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--bright)}
+.bracket-badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.18rem .5rem;border-radius:3px;border:1px solid}
+.bb-safe{color:var(--green);border-color:rgba(34,197,94,.3);background:var(--green-dim)}
+.bb-warn{color:var(--warn);border-color:rgba(245,158,11,.3);background:var(--warn-dim)}
+.bb-danger{color:var(--red);border-color:rgba(239,68,68,.3);background:var(--red-dim)}
+
+/* ── BREAKEVEN CARD ────────────────────── */
+.breakeven-bar-wrap{position:relative;height:18px;background:var(--bg-3);border:1px solid var(--border);border-radius:4px;overflow:hidden;margin:.75rem 0}
+.breakeven-bar-fill{height:100%;border-radius:4px;transition:width .5s ease}
+.breakeven-marker{position:absolute;top:0;height:100%;width:2px;background:var(--bright);opacity:.7}
+.breakeven-info{font-size:.74rem;color:var(--text);line-height:1.7}
+
+/* ── TIP CARD ─────────────────────────── */
+.tip-card{border-radius:var(--radius-lg);padding:1rem 1.1rem;font-size:.74rem;line-height:1.7}
+.tip-card.tip-roth{background:var(--teal-dim);border:1px solid rgba(20,184,166,.3)}
+.tip-card.tip-trad{background:var(--gold-dim);border:1px solid rgba(212,168,71,.3)}
+.tip-card.tip-neutral{background:var(--bg-2);border:1px solid var(--border)}
+.tip-card-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:.4rem}
+.tip-label-roth{color:var(--teal-lt)}
+.tip-label-trad{color:var(--gold)}
+.tip-label-neutral{color:var(--muted)}
+
+/* ── RESULTS EXPORT ROW ────────────────── */
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;padding:.75rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius)}
+.export-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;padding:.45rem 1rem;border-radius:4px;cursor:pointer;border:1px solid;transition:all .2s}
+.export-btn-ap2{background:var(--teal-dim);color:var(--teal-lt);border-color:rgba(20,184,166,.3)}
+.export-btn-ap2:hover{background:var(--teal);color:var(--bg)}
+.export-btn-md{background:transparent;color:var(--muted);border-color:var(--border)}
+.export-btn-md:hover{border-color:var(--text);color:var(--text)}
+.export-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted);letter-spacing:.06em}
+
+/* ── MCP MANIFEST SECTION ─────────────── */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+
+/* ── FOOTER ─────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase15-nav-footer */
+/* Phase16-footer-css */
+/* Phase17-nav-cta */
+/* Phase19-pii-lr */
+/* Phase20-nav-trail */
+</style>
+</head>
+<body>
+
+<!-- LANG BAR -->
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<!-- NAV -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+      <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+      <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+      <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+      <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+      <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+      <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+      <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+      <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+      <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+    </svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html" data-i18n="nav.alltools">All Tools</a>
+    <span class="nav-bc-sep">/</span>
+    <a href="../guides/personal-finance-hub.html" data-i18n="nav.hub">Personal Finance Hub</a>
+    <span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">T-169</span>
+  </div>
+  <div class="nav-right">
+    <a href="../guides/personal-finance-hub.html" class="nav-cta" data-i18n="nav.hubcta">Hub &#8594;</a>
+  </div>
+</div></nav>
+
+<!-- HERO -->
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-10 · T169 · Personal Finance &amp; Retirement Planning</div>
+  <div class="hero-meta">
+    <span class="hero-badge badge-muted"><span>v1.0</span></span>
+  </div>
+  <h1 class="tool-title">Roth vs. Traditional <em>Conversion Estimator</em></h1>
+  <p class="hero-desc">Model the tax cost and long-term advantage of converting a traditional IRA or 401(k) to Roth. Calculates breakeven age, bracket impact, and net lifetime after-tax value — entirely in your browser.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-teal">Roth Conversion</span>
+    <span class="hero-badge badge-gold">Tax Planning</span>
+    <span class="hero-badge badge-green">Zero PII</span>
+    <span class="hero-badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<!-- TOOL BODY -->
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+
+  <div class="scope-note">
+    <strong data-i18n="scope.label">Scope &amp; reliance &mdash;</strong>
+    <span data-i18n="scope.body"> Runs entirely in your browser for modeling and educational purposes. Tax rates and thresholds are static reference values — verify against current IRS publications and consult a qualified tax advisor before making any conversion decisions. Deterministic logic · no inference · zero PII · CC BY 4.0.</span>
+  </div>
+
+  <!-- TOOL GRID: config left, output right -->
+  <div class="tool-grid">
+
+    <!-- ── LEFT: CONFIG PANEL ── -->
+    <div class="config-panel">
+      <div class="panel-section-label" data-i18n="panel.inputs">Configuration</div>
+
+      <div class="panel-row">
+        <label for="currentAge" data-i18n="input.currentAge">Current age</label>
+        <input type="number" id="currentAge" value="40" min="18" max="70" step="1">
+      </div>
+
+      <div class="panel-row">
+        <label for="retirementAge" data-i18n="input.retirementAge">Retirement age</label>
+        <input type="number" id="retirementAge" value="65" min="40" max="80" step="1" oninput="updateYears()">
+      </div>
+
+      <div class="calc-hint" id="yearsHint">
+        <span data-i18n="hint.years">Years to retirement:</span> <span id="yearsVal" class="val-teal">25</span>
+      </div>
+
+      <hr class="panel-divider">
+
+      <div class="panel-row">
+        <label for="tradBalance" data-i18n="input.tradBalance">Current traditional balance ($)</label>
+        <input type="number" id="tradBalance" value="150000" min="0" step="1000">
+      </div>
+
+      <div class="panel-row">
+        <label for="convAmount" data-i18n="input.convAmount">Conversion amount this year ($)</label>
+        <input type="number" id="convAmount" value="50000" min="0" step="1000">
+      </div>
+
+      <hr class="panel-divider">
+
+      <div class="panel-row">
+        <label for="currentTax" data-i18n="input.currentTax">Current marginal tax rate</label>
+        <select id="currentTax">
+          <option value="0.10">10%</option>
+          <option value="0.12">12%</option>
+          <option value="0.22" selected>22%</option>
+          <option value="0.24">24%</option>
+          <option value="0.32">32%</option>
+          <option value="0.35">35%</option>
+          <option value="0.37">37%</option>
+        </select>
+      </div>
+
+      <div class="panel-row">
+        <label for="retireTax" data-i18n="input.retireTax">Expected retirement marginal tax rate</label>
+        <select id="retireTax">
+          <option value="0.10">10%</option>
+          <option value="0.12">12%</option>
+          <option value="0.22">22%</option>
+          <option value="0.24" selected>24%</option>
+          <option value="0.32">32%</option>
+          <option value="0.35">35%</option>
+          <option value="0.37">37%</option>
+        </select>
+      </div>
+
+      <hr class="panel-divider">
+
+      <div class="panel-row">
+        <label for="returnRate" data-i18n="input.returnRate">Expected annual return (%)</label>
+        <input type="number" id="returnRate" value="7" min="0" max="20" step="0.1">
+      </div>
+
+      <div class="panel-row">
+        <label for="stateTax" data-i18n="input.stateTax">State income tax rate (%)</label>
+        <input type="number" id="stateTax" value="5" min="0" max="15" step="0.1">
+      </div>
+
+      <button class="run-btn" id="runBtn" onclick="runEstimator()" data-i18n="btn.run">&#9654; Analyse Conversion</button>
+    </div>
+
+    <!-- ── RIGHT: OUTPUT PANEL ── -->
+    <div class="output-panel" id="outputPanel">
+      <div class="placeholder" id="placeholder">
+        <div class="placeholder-icon">&#8645;</div>
+        <div class="placeholder-text" data-i18n="placeholder.text">Configure inputs and click Analyse Conversion</div>
+      </div>
+    </div>
+
+  </div><!-- /tool-grid -->
+
+</div></div><!-- /tool-body /container -->
+
+<!-- MCP MANIFEST SECTION -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()">
+        <span>&#128230; &nbsp;manifest.json · MCP tool definition · AP2 schema</span>
+        <span id="mfstArr" style="color:var(--muted)">&#9660;</span>
+      </button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/personal-finance-hub.html"><span data-i18n="footer.hub">Personal Finance Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+      <a href="https://postoaklabs.com/demos/personal-finance-retirement-simulator.html" target="_blank" rel="noopener" data-i18n="footer.showcase">POL Showcase</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span>&#128274; No data leaves your browser &nbsp; &#128187; Client-side only &nbsp; CC BY 4.0</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ============================================================
+   T169 — Roth vs. Traditional Conversion Estimator
+   AIN-canon-2026-05-17 · Zero PII · CC BY 4.0
+   ============================================================ */
+
+/* ── i18n ─────────────────────────────────────────────────── */
+var TRANSLATIONS = {
+  en: {
+    'nav.alltools': 'All Tools',
+    'nav.hub': 'Personal Finance Hub',
+    'nav.hubcta': 'Hub →',
+    'pii.banner': '🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.',
+    'scope.label': 'Scope & reliance —',
+    'scope.body': ' Runs entirely in your browser for modeling and educational purposes. Tax rates and thresholds are static reference values — verify against current IRS publications and consult a qualified tax advisor before making any conversion decisions. Deterministic logic · no inference · zero PII · CC BY 4.0.',
+    'panel.inputs': 'Configuration',
+    'input.currentAge': 'Current age',
+    'input.retirementAge': 'Retirement age',
+    'hint.years': 'Years to retirement:',
+    'input.tradBalance': 'Current traditional balance ($)',
+    'input.convAmount': 'Conversion amount this year ($)',
+    'input.currentTax': 'Current marginal tax rate',
+    'input.retireTax': 'Expected retirement marginal tax rate',
+    'input.returnRate': 'Expected annual return (%)',
+    'input.stateTax': 'State income tax rate (%)',
+    'btn.run': '► Analyse Conversion',
+    'placeholder.text': 'Configure inputs and click Analyse Conversion',
+    'footer.alltools': 'All Tools',
+    'footer.hub': 'Personal Finance Hub',
+    'footer.sitemap': 'Sitemap',
+    'footer.contact': 'Contact',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs'
+  },
+  es: {
+    'nav.alltools': 'Todas las Herramientas',
+    'nav.hub': 'Centro Finanzas Personales',
+    'nav.hubcta': 'Centro →',
+    'pii.banner': '🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No introduzca datos personales reales — utilice entradas sintéticas o anonimizadas únicamente.',
+    'scope.label': 'Alcance y dependencia —',
+    'scope.body': ' Se ejecuta completamente en su navegador con fines de modelado y educación. Verifique contra fuentes fiscales oficiales antes de tomar decisiones.',
+    'panel.inputs': 'Configuración',
+    'input.currentAge': 'Edad actual',
+    'input.retirementAge': 'Edad de jubilación',
+    'hint.years': 'Años hasta la jubilación:',
+    'input.tradBalance': 'Saldo tradicional actual ($)',
+    'input.convAmount': 'Monto de conversión este año ($)',
+    'input.currentTax': 'Tasa impositiva marginal actual',
+    'input.retireTax': 'Tasa impositiva marginal esperada en jubilación',
+    'input.returnRate': 'Rendimiento anual esperado (%)',
+    'input.stateTax': 'Tasa de impuesto estatal (%)',
+    'btn.run': '► Analizar Conversión',
+    'placeholder.text': 'Configure las entradas y haga clic en Analizar',
+    'footer.alltools': 'Todas las Herramientas',
+    'footer.hub': 'Centro Finanzas Personales',
+    'footer.sitemap': 'Mapa del Sitio',
+    'footer.contact': 'Contacto',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs'
+  },
+  fr: {
+    'nav.alltools': 'Tous les Outils',
+    'nav.hub': 'Centre Finances Personnelles',
+    'nav.hubcta': 'Centre →',
+    'pii.banner': '🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n’est transmise. N’entrez pas de données personnelles réelles — utilisez uniquement des données synthétiques ou anonymisées.',
+    'scope.label': 'Portée et fiabilité —',
+    'scope.body': ' S’exécute entièrement dans votre navigateur à des fins de modélisation et d’éducation. Vérifiez auprès des sources fiscales officielles avant toute décision.',
+    'panel.inputs': 'Configuration',
+    'input.currentAge': 'Âge actuel',
+    'input.retirementAge': 'Âge de la retraite',
+    'hint.years': 'Années jusqu’à la retraite :',
+    'input.tradBalance': 'Solde traditionnel actuel ($)',
+    'input.convAmount': 'Montant de conversion cette année ($)',
+    'input.currentTax': 'Taux d’imposition marginal actuel',
+    'input.retireTax': 'Taux d’imposition marginal à la retraite',
+    'input.returnRate': 'Rendement annuel attendu (%)',
+    'input.stateTax': 'Taux d’imposition étatique (%)',
+    'btn.run': '► Analyser la Conversion',
+    'placeholder.text': 'Configurez les entrées et cliquez sur Analyser',
+    'footer.alltools': 'Tous les Outils',
+    'footer.hub': 'Centre Finances Personnelles',
+    'footer.sitemap': 'Plan du Site',
+    'footer.contact': 'Contact',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs'
+  },
+  ar: {
+    'nav.alltools': 'جميع الأدوات',
+    'nav.hub': 'مركز المالية الشخصية',
+    'nav.hubcta': 'المركز →',
+    'pii.banner': '🔒 جميع المدخلات تعالج محلياً في متصفحك. لا تُرسل بيانات. لا تدخل بيانات شخصية حقيقية.',
+    'scope.label': 'النطاق —',
+    'scope.body': ' يعمل بالكامل في متصفحك لأغراض النمذجة والتعليم فقط.',
+    'panel.inputs': 'الإعدادات',
+    'input.currentAge': 'العمر الحالي',
+    'input.retirementAge': 'سن التقاعد',
+    'hint.years': 'سنوات حتى التقاعد:',
+    'input.tradBalance': 'الرصيد التقليدي الحالي ($)',
+    'input.convAmount': 'مبلغ التحويل هذا العام ($)',
+    'input.currentTax': 'معدل الضريبة الحدية الحالي',
+    'input.retireTax': 'معدل الضريبة المتوقع عند التقاعد',
+    'input.returnRate': 'العائد السنوي المتوقع (%)',
+    'input.stateTax': 'معدل ضريبة الولاية (%)',
+    'btn.run': '► تحليل التحويل',
+    'placeholder.text': 'ضبط المدخلات وانقر على تحليل',
+    'footer.alltools': 'جميع الأدوات',
+    'footer.hub': 'مركز المالية الشخصية',
+    'footer.sitemap': 'خريطة الموقع',
+    'footer.contact': 'اتصال',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs'
+  },
+  pt: {
+    'nav.alltools': 'Todas as Ferramentas',
+    'nav.hub': 'Centro de Finanças Pessoais',
+    'nav.hubcta': 'Centro →',
+    'pii.banner': '🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido. Não insira dados pessoais reais — use apenas entradas sintéticas ou anonimizadas.',
+    'scope.label': 'Escopo e dependência —',
+    'scope.body': ' Executa inteiramente no seu navegador para fins de modelagem e educação. Verifique nas fontes fiscais oficiais antes de tomar decisões.',
+    'panel.inputs': 'Configuração',
+    'input.currentAge': 'Idade atual',
+    'input.retirementAge': 'Idade de aposentadoria',
+    'hint.years': 'Anos até a aposentadoria:',
+    'input.tradBalance': 'Saldo tradicional atual ($)',
+    'input.convAmount': 'Valor da conversão este ano ($)',
+    'input.currentTax': 'Alíquota marginal de imposto atual',
+    'input.retireTax': 'Alíquota marginal esperada na aposentadoria',
+    'input.returnRate': 'Retorno anual esperado (%)',
+    'input.stateTax': 'Alíquota de imposto estadual (%)',
+    'btn.run': '► Analisar Conversão',
+    'placeholder.text': 'Configure as entradas e clique em Analisar',
+    'footer.alltools': 'Todas as Ferramentas',
+    'footer.hub': 'Centro de Finanças Pessoais',
+    'footer.sitemap': 'Mapa do Site',
+    'footer.contact': 'Contato',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs'
+  },
+  zh: {
+    'nav.alltools': '所有工具',
+    'nav.hub': '个人金融中心',
+    'nav.hubcta': '中心 →',
+    'pii.banner': '🔒 所有输入均在您的浏览器本地处理。不会传输任何数据。请勿输入真实个人数据。',
+    'scope.label': '范围与依赖 —',
+    'scope.body': ' 完全在您的浏览器中运行，仅用于建模和教育目的。请在做决定前和专业顾问和官方来源核实。',
+    'panel.inputs': '配置',
+    'input.currentAge': '当前年龄',
+    'input.retirementAge': '退休年龄',
+    'hint.years': '至退休年数：',
+    'input.tradBalance': '当前传统账户余额 ($)',
+    'input.convAmount': '今年转换金额 ($)',
+    'input.currentTax': '当前边际税率',
+    'input.retireTax': '预期退休边际税率',
+    'input.returnRate': '预期年回报率 (%)',
+    'input.stateTax': '州所得税率 (%)',
+    'btn.run': '► 分析转换',
+    'placeholder.text': '配置参数并点击分析转换',
+    'footer.alltools': '所有工具',
+    'footer.hub': '个人金融中心',
+    'footer.sitemap': '站点地图',
+    'footer.contact': '联系',
+    'footer.cc': 'CC BY 4.0 · Post Oak Labs'
+  }
+};
+
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  var dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    var key = el.getAttribute('data-i18n');
+    if (dict[key] !== undefined) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(function(b) { b.classList.remove('active'); });
+  var active = document.querySelector('.lang-btn[data-lang="' + lang + '"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function() { try { var s = sessionStorage.getItem('ain_lang'); if (s) setLang(s); } catch(e) {} })();
+
+/* ── Years hint ───────────────────────────────────────────── */
+function updateYears() {
+  var ca = parseInt(document.getElementById('currentAge').value) || 40;
+  var ra = parseInt(document.getElementById('retirementAge').value) || 65;
+  var yrs = Math.max(0, ra - ca);
+  document.getElementById('yearsVal').textContent = yrs;
+}
+document.getElementById('currentAge').addEventListener('input', updateYears);
+document.getElementById('retirementAge').addEventListener('input', updateYears);
+updateYears();
+
+/* ── Formatters ───────────────────────────────────────────── */
+function fmtUSD(n) {
+  if (Math.abs(n) >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
+  if (Math.abs(n) >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+  return '$' + Math.round(n).toLocaleString();
+}
+function fmtPct(n) { return (n * 100).toFixed(1) + '%'; }
+
+/* ── Tax bracket thresholds (2024 MFJ / single reference) ── */
+var BRACKETS = [
+  { rate: 0.10, single: 11600,  mfj: 23200  },
+  { rate: 0.12, single: 47150,  mfj: 94300  },
+  { rate: 0.22, single: 100525, mfj: 201050 },
+  { rate: 0.24, single: 191950, mfj: 383900 },
+  { rate: 0.32, single: 243725, mfj: 487450 },
+  { rate: 0.35, single: 609350, mfj: 731200 },
+  { rate: 0.37, single: Infinity, mfj: Infinity }
+];
+
+function getNextBracketLimit(currentRate) {
+  /* Returns approximate headroom in $ before hitting the next bracket.
+     Uses single filer thresholds for conservative reference. */
+  for (var i = 0; i < BRACKETS.length - 1; i++) {
+    if (BRACKETS[i].rate === currentRate) {
+      return BRACKETS[i + 1].single;
+    }
+  }
+  return Infinity;
+}
+
+/* ── Core computation ─────────────────────────────────────── */
+function runEstimator() {
+  var currentAge    = parseInt(document.getElementById('currentAge').value)    || 40;
+  var retirementAge = parseInt(document.getElementById('retirementAge').value) || 65;
+  var tradBalance   = parseFloat(document.getElementById('tradBalance').value) || 150000;
+  var convAmount    = parseFloat(document.getElementById('convAmount').value)  || 50000;
+  var currentTax    = parseFloat(document.getElementById('currentTax').value)  || 0.22;
+  var retireTax     = parseFloat(document.getElementById('retireTax').value)   || 0.24;
+  var returnRateRaw = parseFloat(document.getElementById('returnRate').value)  || 7;
+  var stateTaxRaw   = parseFloat(document.getElementById('stateTax').value)    || 5;
+
+  var returnRate = returnRateRaw / 100;
+  var stateTax   = stateTaxRaw   / 100;
+  var years      = Math.max(0, retirementAge - currentAge);
+
+  /* ── 1. Tax cost now ── */
+  var taxCostNow = convAmount * (currentTax + stateTax);
+
+  /* ── 2. Roth path ──
+     The converted amount grows tax-free. No tax on withdrawal.
+     We assume tax is paid from outside funds (ideal scenario).
+     Roth balance at retirement = conversion * (1+r)^n  */
+  var rothBalance = convAmount * Math.pow(1 + returnRate, years);
+
+  /* ── 3. Traditional path ──
+     If NOT converting: keep the full convAmount in traditional.
+     It grows identically, but withdrawals are taxed at retireTax.
+     After-tax value of traditional funds at retirement: */
+  var tradGrowth        = convAmount * Math.pow(1 + returnRate, years);
+  var tradAfterTax      = tradGrowth * (1 - retireTax);
+
+  /* Opportunity cost: tax paid now could also have grown.
+     Growing taxCostNow at returnRate to retirement for fair comparison: */
+  var opportunityCost   = taxCostNow * Math.pow(1 + returnRate, years);
+
+  /* Net Roth advantage (accounting for opportunity cost of taxes paid): */
+  var netAdvantage = rothBalance - (tradAfterTax + opportunityCost);
+
+  /* ── 4. 20-year retirement horizon net ──
+     Simulate 20 annual withdrawals from each at the retirement rate.
+     Roth: full balance distributable tax-free.
+     Traditional: balance tax-reduced at retirement rate each year. */
+  var RETIRE_YEARS = 20;
+  var annualWithdrawalRoth = rothBalance / RETIRE_YEARS;
+  var annualWithdrawalTrad = tradGrowth  / RETIRE_YEARS;
+
+  /* Total after-tax over retirement horizon */
+  var rothLifetimeNet = annualWithdrawalRoth * RETIRE_YEARS; /* tax-free */
+  var tradLifetimeNet = annualWithdrawalTrad * (1 - retireTax) * RETIRE_YEARS;
+  var netLifetimeAdvantage = rothLifetimeNet - tradLifetimeNet;
+
+  /* ── 5. Breakeven age ──
+     Find the year Y from today where cumulative Roth advantage
+     (tax-free compound) equals the opportunity cost of paying taxes now.
+     Roth(Y)  = convAmount * (1+r)^Y
+     TradAT(Y) = convAmount * (1+r)^Y * (1 - retireTax)  + taxCostNow * (1+r)^Y
+     Solve: convAmount * (1+r)^Y = tradAT(Y)
+     => (1-retireTax) * (1+r)^Y + taxCostNow/convAmount * (1+r)^Y = (1+r)^Y
+     => Roth is always ahead IF retireTax > currentTax + stateTax (simple case).
+     General: solve numerically year by year. */
+  var breakevenAge = null;
+  for (var y = 1; y <= 60; y++) {
+    var g          = Math.pow(1 + returnRate, y);
+    var rothVal    = convAmount * g;
+    var tradVal    = convAmount * g * (1 - retireTax);
+    var opCost     = taxCostNow * g;
+    if (rothVal >= tradVal + opCost) {
+      breakevenAge = currentAge + y;
+      break;
+    }
+  }
+
+  /* ── 6. Bracket analysis ── */
+  var nextBracketLimit = getNextBracketLimit(currentRate);
+  function getNextBracketLimit(rate) {
+    for (var i = 0; i < BRACKETS.length - 1; i++) {
+      if (BRACKETS[i].rate === rate) {
+        return BRACKETS[i + 1].single;
+      }
+    }
+    return Infinity;
+  }
+  var nextLimit     = getNextBracketLimit(currentTax);
+  var headroom      = isFinite(nextLimit) ? Math.max(0, nextLimit - convAmount) : Infinity;
+  var pushesBracket = isFinite(nextLimit) && convAmount >= nextLimit;
+
+  /* ── 7. Verdict ── */
+  var verdict;
+  if (currentTax + stateTax < retireTax - 0.01) {
+    verdict = 'Favor Roth';
+  } else if (currentTax + stateTax > retireTax + 0.01) {
+    verdict = 'Favor Traditional';
+  } else {
+    verdict = 'Borderline';
+  }
+
+  /* Store for export */
+  window._t169result = {
+    currentAge: currentAge, retirementAge: retirementAge,
+    convAmount: convAmount, currentTax: currentTax,
+    retireTax: retireTax, returnRate: returnRateRaw,
+    stateTax: stateTaxRaw, years: years,
+    taxCostNow: taxCostNow, rothBalance: rothBalance,
+    tradAfterTax: tradAfterTax, netAdvantage: netAdvantage,
+    netLifetimeAdvantage: netLifetimeAdvantage,
+    breakevenAge: breakevenAge, verdict: verdict,
+    pushesBracket: pushesBracket, headroom: headroom
+  };
+
+  renderResults(window._t169result);
+}
+
+/* ── Render ───────────────────────────────────────────────── */
+function renderResults(r) {
+  var pl = document.getElementById('placeholder');
+  if (pl) pl.style.display = 'none';
+
+  /* Existing result nodes (re-run) */
+  ['t169-kpi','t169-cmp','t169-bracket','t169-breakeven','t169-tip','t169-export'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.remove();
+  });
+
+  var op = document.getElementById('outputPanel');
+
+  /* ── KPI BAR ── */
+  var kpiWrap = document.createElement('div');
+  kpiWrap.id  = 't169-kpi';
+  kpiWrap.className = 'kpi-bar';
+
+  var verdictColor = r.verdict === 'Favor Roth' ? 'val-teal'
+    : r.verdict === 'Favor Traditional' ? 'val-gold'
+    : 'val-purple';
+
+  kpiWrap.innerHTML =
+    kpiCell('Tax Cost Now', fmtUSD(r.taxCostNow), 'val-red', 'Federal + state') +
+    kpiCell('Roth at Retirement', fmtUSD(r.rothBalance), 'val-teal', 'Tax-free growth') +
+    kpiCell('Traditional After-Tax', fmtUSD(r.tradAfterTax), 'val-gold', 'Post-withdrawal tax') +
+    kpiCell('Breakeven Age', r.breakevenAge ? r.breakevenAge : 'Never', r.breakevenAge ? 'val-green' : 'val-red', 'Roth exceeds trad') +
+    kpiCell('Net Lifetime Advantage', (r.netLifetimeAdvantage >= 0 ? '+' : '') + fmtUSD(r.netLifetimeAdvantage), r.netLifetimeAdvantage >= 0 ? 'val-green' : 'val-red', '20-yr horizon');
+
+  op.appendChild(kpiWrap);
+
+  /* ── COMPARISON TABLE ── */
+  var cmpCard = document.createElement('div');
+  cmpCard.id  = 't169-cmp';
+  cmpCard.className = 'out-card';
+
+  var rothWins = r.rothBalance > r.tradAfterTax;
+  cmpCard.innerHTML =
+    '<div class="out-card-header">' +
+      '<span class="out-card-title">Roth vs. Traditional — Side-by-Side</span>' +
+    '</div>' +
+    '<div class="out-card-body" style="padding:0;overflow-x:auto">' +
+      '<table class="cmp-table">' +
+        '<thead><tr>' +
+          '<th class="row-label">Metric</th>' +
+          '<th class="col-roth">Roth Conversion</th>' +
+          '<th class="col-trad">Stay Traditional</th>' +
+        '</tr></thead>' +
+        '<tbody>' +
+          cmpRow('Tax paid on conversion', fmtUSD(r.taxCostNow), '$0 (deferred)', true, false) +
+          cmpRow('Growth to retirement (' + r.years + ' yr)', fmtUSD(r.rothBalance - r.convAmount), fmtUSD(r.tradAfterTax / (1 - r.retireTax) - r.convAmount), false, false) +
+          cmpRow('Balance at retirement', fmtUSD(r.rothBalance), fmtUSD(r.tradAfterTax / (1 - r.retireTax)), false, false) +
+          cmpRow('Retirement tax rate on withdrawals', '0% (tax-free)', fmtPct(r.retireTax), true, false) +
+          cmpRow('Net after-tax value at retirement', fmtUSD(r.rothBalance), fmtUSD(r.tradAfterTax), false, rothWins) +
+        '</tbody>' +
+      '</table>' +
+    '</div>';
+
+  op.appendChild(cmpCard);
+
+  /* ── BRACKET IMPACT ── */
+  var bktCard = document.createElement('div');
+  bktCard.id  = 't169-bracket';
+  bktCard.className = 'out-card';
+
+  var bktBadgeClass = r.pushesBracket ? 'bb-danger'
+    : (r.headroom < 20000 ? 'bb-warn' : 'bb-safe');
+  var bktBadgeLabel = r.pushesBracket ? 'Bracket Bump!'
+    : (r.headroom < 20000 ? 'Caution' : 'Within Bracket');
+
+  bktCard.innerHTML =
+    '<div class="out-card-header">' +
+      '<span class="out-card-title">Tax Bracket Impact Analysis</span>' +
+    '</div>' +
+    '<div class="out-card-body">' +
+      '<div class="bracket-row">' +
+        '<span class="bracket-label">Current marginal rate</span>' +
+        '<span class="bracket-value">' + fmtPct(r.currentTax) + '</span>' +
+      '</div>' +
+      '<div class="bracket-row">' +
+        '<span class="bracket-label">Conversion amount</span>' +
+        '<span class="bracket-value">' + fmtUSD(r.convAmount) + '</span>' +
+      '</div>' +
+      '<div class="bracket-row">' +
+        '<span class="bracket-label">Headroom before next bracket (single filer ref.)</span>' +
+        '<span class="bracket-value">' + (isFinite(r.headroom) ? fmtUSD(r.headroom) : 'Already at top') + '</span>' +
+      '</div>' +
+      '<div class="bracket-row">' +
+        '<span class="bracket-label">Bracket status</span>' +
+        '<span class="bracket-badge ' + bktBadgeClass + '">' + bktBadgeLabel + '</span>' +
+      '</div>' +
+      '<div style="font-size:.72rem;color:var(--body);margin-top:.75rem;line-height:1.7">' +
+        (r.pushesBracket
+          ? '<strong style="color:var(--red)">Warning:</strong> This conversion amount may push you into the next federal bracket. Consider splitting the conversion across multiple years to stay within your current bracket.'
+          : r.headroom < 20000
+            ? '<strong style="color:var(--warn)">Note:</strong> You are close to the next bracket threshold. Ensure your full taxable income for the year (including this conversion) does not exceed your bracket ceiling.'
+            : 'This conversion fits within your current bracket with ' + fmtUSD(r.headroom) + ' of headroom remaining (single filer reference). Verify with your actual total taxable income.') +
+      '</div>' +
+    '</div>';
+
+  op.appendChild(bktCard);
+
+  /* ── BREAKEVEN ANALYSIS ── */
+  var beCard = document.createElement('div');
+  beCard.id  = 't169-breakeven';
+  beCard.className = 'out-card';
+
+  var beYears = r.breakevenAge ? (r.breakevenAge - r.currentAge) : null;
+  var barWidth = beYears ? Math.min(100, Math.round(beYears / 40 * 100)) : 100;
+  var barColor = r.breakevenAge
+    ? (beYears <= 10 ? 'var(--green)' : beYears <= 20 ? 'var(--teal)' : 'var(--warn)')
+    : 'var(--red)';
+
+  beCard.innerHTML =
+    '<div class="out-card-header">' +
+      '<span class="out-card-title">Breakeven Analysis</span>' +
+    '</div>' +
+    '<div class="out-card-body">' +
+      (r.breakevenAge
+        ? '<div class="breakeven-info">' +
+            'The Roth conversion becomes financially advantageous at age <strong style="color:var(--teal-lt)">' + r.breakevenAge + '</strong> — ' +
+            'approximately <strong style="color:var(--teal-lt)">' + beYears + ' year' + (beYears !== 1 ? 's' : '') + '</strong> from today.' +
+          '</div>' +
+          '<div class="breakeven-bar-wrap">' +
+            '<div class="breakeven-bar-fill" style="width:' + barWidth + '%;background:' + barColor + '"></div>' +
+          '</div>' +
+          '<div style="font-size:.68rem;color:var(--muted)">Time to breakeven (relative scale, max 40 yrs)</div>' +
+          '<div class="breakeven-info" style="margin-top:.75rem">' +
+            'Before age ' + r.breakevenAge + ': the compounded opportunity cost of taxes paid now exceeds the Roth growth advantage.<br>' +
+            'After age ' + r.breakevenAge + ': tax-free Roth compounding permanently outpaces the deferred-tax traditional path.' +
+          '</div>'
+        : '<div class="breakeven-info" style="color:var(--red)">' +
+            'No breakeven found within 60 years. With your current tax rate (' + fmtPct(r.currentTax) + ') higher than or equal to your expected retirement rate (' + fmtPct(r.retireTax) + ') plus state tax, the traditional path may be more efficient for your situation.' +
+          '</div>') +
+    '</div>';
+
+  op.appendChild(beCard);
+
+  /* ── CONVERSION LADDER TIP ── */
+  var tipCard = document.createElement('div');
+  tipCard.id  = 't169-tip';
+
+  var tipClass, tipLabelClass, tipTitle, tipBody;
+  if (r.verdict === 'Favor Roth') {
+    tipClass      = 'tip-card tip-roth';
+    tipLabelClass = 'tip-label-roth';
+    tipTitle      = 'Strongly Favor Conversion';
+    tipBody       = 'Your current combined tax rate (' + fmtPct(r.currentTax + r.stateTax) + ') is meaningfully below your expected retirement rate (' + fmtPct(r.retireTax) + '). Converting now locks in lower taxes on this amount permanently. Consider filling up your current bracket each year with systematic Roth conversions before retirement.';
+  } else if (r.verdict === 'Favor Traditional') {
+    tipClass      = 'tip-card tip-trad';
+    tipLabelClass = 'tip-label-trad';
+    tipTitle      = 'Favor Staying Traditional';
+    tipBody       = 'Your current combined tax rate (' + fmtPct(r.currentTax + r.stateTax) + ') exceeds your expected retirement rate (' + fmtPct(r.retireTax) + '). Paying taxes now is more expensive than deferring to retirement withdrawals. A conversion may still make sense for estate planning or RMD avoidance — consult a tax advisor.';
+  } else {
+    tipClass      = 'tip-card tip-neutral';
+    tipLabelClass = 'tip-label-neutral';
+    tipTitle      = 'Borderline — Consider Partial Conversion';
+    tipBody       = 'Your current and expected retirement tax rates are similar. The conversion decision hinges on secondary factors: estate planning goals, Required Minimum Distribution (RMD) exposure, state tax residency changes, and Roth inheritance rules. Consider a partial conversion to diversify your tax exposure in retirement.';
+  }
+
+  tipCard.innerHTML =
+    '<div class="' + tipClass + '">' +
+      '<div class="tip-card-label ' + tipLabelClass + '">' + tipTitle + '</div>' +
+      tipBody +
+    '</div>';
+
+  op.appendChild(tipCard);
+
+  /* ── EXPORT ROW ── */
+  var exportRow = document.createElement('div');
+  exportRow.id  = 't169-export';
+  exportRow.className = 'results-export-row';
+  exportRow.innerHTML =
+    '<span class="export-label">Export results:</span>' +
+    '<button id="ap2ExportBtn" class="export-btn export-btn-ap2" onclick="exportAP2()">&#8659; Policy Mandate (AP2 JSON)</button>' +
+    '<button class="export-btn export-btn-md" onclick="exportMarkdown()">&#8659; Markdown Report</button>';
+
+  op.appendChild(exportRow);
+}
+
+/* ── KPI cell helper ─────────────────────────────────────── */
+function kpiCell(label, value, colorClass, sub) {
+  return '<div class="kpi-cell">' +
+    '<div class="kpi-label">' + label + '</div>' +
+    '<div class="kpi-value ' + colorClass + '">' + value + '</div>' +
+    '<div class="kpi-sub">' + sub + '</div>' +
+  '</div>';
+}
+
+/* ── Comparison row helper ───────────────────────────────── */
+function cmpRow(label, rothVal, tradVal, rothIsBetter, highlight) {
+  var rothCls = 'val-roth' + (highlight ? ' val-winner' : '');
+  var tradCls = 'val-trad' + (highlight ? ' val-winner' : '');
+  return '<tr>' +
+    '<td class="row-label">' + label + '</td>' +
+    '<td class="' + rothCls + '">' + rothVal + '</td>' +
+    '<td class="' + tradCls + '">' + tradVal + '</td>' +
+  '</tr>';
+}
+
+/* ── AP2 JSON export ─────────────────────────────────────── */
+function exportAP2() {
+  if (!window._t169result) return;
+  var r = window._t169result;
+
+  /* Validate AP2 v1.0 schema before download */
+  var payload = {
+    "schema": "ap2-v1.0",
+    "tool": "T169 Roth vs. Traditional Conversion Estimator",
+    "generated": new Date().toISOString().split('T')[0],
+    "inputs": {
+      "current_age": r.currentAge,
+      "retirement_age": r.retirementAge,
+      "conversion_amount": r.convAmount,
+      "current_tax_rate_pct": Math.round(r.currentTax * 100),
+      "expected_retirement_tax_rate_pct": Math.round(r.retireTax * 100),
+      "expected_return_pct": r.returnRate,
+      "state_tax_rate_pct": r.stateTax
+    },
+    "outputs": {
+      "tax_cost_now": Math.round(r.taxCostNow),
+      "roth_balance_at_retirement": Math.round(r.rothBalance),
+      "traditional_after_tax_at_retirement": Math.round(r.tradAfterTax),
+      "net_advantage_roth": Math.round(r.netAdvantage),
+      "breakeven_age": r.breakevenAge || null,
+      "net_lifetime_advantage_20yr": Math.round(r.netLifetimeAdvantage)
+    },
+    "verdict": r.verdict,
+    "constraints": [
+      "Zero PII",
+      "Educational use only — not financial advice",
+      "CC BY 4.0"
+    ]
+  };
+
+  /* Schema validation: required top-level keys */
+  var required = ["schema","tool","generated","inputs","outputs","verdict","constraints"];
+  for (var i = 0; i < required.length; i++) {
+    if (payload[required[i]] === undefined) {
+      alert('AP2 schema validation failed: missing key "' + required[i] + '"');
+      return;
+    }
+  }
+
+  var blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href   = url;
+  a.download = 'T169-roth-conversion-ap2-' + payload.generated + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ── Markdown export ─────────────────────────────────────── */
+function exportMarkdown() {
+  if (!window._t169result) return;
+  var r = window._t169result;
+  var d = new Date().toLocaleDateString();
+
+  var md = '# T169 Roth vs. Traditional Conversion Estimator\n\n' +
+    '**Generated:** ' + d + '  \n' +
+    '**Tool:** AINumbers.co T169 · CC BY 4.0  \n' +
+    '**Note:** For modeling and educational purposes only. Not financial advice.\n\n' +
+    '---\n\n' +
+    '## Inputs\n\n' +
+    '| Parameter | Value |\n' +
+    '|---|---|\n' +
+    '| Current age | ' + r.currentAge + ' |\n' +
+    '| Retirement age | ' + r.retirementAge + ' |\n' +
+    '| Years to retirement | ' + r.years + ' |\n' +
+    '| Conversion amount | ' + fmtUSD(r.convAmount) + ' |\n' +
+    '| Current marginal tax rate | ' + fmtPct(r.currentTax) + ' |\n' +
+    '| State income tax rate | ' + fmtPct(r.stateTax / 100) + ' |\n' +
+    '| Expected retirement tax rate | ' + fmtPct(r.retireTax) + ' |\n' +
+    '| Expected annual return | ' + r.returnRate + '% |\n\n' +
+    '## Key Outputs\n\n' +
+    '| Metric | Value |\n' +
+    '|---|---|\n' +
+    '| Tax cost of conversion now | ' + fmtUSD(r.taxCostNow) + ' |\n' +
+    '| Roth balance at retirement | ' + fmtUSD(r.rothBalance) + ' |\n' +
+    '| Traditional after-tax at retirement | ' + fmtUSD(r.tradAfterTax) + ' |\n' +
+    '| Net lifetime advantage (20-yr horizon) | ' + (r.netLifetimeAdvantage >= 0 ? '+' : '') + fmtUSD(r.netLifetimeAdvantage) + ' |\n' +
+    '| Breakeven age | ' + (r.breakevenAge ? r.breakevenAge : 'Not reached within 60 years') + ' |\n\n' +
+    '## Verdict\n\n' +
+    '**' + r.verdict + '**\n\n' +
+    (r.verdict === 'Favor Roth'
+      ? 'Your current combined rate (' + fmtPct(r.currentTax + r.stateTax / 100) + ') is below expected retirement rate (' + fmtPct(r.retireTax) + '). Converting now locks in lower tax on this amount.\n'
+      : r.verdict === 'Favor Traditional'
+        ? 'Your current combined rate exceeds expected retirement rate. Deferral may be more tax-efficient.\n'
+        : 'Rates are similar. Consider partial conversion and other planning factors (RMDs, estate goals).\n') +
+    '\n---\n\n' +
+    '*Generated by AINumbers.co T169 · Educational modeling only · Not financial or tax advice.*\n';
+
+  var blob = new Blob([md], {type: 'text/markdown'});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href   = url;
+  a.download = 'T169-roth-conversion-report-' + new Date().toISOString().split('T')[0] + '.md';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ── MCP manifest toggle ─────────────────────────────────── */
+var MANIFEST = {
+  "tool_id": "roth-traditional-conversion-estimator",
+  "version": "1.0.0",
+  "title": "Roth vs. Traditional Conversion Estimator",
+  "description": "Models the tax impact and long-term benefit of converting traditional IRA/401k to Roth. Outputs breakeven age, bracket analysis, net lifetime advantage. Zero PII. Client-side.",
+  "category": "cat-10",
+  "tags": ["Roth","IRA","401k","conversion","tax planning","retirement","personal finance"],
+  "audience": ["individual","advisor","planner"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "current_age":                    {"type": "number", "description": "Current age of the account holder"},
+      "retirement_age":                 {"type": "number", "description": "Target retirement age"},
+      "conversion_amount":              {"type": "number", "description": "Dollar amount to convert this year"},
+      "current_tax_rate_pct":           {"type": "number", "description": "Current federal marginal tax rate as a percentage"},
+      "expected_retirement_tax_rate_pct":{"type": "number", "description": "Expected federal marginal tax rate in retirement"},
+      "expected_return_pct":            {"type": "number", "description": "Expected annual portfolio return as a percentage"},
+      "state_tax_rate_pct":             {"type": "number", "description": "State income tax rate as a percentage"}
+    },
+    "required": ["current_age","retirement_age","conversion_amount","current_tax_rate_pct","expected_retirement_tax_rate_pct","expected_return_pct"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "tax_cost_now":                     {"type": "number"},
+      "roth_balance_at_retirement":       {"type": "number"},
+      "traditional_after_tax_at_retirement":{"type": "number"},
+      "net_advantage_roth":               {"type": "number"},
+      "breakeven_age":                    {"type": ["number","null"]},
+      "verdict":                          {"type": "string", "enum": ["Favor Roth","Favor Traditional","Borderline"]}
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "estimate_roth_conversion",
+    "description": "Estimates tax impact and long-term benefit of a Roth IRA/401k conversion. Returns tax cost now, projected balances at retirement, breakeven age, and net lifetime advantage.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "current_age":                    {"type": "number"},
+        "retirement_age":                 {"type": "number"},
+        "conversion_amount":              {"type": "number"},
+        "current_tax_rate_pct":           {"type": "number"},
+        "expected_retirement_tax_rate_pct":{"type": "number"},
+        "expected_return_pct":            {"type": "number"},
+        "state_tax_rate_pct":             {"type": "number"}
+      },
+      "required": ["current_age","retirement_age","conversion_amount","current_tax_rate_pct","expected_retirement_tax_rate_pct","expected_return_pct"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/169-roth-traditional-conversion-estimator.html",
+    "function_name": "runEstimator",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true
+};
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  var a = document.getElementById('mfstArr');
+  if (b.style.display === 'none' || b.style.display === '') {
+    b.style.display = 'block';
+    if (a) a.textContent = '▲';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else {
+    b.style.display = 'none';
+    if (a) a.textContent = '▼';
+  }
+}
+</script>
+
+</body>
+</html>
