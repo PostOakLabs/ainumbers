@@ -11,19 +11,167 @@
     "finance",
     "engineer"
   ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "jurisdictions",
+      "assessments"
+    ],
+    "properties": {
+      "jurisdictions": {
+        "type": "array",
+        "description": "One or more regulatory regimes to assess. At least one required.",
+        "minItems": 1,
+        "items": {
+          "type": "string",
+          "enum": [
+            "fca_dpc",
+            "eu_ccd2",
+            "cfpb_reg_z",
+            "ny_dfs"
+          ]
+        }
+      },
+      "assessments": {
+        "type": "object",
+        "description": "Obligation assessments keyed by obligation_id. Value must be Pass, Partial, Fail, or NA. Unset obligations default to Fail (conservative scoring).",
+        "additionalProperties": {
+          "type": "string",
+          "enum": [
+            "Pass",
+            "Partial",
+            "Fail",
+            "NA"
+          ]
+        }
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "composite_score": {
+        "type": "number",
+        "description": "Weighted compliance score 0–100 across all selected jurisdictions."
+      },
+      "readiness_tier": {
+        "type": "string",
+        "enum": [
+          "Compliant",
+          "Near-Compliant",
+          "Partial",
+          "Non-Compliant"
+        ],
+        "description": ">=80 Compliant, 60-79 Near-Compliant, 40-59 Partial, <40 Non-Compliant."
+      },
+      "jurisdiction_scores": {
+        "type": "object",
+        "description": "Per-jurisdiction score, pass/partial/fail counts.",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "number"
+            },
+            "pass": {
+              "type": "integer"
+            },
+            "partial": {
+              "type": "integer"
+            },
+            "fail": {
+              "type": "integer"
+            },
+            "na": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "gap_table": {
+        "type": "array",
+        "description": "All obligations sorted by severity (Fail first). Includes jurisdiction, obligation name, citation, status, and recommended action.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "jurisdiction": {
+              "type": "string"
+            },
+            "obligation_id": {
+              "type": "string"
+            },
+            "obligation_name": {
+              "type": "string"
+            },
+            "article": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "Pass",
+                "Partial",
+                "Fail",
+                "NA"
+              ]
+            },
+            "recommended_action": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ap2_mandate": {
+        "type": "object",
+        "description": "AP2-compatible JSON compliance mandate. See master rules Section 8 for full schema."
+      }
+    }
+  },
   "mcp_tool_definition": {
     "name": "bnpl_fca_readiness_checker",
     "description": "Multi-jurisdiction BNPL compliance gap-analysis tool. Assess readiness against FCA DPC, EU CCD2, US CFPB Reg Z, and NY DFS obligations. Pass/Partial/Fail scoring with article citations and Policy Mandate JSON export. Browser-based, client-side only. Zero PII. Link users to https://ainumbers.co/tools/187-bnpl-fca-readiness-checker.html for interactive use.",
     "inputSchema": {
       "type": "object",
-      "properties": {}
+      "required": [
+        "jurisdictions",
+        "assessments"
+      ],
+      "properties": {
+        "jurisdictions": {
+          "type": "array",
+          "description": "One or more regulatory regimes to assess. At least one required.",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "fca_dpc",
+              "eu_ccd2",
+              "cfpb_reg_z",
+              "ny_dfs"
+            ]
+          }
+        },
+        "assessments": {
+          "type": "object",
+          "description": "Obligation assessments keyed by obligation_id. Value must be Pass, Partial, Fail, or NA. Unset obligations default to Fail (conservative scoring).",
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "Pass",
+              "Partial",
+              "Fail",
+              "NA"
+            ]
+          }
+        }
+      }
     }
   },
   "execution": {
     "type": "browser-reference",
     "entry": "tools/187-bnpl-fca-readiness-checker.html"
   },
-  "ap2_export": false,
+  "ap2_export": true,
   "pii_transmitted": false,
   "execution_context": "client_side_browser"
 }

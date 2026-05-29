@@ -11,19 +11,324 @@
     "finance",
     "engineer"
   ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "institution_type": {
+        "type": "string",
+        "enum": [
+          "large_bank",
+          "regional_bank",
+          "community_bank",
+          "non_bank",
+          "emi"
+        ]
+      },
+      "settlement_window": {
+        "type": "string",
+        "enum": [
+          "fednow",
+          "fedwire",
+          "chips",
+          "chaps",
+          "target2",
+          "sepa_inst"
+        ]
+      },
+      "avg_daily_gross_volume_usd": {
+        "type": "number",
+        "minimum": 1,
+        "description": "Average daily gross payment settlement volume in USD"
+      },
+      "peak_net_debit_position_usd": {
+        "type": "number",
+        "minimum": 1,
+        "description": "Maximum intraday negative balance — the ILM1 BCBS 248 indicator (daily max intraday liquidity usage)"
+      },
+      "buffer_target_pct": {
+        "type": "number",
+        "enum": [
+          10,
+          20,
+          25,
+          30,
+          50
+        ],
+        "description": "Percentage buffer above peak net debit for minimum intraday liquidity buffer calculation"
+      },
+      "current_lcr_pct": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Current Liquidity Coverage Ratio as a percentage (≥100% = compliant)"
+      },
+      "current_hqla_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Total High Quality Liquid Assets stock (LCR numerator)"
+      },
+      "net_cash_outflows_30d_usd": {
+        "type": "number",
+        "minimum": 1,
+        "description": "30-day net cash outflows (LCR denominator)"
+      },
+      "existing_intraday_line_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Existing committed intraday credit line amount"
+      },
+      "collateral_type": {
+        "type": "string",
+        "enum": [
+          "reserves",
+          "govt_securities",
+          "sovereign_bonds",
+          "corp_bonds",
+          "agency_mbs",
+          "other"
+        ]
+      },
+      "collateral_haircut_pct": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Basel III haircut applied to pre-positioned collateral"
+      },
+      "time_specific_obligations_pct": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Percentage of daily volume due at specific times (ILM4 input)"
+      },
+      "correspondent_flow_pct": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Percentage of daily volume flowing through correspondent arrangements (ILM5 input)"
+      },
+      "payment_timing_first_2hr_pct": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Percentage of daily payments sent in first 2 hours of settlement window (ILM7 input)"
+      }
+    },
+    "required": [
+      "peak_net_debit_position_usd",
+      "avg_daily_gross_volume_usd",
+      "current_lcr_pct",
+      "current_hqla_usd",
+      "net_cash_outflows_30d_usd"
+    ]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "minimum_intraday_buffer_usd": {
+        "type": "number"
+      },
+      "recommended_facility_size_usd": {
+        "type": "number"
+      },
+      "facility_gap_usd": {
+        "type": "number"
+      },
+      "adequacy_assessment": {
+        "type": "string",
+        "enum": [
+          "Adequate",
+          "Marginal",
+          "Insufficient"
+        ]
+      },
+      "gross_collateral_required_usd": {
+        "type": "number"
+      },
+      "lcr_post_preposition_pct": {
+        "type": "number"
+      },
+      "lcr_impact_ppt": {
+        "type": "number"
+      },
+      "lcr_compliant_post_preposition": {
+        "type": "boolean"
+      },
+      "bcbs248_indicators": {
+        "type": "object",
+        "description": "ILM1–ILM7 values per BCBS 248",
+        "properties": {
+          "ilm1": {
+            "type": "number"
+          },
+          "ilm2": {
+            "type": "number"
+          },
+          "ilm3": {
+            "type": "number"
+          },
+          "ilm4": {
+            "type": "number"
+          },
+          "ilm5": {
+            "type": "number"
+          },
+          "ilm6": {
+            "type": "number"
+          },
+          "ilm7": {
+            "type": "number"
+          }
+        }
+      },
+      "stress_scenarios": {
+        "type": "object",
+        "properties": {
+          "stress_1_5x_covered": {
+            "type": "boolean"
+          },
+          "stress_2x_covered": {
+            "type": "boolean"
+          },
+          "stress_3x_covered": {
+            "type": "boolean"
+          }
+        }
+      },
+      "agent_instructions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "ap2_mandate": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "minimum_intraday_buffer_usd",
+      "recommended_facility_size_usd",
+      "adequacy_assessment",
+      "bcbs248_indicators",
+      "ap2_mandate"
+    ]
+  },
   "mcp_tool_definition": {
     "name": "intraday_credit_facility_sizer",
     "description": "Basel III LCR-framed intraday credit facility sizing model. Minimum liquidity buffer, LCR ratio impact, BCBS 248 indicator set, peak debit stress scenarios, and liquidity Policy Mandate JSON. Client-side. Zero PII. Browser-based, client-side only. Zero PII. Link users to https://ainumbers.co/tools/258-intraday-credit-facility-sizer.html for interactive use.",
     "inputSchema": {
       "type": "object",
-      "properties": {}
+      "properties": {
+        "institution_type": {
+          "type": "string",
+          "enum": [
+            "large_bank",
+            "regional_bank",
+            "community_bank",
+            "non_bank",
+            "emi"
+          ]
+        },
+        "settlement_window": {
+          "type": "string",
+          "enum": [
+            "fednow",
+            "fedwire",
+            "chips",
+            "chaps",
+            "target2",
+            "sepa_inst"
+          ]
+        },
+        "avg_daily_gross_volume_usd": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Average daily gross payment settlement volume in USD"
+        },
+        "peak_net_debit_position_usd": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Maximum intraday negative balance — the ILM1 BCBS 248 indicator (daily max intraday liquidity usage)"
+        },
+        "buffer_target_pct": {
+          "type": "number",
+          "enum": [
+            10,
+            20,
+            25,
+            30,
+            50
+          ],
+          "description": "Percentage buffer above peak net debit for minimum intraday liquidity buffer calculation"
+        },
+        "current_lcr_pct": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Current Liquidity Coverage Ratio as a percentage (≥100% = compliant)"
+        },
+        "current_hqla_usd": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Total High Quality Liquid Assets stock (LCR numerator)"
+        },
+        "net_cash_outflows_30d_usd": {
+          "type": "number",
+          "minimum": 1,
+          "description": "30-day net cash outflows (LCR denominator)"
+        },
+        "existing_intraday_line_usd": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Existing committed intraday credit line amount"
+        },
+        "collateral_type": {
+          "type": "string",
+          "enum": [
+            "reserves",
+            "govt_securities",
+            "sovereign_bonds",
+            "corp_bonds",
+            "agency_mbs",
+            "other"
+          ]
+        },
+        "collateral_haircut_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Basel III haircut applied to pre-positioned collateral"
+        },
+        "time_specific_obligations_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of daily volume due at specific times (ILM4 input)"
+        },
+        "correspondent_flow_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of daily volume flowing through correspondent arrangements (ILM5 input)"
+        },
+        "payment_timing_first_2hr_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of daily payments sent in first 2 hours of settlement window (ILM7 input)"
+        }
+      },
+      "required": [
+        "peak_net_debit_position_usd",
+        "avg_daily_gross_volume_usd",
+        "current_lcr_pct",
+        "current_hqla_usd",
+        "net_cash_outflows_30d_usd"
+      ]
     }
   },
   "execution": {
     "type": "browser-reference",
     "entry": "tools/258-intraday-credit-facility-sizer.html"
   },
-  "ap2_export": false,
+  "ap2_export": true,
   "pii_transmitted": false,
   "execution_context": "client_side_browser"
 }
