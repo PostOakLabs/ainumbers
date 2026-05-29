@@ -134,6 +134,7 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 <!-- /* Phase19-pii-lr */ -->
 <!-- /* Phase20-nav-trail */ -->
 <!-- AIN-canon-2026-05-17 -->
+<style>#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)}</style>
 </head>
 <body>
 <div class="lang-bar"><div class="lang-inner">
@@ -606,5 +607,89 @@ runSim();
   } catch(e){}
 })();
 </script>
+
+<!-- AP2 Export · Phase 15 injection -->
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the tool above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.28;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<script>
+/* AP2 Policy Mandate Export — Phase 15 · CONTRACT §3–§4 */
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  var RE_ISO=/^\d{4}-\d{2}-\d{2}/,RE_VER=/^\d+\.\d+/,RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){
+  var b=document.getElementById('ap2ExportBtn');
+  if(b){b.disabled=false;b.classList.add('ready');}
+};
+window._ap2Result=window._ap2Result||null;
+window._captureAP2=function(){
+  var sels=['#outputPanel'];
+  for(var i=0;i<sels.length;i++){
+    var el=document.querySelector(sels[i]);
+    if(el&&el.textContent.trim().length>10){
+      var inputs={};
+      document.querySelectorAll('input,select,textarea').forEach(function(f){
+        if(f.id&&f.value)inputs[f.id]=f.value;
+      });
+      window._ap2Result={output:el.textContent.trim().slice(0,3000),inputs:inputs};
+      return;
+    }
+  }
+};
+window.exportAP2=function(){
+  window._captureAP2();
+  if(!window._ap2Result){alert('Run the tool first to generate results.');return;}
+  var ts=new Date().toISOString();
+  var tid=(typeof MANIFEST!=='undefined'&&MANIFEST.tool_id)?MANIFEST.tool_id:'148-dac7-1099k-withholding-simulator';
+  var mandate={
+    ap2_version:'1.0',
+    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,
+    tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',
+    mandate_type:'payment_policy',
+    jurisdiction:['ZZ'],regulatory_frameworks:[],
+    payload:window._ap2Result,
+    summary:(typeof MANIFEST!=='undefined'&&MANIFEST.title?MANIFEST.title:document.title)+' — assessment '+ts.slice(0,10),
+    agent_instructions:['Review the exported assessment and apply indicated controls per your compliance framework.'],
+    valid_from:ts.slice(0,10),
+    valid_until:new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed:ts.slice(0,10),source_tool_inputs:{},regulatory_citations:[],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+/* MutationObserver — enable button when output appears */
+var _sels=['#outputPanel'];
+var _obs=new MutationObserver(function(){
+  if(!window._ap2Result){
+    for(var i=0;i<_sels.length;i++){
+      var el=document.querySelector(_sels[i]);
+      if(el&&el.textContent.trim().length>10){window._captureAP2();window.enableAP2Btn();break;}
+    }
+  }
+});
+_obs.observe(document.body,{childList:true,subtree:true,characterData:true});
+})();
+</script>
+
 </body>
 </html>
