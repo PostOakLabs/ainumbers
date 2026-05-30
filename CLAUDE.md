@@ -8,26 +8,28 @@
 
 ```
 ainumbers/
+├── CONTRACT.md              ← SSOT — read before any build
 ├── index.html               ← Main dashboard (tool grid, category filters, search)
 ├── sitemap.html             ← Human-readable sitemap
 ├── contact.html             ← Contact page
-├── tools.html               ← Tools index page
-├── tools/                   ← 272 standalone tool HTML files
+├── about.html               ← About page
+├── tools/                   ← 268 standalone tool HTML files
 │   ├── 01-a2a-fee-route-optimizer.html
 │   ├── pf-132-compound-interest-explorer.html
 │   ├── rbe-01-smb-treasury-tax.html
 │   └── … (all numbered, pf-, rbe-, and named tools)
-├── guides/                  ← 19 integration hub HTML files
+├── guides/                  ← 25 integration hub HTML files
 │   ├── open-banking-integration-hub.html
 │   └── … (all *-hub.html files)
+├── manifests/               ← 268 MCP tool manifests (one per tool)
 ├── sitemap.xml
 ├── robots.txt
 ├── llms.txt
-├── TOOLS_INDEX.md
-└── *.manifest.json          ← MCP tool definitions (stay at root)
+└── TOOLS_INDEX.md
 ```
 
-**Canonical template:** `reconciled/152-baas-provider-comparator.html` in the AINumbers project folder.
+**Canonical tool template:** `tools/152-baas-provider-comparator.html`  
+**Canonical manifest template:** `manifests/01-a2a-fee-route-optimizer.manifest.json`
 
 ## 🔒 Non-Negotiable Constraints
 
@@ -55,12 +57,15 @@ ainumbers/
 6. Update category tool count in `index.html` cat-heading `<span class="cat-n">`.
 7. Add `<url>` entry to `sitemap.xml` under `<!-- Tools -->`.
 
-## 📊 Current Scale (as of 2026-05-21)
+## 📊 Current Scale
 
-- **272** tool HTML files in `tools/`
-- **19** integration hub HTML files in `guides/`
-- **22** tool categories
-- All tools client-side, zero PII, zero network calls after page load
+Always verify with `ls` — counts update with every new tool:
+```bash
+ls tools/*.html | wc -l      # tools
+ls guides/*.html | wc -l     # hubs
+ls manifests/*.manifest.json | grep -v "DELETE ME" | wc -l  # manifests
+```
+As of 2026-05-30: **268** tools · **25** guide hubs · **268** manifests · **22** categories
 
 ## 🔀 Git Workflow
 
@@ -74,4 +79,13 @@ ainumbers/
   ```
 - Scope `git add` to the specific files changed where possible; use `-A` only when the full working tree is intentional.
 
-**Hard Stop:** If any constraint conflicts with legacy specs (`00-master-rules...`, `06-remaining-spec...`, `Manifest JSON AP2 placement.md`), follow `CONTRACT.md`.
+**Hard Stop:** If any constraint conflicts with legacy specs, follow `CONTRACT.md`.
+
+## 📋 Additional Rules (from post-launch audits)
+
+- **AP2 is mandatory** for any tool whose title/function involves: policy, rule, mandate, routing, compliance, risk assessment, AML, KYC, or gap analysis. When in doubt, add it.
+- **Manifest naming:** one file per tool, always `{number}-{slug}.manifest.json`. Never create short-form `{number}-manifest.json` variants — these become orphans.
+- **No external JS libraries** for export (no jsPDF, no SheetJS, etc.) unless explicitly bundled inline. Use `URL.createObjectURL(new Blob(...))` + `<a download>` only.
+- **`<link rel="canonical">`** uses absolute URLs intentionally — this is correct SEO practice, not a routing violation.
+- **JSON-LD schema block** is required on every hub page (see `CONTRACT.md` §6.3).
+- **index.html is 5 500+ lines** — high truncation risk in any AI context window. Edit surgically with grep + line numbers rather than reading the whole file.
