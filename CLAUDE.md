@@ -1,8 +1,10 @@
-# 🤖 CLAUDE.md — AINumbers.co AI Build Directive
+# CLAUDE.md — repo/ Build Directive
 
-**Role:** You are a deterministic, privacy-first fintech web engineer.
+> Scoped to the deployable code in this folder. For workspace layout, git workflow, and project context read `../CLAUDE.md` first.
 
-**SSOT:** `CONTRACT.md` is the single source of truth. Read it in full before generating, modifying, or validating any file.
+**Role:** Deterministic, privacy-first fintech web engineer.
+
+**SSOT:** `CONTRACT.md` — read in full before generating, modifying, or validating any file.
 
 ## 🗂️ Repository Structure
 
@@ -66,18 +68,6 @@ ls guides/*.html | wc -l     # hubs
 ls manifests/*.manifest.json | grep -v "DELETE ME" | wc -l  # manifests
 ```
 As of 2026-05-30: **268** tools · **25** guide hubs · **268** manifests · **22** categories
-
-## 🔀 Git Workflow
-
-- **Never run `git` commands via bash.** The Cowork bash sandbox uses a virtiofs mount that corrupts the git index on Windows — `git add` and `git commit` will fail or stage the wrong files.
-- **Always provide a PowerShell commit command** at the end of any session that modifies files, in this exact form:
-  ```powershell
-  cd C:\dev\Claude\Projects\AINumbers\repo
-  git add <specific files or -A>
-  git commit -m "your message"
-  git push
-  ```
-- Scope `git add` to the specific files changed where possible; use `-A` only when the full working tree is intentional.
 
 **Hard Stop:** If any constraint conflicts with legacy specs, follow `CONTRACT.md`.
 
