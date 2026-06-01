@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>ViDA Deemed Supplier VAT Scope &amp; Liability Classifier · AINumbers.co</title>
+<meta name="description" content="Classify whether your online platform falls within the ViDA deemed supplier provisions (effective 1 July 2028) under Pillar 2 of the ViDA package adopted March 2025. Determine VAT liability, OSS registration, and gross revenue thresholds for short-term accommodation and passenger transport platforms.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/345-vida-deemed-supplier-classifier.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"ViDA Deemed Supplier VAT Scope & Liability Classifier","url":"https://ainumbers.co/tools/345-vida-deemed-supplier-classifier.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "vida-deemed-supplier-classifier",
+  "version": "1.0.0",
+  "title": "ViDA Deemed Supplier VAT Scope & Liability Classifier",
+  "description": "Classifies whether an online platform falls within the ViDA deemed supplier provisions (effective 1 July 2028) under Pillar 2 of the ViDA package (adopted March 11 2025). Determines VAT liability, OSS registration requirements, and gross revenue thresholds for short-term accommodation and passenger transport platforms.",
+  "category": "cat-15",
+  "tags": ["ViDA","deemed supplier","VAT","platform economy","short-term accommodation","passenger transport","OSS","IOSS","July 2028","EU","digital platforms","e-commerce"],
+  "audience": ["compliance","product","tax"],
+  "ap2_export": true,
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "platform_type": {"type": "string", "enum": ["short_term_accommodation","passenger_transport","both","other"]},
+      "eu_countries": {"type": "integer", "minimum": 0, "maximum": 27},
+      "annual_gmv_eur": {"type": "number"},
+      "supplier_type": {"type": "string", "enum": ["business_only","private_only","mixed"]},
+      "vat_currently_collected": {"type": "boolean"},
+      "oss_registered": {"type": "boolean"},
+      "accommodation_max_days": {"type": "integer"}
+    },
+    "required": ["platform_type","eu_countries","annual_gmv_eur","supplier_type"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "deemed_supplier_applies": {"type": "boolean"},
+      "scope_determination": {"type": "string"},
+      "vat_liability_estimate_eur": {"type": "number"},
+      "oss_required": {"type": "boolean"},
+      "compliance_deadline": {"type": "string"},
+      "gap_count": {"type": "integer"}
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "classify_vida_deemed_supplier_scope",
+    "description": "Classify whether a digital platform falls within ViDA deemed supplier provisions and estimate VAT liability",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "platform_type": {"type": "string"},
+        "eu_countries": {"type": "integer"},
+        "annual_gmv_eur": {"type": "number"},
+        "supplier_type": {"type": "string"}
+      },
+      "required": ["platform_type","eu_countries","annual_gmv_eur","supplier_type"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/345-vida-deemed-supplier-classifier.html",
+    "function_name": "runClassifier",
+    "timeout_ms": 5000
+  }
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;
+  --border:#1E2F4A;--border-2:#263855;
+  --muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--gold-lt:#F0BC48;
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --blue:#3B82F6;--blue-dim:rgba(59,130,246,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:var(--teal);text-decoration:none}a:hover{color:var(--teal-lt)}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1020px;margin:0 auto;padding:0 1.5rem}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1020px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--gold);color:var(--gold-lt)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.95);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1020px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}.nav-trail a:hover{color:var(--gold)}
+.nav-sep{color:var(--border-2)}
+.logo{display:flex;align-items:center;gap:.6rem;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--gold)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-right{display:flex;align-items:center;gap:.5rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--gold);color:var(--gold)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--gold)}
+.hero h1{font-size:clamp(1.5rem,2.8vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--gold-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.25rem}
+.panel-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;gap:.75rem}
+.panel-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(212,168,71,.3);padding:.18rem .55rem;border-radius:3px}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
+.panel-body{padding:1.25rem}
+.panel-row{margin-bottom:1rem}
+.panel-row label{display:block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.panel-row select,.panel-row input[type="number"],.panel-row input[type="text"]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none;transition:border-color .2s;-webkit-appearance:none}
+.panel-row select:focus,.panel-row input:focus{border-color:var(--gold)}
+.field-hint{font-size:.62rem;color:var(--muted);margin-top:.25rem;line-height:1.5}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+@media(max-width:640px){.grid-2{grid-template-columns:1fr}}
+.run-btn{background:var(--gold);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.5rem}
+.run-btn:hover{background:var(--gold-lt)}
+.results-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-top:1.25rem;display:none}
+.results-panel.show{display:block}
+.results-header{padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;border-bottom:1px solid var(--border)}
+.verdict{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;padding:.3rem .8rem;border-radius:3px;font-weight:600;border:1px solid}
+.verdict.in-scope{background:var(--warn-dim);color:var(--warn);border-color:rgba(245,158,11,.4)}
+.verdict.out-scope{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.4)}
+.verdict.partial{background:var(--blue-dim);color:var(--blue);border-color:rgba(59,130,246,.4)}
+.results-body{padding:1.25rem;display:flex;flex-direction:column;gap:1rem}
+.result-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white)}
+.section-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.6rem}
+.check-list{display:flex;flex-direction:column;gap:.5rem}
+.check-item{display:flex;gap:.75rem;align-items:flex-start;padding:.6rem .85rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius)}
+.chk{font-family:'JetBrains Mono',monospace;font-size:.75rem;flex-shrink:0;width:20px}
+.chk.pass{color:var(--green)}.chk.fail{color:var(--red)}.chk.warn{color:var(--warn)}.chk.info{color:var(--blue)}
+.chk-title{font-size:.75rem;color:var(--bright);margin-bottom:.2rem;font-weight:500}
+.chk-desc{font-size:.68rem;color:var(--body);line-height:1.55}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem}
+.stat-box{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem}
+.stat-val{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--white);line-height:1;margin-bottom:.25rem}
+.stat-val.warn{color:var(--warn)}.stat-val.green{color:var(--green)}.stat-val.red{color:var(--red)}
+.stat-lbl{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.detail-table{width:100%;border-collapse:collapse;font-size:.75rem}
+.detail-table th{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);padding:.5rem .75rem;text-align:left}
+.detail-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border-2);color:var(--text);vertical-align:top}
+.detail-table tr:last-child td{border-bottom:none}
+.td-warn{color:var(--warn)}.td-green{color:var(--green)}.td-red{color:var(--red)}
+.results-export-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;background:var(--bg-3);border:1px solid var(--border);border-top:2px solid var(--gold);border-radius:var(--radius);padding:.75rem 1rem;margin-top:1rem}
+.export-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+#ap2ExportBtn{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;background:var(--gold);color:var(--bg);border:none;padding:.38rem 1rem;border-radius:var(--radius);font-weight:600;transition:background .2s}
+#ap2ExportBtn:hover{background:var(--gold-lt)}
+.mcp-toggle{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer;margin-top:1.5rem}
+.mcp-toggle:hover{background:var(--bg-3)}
+.mcp-panel{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mcp-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.source-notes{background:var(--bg-2);border-top:1px solid var(--border);padding:1.5rem 0;margin-top:2rem;font-size:.7rem;color:var(--body)}
+.source-notes h3{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem}
+.cite-list{display:flex;flex-direction:column;gap:.4rem}
+.cite{display:flex;gap:.5rem}
+.cite-num{font-family:'JetBrains Mono',monospace;color:var(--gold);flex-shrink:0;width:20px}
+.cite-text{color:var(--muted);line-height:1.6}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links a{color:var(--muted)}.footer-links a:hover{color:var(--gold-lt)}
+.footer-copy{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="lang-bar" id="langBar">
+  <div class="lang-inner">
+    <button class="lang-btn active" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<nav>
+  <div class="nav-inner">
+    <a class="logo" href="../index.html">
+      <span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span>
+    </a>
+    <div class="nav-trail">
+      <a href="../index.html">Home</a>
+      <span class="nav-sep">›</span>
+      <a href="../index.html#cat-15">Tax &amp; e-Invoicing</a>
+      <span class="nav-sep">›</span>
+      <span>ViDA Deemed Supplier</span>
+    </div>
+    <div class="nav-right">
+      <a class="nav-pill" href="../guides/einvoicing-vat-vida-hub.html">ViDA Hub</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="hero">
+    <div class="hero-eyebrow">VAT in the Digital Age · Pillar 2 · Platform Economy</div>
+    <h1>ViDA <em>Deemed Supplier</em> VAT Scope &amp; Liability Classifier</h1>
+    <p class="hero-desc">Classify whether your online platform falls within the ViDA deemed supplier provisions effective 1 July 2028 (Pillar 2, adopted March 11 2025). Determine VAT liability, OSS registration requirements, and per-country exposure for short-term accommodation and passenger transport platforms operating in the EU.</p>
+    <div class="hero-meta">
+      <span class="badge badge-warn">Effective 1 July 2028</span>
+      <span class="badge badge-gold">ViDA Council Directive 2025</span>
+      <span class="badge badge-teal">Art. 9a &amp; 9b</span>
+      <span class="badge badge-muted">OSS · IOSS</span>
+      <span class="badge badge-muted">Zero PII · Browser-only</span>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="tool-body">
+    <p class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</p>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-num">Step 01</span>
+        <span class="panel-label">Platform Type &amp; Activity</span>
+      </div>
+      <div class="panel-body">
+        <div class="panel-row">
+          <label for="platformType">Platform type</label>
+          <select id="platformType">
+            <option value="accommodation">Short-term accommodation (e.g. Airbnb-type)</option>
+            <option value="transport">Passenger transport (e.g. ride-hailing)</option>
+            <option value="both">Both accommodation and transport</option>
+            <option value="other">Other (e.g. food delivery, B2B logistics)</option>
+          </select>
+          <p class="field-hint">ViDA Art.9a covers accommodation ≤30 consecutive days; Art.9b covers passenger transport per ride</p>
+        </div>
+        <div class="panel-row">
+          <label for="supplierType">Underlying supplier type</label>
+          <select id="supplierType">
+            <option value="private_only">Private individuals only (non-taxable persons)</option>
+            <option value="business_only">Businesses only (taxable persons — B2B exemption may apply)</option>
+            <option value="mixed">Mixed (both private individuals and businesses)</option>
+          </select>
+          <p class="field-hint">Deemed supplier rules primarily target platforms facilitating supplies by private individuals. B2B may be exempt if supplier VAT number is communicated.</p>
+        </div>
+        <div class="panel-row">
+          <label for="maxStayDays">Maximum consecutive stay offered (accommodation platforms — days)</label>
+          <input type="number" id="maxStayDays" value="7" min="1" max="365">
+          <p class="field-hint">ViDA Art.9a trigger: accommodation ≤30 consecutive days per stay. Longer stays fall outside scope.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-num">Step 02</span>
+        <span class="panel-label">Geographic &amp; Revenue Scope</span>
+      </div>
+      <div class="panel-body">
+        <div class="grid-2">
+          <div class="panel-row">
+            <label for="euCountries">EU member states where services facilitated</label>
+            <input type="number" id="euCountries" value="5" min="0" max="27">
+            <p class="field-hint">0 = no EU activity; 27 = all EU member states</p>
+          </div>
+          <div class="panel-row">
+            <label for="annualGMV">Annual EU gross transaction value facilitated (€)</label>
+            <input type="number" id="annualGMV" value="5000000" min="0">
+            <p class="field-hint">Total value of transactions between suppliers and customers facilitated through the platform in the EU</p>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="panel-row">
+            <label for="vatCollected">Currently collecting/remitting VAT on these transactions?</label>
+            <select id="vatCollected">
+              <option value="no">No</option>
+              <option value="partial">Partial (some jurisdictions)</option>
+              <option value="yes">Yes (all applicable jurisdictions)</option>
+            </select>
+          </div>
+          <div class="panel-row">
+            <label for="ossRegistered">Currently OSS/IOSS registered?</label>
+            <select id="ossRegistered">
+              <option value="no">No</option>
+              <option value="oss_only">OSS only</option>
+              <option value="ioss_only">IOSS only</option>
+              <option value="both">Both OSS and IOSS</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-num">Step 03</span>
+        <span class="panel-label">Current VAT Compliance Posture</span>
+      </div>
+      <div class="panel-body">
+        <div class="grid-2">
+          <div class="panel-row">
+            <label for="avgVatRate">Estimated average EU VAT rate applicable (%)</label>
+            <input type="number" id="avgVatRate" value="20" min="0" max="27" step="0.5">
+            <p class="field-hint">Standard rates range from 17% (Luxembourg) to 27% (Hungary). Reduced rates may apply to accommodation services.</p>
+          </div>
+          <div class="panel-row">
+            <label for="supplierVatDataCapture">Do you capture supplier VAT registration numbers?</label>
+            <select id="supplierVatDataCapture">
+              <option value="no">No</option>
+              <option value="optional">Optional — not systematically</option>
+              <option value="yes">Yes — systematically for all suppliers</option>
+            </select>
+          </div>
+        </div>
+        <div class="panel-row">
+          <label for="migrationStarted">ViDA compliance programme started?</label>
+          <select id="migrationStarted">
+            <option value="not_started">Not started</option>
+            <option value="assessment">Assessment phase only</option>
+            <option value="planning">Planning / roadmap defined</option>
+            <option value="implementation">Implementation underway</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <button class="run-btn" onclick="runClassifier()">Classify ViDA Scope &amp; Liability →</button>
+
+    <div class="results-panel" id="resultsPanel">
+      <div class="results-header">
+        <div>
+          <div class="result-title" id="resultTitle">Classification Result</div>
+        </div>
+        <div class="verdict" id="verdictBadge">—</div>
+      </div>
+      <div class="results-body">
+        <div class="stat-grid" id="statGrid"></div>
+        <div>
+          <div class="section-label">Scope Determination</div>
+          <div class="check-list" id="scopeChecks"></div>
+        </div>
+        <div>
+          <div class="section-label">VAT Liability &amp; Registration Requirements</div>
+          <div id="liabilityTable"></div>
+        </div>
+        <div>
+          <div class="section-label">Compliance Gap Assessment</div>
+          <div class="check-list" id="gapChecks"></div>
+        </div>
+        <div>
+          <div class="section-label">Implementation Timeline</div>
+          <div class="check-list" id="timelineItems"></div>
+        </div>
+        <div class="results-export-row">
+          <span class="export-label">AP2 Policy Mandate · CC BY 4.0 · Post Oak Labs</span>
+          <button id="ap2ExportBtn" onclick="exportAP2()">⬇ Export AP2 Mandate JSON</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="mcp-toggle" onclick="document.getElementById('mcpPanel').style.display=document.getElementById('mcpPanel').style.display==='block'?'none':'block'">
+      <span>🤖 MCP Tool Definition &amp; Manifest</span><span>▾</span>
+    </button>
+    <div class="mcp-panel" id="mcpPanel">
+      <pre class="mcp-code">{
+  "name": "classify_vida_deemed_supplier_scope",
+  "description": "Classify whether a digital platform falls within EU ViDA deemed supplier provisions (Art.9a accommodation, Art.9b transport, effective 1 Jul 2028) and estimate VAT liability and OSS registration requirements.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "platform_type": { "type": "string", "enum": ["accommodation","transport","both","other"], "description": "Platform service category" },
+      "eu_countries": { "type": "integer", "description": "Number of EU member states where platform operates" },
+      "annual_gmv_eur": { "type": "number", "description": "Annual EU gross transaction value facilitated in EUR" },
+      "supplier_type": { "type": "string", "enum": ["private_only","business_only","mixed"], "description": "Whether underlying suppliers are private individuals or businesses" },
+      "avg_vat_rate": { "type": "number", "description": "Average applicable EU VAT rate as percentage" }
+    },
+    "required": ["platform_type","eu_countries","annual_gmv_eur","supplier_type"]
+  }
+}</pre>
+    </div>
+  </div>
+</div>
+
+<div class="source-notes">
+  <div class="container">
+    <h3>Regulatory Citations</h3>
+    <div class="cite-list">
+      <div class="cite"><span class="cite-num">[1]</span><span class="cite-text">ViDA Council Directive (EU) 2025 — Amending Directive 2006/112/EC (VAT Directive); adopted March 11, 2025. Art. 9a: deemed supplier for short-term accommodation platforms. Art. 9b: deemed supplier for passenger transport platforms.</span></div>
+      <div class="cite"><span class="cite-num">[2]</span><span class="cite-text">Council Regulation (EU) 2025 — Administrative cooperation in the field of taxation (ViDA Pillar 3). Replaces Regulation (EU) No 904/2010.</span></div>
+      <div class="cite"><span class="cite-num">[3]</span><span class="cite-text">Directive 2006/112/EC (EU VAT Directive) Art. 14a — existing deemed supplier rule for online marketplaces (B2C goods). ViDA Art.9a/9b extends this logic to services.</span></div>
+      <div class="cite"><span class="cite-num">[4]</span><span class="cite-text">ViDA Pillar 3 — One Stop Shop (OSS) extension. From July 2028, expanded OSS covers electricity, gas, and energy-related supplies. From July 2030, Digital Reporting Requirements for cross-border B2B transactions.</span></div>
+      <div class="cite"><span class="cite-num">[5]</span><span class="cite-text">European Commission Impact Assessment SWD(2022) 393 — VAT gap estimated at €61B in 2020; platform economy deemed supplier to reduce gap by €8–11B/year.</span></div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-links">
+      <a href="../index.html">← All Tools</a>
+      <a href="../guides/einvoicing-vat-vida-hub.html">ViDA Hub</a>
+      <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs</a>
+    </div>
+    <div class="footer-copy">© 2026 Post Oak Labs · CC BY 4.0 · AINumbers.co</div>
+  </div>
+</footer>
+
+<script>
+// ── i18n ──────────────────────────────────────────────────────
+const T = {
+  en:{home:'Home',tools:'Tools',title:'ViDA Deemed Supplier Classifier'},
+  es:{home:'Inicio',tools:'Herramientas',title:'Clasificador ViDA Proveedor Presunto'},
+  fr:{home:'Accueil',tools:'Outils',title:'Classificateur ViDA Fournisseur Réputé'},
+  ar:{home:'الرئيسية',tools:'الأدوات',title:'مصنف المورد المفترض ViDA'},
+  pt:{home:'Início',tools:'Ferramentas',title:'Classificador ViDA Fornecedor Presumido'},
+  zh:{home:'首页',tools:'工具',title:'ViDA 视同供应商分类器'}
+};
+function setLang(lang){
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+  const btn = document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`);
+  if(btn) btn.classList.add('active');
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang==='ar'?'rtl':'ltr';
+  sessionStorage.setItem('ain_lang', lang);
+}
+(function(){const l=sessionStorage.getItem('ain_lang');if(l&&T[l])setLang(l);})();
+
+// ── Main classifier ──────────────────────────────────────────
+let lastInputs = {}, lastOutputs = {};
+
+function runClassifier() {
+  const platformType = document.getElementById('platformType').value;
+  const supplierType = document.getElementById('supplierType').value;
+  const maxStayDays  = parseInt(document.getElementById('maxStayDays').value)||7;
+  const euCountries  = parseInt(document.getElementById('euCountries').value)||0;
+  const annualGMV    = parseFloat(document.getElementById('annualGMV').value)||0;
+  const vatCollected = document.getElementById('vatCollected').value;
+  const ossRegistered= document.getElementById('ossRegistered').value;
+  const avgVatRate   = parseFloat(document.getElementById('avgVatRate').value)||20;
+  const vatDataCapture = document.getElementById('supplierVatDataCapture').value;
+  const migrationStatus = document.getElementById('migrationStarted').value;
+
+  lastInputs = {platformType,supplierType,maxStayDays,euCountries,annualGMV,vatCollected,ossRegistered,avgVatRate,vatDataCapture,migrationStatus};
+
+  // ── Scope determination ──────────────────────────────
+  const scopeChecks = [];
+  let inScope = false;
+  let scopeReason = '';
+
+  if(platformType === 'other'){
+    scopeChecks.push({icon:'✓',cls:'pass',title:'Platform type out of scope',desc:'ViDA deemed supplier rules (Art.9a and Art.9b) apply only to short-term accommodation platforms and passenger transport platforms. Your platform type falls outside these categories.'});
+    scopeReason = 'OUT OF SCOPE — platform type not covered by Art.9a or Art.9b';
+  } else if(euCountries === 0){
+    scopeChecks.push({icon:'✓',cls:'pass',title:'No EU operations — outside territorial scope',desc:'ViDA deemed supplier rules apply only to platforms facilitating services within EU member states. With no EU operations, the rules do not apply.'});
+    scopeReason = 'OUT OF SCOPE — no EU operations';
+  } else {
+    // Check accommodation scope
+    if(platformType === 'accommodation' || platformType === 'both'){
+      if(maxStayDays <= 30){
+        scopeChecks.push({icon:'!',cls:'warn',title:'Accommodation: Art.9a APPLIES',desc:`Stays of ${maxStayDays} consecutive days or fewer are within the ≤30-day trigger for Art.9a deemed supplier rules. Platform becomes the deemed VAT supplier for these transactions.`});
+        inScope = true;
+      } else {
+        scopeChecks.push({icon:'✓',cls:'pass',title:'Accommodation: Art.9a may not apply',desc:`Maximum stay of ${maxStayDays} days exceeds the 30-day threshold. However, if any stays offered are ≤30 days, those transactions remain in scope. Review your full product range.`});
+      }
+    }
+    if(platformType === 'transport' || platformType === 'both'){
+      scopeChecks.push({icon:'!',cls:'warn',title:'Passenger transport: Art.9b APPLIES',desc:'All passenger transport services facilitated by the platform are within Art.9b deemed supplier scope, regardless of journey duration or value.'});
+      inScope = true;
+    }
+    // B2B exemption check
+    if(supplierType === 'business_only'){
+      scopeChecks.push({icon:'✓',cls:'pass',title:'B2B exemption may apply',desc:'Where the underlying supplier communicates a valid VAT registration number to the platform, the deemed supplier rule does not apply for that supply. Systematic VAT number capture is essential to operationalise this exemption.'});
+      if(vatDataCapture !== 'yes') inScope = true; // still in scope if not capturing
+    } else if(supplierType === 'private_only'){
+      scopeChecks.push({icon:'!',cls:'fail',title:'Private supplier — no B2B exemption',desc:'All underlying suppliers are private individuals (non-taxable persons). The B2B exemption is unavailable. Platform is deemed supplier for all in-scope transactions.'});
+      inScope = true;
+    } else {
+      scopeChecks.push({icon:'!',cls:'warn',title:'Mixed supplier base — partial exemption only',desc:'For business suppliers who communicate VAT numbers: B2B exemption available. For private individuals: no exemption, platform is deemed supplier. Requires systematic supplier classification.'});
+      inScope = true;
+    }
+    scopeReason = inScope ? 'IN SCOPE — deemed supplier rules apply from 1 July 2028' : 'LIKELY OUT OF SCOPE — verify with legal counsel';
+  }
+
+  // ── VAT liability estimate ───────────────────────────
+  let vatableGMV = annualGMV;
+  if(supplierType === 'business_only' && vatDataCapture === 'yes') vatableGMV = 0; // full B2B exemption
+  else if(supplierType === 'mixed' && vatDataCapture === 'yes') vatableGMV = annualGMV * 0.5; // assume 50% private
+  else if(supplierType === 'mixed') vatableGMV = annualGMV * 0.7; // partial capture
+  const vatLiabilityEUR = inScope ? vatableGMV * (avgVatRate / 100) : 0;
+
+  // ── Gap checks ───────────────────────────────────────
+  const gaps = [];
+  if(inScope){
+    if(vatCollected === 'no') gaps.push({icon:'✗',cls:'fail',title:'VAT not currently collected on these transactions',desc:'As deemed supplier from July 2028, the platform will be liable to collect and remit VAT on all in-scope supplies. This requires invoice issuance capability and VAT accounting per member state.'});
+    if(ossRegistered === 'no') gaps.push({icon:'✗',cls:'fail',title:'OSS registration required — not yet registered',desc:'Platforms acting as deemed supplier should register for the OSS scheme to file a single VAT return covering all EU member states. Registration must precede commencement of VAT collection obligations.'});
+    if(vatDataCapture !== 'yes' && supplierType !== 'private_only') gaps.push({icon:'!',cls:'warn',title:'Supplier VAT number capture not systematic',desc:'To benefit from the B2B exemption, platforms must systematically capture and validate supplier VAT registration numbers. Ad-hoc or optional capture exposes the platform to unintended deemed supplier liability.'});
+    if(migrationStatus === 'not_started') gaps.push({icon:'!',cls:'warn',title:'Compliance programme not started',desc:'July 2028 is 25 months away. OSS registration, VAT accounting infrastructure, supplier data workflows, and pricing/margin adjustments require 12-18 months of lead time for most platforms.'});
+    if(migrationStatus === 'assessment') gaps.push({icon:'!',cls:'warn',title:'Assessment only — implementation planning needed',desc:'Move from assessment to roadmap definition. Key workstreams: legal entity VAT registration, technology for invoice generation, supplier communication, OSS filing, and pricing model review.'});
+    if(euCountries > 5 && ossRegistered === 'no') gaps.push({icon:'!',cls:'warn',title:'Multi-country exposure without OSS',desc:`Operating in ${euCountries} EU member states without OSS creates ${euCountries} separate VAT filing obligations. OSS reduces this to a single consolidated return.`});
+  }
+  if(!inScope){
+    gaps.push({icon:'✓',cls:'pass',title:'No ViDA deemed supplier obligations identified',desc:'Based on the inputs provided, the ViDA deemed supplier rules (Art.9a and Art.9b) do not apply to your platform. Continue monitoring for legislative changes and consider your position if business scope expands.'});
+  }
+
+  // ── Timeline ─────────────────────────────────────────
+  const timeline = [
+    {icon:'i',cls:'info',title:'Q2 2026 — ViDA Directive published in Official Journal',desc:'Formal publication starts national transposition clock. Member states must implement by December 31 2026.'},
+    {icon:'i',cls:'info',title:'January 1 2027 — OSS scope extension',desc:'OSS extended to cover electricity, gas and energy-related supplies. Some single-purpose voucher rules also updated.'},
+    {icon:'!',cls:'warn',title:'July 1 2028 — Deemed supplier rules effective',desc:'Art.9a (accommodation) and Art.9b (transport) deemed supplier provisions apply. Platform must be collecting and remitting VAT from this date.'},
+    {icon:'i',cls:'info',title:'July 1 2030 — Digital Reporting Requirements',desc:'Cross-border B2B digital reporting (e-invoicing to tax authorities) becomes mandatory under ViDA Pillar 1. Separate workstream from deemed supplier.'},
+  ];
+
+  // ── Render ────────────────────────────────────────────
+  const scopeLabel = inScope ? 'IN SCOPE' : (platformType==='other'||euCountries===0 ? 'OUT OF SCOPE' : 'REVIEW NEEDED');
+  const verdictEl = document.getElementById('verdictBadge');
+  verdictEl.className = 'verdict ' + (inScope?'in-scope':(platformType==='other'||euCountries===0?'out-scope':'partial'));
+  verdictEl.textContent = scopeLabel;
+
+  document.getElementById('resultTitle').textContent = inScope ? 'Deemed Supplier Rules Apply' : 'Deemed Supplier Rules Do Not Apply';
+
+  // Stats
+  const statGrid = document.getElementById('statGrid');
+  statGrid.innerHTML = `
+    <div class="stat-box"><div class="stat-val ${inScope?'warn':'green'}">${inScope?'Yes':'No'}</div><div class="stat-lbl">Art.9a/9b In Scope</div></div>
+    <div class="stat-box"><div class="stat-val">${euCountries}</div><div class="stat-lbl">EU Countries Affected</div></div>
+    <div class="stat-box"><div class="stat-val ${vatLiabilityEUR>0?'warn':'green'}">€${Math.round(vatLiabilityEUR).toLocaleString()}</div><div class="stat-lbl">Est. Annual VAT Liability</div></div>
+    <div class="stat-box"><div class="stat-val">${gaps.filter(g=>g.cls==='fail'||g.cls==='warn').length}</div><div class="stat-lbl">Compliance Gaps</div></div>
+  `;
+
+  // Scope checks
+  document.getElementById('scopeChecks').innerHTML = scopeChecks.map(c=>`
+    <div class="check-item">
+      <span class="chk ${c.cls}">${c.icon}</span>
+      <div><div class="chk-title">${c.title}</div><div class="chk-desc">${c.desc}</div></div>
+    </div>`).join('');
+
+  // Liability table
+  document.getElementById('liabilityTable').innerHTML = `
+    <table class="detail-table">
+      <thead><tr><th>Item</th><th>Detail</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Deemed supplier trigger</td><td>${platformType==='accommodation'?'Art.9a (≤30 day stays)':platformType==='transport'?'Art.9b (per ride)':platformType==='both'?'Art.9a + Art.9b':'-'}</td><td class="${inScope?'td-warn':'td-green'}">${inScope?'Triggered':'Not triggered'}</td></tr>
+        <tr><td>Vatable GMV (estimated)</td><td>€${Math.round(vatableGMV).toLocaleString()} / year</td><td class="${vatableGMV>0?'td-warn':'td-green'}">${vatableGMV>0?'VAT required':'Exempt'}</td></tr>
+        <tr><td>Estimated VAT liability</td><td>€${Math.round(vatLiabilityEUR).toLocaleString()} / year (@ ${avgVatRate}% avg)</td><td class="${vatLiabilityEUR>0?'td-warn':'td-green'}">${vatLiabilityEUR>0?'Material exposure':'None identified'}</td></tr>
+        <tr><td>OSS registration status</td><td>${ossRegistered==='no'?'Not registered':ossRegistered==='both'?'OSS + IOSS registered':ossRegistered.replace('_',' ')}</td><td class="${ossRegistered==='no'&&inScope?'td-red':ossRegistered==='both'?'td-green':'td-warn'}">${ossRegistered==='no'&&inScope?'Required':'${ossRegistered==="both"?"Complete":"Review"}'}</td></tr>
+        <tr><td>B2B exemption available</td><td>${supplierType==='business_only'?'Yes — all suppliers may qualify':supplierType==='private_only'?'No — no business suppliers':'Partial — for business suppliers who provide VAT number'}</td><td class="${supplierType==='private_only'?'td-red':supplierType==='business_only'?'td-green':'td-warn'}">${supplierType==='private_only'?'Unavailable':supplierType==='business_only'?'Available':'Partial'}</td></tr>
+      </tbody>
+    </table>`;
+
+  // Gap checks
+  document.getElementById('gapChecks').innerHTML = gaps.map(c=>`
+    <div class="check-item">
+      <span class="chk ${c.cls}">${c.icon}</span>
+      <div><div class="chk-title">${c.title}</div><div class="chk-desc">${c.desc}</div></div>
+    </div>`).join('');
+
+  // Timeline
+  document.getElementById('timelineItems').innerHTML = timeline.map(c=>`
+    <div class="check-item">
+      <span class="chk ${c.cls}">${c.icon}</span>
+      <div><div class="chk-title">${c.title}</div><div class="chk-desc">${c.desc}</div></div>
+    </div>`).join('');
+
+  // Store for export
+  lastOutputs = {
+    deemed_supplier_applies: inScope,
+    scope_reason: scopeReason,
+    scope_status: scopeLabel,
+    vatable_gmv_eur: vatableGMV,
+    vat_liability_estimate_eur: vatLiabilityEUR,
+    oss_required: inScope && ossRegistered === 'no',
+    compliance_gap_count: gaps.filter(g=>g.cls==='fail'||g.cls==='warn').length,
+    deadline: '1 July 2028 (ViDA Art.9a/9b effective date)',
+    regulatory_triggers: [
+      platformType !== 'other' && euCountries > 0 ? 'Art.9a/9b deemed supplier provisions' : null,
+      vatLiabilityEUR > 0 ? 'VAT collection and remittance obligation' : null,
+      inScope && ossRegistered === 'no' ? 'OSS registration required' : null,
+    ].filter(Boolean)
+  };
+
+  document.getElementById('resultsPanel').className = 'results-panel show';
+  document.getElementById('resultsPanel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function exportAP2(){
+  const payload = {
+    ap2_version: '1.0',
+    mandate_type: 'tax_compliance_policy',
+    tool_id: 'vida-deemed-supplier-classifier',
+    tool_url: 'https://ainumbers.co/tools/345-vida-deemed-supplier-classifier.html',
+    generated_at: new Date().toISOString(),
+    publisher: 'Post Oak Labs',
+    license: 'CC-BY-4.0',
+    inputs: lastInputs,
+    outputs: lastOutputs,
+    policy_statements: [
+      'Platform must determine whether ViDA Art.9a (accommodation) and/or Art.9b (transport) deemed supplier rules apply by July 2027 at latest.',
+      'If in scope, platform must be registered for OSS and collecting/remitting VAT on in-scope supplies from 1 July 2028.',
+      'B2B exemption requires systematic capture and validation of supplier VAT registration numbers prior to go-live.',
+      'Compliance programme must commence no later than Q1 2027 to allow 18 months of implementation lead time.',
+      'Digital Reporting Requirements (cross-border B2B e-invoicing) under ViDA Pillar 1 apply from 1 July 2030 as a separate compliance workstream.'
+    ],
+    regulatory_citations: [
+      'ViDA Council Directive (EU) 2025 — Art.9a (accommodation deemed supplier), Art.9b (transport deemed supplier)',
+      'Council Directive 2006/112/EC (EU VAT Directive) as amended by ViDA',
+      'Council Regulation (EU) 2025 — Administrative cooperation (ViDA Pillar 3)',
+      'OSS Scheme — Council Implementing Regulation (EU) 2021/770'
+    ]
+  };
+  const blob = new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ap2-vida-deemed-supplier-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>

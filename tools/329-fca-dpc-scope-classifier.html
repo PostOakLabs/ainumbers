@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>FCA DPC Scope &amp; Authorisation Classifier · AINumbers.co</title>
+<meta name="description" content="Determine whether your BNPL/DPC product falls within the FCA regulatory perimeter under PS26/1 (effective 15 July 2026), TPR eligibility, and which authorisation pathway applies. Browser-based, zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/329-fca-dpc-scope-classifier.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FCA DPC Scope & Authorisation Classifier","url":"https://ainumbers.co/tools/329-fca-dpc-scope-classifier.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "fca-dpc-scope-classifier",
+  "version": "1.0.0",
+  "title": "FCA Deferred Payment Credit (BNPL) Scope & Authorisation Classifier",
+  "description": "Determines whether a BNPL/DPC lender falls within the FCA regulatory perimeter under PS26/1 (effective 15 July 2026), TPR eligibility, and which authorisation pathway applies. Covers third-party lenders, merchants, and platforms.",
+  "category": "cat-2",
+  "tags": ["FCA","BNPL","deferred payment credit","DPC","PS26/1","TPR","authorisation","Consumer Credit Act","July 2026","UK"],
+  "audience": ["compliance","legal","product"],
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;
+  --border:#1E2F4A;--border-2:#263855;
+  --muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--gold-lt:#F0BC48;
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --blue:#3B82F6;--blue-dim:rgba(59,130,246,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:var(--teal);text-decoration:none}a:hover{color:var(--teal-lt)}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1020px;margin:0 auto;padding:0 1.5rem}
+
+/* Lang bar */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1020px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--gold);color:var(--gold-lt)}
+
+/* Nav */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.95);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1020px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}.nav-trail a:hover{color:var(--gold)}
+.nav-sep{color:var(--border-2)}
+.logo{display:flex;align-items:center;gap:.6rem;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--gold)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-right{display:flex;align-items:center;gap:.5rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--gold);color:var(--gold)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--gold);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--gold-lt);color:var(--bg)}
+
+/* Hero */
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--gold)}
+.hero h1{font-size:clamp(1.5rem,2.8vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--gold-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+
+/* Deadline strip */
+.deadline-strip{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--red);border-radius:var(--radius);padding:.6rem 1rem;margin:1.25rem 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.5rem 1.5rem}
+.dl-item{display:flex;flex-direction:column;gap:.15rem}
+.dl-date{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;color:var(--red);font-weight:500}
+.dl-label{font-size:.72rem;color:var(--body)}
+.dl-status{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase}
+.dl-status.live{color:var(--red)}.dl-status.soon{color:var(--warn)}.dl-status.done{color:var(--green)}
+
+/* PII notice */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+
+/* Tool body */
+.tool-body{padding:2rem 0 4rem}
+
+/* Step card */
+.step-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.25rem}
+.step-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;gap:.75rem}
+.step-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(212,168,71,.3);padding:.18rem .55rem;border-radius:3px}
+.step-title{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
+.step-body{padding:1.25rem}
+
+/* Form fields */
+.field{margin-bottom:1rem}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.field select,.field input[type="number"],.field input[type="text"]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none;transition:border-color .2s;-webkit-appearance:none}
+.field select:focus,.field input:focus{border-color:var(--gold)}
+.field-hint{font-size:.62rem;color:var(--muted);margin-top:.25rem;line-height:1.5}
+.field-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+@media(max-width:640px){.field-grid-2{grid-template-columns:1fr}}
+
+/* Run button */
+.run-btn{background:var(--gold);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.5rem}
+.run-btn:hover{background:var(--gold-lt)}
+
+/* Result panel */
+.result-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-top:1.25rem;display:none}
+.result-panel.show{display:block}
+.result-header{padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;border-bottom:1px solid var(--border)}
+.verdict-badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;padding:.3rem .8rem;border-radius:3px;font-weight:600;border:1px solid}
+.verdict-badge.in-scope{background:var(--red-dim);color:var(--red);border-color:rgba(239,68,68,.4)}
+.verdict-badge.out-of-scope{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.4)}
+.verdict-badge.borderline{background:var(--warn-dim);color:var(--warn);border-color:rgba(245,158,11,.4)}
+.result-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white)}
+.result-body{padding:1.25rem;display:flex;flex-direction:column;gap:1rem}
+
+/* Check rows */
+.check-list{display:flex;flex-direction:column;gap:.5rem}
+.check-item{display:flex;gap:.75rem;align-items:flex-start;padding:.6rem .85rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius)}
+.check-icon{font-family:'JetBrains Mono',monospace;font-size:.72rem;flex-shrink:0;width:20px}
+.check-icon.pass{color:var(--green)}.check-icon.fail{color:var(--red)}.check-icon.warn{color:var(--warn)}.check-icon.info{color:var(--teal)}
+.check-title{font-size:.75rem;color:var(--bright);margin-bottom:.2rem;font-weight:500}
+.check-desc{font-size:.68rem;color:var(--body);line-height:1.55}
+
+/* Detail table */
+.detail-table{width:100%;border-collapse:collapse;font-size:.75rem}
+.detail-table th{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);padding:.5rem .75rem;text-align:left}
+.detail-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border-2);color:var(--text);vertical-align:top}
+.detail-table tr:last-child td{border-bottom:none}
+.td-pass{color:var(--green)}.td-fail{color:var(--red)}.td-warn{color:var(--warn)}
+.td-strong{font-weight:500;color:var(--bright)}
+
+/* Pathway card */
+.pathway-card{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:var(--radius);padding:.85rem 1.1rem}
+.pathway-title{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:.5rem}
+.pathway-body{font-size:.78rem;color:var(--text);line-height:1.7}
+
+/* AP2 export row */
+.results-export-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;background:var(--bg-3);border:1px solid var(--border);border-top:2px solid var(--gold);border-radius:var(--radius);padding:.75rem 1rem;margin-top:1rem}
+.results-export-row .export-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.ap2ExportBtn{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;background:var(--gold);color:var(--bg);border:none;padding:.38rem 1rem;border-radius:var(--radius);font-weight:600;transition:background .2s}
+.ap2ExportBtn:hover{background:var(--gold-lt)}
+
+/* MCP toggle */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+
+/* Source notes */
+.source-notes{background:var(--bg-2);border-top:1px solid var(--border);padding:1.5rem 0;margin-top:2rem;font-size:.7rem;color:var(--body)}
+.source-notes h3{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem}
+.cite-list{display:flex;flex-direction:column;gap:.4rem}
+.cite{display:flex;gap:.5rem}
+.cite-num{font-family:'JetBrains Mono',monospace;color:var(--gold);flex-shrink:0;width:20px}
+.cite-text{color:var(--muted);line-height:1.6}
+
+/* Footer */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}.footer-links-ai a:hover{color:var(--gold-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+</style>
+<!-- AIN-canon-2026-05-29 -->
+</head>
+<body>
+
+<!-- Lang bar -->
+<div class="lang-bar" id="langBar">
+  <div class="lang-inner">
+    <button class="lang-btn active" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-trail">
+      <a href="../index.html">Home</a><span class="nav-sep">/</span>
+      <a href="../index.html">Tools</a><span class="nav-sep">/</span>
+      <span style="color:var(--text)">T329 · FCA DPC Scope Classifier</span>
+    </div>
+    <div class="nav-right">
+      <a href="../index.html" class="nav-pill">← All Tools</a>
+      <a href="330-fca-dpc-creditworthiness-assessment-builder.html" class="nav-cta">T330 →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">T329 · FCA PS26/1 · BNPL/DPC · Authorisation · AP2 Export</div>
+    <h1>FCA DPC Scope &amp; <em>Authorisation Classifier</em></h1>
+    <p class="hero-desc">Determine whether your BNPL/Deferred Payment Credit product falls within the FCA regulatory perimeter under PS26/1 (effective 15 July 2026). Assess Temporary Permissions Regime (TPR) eligibility, and identify the correct authorisation pathway under the Consumer Credit Act 1974 and FSMA 2000.</p>
+    <div class="hero-meta">
+      <span class="badge badge-red">In Force 15 Jul 2026</span>
+      <span class="badge badge-gold">PS26/1 · CP24/11</span>
+      <span class="badge badge-teal">TPR Window May 15 – Jul 1 2026</span>
+      <span class="badge badge-muted">Client-Side · Zero PII · CC BY 4.0</span>
+    </div>
+    <div class="deadline-strip">
+      <div class="dl-item">
+        <span class="dl-date">15 May – 1 Jul 2026</span>
+        <span class="dl-label">TPR notification window — existing BNPL lenders</span>
+        <span class="dl-status live">● Notification window open</span>
+      </div>
+      <div class="dl-item">
+        <span class="dl-date">15 July 2026</span>
+        <span class="dl-label">PS26/1 takes effect — DPC enters FSMA/CCA perimeter</span>
+        <span class="dl-status live">● Regulatory commencement</span>
+      </div>
+      <div class="dl-item">
+        <span class="dl-date">Ongoing</span>
+        <span class="dl-label">Full FCA authorisation required (or TPR coverage)</span>
+        <span class="dl-status soon">● Compliance obligation</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Tool body -->
+<div class="tool-body">
+  <div class="container">
+
+    <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+    <!-- Step 1 -->
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-num">Step 01</span>
+        <span class="step-title">Lender Type &amp; Product Structure</span>
+      </div>
+      <div class="step-body">
+        <div class="field-grid-2">
+          <div class="field">
+            <label for="lenderType">Lender type</label>
+            <select id="lenderType">
+              <option value="third_party">Third-party lender (independent BNPL provider)</option>
+              <option value="merchant_own">Merchant offering own finance (direct to consumer)</option>
+              <option value="platform">Platform / marketplace facilitating credit</option>
+              <option value="credit_broker">Credit broker (introducing only, no lending)</option>
+            </select>
+            <span class="field-hint">Third-party lenders (e.g. Klarna, Clearpay) are the primary target of PS26/1. Merchants financing their own customers have a separate statutory exemption analysis.</span>
+          </div>
+          <div class="field">
+            <label for="creditProduct">Credit product type</label>
+            <select id="creditProduct">
+              <option value="bnpl_instalment">BNPL instalments (split payments, interest-free)</option>
+              <option value="bnpl_deferred">BNPL deferred (pay-in-X, full sum later)</option>
+              <option value="merchant_offer">Merchant point-of-sale finance (0% promotional)</option>
+              <option value="revolving">Revolving / open-ended credit</option>
+              <option value="personal_loan">Fixed-term personal loan with interest</option>
+            </select>
+            <span class="field-hint">PS26/1 targets specifically Deferred Payment Credit — interest-free credit repayable in ≤12 instalments or ≤12 months.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-num">Step 02</span>
+        <span class="step-title">Repayment Terms &amp; Product Parameters</span>
+      </div>
+      <div class="step-body">
+        <div class="field-grid-2">
+          <div class="field">
+            <label for="repaymentInstalments">Number of repayment instalments</label>
+            <select id="repaymentInstalments">
+              <option value="1">1 instalment (pay-in-full deferred)</option>
+              <option value="2">2 instalments</option>
+              <option value="3">3 instalments</option>
+              <option value="4">4 instalments (pay-in-4)</option>
+              <option value="6">6 instalments</option>
+              <option value="12">12 instalments</option>
+              <option value="13plus">13 or more instalments</option>
+            </select>
+            <span class="field-hint">DPC definition requires ≤12 instalments. 13+ moves product outside DPC scope (but may still be regulated under CCA).</span>
+          </div>
+          <div class="field">
+            <label for="repaymentMonths">Repayment term (months)</label>
+            <select id="repaymentMonths">
+              <option value="1">≤1 month</option>
+              <option value="3">≤3 months</option>
+              <option value="6">≤6 months</option>
+              <option value="12">≤12 months</option>
+              <option value="13plus">More than 12 months</option>
+            </select>
+            <span class="field-hint">DPC definition requires repayment within 12 months. Products > 12 months are outside DPC but may be regulated CCA fixed-sum loans.</span>
+          </div>
+          <div class="field">
+            <label for="interestCharged">Interest or charges applied?</label>
+            <select id="interestCharged">
+              <option value="none">No — truly interest-free and charge-free</option>
+              <option value="late_fees">Late payment fees only (no APR)</option>
+              <option value="interest_yes">Yes — APR charged (even at 0% promotional)</option>
+            </select>
+            <span class="field-hint">DPC must be interest-free (excluding late payment fees). Any APR takes the product outside DPC and into regulated CCA territory.</span>
+          </div>
+          <div class="field">
+            <label for="merchantRelationship">Merchant relationship of lender</label>
+            <select id="merchantRelationship">
+              <option value="third_party_ind">Lender is independent of merchant</option>
+              <option value="merchant_self">Merchant is the lender (own finance)</option>
+              <option value="connected">Lender is a connected entity of merchant</option>
+            </select>
+            <span class="field-hint">Merchant own-book financing under s.12 CCA exemption may still apply, but PS26/1 removes most existing BNPL exemptions.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-num">Step 03</span>
+        <span class="step-title">Authorisation Status &amp; TPR Eligibility</span>
+      </div>
+      <div class="step-body">
+        <div class="field-grid-2">
+          <div class="field">
+            <label for="currentAuth">Current FCA authorisation status</label>
+            <select id="currentAuth">
+              <option value="not_authorised">Not FCA authorised</option>
+              <option value="authorised_other">FCA authorised for other activities (not CCA)</option>
+              <option value="authorised_cca">FCA authorised — Consumer Credit (CCA) permissions</option>
+              <option value="registered_only">FCA registered only (not full authorisation)</option>
+            </select>
+            <span class="field-hint">Full CCA permission is required for DPC. Existing authorisation for other activities does not automatically cover DPC.</span>
+          </div>
+          <div class="field">
+            <label for="tprNotified">TPR notification submitted (May 15 – Jul 1 2026)?</label>
+            <select id="tprNotified">
+              <option value="not_yet">Not yet submitted</option>
+              <option value="submitted">Notification submitted to FCA</option>
+              <option value="window_missed">Notification window missed (post Jul 1 2026)</option>
+            </select>
+            <span class="field-hint">Existing BNPL lenders that notify FCA by 1 July 2026 may operate under TPR until full authorisation determined. TPR window: 15 May – 1 July 2026.</span>
+          </div>
+          <div class="field">
+            <label for="volumeGbp">Annual DPC credit volume (GBP)</label>
+            <select id="volumeGbp">
+              <option value="under_1m">Under £1 million</option>
+              <option value="1m_10m">£1 million – £10 million</option>
+              <option value="10m_100m">£10 million – £100 million</option>
+              <option value="over_100m">Over £100 million</option>
+            </select>
+            <span class="field-hint">Volume affects proportionality considerations and FCA supervisory intensity. Limited permission route available for smaller operators.</span>
+          </div>
+          <div class="field">
+            <label for="consumerFacing">Product marketed directly to retail consumers?</label>
+            <select id="consumerFacing">
+              <option value="yes">Yes — direct-to-consumer</option>
+              <option value="b2b_only">No — B2B only (not consumer credit)</option>
+              <option value="mixed">Mixed — consumer and business customers</option>
+            </select>
+            <span class="field-hint">Consumer Credit Act and PS26/1 apply to agreements with individuals (natural persons) acting for purposes outside their business. Pure B2B credit is outside CCA scope.</span>
+          </div>
+        </div>
+
+        <button class="run-btn" id="runBtn" onclick="runClassifier()">Classify scope &amp; pathway →</button>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="result-panel" id="resultPanel">
+      <div class="result-header">
+        <div>
+          <div class="result-title" id="result-title">FCA DPC Scope &amp; Authorisation Assessment</div>
+          <div style="font-size:.72rem;color:var(--body);margin-top:.25rem" id="result-sub"></div>
+        </div>
+        <span class="verdict-badge" id="verdict-badge">—</span>
+      </div>
+      <div class="result-body">
+
+        <!-- Pathway card -->
+        <div class="pathway-card" id="pathway-card">
+          <div class="pathway-title">Authorisation Pathway</div>
+          <div class="pathway-body" id="pathway-body"></div>
+        </div>
+
+        <!-- Check list -->
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);margin-bottom:.75rem">Scope Determination Factors</div>
+          <div class="check-list" id="check-list"></div>
+        </div>
+
+        <!-- Deadline table -->
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);margin-bottom:.75rem">Key Deadline &amp; Action Table</div>
+          <table class="detail-table">
+            <thead><tr><th>Deadline</th><th>Action Required</th><th>Regulatory Basis</th><th>Status</th></tr></thead>
+            <tbody id="deadline-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- AP2 Export -->
+        <div class="results-export-row">
+          <span class="export-label">AP2 v1.0 · @ainumbers.co/fca-dpc-scope-v1</span>
+          <button class="ap2ExportBtn" id="ap2ExportBtn" onclick="exportAP2()">↓ AP2 Mandate (.json)</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Source notes -->
+    <div class="source-notes">
+      <div class="container">
+        <h3>Regulatory Sources</h3>
+        <div class="cite-list">
+          <div class="cite"><span class="cite-num">[1]</span><span class="cite-text">FCA PS26/1: Policy Statement — Regulation of Buy Now Pay Later (Feb 2026). In force 15 July 2026.</span></div>
+          <div class="cite"><span class="cite-num">[2]</span><span class="cite-text">FCA CP24/11: Consultation Paper — Buy Now Pay Later (Jul 2024). Consumer Credit Act amendments and authorisation framework.</span></div>
+          <div class="cite"><span class="cite-num">[3]</span><span class="cite-text">Consumer Credit Act 1974 (as amended by Financial Services and Markets Act 2023, s.333A–333D). Deferred Payment Credit definition.</span></div>
+          <div class="cite"><span class="cite-num">[4]</span><span class="cite-text">Financial Services and Markets Act 2000 (Regulated Activities) Order 2001 (SI 2001/544), as amended. Specified activities: consumer credit, credit brokering.</span></div>
+          <div class="cite"><span class="cite-num">[5]</span><span class="cite-text">FCA: Temporary Permissions Regime for BNPL — notification window 15 May to 1 July 2026. FCA website: www.fca.org.uk/bnpl.</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MCP Section -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="footer-inner-ai">
+      <a href="../index.html" class="logo" style="text-decoration:none">
+        <span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span>
+      </a>
+      <div class="footer-links-ai">
+        <a href="../index.html">All Tools</a>
+        <a href="330-fca-dpc-creditworthiness-assessment-builder.html">T330 Creditworthiness</a>
+        <a href="331-fca-consumer-duty-dpc-mapper.html">T331 Consumer Duty</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs ↗</a>
+      </div>
+      <div class="footer-badge-ai">
+        <span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span>
+        <span data-i18n="footer.privacy">🔒 Zero PII   📡 No server calls   💻 Client-side</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── Language ──────────────────────────────────────────────────────
+var LABELS = {
+  en:{ run:'Classify scope & pathway →', 'footer.cc':'CC BY 4.0 · Post Oak Labs', 'footer.privacy':'🔒 Zero PII   📡 No server calls   💻 Client-side' },
+  es:{ run:'Clasificar alcance y vía →', 'footer.cc':'CC BY 4.0 · Post Oak Labs', 'footer.privacy':'🔒 Sin PII   📡 Sin llamadas al servidor   💻 Cliente' },
+  fr:{ run:'Classifier le périmètre →', 'footer.cc':'CC BY 4.0 · Post Oak Labs', 'footer.privacy':'🔒 Aucune PII   📡 Aucun appel serveur   💻 Côté client' },
+  ar:{ run:'تصنيف النطاق والمسار ←', 'footer.cc':'CC BY 4.0 · Post Oak Labs', 'footer.privacy':'🔒 لا بيانات شخصية   📡 لا استدعاءات للخادم   💻 على المتصفح' },
+  pt:{ run:'Classificar âmbito e via →', 'footer.cc':'CC BY 4.0 · Post Oak Labs', 'footer.privacy':'🔒 Sem PII   📡 Sem chamadas ao servidor   💻 Client-side' },
+  zh:{ run:'分类范围与路径 →', 'footer.cc':'CC BY 4.0 · Post Oak Labs', 'footer.privacy':'🔒 零个人数据   📡 无服务器调用   💻 纯客户端' },
+};
+function setLang(lang) {
+  sessionStorage.setItem('ain_lang', lang);
+  document.querySelectorAll('.lang-btn').forEach(function(b){ b.classList.toggle('active', b.textContent.trim().toLowerCase()===lang||(lang==='zh'&&b.textContent.trim()==='中文')); });
+  var L = LABELS[lang]||LABELS.en;
+  document.documentElement.dir = lang==='ar' ? 'rtl' : 'ltr';
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var k = el.getAttribute('data-i18n');
+    if (L[k] !== undefined) el.textContent = L[k];
+  });
+}
+(function(){ var l = sessionStorage.getItem('ain_lang'); if(l) setLang(l); })();
+
+// ── MCP manifest ──────────────────────────────────────────────────
+var MANIFEST = {
+  "tool_id": "fca-dpc-scope-classifier",
+  "version": "1.0.0",
+  "title": "FCA DPC Scope & Authorisation Classifier",
+  "description": "Determines whether a BNPL/DPC lender falls within the FCA regulatory perimeter under PS26/1 (effective 15 July 2026), TPR eligibility, and which authorisation pathway applies.",
+  "category": "cat-2",
+  "tags": ["FCA","BNPL","DPC","PS26/1","TPR","authorisation","CCA","July 2026","UK"],
+  "audience": ["compliance","legal","product"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "lender_type": {"type": "string", "enum": ["third_party","merchant_own","platform","credit_broker"]},
+      "credit_product": {"type": "string"},
+      "repayment_instalments": {"type": "string"},
+      "repayment_months": {"type": "string"},
+      "interest_charged": {"type": "string"},
+      "merchant_relationship": {"type": "string"},
+      "current_auth": {"type": "string"},
+      "tpr_notified": {"type": "string"},
+      "volume_gbp": {"type": "string"},
+      "consumer_facing": {"type": "string"}
+    },
+    "required": ["lender_type","credit_product","repayment_instalments","repayment_months","interest_charged","current_auth"]
+  },
+  "mcp_tool_definition": {
+    "name": "fca_dpc_scope_classifier",
+    "description": "Classifies BNPL/DPC products under FCA PS26/1 regulatory perimeter. Returns in-scope determination, TPR eligibility, and authorisation pathway.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "lender_type": {"type": "string","description": "Type of lender entity"},
+        "repayment_instalments": {"type": "string","description": "Number of instalments"},
+        "repayment_months": {"type": "string","description": "Repayment term in months"},
+        "interest_charged": {"type": "string","description": "Whether interest or charges apply"},
+        "current_auth": {"type": "string","description": "Current FCA authorisation status"}
+      },
+      "required": ["lender_type","repayment_instalments","repayment_months","interest_charged"]
+    }
+  },
+  "ap2_export": true
+};
+function toggleMfst() {
+  var body = document.getElementById('mfstBody');
+  var arr = document.getElementById('mfstArr');
+  var open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  arr.textContent = open ? '▼' : '▲';
+  if (!open) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+// ── Core classifier logic ─────────────────────────────────────────
+var _result = {};
+
+function runClassifier() {
+  var lenderType = document.getElementById('lenderType').value;
+  var creditProduct = document.getElementById('creditProduct').value;
+  var instalments = document.getElementById('repaymentInstalments').value;
+  var months = document.getElementById('repaymentMonths').value;
+  var interest = document.getElementById('interestCharged').value;
+  var merchantRel = document.getElementById('merchantRelationship').value;
+  var currentAuth = document.getElementById('currentAuth').value;
+  var tprNotified = document.getElementById('tprNotified').value;
+  var volume = document.getElementById('volumeGbp').value;
+  var consumerFacing = document.getElementById('consumerFacing').value;
+
+  // ── DPC Definition test (CCA 1974 as amended by FSMA 2023) ──────
+  // DPC = credit agreement where:
+  //   1) Repayable in ≤12 instalments, AND
+  //   2) Within 12 months, AND
+  //   3) Interest-free (charges other than late fees excluded), AND
+  //   4) Consumer-facing (individual, not B2B)
+  var isInstalmentOk = instalments !== '13plus';
+  var isTermOk = months !== '13plus';
+  var isInterestFree = interest === 'none' || interest === 'late_fees';
+  var isConsumer = consumerFacing === 'yes' || consumerFacing === 'mixed';
+  var isCreditBroker = lenderType === 'credit_broker';
+  var isB2BOnly = consumerFacing === 'b2b_only';
+
+  // Core in-scope determination
+  var inScope, scopeReason, verdictClass, verdictText;
+
+  if (isB2BOnly) {
+    inScope = false;
+    scopeReason = 'Product is B2B only. Consumer Credit Act 1974 and PS26/1 apply only to agreements with individuals (natural persons) acting outside their business. Pure B2B credit is outside the regulatory perimeter.';
+    verdictClass = 'out-of-scope';
+    verdictText = 'OUT OF SCOPE';
+  } else if (isCreditBroker) {
+    inScope = true; // credit broking is a regulated activity
+    scopeReason = 'Credit brokers introducing consumers to DPC products require FCA authorisation for credit broking under FSMA 2000 RAO Art. 36A, even if not lending directly.';
+    verdictClass = 'in-scope';
+    verdictText = 'IN SCOPE (Broking)';
+  } else if (!isInstalmentOk) {
+    inScope = false;
+    scopeReason = 'Product has 13+ instalments. DPC definition (CCA 1974 s.189B as amended) requires ≤12 instalments. This product may still be regulated as a fixed-sum CCA loan — separate authorisation analysis required.';
+    verdictClass = 'borderline';
+    verdictText = 'OUTSIDE DPC (CCA Loan)';
+  } else if (!isTermOk) {
+    inScope = false;
+    scopeReason = 'Repayment term exceeds 12 months. DPC definition requires repayment within 12 months. This product may still be a regulated CCA credit agreement — separate analysis required.';
+    verdictClass = 'borderline';
+    verdictText = 'OUTSIDE DPC (CCA Loan)';
+  } else if (!isInterestFree) {
+    inScope = false;
+    scopeReason = 'Product carries APR/interest charges. DPC is defined as interest-free credit (late fees excepted). An interest-bearing product is a regulated CCA loan agreement and requires Consumer Credit permissions regardless of PS26/1.';
+    verdictClass = 'borderline';
+    verdictText = 'OUTSIDE DPC (Regulated Loan)';
+  } else {
+    inScope = true;
+    scopeReason = 'Product meets all DPC criteria: ≤12 instalments, ≤12 months, interest-free, consumer-facing. This is Deferred Payment Credit within the PS26/1 perimeter.';
+    verdictClass = 'in-scope';
+    verdictText = 'IN SCOPE — DPC';
+  }
+
+  // ── TPR eligibility ───────────────────────────────────────────
+  var tprEligible = inScope && tprNotified !== 'window_missed' && currentAuth !== 'authorised_cca';
+  var tprStatus;
+  if (!inScope) { tprStatus = 'N/A — product out of DPC scope'; }
+  else if (currentAuth === 'authorised_cca') { tprStatus = 'Not required — existing CCA permission covers DPC activity'; }
+  else if (tprNotified === 'submitted') { tprStatus = 'TPR notification submitted — operate under TPR pending full authorisation determination'; }
+  else if (tprNotified === 'window_missed') { tprStatus = 'DEADLINE MISSED — cannot operate legally until authorised; apply for full authorisation immediately'; }
+  else { tprStatus = 'NOT YET NOTIFIED — submit notification before 1 July 2026 to access TPR coverage'; }
+
+  // ── Authorisation pathway ─────────────────────────────────────
+  var pathwayTitle, pathwayDetail;
+  if (!inScope && !isB2BOnly && creditProduct !== 'revolving') {
+    pathwayTitle = 'Regulated CCA Loan — Full Consumer Credit Authorisation Required';
+    pathwayDetail = 'Even outside DPC scope, your product is likely a regulated CCA credit agreement. You require FCA authorisation with Consumer Credit permissions under FSMA 2000. Apply via the FCA Connect system. Typical timeline: 6–12 months. Consumer Duty (PS22/9) applies from authorisation.';
+  } else if (isB2BOnly) {
+    pathwayTitle = 'No FCA Authorisation Required (B2B Exemption)';
+    pathwayDetail = 'B2B-only credit is outside Consumer Credit Act scope. No FCA consumer credit authorisation required for the credit product itself. Review if any consumer credit marketing or brokering activities create separate obligations.';
+  } else if (isCreditBroker) {
+    pathwayTitle = 'FCA Credit Broking Authorisation (FSMA RAO Art. 36A)';
+    pathwayDetail = 'Credit brokers require FCA authorisation for credit broking activity. Apply via FCA Connect for Consumer Credit permissions including credit broking. If volume is low, consider the Limited Permission route (turnover ≤ £250,000 credit activity income). Consumer Duty applies.';
+  } else if (currentAuth === 'authorised_cca') {
+    pathwayTitle = 'Existing CCA Permission — Variation of Permission May Be Required';
+    pathwayDetail = 'You hold existing Consumer Credit permissions. Review whether your current permission schedule explicitly covers DPC/BNPL as a specific product type under PS26/1. A Variation of Permission (VoP) may be required to add or confirm DPC coverage. Notify FCA of any material changes to business model.';
+  } else if (volume === 'under_1m') {
+    pathwayTitle = 'Limited Permission — Consumer Credit (Low Volume Route)';
+    pathwayDetail = 'Lower volume DPC lenders may qualify for Limited Permission under the Consumer Credit Act. This is a proportionate route. Limitations: cannot act as credit broker, limited activity types. Apply via FCA Connect. Timeline: 3–6 months. Consumer Duty still applies. If TPR notified, continue under TPR pending outcome.';
+  } else {
+    pathwayTitle = 'Full FCA Authorisation — Consumer Credit Permission Required';
+    pathwayDetail = 'Apply for full FCA authorisation with Consumer Credit permissions covering: (1) entering into regulated credit agreements as lender, (2) exercising or having the right to exercise the lender\'s rights under a regulated credit agreement. Submit via FCA Connect. Timeline: 6–12 months. Must demonstrate Consumer Duty compliance (PS22/9), creditworthiness assessment procedures (CONC 5A), and pre-contract disclosure framework (CONC 4) before authorisation.';
+  }
+
+  // ── Checks ───────────────────────────────────────────────────
+  var checks = [
+    {
+      icon: isConsumer && !isB2BOnly ? '✓' : isB2BOnly ? '✗' : '⚡',
+      cls: isConsumer && !isB2BOnly ? 'pass' : isB2BOnly ? 'fail' : 'warn',
+      title: 'Consumer credit agreement (CCA 1974 s.8)',
+      desc: isB2BOnly ? 'Agreements with business customers are outside CCA scope. No consumer credit authorisation required.' : 'Agreement is with an individual acting outside their business — within CCA scope per s.8 Consumer Credit Act 1974.'
+    },
+    {
+      icon: isInstalmentOk ? '✓' : '✗',
+      cls: isInstalmentOk ? 'pass' : 'fail',
+      title: 'Repayment ≤12 instalments (DPC definition)',
+      desc: isInstalmentOk ? 'Instalment count within DPC definition (≤12). Satisfies CCA 1974 s.189B(2)(a) as amended by FSMA 2023.' : '13+ instalments — outside DPC definition. Product is a regulated CCA fixed-sum loan requiring separate Consumer Credit authorisation.'
+    },
+    {
+      icon: isTermOk ? '✓' : '✗',
+      cls: isTermOk ? 'pass' : 'fail',
+      title: 'Repayment within 12 months (DPC definition)',
+      desc: isTermOk ? 'Repayment term within 12 months. Satisfies CCA 1974 s.189B(2)(b).' : 'Term exceeds 12 months — outside DPC definition. Regulated as CCA credit agreement regardless of PS26/1.'
+    },
+    {
+      icon: isInterestFree ? '✓' : '✗',
+      cls: isInterestFree ? 'pass' : 'fail',
+      title: 'Interest-free (excluding late payment fees)',
+      desc: isInterestFree ? 'No APR charged (late fees permitted). Satisfies interest-free requirement of CCA 1974 s.189B(2)(c). Late payment fees are permissible under DPC definition.' : 'APR/interest charged. Product falls outside DPC definition — regulated as a CCA credit agreement. Interest-bearing BNPL requires Consumer Credit permissions regardless of instalment count.'
+    },
+    {
+      icon: inScope ? (tprNotified === 'submitted' ? '✓' : tprNotified === 'window_missed' ? '✗' : '⚡') : 'ℹ',
+      cls: !inScope ? 'info' : tprNotified === 'submitted' ? 'pass' : tprNotified === 'window_missed' ? 'fail' : 'warn',
+      title: 'Temporary Permissions Regime (TPR) — FCA PS26/1',
+      desc: !inScope ? 'Product is outside DPC scope. TPR is only available to in-scope DPC lenders.' : tprNotified === 'submitted' ? 'TPR notification submitted. You may continue operating DPC until FCA determines your authorisation application.' : tprNotified === 'window_missed' ? 'TPR window closed (1 July 2026 deadline missed). Cannot operate DPC legally without authorisation. Apply for full authorisation immediately.' : 'TPR notification NOT yet submitted. Window closes 1 July 2026. Submit via FCA Connect IMMEDIATELY to secure interim operating permission.'
+    },
+    {
+      icon: currentAuth === 'authorised_cca' ? '✓' : currentAuth === 'not_authorised' ? (inScope ? '✗' : 'ℹ') : '⚡',
+      cls: currentAuth === 'authorised_cca' ? 'pass' : currentAuth === 'not_authorised' && inScope ? 'fail' : 'warn',
+      title: 'FCA Consumer Credit authorisation',
+      desc: currentAuth === 'authorised_cca' ? 'Current CCA permission in place. Verify permission schedule covers DPC. A Variation of Permission may be needed to specify DPC as a distinct product type per PS26/1.' : currentAuth === 'authorised_other' ? 'FCA authorised for other activities — Consumer Credit permissions not held. Must apply for Consumer Credit permission (or VoP) before operating DPC post-15 July 2026.' : currentAuth === 'not_authorised' && inScope ? 'Not FCA authorised. Must obtain Consumer Credit permission before operating DPC. If TPR notification submitted, interim operation permitted until FCA determination.' : 'FCA registered only. Registration is insufficient — full authorisation required for DPC. Apply via FCA Connect.'
+    },
+    {
+      icon: 'ℹ',
+      cls: 'info',
+      title: 'Consumer Duty (PS22/9) — applies on authorisation',
+      desc: 'All FCA-authorised DPC lenders must comply with Consumer Duty (PS22/9) from the date of authorisation. Four outcomes: Products & Services, Price & Value, Consumer Understanding, Consumer Support. Use T331 to map your product against Consumer Duty outcomes.'
+    },
+    {
+      icon: 'ℹ',
+      cls: 'info',
+      title: 'Creditworthiness assessment — CONC 5A',
+      desc: 'FCA PS26/1 requires proportionate creditworthiness and affordability assessments under CONC 5A before granting DPC. The FCA permits a risk-based approach scaled to credit value and customer segment. Use T330 to build your assessment framework.'
+    },
+  ];
+
+  // ── Deadlines ─────────────────────────────────────────────────
+  var now = new Date('2026-06-01');
+  var tprClose = new Date('2026-07-01');
+  var effective = new Date('2026-07-15');
+
+  var deadlines = [
+    { date:'15 May – 1 Jul 2026', action:'Submit TPR notification to FCA (existing BNPL lenders)', basis:'FCA PS26/1 ¶3.14; FCA website TPR notification form', status: tprNotified==='submitted'?'DONE':tprNotified==='window_missed'?'MISSED':'ACTION REQUIRED', cls: tprNotified==='submitted'?'td-pass':tprNotified==='window_missed'?'td-fail':'td-warn' },
+    { date:'15 July 2026', action:'PS26/1 takes effect — all in-scope DPC must be authorised or under TPR', basis:'FCA PS26/1; CCA 1974 s.189B (in force)', status: inScope?'CRITICAL':'N/A', cls: inScope?'td-fail':'td-pass' },
+    { date:'Post Jul 15 2026', action:'Submit full Consumer Credit authorisation application if not under TPR', basis:'FSMA 2000 s.19; FCA Connect portal', status: currentAuth!=='authorised_cca'&&inScope?'REQUIRED':'Monitor', cls: currentAuth!=='authorised_cca'&&inScope?'td-warn':'td-pass' },
+    { date:'On authorisation', action:'Consumer Duty (PS22/9) compliance — all four outcomes', basis:'FCA PS22/9 PRIN 12; Consumer Duty Final Rules', status:'MANDATORY', cls:'td-warn' },
+    { date:'On authorisation', action:'CONC 5A creditworthiness/affordability assessment in place', basis:'CONC 5A.2; FCA PS26/1 ¶4.6', status:'MANDATORY', cls:'td-warn' },
+    { date:'On authorisation', action:'Pre-contract disclosure — CONC 4 / Consumer Credit (Disclosure) Regs', basis:'CONC 4; Consumer Credit (Disclosure of Info) Regs 2010', status:'MANDATORY', cls:'td-warn' },
+  ];
+
+  var dtHtml = deadlines.map(function(d){
+    return '<tr><td class="td-strong">'+d.date+'</td><td>'+d.action+'</td><td style="font-size:.65rem;color:var(--body)">'+d.basis+'</td><td class="'+d.cls+'" style="font-family:\'JetBrains Mono\',monospace;font-size:.58rem">'+d.status+'</td></tr>';
+  }).join('');
+  document.getElementById('deadline-tbody').innerHTML = dtHtml;
+
+  // Render checks
+  var checkHtml = checks.map(function(c){
+    return '<div class="check-item"><span class="check-icon '+c.cls+'">'+c.icon+'</span><div><div class="check-title">'+c.title+'</div><div class="check-desc">'+c.desc+'</div></div></div>';
+  }).join('');
+  document.getElementById('check-list').innerHTML = checkHtml;
+
+  // Pathway
+  document.getElementById('pathway-body').innerHTML = '<strong style="color:var(--bright)">'+pathwayTitle+'</strong><br><br>'+pathwayDetail;
+
+  // Verdict
+  var vBadge = document.getElementById('verdict-badge');
+  vBadge.textContent = verdictText;
+  vBadge.className = 'verdict-badge '+verdictClass;
+  document.getElementById('result-sub').textContent = lenderType.replace(/_/g,' ')+' · '+creditProduct.replace(/_/g,' ')+' · '+volume.replace(/_/g,' ');
+
+  document.getElementById('resultPanel').classList.add('show');
+
+  _result = {
+    lenderType, creditProduct, instalments, months, interest: interest,
+    merchantRelationship: merchantRel, currentAuth, tprNotified, volume, consumerFacing,
+    inScope, verdictText, verdictClass, pathwayTitle, pathwayDetail, tprStatus, tprEligible,
+    scopeReason
+  };
+}
+
+// ── AP2 Export ────────────────────────────────────────────────────
+function exportAP2() {
+  if (!_result.verdictText) { alert('Run classifier first.'); return; }
+  var r = _result;
+  var now = new Date().toISOString();
+  var mandate = {
+    ap2_version: '1.0',
+    mandate_id: 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){var rv=Math.random()*16|0;return(c==='x'?rv:(rv&0x3|0x8)).toString(16);}),
+    issued_at: now,
+    issued_by: 'ainumbers.co',
+    tool_id: 'fca-dpc-scope-classifier',
+    tool_version: '1.0.0',
+    mandate_type: 'compliance_policy',
+    jurisdiction: ['UK'],
+    regulatory_frameworks: ['FCA PS26/1','FCA CP24/11','Consumer Credit Act 1974','FSMA 2000'],
+    inputs: {
+      lender_type: r.lenderType,
+      credit_product: r.creditProduct,
+      repayment_instalments: r.instalments,
+      repayment_months: r.months,
+      interest_charged: r.interest,
+      merchant_relationship: r.merchantRelationship,
+      current_fca_auth: r.currentAuth,
+      tpr_notified: r.tprNotified,
+      annual_volume_gbp: r.volume,
+      consumer_facing: r.consumerFacing
+    },
+    outputs: {
+      in_scope_determination: r.inScope,
+      verdict: r.verdictText,
+      scope_rationale: r.scopeReason,
+      tpr_eligibility: r.tprEligible,
+      tpr_status: r.tprStatus,
+      authorisation_pathway: r.pathwayTitle,
+      pathway_detail: r.pathwayDetail
+    },
+    policy_statements: [
+      'DPC lenders operating within the FCA perimeter must obtain Consumer Credit authorisation under FSMA 2000 s.19 before 15 July 2026 or operate under TPR (notification by 1 July 2026).',
+      'Unauthorised DPC activity post-15 July 2026 constitutes a criminal offence under FSMA 2000 s.23.',
+      'Consumer Duty (PS22/9) applies to all FCA-authorised DPC lenders from date of authorisation.',
+      'Creditworthiness assessments (CONC 5A) are mandatory for all DPC credit decisions.',
+      'Pre-contract disclosure must comply with CONC 4 and the Consumer Credit (Disclosure of Information) Regulations 2010.',
+      'Temporary Permissions Regime notification window: 15 May 2026 to 1 July 2026 only.'
+    ],
+    regulatory_citations: [
+      'FCA PS26/1: Policy Statement — Regulation of Buy Now Pay Later (Feb 2026)',
+      'FCA CP24/11: Consultation Paper — Buy Now Pay Later (Jul 2024)',
+      'Consumer Credit Act 1974, s.189B (Deferred Payment Credit definition, inserted by FSMA 2023)',
+      'Financial Services and Markets Act 2000, s.19 (general prohibition) and s.23 (offence)',
+      'FSMA 2000 (Regulated Activities) Order 2001, Art. 60B (entering regulated credit agreement)',
+      'FCA CONC 5A (creditworthiness assessment)',
+      'FCA PRIN 12 (Consumer Duty)',
+      'Consumer Credit (Disclosure of Information) Regulations 2010 (SI 2010/1013)'
+    ],
+    key_deadlines: {
+      tpr_notification_window_close: '2026-07-01',
+      ps26_1_effective_date: '2026-07-15'
+    },
+    source: 'https://ainumbers.co/tools/329-fca-dpc-scope-classifier.html',
+    license: 'CC BY 4.0'
+  };
+
+  var blob = new Blob([JSON.stringify(mandate, null, 2)], {type:'application/json'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a'); a.href=url; a.download='fca-dpc-scope-classifier.ap2.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+</body>
+</html>

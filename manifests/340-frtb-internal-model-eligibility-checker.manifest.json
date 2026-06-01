@@ -1,0 +1,142 @@
+{
+  "tool_id": "frtb-ima-eligibility-checker",
+  "version": "1.0.0",
+  "title": "FRTB Internal Model Approach (IMA) Eligibility Checker",
+  "description": "Determines whether a trading desk qualifies for the FRTB Internal Model Approach (IMA) or must use the Standardised Approach (SA) per CRR III provisions binding from January 1, 2027 in the EU. Runs P&L attribution test (PLAT) indicators per CRR III Art.325bh, risk factor modellability (NMRF) assessment per Art.325bj, and backtesting failure threshold evaluation per Art.325bi. Outputs AP2 mandate.",
+  "category": "cat-2",
+  "tags": [
+    "FRTB",
+    "Basel IV",
+    "CRR III",
+    "IMA",
+    "SA",
+    "market risk",
+    "trading desk",
+    "P&L attribution",
+    "NMRF",
+    "EU 2027",
+    "capital requirements",
+    "risk factors"
+  ],
+  "audience": [
+    "market risk",
+    "capital management",
+    "compliance",
+    "treasury"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "desk_type": {
+        "type": "string",
+        "enum": ["equity", "fx", "rates", "credit", "commodity", "securitisation"],
+        "description": "Trading desk asset class"
+      },
+      "model_type": {
+        "type": "string",
+        "enum": ["hist_sim", "monte_carlo", "parametric"],
+        "description": "VaR/ES model methodology"
+      },
+      "spearman_correlation": {
+        "type": "number",
+        "description": "Spearman rank correlation between RTPL and HPL (0–1)"
+      },
+      "ks_pvalue": {
+        "type": "number",
+        "description": "Kolmogorov-Smirnov p-value for RTPL vs HPL distributions (0–1)"
+      },
+      "unexplained_pl_pct": {
+        "type": "number",
+        "description": "Mean unexplained daily P&L ratio as % of mean absolute HPL (0–100)"
+      },
+      "modellable_ratio_pct": {
+        "type": "number",
+        "description": "Percentage of risk factors meeting Art.325bj modellability criteria (0–100)"
+      },
+      "nmrf_surcharge_pct": {
+        "type": "number",
+        "description": "Estimated NMRF stress scenario capital add-on as % of modelled ES (0–100)"
+      },
+      "backtesting_exceptions": {
+        "type": "number",
+        "description": "Number of 1-day 99% VaR backtesting exceptions in last 250 trading days"
+      },
+      "ima_es_capital_m": {
+        "type": "number",
+        "description": "IMA Expected Shortfall capital charge in USD millions"
+      },
+      "sa_capital_m": {
+        "type": "number",
+        "description": "SA sensitivity-based capital charge for the desk in USD millions"
+      }
+    },
+    "required": ["desk_type", "backtesting_exceptions"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "eligible": {
+        "type": "boolean",
+        "description": "Whether the desk is IMA-eligible"
+      },
+      "plat_zone": {
+        "type": "string",
+        "enum": ["green", "amber", "red"]
+      },
+      "backtesting_zone": {
+        "type": "string",
+        "enum": ["green", "amber", "red"]
+      },
+      "nmrf_zone": {
+        "type": "string",
+        "enum": ["green", "amber", "red"]
+      },
+      "verdict": {
+        "type": "string"
+      },
+      "capital_saving_vs_sa_m": {
+        "type": "number"
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "frtb_ima_eligibility_checker",
+    "description": "Check FRTB IMA eligibility for a trading desk per CRR III (EU, Jan 2027). Returns PLAT zone, backtesting traffic light, NMRF flag, and IMA vs SA capital comparison.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "desk_type": {
+          "type": "string",
+          "description": "Trading desk type: equity | fx | rates | credit | commodity | securitisation"
+        },
+        "backtesting_exceptions": {
+          "type": "number",
+          "description": "Number of 1-day 99% VaR exceptions in last 250 trading days"
+        },
+        "spearman_correlation": {
+          "type": "number"
+        },
+        "modellable_ratio_pct": {
+          "type": "number"
+        }
+      },
+      "required": ["desk_type", "backtesting_exceptions"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/340-frtb-internal-model-eligibility-checker.html",
+    "function_name": "runEligibilityCheck",
+    "timeout_ms": 3000
+  },
+  "regulatory_citations": [
+    "CRR III (Regulation (EU) 2024/1623) Art.325 et seq.",
+    "CRR III Art.325bh — P&L Attribution Test",
+    "CRR III Art.325bi — Backtesting requirements",
+    "CRR III Art.325bj — Non-Modellable Risk Factors (NMRF)",
+    "Basel BCBS January 2019 FRTB standard",
+    "EBA RTS on Internal Model Approach (2023/2024)",
+    "EU Delegated Act May 2026 — capital impact offset"
+  ],
+  "ap2_export": true
+}

@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>EU IPR ISO 20022 Structured Address Field Validator · AINumbers.co</title>
+<meta name="description" content="Validates whether EU payment messages comply with the November 2026 ISO 20022 structured address field mandate under the EU Instant Payments Regulation (IPR). Checks pacs.008 AdrLine vs structured fields, migration readiness, and exports AP2 compliance mandate. Browser-based, zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/342-eu-ipr-iso20022-address-validator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"EU Instant Payments Regulation — ISO 20022 Structured Address Field Validator","url":"https://ainumbers.co/tools/342-eu-ipr-iso20022-address-validator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "eu-ipr-iso20022-address-validator",
+  "version": "1.0.0",
+  "title": "EU IPR — ISO 20022 Structured Address Field Validator",
+  "description": "Validates EU payment message address fields against the November 2026 ISO 20022 structured address mandate under EU Instant Payments Regulation (EU) 2024/886. Checks pacs.008 AdrLine vs structured TownName/PostCode/StreetName, migration readiness score, and November 2026 countdown. Outputs AP2 compliance mandate.",
+  "category": "cat-1",
+  "tags": ["EU IPR","ISO 20022","structured address","November 2026","SEPA","SCT Inst","payment message","address validation","TownName","PostCode","StreetName","compliance"],
+  "audience": ["compliance","payments","technology"],
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;
+  --border:#1E2F4A;--border-2:#263855;
+  --muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--gold-lt:#F0BC48;
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --blue:#3B82F6;--blue-dim:rgba(59,130,246,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:var(--teal);text-decoration:none}a:hover{color:var(--teal-lt)}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1020px;margin:0 auto;padding:0 1.5rem}
+
+/* Lang bar */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1020px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--gold);color:var(--gold-lt)}
+
+/* Nav */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.95);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1020px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}.nav-trail a:hover{color:var(--gold)}
+.nav-sep{color:var(--border-2)}
+.logo{display:flex;align-items:center;gap:.6rem;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--gold)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-right{display:flex;align-items:center;gap:.5rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--gold);color:var(--gold)}
+
+/* Hero */
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--gold)}
+.hero h1{font-size:clamp(1.5rem,2.8vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--gold-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+
+/* Deadline strip */
+.deadline-strip{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--red);border-radius:var(--radius);padding:.6rem 1rem;margin:1.25rem 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.5rem 1.5rem}
+.dl-item{display:flex;flex-direction:column;gap:.15rem}
+.dl-date{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;color:var(--red);font-weight:500}
+.dl-label{font-size:.72rem;color:var(--body)}
+.dl-status{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase}
+.dl-status.live{color:var(--red)}.dl-status.soon{color:var(--warn)}
+
+/* PII notice */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+
+/* Tool body */
+.tool-body{padding:2rem 0 4rem}
+
+/* Step card */
+.step-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.25rem}
+.step-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;gap:.75rem}
+.step-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(212,168,71,.3);padding:.18rem .55rem;border-radius:3px}
+.step-title{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
+.step-body{padding:1.25rem}
+
+/* Form fields */
+.field{margin-bottom:1rem}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.field select,.field input[type="number"],.field input[type="text"],.field textarea{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none;transition:border-color .2s;-webkit-appearance:none}
+.field select:focus,.field input:focus,.field textarea:focus{border-color:var(--gold)}
+.field textarea{resize:vertical;min-height:100px;font-size:.65rem;line-height:1.55}
+.field-hint{font-size:.62rem;color:var(--muted);margin-top:.25rem;line-height:1.5}
+.field-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+@media(max-width:640px){.field-grid-2{grid-template-columns:1fr}}
+
+/* Countdown bar */
+.countdown-bar{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--red);border-radius:var(--radius);padding:.75rem 1rem;margin:1.25rem 0;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.countdown-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.countdown-value{font-family:'DM Serif Display',serif;font-size:1.6rem;color:var(--red)}
+.countdown-sub{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--body)}
+
+/* Run button */
+.run-btn{background:var(--gold);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.5rem}
+.run-btn:hover{background:var(--gold-lt)}
+
+/* Field mapping table */
+.map-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.map-table th{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);padding:.5rem .75rem;text-align:left}
+.map-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border-2);color:var(--text);vertical-align:top}
+.map-table tr:last-child td{border-bottom:none}
+.td-pass{color:var(--green)}.td-fail{color:var(--red)}.td-warn{color:var(--warn)}
+.td-strong{font-weight:500;color:var(--bright)}
+.td-mono{font-family:'JetBrains Mono',monospace;font-size:.62rem}
+
+/* Result panel */
+.result-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-top:1.25rem;display:none}
+.result-panel.show{display:block}
+.result-header{padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;border-bottom:1px solid var(--border)}
+.verdict-badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;padding:.3rem .8rem;border-radius:3px;font-weight:600;border:1px solid}
+.verdict-badge.compliant{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.4)}
+.verdict-badge.remediate{background:var(--warn-dim);color:var(--warn);border-color:rgba(245,158,11,.4)}
+.verdict-badge.non-compliant{background:var(--red-dim);color:var(--red);border-color:rgba(239,68,68,.4)}
+.result-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white)}
+.result-body{padding:1.25rem;display:flex;flex-direction:column;gap:1rem}
+
+/* Check rows */
+.check-list{display:flex;flex-direction:column;gap:.5rem}
+.check-item{display:flex;gap:.75rem;align-items:flex-start;padding:.6rem .85rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius)}
+.check-icon{font-family:'JetBrains Mono',monospace;font-size:.72rem;flex-shrink:0;width:20px}
+.check-icon.pass{color:var(--green)}.check-icon.fail{color:var(--red)}.check-icon.warn{color:var(--warn)}
+.check-title{font-size:.75rem;color:var(--bright);margin-bottom:.2rem;font-weight:500}
+.check-desc{font-size:.68rem;color:var(--body);line-height:1.55}
+
+/* Score meter */
+.score-meter{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.1rem}
+.score-row{display:flex;align-items:center;gap:1rem;margin-bottom:.75rem}
+.score-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);width:180px;flex-shrink:0}
+.score-track{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.score-fill{height:100%;border-radius:4px;transition:width .5s}
+.score-val{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--bright);width:40px;text-align:right;flex-shrink:0}
+
+/* AP2 export row */
+.results-export-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;background:var(--bg-3);border:1px solid var(--border);border-top:2px solid var(--gold);border-radius:var(--radius);padding:.75rem 1rem;margin-top:1rem}
+.results-export-row .export-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.ap2ExportBtn{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;background:var(--gold);color:var(--bg);border:none;padding:.38rem 1rem;border-radius:var(--radius);font-weight:600;transition:background .2s}
+.ap2ExportBtn:hover{background:var(--gold-lt)}
+
+/* MCP toggle */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+
+/* Source notes */
+.source-notes{background:var(--bg-2);border-top:1px solid var(--border);padding:1.5rem 0;margin-top:2rem;font-size:.7rem;color:var(--body)}
+.source-notes h3{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem}
+.cite-list{display:flex;flex-direction:column;gap:.4rem}
+.cite{display:flex;gap:.5rem}
+.cite-num{font-family:'JetBrains Mono',monospace;color:var(--gold);flex-shrink:0;width:20px}
+.cite-text{color:var(--muted);line-height:1.6}
+
+/* Footer */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}.footer-links-ai a:hover{color:var(--gold-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+</style>
+<!-- AIN-canon-2026-05-29 -->
+</head>
+<body>
+
+<!-- Lang bar -->
+<div class="lang-bar" id="langBar">
+  <div class="lang-inner">
+    <button class="lang-btn active" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-inner">
+    <a href="../" class="logo">
+      <div class="logo-text">
+        <span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span>
+      </div>
+    </a>
+    <div class="nav-trail">
+      <a href="../">Home</a><span class="nav-sep">/</span>
+      <a href="../tools.html">Tools</a><span class="nav-sep">/</span>
+      <span style="color:var(--text)">T342 · EU IPR ISO 20022 Address Validator</span>
+    </div>
+    <div class="nav-right">
+      <a href="../" class="nav-pill">← All Tools</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">T342 · EU IPR · ISO 20022 · AP2 Export</div>
+    <h1>EU Instant Payments Regulation — <em>ISO 20022 Structured Address</em> Field Validator</h1>
+    <p class="hero-desc">Validates whether EU payment messages comply with the November 2026 ISO 20022 structured address field mandate under the EU Instant Payments Regulation. From 9 November 2026, all PSPs in the eurozone must use structured address fields (TownName, PostCode, StreetName) in SEPA Instant Credit Transfer messages — replacing unstructured AdrLine free-text blocks.</p>
+    <div class="hero-meta">
+      <span class="badge badge-red">Mandatory 9 Nov 2026</span>
+      <span class="badge badge-gold">EU IPR (EU) 2024/886</span>
+      <span class="badge badge-teal">pacs.008 · SCT Inst · EPC Rulebook</span>
+      <span class="badge badge-muted">Client-Side · Zero PII · CC BY 4.0</span>
+    </div>
+    <div class="deadline-strip">
+      <div class="dl-item">
+        <span class="dl-date">9 November 2026</span>
+        <span class="dl-label">Structured address fields mandatory for all SEPA Instant payments</span>
+        <span class="dl-status live">● Hard deadline</span>
+      </div>
+      <div class="dl-item">
+        <span class="dl-date">Now</span>
+        <span class="dl-label">Testing with EBA CLEARING / STET RT1 recommended — 6-month lead time</span>
+        <span class="dl-status soon">● Act now</span>
+      </div>
+      <div class="dl-item">
+        <span class="dl-date">Ongoing</span>
+        <span class="dl-label">EPC SCT Inst Rulebook 2024 v1.1 — pacs.008.001.10 message standard</span>
+        <span class="dl-status soon">● In force</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Tool body -->
+<div class="tool-body">
+  <div class="container">
+
+    <div class="pii-notice" data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+    <!-- Step 1: Address format assessment -->
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-num">Step 01</span>
+        <span class="step-title">Current Address Field Format Assessment</span>
+      </div>
+      <div class="step-body">
+        <div class="field-grid-2">
+          <div class="field">
+            <label>Current address field format in payment messages</label>
+            <select id="addr-format">
+              <option value="unstructured">Unstructured — AdrLine only (free-text)</option>
+              <option value="mixed">Mixed — some structured, some AdrLine</option>
+              <option value="structured">Fully structured — TownName / PostCode / StreetName</option>
+            </select>
+            <span class="field-hint">How your pacs.008 messages currently populate address fields</span>
+          </div>
+          <div class="field">
+            <label>Volume of payments with unstructured addresses (% of total)</label>
+            <input type="number" id="unstr-pct" value="80" min="0" max="100">
+            <span class="field-hint">Percentage of payment messages using AdrLine free-text blocks</span>
+          </div>
+          <div class="field">
+            <label>Institution type</label>
+            <select id="inst-type">
+              <option value="psp_eurozone">PSP in eurozone (EU IPR applies)</option>
+              <option value="psp_sepa_non_euro">PSP in SEPA but non-euro (extended scope)</option>
+              <option value="correspondent">Correspondent / non-EU bank</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Message standard currently used</label>
+            <select id="msg-standard">
+              <option value="pacs008_010">pacs.008.001.10 (latest ISO 20022)</option>
+              <option value="pacs008_008">pacs.008.001.08 (older version)</option>
+              <option value="mt103">MT103 (SWIFT legacy — not ISO 20022)</option>
+              <option value="mixed_std">Mixed standards</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Sample address block -->
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-num">Step 02</span>
+        <span class="step-title">Sample Address Block (Optional — for field-level check)</span>
+      </div>
+      <div class="step-body">
+        <p style="font-size:.75rem;color:var(--body);margin-bottom:1rem;line-height:1.65">Paste a representative address block from your payment messages to check field usage. Use synthetic/anonymised data only. The tool will identify AdrLine vs structured field usage.</p>
+        <div class="field">
+          <label>Address block (XML snippet or field list)</label>
+          <textarea id="addr-block" placeholder="Example:&#10;&lt;Cdtr&gt;&#10;  &lt;PstlAdr&gt;&#10;    &lt;AdrLine&gt;123 Main Street, Berlin 10115&lt;/AdrLine&gt;&#10;  &lt;/PstlAdr&gt;&#10;&lt;/Cdtr&gt;&#10;&#10;Or use the load example button below."></textarea>
+        </div>
+        <button style="font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;color:var(--teal);border:1px solid rgba(20,184,166,.3);padding:.35rem .9rem;border-radius:var(--radius);transition:all .2s" onclick="loadExample()">Load example address block</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Migration readiness -->
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-num">Step 03</span>
+        <span class="step-title">Migration Readiness &amp; Timeline</span>
+      </div>
+      <div class="step-body">
+        <div class="field-grid-2">
+          <div class="field">
+            <label>Migration project started?</label>
+            <select id="migr-started">
+              <option value="yes">Yes — project underway</option>
+              <option value="scoped">Scoped but not started</option>
+              <option value="no">No — not yet initiated</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Testing environment ready?</label>
+            <select id="test-ready">
+              <option value="yes">Yes — test environment configured</option>
+              <option value="partial">Partial — some components ready</option>
+              <option value="no">No — not yet set up</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Core banking / payment system vendor engaged?</label>
+            <select id="vendor-engaged">
+              <option value="yes">Yes — vendor confirmed support</option>
+              <option value="in-progress">In progress — discussions underway</option>
+              <option value="no">No — not yet contacted</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Counterparty / correspondent bank coordination done?</label>
+            <select id="counterparty">
+              <option value="yes">Yes — counterparties notified and aligned</option>
+              <option value="partial">Partial — some counterparties informed</option>
+              <option value="no">No — not yet coordinated</option>
+            </select>
+          </div>
+        </div>
+        <button class="run-btn" onclick="runValidation()">Validate address compliance →</button>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="result-panel" id="resultPanel">
+      <div class="result-header">
+        <div>
+          <div class="result-title">ISO 20022 Structured Address Compliance Assessment</div>
+          <div style="font-size:.72rem;color:var(--body);margin-top:.25rem" id="result-sub"></div>
+        </div>
+        <span class="verdict-badge" id="verdict-badge">—</span>
+      </div>
+      <div class="result-body">
+
+        <!-- Countdown -->
+        <div class="countdown-bar">
+          <div>
+            <div class="countdown-label">Days to 9 November 2026 deadline</div>
+            <div class="countdown-sub">EU IPR Art.5a structured address mandate</div>
+          </div>
+          <div style="text-align:right">
+            <div class="countdown-value" id="countdown-days">—</div>
+            <div class="countdown-sub" id="countdown-sub">days remaining</div>
+          </div>
+        </div>
+
+        <!-- Score meter -->
+        <div class="score-meter">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);margin-bottom:.85rem">Migration Readiness Score</div>
+          <div class="score-row">
+            <span class="score-label">Address format</span>
+            <div class="score-track"><div class="score-fill" id="sc-format" style="background:var(--green);width:0%"></div></div>
+            <span class="score-val" id="sv-format">—</span>
+          </div>
+          <div class="score-row">
+            <span class="score-label">Volume remediated</span>
+            <div class="score-track"><div class="score-fill" id="sc-vol" style="background:var(--green);width:0%"></div></div>
+            <span class="score-val" id="sv-vol">—</span>
+          </div>
+          <div class="score-row">
+            <span class="score-label">Migration project</span>
+            <div class="score-track"><div class="score-fill" id="sc-migr" style="background:var(--green);width:0%"></div></div>
+            <span class="score-val" id="sv-migr">—</span>
+          </div>
+          <div class="score-row">
+            <span class="score-label">Testing readiness</span>
+            <div class="score-track"><div class="score-fill" id="sc-test" style="background:var(--green);width:0%"></div></div>
+            <span class="score-val" id="sv-test">—</span>
+          </div>
+          <div class="score-row">
+            <span class="score-label">Counterparty alignment</span>
+            <div class="score-track"><div class="score-fill" id="sc-cpty" style="background:var(--green);width:0%"></div></div>
+            <span class="score-val" id="sv-cpty">—</span>
+          </div>
+          <div style="border-top:1px solid var(--border);margin-top:.75rem;padding-top:.75rem;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Overall readiness</span>
+            <span style="font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--white)" id="sc-overall">—</span>
+          </div>
+        </div>
+
+        <!-- Check list -->
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);margin-bottom:.75rem">Compliance Checks</div>
+          <div class="check-list" id="check-list"></div>
+        </div>
+
+        <!-- Field mapping table -->
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);margin-bottom:.75rem">Required pacs.008 Address Field Mapping</div>
+          <table class="map-table">
+            <thead><tr><th>Legacy field (AdrLine)</th><th>Structured replacement</th><th>ISO 20022 path</th><th>Required?</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td class="td-mono">AdrLine[1] — street/number</td><td class="td-strong td-pass">StrtNm + BldgNb</td><td class="td-mono">PstlAdr/StrtNm</td><td class="td-pass">Mandatory</td><td style="font-size:.65rem;color:var(--body)">Split free-text into street name and building number</td></tr>
+              <tr><td class="td-mono">AdrLine[2] — city/postcode</td><td class="td-strong td-pass">TwnNm + PstCd</td><td class="td-mono">PstlAdr/TwnNm</td><td class="td-pass">Mandatory</td><td style="font-size:.65rem;color:var(--body)">Town/city name and postcode are separate structured fields</td></tr>
+              <tr><td class="td-mono">AdrLine[n] — country</td><td class="td-strong td-pass">Ctry (ISO 3166-1)</td><td class="td-mono">PstlAdr/Ctry</td><td class="td-pass">Mandatory</td><td style="font-size:.65rem;color:var(--body)">2-letter ISO country code required — not full country name</td></tr>
+              <tr><td class="td-mono">AdrLine[n] — region</td><td class="td-strong">CtrySubDvsn</td><td class="td-mono">PstlAdr/CtrySubDvsn</td><td class="td-warn">Optional</td><td style="font-size:.65rem;color:var(--body)">State/province/region — optional but recommended for non-EU counterparties</td></tr>
+              <tr><td class="td-mono td-fail">AdrLine (unstructured)</td><td class="td-fail">NOT PERMITTED</td><td class="td-mono td-fail">PstlAdr/AdrLine</td><td class="td-fail">Prohibited from Nov 2026</td><td style="font-size:.65rem;color:var(--body)">AdrLine free-text blocks prohibited in SEPA Instant pacs.008 from 9 Nov 2026</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Remediation -->
+        <div id="remediation-block" style="display:none">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);margin-bottom:.75rem">Remediation Steps</div>
+          <div id="remediation-list" style="display:flex;flex-direction:column;gap:.5rem"></div>
+        </div>
+
+        <!-- AP2 Export row -->
+        <div class="results-export-row">
+          <span class="export-label">AP2 v1.0 · @ainumbers.co/eu-ipr-iso20022-address-v1</span>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <button class="ap2ExportBtn" onclick="exportAP2('json')">↓ AP2 Mandate (.json)</button>
+            <button class="ap2ExportBtn" style="background:transparent;color:var(--gold);border:1px solid rgba(212,168,71,.4)" onclick="exportAP2('md')">↓ Markdown</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Source notes -->
+    <div class="source-notes">
+      <div class="container">
+        <h3>Regulatory Sources</h3>
+        <div class="cite-list">
+          <div class="cite"><span class="cite-num">[1]</span><span class="cite-text">EU Instant Payments Regulation (EU) 2024/886 — Art.5a: structured address field requirements for SEPA Instant Credit Transfers, effective 9 November 2026</span></div>
+          <div class="cite"><span class="cite-num">[2]</span><span class="cite-text">EPC SCT Inst Rulebook 2024 v1.1 — Annex III: ISO 20022 message requirements, pacs.008 address field specifications</span></div>
+          <div class="cite"><span class="cite-num">[3]</span><span class="cite-text">ISO 20022 pacs.008.001.10 — FIToFICustomerCreditTransfer message standard: PostalAddress structured fields</span></div>
+          <div class="cite"><span class="cite-num">[4]</span><span class="cite-text">SWIFT Structured Address Migration Guidelines (2025) — industry implementation guidance for AdrLine-to-structured field transition</span></div>
+          <div class="cite"><span class="cite-num">[5]</span><span class="cite-text">EBA CLEARING RT1 / STET TIPS — technical testing specifications for structured address validation, Q2 2026</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MCP Manifest section -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="footer-inner-ai">
+      <a href="../index.html" class="footer-brand-link logo" style="text-decoration:none">
+        <span class="footer-wordmark" style="font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)"><span style="color:var(--gold)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></span>
+      </a>
+      <div class="footer-links-ai">
+        <a href="../">All Tools</a>
+        <a href="../tools.html">Index</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs ↗</a>
+      </div>
+      <div class="footer-badge-ai">
+        <span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span>
+        <span data-i18n="footer.privacy">🔒 Zero PII   📡 No server calls   💻 Client-side</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── Language ──────────────────────────────────────────────────────
+var LABELS = {
+  en:{ 'pii.banner':'🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Zero PII   📡 No server calls   💻 Client-side' },
+  es:{ 'pii.banner':'🔒 Todas las entradas se procesan localmente. No se transmiten datos. No introduzca datos personales reales.','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Sin PII   📡 Sin llamadas al servidor   💻 Cliente' },
+  fr:{ 'pii.banner':'🔒 Toutes les entrées sont traitées localement. Aucune donnée n\'est transmise. N\'entrez pas de données personnelles réelles.','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Aucune PII   📡 Aucun appel serveur   💻 Côté client' },
+  ar:{ 'pii.banner':'🔒 تتم معالجة جميع المدخلات محلياً. لا يتم إرسال أي بيانات. لا تدخل بيانات شخصية حقيقية.','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 لا بيانات شخصية   📡 لا استدعاءات للخادم   💻 على المتصفح' },
+  pt:{ 'pii.banner':'🔒 Todas as entradas são processadas localmente. Nenhum dado é transmitido. Não insira dados pessoais reais.','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Sem PII   📡 Sem chamadas ao servidor   💻 Client-side' },
+  zh:{ 'pii.banner':'🔒 所有输入均在本地处理。不传输任何数据。请勿输入真实个人数据。','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 零个人数据   📡 无服务器调用   💻 纯客户端' },
+};
+function setLang(lang) {
+  sessionStorage.setItem('ain_lang', lang);
+  document.querySelectorAll('.lang-btn').forEach(function(b){ b.classList.toggle('active', b.textContent.trim().toLowerCase()===lang||(lang==='zh'&&b.textContent.trim()==='中文')); });
+  var L = LABELS[lang]||LABELS.en;
+  document.documentElement.dir = lang==='ar'?'rtl':'ltr';
+  document.querySelectorAll('[data-i18n]').forEach(function(el){ var k=el.getAttribute('data-i18n'); if(L[k]!==undefined) el.textContent=L[k]; });
+}
+(function(){ var l=sessionStorage.getItem('ain_lang'); if(l) setLang(l); })();
+
+// ── Load example ──────────────────────────────────────────────────
+function loadExample() {
+  document.getElementById('addr-block').value =
+'<Cdtr>\n  <PstlAdr>\n    <AdrLine>123 Hauptstrasse, Berlin 10115, Germany</AdrLine>\n    <AdrLine>c/o Example GmbH</AdrLine>\n  </PstlAdr>\n</Cdtr>\n\n<!-- This uses AdrLine (unstructured) — NOT compliant post Nov 2026 -->\n<!-- Required structured format:\n<Cdtr>\n  <PstlAdr>\n    <StrtNm>Hauptstrasse</StrtNm>\n    <BldgNb>123</BldgNb>\n    <PstCd>10115</PstCd>\n    <TwnNm>Berlin</TwnNm>\n    <Ctry>DE</Ctry>\n  </PstlAdr>\n</Cdtr>\n-->';
+}
+
+// ── Compute countdown ─────────────────────────────────────────────
+function daysToDeadline() {
+  var deadline = new Date('2026-11-09T00:00:00Z');
+  var now = new Date();
+  var diff = Math.ceil((deadline - now) / (1000*60*60*24));
+  return diff;
+}
+
+// ── Validation ────────────────────────────────────────────────────
+var _result = {};
+
+function runValidation() {
+  var fmt = document.getElementById('addr-format').value;
+  var unstrPct = parseFloat(document.getElementById('unstr-pct').value)||0;
+  var instType = document.getElementById('inst-type').value;
+  var msgStd = document.getElementById('msg-standard').value;
+  var migrStarted = document.getElementById('migr-started').value;
+  var testReady = document.getElementById('test-ready').value;
+  var vendorEngaged = document.getElementById('vendor-engaged').value;
+  var counterparty = document.getElementById('counterparty').value;
+  var addrBlock = document.getElementById('addr-block').value.trim();
+
+  // Check for AdrLine usage in pasted block
+  var blockHasAdrLine = addrBlock && /AdrLine/i.test(addrBlock);
+  var blockHasStructured = addrBlock && (/TwnNm|TownName|StrtNm|StreetName|PstCd|PostCode/i.test(addrBlock));
+
+  // Scores
+  var scFormat = fmt==='structured'?100:fmt==='mixed'?45:0;
+  var scVol = Math.max(0, 100 - unstrPct);
+  var scMigr = migrStarted==='yes'?100:migrStarted==='scoped'?50:0;
+  var scTest = testReady==='yes'?100:testReady==='partial'?50:0;
+  var scCpty = counterparty==='yes'?100:counterparty==='partial'?50:0;
+  var scVendor = vendorEngaged==='yes'?100:vendorEngaged==='in-progress'?55:0;
+
+  var overall = Math.round(scFormat*0.30 + scVol*0.20 + scMigr*0.20 + scTest*0.15 + scCpty*0.10 + scVendor*0.05);
+
+  var verdict = overall>=85&&fmt==='structured'?'compliant':overall>=50?'remediate':'non-compliant';
+
+  // Countdown
+  var days = daysToDeadline();
+  document.getElementById('countdown-days').textContent = days > 0 ? days : '0';
+  document.getElementById('countdown-sub').textContent = days > 0 ? 'days remaining until 9 Nov 2026' : 'DEADLINE PASSED';
+  document.getElementById('countdown-days').style.color = days < 90 ? 'var(--red)' : days < 180 ? 'var(--warn)' : 'var(--green)';
+
+  // Score bars
+  function setScore(fillId, valId, score) {
+    var el = document.getElementById(fillId);
+    el.style.width = score+'%';
+    el.style.background = score>=80?'var(--green)':score>=50?'var(--warn)':'var(--red)';
+    document.getElementById(valId).textContent = score+'%';
+  }
+  setScore('sc-format','sv-format',Math.round(scFormat));
+  setScore('sc-vol','sv-vol',Math.round(scVol));
+  setScore('sc-migr','sv-migr',Math.round(scMigr));
+  setScore('sc-test','sv-test',Math.round(scTest));
+  setScore('sc-cpty','sv-cpty',Math.round(scCpty));
+
+  var ovEl = document.getElementById('sc-overall');
+  ovEl.textContent = overall+'/100';
+  ovEl.style.color = overall>=85?'var(--green)':overall>=50?'var(--warn)':'var(--red)';
+
+  // Verdict badge
+  var vBadge = document.getElementById('verdict-badge');
+  vBadge.textContent = verdict==='compliant'?'COMPLIANT':verdict==='remediate'?'REMEDIATE':'NON-COMPLIANT';
+  vBadge.className = 'verdict-badge '+verdict;
+  document.getElementById('result-sub').textContent = instType+' · '+msgStd+' · '+unstrPct+'% unstructured · '+overall+'/100';
+
+  // Checks
+  var addrBlockNote = addrBlock ? (blockHasAdrLine && !blockHasStructured ? ' Sample block contains AdrLine — not compliant.' : blockHasStructured ? ' Sample block contains structured fields — good.' : '') : '';
+  var checks = [
+    { pass: fmt==='structured', warn: fmt==='mixed', title:'Address field format', desc: fmt==='structured'?'All address fields use structured format (TownName, PostCode, StreetName) — compliant with EU IPR Art.5a.':fmt==='mixed'?'Mixed format detected. Unstructured AdrLine messages must be eliminated by 9 Nov 2026.':'All messages use unstructured AdrLine free-text. This is prohibited from 9 November 2026 under EU IPR.'+addrBlockNote },
+    { pass: unstrPct===0, warn: unstrPct<50, title:'Unstructured address volume', desc: unstrPct===0?'No unstructured address messages detected — volume is clean.':unstrPct<50?unstrPct.toFixed(0)+'% of payments still use unstructured addresses. Remediation underway but incomplete.':unstrPct.toFixed(0)+'% of payments use unstructured AdrLine — high volume requiring urgent migration.' },
+    { pass: msgStd==='pacs008_010', warn: msgStd==='pacs008_008'||msgStd==='mixed_std', title:'Message standard (pacs.008.001.10)', desc: msgStd==='pacs008_010'?'Using pacs.008.001.10 — structured address fields are natively supported.':msgStd==='mt103'?'MT103 is a SWIFT legacy format, not ISO 20022. Migration to pacs.008 is required for SEPA Instant.':'Older pacs.008 version or mixed standards. Upgrade to pacs.008.001.10 required for full structured address support.' },
+    { pass: migrStarted==='yes', warn: migrStarted==='scoped', title:'Migration project initiated', desc: migrStarted==='yes'?'Migration project underway — on track for November 2026 deadline.':migrStarted==='scoped'?'Project scoped but not yet started. With 6+ months required for testing and certification, initiation is urgent.':'No migration project initiated. November 2026 deadline is at serious risk. Immediate project mobilisation required.' },
+    { pass: testReady==='yes', warn: testReady==='partial', title:'Testing environment readiness', desc: testReady==='yes'?'Testing environment configured — structured address validation can begin.':testReady==='partial'?'Partial testing readiness. Full environment needed for EBA CLEARING / STET RT1 certification testing.':'No testing environment. This blocks certification testing with infrastructure providers — critical path item.' },
+    { pass: vendorEngaged==='yes', warn: vendorEngaged==='in-progress', title:'Core banking vendor engaged', desc: vendorEngaged==='yes'?'Vendor confirmed structured address support — implementation can proceed.':vendorEngaged==='in-progress'?'Vendor engagement underway. Confirm delivery timelines align with Nov 2026 deadline.':'Vendor not yet engaged. Core banking system changes typically require 6-12 months lead time — escalate immediately.' },
+    { pass: counterparty==='yes', warn: counterparty==='partial', title:'Counterparty alignment', desc: counterparty==='yes'?'Counterparties and correspondents notified and aligned — bilateral testing can proceed.':counterparty==='partial'?'Partial counterparty alignment. Remaining counterparties must be notified — bilateral structured address testing required.':'Counterparties not informed. Bilateral testing with all payment chain participants is required before go-live.' },
+  ];
+
+  var checkHtml = checks.map(function(c) {
+    var icon = c.pass ? '✓' : c.warn ? '⚡' : '✗';
+    var cls = c.pass ? 'pass' : c.warn ? 'warn' : 'fail';
+    return '<div class="check-item"><span class="check-icon '+cls+'">'+icon+'</span><div><div class="check-title">'+c.title+'</div><div class="check-desc">'+c.desc+'</div></div></div>';
+  }).join('');
+  document.getElementById('check-list').innerHTML = checkHtml;
+
+  // Remediation steps
+  var remSteps = [];
+  if (fmt!=='structured') remSteps.push({ icon:'✗', cls:'fail', title:'Migrate address fields from AdrLine to structured format', desc:'Map AdrLine free-text → StrtNm/BldgNb + TwnNm + PstCd + Ctry per pacs.008.001.10 standard. Parse existing free-text using address normalisation rules.' });
+  if (unstrPct>0) remSteps.push({ icon:'⚡', cls:'warn', title:'Remediate '+unstrPct.toFixed(0)+'% of payment messages with unstructured addresses', desc:'Prioritise highest-volume corridors. Update customer onboarding flows to capture structured address data at source. Implement address validation at point of entry.' });
+  if (msgStd!=='pacs008_010') remSteps.push({ icon:'✗', cls:'fail', title:'Upgrade to pacs.008.001.10 message standard', desc:'Older message versions or MT103 do not support full structured address element set. Coordinate upgrade with your message processing infrastructure.' });
+  if (migrStarted!=='yes') remSteps.push({ icon:'✗', cls:'fail', title:'Initiate structured address migration project immediately', desc:'Assign project owner, secure budget, define milestones. Minimum 6 months required for testing + certification before 9 Nov 2026 deadline.' });
+  if (testReady!=='yes') remSteps.push({ icon:'⚡', cls:'warn', title:'Configure testing environment for EBA CLEARING / STET RT1 certification', desc:'Request test credentials from your CSM (STEP2, RT1, STET). Structured address validation must pass certification testing before production go-live.' });
+  if (vendorEngaged!=='yes') remSteps.push({ icon:'✗', cls:'fail', title:'Engage core banking / payment system vendor urgently', desc:'Confirm vendor roadmap includes pacs.008.001.10 structured address support. Get contractual commitment on delivery dates and testing support.' });
+  if (counterparty!=='yes') remSteps.push({ icon:'⚡', cls:'warn', title:'Notify all counterparties and correspondent banks', desc:'Bilateral structured address testing is required. Issue formal notice to all payment chain participants including correspondent banks and corporate clients.' });
+
+  if (remSteps.length > 0) {
+    var remHtml = remSteps.map(function(s) {
+      return '<div class="check-item"><span class="check-icon '+s.cls+'">'+s.icon+'</span><div><div class="check-title">'+s.title+'</div><div class="check-desc">'+s.desc+'</div></div></div>';
+    }).join('');
+    document.getElementById('remediation-list').innerHTML = remHtml;
+    document.getElementById('remediation-block').style.display = 'block';
+  }
+
+  document.getElementById('resultPanel').classList.add('show');
+
+  _result = {
+    instType:instType, msgStd:msgStd, addrFormat:fmt, unstrPct:unstrPct,
+    migrStarted:migrStarted, testReady:testReady, vendorEngaged:vendorEngaged, counterparty:counterparty,
+    scores:{ format:Math.round(scFormat), volume:Math.round(scVol), migration:Math.round(scMigr), testing:Math.round(scTest), counterparty:Math.round(scCpty), overall:overall },
+    verdict:verdict, daysRemaining:days,
+  };
+}
+
+// ── AP2 Export ────────────────────────────────────────────────────
+function exportAP2(fmt) {
+  if (!_result.verdict) { alert('Run validation first.'); return; }
+  var r = _result;
+  var now = new Date().toISOString();
+  var mandate = {
+    ap2_version:'1.0',
+    mandate_id:'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){var r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);}),
+    issued_at:now, issued_by:'ainumbers.co',
+    tool_id:'eu-ipr-iso20022-address-validator', tool_version:'1.0.0',
+    mandate_type:'compliance_control',
+    jurisdiction:['EU','SEPA'],
+    regulatory_frameworks:['EU IPR (EU) 2024/886 Art.5a','EPC SCT Inst Rulebook 2024 v1.1','ISO 20022 pacs.008.001.10'],
+    verdict:r.verdict.toUpperCase(),
+    overall_score:r.scores.overall,
+    deadline:'2026-11-09', days_remaining:r.daysRemaining,
+    institution:{ type:r.instType, message_standard:r.msgStd },
+    address_assessment:{ format:r.addrFormat, unstructured_volume_pct:r.unstrPct },
+    migration_readiness:{ project_started:r.migrStarted, test_environment:r.testReady, vendor_engaged:r.vendorEngaged, counterparty_aligned:r.counterparty },
+    scores:r.scores,
+    required_field_mapping:[
+      { legacy_field:'AdrLine (street/number)', structured_field:'StrtNm + BldgNb', path:'PstlAdr/StrtNm', required:true },
+      { legacy_field:'AdrLine (city/postcode)', structured_field:'TwnNm + PstCd', path:'PstlAdr/TwnNm', required:true },
+      { legacy_field:'AdrLine (country)', structured_field:'Ctry (ISO 3166-1)', path:'PstlAdr/Ctry', required:true },
+      { legacy_field:'AdrLine (unstructured)', structured_field:'PROHIBITED', path:'PstlAdr/AdrLine', required:false, note:'Prohibited from 9 Nov 2026 in SEPA Instant pacs.008 messages' },
+    ],
+    constraints:[
+      'AdrLine unstructured address fields prohibited in SEPA Instant Credit Transfer pacs.008 messages from 9 November 2026.',
+      'Structured fields TownName (TwnNm), PostCode (PstCd), StreetName (StrtNm), and Country (Ctry) are mandatory.',
+      'Message standard pacs.008.001.10 or later required for full structured address element support.',
+      'All PSPs in the eurozone must comply — both sending and receiving institutions.',
+      'Bilateral testing with CSMs (EBA CLEARING RT1, STET, etc.) required before production go-live.',
+    ],
+    source:'https://ainumbers.co/tools/342-eu-ipr-iso20022-address-validator.html',
+    license:'CC BY 4.0',
+  };
+
+  var content, mime, ext;
+  if (fmt==='json') {
+    content = JSON.stringify(mandate,null,2); mime='application/json'; ext='.ap2.json';
+  } else {
+    content='# EU IPR ISO 20022 Structured Address — AP2 Mandate\nIssued: '+now+'\nTool: ainumbers.co/tools/342-eu-ipr-iso20022-address-validator.html\n\n## Verdict: '+r.verdict.toUpperCase()+' ('+r.scores.overall+'/100)\n\n## Deadline: 9 November 2026 ('+r.daysRemaining+' days remaining)\n\n## Institution\n- Type: '+r.instType+'\n- Message standard: '+r.msgStd+'\n\n## Address Assessment\n- Current format: '+r.addrFormat+'\n- Unstructured volume: '+r.unstrPct+'%\n\n## Migration Readiness\n- Project started: '+r.migrStarted+'\n- Testing ready: '+r.testReady+'\n- Vendor engaged: '+r.vendorEngaged+'\n- Counterparties aligned: '+r.counterparty+'\n\n## Required Field Mapping\n- AdrLine → StrtNm + BldgNb (street/number)\n- AdrLine → TwnNm + PstCd (town/postcode)\n- AdrLine → Ctry ISO 3166-1 (country)\n- AdrLine unstructured: PROHIBITED from 9 Nov 2026\n\n## Constraints\n'+(mandate.constraints.map(function(c){return '- '+c;}).join('\n'))+'\n\n---\n*CC BY 4.0 · AINumbers.co · Post Oak Labs*';
+    mime='text/markdown'; ext='.md';
+  }
+  var blob=new Blob([content],{type:mime});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a'); a.href=url; a.download='eu-ipr-iso20022-address-compliance'+ext; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── MCP Manifest ──────────────────────────────────────────────────
+var MANIFEST = {"tool_id":"eu-ipr-iso20022-address-validator","version":"1.0.0","title":"EU IPR — ISO 20022 Structured Address Field Validator","description":"Validates EU payment message address fields against the November 2026 ISO 20022 structured address mandate under EU Instant Payments Regulation (EU) 2024/886.","category":"cat-1","tags":["EU IPR","ISO 20022","structured address","November 2026","SEPA","SCT Inst","pacs.008","TownName","PostCode","StreetName","AP2 export"],"audience":["compliance","payments","technology"],"input_schema":{"type":"object","properties":{"addr_format":{"type":"string"},"unstr_pct":{"type":"number"},"migr_started":{"type":"string"},"test_ready":{"type":"string"}}},"mcp_tool_definition":{"name":"eu_ipr_iso20022_address_validator","description":"Validates EU payment message ISO 20022 structured address compliance for November 2026 deadline.","inputSchema":{"type":"object","properties":{"addr_format":{"type":"string"},"unstr_pct":{"type":"number"}},"required":["addr_format","unstr_pct"]}},"execution":{"type":"browser-javascript","entry":"tools/342-eu-ipr-iso20022-address-validator.html","function_name":"runValidation","timeout_ms":3000},"ap2_export":true};
+
+function toggleMfst() {
+  var body=document.getElementById('mfstBody');
+  var arr=document.getElementById('mfstArr');
+  var open=body.style.display==='block';
+  body.style.display=open?'none':'block';
+  arr.textContent=open?'▼':'▲';
+  if(!open) document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+</script>
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+</body>
+</html>

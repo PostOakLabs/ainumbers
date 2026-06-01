@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>FRTB IMA Eligibility Checker · AINumbers.co</title>
+<meta name="description" content="Determine whether a trading desk qualifies for the FRTB Internal Model Approach (IMA) or must use the Standardised Approach (SA) under CRR III (EU, January 2027). P&L attribution test, NMRF check, backtesting evaluation. Browser-based, zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/340-frtb-internal-model-eligibility-checker.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FRTB Internal Model Approach (IMA) Eligibility Checker","url":"https://ainumbers.co/tools/340-frtb-internal-model-eligibility-checker.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "frtb-ima-eligibility-checker",
+  "version": "1.0.0",
+  "title": "FRTB Internal Model Approach (IMA) Eligibility Checker",
+  "description": "Determines whether a trading desk qualifies for the FRTB Internal Model Approach (IMA) or must use the Standardised Approach (SA) per CRR III (EU, effective January 1, 2027). Runs P&L attribution test indicators, NMRF check, and backtesting evaluation. Outputs AP2 mandate.",
+  "category": "cat-2",
+  "tags": ["FRTB","Basel IV","CRR III","IMA","SA","market risk","trading desk","P&L attribution","NMRF","EU 2027","capital requirements","risk factors"],
+  "audience": ["market risk","capital management","compliance","treasury"],
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;
+  --border:#1E2F4A;--border-2:#263855;
+  --muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--gold-lt:#F0BC48;
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --blue:#3B82F6;--blue-dim:rgba(59,130,246,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:var(--teal);text-decoration:none}a:hover{color:var(--teal-lt)}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1020px;margin:0 auto;padding:0 1.5rem}
+
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;z-index:101}
+.lang-inner{max-width:1020px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--gold);color:var(--gold-lt)}
+
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.95);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1020px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}.nav-trail a:hover{color:var(--gold)}
+.nav-sep{color:var(--border-2)}
+.logo{display:flex;align-items:center;gap:.6rem;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--gold)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-right{display:flex;align-items:center;gap:.5rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--gold);color:var(--gold)}
+
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--gold)}
+.hero h1{font-size:clamp(1.5rem,2.8vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--gold-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-blue{color:var(--blue);border-color:rgba(59,130,246,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+
+.tool-body{padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.25rem}
+.panel-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;gap:.75rem}
+.panel-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(212,168,71,.3);padding:.18rem .55rem;border-radius:3px}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
+.panel-body{padding:1.25rem}
+
+.panel-row{margin-bottom:1rem}
+.panel-row label{display:block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.panel-row select,.panel-row input[type="number"],.panel-row input[type="range"]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none;transition:border-color .2s;-webkit-appearance:none}
+.panel-row select:focus,.panel-row input:focus{border-color:var(--gold)}
+.field-hint{font-size:.62rem;color:var(--muted);margin-top:.25rem;line-height:1.5}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem}
+@media(max-width:640px){.grid-2,.grid-3{grid-template-columns:1fr}}
+
+.range-row{display:flex;align-items:center;gap:.75rem}
+.range-row input[type="range"]{flex:1;padding:0;height:4px;accent-color:var(--gold)}
+.range-val{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--gold-lt);min-width:48px;text-align:right}
+
+.run-btn{background:var(--gold);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.5rem}
+.run-btn:hover{background:var(--gold-lt)}
+
+.results-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-top:1.25rem;display:none}
+.results-panel.show{display:block}
+.results-header{padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;border-bottom:1px solid var(--border)}
+.verdict-badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;padding:.3rem .8rem;border-radius:3px;font-weight:600;border:1px solid}
+.verdict-pass{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.4)}
+.verdict-cond{background:var(--warn-dim);color:var(--warn);border-color:rgba(245,158,11,.4)}
+.verdict-fail{background:var(--red-dim);color:var(--red);border-color:rgba(239,68,68,.4)}
+.results-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white)}
+.results-body{padding:1.25rem;display:flex;flex-direction:column;gap:1rem}
+
+/* Traffic light */
+.tl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem}
+.tl-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center}
+.tl-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.tl-indicator{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600;padding:.3rem .7rem;border-radius:4px;display:inline-block;margin-bottom:.4rem}
+.tl-green{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.4)}
+.tl-amber{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,.4)}
+.tl-red{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.4)}
+.tl-desc{font-size:.65rem;color:var(--body);line-height:1.5}
+
+/* Capital comparison table */
+.cap-table{width:100%;border-collapse:collapse;font-size:.75rem}
+.cap-table th{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);padding:.5rem .75rem;text-align:left}
+.cap-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border-2);color:var(--text);vertical-align:top}
+.cap-table tr:last-child td{border-bottom:none}
+.td-bright{font-weight:500;color:var(--bright)}
+.td-green{color:var(--green)}.td-red{color:var(--red)}.td-warn{color:var(--warn)}
+
+/* Check list */
+.check-list{display:flex;flex-direction:column;gap:.5rem}
+.check-item{display:flex;gap:.75rem;align-items:flex-start;padding:.6rem .85rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius)}
+.check-icon.pass{color:var(--green)}.check-icon.fail{color:var(--red)}.check-icon.warn{color:var(--warn)}
+.check-icon{font-family:'JetBrains Mono',monospace;font-size:.72rem;flex-shrink:0;width:20px}
+.check-title{font-size:.75rem;color:var(--bright);margin-bottom:.2rem;font-weight:500}
+.check-desc{font-size:.68rem;color:var(--body);line-height:1.55}
+
+.results-export-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;background:var(--bg-3);border:1px solid var(--border);border-top:2px solid var(--gold);border-radius:var(--radius);padding:.75rem 1rem;margin-top:1rem}
+.results-export-row .export-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+#ap2ExportBtn{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;background:var(--gold);color:var(--bg);border:none;padding:.38rem 1rem;border-radius:var(--radius);font-weight:600;transition:background .2s}
+#ap2ExportBtn:hover{background:var(--gold-lt)}
+.ap2MdBtn{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;color:var(--gold);border:1px solid rgba(212,168,71,.4);padding:.38rem 1rem;border-radius:var(--radius);font-weight:600;transition:all .2s}
+.ap2MdBtn:hover{background:var(--gold-dim)}
+
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+
+.source-notes{background:var(--bg-2);border-top:1px solid var(--border);padding:1.5rem 0;margin-top:2rem;font-size:.7rem;color:var(--body)}
+.source-notes h3{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem}
+.cite-list{display:flex;flex-direction:column;gap:.4rem}
+.cite{display:flex;gap:.5rem}
+.cite-num{font-family:'JetBrains Mono',monospace;color:var(--gold);flex-shrink:0;width:20px}
+.cite-text{color:var(--muted);line-height:1.6}
+
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted)}.footer-links-ai a:hover{color:var(--gold-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+</style>
+<!-- AIN-canon-2026-05-29 -->
+</head>
+<body>
+
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span>
+    </a>
+    <div class="nav-trail">
+      <a href="../index.html">Home</a><span class="nav-sep">/</span>
+      <a href="../tools.html">Tools</a><span class="nav-sep">/</span>
+      <span style="color:var(--text)">T340 · FRTB IMA Eligibility Checker</span>
+    </div>
+    <div class="nav-right">
+      <a href="../index.html" class="nav-pill">← All Tools</a>
+    </div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">T340 · FRTB · CRR III · IMA vs SA · AP2 Export</div>
+    <h1>FRTB <em>Internal Model Approach</em> Eligibility Checker</h1>
+    <p class="hero-desc">Determine whether a trading desk qualifies for the FRTB Internal Model Approach (IMA) or must use the Standardised Approach (SA) under CRR III provisions binding from January 1, 2027 in the EU. Runs P&amp;L attribution test indicators (CRR III Art.325bh), risk factor modellability assessment (NMRF check, Art.325bj), and backtesting failure threshold evaluation (Art.325bi).</p>
+    <div class="hero-meta">
+      <span class="badge badge-red">CRR III effective Jan 1, 2027 (EU)</span>
+      <span class="badge badge-gold">IMA vs SA determination</span>
+      <span class="badge badge-teal">P&amp;L Attribution · NMRF · Backtesting · AP2 Export</span>
+      <span class="badge badge-blue">Basel BCBS Jan 2019 · EBA RTS</span>
+      <span class="badge badge-muted">Client-Side · Zero PII · CC BY 4.0</span>
+    </div>
+  </div>
+</section>
+
+<div class="tool-body">
+  <div class="container">
+
+    <div style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+    <!-- Step 1: Desk profile -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-num">Step 01</span>
+        <span class="panel-title">Trading Desk Profile</span>
+      </div>
+      <div class="panel-body">
+        <div class="grid-2">
+          <div class="panel-row">
+            <label>Trading desk type</label>
+            <select id="deskType">
+              <option value="equity">Equity (cash + derivatives)</option>
+              <option value="fx">FX / Foreign Exchange</option>
+              <option value="rates">Rates / Interest Rate</option>
+              <option value="credit">Credit (bonds + CDS)</option>
+              <option value="commodity">Commodity</option>
+              <option value="securitisation">Securitisation / structured credit</option>
+            </select>
+          </div>
+          <div class="panel-row">
+            <label>VaR / ES model type</label>
+            <select id="modelType">
+              <option value="hist_sim">Historical Simulation</option>
+              <option value="monte_carlo">Monte Carlo</option>
+              <option value="parametric">Parametric / Variance-Covariance</option>
+            </select>
+          </div>
+          <div class="panel-row">
+            <label>Stressed period calibration in place?</label>
+            <select id="stressedPeriod">
+              <option value="yes">Yes — 12-month stress period identified per CRR III Art.325bb</option>
+              <option value="partial">Partial — proxy approach used</option>
+              <option value="no">No — not yet calibrated</option>
+            </select>
+          </div>
+          <div class="panel-row">
+            <label>Total number of risk factors in model</label>
+            <input type="number" id="riskFactors" value="250" min="1">
+            <span class="field-hint">All systematic and idiosyncratic risk factors mapped</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: P&L Attribution Test -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-num">Step 02</span>
+        <span class="panel-title">P&amp;L Attribution Test (CRR III Art.325bh)</span>
+      </div>
+      <div class="panel-body">
+        <div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);border-left:3px solid var(--blue);border-radius:var(--radius);padding:.65rem .9rem;font-size:.72rem;line-height:1.6;margin-bottom:1rem;color:var(--text)">
+          <strong style="color:var(--blue);font-family:'JetBrains Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em">PLAT Thresholds (Art.325bh) —</strong> Green zone: Spearman correlation ≥0.80 <em>and</em> Kolmogorov-Smirnov p-value &gt;0.05 <em>and</em> mean unexplained daily P&amp;L ratio &lt;10%. Amber zone: correlation 0.70–0.80 or KS p-value 0.01–0.05 or ratio 10–20%. Red zone: correlation &lt;0.70 or KS p-value &lt;0.01 or ratio &gt;20% — IMA ineligible.
+        </div>
+        <div class="grid-3">
+          <div class="panel-row">
+            <label>Spearman correlation (RTPL vs HPL)</label>
+            <div class="range-row">
+              <input type="range" id="spearman" min="0" max="100" value="82" step="1" oninput="document.getElementById('spearmanVal').textContent=(this.value/100).toFixed(2)">
+              <span class="range-val" id="spearmanVal">0.82</span>
+            </div>
+            <span class="field-hint">Risk-theoretical P&amp;L vs Hypothetical P&amp;L Spearman rank correlation</span>
+          </div>
+          <div class="panel-row">
+            <label>KS test p-value (×100 for slider)</label>
+            <div class="range-row">
+              <input type="range" id="ksTest" min="0" max="100" value="8" step="1" oninput="document.getElementById('ksTestVal').textContent='p='+(this.value/100).toFixed(2)">
+              <span class="range-val" id="ksTestVal">p=0.08</span>
+            </div>
+            <span class="field-hint">Kolmogorov-Smirnov p-value testing RTPL vs HPL distributions</span>
+          </div>
+          <div class="panel-row">
+            <label>Mean unexplained daily P&amp;L ratio (%)</label>
+            <div class="range-row">
+              <input type="range" id="unexplainedPL" min="0" max="40" value="8" step="0.5" oninput="document.getElementById('unexplainedPLVal').textContent=this.value+'%'">
+              <span class="range-val" id="unexplainedPLVal">8%</span>
+            </div>
+            <span class="field-hint">|Mean(RTPL - HPL)| / Mean(|HPL|)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: NMRF & Risk Factors -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-num">Step 03</span>
+        <span class="panel-title">Risk Factor Modellability &amp; NMRF (CRR III Art.325bj)</span>
+      </div>
+      <div class="panel-body">
+        <div style="background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:var(--radius);padding:.65rem .9rem;font-size:.72rem;line-height:1.6;margin-bottom:1rem;color:var(--text)">
+          <strong style="color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em">NMRF Surcharge —</strong> Non-Modellable Risk Factors (NMRFs) require a stress scenario capital add-on (SSCA) under Art.325bj. A risk factor is modellable only if at least 24 verifiable price observations are available in any 12-month period, with no gap exceeding 1 month. High NMRF ratios indicate significant capital surcharges that may make IMA unattractive vs SA.
+        </div>
+        <div class="grid-2">
+          <div class="panel-row">
+            <label>Modellable risk factor ratio (%)</label>
+            <div class="range-row">
+              <input type="range" id="modellableRatio" min="0" max="100" value="78" oninput="document.getElementById('modellableRatioVal').textContent=this.value+'%'">
+              <span class="range-val" id="modellableRatioVal">78%</span>
+            </div>
+            <span class="field-hint">% of risk factors meeting Art.325bj modellability criteria (≥24 obs / 12m, no gap &gt;1m)</span>
+          </div>
+          <div class="panel-row">
+            <label>Estimated NMRF capital surcharge (% of ES)</label>
+            <div class="range-row">
+              <input type="range" id="nmrfSurcharge" min="0" max="100" value="15" oninput="document.getElementById('nmrfSurchargeVal').textContent=this.value+'%'">
+              <span class="range-val" id="nmrfSurchargeVal">15%</span>
+            </div>
+            <span class="field-hint">Estimated stress scenario capital add-on for NMRFs as % of modelled Expected Shortfall</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4: Backtesting -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-num">Step 04</span>
+        <span class="panel-title">Backtesting (CRR III Art.325bi — 250-day window)</span>
+      </div>
+      <div class="panel-body">
+        <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-left:3px solid var(--red);border-radius:var(--radius);padding:.65rem .9rem;font-size:.72rem;line-height:1.6;margin-bottom:1rem;color:var(--text)">
+          <strong style="color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em">Backtesting Traffic Light (Art.325bi) —</strong> Count of 1-day 99% VaR exceptions in last 250 trading days. Green zone: 0–4 exceptions (IMA eligible, no add-on). Amber zone: 5–9 exceptions (capital multiplier add-on, IMA conditional). Red zone: ≥10 exceptions (IMA <strong>ineligible</strong> — must revert to SA for affected desk).
+        </div>
+        <div class="grid-2">
+          <div class="panel-row">
+            <label>Backtesting exceptions (last 250 trading days)</label>
+            <input type="number" id="btExceptions" value="3" min="0" max="30">
+            <span class="field-hint">Count of days where 1-day 99% VaR was exceeded by actual P&amp;L</span>
+          </div>
+          <div class="panel-row">
+            <label>VaR confidence level used</label>
+            <select id="varLevel">
+              <option value="99">99% (required for Art.325bi backtesting)</option>
+              <option value="97.5">97.5% (ES model calibration level)</option>
+              <option value="95">95% (internal use only)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 5: Capital comparison inputs -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-num">Step 05</span>
+        <span class="panel-title">Capital Impact Comparison (IMA vs SA)</span>
+      </div>
+      <div class="panel-body">
+        <div class="grid-3">
+          <div class="panel-row">
+            <label>IMA Expected Shortfall capital ($ million)</label>
+            <input type="number" id="imaES" value="45" min="0" step="0.1">
+            <span class="field-hint">Modelled ES-based capital charge (pre-NMRF surcharge)</span>
+          </div>
+          <div class="panel-row">
+            <label>SA capital charge for this desk ($ million)</label>
+            <input type="number" id="saCapital" value="72" min="0" step="0.1">
+            <span class="field-hint">Sensitivity-based standardised approach capital</span>
+          </div>
+          <div class="panel-row">
+            <label>IMA infrastructure / model cost ($ million/yr)</label>
+            <input type="number" id="imaCost" value="8" min="0" step="0.1">
+            <span class="field-hint">Annual cost to maintain IMA (validation, data, IT)</span>
+          </div>
+        </div>
+        <button class="run-btn" onclick="runEligibilityCheck()">Check IMA Eligibility →</button>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="results-panel" id="resultsPanel">
+      <div class="results-header">
+        <div>
+          <div class="results-title" id="resultsTitle">FRTB IMA Eligibility Result</div>
+          <div style="font-size:.72rem;color:var(--body);margin-top:.25rem" id="resultsSub"></div>
+        </div>
+        <span class="verdict-badge" id="verdictBadge">—</span>
+      </div>
+      <div class="results-body">
+
+        <!-- Traffic light grid -->
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);margin-bottom:.75rem">Three-Gate IMA Assessment</div>
+          <div class="tl-grid" id="tlGrid"></div>
+        </div>
+
+        <!-- Capital comparison table -->
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);margin-bottom:.75rem">Capital Impact: IMA vs SA</div>
+          <table class="cap-table">
+            <thead><tr><th>Metric</th><th>IMA</th><th>SA</th><th>Difference</th><th>Notes</th></tr></thead>
+            <tbody id="capTbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Remediation checks -->
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);margin-bottom:.75rem">Eligibility Findings &amp; Remediation</div>
+          <div class="check-list" id="checkList"></div>
+        </div>
+
+        <!-- AP2 export row -->
+        <div class="results-export-row">
+          <span class="export-label">AP2 v1.0 · @ainumbers.co/frtb-ima-eligibility-checker-v1</span>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <button id="ap2ExportBtn" onclick="exportAP2('json')">↓ AP2 Mandate (.json)</button>
+            <button class="ap2MdBtn" onclick="exportAP2('md')">↓ Markdown</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Source notes -->
+    <div class="source-notes">
+      <div class="container">
+        <h3>Regulatory Sources</h3>
+        <div class="cite-list">
+          <div class="cite"><span class="cite-num">[1]</span><span class="cite-text">CRR III (Regulation (EU) 2024/1623), Articles 325 et seq. — FRTB market risk framework, binding from January 1, 2027 in the EU.</span></div>
+          <div class="cite"><span class="cite-num">[2]</span><span class="cite-text">CRR III Art.325bh — P&amp;L Attribution Test (PLAT) thresholds: Spearman correlation, KS test, unexplained P&amp;L ratio.</span></div>
+          <div class="cite"><span class="cite-num">[3]</span><span class="cite-text">CRR III Art.325bi — Backtesting requirements: 250-day window, 1-day 99% VaR, traffic light framework.</span></div>
+          <div class="cite"><span class="cite-num">[4]</span><span class="cite-text">CRR III Art.325bj — Non-Modellable Risk Factors (NMRF): modellability criteria, stress scenario capital add-on (SSCA).</span></div>
+          <div class="cite"><span class="cite-num">[5]</span><span class="cite-text">Basel BCBS January 2019 — Minimum Capital Requirements for Market Risk (FRTB final standard).</span></div>
+          <div class="cite"><span class="cite-num">[6]</span><span class="cite-text">EBA RTS on IMA — Regulatory Technical Standards on the Internal Model Approach (EBA, 2023/2024).</span></div>
+          <div class="cite"><span class="cite-num">[7]</span><span class="cite-text">EU Delegated Act May 2026 — Capital impact offset provisions for FRTB implementation.</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="footer-inner-ai">
+      <a href="../index.html" class="logo" style="text-decoration:none">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)"><span style="color:var(--gold)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></span>
+      </a>
+      <div class="footer-links-ai">
+        <a href="../index.html">All Tools</a>
+        <a href="../tools.html">Index</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs ↗</a>
+      </div>
+      <div class="footer-badge-ai">
+        <span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span>
+        <span data-i18n="footer.privacy">🔒 Zero PII   📡 No server calls   💻 Client-side</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── Language ──────────────────────────────────────────────────────
+var LABELS = {
+  en:{'footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Zero PII   📡 No server calls   💻 Client-side'},
+  es:{'footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Sin PII   📡 Sin llamadas al servidor   💻 Cliente'},
+  fr:{'footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Aucune PII   📡 Aucun appel serveur   💻 Côté client'},
+  ar:{'footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 لا بيانات شخصية   📡 لا استدعاءات للخادم   💻 على المتصفح'},
+  pt:{'footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Sem PII   📡 Sem chamadas ao servidor   💻 Client-side'},
+  zh:{'footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 零个人数据   📡 无服务器调用   💻 纯客户端'},
+};
+function setLang(lang) {
+  sessionStorage.setItem('ain_lang', lang);
+  document.querySelectorAll('.lang-btn').forEach(function(b){
+    b.classList.toggle('active', b.textContent.trim().toLowerCase()===lang||(lang==='zh'&&b.textContent.trim()==='中文'));
+  });
+  var L=LABELS[lang]||LABELS.en;
+  document.documentElement.dir=lang==='ar'?'rtl':'ltr';
+  document.querySelectorAll('[data-i18n]').forEach(function(el){var k=el.getAttribute('data-i18n');if(L[k]!==undefined)el.textContent=L[k];});
+}
+(function(){var l=sessionStorage.getItem('ain_lang');if(l)setLang(l);})();
+
+function g(id){return document.getElementById(id);}
+function gv(id){return g(id).value;}
+function gn(id){return parseFloat(g(id).value)||0;}
+
+var _result = {};
+
+function getPLATZone(spear, ks, unexpl) {
+  // Green: spear>=0.80 AND ks>=0.05 AND unexpl<10
+  // Amber: spear>=0.70 AND ks>=0.01 AND unexpl<20 (not green)
+  // Red: otherwise
+  if (spear>=0.80 && ks>=0.05 && unexpl<10) return 'green';
+  if (spear>=0.70 && ks>=0.01 && unexpl<20) return 'amber';
+  return 'red';
+}
+function getBTZone(exceptions) {
+  if (exceptions<=4) return 'green';
+  if (exceptions<=9) return 'amber';
+  return 'red';
+}
+function getNMRFFlag(modellable, surcharge) {
+  if (modellable>=90 && surcharge<10) return 'green';
+  if (modellable>=70 && surcharge<30) return 'amber';
+  return 'red';
+}
+
+function runEligibilityCheck() {
+  var deskType = gv('deskType');
+  var modelType = gv('modelType');
+  var stressedPeriod = gv('stressedPeriod');
+  var riskFactors = gn('riskFactors');
+  var spearman = gn('spearman') / 100;
+  var ks = gn('ksTest') / 100;
+  var unexpl = gn('unexplainedPL');
+  var modellable = gn('modellableRatio');
+  var nmrfSurcharge = gn('nmrfSurcharge');
+  var btExcept = gn('btExceptions');
+  var imaES = gn('imaES');
+  var saCapital = gn('saCapital');
+  var imaCost = gn('imaCost');
+
+  var platZone = getPLATZone(spearman, ks, unexpl);
+  var btZone = getBTZone(btExcept);
+  var nmrfZone = getNMRFFlag(modellable, nmrfSurcharge);
+
+  // IMA eligibility: PLAT and BT must not be red; NMRF affects capital but not eligibility per se
+  var imaEligible = platZone!=='red' && btZone!=='red' && stressedPeriod!=='no';
+  var eligibilityLabel = platZone==='red'?'FAIL — IMA INELIGIBLE':btZone==='red'?'FAIL — BT EXCEPTIONS':stressedPeriod==='no'?'FAIL — STRESSED PERIOD MISSING':platZone==='green'&&btZone==='green'?'PASS — IMA ELIGIBLE':'CONDITIONAL IMA';
+  var verdictCls = (platZone==='green'&&btZone==='green'&&stressedPeriod==='yes')?'verdict-pass':(imaEligible?'verdict-cond':'verdict-fail');
+
+  // Traffic lights
+  var platLabel = {green:'GREEN ZONE',amber:'AMBER ZONE',red:'RED ZONE'};
+  var platDesc = {
+    green:'Spearman '+spearman.toFixed(2)+', KS p='+ks.toFixed(2)+', unexplained '+unexpl+'% — all within green zone. PLAT passed.',
+    amber:'Partial attribution — amber zone triggered. IMA eligible with capital multiplier add-on. Investigate RTPL vs HPL divergence.',
+    red:'PLAT failed. Spearman or KS test or unexplained P&L ratio outside green thresholds. Desk must use SA until model is remediated.'
+  };
+  var btLabel = {green:'GREEN ZONE',amber:'AMBER ZONE',red:'RED ZONE'};
+  var btDesc = {
+    green:btExcept+' exceptions in 250 days — green zone (0–4). No capital multiplier add-on.',
+    amber:btExcept+' exceptions — amber zone (5–9). Capital add-on applies (multiplier increase). IMA remains eligible but monitor closely.',
+    red:btExcept+' exceptions — red zone (≥10). IMA ineligible for this desk. Must revert to SA immediately.'
+  };
+  var nmrfDesc = {
+    green:'NMRF ratio: '+(100-modellable).toFixed(0)+'% NMRFs, surcharge '+nmrfSurcharge+'% of ES — manageable impact.',
+    amber:'Elevated NMRF ratio: '+(100-modellable).toFixed(0)+'% NMRFs, surcharge '+nmrfSurcharge+'% — significant capital add-on. Data quality programme recommended.',
+    red:'High NMRF ratio: '+(100-modellable).toFixed(0)+'% NMRFs, surcharge '+nmrfSurcharge+'% — NMRF capital may make IMA uneconomic. Consider SA for affected sub-desks.'
+  };
+  var tlHtml = [
+    {label:'P&L Attribution Test', zone:platZone, heading:platLabel[platZone], desc:platDesc[platZone]},
+    {label:'Backtesting (250d / 99%)', zone:btZone, heading:btLabel[btZone], desc:btDesc[btZone]},
+    {label:'NMRF Capital Impact', zone:nmrfZone, heading:{green:'LOW SURCHARGE',amber:'ELEVATED SURCHARGE',red:'HIGH SURCHARGE'}[nmrfZone], desc:nmrfDesc[nmrfZone]},
+  ].map(function(t){
+    var cls = 'tl-'+t.zone;
+    return '<div class="tl-card"><div class="tl-label">'+t.label+'</div><div class="tl-indicator '+cls+'">'+t.heading+'</div><div class="tl-desc">'+t.desc+'</div></div>';
+  }).join('');
+  g('tlGrid').innerHTML = tlHtml;
+
+  // Capital table
+  var nmrfAdd = imaES * nmrfSurcharge / 100;
+  var totalIMA = imaES + nmrfAdd + imaCost;
+  var saving = saCapital - totalIMA;
+  var fmt = function(v){return '$'+v.toFixed(1)+'M';};
+  var capRows = [
+    {metric:'ES-based capital (pre-NMRF)', ima:fmt(imaES), sa:'N/A', diff:'', note:'Expected Shortfall at 97.5% confidence, 10-day horizon'},
+    {metric:'NMRF stress scenario add-on', ima:fmt(nmrfAdd), sa:'Included in SA', diff:'', note:'Art.325bj SSCA for non-modellable risk factors'},
+    {metric:'Total capital charge', ima:fmt(imaES+nmrfAdd), sa:fmt(saCapital), diff:(saving>=0?'−':'+')+fmt(Math.abs(saving)), note:'IMA total vs SA sensitivity-based approach', highlight:true},
+    {metric:'Annual IMA infrastructure cost', ima:fmt(imaCost), sa:'Lower (no model)', diff:'', note:'Ongoing model maintenance, validation, data costs'},
+    {metric:'Net total cost (capital equiv.)', ima:fmt(totalIMA), sa:fmt(saCapital), diff:(saCapital-totalIMA>=0?'IMA saves ':'SA saves ')+fmt(Math.abs(saCapital-totalIMA)), note:'Fully-loaded comparison', highlight:true},
+  ];
+  var capHtml = capRows.map(function(r){
+    var diffColor = r.diff.includes('saves')||(r.diff.startsWith('−'))?'td-green':'td-red';
+    return '<tr><td class="td-bright'+(r.highlight?' '+diffColor:'')+'">'+r.metric+'</td><td style="color:var(--bright)">'+r.ima+'</td><td style="color:var(--text)">'+r.sa+'</td><td class="'+(r.diff?diffColor:'')+'">'+r.diff+'</td><td style="font-size:.68rem;color:var(--body)">'+r.note+'</td></tr>';
+  }).join('');
+  g('capTbody').innerHTML = capHtml;
+
+  // Checks
+  var checks = [
+    {pass:platZone==='green',warn:platZone==='amber',title:'P&L Attribution Test — CRR III Art.325bh',desc:platDesc[platZone]},
+    {pass:btZone==='green',warn:btZone==='amber',title:'Backtesting — CRR III Art.325bi',desc:btDesc[btZone]},
+    {pass:nmrfZone==='green',warn:nmrfZone==='amber',title:'NMRF modellability — CRR III Art.325bj',desc:nmrfDesc[nmrfZone]},
+    {pass:stressedPeriod==='yes',warn:stressedPeriod==='partial',title:'Stressed period calibration — Art.325bb',desc:stressedPeriod==='yes'?'Stressed period identified per regulatory requirements.':stressedPeriod==='partial'?'Proxy approach in use — supervisor approval may be required for proxy stressed period.':'Stressed period not calibrated. IMA cannot be approved without this. Begin 12-month historical stress period identification immediately.'},
+    {pass:modelType==='hist_sim'||modelType==='monte_carlo',warn:false,title:'Model type suitability',desc:modelType==='parametric'?'Parametric/variance-covariance models may not adequately capture tail risk for ES calculation. Historical simulation or Monte Carlo is preferred under CRR III.':'ES model type acceptable for IMA purposes.'},
+  ];
+  var checkHtml = checks.map(function(c){
+    var icon=c.pass?'✓':c.warn?'⚡':'✗'; var cls=c.pass?'pass':c.warn?'warn':'fail';
+    return '<div class="check-item"><span class="check-icon '+cls+'">'+icon+'</span><div><div class="check-title">'+c.title+'</div><div class="check-desc">'+c.desc+'</div></div></div>';
+  }).join('');
+  g('checkList').innerHTML = checkHtml;
+
+  // Verdict
+  var vBadge = g('verdictBadge');
+  vBadge.textContent = eligibilityLabel;
+  vBadge.className = 'verdict-badge '+verdictCls;
+  g('resultsTitle').textContent = 'FRTB IMA Eligibility — '+deskType.toUpperCase()+' Desk';
+  g('resultsSub').textContent = riskFactors+' risk factors · ES capital: '+fmt(imaES)+' (IMA) vs '+fmt(saCapital)+' (SA) · BT: '+btExcept+' exceptions';
+  g('resultsPanel').classList.add('show');
+
+  _result = {
+    deskType:deskType, modelType:modelType, stressedPeriod:stressedPeriod, riskFactors:riskFactors,
+    platZone:platZone, btZone:btZone, nmrfZone:nmrfZone,
+    inputs:{spearman:spearman, ks_pvalue:ks, unexplained_pl_pct:unexpl, modellable_pct:modellable, nmrf_surcharge_pct:nmrfSurcharge, bt_exceptions:btExcept},
+    capital:{ima_es:imaES, nmrf_add:nmrfAdd, total_ima:totalIMA, sa_capital:saCapital, ima_annual_cost:imaCost, net_saving:saving},
+    eligible:imaEligible, verdict:eligibilityLabel,
+  };
+}
+
+// ── AP2 Export ────────────────────────────────────────────────────
+function exportAP2(fmt) {
+  if (!_result.verdict) { alert('Run analysis first.'); return; }
+  var r = _result;
+  var now = new Date().toISOString();
+  var mandate = {
+    ap2_version:'1.0',
+    mandate_id:'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){var rv=Math.random()*16|0;return(c==='x'?rv:(rv&0x3|0x8)).toString(16);}),
+    issued_at:now, issued_by:'ainumbers.co',
+    tool_id:'frtb-ima-eligibility-checker', tool_version:'1.0.0',
+    mandate_type:'capital_model_eligibility',
+    jurisdiction:['EU'],
+    regulatory_frameworks:['CRR III (EU) 2024/1623','Basel BCBS FRTB January 2019','EBA RTS on IMA'],
+    verdict:r.verdict, eligible:r.eligible,
+    desk:{type:r.deskType, model_type:r.modelType, stressed_period:r.stressedPeriod, risk_factors:r.riskFactors},
+    test_results:{plat_zone:r.platZone, backtesting_zone:r.btZone, nmrf_zone:r.nmrfZone},
+    inputs:r.inputs, capital:r.capital,
+    policy_statements:[
+      'CRR III Art.325bh: P&L attribution test (PLAT) required — Spearman correlation, KS test, and unexplained P&L ratio must all be in green or amber zone.',
+      'CRR III Art.325bi: Backtesting required — ≥10 exceptions in 250 days results in mandatory desk-level revert to SA.',
+      'CRR III Art.325bj: NMRF modellability — risk factors with <24 verifiable observations in 12 months require stress scenario capital add-on.',
+      'Stressed period calibration (Art.325bb) is a prerequisite for IMA approval.',
+      'CRR III is binding in the EU from January 1, 2027. EBA must be notified of IMA application.',
+      'EU Delegated Act May 2026 provides partial capital impact offsets for FRTB implementation period.',
+    ],
+    regulatory_citations:[
+      'CRR III Art.325 et seq. (FRTB market risk framework)',
+      'CRR III Art.325bh (P&L attribution test)',
+      'CRR III Art.325bi (backtesting)',
+      'CRR III Art.325bj (NMRF)',
+      'Basel BCBS January 2019 FRTB standard',
+      'EBA RTS on IMA (2023/2024)',
+      'EU Delegated Act May 2026',
+    ],
+    source:'https://ainumbers.co/tools/340-frtb-internal-model-eligibility-checker.html',
+    license:'CC BY 4.0',
+  };
+  var content, mime, ext;
+  if (fmt==='json') {
+    content=JSON.stringify(mandate,null,2); mime='application/json'; ext='.ap2.json';
+  } else {
+    content='# FRTB IMA Eligibility — AP2 Mandate\nIssued: '+now+'\nTool: ainumbers.co/tools/340-frtb-internal-model-eligibility-checker.html\n\n## Verdict: '+r.verdict+'\n\n## Desk\n- Type: '+r.deskType+'\n- Model: '+r.modelType+'\n- Risk factors: '+r.riskFactors+'\n\n## Test Results\n- PLAT zone: '+r.platZone.toUpperCase()+'\n- Backtesting zone: '+r.btZone.toUpperCase()+'\n- NMRF zone: '+r.nmrfZone.toUpperCase()+'\n\n## Capital Impact\n- IMA ES capital: $'+r.capital.ima_es.toFixed(1)+'M\n- NMRF add-on: $'+r.capital.nmrf_add.toFixed(1)+'M\n- Total IMA (incl. cost): $'+r.capital.total_ima.toFixed(1)+'M\n- SA capital: $'+r.capital.sa_capital.toFixed(1)+'M\n- Net saving vs SA: $'+r.capital.net_saving.toFixed(1)+'M\n\n## Policy Statements\n'+(mandate.policy_statements.map(function(p){return '- '+p;}).join('\n'))+'\n\n---\n*CC BY 4.0 · AINumbers.co · Post Oak Labs*';
+    mime='text/markdown'; ext='.md';
+  }
+  var blob=new Blob([content],{type:mime}); var url=URL.createObjectURL(blob);
+  var a=document.createElement('a'); a.href=url; a.download='frtb-ima-eligibility'+ext; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── MCP Manifest ──────────────────────────────────────────────────
+var MANIFEST = {
+  tool_id:'frtb-ima-eligibility-checker',version:'1.0.0',
+  title:'FRTB Internal Model Approach (IMA) Eligibility Checker',
+  description:'Determines IMA eligibility for a trading desk under CRR III (EU, Jan 2027). P&L attribution test, NMRF check, backtesting evaluation. AP2 export.',
+  category:'cat-2',
+  tags:['FRTB','Basel IV','CRR III','IMA','SA','market risk','P&L attribution','NMRF','backtesting'],
+  input_schema:{type:'object',properties:{desk_type:{type:'string'},spearman_correlation:{type:'number'},ks_pvalue:{type:'number'},unexplained_pl_pct:{type:'number'},modellable_ratio_pct:{type:'number'},backtesting_exceptions:{type:'number'}},required:['desk_type','backtesting_exceptions']},
+  mcp_tool_definition:{name:'frtb_ima_eligibility_checker',description:'Check FRTB IMA eligibility for a trading desk. Returns PLAT zone, backtesting zone, NMRF flag, and capital comparison.',inputSchema:{type:'object',properties:{desk_type:{type:'string'},backtesting_exceptions:{type:'number'}},required:['desk_type']}},
+  execution:{type:'browser-javascript',entry:'tools/340-frtb-internal-model-eligibility-checker.html',function_name:'runEligibilityCheck',timeout_ms:3000},
+  ap2_export:true
+};
+function toggleMfst(){
+  var b=g('mfstBody'); var open=b.style.display==='block';
+  b.style.display=open?'none':'block';
+  g('mfstArr').textContent=open?'▼':'▲';
+  if(!open&&!g('mfstCode').textContent) g('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+</script>
+</body>
+</html>
