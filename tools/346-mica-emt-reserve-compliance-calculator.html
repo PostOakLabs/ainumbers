@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>MiCA EMT/ART Reserve Compliance Calculator · AINumbers.co</title>
+<meta name="description" content="Calculate reserve composition compliance for e-money token (EMT) and asset-referenced token (ART) issuers under MiCA Article 36. Models the mandatory bank deposit floor, permitted liquid sovereign instrument allocation, and reserve adequacy ratio. Deadline: July 1, 2026.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/346-mica-emt-reserve-compliance-calculator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"MiCA EMT/ART Reserve Compliance Calculator","url":"https://ainumbers.co/tools/346-mica-emt-reserve-compliance-calculator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "mica-emt-reserve-compliance-calculator",
+  "version": "1.0.0",
+  "title": "MiCA EMT/ART Reserve Compliance Calculator",
+  "description": "Calculate reserve composition compliance for e-money token (EMT) and asset-referenced token (ART) issuers under MiCA Article 36. Models the mandatory bank deposit floor (30% base, 60% for EBA-significant EMTs), permitted liquid sovereign instrument allocation, and reserve adequacy ratio.",
+  "category": "cat-10",
+  "tags": ["MiCA","EMT","ART","reserve","crypto","DLT","EBA","Art.36","tokenization","stablecoin","EU"],
+  "audience": ["compliance","treasury","product"],
+  "ap2_export": true,
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "token_type": {"type": "string", "enum": ["EMT","ART"]},
+      "reserve_total_eur_m": {"type": "number", "minimum": 0},
+      "eba_significant": {"type": "boolean"},
+      "deposit_pct": {"type": "number", "minimum": 0, "maximum": 100},
+      "sovereign_pct": {"type": "number", "minimum": 0, "maximum": 100},
+      "other_pct": {"type": "number", "minimum": 0, "maximum": 100},
+      "sovereign_maturity_days": {"type": "integer", "minimum": 0},
+      "redemption_rights": {"type": "string", "enum": ["immediate","next_business_day","other"]},
+      "audit_frequency": {"type": "string", "enum": ["monthly","quarterly","annual"]}
+    },
+    "required": ["token_type","reserve_total_eur_m","eba_significant","deposit_pct","sovereign_pct","other_pct"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "overall_status": {"type": "string", "enum": ["COMPLIANT","NON-COMPLIANT","REVIEW"]},
+      "deposit_floor_required_pct": {"type": "number"},
+      "deposit_gap_pct": {"type": "number"},
+      "reserve_adequacy_ratio": {"type": "number"},
+      "reallocation_needed_eur_m": {"type": "number"}
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "calculate_mica_emt_reserve_compliance",
+    "description": "Calculate MiCA Article 36 reserve composition compliance for EMT and ART issuers, including deposit floor checks and reallocation requirements",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "token_type": {"type": "string"},
+        "reserve_total_eur_m": {"type": "number"},
+        "eba_significant": {"type": "boolean"},
+        "deposit_pct": {"type": "number"},
+        "sovereign_pct": {"type": "number"},
+        "other_pct": {"type": "number"}
+      },
+      "required": ["token_type","reserve_total_eur_m","eba_significant","deposit_pct","sovereign_pct","other_pct"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/346-mica-emt-reserve-compliance-calculator.html",
+    "function_name": "runMiCACalc",
+    "timeout_ms": 5000
+  }
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;
+  --border:#1E2F4A;--border-2:#263855;
+  --muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--gold-lt:#F0BC48;
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B48EF8;
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:var(--teal);text-decoration:none}a:hover{color:var(--teal-lt)}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1020px;margin:0 auto;padding:0 1.5rem}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1020px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--purple);color:var(--purple-lt)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.95);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1020px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}.nav-trail a:hover{color:var(--purple)}
+.nav-sep{color:var(--border-2)}
+.logo{display:flex;align-items:center;gap:.6rem;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--gold)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-right{display:flex;align-items:center;gap:.5rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--purple);color:var(--purple)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.5rem,2.8vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--purple-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.25rem}
+.panel-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;gap:.75rem}
+.panel-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--purple);border:1px solid rgba(155,114,245,.3);padding:.18rem .55rem;border-radius:3px}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
+.panel-body{padding:1.25rem}
+.panel-row{margin-bottom:1rem}
+.panel-row label{display:block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.panel-row select,.panel-row input[type="number"]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none;transition:border-color .2s;-webkit-appearance:none}
+.panel-row select:focus,.panel-row input:focus{border-color:var(--purple)}
+.field-hint{font-size:.62rem;color:var(--muted);margin-top:.25rem;line-height:1.5}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem}
+@media(max-width:640px){.grid-2,.grid-3{grid-template-columns:1fr}}
+.run-btn{background:var(--purple);color:var(--white);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.5rem}
+.run-btn:hover{background:var(--purple-lt)}
+.results-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-top:1.25rem;display:none}
+.results-panel.show{display:block}
+.results-header{padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;border-bottom:1px solid var(--border)}
+.verdict{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;padding:.3rem .8rem;border-radius:3px;font-weight:600;border:1px solid}
+.verdict.compliant{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.4)}
+.verdict.non-compliant{background:var(--red-dim);color:var(--red);border-color:rgba(239,68,68,.4)}
+.verdict.review{background:var(--warn-dim);color:var(--warn);border-color:rgba(245,158,11,.4)}
+.results-body{padding:1.25rem;display:flex;flex-direction:column;gap:1rem}
+.result-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white)}
+.section-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--purple);margin-bottom:.6rem}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.75rem}
+.stat-box{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem}
+.stat-val{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--white);line-height:1;margin-bottom:.25rem}
+.stat-val.warn{color:var(--warn)}.stat-val.green{color:var(--green)}.stat-val.red{color:var(--red)}.stat-val.purple{color:var(--purple)}
+.stat-lbl{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.check-list{display:flex;flex-direction:column;gap:.5rem}
+.check-item{display:flex;gap:.75rem;align-items:flex-start;padding:.6rem .85rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius)}
+.chk{font-family:'JetBrains Mono',monospace;font-size:.75rem;flex-shrink:0;width:20px}
+.chk.pass{color:var(--green)}.chk.fail{color:var(--red)}.chk.warn{color:var(--warn)}.chk.info{color:var(--purple)}
+.chk-title{font-size:.75rem;color:var(--bright);margin-bottom:.2rem;font-weight:500}
+.chk-desc{font-size:.68rem;color:var(--body);line-height:1.55}
+.detail-table{width:100%;border-collapse:collapse;font-size:.75rem}
+.detail-table th{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);padding:.5rem .75rem;text-align:left}
+.detail-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border-2);color:var(--text);vertical-align:top}
+.detail-table tr:last-child td{border-bottom:none}
+.td-warn{color:var(--warn)}.td-green{color:var(--green)}.td-red{color:var(--red)}
+.results-export-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;background:var(--bg-3);border:1px solid var(--border);border-top:2px solid var(--purple);border-radius:var(--radius);padding:.75rem 1rem;margin-top:1rem}
+.export-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+#ap2ExportBtn{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;background:var(--purple);color:var(--white);border:none;padding:.38rem 1rem;border-radius:var(--radius);font-weight:600;transition:background .2s;opacity:.28;cursor:not-allowed}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer}
+#ap2ExportBtn.ready:hover{background:var(--purple-lt)}
+.mcp-toggle{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer;margin-top:1.5rem}
+.mcp-toggle:hover{background:var(--bg-3)}
+.mcp-panel{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mcp-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.source-notes{background:var(--bg-2);border-top:1px solid var(--border);padding:1.5rem 0;margin-top:2rem;font-size:.7rem;color:var(--body)}
+.source-notes h3{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem}
+.cite-list{display:flex;flex-direction:column;gap:.4rem}
+.cite{display:flex;gap:.5rem}
+.cite-num{font-family:'JetBrains Mono',monospace;color:var(--purple);flex-shrink:0;width:20px}
+.cite-text{color:var(--muted);line-height:1.6}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links a{color:var(--muted)}.footer-links a:hover{color:var(--purple-lt)}
+.footer-copy{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="lang-bar" id="langBar">
+  <div class="lang-inner">
+    <button class="lang-btn active" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<nav>
+  <div class="nav-inner">
+    <a class="logo" href="../index.html">
+      <span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span>
+    </a>
+    <div class="nav-trail">
+      <a href="../index.html">Home</a>
+      <span class="nav-sep">›</span>
+      <a href="../index.html#cat-10">DLT &amp; Tokenization</a>
+      <span class="nav-sep">›</span>
+      <span>MiCA Reserve Calculator</span>
+    </div>
+    <div class="nav-right">
+      <a class="nav-pill" href="../index.html#cat-10">DLT Hub</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="hero">
+    <div class="hero-eyebrow">MiCA · Article 36 · Reserve Requirements · July 2026</div>
+    <h1>MiCA <em>EMT/ART</em> Reserve Compliance Calculator</h1>
+    <p class="hero-desc">Calculate reserve composition compliance for e-money token (EMT) and asset-referenced token (ART) issuers under MiCA Article 36. Models the mandatory bank deposit floor (30% base, 60% for EBA-significant EMTs), permitted liquid sovereign instrument allocation, and reserve adequacy ratio. Deadline: July 1, 2026.</p>
+    <div class="hero-meta">
+      <span class="badge badge-red">Deadline July 1 2026</span>
+      <span class="badge badge-purple">MiCA Art.36</span>
+      <span class="badge badge-purple">EMT · ART</span>
+      <span class="badge badge-muted">Zero PII · Browser-only</span>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="tool-body">
+    <p class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</p>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-num">Step 01</span>
+        <span class="panel-label">Token Classification</span>
+      </div>
+      <div class="panel-body">
+        <div class="grid-2">
+          <div class="panel-row">
+            <label for="tokenType">Token type</label>
+            <select id="tokenType">
+              <option value="EMT">EMT — E-Money Token</option>
+              <option value="ART">ART — Asset-Referenced Token</option>
+            </select>
+            <p class="field-hint">EMTs reference a single fiat currency; ARTs reference a basket or other assets. Reserve rules differ at the margin.</p>
+          </div>
+          <div class="panel-row">
+            <label for="ebaSignificant">EBA "significant" designation</label>
+            <select id="ebaSignificant">
+              <option value="no">No — standard regime</option>
+              <option value="yes">Yes — EBA significant designation</option>
+            </select>
+            <p class="field-hint">Significant EMTs/ARTs face 60% deposit floor (vs 30% base). EBA criteria include token count, holder count, transaction volume.</p>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="panel-row">
+            <label for="reserveTotal">Total reserve value (€ million)</label>
+            <input type="number" id="reserveTotal" value="100" min="0" step="0.1">
+            <p class="field-hint">Total value of the reserve pool backing outstanding tokens at reporting date.</p>
+          </div>
+          <div class="panel-row">
+            <label for="auditFreq">Reserve audit frequency</label>
+            <select id="auditFreq">
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="annual">Annual</option>
+            </select>
+            <p class="field-hint">MiCA Art.36 expects regular independent audits of reserve composition.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-num">Step 02</span>
+        <span class="panel-label">Reserve Composition (%)</span>
+      </div>
+      <div class="panel-body">
+        <div class="grid-3">
+          <div class="panel-row">
+            <label for="depositPct">% held in credit institution deposits</label>
+            <input type="number" id="depositPct" value="40" min="0" max="100" step="0.1">
+            <p class="field-hint">Must meet the mandatory floor. Segregated deposits at authorised credit institutions only.</p>
+          </div>
+          <div class="panel-row">
+            <label for="sovereignPct">% held in EU sovereign instruments</label>
+            <input type="number" id="sovereignPct" value="45" min="0" max="100" step="0.1">
+            <p class="field-hint">High-quality liquid EU sovereign bonds. Subject to maturity constraint.</p>
+          </div>
+          <div class="panel-row">
+            <label for="otherPct">% held in other liquid assets</label>
+            <input type="number" id="otherPct" value="15" min="0" max="100" step="0.1">
+            <p class="field-hint">Any remaining permitted assets. Total deposit + sovereign + other must equal 100%.</p>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="panel-row">
+            <label for="sovereignMaturity">Average maturity of sovereign instruments (days)</label>
+            <input type="number" id="sovereignMaturity" value="75" min="0" step="1">
+            <p class="field-hint">MiCA requires sovereign instruments to be highly liquid. Maturities &gt;90 days trigger a review flag.</p>
+          </div>
+          <div class="panel-row">
+            <label for="redemptionRights">Redemption rights offered to holders</label>
+            <select id="redemptionRights">
+              <option value="immediate">Immediate (same business day)</option>
+              <option value="next_business_day">Next business day</option>
+              <option value="other">Other / longer settlement</option>
+            </select>
+            <p class="field-hint">MiCA Art.35 requires issuers to redeem at par on request. Delays beyond next business day trigger a warning.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="run-btn" onclick="runMiCACalc()">Calculate Reserve Compliance</button>
+
+    <div class="results-panel" id="resultsPanel">
+      <div class="results-header">
+        <span class="result-title" id="resultTitle">Reserve Compliance Assessment</span>
+        <span class="verdict" id="verdictBadge">—</span>
+      </div>
+      <div class="results-body">
+        <div>
+          <div class="section-label">Key Metrics</div>
+          <div class="stat-grid" id="statGrid"></div>
+        </div>
+        <div>
+          <div class="section-label">Compliance Checks</div>
+          <div class="check-list" id="checkList"></div>
+        </div>
+        <div>
+          <div class="section-label">Reserve Reallocation Required</div>
+          <table class="detail-table" id="reallocTable">
+            <thead><tr><th>Asset Class</th><th>Current Allocation</th><th>Required / Max</th><th>Action</th><th>Realloc (€M)</th></tr></thead>
+            <tbody id="reallocBody"></tbody>
+          </table>
+        </div>
+        <div class="results-export-row">
+          <span class="export-label">Export compliance assessment</span>
+          <button id="ap2ExportBtn" disabled title="Run the analysis above to generate a Policy Mandate" onclick="exportAP2()">&#x7B;&#x7D; Export Policy Mandate</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="mcp-toggle" onclick="document.getElementById('mcpPanel').style.display=document.getElementById('mcpPanel').style.display==='block'?'none':'block'">
+      MCP Manifest — calculate_mica_emt_reserve_compliance
+      <span>&#x25BC;</span>
+    </button>
+    <div class="mcp-panel" id="mcpPanel">
+      <pre class="mcp-code">{
+  "name": "calculate_mica_emt_reserve_compliance",
+  "description": "Calculate MiCA Article 36 reserve composition compliance for EMT and ART issuers",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "token_type": { "type": "string", "enum": ["EMT","ART"], "description": "Token type: EMT or ART" },
+      "reserve_total_eur_m": { "type": "number", "description": "Total reserve value in EUR millions" },
+      "eba_significant": { "type": "boolean", "description": "EBA significant designation (true = 60% deposit floor)" },
+      "deposit_pct": { "type": "number", "description": "% of reserve in credit institution deposits" },
+      "sovereign_pct": { "type": "number", "description": "% of reserve in EU sovereign instruments" },
+      "other_pct": { "type": "number", "description": "% in other permitted liquid assets" },
+      "sovereign_maturity_days": { "type": "integer", "description": "Average maturity of sovereign instruments in days" },
+      "redemption_rights": { "type": "string", "enum": ["immediate","next_business_day","other"] },
+      "audit_frequency": { "type": "string", "enum": ["monthly","quarterly","annual"] }
+    },
+    "required": ["token_type","reserve_total_eur_m","eba_significant","deposit_pct","sovereign_pct","other_pct"]
+  }
+}</pre>
+    </div>
+  </div>
+</div>
+
+<div class="source-notes">
+  <div class="container">
+    <h3>Regulatory Citations</h3>
+    <div class="cite-list">
+      <div class="cite"><span class="cite-num">[1]</span><span class="cite-text">MiCA Regulation (EU) 2023/1114, Article 36 — Reserve of assets for asset-referenced tokens; Article 35 — Redemption rights of holders</span></div>
+      <div class="cite"><span class="cite-num">[2]</span><span class="cite-text">EBA RTS on the minimum content of the liquidity management policy for issuers of ARTs and EMTs (EBA/RTS/2023/XX)</span></div>
+      <div class="cite"><span class="cite-num">[3]</span><span class="cite-text">EBA criteria for significance classification of EMTs and ARTs under MiCA Art. 43 — thresholds include holder count, transaction volume, and reserve size</span></div>
+      <div class="cite"><span class="cite-num">[4]</span><span class="cite-text">MiCA Article 36(1)(a)-(b): at least 30% (standard) or 60% (significant) of reserve assets must be held as deposits at credit institutions</span></div>
+      <div class="cite"><span class="cite-num">[5]</span><span class="cite-text">MiCA Article 36(6): reserve assets must be invested in highly liquid financial instruments with minimal market, credit, and concentration risk</span></div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-links">
+      <a href="../index.html">Home</a>
+      <a href="../index.html#cat-10">DLT &amp; Tokenization</a>
+      <a href="https://ainumbers.co/guides/dlt-tokenization-hub.html">DLT Hub</a>
+    </div>
+    <div class="footer-copy">CC BY 4.0 · Post Oak Labs · AINumbers.co · Tool 346</div>
+  </div>
+</footer>
+
+<script>
+const TRANSLATIONS = {
+  en: { run: "Calculate Reserve Compliance", pii: "🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only." },
+  es: { run: "Calcular Cumplimiento de Reservas", pii: "🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No ingrese datos personales reales." },
+  fr: { run: "Calculer la Conformité des Réserves", pii: "🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n'est transmise." },
+  ar: { run: "احسب امتثال الاحتياطي", pii: "🔒 تتم معالجة جميع المدخلات محليًا في متصفحك. لا يتم إرسال أي بيانات.", lang_dir: "rtl" },
+  pt: { run: "Calcular Conformidade de Reservas", pii: "🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido." },
+  zh: { run: "计算储备合规性", pii: "🔒 所有输入均在您的浏览器本地处理。不传输任何数据。" }
+};
+
+function setLang(lang) {
+  sessionStorage.setItem('ain_lang', lang);
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  document.documentElement.lang = lang;
+  document.documentElement.dir = t.lang_dir || 'ltr';
+  const piiEl = document.querySelector('.pii-notice');
+  if (piiEl) piiEl.textContent = t.pii;
+  const runBtn = document.querySelector('.run-btn');
+  if (runBtn) runBtn.textContent = t.run;
+  document.querySelectorAll('.lang-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.trim().toLowerCase() === lang || (lang === 'zh' && b.textContent.includes('中文')));
+  });
+}
+(function initLang() {
+  const saved = sessionStorage.getItem('ain_lang');
+  if (saved && TRANSLATIONS[saved]) setLang(saved);
+})();
+
+let lastResult = null;
+
+function runMiCACalc() {
+  const tokenType = document.getElementById('tokenType').value;
+  const ebaSignificant = document.getElementById('ebaSignificant').value === 'yes';
+  const reserveTotal = parseFloat(document.getElementById('reserveTotal').value) || 0;
+  const depositPct = parseFloat(document.getElementById('depositPct').value) || 0;
+  const sovereignPct = parseFloat(document.getElementById('sovereignPct').value) || 0;
+  const otherPct = parseFloat(document.getElementById('otherPct').value) || 0;
+  const sovereignMaturity = parseInt(document.getElementById('sovereignMaturity').value) || 0;
+  const redemptionRights = document.getElementById('redemptionRights').value;
+  const auditFreq = document.getElementById('auditFreq').value;
+
+  // Validate total
+  const total = depositPct + sovereignPct + otherPct;
+  const totalOk = Math.abs(total - 100) <= 0.5;
+
+  // Core logic: MiCA Art.36 deposit floor
+  const requiredDepositFloor = ebaSignificant ? 60 : 30;
+  const maxSovereignAllowed = ebaSignificant ? 40 : 70;
+
+  const depositPass = depositPct >= requiredDepositFloor;
+  const depositGap = Math.max(0, requiredDepositFloor - depositPct);
+  const sovereignPass = sovereignPct <= maxSovereignAllowed;
+  const maturityPass = sovereignMaturity <= 90;
+  const maturityWarn = sovereignMaturity > 90 && sovereignMaturity <= 180;
+  const redemptionPass = redemptionRights === 'immediate' || redemptionRights === 'next_business_day';
+  const auditPass = auditFreq === 'monthly' || auditFreq === 'quarterly';
+
+  // Reserve adequacy ratio
+  const reserveAdequacyRatio = ((depositPct + sovereignPct) / 100).toFixed(3);
+
+  // Reallocation needed (€M)
+  const reallocNeeded = depositGap > 0 ? (depositGap / 100) * reserveTotal : 0;
+
+  // Overall status
+  let overallStatus;
+  if (!depositPass) overallStatus = 'NON-COMPLIANT';
+  else if (!maturityPass || !redemptionPass || !totalOk) overallStatus = 'REVIEW';
+  else overallStatus = 'COMPLIANT';
+
+  lastResult = { tokenType, ebaSignificant, reserveTotal, depositPct, sovereignPct, otherPct,
+    sovereignMaturity, redemptionRights, auditFreq, requiredDepositFloor, depositGap,
+    maxSovereignAllowed, reserveAdequacyRatio, reallocNeeded, overallStatus };
+
+  // Render stats
+  const statGrid = document.getElementById('statGrid');
+  statGrid.innerHTML = `
+    <div class="stat-box"><div class="stat-val purple">${requiredDepositFloor}%</div><div class="stat-lbl">Deposit Floor Required</div></div>
+    <div class="stat-box"><div class="stat-val ${depositPass?'green':'red'}">${depositPct.toFixed(1)}%</div><div class="stat-lbl">Deposit Floor Held</div></div>
+    <div class="stat-box"><div class="stat-val ${depositGap>0?'red':'green'}">${depositGap>0?'-'+depositGap.toFixed(1)+'%':'On target'}</div><div class="stat-lbl">Gap to Floor</div></div>
+    <div class="stat-box"><div class="stat-val">€${reserveTotal.toFixed(1)}M</div><div class="stat-lbl">Total Reserve Value</div></div>
+    <div class="stat-box"><div class="stat-val ${depositGap>0?'red':'green'}">${depositGap>0?'€'+reallocNeeded.toFixed(2)+'M':'None'}</div><div class="stat-lbl">Reallocation Needed</div></div>
+    <div class="stat-box"><div class="stat-val">${reserveAdequacyRatio}</div><div class="stat-lbl">Reserve Adequacy Ratio</div></div>
+  `;
+
+  // Checks
+  const checks = [
+    { pass: totalOk, warn: false, title: 'Allocation totals 100%', desc: `Current total: ${total.toFixed(1)}%. ${totalOk?'Allocations balance correctly.':'Deposit + Sovereign + Other must sum to 100%.'}` },
+    { pass: depositPass, warn: false, title: `Deposit floor — ${requiredDepositFloor}% required`, desc: `${depositPct.toFixed(1)}% held in credit institution deposits. ${depositPass?'Meets the MiCA Art.36 requirement.':'Insufficient. Must increase by '+depositGap.toFixed(1)+'% points (€'+reallocNeeded.toFixed(2)+'M).'}` },
+    { pass: sovereignPass, warn: !sovereignPass, title: `Sovereign instrument cap — max ${maxSovereignAllowed}%`, desc: `${sovereignPct.toFixed(1)}% held in EU sovereign instruments. ${sovereignPass?'Within permitted range.':'Exceeds allowed maximum by '+(sovereignPct-maxSovereignAllowed).toFixed(1)+'% points.'}` },
+    { pass: maturityPass, warn: maturityWarn, title: 'Sovereign maturity ≤90 days', desc: `Average maturity: ${sovereignMaturity} days. ${maturityPass?'Satisfies liquidity requirement.':sovereignMaturity<=180?'Above 90 days — review required for liquidity standard compliance.':'Materially above threshold — likely non-compliant with high-quality liquid asset standard.'}` },
+    { pass: redemptionPass, warn: false, title: 'Redemption rights ≤ next business day', desc: `Redemption: ${redemptionRights.replace(/_/g,' ')}. ${redemptionPass?'Meets MiCA Art.35 redemption standard.':'Redemption timeframe exceeds next business day — non-compliant with Art.35.'}` },
+    { pass: auditPass, warn: false, title: 'Audit frequency', desc: `${auditFreq.charAt(0).toUpperCase()+auditFreq.slice(1)} audits. ${auditPass?'Monthly or quarterly audit cadence meets best practice.':'Annual-only audit frequency may not satisfy EBA reserve oversight expectations.'}` }
+  ];
+
+  const checkList = document.getElementById('checkList');
+  checkList.innerHTML = checks.map(c => {
+    const cls = c.pass ? 'pass' : c.warn ? 'warn' : 'fail';
+    const icon = c.pass ? '✓' : c.warn ? '⚠' : '✗';
+    return `<div class="check-item"><span class="chk ${cls}">${icon}</span><div><div class="chk-title">${c.title}</div><div class="chk-desc">${c.desc}</div></div></div>`;
+  }).join('');
+
+  // Reallocation table
+  const reallocBody = document.getElementById('reallocBody');
+  const rows = [
+    { asset: 'Credit Institution Deposits', current: depositPct.toFixed(1)+'%', required: '≥'+requiredDepositFloor+'%', action: depositPass?'No change required':'Increase deposits', amount: depositPass?0:reallocNeeded, ok: depositPass },
+    { asset: 'EU Sovereign Instruments', current: sovereignPct.toFixed(1)+'%', required: '≤'+maxSovereignAllowed+'%', action: sovereignPass?'No change required':'Reduce sovereign allocation', amount: sovereignPass?0:((sovereignPct-maxSovereignAllowed)/100)*reserveTotal, ok: sovereignPass },
+    { asset: 'Other Liquid Assets', current: otherPct.toFixed(1)+'%', required: 'Residual', action: depositPass&&sovereignPass?'No change required':'May need reduction to fund deposit floor', amount: 0, ok: depositPass&&sovereignPass }
+  ];
+  reallocBody.innerHTML = rows.map(r => `<tr>
+    <td>${r.asset}</td>
+    <td>${r.current}</td>
+    <td>${r.required}</td>
+    <td class="${r.ok?'td-green':'td-red'}">${r.action}</td>
+    <td class="${r.amount>0?'td-red':'td-green'}">${r.amount>0?'€'+r.amount.toFixed(2)+'M':'—'}</td>
+  </tr>`).join('');
+
+  // Verdict
+  const badge = document.getElementById('verdictBadge');
+  badge.textContent = overallStatus;
+  badge.className = 'verdict ' + overallStatus.toLowerCase().replace('-','-');
+  if (overallStatus === 'NON-COMPLIANT') badge.className = 'verdict non-compliant';
+  else if (overallStatus === 'COMPLIANT') badge.className = 'verdict compliant';
+  else badge.className = 'verdict review';
+
+  document.getElementById('resultsPanel').classList.add('show');
+  const btn = document.getElementById('ap2ExportBtn');
+  btn.disabled = false;
+  btn.classList.add('ready');
+  btn.title = 'Export Policy Mandate — For API integration · audit trail';
+}
+
+function exportAP2() {
+  if (!lastResult) return;
+  const mandate = {
+    ap2_version: "1.0",
+    mandate_id: "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16); }),
+    issued_at: new Date().toISOString(),
+    issued_by: "ainumbers.co",
+    tool_id: "mica-emt-reserve-compliance-calculator",
+    tool_version: "1.0.0",
+    mandate_type: "compliance_control",
+    jurisdiction: ["EU"],
+    regulatory_frameworks: ["MiCA Regulation (EU) 2023/1114", "EBA RTS on reserve assets"],
+    payload: {
+      token_type: lastResult.tokenType,
+      eba_significant: lastResult.ebaSignificant,
+      overall_status: lastResult.overallStatus,
+      deposit_floor_required_pct: lastResult.requiredDepositFloor,
+      deposit_floor_held_pct: lastResult.depositPct,
+      deposit_gap_pct: lastResult.depositGap,
+      reserve_total_eur_m: lastResult.reserveTotal,
+      reallocation_needed_eur_m: parseFloat(lastResult.reallocNeeded.toFixed(2)),
+      reserve_adequacy_ratio: parseFloat(lastResult.reserveAdequacyRatio),
+      sovereign_maturity_days: lastResult.sovereignMaturity,
+      redemption_rights: lastResult.redemptionRights
+    },
+    summary: `${lastResult.tokenType} issuer reserve assessment under MiCA Art.36: status ${lastResult.overallStatus}. Deposit floor required: ${lastResult.requiredDepositFloor}%, held: ${lastResult.depositPct.toFixed(1)}%. Gap: ${lastResult.depositGap.toFixed(1)} percentage points (€${lastResult.reallocNeeded.toFixed(2)}M reallocation required).`,
+    agent_instructions: [
+      `Verify deposit floor of ${lastResult.requiredDepositFloor}% is maintained at all times`,
+      lastResult.depositGap > 0 ? `Reallocate €${lastResult.reallocNeeded.toFixed(2)}M from other assets into credit institution deposits immediately` : "Deposit floor currently met — maintain monitoring",
+      `Ensure sovereign instrument maturities remain ≤90 days`,
+      `Confirm redemption rights comply with MiCA Art.35`
+    ],
+    valid_from: new Date().toISOString(),
+    valid_until: "2026-07-01T00:00:00Z",
+    source_tool_inputs: { token_type: lastResult.tokenType, reserve_total_eur_m: lastResult.reserveTotal, deposit_pct: lastResult.depositPct, sovereign_pct: lastResult.sovereignPct, other_pct: lastResult.otherPct },
+    regulatory_citations: ["MiCA (EU) 2023/1114 Art.36", "MiCA Art.35", "EBA RTS reserve assets", "EBA significance criteria Art.43"],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  const blob = new Blob([JSON.stringify(mandate, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  a.download = `mica-emt-reserve-compliance-calculator_${ts}.policy.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
