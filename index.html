@@ -535,6 +535,8 @@ kbd {
 .mcp-toggle:hover{background:var(--bg-3)}
 .mcp-toggle-icon{color:var(--muted);font-size:.9rem;transition:transform .25s}
 .mcp-toggle-icon.open{transform:rotate(180deg)}
+.mcp-panel-header{width:100%;background:var(--bg-3);border:1px solid var(--border);border-bottom:none;padding:.85rem 1.5rem;display:flex;align-items:center;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase}
+.mcp-panel{background:var(--bg-2);border:1px solid var(--border);padding:1.25rem 1.5rem;overflow-x:auto}
 
 .mcp-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.62rem}
 .mcp-table th{text-align:left;padding:.65rem 1rem;border-bottom:1px solid var(--border-2);color:var(--muted);font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;font-weight:400}
@@ -5865,15 +5867,13 @@ kbd {
       <hr class="sec-divider">
       <div style="margin-bottom:1.25rem">
         <div class="mcp-section-title">Developer / <em>MCP &amp; AP2 Integration</em></div>
-        <p class="mcp-section-desc">Every tool ships with a <code>manifest.json</code> that includes deterministic I/O schemas, MCP tool definition names, and AP2 export flags. Agent runtimes and orchestration systems can discover, validate, and invoke tools programmatically using these machine-readable manifests. All tools are client-side, deterministic, and zero PII — safe for automated agent invocation.</p>
+        <p class="mcp-section-desc">Every tool ships with a <code>manifest.json</code> for MCP agent discovery and an AP2 JSON export — structured mandate output for agent handoff across tools. Agent runtimes can discover, validate, and invoke tools via the full registry: <a href="/.well-known/mcp.json" target="_blank" rel="noopener" style="color:var(--teal);border-bottom:1px solid rgba(20,184,166,.25)">.well-known/mcp.json</a> &middot; <a href="/mcp/server.json" target="_blank" rel="noopener" style="color:var(--teal);border-bottom:1px solid rgba(20,184,166,.25)">mcp/server.json</a> &middot; <a href="/llms.txt" target="_blank" rel="noopener" style="color:var(--teal);border-bottom:1px solid rgba(20,184,166,.25)">llms.txt</a>. All tools are client-side, deterministic, and zero PII — safe for automated agent invocation.</p>
       </div>
 
-            <button class="mcp-toggle" id="mcpBtnGlobal" onclick="toggleGlobalMcp()" aria-expanded="false">
-        <span>📦 Suite-Wide Tool Manifest Registry · 315 tools · manifest.json + AP2 export registry</span>
-        <span class="mcp-toggle-icon" id="mcpIconGlobal">▼</span>
-      </button>
-
-      <div class="mcp-panel" id="mcpPanelGlobal" style="display:none">
+      <div class="mcp-panel-header">
+        <span>Suite-Wide Tool Manifest Registry &middot; 315 tools &middot; manifest.json + AP2 export schema</span>
+      </div>
+      <div class="mcp-panel" id="mcpPanelGlobal">
         <table class="mcp-table">
           <thead>
             <tr>
@@ -6063,11 +6063,7 @@ kbd {
             </tr>
           </tbody>
         </table>
-        <div style="margin-top:1.25rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
-          <a href="manifest.json" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:.45rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;color:var(--teal);border:1px solid rgba(20,184,166,.3);border-radius:var(--radius);padding:.35rem .85rem;transition:all .15s" onmouseover="this.style.background='rgba(20,184,166,.08)'" onmouseout="this.style.background='transparent'">⬇ manifest.json</a>
-          <a href="llms.txt" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:.45rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;color:var(--body);border:1px solid var(--border);border-radius:var(--radius);padding:.35rem .85rem;transition:all .15s" onmouseover="this.style.background='rgba(255,255,255,.03)'" onmouseout="this.style.background='transparent'">⬇ llms.txt</a>
-          <span style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">All tools: client-side · deterministic · zero PII · safe for agent invocation</span>
-        </div>
+        <div class="mcp-note">Full registry: <a href="/.well-known/mcp.json" target="_blank" rel="noopener" style="color:var(--teal)">.well-known/mcp.json</a> &middot; <a href="/mcp/server.json" target="_blank" rel="noopener" style="color:var(--teal)">mcp/server.json</a> &middot; <a href="/llms.txt" target="_blank" rel="noopener" style="color:var(--teal)">llms.txt</a> &middot; All tools deterministic — no model inference, no external calls.</div>
       </div><!-- /mcpPanelGlobal -->
 
     </div><!-- /developer-mcp -->
@@ -6153,7 +6149,7 @@ function applyFilters() {
   }
 
   if (searchCountEl) {
-    searchCountEl.textContent = q || activeTags.size > 0 ? \`${visibleCount} result${visibleCount !== 1 ? 's' : ''}\` : '';
+    searchCountEl.textContent = q || activeTags.size > 0 ? `${visibleCount} result${visibleCount !== 1 ? 's' : ''}` : '';
   }
   clearBtn.style.display = (activeFilter !== 'all' || activeTags.size > 0 || q) ? '' : 'none';
 }
@@ -6274,20 +6270,6 @@ if (searchInput) {
 clearBtn.style.display = 'none';
 
 /* ══════════════════════════════════════════════
-   MCP MANIFEST PANEL TOGGLE
-══════════════════════════════════════════════ */
-function toggleGlobalMcp() {
-  const panel = document.getElementById('mcpPanelGlobal');
-  const btn   = document.getElementById('mcpBtnGlobal');
-  const icon  = document.getElementById('mcpIconGlobal');
-  if (!panel) return;
-  const isOpen = panel.style.display === 'block';
-  panel.style.display = isOpen ? 'none' : 'block';
-  if (icon) icon.classList.toggle('open', !isOpen);
-  if (btn)  btn.setAttribute('aria-expanded', String(!isOpen));
-}
-
-/* ══════════════════════════════════════════════
    LANGUAGE SWITCHER
 ══════════════════════════════════════════════ */
 function setLang(lang) {
@@ -6306,3 +6288,4 @@ function setLang(lang) {
 </script>
 </body>
 </html>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
