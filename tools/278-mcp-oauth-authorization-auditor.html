@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>MCP OAuth 2.1 Authorization Auditor · T278 · AINumbers.co</title>
+<meta name="description" content="Audit an MCP server's OAuth 2.1 authorization: validate the RFC 9728 protected-resource-metadata document, visualize the discovery chain, check RFC 8707 resource-indicator / audience binding, and self-assess for token passthrough and confused-deputy risk. Client-side. Zero PII. Zero network.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/278-mcp-oauth-authorization-auditor.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"MCP OAuth 2.1 Authorization Auditor","url":"https://ainumbers.co/tools/278-mcp-oauth-authorization-auditor.html","applicationCategory":"DeveloperApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "mcp-oauth-authorization-auditor",
+  "version": "1.0.0",
+  "title": "MCP OAuth 2.1 Authorization Auditor",
+  "description": "Validates an MCP protected-resource-metadata (RFC 9728) document, visualizes the OAuth 2.1 discovery chain, checks RFC 8707 resource-indicator / audience binding, and self-assesses token-passthrough and confused-deputy risk. Reference rules are static and may age — verify against the live MCP authorization spec.",
+  "category": "cat-1",
+  "tags": ["MCP","OAuth 2.1","RFC 9728","RFC 8707","authorization","confused deputy"],
+  "audience": ["engineer"],
+  "input_schema": {"type":"object","properties":{"protected_resource_metadata":{"type":"object"},"canonical_resource":{"type":"string"}}},
+  "output_schema": {"type":"object","properties":{"score":{"type":"number"},"findings":{"type":"array"}}},
+  "mcp_tool_definition": {"name":"audit_mcp_oauth","description":"Audit MCP OAuth 2.1 authorization: validate RFC 9728 protected-resource-metadata, check RFC 8707 audience binding, and assess token-passthrough / confused-deputy risk.","inputSchema":{"type":"object","properties":{"protected_resource_metadata":{"type":"object","description":"The /.well-known/oauth-protected-resource JSON"},"canonical_resource":{"type":"string","description":"Canonical MCP server resource URI"}}}},
+  "execution": {"type":"browser-javascript","entry":"tools/278-mcp-oauth-authorization-auditor.html","function_name":"runPRM","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner,[dir="rtl"] .hero-eyebrow{flex-direction:row-reverse}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:740px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid var(--border);color:var(--muted)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.scope-note strong{color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase}
+.tabs{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1.25rem}
+.tab{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;padding:.5rem .85rem;border:1px solid var(--border);color:var(--muted);background:transparent;border-radius:var(--radius);transition:all .15s}
+.tab.on{border-color:var(--teal);color:var(--teal);background:var(--teal-dim)}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem;display:none}
+.panel.on{display:block}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem}
+.panel-hint{font-size:.7rem;color:var(--muted);margin-bottom:.85rem;line-height:1.6}
+.code-input{width:100%;min-height:180px;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;line-height:1.6;padding:.85rem 1rem;border-radius:var(--radius);outline:none;resize:vertical;tab-size:2}
+.code-input:focus{border-color:var(--teal)}
+.txt{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.55rem .75rem;border-radius:var(--radius);outline:none;margin-bottom:.5rem}
+.txt:focus{border-color:var(--teal)}
+.lbl{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem;display:block}
+.btn-row{display:flex;gap:.65rem;flex-wrap:wrap;margin:1.1rem 0 .25rem;align-items:center}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.ghost-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.5rem 1rem;border-radius:var(--radius);transition:all .2s}
+.ghost-btn:hover{border-color:var(--teal);color:var(--teal)}
+.q-row{display:flex;gap:.75rem;align-items:flex-start;padding:.6rem 0;border-bottom:1px solid var(--border)}
+.q-row:last-child{border-bottom:none}
+.q-txt{flex:1;font-size:.74rem;color:var(--text);line-height:1.5}
+.q-sel{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.35rem .55rem;border-radius:4px;outline:none}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.score-wrap{display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap}
+.score-num{font-family:'DM Serif Display',serif;font-size:2.6rem;line-height:1}
+.score-meta{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);line-height:1.8}
+.score-bar-outer{flex:1;min-width:160px;height:12px;background:var(--bg-3);border-radius:3px;overflow:hidden}
+.score-bar-inner{height:100%;border-radius:3px}
+.finding{display:flex;gap:.65rem;padding:.55rem .25rem;border-bottom:1px solid var(--border);font-size:.73rem;line-height:1.5}
+.finding:last-child{border-bottom:none}
+.fi-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.12rem .45rem;border-radius:3px;height:fit-content;white-space:nowrap;border:1px solid}
+.fi-error{color:var(--red);border-color:rgba(239,68,68,.4);background:var(--red-dim)}
+.fi-warn{color:var(--warn);border-color:rgba(245,158,11,.4)}
+.fi-pass{color:var(--green);border-color:rgba(34,197,94,.4);background:var(--green-dim)}
+.fi-info{color:var(--teal);border-color:rgba(20,184,166,.4)}
+.flow-step{display:flex;gap:.85rem;padding:.75rem 0;border-bottom:1px solid var(--border)}
+.flow-step:last-child{border-bottom:none}
+.flow-n{width:26px;height:26px;border-radius:50%;border:1px solid var(--teal);color:var(--teal);background:var(--teal-dim);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.62rem;flex-shrink:0}
+.flow-b h4{font-family:'Sora',sans-serif;font-size:.8rem;font-weight:500;color:var(--bright);margin-bottom:.2rem}
+.flow-b p{font-size:.72rem;color:var(--body);line-height:1.55}
+.flow-b code{font-family:'JetBrains Mono',monospace;font-size:.66rem;background:var(--bg-3);padding:.08rem .35rem;border-radius:3px;color:var(--teal-lt)}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.7rem;color:var(--body);line-height:1.7;white-space:pre-wrap;font-family:'JetBrains Mono',monospace}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.cite-list{font-size:.66rem;color:var(--muted);line-height:1.8}
+.cite-list a{color:var(--teal)}.cite-list b{color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.6rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/agentic-commerce-mcp-hub.html">Agentic Commerce &amp; MCP</a><span class="nav-sep">/</span><span>T-278</span></div>
+  <div class="nav-right"><a href="../guides/agentic-commerce-mcp-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-1 · T278 · AI &amp; Agentic Developer Tooling</div>
+  <span class="hero-badge badge-muted"><span>v1.0</span></span>
+  <h1 class="tool-title">MCP <em>OAuth 2.1</em> Authorization Auditor</h1>
+  <p class="hero-desc">Authorization is the #1 way MCP servers get it wrong. This auditor validates the <code>/.well-known/oauth-protected-resource</code> document (RFC 9728), visualizes the discovery chain, checks RFC 8707 resource-indicator / audience binding against your canonical server URI, and self-assesses the two cardinal sins — <strong>token passthrough</strong> and the <strong>confused deputy</strong>.</p>
+  <div class="disclaimer">⚠ The MCP authorization spec evolves (the 2026-07-28 release candidate adds RFC 9207 <code>iss</code> hardening). Rules here track the current spec. This tool inspects pasted metadata only — it performs no live OAuth flow, fetches nothing, and sees no tokens.</div>
+  <div class="hero-badges">
+    <span class="badge badge-teal">OAuth 2.1</span>
+    <span class="badge badge-gold">RFC 9728 · RFC 8707</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side · No Network</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note"><strong>Scope &amp; reliance —</strong> <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span> Paste metadata documents and configuration descriptions only — never a real access token. This audit checks structure and policy, not a live authorization server. Deterministic · zero PII · CC BY 4.0.</div>
+
+  <div class="tabs">
+    <button class="tab on" data-tab="prm" onclick="showTab('prm')">Protected-Resource Metadata</button>
+    <button class="tab" data-tab="aud" onclick="showTab('aud')">Audience / Resource Indicator</button>
+    <button class="tab" data-tab="flow" onclick="showTab('flow')">Discovery Chain</button>
+    <button class="tab" data-tab="cd" onclick="showTab('cd')">Confused-Deputy Self-Check</button>
+  </div>
+
+  <div class="panel on" id="panel-prm">
+    <div class="panel-title">▸ Validate /.well-known/oauth-protected-resource (RFC 9728)</div>
+    <div class="panel-hint">Paste the protected-resource-metadata JSON your MCP server exposes. An example is pre-loaded.</div>
+    <textarea id="prmIn" class="code-input" spellcheck="false"></textarea>
+    <div class="btn-row">
+      <button class="run-btn" onclick="runPRM()">▶ Validate Metadata</button>
+      <button class="ghost-btn" onclick="loadPRM()">↺ Example</button>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-aud">
+    <div class="panel-title">▸ Resource-indicator / audience binding (RFC 8707)</div>
+    <div class="panel-hint">Enter your server's canonical resource URI and the token's <code>aud</code> claim (paste the value only — never a real token). Checks that the audience binds to this server.</div>
+    <label class="lbl">Canonical MCP server resource URI</label>
+    <input class="txt" id="canon" placeholder="https://mcp.example.com">
+    <label class="lbl">Token aud claim (string or JSON array)</label>
+    <input class="txt" id="aud" placeholder='https://mcp.example.com  (or ["https://mcp.example.com"])'>
+    <div class="btn-row">
+      <button class="run-btn" onclick="runAud()">▶ Check Binding</button>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-flow">
+    <div class="panel-title">▸ OAuth 2.1 discovery chain</div>
+    <div class="panel-hint">The sequence a compliant MCP client follows from an unauthorized request to a bound access token.</div>
+    <div class="btn-row"><button class="run-btn" onclick="runFlow()">▶ Show Discovery Chain</button></div>
+  </div>
+
+  <div class="panel" id="panel-cd">
+    <div class="panel-title">▸ Token-passthrough &amp; confused-deputy self-assessment</div>
+    <div class="panel-hint">Answer for your server. The cardinal rule: an MCP server MUST NOT pass a client-supplied token through to a downstream API.</div>
+    <div id="cdQs"></div>
+    <div class="btn-row"><button class="run-btn" onclick="runCD()">▶ Assess</button></div>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </div></div>
+</section>
+
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run an audit above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/agentic-commerce-mcp-hub.html">Agentic Commerce &amp; MCP Hub</a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ── MCP OAuth 2.1 Authorization Auditor · deterministic · CONTRACT §0 ──────────
+   Citations:
+   [1] MCP authorization spec — OAuth 2.1; RFC 9728 Protected Resource Metadata;
+       RFC 8707 Resource Indicators; RFC 8414 AS Metadata; RFC 7591 Dynamic Client Reg.
+   [2] RFC 9728 — protected-resource-metadata fields (resource, authorization_servers…).
+   [3] RFC 8707 — token audience binding via the `resource` parameter.
+   [4] MCP security best practices — token-passthrough prohibition; confused-deputy.
+   [5] RFC 9207 — `iss` authorization-response param (2026-07-28 RC hardening).            */
+
+var EX_PRM = {
+  "resource": "https://mcp.example.com",
+  "authorization_servers": ["https://auth.example.com"],
+  "bearer_methods_supported": ["header"],
+  "scopes_supported": ["mcp:tools", "mcp:resources"],
+  "resource_documentation": "https://mcp.example.com/docs"
+};
+
+function F(level,msg,cite){ return {level:level,msg:msg,cite:cite||null}; }
+function esc(s){ return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+function isHttpsUri(s){ return typeof s==='string' && /^https:\/\/[^\s]+$/.test(s); }
+
+function showTab(t){
+  document.querySelectorAll('.tab').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-tab')===t); });
+  document.querySelectorAll('.panel').forEach(function(p){ p.classList.toggle('on', p.id==='panel-'+t); });
+}
+
+function lintPRM(obj){
+  var out=[];
+  if(typeof obj!=='object'||obj===null||Array.isArray(obj)){ out.push(F('error','Metadata must be a JSON object.',2)); return out; }
+  // resource (required)
+  if(!('resource' in obj)) out.push(F('error','Missing required "resource" — the canonical URI of this protected resource (RFC 9728).',2));
+  else if(!isHttpsUri(obj.resource)) out.push(F('error','"resource" must be an absolute https URI with no fragment.',2));
+  else if(/#/.test(obj.resource)) out.push(F('error','"resource" must not contain a fragment.',2));
+  else out.push(F('pass','"resource" is a valid https URI.',2));
+  // authorization_servers (required for discovery)
+  if(!('authorization_servers' in obj)) out.push(F('error','Missing "authorization_servers" — clients need at least one issuer to discover the AS (RFC 8414).',1));
+  else if(!Array.isArray(obj.authorization_servers) || !obj.authorization_servers.length) out.push(F('error','"authorization_servers" must be a non-empty array of issuer URLs.',1));
+  else {
+    var bad = obj.authorization_servers.filter(function(u){ return !isHttpsUri(u); });
+    if(bad.length) out.push(F('warn','authorization_servers contains '+bad.length+' non-https issuer URL(s).',1));
+    else out.push(F('pass',obj.authorization_servers.length+' authorization server(s) declared.',1));
+  }
+  // bearer_methods_supported
+  if('bearer_methods_supported' in obj){
+    if(!Array.isArray(obj.bearer_methods_supported)) out.push(F('warn','"bearer_methods_supported" should be an array.',2));
+    else if(obj.bearer_methods_supported.indexOf('body')>-1 || obj.bearer_methods_supported.indexOf('query')>-1) out.push(F('warn','bearer_methods_supported includes "body"/"query" — prefer "header" (Authorization: Bearer) only.',2));
+    else out.push(F('pass','bearer_methods_supported present (header).',2));
+  } else {
+    out.push(F('info','No "bearer_methods_supported" — defaults to Authorization header.',2));
+  }
+  // scopes_supported
+  if('scopes_supported' in obj){
+    if(!Array.isArray(obj.scopes_supported)) out.push(F('warn','"scopes_supported" should be an array of scope strings.',1));
+    else out.push(F('pass',obj.scopes_supported.length+' scope(s) advertised — good for incremental consent.',1));
+  } else {
+    out.push(F('warn','No "scopes_supported" — advertise scopes so clients can request least privilege.',1));
+  }
+  out.push(F('info','MCP servers SHOULD also accept the .well-known fallback (WWW-Authenticate is optional since 2025-11-25). Validate the issuer (iss) on auth responses for the 2026-07-28 RC (RFC 9207).',5));
+  return out;
+}
+
+function scoreOf(f){ var e=0,w=0,p=0; f.forEach(function(x){ if(x.level==='error')e++; else if(x.level==='warn')w++; else if(x.level==='pass')p++; }); var sc=100-e*15-w*4; if(sc<0)sc=0; if(sc>100)sc=100; return {score:sc,e:e,w:w,p:p}; }
+
+function renderFindings(findings, title){
+  var sc=scoreOf(findings);
+  var col=sc.score>=85?'var(--green)':sc.score>=60?'var(--warn)':'var(--red)';
+  var rows=findings.map(function(f){
+    var tag=f.level==='error'?'fi-error':f.level==='warn'?'fi-warn':f.level==='pass'?'fi-pass':'fi-info';
+    var cite=f.cite?'<span style="color:var(--muted);font-family:\'JetBrains Mono\',monospace;font-size:.58rem"> ['+f.cite+']</span>':'';
+    return '<div class="finding"><span class="fi-tag '+tag+'">'+f.level.toUpperCase()+'</span><span>'+esc(f.msg)+cite+'</span></div>';
+  }).join('');
+  return '<div class="out-section"><div class="out-header"><span class="out-title">'+esc(title)+' · '+sc.score+'/100</span></div><div class="out-body"><div class="score-wrap"><div class="score-num" style="color:'+col+'">'+sc.score+'</div><div class="score-meta">'+sc.e+' error · '+sc.w+' warn · '+sc.p+' pass</div><div class="score-bar-outer"><div class="score-bar-inner" style="width:'+sc.score+'%;background:'+col+'"></div></div></div></div></div>'
+    + '<div class="out-section"><div class="out-header"><span class="out-title">Findings ('+findings.length+')</span></div><div class="out-body" style="padding:.5rem 1.25rem">'+rows+'</div></div>';
+}
+
+function citeBlock(){
+  return '<div class="out-section"><div class="out-header"><span class="out-title">Spec references</span></div><div class="out-body"><div class="cite-list">'
+    + '<b>[1]</b> MCP authorization spec — OAuth 2.1, RFC 9728/8707/8414/7591. <a href="https://modelcontextprotocol.io/specification/draft/basic/authorization" target="_blank" rel="noopener">modelcontextprotocol.io</a><br>'
+    + '<b>[2]</b> RFC 9728 — OAuth 2.0 Protected Resource Metadata. <a href="https://datatracker.ietf.org/doc/html/rfc9728" target="_blank" rel="noopener">datatracker.ietf.org/rfc9728</a><br>'
+    + '<b>[3]</b> RFC 8707 — Resource Indicators (token audience binding).<br>'
+    + '<b>[4]</b> MCP security best practices — token-passthrough prohibition, confused deputy. <a href="https://modelcontextprotocol.io/specification/draft/basic/security_best_practices" target="_blank" rel="noopener">security_best_practices</a><br>'
+    + '<b>[5]</b> RFC 9207 — iss authorization-response parameter (2026-07-28 RC).'
+    + '</div></div></div>';
+}
+
+function buildMemo(title, findings){
+  var sc=scoreOf(findings);
+  return title.toUpperCase()+'\nGenerated: '+new Date().toISOString().slice(0,19).replace('T',' ')+' · MCP OAuth 2.1\nScore: '+sc.score+'/100 ('+sc.e+' err / '+sc.w+' warn / '+sc.p+' pass)\n\n'
+    + findings.map(function(f){var l=f.level==='error'?'[ERROR]':f.level==='warn'?'[WARN] ':f.level==='pass'?'[PASS] ':'[INFO] ';return l+' '+f.msg+(f.cite?' ['+f.cite+']':'');}).join('\n')
+    + '\n\nNote: structure/policy check only — no live OAuth flow performed.';
+}
+
+function runPRM(){
+  var raw=document.getElementById('prmIn').value;
+  var obj;
+  try{ obj=JSON.parse(raw); }catch(e){
+    document.getElementById('outputSection').innerHTML='<div class="out-section"><div class="out-body"><div class="finding"><span class="fi-tag fi-error">ERROR</span><span>Invalid JSON: '+esc(e.message)+'</span></div></div></div>';
+    window._memo='Invalid JSON: '+e.message; return;
+  }
+  var f=lintPRM(obj);
+  document.getElementById('outputSection').innerHTML=renderFindings(f,'Protected-Resource Metadata')+citeBlock();
+  window._memo=buildMemo('MCP Protected-Resource Metadata audit',f);
+}
+
+function runAud(){
+  var canon=document.getElementById('canon').value.trim();
+  var audRaw=document.getElementById('aud').value.trim();
+  var f=[];
+  if(!canon){ f.push(F('error','Enter your canonical server resource URI.',3)); }
+  else if(!isHttpsUri(canon)){ f.push(F('warn','Canonical resource should be an absolute https URI.',2)); }
+  else { f.push(F('pass','Canonical resource URI: '+canon,3)); }
+  var auds=[];
+  if(!audRaw){ f.push(F('error','Enter the token aud claim.',3)); }
+  else {
+    try{ var p=JSON.parse(audRaw); auds=Array.isArray(p)?p:[p]; }catch(e){ auds=[audRaw]; }
+    if(canon){
+      var norm=function(u){return String(u).replace(/\/$/,'');};
+      var match=auds.some(function(a){ return norm(a)===norm(canon); });
+      if(match) f.push(F('pass','aud binds to this server — token is audience-restricted to '+canon+' (RFC 8707).',3));
+      else f.push(F('error','aud ('+auds.join(', ')+') does NOT match the canonical resource '+canon+'. The token is not bound to this server — reject it, and set the `resource` param in both authorization and token requests.',3));
+      if(auds.length>1) f.push(F('warn','Multiple audiences present — a per-resource token should target exactly one MCP server.',3));
+    }
+  }
+  f.push(F('info','Clients MUST send the `resource` parameter (canonical server URI) in BOTH the authorization and token requests (RFC 8707).',3));
+  document.getElementById('outputSection').innerHTML=renderFindings(f,'Audience / Resource-Indicator Binding')+citeBlock();
+  window._memo=buildMemo('MCP audience binding check',f);
+}
+
+var FLOW=[
+  {h:'1 · Unauthorized request', p:'The client calls the MCP server without a token. The server returns <code>401</code> with a <code>WWW-Authenticate</code> header (optional since 2025-11-25 — a <code>.well-known</code> fallback is allowed).'},
+  {h:'2 · Fetch protected-resource metadata', p:'The client reads <code>/.well-known/oauth-protected-resource</code> (RFC 9728) to learn the <code>resource</code> identifier and <code>authorization_servers</code>.'},
+  {h:'3 · Fetch authorization-server metadata', p:'For each issuer, the client reads <code>/.well-known/oauth-authorization-server</code> (RFC 8414) for the authorization, token, and registration endpoints.'},
+  {h:'4 · (Optional) Dynamic client registration', p:'If supported, the client registers via RFC 7591, or uses an OAuth Client ID Metadata Document (recommended in 2025-11-25).'},
+  {h:'5 · Authorize with resource indicator', p:'The client runs the OAuth 2.1 authorization-code + PKCE flow, sending <code>resource=&lt;canonical server URI&gt;</code> (RFC 8707) in the authorization request.'},
+  {h:'6 · Token request bound to the resource', p:'The client exchanges the code at the token endpoint, again sending <code>resource</code> so the AS mints an access token whose <code>aud</code> is this server.'},
+  {h:'7 · Call the MCP server', p:'The client retries with <code>Authorization: Bearer …</code>. The server validates the token and its audience — and never passes that token to any downstream API.'}
+];
+function runFlow(){
+  var steps=FLOW.map(function(s,i){ return '<div class="flow-step"><div class="flow-n">'+(i+1)+'</div><div class="flow-b"><h4>'+s.h+'</h4><p>'+s.p+'</p></div></div>'; }).join('');
+  document.getElementById('outputSection').innerHTML='<div class="out-section"><div class="out-header"><span class="out-title">OAuth 2.1 Discovery Chain</span></div><div class="out-body">'+steps+'</div></div>'+citeBlock();
+  window._memo='MCP OAUTH 2.1 DISCOVERY CHAIN\n\n'+FLOW.map(function(s,i){return (i+1)+'. '+s.h.replace(/^\d+ · /,'')+' — '+s.p.replace(/<[^>]+>/g,'');}).join('\n');
+}
+
+var CD_QS=[
+  {id:'pass', q:'Does your server forward the access token it received from the client to any downstream API?', opts:[['no','No'],['yes','Yes']], bad:'yes'},
+  {id:'aud',  q:'Do you validate that the token audience (aud) equals your canonical resource URI before accepting it?', opts:[['yes','Yes'],['no','No']], bad:'no'},
+  {id:'sep',  q:'When you call downstream APIs, do you use your own separate credentials (not the client token)?', opts:[['yes','Yes'],['no','No']], bad:'no'},
+  {id:'consent', q:'For a static client id proxying to a third-party AS, do you obtain explicit user consent per dynamically-registered client?', opts:[['yes','Yes'],['na','N/A — no proxy'],['no','No']], bad:'no'},
+  {id:'iss',  q:'Do you validate the iss parameter on authorization responses (RFC 9207, mix-up mitigation)?', opts:[['yes','Yes'],['no','Not yet']], bad:'no'}
+];
+function buildCD(){
+  document.getElementById('cdQs').innerHTML = CD_QS.map(function(q){
+    return '<div class="q-row"><span class="q-txt">'+q.q+'</span><select class="q-sel" id="cd_'+q.id+'">'+q.opts.map(function(o){return '<option value="'+o[0]+'">'+o[1]+'</option>';}).join('')+'</select></div>';
+  }).join('');
+}
+function runCD(){
+  var f=[];
+  CD_QS.forEach(function(q){
+    var v=document.getElementById('cd_'+q.id).value;
+    var label=q.opts.filter(function(o){return o[0]===v;})[0][1];
+    if(v===q.bad){
+      if(q.id==='pass') f.push(F('error','Token passthrough detected — an MCP server MUST NOT forward the client token downstream. This is the cardinal confused-deputy bug. Mint/exchange a separate downstream credential.',4));
+      else if(q.id==='aud') f.push(F('error','No audience validation — without it, a token minted for another resource can be replayed at your server. Validate aud == canonical resource (RFC 8707).',3));
+      else if(q.id==='sep') f.push(F('error','Downstream calls do not use separate credentials — likely token passthrough / confused deputy.',4));
+      else if(q.id==='consent') f.push(F('warn','Static-client proxy without per-client consent can be a confused deputy — require explicit user consent.',4));
+      else if(q.id==='iss') f.push(F('warn','iss not validated — adopt RFC 9207 to mitigate AS mix-up (required posture for the 2026-07-28 RC).',5));
+    } else if(v==='na'){
+      f.push(F('info',q.q+' → N/A.',4));
+    } else {
+      f.push(F('pass',q.q.replace(/\?$/,'')+' → '+label+'.',q.id==='pass'||q.id==='sep'?4:q.id==='iss'?5:3));
+    }
+  });
+  document.getElementById('outputSection').innerHTML=renderFindings(f,'Confused-Deputy Self-Assessment')+citeBlock();
+  window._memo=buildMemo('MCP token-passthrough / confused-deputy self-assessment',f);
+}
+
+function copyM(){ if(window._memo){ navigator.clipboard.writeText(window._memo).then(function(){ var b=document.querySelector('.copy-btn'); if(b){ b.textContent='Copied ✓'; setTimeout(function(){b.textContent='Copy';},2000);} }); } }
+function loadPRM(){ document.getElementById('prmIn').value=JSON.stringify(EX_PRM,null,2); }
+
+const TRANSLATIONS = { en:{}, es:{}, fr:{}, ar:{lang_dir:'rtl'}, pt:{}, zh:{} };
+function setLang(lang){
+  if(!TRANSLATIONS[lang]) return;
+  var dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){ var k=el.getAttribute('data-i18n'); if(dict[k]) el.textContent=dict[k]; });
+  document.querySelectorAll('.lang-btn').forEach(function(b){ b.classList.remove('active'); });
+  var a=document.querySelector('.lang-btn[data-lang="'+lang+'"]'); if(a) a.classList.add('active');
+  document.documentElement.setAttribute('dir', lang==='ar'?'rtl':'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try{ sessionStorage.setItem('ain_lang', lang); }catch(e){}
+}
+(function(){ try{ var s=sessionStorage.getItem('ain_lang'); if(s) setLang(s); }catch(e){} })();
+loadPRM(); buildCD();
+</script>
+
+<script>
+var MANIFEST = {"tool_id":"mcp-oauth-authorization-auditor","version":"1.0.0","title":"MCP OAuth 2.1 Authorization Auditor","description":"Validate RFC 9728 protected-resource-metadata, visualize the OAuth 2.1 discovery chain, check RFC 8707 audience binding, and self-assess token-passthrough / confused-deputy risk. Client-side. Zero PII. Zero network.","category":"cat-1","tags":["MCP","OAuth 2.1","RFC 9728","RFC 8707","authorization","confused deputy"],"audience":["engineer"],"input_schema":{"type":"object","properties":{"protected_resource_metadata":{"type":"object"},"canonical_resource":{"type":"string"}}},"output_schema":{"type":"object","properties":{"score":{"type":"number"},"findings":{"type":"array"}}},"mcp_tool_definition":{"name":"audit_mcp_oauth","description":"Audit MCP OAuth 2.1 authorization: validate RFC 9728 protected-resource-metadata, check RFC 8707 audience binding, and assess token-passthrough / confused-deputy risk.","inputSchema":{"type":"object","properties":{"protected_resource_metadata":{"type":"object","description":"The /.well-known/oauth-protected-resource JSON"},"canonical_resource":{"type":"string","description":"Canonical MCP server resource URI"}}}},"execution":{"type":"browser-javascript","entry":"tools/278-mcp-oauth-authorization-auditor.html","function_name":"runPRM","timeout_ms":3000},"ap2_export":true};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<!-- ainumbers-universal-chrome-i18n v1 -->
+<script>
+(function(){
+  var UC = {
+    en:{'pii.banner':'🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.','footer.alltools':'All Tools','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Sitemap','footer.privacy':'🔒 Zero PII    📡 No server calls    💻 Client-side'},
+    es:{'pii.banner':'🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No introduzca datos personales reales — utilice entradas sintéticas o anonimizadas únicamente.','footer.alltools':'Todas las Herramientas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contacto','footer.sitemap':'Mapa del Sitio','footer.privacy':'🔒 Sin PII    📡 Sin llamadas al servidor    💻 Cliente'},
+    fr:{'pii.banner':'🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n’est transmise. N’entrez pas de données personnelles réelles — utilisez uniquement des entrées synthétiques ou anonymisées.','footer.alltools':'Tous les Outils','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Plan du Site','footer.privacy':'🔒 Aucune PII    📡 Aucun appel serveur    💻 Côté client'},
+    ar:{'pii.banner':'🔒 جميع المدخلات تُعالج محلياً في متصفحك. لا تُنقل أي بيانات. لا تُدخل بيانات شخصية حقيقية — استخدم مدخلات اصطناعية أو مجهولة فقط.','footer.alltools':'جميع الأدوات','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'اتصل','footer.sitemap':'خريطة الموقع','footer.privacy':'🔒 لا بيانات شخصية    📡 لا استدعاءات للخادم    💻 على المتصفح'},
+    pt:{'pii.banner':'🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido. Não insira dados pessoais reais — utilize apenas entradas sintéticas ou anonimizadas.','footer.alltools':'Todas as Ferramentas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contato','footer.sitemap':'Mapa do Site','footer.privacy':'🔒 Sem PII    📡 Sem chamadas ao servidor    💻 Client-side'},
+    zh:{'pii.banner':'🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。请勿输入真实的个人数据——仅使用合成或匿名化输入。','footer.alltools':'所有工具','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'联系','footer.sitemap':'网站地图','footer.privacy':'🔒 零个人数据    📡 无服务器调用    💻 纯客户端'}
+  };
+  function getDict(){ try{ if(typeof TRANSLATIONS!=='undefined'&&TRANSLATIONS) return TRANSLATIONS; }catch(e){} return null; }
+  var target=getDict(); if(!target) return;
+  for(var lang in UC){ if(!target[lang]) target[lang]={}; for(var key in UC[lang]){ if(target[lang][key]===undefined) target[lang][key]=UC[lang][key]; } }
+  try{ if(typeof setLang==='function'){ var saved=null; try{ saved=sessionStorage.getItem('ain_lang'); }catch(e){} if(!saved){ var act=document.querySelector('.lang-btn.active'); if(act) saved=act.getAttribute('data-lang'); } if(saved&&target[saved]) setLang(saved); } }catch(e){}
+})();
+</script>
+
+<!-- ainumbers-per-tool-hero-i18n -->
+<script>
+(function(){
+  var DATA = {"eb":{"en":"Cat-1 · T278 · AI & Agentic Developer Tooling","es":"Cat-1 · T278 · Herramientas para Desarrolladores de IA y Agentes","fr":"Cat-1 · T278 · Outils Développeur IA & Agentique","ar":"Cat-1 · T278 · أدوات مطوّري الذكاء الاصطناعي والوكلاء","pt":"Cat-1 · T278 · Ferramentas de Desenvolvedor de IA & Agêntica","zh":"Cat-1 · T278 · AI 与智能体开发者工具"},"tt":{"en":"MCP OAuth 2.1 Authorization Auditor","es":"Auditor de Autorización OAuth 2.1 para MCP","fr":"Auditeur d'Autorisation OAuth 2.1 pour MCP","ar":"مدقق تفويض OAuth 2.1 لـ MCP","pt":"Auditor de Autorização OAuth 2.1 para MCP","zh":"MCP OAuth 2.1 授权审计器"}};
+  function applyHero(lang){ var eb=DATA.eb&&DATA.eb[lang], tt=DATA.tt&&DATA.tt[lang]; if(eb) document.querySelectorAll('.hero-eyebrow').forEach(function(el){el.textContent=eb;}); if(tt){ var els=document.querySelectorAll('h1.tool-title'); if(!els.length) els=document.querySelectorAll('.hero h1'); els.forEach(function(el){el.textContent=tt;}); } }
+  if(typeof setLang==='function'){ var _o=setLang; window.setLang=function(l){ try{_o.apply(this,arguments);}catch(e){} applyHero(l); }; }
+  try{ var saved=sessionStorage.getItem('ain_lang'); if(saved) applyHero(saved); else { var act=document.querySelector('.lang-btn.active'); if(act){ var l=act.getAttribute('data-lang'); if(l) applyHero(l);} } }catch(e){}
+})();
+</script>
+
+<!-- AP2 Policy Mandate Export · CONTRACT §3–§4 -->
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+window._ap2Result=window._ap2Result||null;
+window._captureAP2=function(){
+  var el=document.querySelector('#outputSection');
+  if(el&&el.textContent.trim().length>10){
+    window._ap2Result={output:(window._memo||el.textContent.trim()).slice(0,3000),inputs:{}};
+  }
+};
+window.exportAP2=function(){
+  window._captureAP2();
+  if(!window._ap2Result){alert('Run an audit first to generate results.');return;}
+  var ts=new Date().toISOString();
+  var tid=(typeof MANIFEST!=='undefined'&&MANIFEST.tool_id)?MANIFEST.tool_id:'mcp-oauth-authorization-auditor';
+  var mandate={
+    ap2_version:'1.0',
+    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,
+    tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',
+    mandate_type:'compliance_control',
+    jurisdiction:['ZZ'],
+    regulatory_frameworks:['MCP authorization','OAuth 2.1','RFC 9728','RFC 8707'],
+    payload:window._ap2Result,
+    summary:(typeof MANIFEST!=='undefined'&&MANIFEST.title?MANIFEST.title:document.title)+' — audit '+ts.slice(0,10),
+    agent_instructions:['Resolve every ERROR before exposing the MCP server.','Never pass a client-supplied token through to a downstream API.'],
+    valid_from:ts.slice(0,10),
+    valid_until:new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed:ts.slice(0,10),source_tool_inputs:{},
+    regulatory_citations:['MCP authorization spec','RFC 9728','RFC 8707','RFC 9207'],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+var _obs=new MutationObserver(function(){
+  if(!window._ap2Result){
+    var el=document.querySelector('#outputSection');
+    if(el&&el.textContent.trim().length>10){window._captureAP2();window.enableAP2Btn();}
+  }
+});
+_obs.observe(document.body,{childList:true,subtree:true,characterData:true});
+})();
+</script>
+
+</body>
+</html>

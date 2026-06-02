@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>RFC 9421 Signature Decoder &amp; Web Bot Auth Readiness · T279 · AINumbers.co</title>
+<meta name="description" content="Decode and validate RFC 9421 HTTP Message Signatures (Signature-Input / Signature), lint a Web Bot Auth JWKS directory, and score Web Bot Auth readiness. The shared signature substrate under Visa Trusted Agent Protocol. Client-side. Zero PII. Zero network.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/279-rfc9421-signature-webbotauth.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"RFC 9421 Signature Decoder & Web Bot Auth Readiness","url":"https://ainumbers.co/tools/279-rfc9421-signature-webbotauth.html","applicationCategory":"DeveloperApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "rfc9421-signature-webbotauth",
+  "version": "1.0.0",
+  "title": "RFC 9421 Signature Decoder & Web Bot Auth Readiness",
+  "description": "Decodes and validates RFC 9421 HTTP Message Signatures (Signature-Input / Signature), lints a Web Bot Auth JWKS directory (Ed25519), and scores Web Bot Auth readiness. This is the signature substrate Visa Trusted Agent Protocol builds on. Reference rules are static and may age — verify against RFC 9421 and the Web Bot Auth draft.",
+  "category": "cat-1",
+  "tags": ["RFC 9421","HTTP Message Signatures","Web Bot Auth","Ed25519","Visa Trusted Agent Protocol","agent identity"],
+  "audience": ["engineer"],
+  "input_schema": {"type":"object","properties":{"signature_input":{"type":"string"},"signature":{"type":"string"}}},
+  "output_schema": {"type":"object","properties":{"parsed":{"type":"object"},"findings":{"type":"array"}}},
+  "mcp_tool_definition": {"name":"decode_http_message_signature","description":"Decode and validate an RFC 9421 HTTP Message Signature, lint a Web Bot Auth JWKS, and score Web Bot Auth readiness.","inputSchema":{"type":"object","properties":{"signature_input":{"type":"string","description":"The Signature-Input header value"},"signature":{"type":"string","description":"The Signature header value"}}}},
+  "execution": {"type":"browser-javascript","entry":"tools/279-rfc9421-signature-webbotauth.html","function_name":"runSig","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner,[dir="rtl"] .hero-eyebrow{flex-direction:row-reverse}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:740px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid var(--border);color:var(--muted)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.scope-note strong{color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase}
+.tabs{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1.25rem}
+.tab{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;padding:.5rem .85rem;border:1px solid var(--border);color:var(--muted);background:transparent;border-radius:var(--radius);transition:all .15s}
+.tab.on{border-color:var(--teal);color:var(--teal);background:var(--teal-dim)}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem;display:none}
+.panel.on{display:block}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem}
+.panel-hint{font-size:.7rem;color:var(--muted);margin-bottom:.85rem;line-height:1.6}
+.lbl{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:.5rem 0 .25rem;display:block}
+.code-input{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;line-height:1.6;padding:.7rem .85rem;border-radius:var(--radius);outline:none;resize:vertical;tab-size:2}
+.code-input:focus{border-color:var(--teal)}
+.btn-row{display:flex;gap:.65rem;flex-wrap:wrap;margin:1.1rem 0 .25rem;align-items:center}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.ghost-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.5rem 1rem;border-radius:var(--radius);transition:all .2s}
+.ghost-btn:hover{border-color:var(--teal);color:var(--teal)}
+.q-row{display:flex;gap:.75rem;align-items:flex-start;padding:.6rem 0;border-bottom:1px solid var(--border)}
+.q-row:last-child{border-bottom:none}
+.q-txt{flex:1;font-size:.74rem;color:var(--text);line-height:1.5}
+.q-sel{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.35rem .55rem;border-radius:4px;outline:none}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.kv{display:grid;grid-template-columns:140px 1fr;gap:.35rem .85rem;font-size:.72rem}
+.kv dt{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.kv dd{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;word-break:break-all}
+.chip{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:var(--bg-3);border:1px solid var(--border);color:var(--teal-lt);padding:.12rem .45rem;border-radius:3px;margin:.1rem .2rem .1rem 0}
+.score-wrap{display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap}
+.score-num{font-family:'DM Serif Display',serif;font-size:2.6rem;line-height:1}
+.score-meta{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);line-height:1.8}
+.score-bar-outer{flex:1;min-width:160px;height:12px;background:var(--bg-3);border-radius:3px;overflow:hidden}
+.score-bar-inner{height:100%;border-radius:3px}
+.finding{display:flex;gap:.65rem;padding:.55rem .25rem;border-bottom:1px solid var(--border);font-size:.73rem;line-height:1.5}
+.finding:last-child{border-bottom:none}
+.fi-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.12rem .45rem;border-radius:3px;height:fit-content;white-space:nowrap;border:1px solid}
+.fi-error{color:var(--red);border-color:rgba(239,68,68,.4);background:var(--red-dim)}
+.fi-warn{color:var(--warn);border-color:rgba(245,158,11,.4)}
+.fi-pass{color:var(--green);border-color:rgba(34,197,94,.4);background:var(--green-dim)}
+.fi-info{color:var(--teal);border-color:rgba(20,184,166,.4)}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.7rem;color:var(--body);line-height:1.7;white-space:pre-wrap;font-family:'JetBrains Mono',monospace}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.cite-list{font-size:.66rem;color:var(--muted);line-height:1.8}
+.cite-list a{color:var(--teal)}.cite-list b{color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.6rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}.kv{grid-template-columns:1fr}}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/agentic-commerce-mcp-hub.html">Agentic Commerce &amp; MCP</a><span class="nav-sep">/</span><span>T-279</span></div>
+  <div class="nav-right"><a href="../guides/agentic-commerce-mcp-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-1 · T279 · AI &amp; Agentic Developer Tooling</div>
+  <span class="hero-badge badge-muted"><span>v1.0</span></span>
+  <h1 class="tool-title">RFC 9421 <em>Signature Decoder</em> &amp; Web Bot Auth Readiness</h1>
+  <p class="hero-desc">HTTP Message Signatures (RFC 9421) are how an automated agent proves who it is — the shared substrate under <strong>Web Bot Auth</strong> and <strong>Visa's Trusted Agent Protocol</strong>. This tool parses and validates <code>Signature-Input</code> / <code>Signature</code> headers, lints a Web Bot Auth JWKS directory (Ed25519), and scores your Web Bot Auth readiness.</p>
+  <div class="disclaimer">⚠ Web Bot Auth is an active IETF draft (a working group was chartered in early 2026); details may change. This tool parses the structured-field syntax and checks policy — it does not perform cryptographic signature verification (no key operations run in the browser).</div>
+  <div class="hero-badges">
+    <span class="badge badge-teal">RFC 9421</span>
+    <span class="badge badge-gold">Web Bot Auth · Ed25519</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side · No Network</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note"><strong>Scope &amp; reliance —</strong> <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span> Parsing and policy checks only — this tool does not verify the cryptographic signature against a key. Paste only public keys / header structures, never private keys. Deterministic · zero PII · CC BY 4.0.</div>
+
+  <div class="tabs">
+    <button class="tab on" data-tab="sig" onclick="showTab('sig')">Signature Header Decoder</button>
+    <button class="tab" data-tab="jwks" onclick="showTab('jwks')">JWKS Directory Linter</button>
+    <button class="tab" data-tab="ready" onclick="showTab('ready')">Web Bot Auth Readiness</button>
+  </div>
+
+  <div class="panel on" id="panel-sig">
+    <div class="panel-title">▸ Decode Signature-Input / Signature (RFC 9421)</div>
+    <div class="panel-hint">Paste the two header values. The covered components, parameters, freshness, and replay protection are checked. Examples are pre-loaded.</div>
+    <label class="lbl">Signature-Input</label>
+    <textarea id="siIn" class="code-input" rows="3" spellcheck="false"></textarea>
+    <label class="lbl">Signature</label>
+    <textarea id="sigIn" class="code-input" rows="2" spellcheck="false"></textarea>
+    <div class="btn-row">
+      <button class="run-btn" onclick="runSig()">▶ Decode &amp; Validate</button>
+      <button class="ghost-btn" onclick="loadSig()">↺ Example</button>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-jwks">
+    <div class="panel-title">▸ Lint a Web Bot Auth key directory</div>
+    <div class="panel-hint">Paste the JWKS served at <code>/.well-known/http-message-signatures-directory</code>. Web Bot Auth expects Ed25519 (OKP) keys.</div>
+    <textarea id="jwksIn" class="code-input" rows="10" spellcheck="false"></textarea>
+    <div class="btn-row">
+      <button class="run-btn" onclick="runJwks()">▶ Lint JWKS</button>
+      <button class="ghost-btn" onclick="loadJwks()">↺ Example</button>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-ready">
+    <div class="panel-title">▸ Web Bot Auth readiness</div>
+    <div class="panel-hint">Answer for your agent. Web Bot Auth = Ed25519 keypair + JWKS published at the well-known directory + every request signed per RFC 9421 + a registry entry.</div>
+    <div id="readyQs"></div>
+    <div class="btn-row"><button class="run-btn" onclick="runReady()">▶ Score Readiness</button></div>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </div></div>
+</section>
+
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run a check above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/agentic-commerce-mcp-hub.html">Agentic Commerce &amp; MCP Hub</a>
+      <a href="../tools/276-agentic-payments-protocol-comparator.html">Protocol Comparator</a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ── RFC 9421 Signature Decoder & Web Bot Auth Readiness · deterministic · CONTRACT §0 ──
+   Citations:
+   [1] RFC 9421 — HTTP Message Signatures (Signature-Input / Signature structured fields,
+       covered components, created/expires/keyid/alg/nonce/tag params).
+   [2] Web Bot Auth (IETF draft draft-meunier-web-bot-auth-architecture) — Ed25519 keypair,
+       JWKS at /.well-known/http-message-signatures-directory, sign every request.
+   [3] Visa Trusted Agent Protocol builds on RFC 9421 (see T276 comparator).               */
+
+var EX_SI = 'sig1=("@method" "@authority" "@path" "content-digest");created=1718000000;keyid="pol-ed25519-1";alg="ed25519";nonce="aQ8s2x";tag="web-bot-auth"';
+var EX_SIG = 'sig1=:K2qGT5srn2OmEXdmZIShqQ8s2xk2qGT5srn2OmEXdmZIShqQ8s2x0a1b2c3d4e5f6g7h8i9j0k=:';
+var EX_JWKS = {
+  "keys": [
+    {"kty":"OKP","crv":"Ed25519","x":"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo","kid":"pol-ed25519-1","alg":"EdDSA","use":"sig"}
+  ]
+};
+
+function F(level,msg,cite){ return {level:level,msg:msg,cite:cite||null}; }
+function esc(s){ return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+function showTab(t){
+  document.querySelectorAll('.tab').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-tab')===t); });
+  document.querySelectorAll('.panel').forEach(function(p){ p.classList.toggle('on', p.id==='panel-'+t); });
+}
+
+function parseSigInput(line){
+  line = line.replace(/^signature-input:\s*/i,'').trim();
+  var m = line.match(/^([A-Za-z0-9_-]+)\s*=\s*\(([^)]*)\)(.*)$/);
+  if(!m) return null;
+  var comps = (m[2].match(/"[^"]*"/g)||[]).map(function(s){ return s.replace(/"/g,''); });
+  var params = {};
+  var re = /;\s*([A-Za-z0-9_-]+)=("?)([^;"]*)\2/g, pm;
+  while((pm = re.exec(m[3]))){ params[pm[1]] = pm[3]; }
+  return { label:m[1], comps:comps, params:params };
+}
+function parseSignature(line){
+  line = line.replace(/^signature:\s*/i,'').trim();
+  var m = line.match(/^([A-Za-z0-9_-]+)\s*=\s*:([^:]*):\s*$/);
+  if(!m) return null;
+  return { label:m[1], value:m[2] };
+}
+function isB64(s){ return /^[A-Za-z0-9+/=_-]+$/.test(s) && s.length>=16; }
+
+function validateSig(siRaw, sigRaw){
+  var out = [];
+  var si = parseSigInput(siRaw);
+  if(!si){ out.push(F('error','Could not parse Signature-Input. Expected: label=("@comp" ...);created=…;keyid="…";alg="…"',1)); return {findings:out, si:null, sig:null}; }
+  out.push(F('pass','Parsed Signature-Input label "'+si.label+'" with '+si.comps.length+' covered component(s).',1));
+  // covered components
+  var lc = si.comps.map(function(c){ return c.toLowerCase(); });
+  var hasMethod = lc.indexOf('@method')>-1;
+  var hasTarget = lc.indexOf('@target-uri')>-1 || (lc.indexOf('@authority')>-1 && lc.indexOf('@path')>-1);
+  if(!hasMethod) out.push(F('warn','Covered components omit @method — sign the request method to bind the signature to the verb.',1));
+  if(!hasTarget) out.push(F('warn','Covered components do not bind the target — include @target-uri (or @authority + @path).',1));
+  if(hasMethod && hasTarget) out.push(F('pass','Request binding present (method + target).',1));
+  if(lc.indexOf('content-digest')===-1) out.push(F('info','No content-digest covered — required only when there is a request body to bind.',1));
+  // params
+  var p = si.params;
+  var now = Math.floor(Date.now()/1000);
+  if(!('created' in p)) out.push(F('warn','No "created" parameter — include it for freshness/replay protection.',1));
+  else { var cr=Number(p.created); if(isNaN(cr)) out.push(F('error','"created" must be an integer (Unix seconds).',1)); else out.push(F('pass','created = '+p.created+'.',1)); }
+  if('expires' in p){ var ex=Number(p.expires); if(isNaN(ex)) out.push(F('error','"expires" must be an integer.',1)); else if(ex < now) out.push(F('error','Signature expired (expires '+p.expires+' < now '+now+').',1)); else out.push(F('pass','expires '+p.expires+' is in the future.',1)); }
+  else out.push(F('info','No "expires" — set a short validity window to limit replay.',1));
+  if(!('keyid' in p)) out.push(F('warn','No "keyid" — the verifier needs it to select the public key.',1));
+  else out.push(F('pass','keyid = "'+p.keyid+'".',1));
+  if(!('alg' in p)) out.push(F('info','No explicit "alg" — the algorithm may be derived from the key; Web Bot Auth uses ed25519.',2));
+  else if(String(p.alg).toLowerCase()!=='ed25519') out.push(F('warn','alg "'+p.alg+'" — Web Bot Auth expects ed25519.',2));
+  else out.push(F('pass','alg = ed25519 (Web Bot Auth).',2));
+  if(!('nonce' in p) && !('created' in p)) out.push(F('warn','Neither nonce nor created — add at least one for replay protection.',1));
+  if('tag' in p && String(p.tag).toLowerCase().indexOf('web-bot-auth')>-1) out.push(F('pass','tag = "'+p.tag+'" (Web Bot Auth application tag).',2));
+  // signature value
+  var sig = parseSignature(sigRaw);
+  if(!sigRaw.trim()) out.push(F('warn','No Signature header provided — paste it to confirm the label matches.',1));
+  else if(!sig) out.push(F('error','Could not parse Signature. Expected: label=:base64:',1));
+  else {
+    if(sig.label!==si.label) out.push(F('error','Signature label "'+sig.label+'" does not match Signature-Input label "'+si.label+'".',1));
+    else out.push(F('pass','Signature label matches.',1));
+    if(!isB64(sig.value)) out.push(F('warn','Signature value does not look like base64.',1));
+    else out.push(F('info','Signature is a '+sig.value.length+'-char base64 blob (cryptographic verification is out of scope here).',1));
+  }
+  return {findings:out, si:si, sig:sig};
+}
+
+function lintJwks(obj){
+  var out = [];
+  if(typeof obj!=='object'||obj===null) { out.push(F('error','Directory must be a JSON object with a "keys" array.',2)); return out; }
+  if(!Array.isArray(obj.keys) || !obj.keys.length){ out.push(F('error','Missing non-empty "keys" array (JWK Set).',2)); return out; }
+  out.push(F('pass',obj.keys.length+' key(s) in the directory.',2));
+  obj.keys.forEach(function(k,i){
+    var path='keys['+i+']';
+    if(k.kty!=='OKP') out.push(F('warn',path+': kty "'+k.kty+'" — Web Bot Auth uses OKP (Ed25519).',2));
+    if(k.crv!=='Ed25519') out.push(F('error',path+': crv "'+k.crv+'" — must be Ed25519 for Web Bot Auth.',2));
+    if(!k.x) out.push(F('error',path+': missing "x" (the public key bytes).',2));
+    if(!k.kid) out.push(F('warn',path+': no "kid" — needed to match the signature keyid.',1));
+    if(k.d) out.push(F('error',path+': contains "d" — that is a PRIVATE key. Never publish private keys in a directory.',2));
+    if(k.use && k.use!=='sig') out.push(F('warn',path+': use "'+k.use+'" — should be "sig".',2));
+    if(k.crv==='Ed25519' && k.x && !k.d) out.push(F('pass',path+': Ed25519 public key'+(k.kid?' (kid '+k.kid+')':'')+'.',2));
+  });
+  return out;
+}
+
+var READY_QS=[
+  {id:'kp', q:'Have you generated an Ed25519 keypair for the agent?', opts:[['yes','Yes'],['no','No']], bad:'no', w:20},
+  {id:'jwks', q:'Is the public key published as a JWKS at /.well-known/http-message-signatures-directory?', opts:[['yes','Yes'],['no','No']], bad:'no', w:25},
+  {id:'sign', q:'Does the agent sign every outbound request per RFC 9421?', opts:[['yes','Yes'],['no','No']], bad:'no', w:25},
+  {id:'comp', q:'Does the signature cover @method and the target (@target-uri or @authority+@path)?', opts:[['yes','Yes'],['no','No']], bad:'no', w:15},
+  {id:'reg', q:'Is the agent listed in a public key/registry for verifier discovery?', opts:[['yes','Yes'],['no','Not yet']], bad:'no', w:15}
+];
+function buildReady(){
+  document.getElementById('readyQs').innerHTML = READY_QS.map(function(q){
+    return '<div class="q-row"><span class="q-txt">'+q.q+'</span><select class="q-sel" id="rd_'+q.id+'">'+q.opts.map(function(o){return '<option value="'+o[0]+'">'+o[1]+'</option>';}).join('')+'</select></div>';
+  }).join('');
+}
+function runReady(){
+  var f=[], score=0;
+  READY_QS.forEach(function(q){
+    var v=document.getElementById('rd_'+q.id).value;
+    if(v===q.bad){ f.push(F('error',q.q.replace(/\?$/,'')+' → No ('+q.w+' pts missing).',2)); }
+    else { score+=q.w; f.push(F('pass',q.q.replace(/\?$/,'')+' → Yes.',2)); }
+  });
+  var col=score>=85?'var(--green)':score>=60?'var(--warn)':'var(--red)';
+  var verdict=score>=100?'Web Bot Auth ready.':score>=60?'Most of the way — close the gaps below.':'Not ready — core pieces missing.';
+  var html='<div class="out-section"><div class="out-header"><span class="out-title">Web Bot Auth Readiness</span></div><div class="out-body"><div class="score-wrap"><div class="score-num" style="color:'+col+'">'+score+'</div><div class="score-meta">/ 100 readiness<br><span style="color:'+col+'">'+verdict+'</span></div><div class="score-bar-outer"><div class="score-bar-inner" style="width:'+score+'%;background:'+col+'"></div></div></div></div></div>'
+    + '<div class="out-section"><div class="out-header"><span class="out-title">Checklist</span></div><div class="out-body" style="padding:.5rem 1.25rem">'+f.map(function(x){var tag=x.level==='error'?'fi-error':'fi-pass';return '<div class="finding"><span class="fi-tag '+tag+'">'+(x.level==='error'?'GAP':'OK')+'</span><span>'+esc(x.msg)+'</span></div>';}).join('')+'</div></div>';
+  document.getElementById('outputSection').innerHTML = html + citeBlock();
+  window._memo='WEB BOT AUTH READINESS — '+score+'/100\n'+verdict+'\n\n'+f.map(function(x){return (x.level==='error'?'[GAP] ':'[OK]  ')+x.msg;}).join('\n');
+}
+
+function renderSig(res){
+  var f=res.findings;
+  var e=f.filter(function(x){return x.level==='error';}).length, w=f.filter(function(x){return x.level==='warn';}).length, p=f.filter(function(x){return x.level==='pass';}).length;
+  var sc=100-e*15-w*4; if(sc<0)sc=0; if(sc>100)sc=100;
+  var col=sc>=85?'var(--green)':sc>=60?'var(--warn)':'var(--red)';
+  var kv='';
+  if(res.si){
+    kv='<div class="out-section"><div class="out-header"><span class="out-title">Parsed Signature-Input</span></div><div class="out-body"><dl class="kv">'
+      +'<dt>label</dt><dd>'+esc(res.si.label)+'</dd>'
+      +'<dt>covered</dt><dd>'+res.si.comps.map(function(c){return '<span class="chip">'+esc(c)+'</span>';}).join('')+'</dd>'
+      +Object.keys(res.si.params).map(function(k){return '<dt>'+esc(k)+'</dt><dd>'+esc(res.si.params[k])+'</dd>';}).join('')
+      +'</dl></div></div>';
+  }
+  var rows=f.map(function(x){ var tag=x.level==='error'?'fi-error':x.level==='warn'?'fi-warn':x.level==='pass'?'fi-pass':'fi-info'; var cite=x.cite?'<span style="color:var(--muted);font-family:\'JetBrains Mono\',monospace;font-size:.58rem"> ['+x.cite+']</span>':''; return '<div class="finding"><span class="fi-tag '+tag+'">'+x.level.toUpperCase()+'</span><span>'+esc(x.msg)+cite+'</span></div>'; }).join('');
+  return '<div class="out-section"><div class="out-header"><span class="out-title">Validation · '+sc+'/100</span></div><div class="out-body"><div class="score-wrap"><div class="score-num" style="color:'+col+'">'+sc+'</div><div class="score-meta">'+e+' error · '+w+' warn · '+p+' pass</div><div class="score-bar-outer"><div class="score-bar-inner" style="width:'+sc+'%;background:'+col+'"></div></div></div></div></div>'
+    + kv
+    + '<div class="out-section"><div class="out-header"><span class="out-title">Findings</span></div><div class="out-body" style="padding:.5rem 1.25rem">'+rows+'</div></div>'
+    + citeBlock();
+}
+
+function citeBlock(){
+  return '<div class="out-section"><div class="out-header"><span class="out-title">Spec references</span></div><div class="out-body"><div class="cite-list">'
+    + '<b>[1]</b> RFC 9421 — HTTP Message Signatures. <a href="https://datatracker.ietf.org/doc/html/rfc9421" target="_blank" rel="noopener">datatracker.ietf.org/rfc9421</a><br>'
+    + '<b>[2]</b> Web Bot Auth — IETF draft; Ed25519 + JWKS at /.well-known/http-message-signatures-directory. <a href="https://datatracker.ietf.org/doc/draft-meunier-web-bot-auth-architecture/" target="_blank" rel="noopener">datatracker.ietf.org</a><br>'
+    + '<b>[3]</b> Visa Trusted Agent Protocol builds on RFC 9421 — see the <a href="276-agentic-payments-protocol-comparator.html">Protocol Comparator (T276)</a>.'
+    + '</div></div></div>';
+}
+
+function runSig(){
+  var res = validateSig(document.getElementById('siIn').value, document.getElementById('sigIn').value);
+  document.getElementById('outputSection').innerHTML = renderSig(res);
+  var e=res.findings.filter(function(x){return x.level==='error';}).length;
+  window._memo='RFC 9421 SIGNATURE VALIDATION ('+e+' error)\n\n'+res.findings.map(function(x){return '['+x.level.toUpperCase()+'] '+x.msg;}).join('\n')+'\n\nNote: structural/policy parse only — cryptographic verification not performed.';
+}
+function runJwks(){
+  var raw=document.getElementById('jwksIn').value, obj;
+  try{ obj=JSON.parse(raw); }catch(e){
+    document.getElementById('outputSection').innerHTML='<div class="out-section"><div class="out-body"><div class="finding"><span class="fi-tag fi-error">ERROR</span><span>Invalid JSON: '+esc(e.message)+'</span></div></div></div>';
+    window._memo='Invalid JSON: '+e.message; return;
+  }
+  var f=lintJwks(obj);
+  var e=f.filter(function(x){return x.level==='error';}).length, w=f.filter(function(x){return x.level==='warn';}).length, p=f.filter(function(x){return x.level==='pass';}).length;
+  var sc=100-e*15-w*4; if(sc<0)sc=0; if(sc>100)sc=100;
+  var col=sc>=85?'var(--green)':sc>=60?'var(--warn)':'var(--red)';
+  var rows=f.map(function(x){ var tag=x.level==='error'?'fi-error':x.level==='warn'?'fi-warn':x.level==='pass'?'fi-pass':'fi-info'; return '<div class="finding"><span class="fi-tag '+tag+'">'+x.level.toUpperCase()+'</span><span>'+esc(x.msg)+'</span></div>'; }).join('');
+  document.getElementById('outputSection').innerHTML='<div class="out-section"><div class="out-header"><span class="out-title">JWKS Directory · '+sc+'/100</span></div><div class="out-body"><div class="score-wrap"><div class="score-num" style="color:'+col+'">'+sc+'</div><div class="score-meta">'+e+' error · '+w+' warn · '+p+' pass</div><div class="score-bar-outer"><div class="score-bar-inner" style="width:'+sc+'%;background:'+col+'"></div></div></div></div></div><div class="out-section"><div class="out-header"><span class="out-title">Findings</span></div><div class="out-body" style="padding:.5rem 1.25rem">'+rows+'</div></div>'+citeBlock();
+  window._memo='WEB BOT AUTH JWKS LINT ('+e+' error)\n\n'+f.map(function(x){return '['+x.level.toUpperCase()+'] '+x.msg;}).join('\n');
+}
+
+function copyM(){ if(window._memo){ navigator.clipboard.writeText(window._memo).then(function(){ var b=document.querySelector('.copy-btn'); if(b){ b.textContent='Copied ✓'; setTimeout(function(){b.textContent='Copy';},2000);} }); } }
+function loadSig(){ document.getElementById('siIn').value=EX_SI; document.getElementById('sigIn').value=EX_SIG; }
+function loadJwks(){ document.getElementById('jwksIn').value=JSON.stringify(EX_JWKS,null,2); }
+
+const TRANSLATIONS = { en:{}, es:{}, fr:{}, ar:{lang_dir:'rtl'}, pt:{}, zh:{} };
+function setLang(lang){
+  if(!TRANSLATIONS[lang]) return;
+  var dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){ var k=el.getAttribute('data-i18n'); if(dict[k]) el.textContent=dict[k]; });
+  document.querySelectorAll('.lang-btn').forEach(function(b){ b.classList.remove('active'); });
+  var a=document.querySelector('.lang-btn[data-lang="'+lang+'"]'); if(a) a.classList.add('active');
+  document.documentElement.setAttribute('dir', lang==='ar'?'rtl':'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try{ sessionStorage.setItem('ain_lang', lang); }catch(e){}
+}
+(function(){ try{ var s=sessionStorage.getItem('ain_lang'); if(s) setLang(s); }catch(e){} })();
+loadSig(); loadJwks(); buildReady();
+</script>
+
+<script>
+var MANIFEST = {"tool_id":"rfc9421-signature-webbotauth","version":"1.0.0","title":"RFC 9421 Signature Decoder & Web Bot Auth Readiness","description":"Decode and validate RFC 9421 HTTP Message Signatures, lint a Web Bot Auth JWKS directory (Ed25519), and score Web Bot Auth readiness. The signature substrate under Visa Trusted Agent Protocol. Client-side. Zero PII. Zero network.","category":"cat-1","tags":["RFC 9421","HTTP Message Signatures","Web Bot Auth","Ed25519","Visa Trusted Agent Protocol"],"audience":["engineer"],"input_schema":{"type":"object","properties":{"signature_input":{"type":"string"},"signature":{"type":"string"}}},"output_schema":{"type":"object","properties":{"parsed":{"type":"object"},"findings":{"type":"array"}}},"mcp_tool_definition":{"name":"decode_http_message_signature","description":"Decode and validate an RFC 9421 HTTP Message Signature, lint a Web Bot Auth JWKS, and score Web Bot Auth readiness.","inputSchema":{"type":"object","properties":{"signature_input":{"type":"string","description":"The Signature-Input header value"},"signature":{"type":"string","description":"The Signature header value"}}}},"execution":{"type":"browser-javascript","entry":"tools/279-rfc9421-signature-webbotauth.html","function_name":"runSig","timeout_ms":3000},"ap2_export":true};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<!-- ainumbers-universal-chrome-i18n v1 -->
+<script>
+(function(){
+  var UC = {
+    en:{'pii.banner':'🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.','footer.alltools':'All Tools','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Sitemap','footer.privacy':'🔒 Zero PII    📡 No server calls    💻 Client-side'},
+    es:{'pii.banner':'🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No introduzca datos personales reales — utilice entradas sintéticas o anonimizadas únicamente.','footer.alltools':'Todas las Herramientas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contacto','footer.sitemap':'Mapa del Sitio','footer.privacy':'🔒 Sin PII    📡 Sin llamadas al servidor    💻 Cliente'},
+    fr:{'pii.banner':'🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n’est transmise. N’entrez pas de données personnelles réelles — utilisez uniquement des entrées synthétiques ou anonymisées.','footer.alltools':'Tous les Outils','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Plan du Site','footer.privacy':'🔒 Aucune PII    📡 Aucun appel serveur    💻 Côté client'},
+    ar:{'pii.banner':'🔒 جميع المدخلات تُعالج محلياً في متصفحك. لا تُنقل أي بيانات. لا تُدخل بيانات شخصية حقيقية — استخدم مدخلات اصطناعية أو مجهولة فقط.','footer.alltools':'جميع الأدوات','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'اتصل','footer.sitemap':'خريطة الموقع','footer.privacy':'🔒 لا بيانات شخصية    📡 لا استدعاءات للخادم    💻 على المتصفح'},
+    pt:{'pii.banner':'🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido. Não insira dados pessoais reais — utilize apenas entradas sintéticas ou anonimizadas.','footer.alltools':'Todas as Ferramentas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contato','footer.sitemap':'Mapa do Site','footer.privacy':'🔒 Sem PII    📡 Sem chamadas ao servidor    💻 Client-side'},
+    zh:{'pii.banner':'🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。请勿输入真实的个人数据——仅使用合成或匿名化输入。','footer.alltools':'所有工具','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'联系','footer.sitemap':'网站地图','footer.privacy':'🔒 零个人数据    📡 无服务器调用    💻 纯客户端'}
+  };
+  function getDict(){ try{ if(typeof TRANSLATIONS!=='undefined'&&TRANSLATIONS) return TRANSLATIONS; }catch(e){} return null; }
+  var target=getDict(); if(!target) return;
+  for(var lang in UC){ if(!target[lang]) target[lang]={}; for(var key in UC[lang]){ if(target[lang][key]===undefined) target[lang][key]=UC[lang][key]; } }
+  try{ if(typeof setLang==='function'){ var saved=null; try{ saved=sessionStorage.getItem('ain_lang'); }catch(e){} if(!saved){ var act=document.querySelector('.lang-btn.active'); if(act) saved=act.getAttribute('data-lang'); } if(saved&&target[saved]) setLang(saved); } }catch(e){}
+})();
+</script>
+
+<!-- ainumbers-per-tool-hero-i18n -->
+<script>
+(function(){
+  var DATA = {"eb":{"en":"Cat-1 · T279 · AI & Agentic Developer Tooling","es":"Cat-1 · T279 · Herramientas para Desarrolladores de IA y Agentes","fr":"Cat-1 · T279 · Outils Développeur IA & Agentique","ar":"Cat-1 · T279 · أدوات مطوّري الذكاء الاصطناعي والوكلاء","pt":"Cat-1 · T279 · Ferramentas de Desenvolvedor de IA & Agêntica","zh":"Cat-1 · T279 · AI 与智能体开发者工具"},"tt":{"en":"RFC 9421 Signature Decoder & Web Bot Auth Readiness","es":"Decodificador de Firmas RFC 9421 y Preparación Web Bot Auth","fr":"Décodeur de Signatures RFC 9421 & Préparation Web Bot Auth","ar":"مفكك توقيعات RFC 9421 وجاهزية Web Bot Auth","pt":"Decodificador de Assinaturas RFC 9421 & Prontidão Web Bot Auth","zh":"RFC 9421 签名解码器与 Web Bot Auth 就绪评估"}};
+  function applyHero(lang){ var eb=DATA.eb&&DATA.eb[lang], tt=DATA.tt&&DATA.tt[lang]; if(eb) document.querySelectorAll('.hero-eyebrow').forEach(function(el){el.textContent=eb;}); if(tt){ var els=document.querySelectorAll('h1.tool-title'); if(!els.length) els=document.querySelectorAll('.hero h1'); els.forEach(function(el){el.textContent=tt;}); } }
+  if(typeof setLang==='function'){ var _o=setLang; window.setLang=function(l){ try{_o.apply(this,arguments);}catch(e){} applyHero(l); }; }
+  try{ var saved=sessionStorage.getItem('ain_lang'); if(saved) applyHero(saved); else { var act=document.querySelector('.lang-btn.active'); if(act){ var l=act.getAttribute('data-lang'); if(l) applyHero(l);} } }catch(e){}
+})();
+</script>
+
+<!-- AP2 Policy Mandate Export · CONTRACT §3–§4 -->
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+window._ap2Result=window._ap2Result||null;
+window._captureAP2=function(){
+  var el=document.querySelector('#outputSection');
+  if(el&&el.textContent.trim().length>10){
+    window._ap2Result={output:(window._memo||el.textContent.trim()).slice(0,3000),inputs:{}};
+  }
+};
+window.exportAP2=function(){
+  window._captureAP2();
+  if(!window._ap2Result){alert('Run a check first to generate results.');return;}
+  var ts=new Date().toISOString();
+  var tid=(typeof MANIFEST!=='undefined'&&MANIFEST.tool_id)?MANIFEST.tool_id:'rfc9421-signature-webbotauth';
+  var mandate={
+    ap2_version:'1.0',
+    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,
+    tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',
+    mandate_type:'compliance_control',
+    jurisdiction:['ZZ'],
+    regulatory_frameworks:['RFC 9421','Web Bot Auth'],
+    payload:window._ap2Result,
+    summary:(typeof MANIFEST!=='undefined'&&MANIFEST.title?MANIFEST.title:document.title)+' — check '+ts.slice(0,10),
+    agent_instructions:['Sign every request per RFC 9421; publish the Ed25519 JWKS at the well-known directory; never publish private keys.'],
+    valid_from:ts.slice(0,10),
+    valid_until:new Date(Date.now()+180*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed:ts.slice(0,10),source_tool_inputs:{},
+    regulatory_citations:['RFC 9421','draft-meunier-web-bot-auth-architecture'],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+var _obs=new MutationObserver(function(){
+  if(!window._ap2Result){
+    var el=document.querySelector('#outputSection');
+    if(el&&el.textContent.trim().length>10){window._captureAP2();window.enableAP2Btn();}
+  }
+});
+_obs.observe(document.body,{childList:true,subtree:true,characterData:true});
+})();
+</script>
+
+</body>
+</html>
