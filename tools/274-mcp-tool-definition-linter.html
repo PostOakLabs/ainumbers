@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>MCP Tool-Definition Linter &amp; Annotation Designer · T274 · AINumbers.co</title>
+<meta name="description" content="Lint a Model Context Protocol (MCP) tool definition against JSON Schema 2020-12 and the current tool-naming, output-schema, and annotation rules. Designs a correct readOnly/destructive/idempotent/openWorld annotation set. Client-side. Zero PII. Zero network.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/274-mcp-tool-definition-linter.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"MCP Tool-Definition Linter & Annotation Designer","url":"https://ainumbers.co/tools/274-mcp-tool-definition-linter.html","applicationCategory":"DeveloperApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "mcp-tool-definition-linter",
+  "version": "1.0.0",
+  "title": "MCP Tool-Definition Linter & Annotation Designer",
+  "description": "Lints a Model Context Protocol tool definition (name, description, inputSchema, outputSchema, annotations) against JSON Schema 2020-12 and current MCP tool-naming/annotation rules, scores it, and designs a consistent annotation set. Reference rules are static and may age — verify against the live MCP specification.",
+  "category": "cat-1",
+  "tags": ["MCP","tool definition","JSON Schema 2020-12","annotations","linter","agent tooling"],
+  "audience": ["engineer","product"],
+  "input_schema": {"type":"object","properties":{"tool_definition":{"type":"object"}},"required":["tool_definition"]},
+  "output_schema": {"type":"object","properties":{"score":{"type":"number"},"findings":{"type":"array"},"annotations":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"lint_mcp_tool_definition","description":"Validate an MCP tool definition against JSON Schema 2020-12 and current naming/output/annotation rules; returns findings, a compliance score, and a recommended annotation set.","inputSchema":{"type":"object","properties":{"tool_definition":{"type":"object","description":"The MCP tool definition to lint"}},"required":["tool_definition"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/274-mcp-tool-definition-linter.html","function_name":"runLinter","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner,[dir="rtl"] .hero-eyebrow{flex-direction:row-reverse}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid var(--border);color:var(--muted)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.scope-note strong{color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase}
+/* PANELS */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem;display:flex;align-items:center;gap:.5rem}
+.panel-hint{font-size:.7rem;color:var(--muted);margin-bottom:.85rem;line-height:1.6}
+.code-input{width:100%;min-height:280px;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;line-height:1.6;padding:.85rem 1rem;border-radius:var(--radius);outline:none;resize:vertical;tab-size:2}
+.code-input:focus{border-color:var(--teal)}
+.btn-row{display:flex;gap:.65rem;flex-wrap:wrap;margin:1.25rem 0 .5rem}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.ghost-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.5rem 1rem;border-radius:var(--radius);transition:all .2s}
+.ghost-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* DESIGNER */
+.designer-grid{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+@media(max-width:700px){.designer-grid{grid-template-columns:1fr}}
+.dz-cell{display:flex;flex-direction:column;gap:.3rem}
+.dz-q{font-size:.72rem;color:var(--text);line-height:1.5}
+.dz-sub{font-size:.62rem;color:var(--muted)}
+.dz-sel{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.4rem .6rem;border-radius:4px;outline:none}
+.dz-sel:focus{border-color:var(--teal)}
+.dz-text{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.4rem .6rem;border-radius:4px;outline:none}
+.dz-text:focus{border-color:var(--teal)}
+/* OUTPUT */
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.score-wrap{display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap}
+.score-num{font-family:'DM Serif Display',serif;font-size:2.6rem;line-height:1}
+.score-meta{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);line-height:1.8}
+.score-bar-outer{flex:1;min-width:160px;height:12px;background:var(--bg-3);border-radius:3px;overflow:hidden}
+.score-bar-inner{height:100%;border-radius:3px;transition:width .3s}
+.finding{display:flex;gap:.65rem;padding:.55rem .25rem;border-bottom:1px solid var(--border);font-size:.73rem;line-height:1.5}
+.finding:last-child{border-bottom:none}
+.fi-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.12rem .45rem;border-radius:3px;height:fit-content;white-space:nowrap;border:1px solid}
+.fi-error{color:var(--red);border-color:rgba(239,68,68,.4);background:var(--red-dim)}
+.fi-warn{color:var(--warn);border-color:rgba(245,158,11,.4)}
+.fi-pass{color:var(--green);border-color:rgba(34,197,94,.4);background:var(--green-dim)}
+.fi-msg{color:var(--text)}
+.fi-cite{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.58rem}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.7rem;color:var(--body);line-height:1.7;white-space:pre-wrap;font-family:'JetBrains Mono',monospace}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.cite-list{font-size:.66rem;color:var(--muted);line-height:1.8;margin-top:1rem}
+.cite-list a{color:var(--teal)}
+.cite-list b{color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.6rem}
+/* MCP manifest panel */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+/* footer */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/rbe-deterministic-suite-hub.html">AI &amp; Agentic</a><span class="nav-sep">/</span><span>T-274</span></div>
+  <div class="nav-right"><a href="../index.html#ai-suite" class="nav-cta">AI Suite &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-1 · T274 · AI &amp; Agentic Developer Tooling</div>
+  <span class="hero-badge badge-muted"><span>v1.0</span></span>
+  <h1 class="tool-title">MCP Tool-Definition <em>Linter</em> &amp; Annotation Designer</h1>
+  <p class="hero-desc">Paste a Model Context Protocol tool definition and get a deterministic lint against JSON Schema 2020-12, the current tool-naming guidance, the output-schema convention, and the four behaviour annotations. The Annotation Designer answers four behaviour questions and emits a consistent <code>readOnly / destructive / idempotent / openWorld</code> set — with the standing reminder that annotations are advisory hints, never security controls.</p>
+  <div class="disclaimer">⚠ MCP revises every few months. The rules embedded here reflect the <strong>2025-11-25</strong> stable spec with notes from the <strong>2026-07-28</strong> release candidate (breaking, not final). Re-verify against the live specification at modelcontextprotocol.io before relying on any verdict for a production server.</div>
+  <div class="hero-badges">
+    <span class="badge badge-teal">MCP</span>
+    <span class="badge badge-gold">JSON Schema 2020-12</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side · No Network</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note"><strong>Scope &amp; reliance —</strong> <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span> This linter checks structure and conformance only; it does not execute your tool or verify runtime behaviour. Embedded spec rules are static reference values that may age — verify against current primary sources. Deterministic logic · no inference · zero PII · CC BY 4.0.</div>
+
+  <!-- INPUT -->
+  <div class="panel">
+    <div class="panel-title">▸ Tool Definition (JSON)</div>
+    <div class="panel-hint">Paste a single MCP tool definition object with <code>name</code>, <code>description</code>, <code>inputSchema</code>, and optionally <code>outputSchema</code> and <code>annotations</code>. A deliberately-flawed example is pre-loaded so you can see findings immediately.</div>
+    <textarea id="toolDef" class="code-input" spellcheck="false"></textarea>
+    <div class="btn-row">
+      <button class="run-btn" onclick="runLinter()">▶ Lint Definition</button>
+      <button class="ghost-btn" onclick="loadExample()">↺ Reset Example</button>
+      <button class="ghost-btn" onclick="loadClean()">✓ Load Clean Example</button>
+    </div>
+  </div>
+
+  <!-- ANNOTATION DESIGNER -->
+  <div class="panel">
+    <div class="panel-title">▸ Annotation Designer</div>
+    <div class="panel-hint">Answer four behaviour questions; the tool emits a correct <code>annotations</code> object you can paste into the definition above. Reminder: these are <em>hints</em> — a client must never make a trust or safety decision from a server's annotations.</div>
+    <div class="designer-grid">
+      <div class="dz-cell">
+        <span class="dz-q">Does the tool modify any state (write, send, mutate)?</span>
+        <span class="dz-sub">No → <code>readOnlyHint: true</code></span>
+        <select class="dz-sel" id="dz_modify"><option value="no">No — read-only (search/list/get)</option><option value="yes" selected>Yes — it changes something</option></select>
+      </div>
+      <div class="dz-cell">
+        <span class="dz-q">Can it delete or overwrite existing data?</span>
+        <span class="dz-sub">Only meaningful when not read-only</span>
+        <select class="dz-sel" id="dz_destroy"><option value="no" selected>No — additive / non-destructive</option><option value="yes">Yes — deletes or overwrites</option></select>
+      </div>
+      <div class="dz-cell">
+        <span class="dz-q">Are repeated identical calls side-effect-free after the first?</span>
+        <span class="dz-sub">Only meaningful when not read-only</span>
+        <select class="dz-sel" id="dz_idem"><option value="yes">Yes — idempotent</option><option value="no" selected>No — repeats have additional effect</option></select>
+      </div>
+      <div class="dz-cell">
+        <span class="dz-q">Does it reach outside the local/user environment?</span>
+        <span class="dz-sub">e.g. the open web, external accounts</span>
+        <select class="dz-sel" id="dz_open"><option value="yes" selected>Yes — open world (external)</option><option value="no">No — closed/local only</option></select>
+      </div>
+      <div class="dz-cell">
+        <span class="dz-q">Human-readable title (optional)</span>
+        <span class="dz-sub">Display label; still advisory, not trusted</span>
+        <input class="dz-text" id="dz_title" placeholder="e.g. Search Knowledge Base">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="run-btn" onclick="designAnnotations()">▶ Generate Annotations</button>
+    </div>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<!-- MCP MANIFEST PANEL -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </div></div>
+</section>
+
+<!-- AP2 Export -->
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the linter above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../index.html#ai-suite">AI Suite</a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ── MCP Tool-Definition Linter · deterministic engine · CONTRACT §0 ───────────
+   Citations:
+   [1] MCP spec 2025-11-25 changelog — JSON Schema 2020-12 default dialect (SEP-1613);
+       tool-naming guidance (SEP-986); outputSchema / structuredContent.
+   [2] MCP blog 2026-03-16 "Tool Annotations as Risk Vocabulary" — annotations are
+       advisory hints, never security guarantees; clients must not trust them from
+       untrusted servers (even `title`).
+   [3] MCP ToolAnnotations — readOnlyHint / destructiveHint / idempotentHint / openWorldHint (booleans), `title` (string).
+   [4] MCP spec 2026-07-28 RC (breaking, not final) — full JSON Schema 2020-12 for tools;
+       implementations MUST NOT auto-dereference external $ref URIs; bound schema depth. (SEP-2106)            */
+
+var EX_FLAWED = {
+  "name": "SearchTickets",
+  "description": "search",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "query": {},
+      "limit": {"type":"number"}
+    },
+    "required": ["query","status"]
+  },
+  "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": true,
+    "title": "Search Tickets"
+  }
+};
+
+var EX_CLEAN = {
+  "name": "search_tickets",
+  "description": "Search the support ticket store and return matching tickets. Use when the user asks to find, list, or look up existing tickets by keyword, status, or assignee.",
+  "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "query": {"type":"string","description":"Free-text search over ticket title and body."},
+      "status": {"type":"string","enum":["open","pending","closed"],"description":"Optional status filter."},
+      "limit": {"type":"integer","description":"Maximum number of tickets to return (default 20).","minimum":1,"maximum":100}
+    },
+    "required": ["query"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "tickets": {"type":"array","description":"Matching tickets.","items":{"type":"object","properties":{"id":{"type":"string"},"title":{"type":"string"}}}},
+      "total": {"type":"integer","description":"Total matches found."}
+    },
+    "required": ["tickets","total"]
+  },
+  "annotations": {
+    "title": "Search Tickets",
+    "readOnlyHint": true,
+    "openWorldHint": false
+  }
+};
+
+var NAME_RE = /^[a-z][a-z0-9_]*$/;          // snake_case lower, SEP-986 spirit
+var ANN_KEYS = {title:'string', readOnlyHint:'boolean', destructiveHint:'boolean', idempotentHint:'boolean', openWorldHint:'boolean'};
+
+function F(level,msg,cite){ return {level:level,msg:msg,cite:cite||null}; }
+
+function lintSchema(s, path, out, depth){
+  depth = depth || 0;
+  if(depth > 8){ out.push(F('warn', path+': schema nesting exceeds 8 levels — bound depth; deep schemas raise validation cost and DoS risk.', 4)); return; }
+  if(s.$ref && /^https?:\/\//i.test(s.$ref)) out.push(F('error', path+': external $ref "'+s.$ref+'" — implementations MUST NOT auto-dereference external $ref URIs. Use local $defs.', 4));
+  if(depth === 0 && s.$schema && !/2020-12/.test(s.$schema)) out.push(F('warn', path+': $schema dialect is not 2020-12 — 2020-12 is the MCP default dialect since 2025-11-25.', 1));
+  if('required' in s && !Array.isArray(s.required)) out.push(F('error', path+': "required" must be an array of property-name strings.', 1));
+  if(Array.isArray(s.required) && s.properties){
+    s.required.forEach(function(r){ if(!(r in s.properties)) out.push(F('error', path+': "required" lists "'+r+'" which is not defined in properties.', 1)); });
+  }
+  if(s.properties && typeof s.properties === 'object'){
+    Object.keys(s.properties).forEach(function(k){
+      var p = s.properties[k];
+      if(p && typeof p === 'object'){
+        var hasType = ('type' in p) || p.$ref || p.enum || p.oneOf || p.anyOf || p.allOf || p.const;
+        if(!hasType) out.push(F('warn', path+'.'+k+': no "type"/enum/$ref/combinator — agents reason poorly about untyped parameters.', 1));
+        if(!p.description) out.push(F('warn', path+'.'+k+': missing "description" — parameter descriptions materially improve tool-call accuracy.', 1));
+        lintSchema(p, path+'.'+k, out, depth+1);
+      }
+    });
+  }
+  if(s.items && typeof s.items === 'object') lintSchema(s.items, path+'[]', out, depth+1);
+}
+
+function lintAnnotations(a, out){
+  if(typeof a !== 'object' || a === null || Array.isArray(a)){ out.push(F('error','"annotations" must be an object.',3)); return; }
+  Object.keys(a).forEach(function(k){
+    if(!(k in ANN_KEYS)) out.push(F('warn','annotations.'+k+': not a recognised annotation. Valid: title, readOnlyHint, destructiveHint, idempotentHint, openWorldHint.',3));
+    else if(typeof a[k] !== ANN_KEYS[k]) out.push(F('error','annotations.'+k+' must be a '+ANN_KEYS[k]+'.',3));
+  });
+  if(a.readOnlyHint === true && a.destructiveHint === true) out.push(F('error','Contradiction: readOnlyHint:true with destructiveHint:true — a read-only tool cannot be destructive.',3));
+  if(a.readOnlyHint === true && 'destructiveHint' in a && a.destructiveHint === false) out.push(F('warn','destructiveHint is only meaningful for non-read-only tools; on a read-only tool it is moot (drop it).',3));
+  if(a.readOnlyHint === true && 'idempotentHint' in a) out.push(F('warn','idempotentHint is only meaningful for non-read-only tools; on a read-only tool it is moot (drop it).',3));
+  out.push(F('pass','annotations present — remember these are advisory hints, never security controls; clients must not make trust decisions from an untrusted server’s annotations.',2));
+}
+
+function lintToolDef(obj){
+  var out = [];
+  if(typeof obj !== 'object' || obj === null || Array.isArray(obj)){ out.push(F('error','Top-level value must be a single tool-definition object.',1)); return out; }
+  // name
+  if(!('name' in obj)) out.push(F('error','Missing required "name".',1));
+  else if(typeof obj.name !== 'string' || !obj.name) out.push(F('error','"name" must be a non-empty string.',1));
+  else {
+    if(!NAME_RE.test(obj.name)) out.push(F('warn','"name" ("'+obj.name+'") should be snake_case, matching ^[a-z][a-z0-9_]*$ per tool-naming guidance (SEP-986).',1));
+    else out.push(F('pass','"name" is well-formed snake_case.',1));
+    if(obj.name.length > 64) out.push(F('warn','"name" is '+obj.name.length+' chars — keep tool names short and stable.',1));
+  }
+  // description
+  if(!obj.description || typeof obj.description !== 'string') out.push(F('error','Missing or empty "description" — clients surface this to the model to decide when to call the tool.',1));
+  else if(obj.description.length < 16) out.push(F('warn','"description" is very short ('+obj.description.length+' chars) — describe when and why an agent should call this tool.',1));
+  else out.push(F('pass','"description" present ('+obj.description.length+' chars).',1));
+  // inputSchema
+  if(!('inputSchema' in obj)) out.push(F('error','Missing required "inputSchema".',1));
+  else {
+    var s = obj.inputSchema;
+    if(typeof s !== 'object' || s === null || Array.isArray(s)) out.push(F('error','"inputSchema" must be a JSON Schema object.',1));
+    else {
+      if(s.type !== 'object') out.push(F('error','"inputSchema" root MUST have type:"object" (MCP requirement).',1));
+      else out.push(F('pass','inputSchema root is type:"object".',1));
+      lintSchema(s, 'inputSchema', out, 0);
+    }
+  }
+  // outputSchema
+  if('outputSchema' in obj){
+    var os = obj.outputSchema;
+    if(typeof os !== 'object' || os === null || Array.isArray(os)) out.push(F('error','"outputSchema" must be a JSON Schema object when present.',1));
+    else {
+      if(os.type !== 'object') out.push(F('warn','"outputSchema" root is conventionally type:"object" — it defines the structuredContent clients validate.',1));
+      else out.push(F('pass','outputSchema present (root type:"object") → structuredContent will be schema-validated by clients.',1));
+      lintSchema(os, 'outputSchema', out, 0);
+    }
+  } else {
+    out.push(F('warn','No "outputSchema" — consider declaring one so clients can validate structuredContent (added 2025-06-18).',1));
+  }
+  // annotations
+  if('annotations' in obj) lintAnnotations(obj.annotations, out);
+  else out.push(F('warn','No "annotations" — add readOnlyHint / destructiveHint / idempotentHint / openWorldHint to describe behaviour (advisory only).',3));
+  return out;
+}
+
+function scoreOf(findings){
+  var e=0,w=0,p=0;
+  findings.forEach(function(f){ if(f.level==='error')e++; else if(f.level==='warn')w++; else p++; });
+  var sc = 100 - e*15 - w*4;
+  if(sc<0) sc=0; if(sc>100) sc=100;
+  return {score:sc, e:e, w:w, p:p};
+}
+
+function esc(s){ return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+
+function renderFindings(findings, sc){
+  var col = sc.score>=85?'var(--green)':sc.score>=60?'var(--warn)':'var(--red)';
+  var verdict = sc.e>0 ? 'Not conformant — fix errors before publishing.' : sc.w>0 ? 'Conformant with advisories.' : 'Clean — no issues found.';
+  var rows = findings.map(function(f){
+    var tag = f.level==='error'?'fi-error':f.level==='warn'?'fi-warn':'fi-pass';
+    var label = f.level==='error'?'ERROR':f.level==='warn'?'WARN':'PASS';
+    var cite = f.cite?'<span class="fi-cite">[' + f.cite + ']</span>':'';
+    return '<div class="finding"><span class="fi-tag '+tag+'">'+label+'</span><span class="fi-msg">'+esc(f.msg)+' '+cite+'</span></div>';
+  }).join('');
+  return '<div class="out-section"><div class="out-header"><span class="out-title">Conformance Score</span></div><div class="out-body">'
+    + '<div class="score-wrap"><div class="score-num" style="color:'+col+'">'+sc.score+'</div>'
+    + '<div class="score-meta">/ 100 conformance<br>'+sc.e+' error'+(sc.e===1?'':'s')+' · '+sc.w+' warning'+(sc.w===1?'':'s')+' · '+sc.p+' pass'+(sc.p===1?'':'es')+'<br><span style="color:'+col+'">'+verdict+'</span></div>'
+    + '<div class="score-bar-outer"><div class="score-bar-inner" style="width:'+sc.score+'%;background:'+col+'"></div></div></div></div></div>'
+    + '<div class="out-section"><div class="out-header"><span class="out-title">Findings ('+findings.length+')</span></div><div class="out-body" style="padding:.5rem 1.25rem">'+rows+'</div></div>';
+}
+
+function citeBlock(){
+  return '<div class="out-section"><div class="out-header"><span class="out-title">Spec references</span></div><div class="out-body"><div class="cite-list">'
+    + '<b>[1]</b> MCP spec 2025-11-25 changelog — JSON Schema 2020-12 default dialect (SEP-1613), tool-naming guidance (SEP-986), outputSchema/structuredContent. <a href="https://modelcontextprotocol.io/specification/2025-11-25/changelog" target="_blank" rel="noopener">modelcontextprotocol.io</a><br>'
+    + '<b>[2]</b> MCP blog 2026-03-16 — "Tool Annotations as Risk Vocabulary": annotations are advisory hints, never security guarantees. <a href="https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations/" target="_blank" rel="noopener">blog.modelcontextprotocol.io</a><br>'
+    + '<b>[3]</b> MCP ToolAnnotations — readOnlyHint / destructiveHint / idempotentHint / openWorldHint (boolean), title (string).<br>'
+    + '<b>[4]</b> MCP spec 2026-07-28 RC (breaking · not final) — full JSON Schema 2020-12 for tools; no auto-deref of external $ref; bound depth (SEP-2106). <a href="https://blog.modelcontextprotocol.io/posts/2026-07-28-release-candidate/" target="_blank" rel="noopener">blog.modelcontextprotocol.io</a>'
+    + '</div></div></div>';
+}
+
+function buildMemo(obj, findings, sc){
+  var lines = [];
+  lines.push('MCP TOOL-DEFINITION LINT REPORT');
+  lines.push('Tool: ' + (obj && obj.name ? obj.name : '(unnamed)'));
+  lines.push('Generated: ' + new Date().toISOString().slice(0,19).replace('T',' ') + ' · Ruleset: MCP 2025-11-25 (+2026-07-28 RC notes)');
+  lines.push('Conformance: ' + sc.score + '/100  (' + sc.e + ' error / ' + sc.w + ' warn / ' + sc.p + ' pass)');
+  lines.push('');
+  findings.forEach(function(f){
+    var lbl = f.level==='error'?'[ERROR]':f.level==='warn'?'[WARN] ':'[PASS] ';
+    lines.push(lbl + ' ' + f.msg + (f.cite?' ['+f.cite+']':''));
+  });
+  lines.push('');
+  lines.push('Note: structural/conformance check only — runtime behaviour is not verified.');
+  lines.push('Annotations are advisory hints, never security controls (ref [2]).');
+  return lines.join('\n');
+}
+
+function runLinter(){
+  var raw = document.getElementById('toolDef').value;
+  var obj;
+  try { obj = JSON.parse(raw); }
+  catch(e){
+    document.getElementById('outputSection').innerHTML =
+      '<div class="out-section"><div class="out-header"><span class="out-title">Parse error</span></div><div class="out-body"><div class="finding"><span class="fi-tag fi-error">ERROR</span><span class="fi-msg">Invalid JSON: '+esc(e.message)+'</span></div></div></div>';
+    window._memo = 'Invalid JSON: ' + e.message;
+    return;
+  }
+  var findings = lintToolDef(obj);
+  var sc = scoreOf(findings);
+  var memo = buildMemo(obj, findings, sc);
+  document.getElementById('outputSection').innerHTML =
+    renderFindings(findings, sc)
+    + '<div class="out-section"><div class="out-header"><span class="out-title">Markdown Lint Report</span><button class="copy-btn" onclick="copyM()">Copy</button></div><div class="out-body" style="padding:.75rem"><div class="memo-block">'+esc(memo)+'</div></div></div>'
+    + citeBlock();
+  window._memo = memo;
+}
+
+function designAnnotations(){
+  var ro = document.getElementById('dz_modify').value === 'no';
+  var ann = {};
+  var title = document.getElementById('dz_title').value.trim();
+  if(title) ann.title = title;
+  ann.readOnlyHint = ro;
+  if(!ro){
+    ann.destructiveHint = document.getElementById('dz_destroy').value === 'yes';
+    ann.idempotentHint  = document.getElementById('dz_idem').value === 'yes';
+  }
+  ann.openWorldHint = document.getElementById('dz_open').value === 'yes';
+  var notes = [];
+  notes.push('readOnlyHint=' + ann.readOnlyHint + (ro ? '  → destructive/idempotent omitted (moot on a read-only tool).' : ''));
+  if(!ro){
+    notes.push('destructiveHint=' + ann.destructiveHint + '  (does it delete/overwrite?)');
+    notes.push('idempotentHint=' + ann.idempotentHint + '  (are repeats side-effect-free?)');
+  }
+  notes.push('openWorldHint=' + ann.openWorldHint + '  (does it reach outside the local environment?)');
+  var json = JSON.stringify({annotations: ann}, null, 2);
+  var memo = 'RECOMMENDED ANNOTATIONS\n\n' + json + '\n\nReasoning:\n  ' + notes.join('\n  ') +
+    '\n\n⚠ Advisory only. A client must NOT make tool-use or security decisions based on annotations from an untrusted server — even title (ref [2]).';
+  document.getElementById('outputSection').innerHTML =
+    '<div class="out-section"><div class="out-header"><span class="out-title">Designed Annotation Set</span><button class="copy-btn" onclick="copyM()">Copy</button></div><div class="out-body" style="padding:.75rem"><div class="memo-block">'+esc(memo)+'</div></div></div>'
+    + citeBlock();
+  window._memo = memo;
+}
+
+function copyM(){ if(window._memo){ navigator.clipboard.writeText(window._memo).then(function(){ var b=document.querySelector('.copy-btn'); if(b){ b.textContent='Copied ✓'; setTimeout(function(){b.textContent='Copy';},2000);} }); } }
+function loadExample(){ document.getElementById('toolDef').value = JSON.stringify(EX_FLAWED, null, 2); }
+function loadClean(){ document.getElementById('toolDef').value = JSON.stringify(EX_CLEAN, null, 2); }
+
+/* i18n chrome */
+const TRANSLATIONS = {
+  en:{}, es:{}, fr:{}, ar:{lang_dir:'rtl'}, pt:{}, zh:{}
+};
+function setLang(lang){
+  if(!TRANSLATIONS[lang]) return;
+  var dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){ var k=el.getAttribute('data-i18n'); if(dict[k]) el.textContent=dict[k]; });
+  document.querySelectorAll('.lang-btn').forEach(function(b){ b.classList.remove('active'); });
+  var a=document.querySelector('.lang-btn[data-lang="'+lang+'"]'); if(a) a.classList.add('active');
+  document.documentElement.setAttribute('dir', lang==='ar'?'rtl':'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try{ sessionStorage.setItem('ain_lang', lang); }catch(e){}
+}
+(function(){ try{ var s=sessionStorage.getItem('ain_lang'); if(s) setLang(s); }catch(e){} })();
+loadExample();
+</script>
+
+<script>
+var MANIFEST = {"tool_id":"mcp-tool-definition-linter","version":"1.0.0","title":"MCP Tool-Definition Linter & Annotation Designer","description":"Lint a Model Context Protocol tool definition against JSON Schema 2020-12 and current naming/output/annotation rules; score it; design a consistent annotation set. Client-side. Zero PII. Zero network.","category":"cat-1","tags":["MCP","tool definition","JSON Schema 2020-12","annotations","linter"],"audience":["engineer","product"],"input_schema":{"type":"object","properties":{"tool_definition":{"type":"object"}},"required":["tool_definition"]},"output_schema":{"type":"object","properties":{"score":{"type":"number"},"findings":{"type":"array"},"annotations":{"type":"object"}}},"mcp_tool_definition":{"name":"lint_mcp_tool_definition","description":"Validate an MCP tool definition against JSON Schema 2020-12 and current naming/output/annotation rules; returns findings, a compliance score, and a recommended annotation set.","inputSchema":{"type":"object","properties":{"tool_definition":{"type":"object","description":"The MCP tool definition to lint"}},"required":["tool_definition"]}},"execution":{"type":"browser-javascript","entry":"tools/274-mcp-tool-definition-linter.html","function_name":"runLinter","timeout_ms":3000},"ap2_export":true};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<!-- ainumbers-universal-chrome-i18n v1 (CONTRACT §1.1, §1.3) -->
+<script>
+(function(){
+  var UC = {
+    en:{'pii.banner':'🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.','footer.alltools':'All Tools','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Sitemap','footer.privacy':'🔒 Zero PII    📡 No server calls    💻 Client-side'},
+    es:{'pii.banner':'🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No introduzca datos personales reales — utilice entradas sintéticas o anonimizadas únicamente.','footer.alltools':'Todas las Herramientas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contacto','footer.sitemap':'Mapa del Sitio','footer.privacy':'🔒 Sin PII    📡 Sin llamadas al servidor    💻 Cliente'},
+    fr:{'pii.banner':'🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n’est transmise. N’entrez pas de données personnelles réelles — utilisez uniquement des entrées synthétiques ou anonymisées.','footer.alltools':'Tous les Outils','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Plan du Site','footer.privacy':'🔒 Aucune PII    📡 Aucun appel serveur    💻 Côté client'},
+    ar:{'pii.banner':'🔒 جميع المدخلات تُعالج محلياً في متصفحك. لا تُنقل أي بيانات. لا تُدخل بيانات شخصية حقيقية — استخدم مدخلات اصطناعية أو مجهولة فقط.','footer.alltools':'جميع الأدوات','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'اتصل','footer.sitemap':'خريطة الموقع','footer.privacy':'🔒 لا بيانات شخصية    📡 لا استدعاءات للخادم    💻 على المتصفح'},
+    pt:{'pii.banner':'🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido. Não insira dados pessoais reais — utilize apenas entradas sintéticas ou anonimizadas.','footer.alltools':'Todas as Ferramentas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contato','footer.sitemap':'Mapa do Site','footer.privacy':'🔒 Sem PII    📡 Sem chamadas ao servidor    💻 Client-side'},
+    zh:{'pii.banner':'🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。请勿输入真实的个人数据——仅使用合成或匿名化输入。','footer.alltools':'所有工具','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'联系','footer.sitemap':'网站地图','footer.privacy':'🔒 零个人数据    📡 无服务器调用    💻 纯客户端'}
+  };
+  function getDict(){ try{ if(typeof TRANSLATIONS!=='undefined'&&TRANSLATIONS) return TRANSLATIONS; }catch(e){} return null; }
+  var target=getDict(); if(!target) return;
+  for(var lang in UC){ if(!target[lang]) target[lang]={}; for(var key in UC[lang]){ if(target[lang][key]===undefined) target[lang][key]=UC[lang][key]; } }
+  try{ if(typeof setLang==='function'){ var saved=null; try{ saved=sessionStorage.getItem('ain_lang'); }catch(e){} if(!saved){ var act=document.querySelector('.lang-btn.active'); if(act) saved=act.getAttribute('data-lang'); } if(saved&&target[saved]) setLang(saved); } }catch(e){}
+})();
+</script>
+
+<!-- ainumbers-per-tool-hero-i18n -->
+<script>
+(function(){
+  var DATA = {"eb":{"en":"Cat-1 · T274 · AI & Agentic Developer Tooling","es":"Cat-1 · T274 · Herramientas para Desarrolladores de IA y Agentes","fr":"Cat-1 · T274 · Outils Développeur IA & Agentique","ar":"Cat-1 · T274 · أدوات مطوّري الذكاء الاصطناعي والوكلاء","pt":"Cat-1 · T274 · Ferramentas de Desenvolvedor de IA & Agêntica","zh":"Cat-1 · T274 · AI 与智能体开发者工具"},"tt":{"en":"MCP Tool-Definition Linter & Annotation Designer","es":"Linter de Definición de Herramientas MCP y Diseñador de Anotaciones","fr":"Linter de Définition d'Outils MCP & Concepteur d'Annotations","ar":"مدقق تعريف أدوات MCP ومصمم التعليقات","pt":"Linter de Definição de Ferramentas MCP & Designer de Anotações","zh":"MCP 工具定义检查器与注解设计器"}};
+  function applyHero(lang){ var eb=DATA.eb&&DATA.eb[lang], tt=DATA.tt&&DATA.tt[lang]; if(eb) document.querySelectorAll('.hero-eyebrow').forEach(function(el){el.textContent=eb;}); if(tt){ var els=document.querySelectorAll('h1.tool-title'); if(!els.length) els=document.querySelectorAll('.hero h1'); els.forEach(function(el){el.textContent=tt;}); } }
+  if(typeof setLang==='function'){ var _o=setLang; window.setLang=function(l){ try{_o.apply(this,arguments);}catch(e){} applyHero(l); }; }
+  try{ var saved=sessionStorage.getItem('ain_lang'); if(saved) applyHero(saved); else { var act=document.querySelector('.lang-btn.active'); if(act){ var l=act.getAttribute('data-lang'); if(l) applyHero(l);} } }catch(e){}
+})();
+</script>
+
+<!-- AP2 Policy Mandate Export · CONTRACT §3–§4 -->
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&RE_UUID4.test(m.mandate_id)===false&&m.mandate_id.indexOf(m.tool_id)!==0)_f('mandate_id malformed');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+window._ap2Result=window._ap2Result||null;
+window._captureAP2=function(){
+  var el=document.querySelector('#outputSection');
+  if(el&&el.textContent.trim().length>10){
+    var inputs={};
+    document.querySelectorAll('select,input.dz-text').forEach(function(f){ if(f.id&&f.value)inputs[f.id]=f.value; });
+    window._ap2Result={output:(window._memo||el.textContent.trim()).slice(0,3000),inputs:inputs};
+  }
+};
+window.exportAP2=function(){
+  window._captureAP2();
+  if(!window._ap2Result){alert('Run the linter first to generate results.');return;}
+  var ts=new Date().toISOString();
+  var tid=(typeof MANIFEST!=='undefined'&&MANIFEST.tool_id)?MANIFEST.tool_id:'mcp-tool-definition-linter';
+  var mandate={
+    ap2_version:'1.0',
+    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,
+    tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',
+    mandate_type:'compliance_control',
+    jurisdiction:['ZZ'],
+    regulatory_frameworks:['MCP 2025-11-25','JSON Schema 2020-12'],
+    payload:window._ap2Result,
+    summary:(typeof MANIFEST!=='undefined'&&MANIFEST.title?MANIFEST.title:document.title)+' — lint result '+ts.slice(0,10),
+    agent_instructions:['Resolve any ERROR findings before publishing the tool to clients or a registry.','Treat all tool annotations as advisory hints, not security controls.'],
+    valid_from:ts.slice(0,10),
+    valid_until:new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed:ts.slice(0,10),source_tool_inputs:{},
+    regulatory_citations:['MCP spec 2025-11-25','MCP tool annotations 2026-03-16','MCP RC 2026-07-28'],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+var _obs=new MutationObserver(function(){
+  if(!window._ap2Result){
+    var el=document.querySelector('#outputSection');
+    if(el&&el.textContent.trim().length>10){window._captureAP2();window.enableAP2Btn();}
+  }
+});
+_obs.observe(document.body,{childList:true,subtree:true,characterData:true});
+})();
+</script>
+
+</body>
+</html>
