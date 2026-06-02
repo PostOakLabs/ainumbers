@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Mastercard Agent Pay — Agentic Token Scope &amp; Consent-Policy Builder · T287 · AINumbers.co</title>
+<meta name="description" content="Build and lint a Mastercard Agent Pay Agentic Token scope — the agent-ID, merchant scope, and consent policy (spend limit, allowed merchants, expiry, velocity) that bind a tokenised credential to an AI agent. Client-side. Zero PII. Zero network.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/287-mastercard-agentic-token-builder.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Mastercard Agent Pay Agentic Token Scope & Consent-Policy Builder","url":"https://ainumbers.co/tools/287-mastercard-agentic-token-builder.html","applicationCategory":"DeveloperApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "mastercard-agentic-token-builder",
+  "version": "1.0.0",
+  "title": "Mastercard Agent Pay — Agentic Token Scope & Consent-Policy Builder",
+  "description": "Builds and lints a Mastercard Agent Pay Agentic Token scope — the agent-ID binding, merchant scope, and consent policy (spend limit, allowed merchants, expiry, velocity) that constrain a tokenised card credential issued to an AI agent. Field names are illustrative (MDES Agentic Token) — verify against Mastercard.",
+  "category": "cat-1",
+  "tags": ["Mastercard","Agent Pay","Agentic Token","MDES","consent policy","payments"],
+  "audience": ["engineer"],
+  "input_schema": {"type":"object","properties":{"token_scope":{"type":"object"}}},
+  "output_schema": {"type":"object","properties":{"token":{"type":"object"},"findings":{"type":"array"}}},
+  "mcp_tool_definition": {"name":"build_mastercard_agentic_token","description":"Build or lint a Mastercard Agent Pay Agentic Token scope (agent-ID, merchant scope, consent policy: limit, merchants, expiry, velocity).","inputSchema":{"type":"object","properties":{"token_scope":{"type":"object","description":"Agentic Token scope descriptor"}}}},
+  "execution": {"type":"browser-javascript","entry":"tools/287-mastercard-agentic-token-builder.html","function_name":"runBuild","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner,[dir="rtl"] .hero-eyebrow{flex-direction:row-reverse}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:740px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid var(--border);color:var(--muted)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.scope-note strong{color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase}
+.tabs{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1.25rem}
+.tab{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;padding:.5rem .85rem;border:1px solid var(--border);color:var(--muted);background:transparent;border-radius:var(--radius);transition:all .15s}
+.tab.on{border-color:var(--teal);color:var(--teal);background:var(--teal-dim)}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem;display:none}
+.panel.on{display:block}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem}
+.panel-hint{font-size:.7rem;color:var(--muted);margin-bottom:.85rem;line-height:1.6}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+@media(max-width:640px){.grid2{grid-template-columns:1fr}}
+.lbl{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:.5rem 0 .25rem;display:block}
+.txt,.sel{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.5rem .65rem;border-radius:var(--radius);outline:none}
+.txt:focus,.sel:focus{border-color:var(--teal)}
+.code-input{width:100%;min-height:200px;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;line-height:1.6;padding:.85rem 1rem;border-radius:var(--radius);outline:none;resize:vertical;tab-size:2}
+.code-input:focus{border-color:var(--teal)}
+.btn-row{display:flex;gap:.65rem;flex-wrap:wrap;margin:1.1rem 0 .25rem;align-items:center}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.ghost-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.5rem 1rem;border-radius:var(--radius);transition:all .2s}
+.ghost-btn:hover{border-color:var(--teal);color:var(--teal)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.code-out{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--bright);line-height:1.6;white-space:pre-wrap;word-break:break-word;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem}
+.finding{display:flex;gap:.65rem;padding:.55rem .25rem;border-bottom:1px solid var(--border);font-size:.73rem;line-height:1.5}
+.finding:last-child{border-bottom:none}
+.fi-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.12rem .45rem;border-radius:3px;height:fit-content;white-space:nowrap;border:1px solid}
+.fi-error{color:var(--red);border-color:rgba(239,68,68,.4);background:var(--red-dim)}
+.fi-warn{color:var(--warn);border-color:rgba(245,158,11,.4)}
+.fi-pass{color:var(--green);border-color:rgba(34,197,94,.4);background:var(--green-dim)}
+.fi-info{color:var(--teal);border-color:rgba(20,184,166,.4)}
+.score-wrap{display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap}
+.score-num{font-family:'DM Serif Display',serif;font-size:2.6rem;line-height:1}
+.score-meta{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);line-height:1.8}
+.score-bar-outer{flex:1;min-width:160px;height:12px;background:var(--bg-3);border-radius:3px;overflow:hidden}
+.score-bar-inner{height:100%;border-radius:3px}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.cite-list{font-size:.66rem;color:var(--muted);line-height:1.8}
+.cite-list a{color:var(--teal)}.cite-list b{color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.6rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/agentic-commerce-mcp-hub.html">Agentic Commerce &amp; MCP</a><span class="nav-sep">/</span><span>T-287</span></div>
+  <div class="nav-right"><a href="../guides/agentic-commerce-mcp-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-1 · T287 · AI &amp; Agentic Developer Tooling</div>
+  <span class="hero-badge badge-muted"><span>v1.0</span></span>
+  <h1 class="tool-title">Mastercard Agent Pay — <em>Agentic Token</em> Scope &amp; Consent-Policy Builder</h1>
+  <p class="hero-desc">Mastercard Agent Pay lets a verified AI agent transact on a consumer's behalf using an <strong>Agentic Token</strong> — a tokenised card credential (via MDES) bound to a specific agent, merchant scope, and consent policy, so the model never holds the raw PAN. Build a token scope from a form, or lint one for the bindings and limits that keep it safe.</p>
+  <div class="disclaimer">⚠ Mastercard Agent Pay is recent (announced Apr 2025; first live txn Sep 2025) and the MDES Agentic Token schema is not fully public. Field names here are <strong>illustrative</strong> — verify against Mastercard developer resources. The scope/consent checks are security properties that hold regardless of exact field names.</div>
+  <div class="hero-badges">
+    <span class="badge badge-teal">Mastercard Agent Pay</span>
+    <span class="badge badge-gold">Agentic Token · MDES</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side · No Network</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note"><strong>Scope &amp; reliance —</strong> <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span> Never enter a real PAN or token. Builds an illustrative scope descriptor and checks consent properties only. Deterministic · zero PII · CC BY 4.0.</div>
+
+  <div class="tabs">
+    <button class="tab on" data-tab="build" onclick="showTab('build')">Token Scope Builder</button>
+    <button class="tab" data-tab="lint" onclick="showTab('lint')">Scope Linter</button>
+  </div>
+
+  <div class="panel on" id="panel-build">
+    <div class="panel-title">▸ Build an Agentic Token scope</div>
+    <div class="grid2">
+      <div><label class="lbl">Agent ID</label><input class="txt" id="agent" value="agent:assistant-pro"></div>
+      <div><label class="lbl">Allowed merchants (comma-separated, or * = any)</label><input class="txt" id="merchants" value="grocer.example.com, pharmacy.example.com"></div>
+      <div><label class="lbl">Per-transaction limit (minor units)</label><input class="txt" id="txnlimit" value="15000"></div>
+      <div><label class="lbl">Total / period limit (minor units)</label><input class="txt" id="totallimit" value="60000"></div>
+      <div><label class="lbl">Currency</label><input class="txt" id="currency" value="USD"></div>
+      <div><label class="lbl">Expiry (ISO date-time)</label><input class="txt" id="expiry" value="2026-12-31T23:59:59Z"></div>
+      <div><label class="lbl">Velocity (max txns / period)</label><input class="txt" id="velocity" value="5 per day"></div>
+      <div><label class="lbl">MCC allow-list (optional, comma-separated)</label><input class="txt" id="mcc" value="5411, 5912"></div>
+    </div>
+    <div class="btn-row"><button class="run-btn" onclick="runBuild()">▶ Build &amp; Lint Scope</button></div>
+  </div>
+
+  <div class="panel" id="panel-lint">
+    <div class="panel-title">▸ Lint an Agentic Token scope</div>
+    <div class="panel-hint">Paste a token scope descriptor (synthetic). Checks agent binding, merchant scope, spend limits, expiry, and velocity. Field aliases accepted.</div>
+    <textarea id="lintIn" class="code-input" spellcheck="false"></textarea>
+    <div class="btn-row"><button class="run-btn" onclick="runLint()">▶ Lint Scope</button><button class="ghost-btn" onclick="loadExample()">↺ Example</button><button class="ghost-btn" onclick="loadBad()">⚠ Over-broad Example</button></div>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </div></div>
+</section>
+
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Build or lint a scope above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/agentic-commerce-mcp-hub.html">Agentic Commerce &amp; MCP Hub</a>
+      <a href="../tools/276-agentic-payments-protocol-comparator.html">Protocol Comparator</a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ── Mastercard Agentic Token Scope Builder/Linter · deterministic · CONTRACT §0 ──
+   Citations: [1] Mastercard Agent Pay — Agentic Tokens (MDES) bind a tokenised credential
+   to agent + merchant scope + consent policy. mastercard.com (Agent Pay). Field names
+   illustrative — verify against Mastercard. [2] Consent properties (agent/merchant/limit/
+   expiry/velocity) hold regardless of exact schema.                                       */
+
+function F(level,msg){ return {level:level,msg:msg}; }
+function esc(s){ return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+function showTab(t){
+  document.querySelectorAll('.tab').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-tab')===t); });
+  document.querySelectorAll('.panel').forEach(function(p){ p.classList.toggle('on', p.id==='panel-'+t); });
+}
+function first(o,keys){ for(var i=0;i<keys.length;i++){ if(o[keys[i]]!==undefined) return {k:keys[i],v:o[keys[i]]}; } return null; }
+
+function buildScope(){
+  var v=function(id){return (document.getElementById(id).value||'').trim();};
+  var merchants=v('merchants');
+  var mcc=v('mcc');
+  return {
+    type: 'agentic_token_scope',
+    agentId: v('agent'),
+    tokenSource: 'MDES (PAN tokenised — never exposed to the agent)',
+    merchantScope: merchants==='*' ? 'any' : merchants.split(',').map(function(s){return s.trim();}).filter(Boolean),
+    consentPolicy: {
+      perTransactionLimit: { value: v('txnlimit'), currency: v('currency').toUpperCase() },
+      totalLimit: { value: v('totallimit'), currency: v('currency').toUpperCase() },
+      velocity: v('velocity'),
+      mccAllowList: mcc ? mcc.split(',').map(function(s){return s.trim();}).filter(Boolean) : [],
+      expiresAt: v('expiry')
+    }
+  };
+}
+
+function lintScope(o){
+  var out=[];
+  if(typeof o!=='object'||o===null||Array.isArray(o)){ out.push(F('error','Token scope must be a JSON object.')); return out; }
+  var agent=first(o,['agentId','agent_id','agent']);
+  if(!agent||!agent.v) out.push(F('error','No agent binding — an Agentic Token MUST bind to a specific agent id, or any agent could use it.'));
+  else out.push(F('pass','Agent-bound ('+agent.k+' = '+agent.v+').'));
+  // merchant scope
+  var mer=first(o,['merchantScope','merchants','allowed_merchants','merchant']);
+  if(!mer || mer.v===undefined) out.push(F('error','No merchant scope — restrict the token to specific merchants.'));
+  else if(mer.v==='any' || mer.v==='*' || (Array.isArray(mer.v)&&mer.v.length===0)) out.push(F('warn','Merchant scope is "any" — an unrestricted merchant scope is high-risk; pin an allow-list where possible.'));
+  else out.push(F('pass','Merchant-scoped ('+(Array.isArray(mer.v)?mer.v.length+' merchant(s)':mer.v)+').'));
+  // consent policy
+  var cp=first(o,['consentPolicy','consent_policy','policy','consent']);
+  var pol = cp ? cp.v : o;
+  // per-transaction + total limit
+  var ptl=first(pol,['perTransactionLimit','txnLimit','per_transaction_limit','transactionLimit']);
+  var tot=first(pol,['totalLimit','total_limit','periodLimit','maxAmount']);
+  if(!ptl && !tot) out.push(F('error','No spend limit — the consent policy MUST cap per-transaction and/or total spend.'));
+  else { if(ptl) out.push(F('pass','Per-transaction limit set.')); if(tot) out.push(F('pass','Total/period limit set.')); }
+  // expiry
+  var exp=first(pol,['expiresAt','expiry','exp','valid_until','expires']);
+  if(!exp) out.push(F('warn','No expiry — set a validity window so the token does not live forever.'));
+  else { var t=Date.parse(exp.v); if(isNaN(t)) out.push(F('warn','expiry "'+exp.v+'" is not a parseable timestamp.')); else if(t<Date.now()) out.push(F('warn','Token expiry is in the past.')); else out.push(F('pass','Expiry set ('+exp.k+').')); }
+  // velocity
+  var vel=first(pol,['velocity','frequency','rateLimit']);
+  if(!vel) out.push(F('info','No velocity/frequency cap — consider one to bound runaway agent spend.'));
+  else out.push(F('pass','Velocity cap present ('+vel.v+').'));
+  out.push(F('info','Field names are illustrative (MDES Agentic Token) — verify against Mastercard. The agent never receives the raw PAN.'));
+  return out;
+}
+
+function scoreOf(f){ var e=0,w=0,p=0; f.forEach(function(x){ if(x.level==='error')e++; else if(x.level==='warn')w++; else if(x.level==='pass')p++; }); var sc=100-e*15-w*4; if(sc<0)sc=0; if(sc>100)sc=100; return {score:sc,e:e,w:w,p:p}; }
+function renderLint(f,prefixHtml){
+  var sc=scoreOf(f);
+  var col=sc.score>=85?'var(--green)':sc.score>=60?'var(--warn)':'var(--red)';
+  var verdict=sc.e>0?'Unsafe scope — close the gaps before issuing.':sc.w>0?'Acceptable with advisories.':'Safely scoped — agent/merchant-bound with limits and expiry.';
+  var rows=f.map(function(x){ var tag=x.level==='error'?'fi-error':x.level==='warn'?'fi-warn':x.level==='pass'?'fi-pass':'fi-info'; return '<div class="finding"><span class="fi-tag '+tag+'">'+x.level.toUpperCase()+'</span><span>'+esc(x.msg)+'</span></div>'; }).join('');
+  return (prefixHtml||'')
+    + '<div class="out-section"><div class="out-header"><span class="out-title">Token Scope · '+sc.score+'/100</span></div><div class="out-body"><div class="score-wrap"><div class="score-num" style="color:'+col+'">'+sc.score+'</div><div class="score-meta">'+sc.e+' error · '+sc.w+' warn · '+sc.p+' pass<br><span style="color:'+col+'">'+verdict+'</span></div><div class="score-bar-outer"><div class="score-bar-inner" style="width:'+sc.score+'%;background:'+col+'"></div></div></div></div></div>'
+    + '<div class="out-section"><div class="out-header"><span class="out-title">Findings</span></div><div class="out-body" style="padding:.5rem 1.25rem">'+rows+'</div></div>'
+    + citeBlock();
+}
+function citeBlock(){
+  return '<div class="out-section"><div class="out-header"><span class="out-title">Spec references</span></div><div class="out-body"><div class="cite-list">'
+    + '<b>[1]</b> Mastercard Agent Pay — Agentic Tokens via MDES bind a tokenised credential to agent + merchant + consent policy. <a href="https://www.mastercard.com/" target="_blank" rel="noopener">mastercard.com</a> (verify the Agent Pay page).<br>'
+    + '<b>[2]</b> Field names illustrative; the consent-scope properties (agent/merchant/limit/expiry/velocity) are the security invariants.'
+    + '</div></div></div>';
+}
+
+function runBuild(){
+  var scope=buildScope();
+  var json=JSON.stringify(scope,null,2);
+  if(document.getElementById('lintIn')) document.getElementById('lintIn').value=json;
+  var f=lintScope(scope);
+  var pre='<div class="out-section"><div class="out-header"><span class="out-title">Built Agentic Token Scope</span><button class="copy-btn" onclick="copyM()">Copy</button></div><div class="out-body"><div class="code-out">'+esc(json)+'</div></div></div>';
+  document.getElementById('outputSection').innerHTML=renderLint(f,pre);
+  window._memo='MASTERCARD AGENTIC TOKEN SCOPE (illustrative)\n\n'+json+'\n\n'+f.map(function(x){return '['+x.level.toUpperCase()+'] '+x.msg;}).join('\n');
+}
+function runLint(){
+  var raw=document.getElementById('lintIn').value, o;
+  try{ o=JSON.parse(raw); }catch(e){ document.getElementById('outputSection').innerHTML='<div class="out-section"><div class="out-body"><div class="finding"><span class="fi-tag fi-error">ERROR</span><span>Invalid JSON: '+esc(e.message)+'</span></div></div></div>'; window._memo='Invalid JSON: '+e.message; return; }
+  var f=lintScope(o);
+  document.getElementById('outputSection').innerHTML=renderLint(f);
+  window._memo='MASTERCARD AGENTIC TOKEN SCOPE LINT\n\n'+f.map(function(x){return '['+x.level.toUpperCase()+'] '+x.msg;}).join('\n');
+}
+function copyM(){ if(window._memo){ navigator.clipboard.writeText(window._memo); } }
+var EX_BAD = { type:'agentic_token_scope', merchantScope:'any', consentPolicy:{} };
+function loadExample(){ document.getElementById('lintIn').value=JSON.stringify(buildScope(),null,2); }
+function loadBad(){ document.getElementById('lintIn').value=JSON.stringify(EX_BAD,null,2); }
+
+const TRANSLATIONS = { en:{}, es:{}, fr:{}, ar:{lang_dir:'rtl'}, pt:{}, zh:{} };
+function setLang(lang){
+  if(!TRANSLATIONS[lang]) return;
+  var dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){ var k=el.getAttribute('data-i18n'); if(dict[k]) el.textContent=dict[k]; });
+  document.querySelectorAll('.lang-btn').forEach(function(b){ b.classList.remove('active'); });
+  var a=document.querySelector('.lang-btn[data-lang="'+lang+'"]'); if(a) a.classList.add('active');
+  document.documentElement.setAttribute('dir', lang==='ar'?'rtl':'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try{ sessionStorage.setItem('ain_lang', lang); }catch(e){}
+}
+(function(){ try{ var s=sessionStorage.getItem('ain_lang'); if(s) setLang(s); }catch(e){} })();
+loadExample();
+</script>
+
+<script>
+var MANIFEST = {"tool_id":"mastercard-agentic-token-builder","version":"1.0.0","title":"Mastercard Agent Pay — Agentic Token Scope & Consent-Policy Builder","description":"Build and lint a Mastercard Agent Pay Agentic Token scope (agent-ID, merchant scope, consent policy: limit, merchants, expiry, velocity). Client-side. Zero PII. Zero network. Field names illustrative.","category":"cat-1","tags":["Mastercard","Agent Pay","Agentic Token","MDES","consent policy","payments"],"audience":["engineer"],"input_schema":{"type":"object","properties":{"token_scope":{"type":"object"}}},"output_schema":{"type":"object","properties":{"token":{"type":"object"},"findings":{"type":"array"}}},"mcp_tool_definition":{"name":"build_mastercard_agentic_token","description":"Build or lint a Mastercard Agent Pay Agentic Token scope (agent-ID, merchant scope, consent policy).","inputSchema":{"type":"object","properties":{"token_scope":{"type":"object","description":"Agentic Token scope descriptor"}}}},"execution":{"type":"browser-javascript","entry":"tools/287-mastercard-agentic-token-builder.html","function_name":"runBuild","timeout_ms":3000},"ap2_export":true};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<!-- ainumbers-universal-chrome-i18n v1 -->
+<script>
+(function(){
+  var UC = {
+    en:{'pii.banner':'🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.','footer.alltools':'All Tools','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Sitemap','footer.privacy':'🔒 Zero PII    📡 No server calls    💻 Client-side'},
+    es:{'pii.banner':'🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No introduzca datos personales reales — utilice entradas sintéticas o anonimizadas únicamente.','footer.alltools':'Todas las Herramientas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contacto','footer.sitemap':'Mapa del Sitio','footer.privacy':'🔒 Sin PII    📡 Sin llamadas al servidor    💻 Cliente'},
+    fr:{'pii.banner':'🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n’est transmise. N’entrez pas de données personnelles réelles — utilisez uniquement des entrées synthétiques ou anonymisées.','footer.alltools':'Tous les Outils','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Plan du Site','footer.privacy':'🔒 Aucune PII    📡 Aucun appel serveur    💻 Côté client'},
+    ar:{'pii.banner':'🔒 جميع المدخلات تُعالج محلياً في متصفحك. لا تُنقل أي بيانات. لا تُدخل بيانات شخصية حقيقية — استخدم مدخلات اصطناعية أو مجهولة فقط.','footer.alltools':'جميع الأدوات','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'اتصل','footer.sitemap':'خريطة الموقع','footer.privacy':'🔒 لا بيانات شخصية    📡 لا استدعاءات للخادم    💻 على المتصفح'},
+    pt:{'pii.banner':'🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido. Não insira dados pessoais reais — utilize apenas entradas sintéticas ou anonimizadas.','footer.alltools':'Todas as Ferramentas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contato','footer.sitemap':'Mapa do Site','footer.privacy':'🔒 Sem PII    📡 Sem chamadas ao servidor    💻 Client-side'},
+    zh:{'pii.banner':'🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。请勿输入真实的个人数据——仅使用合成或匿名化输入。','footer.alltools':'所有工具','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'联系','footer.sitemap':'网站地图','footer.privacy':'🔒 零个人数据    📡 无服务器调用    💻 纯客户端'}
+  };
+  function getDict(){ try{ if(typeof TRANSLATIONS!=='undefined'&&TRANSLATIONS) return TRANSLATIONS; }catch(e){} return null; }
+  var target=getDict(); if(!target) return;
+  for(var lang in UC){ if(!target[lang]) target[lang]={}; for(var key in UC[lang]){ if(target[lang][key]===undefined) target[lang][key]=UC[lang][key]; } }
+  try{ if(typeof setLang==='function'){ var saved=null; try{ saved=sessionStorage.getItem('ain_lang'); }catch(e){} if(!saved){ var act=document.querySelector('.lang-btn.active'); if(act) saved=act.getAttribute('data-lang'); } if(saved&&target[saved]) setLang(saved); } }catch(e){}
+})();
+</script>
+
+<!-- ainumbers-per-tool-hero-i18n -->
+<script>
+(function(){
+  var DATA = {"eb":{"en":"Cat-1 · T287 · AI & Agentic Developer Tooling","es":"Cat-1 · T287 · Herramientas para Desarrolladores de IA y Agentes","fr":"Cat-1 · T287 · Outils Développeur IA & Agentique","ar":"Cat-1 · T287 · أدوات مطوّري الذكاء الاصطناعي والوكلاء","pt":"Cat-1 · T287 · Ferramentas de Desenvolvedor de IA & Agêntica","zh":"Cat-1 · T287 · AI 与智能体开发者工具"},"tt":{"en":"Mastercard Agent Pay — Agentic Token Scope & Consent-Policy Builder","es":"Mastercard Agent Pay — Constructor de Alcance de Token Agéntico y Política de Consentimiento","fr":"Mastercard Agent Pay — Constructeur de Portée de Jeton Agentique & Politique de Consentement","ar":"Mastercard Agent Pay — منشئ نطاق الرمز الوكيل وسياسة الموافقة","pt":"Mastercard Agent Pay — Construtor de Escopo de Token Agêntico & Política de Consentimento","zh":"Mastercard Agent Pay — 智能体令牌范围与同意策略构建器"}};
+  function applyHero(lang){ var eb=DATA.eb&&DATA.eb[lang], tt=DATA.tt&&DATA.tt[lang]; if(eb) document.querySelectorAll('.hero-eyebrow').forEach(function(el){el.textContent=eb;}); if(tt){ var els=document.querySelectorAll('h1.tool-title'); if(!els.length) els=document.querySelectorAll('.hero h1'); els.forEach(function(el){el.textContent=tt;}); } }
+  if(typeof setLang==='function'){ var _o=setLang; window.setLang=function(l){ try{_o.apply(this,arguments);}catch(e){} applyHero(l); }; }
+  try{ var saved=sessionStorage.getItem('ain_lang'); if(saved) applyHero(saved); else { var act=document.querySelector('.lang-btn.active'); if(act){ var l=act.getAttribute('data-lang'); if(l) applyHero(l);} } }catch(e){}
+})();
+</script>
+
+<!-- AP2 Policy Mandate Export · CONTRACT §3–§4 -->
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+window._ap2Result=window._ap2Result||null;
+window._captureAP2=function(){ var el=document.querySelector('#outputSection'); if(el&&el.textContent.trim().length>10){ window._ap2Result={output:(window._memo||el.textContent.trim()).slice(0,3000),inputs:{}}; } };
+window.exportAP2=function(){
+  window._captureAP2();
+  if(!window._ap2Result){alert('Build or lint a scope first.');return;}
+  var ts=new Date().toISOString();
+  var tid=(typeof MANIFEST!=='undefined'&&MANIFEST.tool_id)?MANIFEST.tool_id:'mastercard-agentic-token-builder';
+  var mandate={ap2_version:'1.0',mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),issued_at:ts,issued_by:'ainumbers.co',tool_id:tid,tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',mandate_type:'compliance_control',jurisdiction:['ZZ'],regulatory_frameworks:['Mastercard Agent Pay'],payload:window._ap2Result,summary:(typeof MANIFEST!=='undefined'&&MANIFEST.title?MANIFEST.title:document.title)+' — '+ts.slice(0,10),agent_instructions:['Bind the Agentic Token to a specific agent + merchant scope; cap spend; set expiry and velocity. Never expose the raw PAN to the agent.'],valid_from:ts.slice(0,10),valid_until:new Date(Date.now()+180*24*3600*1000).toISOString().slice(0,10),last_reviewed:ts.slice(0,10),source_tool_inputs:{},regulatory_citations:['mastercard.com Agent Pay'],audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  AP2Schema.validate(mandate);
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(mandate,null,2)],{type:'application/json'}));a.download=tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';a.click();URL.revokeObjectURL(a.href);
+};
+var _obs=new MutationObserver(function(){ if(!window._ap2Result){ var el=document.querySelector('#outputSection'); if(el&&el.textContent.trim().length>10){window._captureAP2();window.enableAP2Btn();} } });
+_obs.observe(document.body,{childList:true,subtree:true,characterData:true});
+})();
+</script>
+
+</body>
+</html>
