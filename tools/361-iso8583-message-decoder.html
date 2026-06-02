@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>ISO 8583 Message Decoder · AINumbers.co</title>
+<meta name="description" content="Decode ISO 8583 financial transaction messages. Parse MTI, bitmaps, and all data elements DE 1–128. Full DE 39 response code lookup. Client-side, no data transmitted.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/361-iso8583-message-decoder.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"ISO 8583 Message Decoder","url":"https://ainumbers.co/tools/361-iso8583-message-decoder.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "iso8583-message-decoder",
+  "version": "1.0.0",
+  "title": "ISO 8583 Message Decoder",
+  "description": "Decode ISO 8583 financial transaction messages: MTI, primary/secondary bitmaps, DE 1–128 field values, and DE 39 response codes.",
+  "category": "cat-8",
+  "tags": ["iso 8583","message decoder","bitmap","de39","response code","card payment","mti","export"],
+  "mcp_tool_definition": {"name":"decode_iso8583_message","description":"Decode an ISO 8583 financial transaction message, returning MTI, bitmap, all present data elements, and DE 39 response code interpretation.","inputSchema":{"type":"object","properties":{"hex_message":{"type":"string","description":"Raw ISO 8583 message as hex string"}},"required":["hex_message"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/361-iso8583-message-decoder.html","function_name":"runDecode","timeout_ms":3000},
+  "ap2_export": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--gold-lt:#E8C06A;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px;--accent:var(--gold);--accent-dim:var(--gold-dim)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:var(--teal);text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1020px;margin:0 auto;padding:0 1.5rem}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0}
+.lang-inner{max-width:1020px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--accent);color:var(--accent)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.95);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1020px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}.nav-sep{color:var(--border-2)}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;transition:all .2s}
+.nav-pill:hover{border-color:var(--accent);color:var(--accent)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--accent)}
+.hero h1{font-size:clamp(1.5rem,2.8vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--gold-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{padding:2rem 0 4rem}
+.tabs{display:flex;gap:.5rem;margin-bottom:1.25rem;border-bottom:1px solid var(--border);padding-bottom:0}
+.tab-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;border:1px solid transparent;border-bottom:none;background:transparent;color:var(--muted);border-radius:var(--radius) var(--radius) 0 0;transition:all .2s;cursor:pointer;margin-bottom:-1px}
+.tab-btn.active{background:var(--bg-2);border-color:var(--border);border-bottom-color:var(--bg-2);color:var(--accent)}
+.tab-pane{display:none}.tab-pane.active{display:block}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.25rem}
+.panel-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;gap:.75rem}
+.panel-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);border:1px solid rgba(212,168,71,.3);padding:.18rem .55rem;border-radius:3px}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
+.panel-body{padding:1.25rem}
+.panel-row{margin-bottom:1rem}
+.panel-row label{display:block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.panel-row input,.panel-row select,.panel-row textarea{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none;transition:border-color .2s}
+.panel-row input:focus,.panel-row select:focus,.panel-row textarea:focus{border-color:var(--accent)}
+.panel-row textarea{resize:vertical;min-height:80px;line-height:1.6}
+.field-hint{font-size:.62rem;color:var(--muted);margin-top:.25rem;line-height:1.5}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+@media(max-width:640px){.grid-2{grid-template-columns:1fr}}
+.run-btn{background:var(--accent);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.5rem}
+.run-btn:hover{background:var(--gold-lt)}
+.results-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-top:1.25rem;display:none}
+.results-panel.show{display:block}
+.results-header{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem}
+.results-body{padding:1.25rem;display:flex;flex-direction:column;gap:1.25rem}
+.result-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white)}
+.section-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:.6rem}
+.mti-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-bottom:1rem}
+@media(max-width:600px){.mti-grid{grid-template-columns:repeat(2,1fr)}}
+.mti-box{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem}
+.mti-digit{font-family:'JetBrains Mono',monospace;font-size:1.5rem;color:var(--accent);font-weight:400;line-height:1}
+.mti-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:.25rem}
+.mti-val{font-size:.72rem;color:var(--bright);margin-top:.15rem;font-weight:500}
+.bitmap-row{font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.05em;color:var(--body);background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .85rem;margin-bottom:.5rem;word-break:break-all;line-height:1.8}
+.bitmap-row span.active{color:var(--green);font-weight:600}
+.bitmap-row span.inactive{color:var(--muted)}
+.de-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.de-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .65rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.de-table td{padding:.5rem .65rem;border-bottom:1px solid var(--border);color:var(--body);vertical-align:top}
+.de-table tr:last-child td{border-bottom:none}
+.de-table tr:hover td{background:var(--bg-3)}
+.de-num{font-family:'JetBrains Mono',monospace;color:var(--accent);font-weight:500;white-space:nowrap}
+.de-name{color:var(--bright);font-weight:500}
+.de-val{font-family:'JetBrains Mono',monospace;color:var(--teal-lt);word-break:break-all}
+.de-fmt{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted)}
+.de39-box{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-top:1rem}
+.de39-code{font-family:'JetBrains Mono',monospace;font-size:2rem;color:var(--accent);font-weight:400;line-height:1}
+.de39-name{font-size:1rem;color:var(--white);font-family:'DM Serif Display',serif;margin:.4rem 0}
+.de39-desc{font-size:.75rem;color:var(--body);line-height:1.6;margin-bottom:.5rem}
+.de39-action{font-size:.7rem;font-family:'JetBrains Mono',monospace;color:var(--teal);background:var(--teal-dim);border:1px solid rgba(20,184,166,.2);border-radius:var(--radius);padding:.35rem .7rem;display:inline-block;margin-top:.35rem}
+.de39-ok{color:var(--green)}.de39-warn{color:var(--warn)}.de39-bad{color:var(--red)}
+/* DE 39 lookup tab */
+.de39-search{display:flex;gap:.5rem;margin-bottom:1rem}
+.de39-search input{flex:1;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none}
+.de39-search input:focus{border-color:var(--accent)}
+.de39-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.65rem}
+.de39-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem}
+.de39-card-code{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;margin-bottom:.2rem}
+.de39-card-name{font-size:.75rem;color:var(--bright);margin-bottom:.25rem;font-weight:500}
+.de39-card-desc{font-size:.65rem;color:var(--body);line-height:1.5}
+.de39-card-action{font-size:.6rem;font-family:'JetBrains Mono',monospace;color:var(--teal);margin-top:.3rem}
+.de39-ok-card .de39-card-code{color:var(--green)}.de39-warn-card .de39-card-code{color:var(--warn)}.de39-bad-card .de39-card-code{color:var(--red)}
+/* Export row */
+.results-export-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;background:var(--bg-3);border:1px solid var(--border);border-top:2px solid var(--accent);border-radius:var(--radius);padding:.75rem 1rem;margin-top:.5rem}
+.export-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.export-btn{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:var(--bg);border:none;padding:.38rem 1rem;border-radius:var(--radius);font-weight:600;cursor:pointer;transition:background .2s}
+.export-btn:disabled{opacity:.3;cursor:not-allowed;background:var(--muted)}
+.export-btn:not(:disabled):hover{background:var(--gold-lt)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem 1.1rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--bright);z-index:9999;transform:translateY(100px);opacity:0;transition:all .3s;pointer-events:none}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.ok{border-left:3px solid var(--green);color:var(--green)}.toast.err{border-left:3px solid var(--red);color:var(--red)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer;margin-top:1.5rem}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.source-notes{background:var(--bg-2);border-top:1px solid var(--border);padding:1.5rem 0;margin-top:2rem;font-size:.7rem;color:var(--body)}
+.source-notes h3{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:.75rem}
+.cite-list{display:flex;flex-direction:column;gap:.4rem}
+.cite{display:flex;gap:.5rem}
+.cite-num{font-family:'JetBrains Mono',monospace;color:var(--accent);flex-shrink:0;width:20px}
+.cite-text{color:var(--muted);line-height:1.6}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links a,.footer-copy{color:var(--muted)}
+.footer-copy{font-family:'JetBrains Mono',monospace;font-size:.5rem}
+.err-msg{background:var(--red-dim);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);padding:.65rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--red);margin-top:.75rem}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a class="logo" href="../index.html"><span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span></a>
+  <div class="nav-trail"><a href="../index.html">Home</a><span class="nav-sep">›</span><a href="../index.html#cat-8">Reference & Decoder</a><span class="nav-sep">›</span><span>ISO 8583 Decoder</span></div>
+  <a class="nav-pill" href="../index.html#cat-8">Reference Tools</a>
+</div></nav>
+
+<div class="container"><div class="hero">
+  <div class="hero-eyebrow">ISO 8583 · Card Payments · Message Decoder · DE 39</div>
+  <h1>ISO 8583 <em>Message Decoder</em></h1>
+  <p class="hero-desc">Paste a raw ISO 8583 hex message or enter fields manually. Decodes the MTI, primary and secondary bitmaps, all present data elements DE 1–128, and provides the full DE 39 response code lookup. All schema data is embedded — no external calls.</p>
+  <div class="hero-meta">
+    <span class="badge badge-gold">ISO 8583</span>
+    <span class="badge badge-teal">Client-Side</span>
+    <span class="badge badge-muted">Zero PII</span>
+    <span class="badge badge-green">Export JSON</span>
+  </div>
+</div></div>
+
+<div class="container"><div class="tool-body">
+  <p class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('decode')">Message Decoder</button>
+    <button class="tab-btn" onclick="switchTab('lookup')">DE 39 Code Lookup</button>
+    <button class="tab-btn" onclick="switchTab('de-ref')">DE Field Reference</button>
+  </div>
+
+  <!-- TAB: DECODE -->
+  <div class="tab-pane active" id="tab-decode">
+    <div class="panel">
+      <div class="panel-header"><span class="panel-num">Input</span><span class="panel-label">ISO 8583 Message</span></div>
+      <div class="panel-body">
+        <div class="panel-row">
+          <label>Raw message (hex string)</label>
+          <textarea id="hexInput" placeholder="e.g. 01007000000000000000163412345678901234560610123456000000010000 ..."></textarea>
+          <div class="field-hint">Paste the full ISO 8583 message as a continuous hex string. Spaces are ignored. The tool auto-detects primary and secondary bitmaps.</div>
+        </div>
+        <div class="grid-2">
+          <div class="panel-row">
+            <label>Encoding</label>
+            <select id="encoding">
+              <option value="hex">Hex (binary-to-hex encoded)</option>
+              <option value="ascii">ASCII / EBCDIC numeric</option>
+            </select>
+          </div>
+          <div class="panel-row">
+            <label>Header bytes to skip (0–4)</label>
+            <select id="headerSkip">
+              <option value="0">0 (no header)</option>
+              <option value="2">2 bytes (ISO length)</option>
+              <option value="4">4 bytes (TPDU header)</option>
+            </select>
+          </div>
+        </div>
+        <button class="run-btn" onclick="runDecode()">Decode Message →</button>
+        <div id="decodeErr" class="err-msg" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="results-panel" id="resultsPanel">
+      <div class="results-header">
+        <div class="result-title" id="mtiTitle">—</div>
+      </div>
+      <div class="results-body">
+        <div>
+          <div class="section-label">Message Type Indicator (MTI)</div>
+          <div class="mti-grid" id="mtiGrid"></div>
+        </div>
+        <div>
+          <div class="section-label">Bitmaps</div>
+          <div id="bitmapDisplay"></div>
+        </div>
+        <div id="de39Section" style="display:none">
+          <div class="section-label">DE 39 — Response Code</div>
+          <div id="de39Box"></div>
+        </div>
+        <div>
+          <div class="section-label">Data Elements Present</div>
+          <div style="overflow-x:auto">
+          <table class="de-table">
+            <thead><tr><th>DE#</th><th>Field Name</th><th>Format</th><th>Value</th></tr></thead>
+            <tbody id="deRows"></tbody>
+          </table>
+          </div>
+        </div>
+        <div class="results-export-row">
+          <span class="export-label">Decoded Fields · JSON Export · CC BY 4.0 · Post Oak Labs</span>
+          <button class="export-btn" id="exportBtn" disabled onclick="exportJSON()">⬇ Export Decoded JSON</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: DE 39 LOOKUP -->
+  <div class="tab-pane" id="tab-lookup">
+    <div class="panel">
+      <div class="panel-header"><span class="panel-num">DE 39</span><span class="panel-label">Response Code Library</span></div>
+      <div class="panel-body">
+        <div class="de39-search">
+          <input type="text" id="de39SearchInput" placeholder="Search by code or description (e.g. 51, declined, insufficient)…" oninput="filterDE39()">
+        </div>
+        <div class="de39-cards" id="de39Cards"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: DE FIELD REFERENCE -->
+  <div class="tab-pane" id="tab-de-ref">
+    <div class="panel">
+      <div class="panel-header"><span class="panel-num">DE 1–128</span><span class="panel-label">ISO 8583 Field Reference</span></div>
+      <div class="panel-body">
+        <div style="overflow-x:auto">
+        <table class="de-table">
+          <thead><tr><th>DE#</th><th>Field Name</th><th>Type</th><th>Length</th><th>Description</th></tr></thead>
+          <tbody id="deRefRows"></tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block'">
+    <span>📦 manifest.json · MCP tool definition</span><span style="color:var(--muted)">▼</span>
+  </button>
+  <div class="mfst-body"><div class="mfst-code" id="mfstCode"></div></div>
+</div></div>
+
+<div class="source-notes"><div class="container">
+  <h3>Regulatory &amp; Standards Citations</h3>
+  <div class="cite-list">
+    <div class="cite"><span class="cite-num">[1]</span><span class="cite-text">ISO 8583:2003 — Financial transaction card originated messages: Interchange message specifications. Defines MTI structure, primary/secondary bitmap encoding, and the canonical DE 1–128 field catalogue.</span></div>
+    <div class="cite"><span class="cite-num">[2]</span><span class="cite-text">ISO 8583-1:1987 / -2:1993 — Earlier editions; many acquirer hosts still run 1987 or 1993 variants. MTI first digit encodes the edition version (0=1987, 1=1993, 2=2003).</span></div>
+    <div class="cite"><span class="cite-num">[3]</span><span class="cite-text">Visa / Mastercard / AMEX Base Specifications — Scheme-level extensions define additional sub-field formats within DE 48 (Additional Data, Private) and DE 55 (ICC/EMV Data). Private extensions are not decoded here.</span></div>
+    <div class="cite"><span class="cite-num">[4]</span><span class="cite-text">EMVCo Specifications — DE 55 carries chip/ICC data encoded per EMV tag-length-value (TLV). Full EMV tag parsing is outside the scope of this tool.</span></div>
+  </div>
+</div></div>
+
+<footer><div class="footer-inner">
+  <a href="../index.html" style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--muted)">← Back to AINumbers.co</a>
+  <div class="footer-links"><a href="../index.html">All Tools</a><a href="../guides/reference-hub.html">Reference Hub</a></div>
+  <div class="footer-copy">CC BY 4.0 · Post Oak Labs · ainumbers.co</div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ─── TRANSLATIONS ─────────────────────────────────────────── */
+const TRANSLATIONS={
+  en:{tab_decode:'Message Decoder',tab_lookup:'DE 39 Code Lookup',tab_ref:'DE Field Reference',run:'Decode Message →',export:'⬇ Export Decoded JSON',pii:'🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.'},
+  es:{tab_decode:'Decodificador',tab_lookup:'Códigos DE 39',tab_ref:'Referencia DE',run:'Decodificar →',export:'⬇ Exportar JSON',pii:'🔒 Todos los datos se procesan localmente. No se transmite ningún dato.'},
+  fr:{tab_decode:'Décodeur',tab_lookup:'Codes DE 39',tab_ref:'Référence DE',run:'Décoder →',export:'⬇ Exporter JSON',pii:'🔒 Toutes les entrées sont traitées localement. Aucune donnée n\'est transmise.'},
+  ar:{tab_decode:'فك الترميز',tab_lookup:'رموز DE 39',tab_ref:'مرجع DE',run:'فك الترميز →',export:'⬇ تصدير JSON',pii:'🔒 تتم معالجة جميع البيانات محليًا. لا يتم إرسال أي بيانات.',lang_dir:'rtl'},
+  pt:{tab_decode:'Decodificador',tab_lookup:'Códigos DE 39',tab_ref:'Referência DE',run:'Decodificar →',export:'⬇ Exportar JSON',pii:'🔒 Todas as entradas são processadas localmente. Nenhum dado é transmitido.'},
+  zh:{tab_decode:'消息解码',tab_lookup:'DE 39代码查询',tab_ref:'DE字段参考',run:'解码 →',export:'⬇ 导出JSON',pii:'🔒 所有输入均在本地处理，不传输任何数据。'}
+};
+function setLang(l){
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+  var btn=document.querySelector('.lang-btn[onclick="setLang(\''+l+'\')"]');
+  if(btn)btn.classList.add('active');
+  document.documentElement.setAttribute('dir',(TRANSLATIONS[l]&&TRANSLATIONS[l].lang_dir)?'rtl':'ltr');
+  try{sessionStorage.setItem('ain_lang',l);}catch(e){}
+}
+(function(){try{var l=sessionStorage.getItem('ain_lang');if(l&&TRANSLATIONS[l])setLang(l);}catch(e){}})();
+
+/* ─── DE SCHEMA ────────────────────────────────────────────── */
+// format: [number, name, type, length_desc, fixed_len/-1 for LLVAR/-2 for LLLVAR, description]
+const DE_SCHEMA=[
+  [1,'Secondary Bitmap','b','8 bytes',16,'Present if bit 1 of primary bitmap is set; enables DE 65–128.'],
+  [2,'Primary Account Number (PAN)','n LLVAR','..19',[-1,19],'Cardholder account number; variable length up to 19 digits, preceded by 2-digit length indicator.'],
+  [3,'Processing Code','n','6',6,'6-digit code: positions 1–2 = transaction type, 3–4 = from account, 5–6 = to account.'],
+  [4,'Amount, Transaction','n','12',12,'Transaction amount in minor currency units (e.g. cents). Right-aligned, zero-padded.'],
+  [5,'Amount, Settlement','n','12',12,'Settlement amount in minor currency units.'],
+  [6,'Amount, Cardholder Billing','n','12',12,'Amount in cardholder billing currency.'],
+  [7,'Transmission Date & Time','n','10',10,'Format MMDDhhmmss (UTC). Used for duplicate detection.'],
+  [8,'Amount, Cardholder Billing Fee','n','8',8,'Fee amount in cardholder billing currency.'],
+  [9,'Conversion Rate, Settlement','n','8',8,'Settlement conversion rate × 10^6.'],
+  [10,'Conversion Rate, Cardholder Billing','n','8',8,'Billing conversion rate × 10^6.'],
+  [11,'Systems Trace Audit Number (STAN)','n','6',6,'Unique 6-digit sequence number assigned by the originator for each transaction.'],
+  [12,'Local Transaction Time','n','6',6,'Format hhmmss, local time at point of service.'],
+  [13,'Local Transaction Date','n','4',4,'Format MMDD, local date at point of service.'],
+  [14,'Expiration Date','n','4',4,'Format YYMM. Card expiry date.'],
+  [15,'Settlement Date','n','4',4,'Format MMDD. Date funds will be settled.'],
+  [16,'Currency Conversion Date','n','4',4,'Format MMDD. Date of currency conversion.'],
+  [17,'Capture Date','n','4',4,'Format MMDD. Date transaction was captured.'],
+  [18,'Merchant Category Code (MCC)','n','4',4,'ISO 18245 merchant category code.'],
+  [19,'Acquiring Institution Country Code','n','3',3,'ISO 3166-1 numeric country code.'],
+  [20,'Primary Account Number Country Code','n','3',3,'ISO 3166-1 numeric country code for PAN.'],
+  [21,'Forwarding Institution Country Code','n','3',3,'ISO 3166-1 numeric country code.'],
+  [22,'Point of Service Entry Mode','n','3',3,'Digits 1–2 = PAN entry mode (01=manual, 02=mag stripe, 05=EMV chip, 07=contactless, 90=mag fallback). Digit 3 = PIN entry mode.'],
+  [23,'Card Sequence Number','n','3',3,'Distinguishes multiple cards with the same PAN.'],
+  [24,'Network International Identifier (NII)','n','3',3,'Also called Function Code in some implementations. Identifies the routing network.'],
+  [25,'Point of Service Condition Code','n','2',2,'Operating conditions at POS (e.g. 00=normal, 59=recurring, 71=card not present).'],
+  [26,'Point of Service Capture Code','n','2',2,'Capture capability at POS terminal.'],
+  [27,'Authorising ID Response Length','n','1',1,'Length of the authorisation identification response field.'],
+  [28,'Amount, Transaction Fee','x+n','8',8,'Prefix: C (credit) or D (debit), followed by 7-digit amount.'],
+  [29,'Amount, Settlement Fee','x+n','8',8,'Prefix: C or D, followed by 7-digit settlement fee.'],
+  [30,'Amount, Transaction Processing Fee','x+n','8',8,'Prefix: C or D, followed by 7-digit processing fee.'],
+  [31,'Amount, Settlement Processing Fee','x+n','8',8,'Prefix: C or D, followed by 7-digit settlement processing fee.'],
+  [32,'Acquiring Institution ID Code','n LLVAR','..11',[-1,11],'BIN/IIN of the acquiring institution.'],
+  [33,'Forwarding Institution ID Code','n LLVAR','..11',[-1,11],'BIN/IIN of the forwarding institution.'],
+  [34,'Primary Account Number, Extended','n LLVAR','..28',[-1,28],'Extended PAN if longer than 19 digits.'],
+  [35,'Track 2 Data','z LLVAR','..37',[-1,37],'Magnetic stripe track 2 data. Contains PAN, expiry, service code.'],
+  [36,'Track 3 Data','z LLLVAR','..104',[-2,104],'Magnetic stripe track 3 data.'],
+  [37,'Retrieval Reference Number','an','12',12,'Assigned by acquirer for transaction retrieval. Unique per transaction per day.'],
+  [38,'Authorisation ID Response','an','6',6,'Authorisation approval code returned by issuer. Present on approvals.'],
+  [39,'Response Code','an','2',2,'Two-character code indicating transaction result. 00=Approved. See DE 39 reference tab.'],
+  [40,'Service Restriction Code','n','3',3,'Indicates service restrictions for the card.'],
+  [41,'Card Acceptor Terminal ID','ans','8',8,'Unique 8-character terminal identifier assigned by acquirer.'],
+  [42,'Card Acceptor ID Code','ans','15',15,'Merchant identifier assigned by acquirer. Used in settlement.'],
+  [43,'Card Acceptor Name/Location','ans','40',40,'Merchant name and location (format: name···city·ST·country).'],
+  [44,'Additional Response Data','an LLVAR','..25',[-1,25],'Additional reason code or data returned with response.'],
+  [45,'Track 1 Data','ans LLVAR','..76',[-1,76],'Magnetic stripe track 1 data. Contains PAN, name, expiry.'],
+  [46,'Additional Data, ISO','ans LLLVAR','...999',[-2,999],'ISO-defined additional data.'],
+  [47,'Additional Data, National','ans LLLVAR','...999',[-2,999],'Nationally-defined additional data.'],
+  [48,'Additional Data, Private','ans LLLVAR','...999',[-2,999],'Privately-defined additional data (scheme-specific sub-fields).'],
+  [49,'Currency Code, Transaction','n','3',3,'ISO 4217 numeric currency code for transaction amount.'],
+  [50,'Currency Code, Settlement','n','3',3,'ISO 4217 numeric currency code for settlement amount.'],
+  [51,'Currency Code, Cardholder Billing','n','3',3,'ISO 4217 numeric currency code for billing amount.'],
+  [52,'PIN Data','b','8 bytes',16,'Encrypted PIN block. 64 bits.'],
+  [53,'Security Related Control Information','n','16',16,'Security control data including PIN block format.'],
+  [54,'Additional Amounts','an LLLVAR','...120',[-2,120],'Additional amounts (balance, pre-authorised amount, etc.).'],
+  [55,'ICC / EMV Data','b LLLVAR','...999',[-2,999],'EMV chip data in TLV format. Contains cryptogram, terminal data, etc.'],
+  [56,'Original Data Elements','n LLLVAR','...35',[-2,35],'Original MTI, STAN, date/time, and institution IDs for reversals/chargebacks.'],
+  [57,'Authorisation Life Cycle Code','n','3',3,'Used in pre-authorisation flows.'],
+  [58,'Authorising Agent Institution ID','n LLLVAR','...11',[-2,11],'ID of the authorising agent institution.'],
+  [59,'Transport Data','ans LLLVAR','...999',[-2,999],'Transport-layer data.'],
+  [60,'Reserved National','ans LLLVAR','...999',[-2,999],'Nationally reserved field.'],
+  [61,'Reserved National','ans LLLVAR','...999',[-2,999],'Nationally reserved field.'],
+  [62,'Reserved Private','ans LLLVAR','...999',[-2,999],'Privately reserved field.'],
+  [63,'Reserved Private','ans LLLVAR','...999',[-2,999],'Privately reserved field.'],
+  [64,'Message Authentication Code (MAC)','b','8 bytes',16,'Message authentication code for integrity verification. Final field of primary bitmap.'],
+  [65,'Bitmap Extender','b','1',2,'Presence of tertiary bitmap (rarely used).'],
+  [66,'Settlement Code','n','1',1,'Settlement type indicator.'],
+  [67,'Extended Payment Code','n','2',2,'Number of instalments.'],
+  [68,'Receiving Institution Country Code','n','3',3,'ISO 3166-1 numeric.'],
+  [69,'Settlement Institution Country Code','n','3',3,'ISO 3166-1 numeric.'],
+  [70,'Network Management Information Code','n','3',3,'Used in network management messages (DE 70: 001=sign-on, 002=sign-off, 301=echo test).'],
+  [71,'Message Number','n','4',4,'Sequential message number within a session.'],
+  [72,'Last Messages Number','n','4',4,'Last message number of the previous day.'],
+  [73,'Action Date','n','6',6,'Format YYMMDD. Date of action.'],
+  [74,'Credits, Number','n','10',10,'Number of credit transactions.'],
+  [75,'Credits Reversal Number','n','10',10,'Number of credit reversal transactions.'],
+  [76,'Debits, Number','n','10',10,'Number of debit transactions.'],
+  [77,'Debits Reversal Number','n','10',10,'Number of debit reversal transactions.'],
+  [78,'Transfer, Number','n','10',10,'Number of transfer transactions.'],
+  [79,'Transfer Reversal Number','n','10',10,'Number of transfer reversals.'],
+  [80,'Inquiries, Number','n','10',10,'Number of inquiry transactions.'],
+  [81,'Authorisations, Number','n','10',10,'Number of authorisation transactions.'],
+  [82,'Credits, Processing Fee Amount','n','12',12,'Fee for credit transactions.'],
+  [83,'Credits Transaction Fee Amount','n','12',12,'Transaction fee for credits.'],
+  [84,'Debits, Processing Fee Amount','n','12',12,'Fee for debit transactions.'],
+  [85,'Debits Transaction Fee Amount','n','12',12,'Transaction fee for debits.'],
+  [86,'Credits, Amount','n','16',16,'Total credit amount.'],
+  [87,'Credits Reversal Amount','n','16',16,'Total credit reversal amount.'],
+  [88,'Debits, Amount','n','16',16,'Total debit amount.'],
+  [89,'Debits Reversal Amount','n','16',16,'Total debit reversal amount.'],
+  [90,'Original Data Elements','n','42',42,'Original message reference data for reversals.'],
+  [91,'File Update Code','an','1',1,'Type of file update action.'],
+  [92,'File Security Code','n','2',2,'Security code for file action messages.'],
+  [93,'Response Indicator','n','5',5,'Indicator for partial or full approval response.'],
+  [94,'Service Indicator','ans','7',7,'Indicates the level of service.'],
+  [95,'Replacement Amounts','n','42',42,'Amounts to replace in adjustments.'],
+  [96,'Message Security Code','b','8 bytes',16,'Security code for the message.'],
+  [97,'Net Settlement Amount','x+n','17',17,'Prefix C or D + 16-digit net settlement amount.'],
+  [98,'Payee','ans','25',25,'Payee name.'],
+  [99,'Settlement Institution ID Code','n LLLVAR','...11',[-2,11],'ID of settlement institution.'],
+  [100,'Receiving Institution ID Code','n LLLVAR','...11',[-2,11],'ID of receiving institution.'],
+  [101,'File Name','ans LLVAR','...17',[-1,17],'File name for file action messages.'],
+  [102,'Account Identification 1','ans LLVAR','...28',[-1,28],'Account 1 identifier (e.g. from account).'],
+  [103,'Account Identification 2','ans LLVAR','...28',[-1,28],'Account 2 identifier (e.g. to account).'],
+  [104,'Transaction Description','ans LLLVAR','...100',[-2,100],'Free-text transaction description.'],
+  [105,'Reserved ISO','ans LLLVAR','...999',[-2,999],'Reserved for ISO use.'],
+  [106,'Reserved ISO','ans LLLVAR','...999',[-2,999],'Reserved for ISO use.'],
+  [107,'Reserved ISO','ans LLLVAR','...999',[-2,999],'Reserved for ISO use.'],
+  [108,'Reserved ISO','ans LLLVAR','...999',[-2,999],'Reserved for ISO use.'],
+  [109,'Reserved ISO','ans LLLVAR','...999',[-2,999],'Reserved for ISO use.'],
+  [110,'Reserved ISO','ans LLLVAR','...999',[-2,999],'Reserved for ISO use.'],
+  [111,'Reserved ISO','ans LLLVAR','...999',[-2,999],'Reserved for ISO use.'],
+  [112,'Reserved National','ans LLLVAR','...999',[-2,999],'Nationally reserved.'],
+  [113,'Reserved National','ans LLLVAR','...999',[-2,999],'Nationally reserved.'],
+  [114,'Reserved National','ans LLLVAR','...999',[-2,999],'Nationally reserved.'],
+  [115,'Reserved National','ans LLLVAR','...999',[-2,999],'Nationally reserved.'],
+  [116,'Reserved National','ans LLLVAR','...999',[-2,999],'Nationally reserved.'],
+  [117,'Reserved National','ans LLLVAR','...999',[-2,999],'Nationally reserved.'],
+  [118,'Reserved National','ans LLLVAR','...999',[-2,999],'Nationally reserved.'],
+  [119,'Reserved National','ans LLLVAR','...999',[-2,999],'Nationally reserved.'],
+  [120,'Reserved Private','ans LLLVAR','...999',[-2,999],'Privately reserved.'],
+  [121,'Reserved Private','ans LLLVAR','...999',[-2,999],'Privately reserved.'],
+  [122,'Reserved Private','ans LLLVAR','...999',[-2,999],'Privately reserved.'],
+  [123,'Reserved Private','ans LLLVAR','...999',[-2,999],'Privately reserved.'],
+  [124,'Reserved Private','ans LLLVAR','...999',[-2,999],'Privately reserved.'],
+  [125,'Reserved Private','ans LLLVAR','...999',[-2,999],'Privately reserved.'],
+  [126,'Reserved Private','ans LLLVAR','...999',[-2,999],'Privately reserved.'],
+  [127,'Reserved Private','ans LLLVAR','...999',[-2,999],'Privately reserved.'],
+  [128,'Secondary Message Authentication Code','b','8 bytes',16,'MAC for secondary bitmap block.']
+];
+
+/* ─── DE 39 RESPONSE CODES ──────────────────────────────────── */
+// [code, name, description, action, severity: ok/warn/bad]
+const DE39=[
+  ['00','Approved','Transaction approved by the issuer.','Accept and complete the transaction.','ok'],
+  ['01','Refer to Card Issuer','Issuer requests the merchant call for voice authorisation.','Call the card issuer's voice authorisation number.','warn'],
+  ['02','Refer to Card Issuer, Special Condition','Issuer requests call under special conditions.','Call the card issuer's special authorisation line.','warn'],
+  ['03','Invalid Merchant','Merchant number is not valid or not configured for this transaction type.','Check merchant ID and MCC configuration with acquirer.','bad'],
+  ['04','Pick Up Card','The card has been reported lost or stolen; issuer requests card recovery.','Retain the card if safe to do so; do not complete transaction.','bad'],
+  ['05','Do Not Honour','The issuer has declined without providing a reason.','Do not attempt retry; advise cardholder to contact issuer.','bad'],
+  ['06','Error','Issuer returned a general error.','Retry once; if persistent, contact acquirer.','warn'],
+  ['07','Pick Up Card, Special Condition','Card to be retained under special (fraud) circumstances.','Retain card; contact issuer for instructions.','bad'],
+  ['08','Honour With Identification','Approve but request photo ID from cardholder.','Request photo ID and complete if valid.','warn'],
+  ['09','Request in Progress','Previous request still being processed.','Wait and retry; do not duplicate.','warn'],
+  ['10','Partial Approval','Only a partial amount has been approved.','Accept partial amount or ask cardholder for alternate payment for the remainder.','warn'],
+  ['11','VIP Approval','Approved via VIP path.','Complete transaction.','ok'],
+  ['12','Invalid Transaction','Transaction type not supported for this card/merchant combination.','Verify transaction type; check scheme rules.','bad'],
+  ['13','Invalid Amount','Amount is zero, negative, or exceeds maximum.','Verify amount and resubmit.','bad'],
+  ['14','Invalid Card Number','PAN is not a valid card number (Luhn check failure or unknown BIN).','Ask cardholder to re-enter card number.','bad'],
+  ['15','No Such Issuer','BIN/IIN prefix does not match any known issuer.','Verify card number; contact acquirer if BIN should be routed.','bad'],
+  ['19','Re-enter Transaction','Issuer unable to process; requests retry.','Re-enter transaction data and resubmit.','warn'],
+  ['20','Invalid Response','Response from issuer is invalid or unintelligible.','Contact acquirer/switch for investigation.','warn'],
+  ['21','No Action Taken','Issuer received the request but took no action.','Do not retry; contact issuer.','warn'],
+  ['22','Suspected Malfunction','Terminal or card reader malfunction suspected.','Check terminal hardware; retry with different card if possible.','warn'],
+  ['25','Unable to Locate Record','Issuer cannot find the card record.','Verify card number; advise cardholder to contact issuer.','bad'],
+  ['28','File Temporarily Unavailable','Issuer file system temporarily unavailable.','Retry after a short interval.','warn'],
+  ['30','Format Error','Message format does not comply with specification.','Check message format; review DE encoding.','bad'],
+  ['38','Allowable PIN Tries Exceeded','Card locked due to excessive PIN failures.','Advise cardholder to contact issuer to unlock card.','bad'],
+  ['39','No Credit Account','No credit account associated with this card.','Use debit or alternative payment method.','bad'],
+  ['40','Requested Function Not Supported','The requested function (e.g. cash advance) is not supported for this card.','Advise cardholder to use alternative.','bad'],
+  ['41','Lost Card','Card reported lost.','Retain if safe; do not complete transaction.','bad'],
+  ['43','Stolen Card','Card reported stolen.','Retain if safe; do not complete transaction.','bad'],
+  ['51','Insufficient Funds','Cardholder's account has insufficient funds.','Advise cardholder to use alternative payment method.','bad'],
+  ['52','No Checking Account','No checking account linked to this card.','Use savings account or alternative.','bad'],
+  ['53','No Savings Account','No savings account linked to this card.','Use checking account or alternative.','bad'],
+  ['54','Expired Card','Card has passed its expiration date.','Ask cardholder to use a valid card.','bad'],
+  ['55','Incorrect PIN','PIN entered does not match card.','Ask cardholder to re-enter PIN; note allowable tries remaining.','bad'],
+  ['56','No Card Record','Card not found in issuer database.','Verify card number; advise cardholder to contact issuer.','bad'],
+  ['57','Transaction Not Permitted to Cardholder','Transaction type not permitted for this account/card.','Advise cardholder to contact issuer for account permissions.','bad'],
+  ['58','Transaction Not Permitted to Terminal','Transaction type not permitted at this terminal.','Verify terminal configuration with acquirer.','bad'],
+  ['59','Suspected Fraud','Issuer has flagged transaction as potentially fraudulent.','Do not complete; report to acquirer.','bad'],
+  ['60','Card Acceptor Contact Acquirer','Acquirer-specific instruction; contact acquirer.','Contact acquirer for guidance.','warn'],
+  ['61','Exceeds Withdrawal Amount Limit','Transaction exceeds single-transaction limit.','Advise cardholder of limit; suggest split transaction if permitted.','bad'],
+  ['62','Restricted Card','Card is restricted for certain transaction types or geographies.','Advise cardholder to contact issuer.','bad'],
+  ['63','Security Violation','Security constraint violated.','Investigate security configuration; contact issuer.','bad'],
+  ['65','Exceeds Withdrawal Frequency Limit','Cardholder has exceeded daily or periodic withdrawal count.','Advise cardholder of limit; try again next period.','bad'],
+  ['68','Response Received Too Late','Issuer response arrived after timeout.','Reverse if funds moved; investigate timeout cause.','warn'],
+  ['75','Allowable PIN Tries Exceeded','Duplicate of 38; some processors use this code.','Advise cardholder to contact issuer to unlock card.','bad'],
+  ['76','Invalid/Nonexistent "To" Account','Target account does not exist.','Verify account identifier; advise cardholder.','bad'],
+  ['77','Invalid/Nonexistent "From" Account','Source account does not exist.','Verify account identifier.','bad'],
+  ['78','Invalid/Nonexistent Account','Account not on file.','Verify account; advise cardholder.','bad'],
+  ['80','Invalid Date','Date field contains an invalid value.','Check DE 7, DE 13, DE 14 formatting.','bad'],
+  ['85','No Reason to Decline','Issuer approves with no reason code.','Complete transaction.','ok'],
+  ['86','Cannot Verify PIN','PIN verification system unavailable.','Retry; if persistent, use signature fallback if permitted.','warn'],
+  ['88','Unable to Authorise','Authorisation system temporarily unavailable.','Retry after interval.','warn'],
+  ['91','Issuer or Switch Inoperative','Issuer or interchange switch is unavailable.','Retry later; advise cardholder.','warn'],
+  ['92','Unable to Route Transaction','Switch cannot route to issuer.','Contact acquirer; check routing configuration.','warn'],
+  ['93','Transaction Cannot Be Completed (Law Violation)','Transaction violates regulatory or legal constraint.','Do not retry; contact compliance team.','bad'],
+  ['94','Duplicate Transmission','Duplicate STAN/retrieval reference detected.','Investigate duplicate; check DE 11 and DE 37.','warn'],
+  ['95','Reconcile Error','Settlement reconciliation error.','Contact acquirer for reconciliation support.','warn'],
+  ['96','System Malfunction','Issuer system malfunction.','Retry; if persistent, contact issuer.','warn']
+];
+
+/* ─── MTI DECODE ─────────────────────────────────────────────── */
+const MTI_VERSION={0:'ISO 8583:1987',1:'ISO 8583:1993',2:'ISO 8583:2003',8:'Private Use'};
+const MTI_CLASS={1:'Authorization',2:'Financial',3:'File Action',4:'Reversal',5:'Reconciliation',6:'Administrative',7:'Fee Collection',8:'Network Management',9:'Reserved'};
+const MTI_FUNCTION={0:'Request',1:'Response',2:'Advice',3:'Advice Response',4:'Notification',8:'Positive Acknowledgement',9:'Negative Acknowledgement'};
+const MTI_ORIGINATOR={0:'Acquirer',1:'Acquirer Repeat',2:'Issuer',3:'Issuer Repeat',4:'Other',5:'Other Repeat'};
+
+function decodeMTI(mti){
+  var v=parseInt(mti[0]),cl=parseInt(mti[1]),fn=parseInt(mti[2]),or=parseInt(mti[3]);
+  return {
+    raw:mti,
+    version:MTI_VERSION[v]||'Unknown',
+    msgClass:MTI_CLASS[cl]||'Reserved',
+    msgFunction:MTI_FUNCTION[fn]||'Reserved',
+    originator:MTI_ORIGINATOR[or]||'Reserved',
+    label:(MTI_CLASS[cl]||'?')+' '+(MTI_FUNCTION[fn]||'?')
+  };
+}
+
+/* ─── BITMAP PARSE ───────────────────────────────────────────── */
+function parseBitmap(hexStr){
+  // Returns array of 64 booleans (primary) and optionally 64 (secondary)
+  var bits=[];
+  for(var i=0;i<16;i+=2){
+    var byte=parseInt(hexStr.substr(i,2),16);
+    for(var b=7;b>=0;b--) bits.push(!!(byte&(1<<b)));
+  }
+  return bits;
+}
+
+/* ─── MAIN DECODE ────────────────────────────────────────────── */
+var _lastResult=null;
+
+function runDecode(){
+  var raw=document.getElementById('hexInput').value.replace(/\s+/g,'').toUpperCase();
+  var skip=parseInt(document.getElementById('headerSkip').value)*2;
+  var errEl=document.getElementById('decodeErr');
+  errEl.style.display='none';
+
+  if(!raw){showErr('Please paste an ISO 8583 hex message.');return;}
+  if(!/^[0-9A-F]+$/.test(raw)){showErr('Input contains non-hex characters. Remove spaces and ensure only 0–9, A–F.');return;}
+
+  // Skip header bytes
+  raw=raw.substring(skip);
+
+  // Extract MTI (4 chars = 2 bytes)
+  if(raw.length<20){showErr('Message too short. Minimum is MTI (4) + Primary Bitmap (16) = 20 hex chars.');return;}
+  var mtiRaw=raw.substr(0,4);
+  var mtiInfo=decodeMTI(mtiRaw);
+
+  // Primary bitmap (16 hex chars = 8 bytes = 64 bits)
+  var primaryHex=raw.substr(4,16);
+  var primaryBits=parseBitmap(primaryHex);
+
+  // Secondary bitmap if bit 1 set
+  var pos=20; // current parse position
+  var secondaryBits=[];
+  var secondaryHex='';
+  if(primaryBits[0]){ // DE1 = secondary bitmap
+    if(raw.length<36){showErr('Secondary bitmap indicated (bit 1=1) but message is too short.');return;}
+    secondaryHex=raw.substr(20,16);
+    secondaryBits=parseBitmap(secondaryHex);
+    pos=36;
+  }
+
+  // All 128 bits combined
+  var allBits=primaryBits.concat(secondaryBits);
+
+  // Parse data elements
+  var parsedDEs=[];
+  var deMap={};
+  DE_SCHEMA.forEach(function(de){deMap[de[0]]=de;});
+
+  for(var deNum=2;deNum<=128;deNum++){
+    // Check bit (0-indexed: DE2 = bit index 1)
+    if(allBits[deNum-1]===undefined||!allBits[deNum-1]) continue;
+    if(deNum>64&&secondaryBits.length===0) continue; // no secondary bitmap
+
+    var schema=deMap[deNum];
+    if(!schema){parsedDEs.push({de:deNum,name:'Unknown DE '+deNum,value:'(present — no schema)',format:'?',raw:''});continue;}
+
+    var lenSpec=schema[4];
+    var value='';
+    var rawVal='';
+
+    try{
+      if(Array.isArray(lenSpec)){
+        // Variable length
+        var lenDigits=(lenSpec[0]===-1)?2:3;
+        var lenStr=raw.substr(pos,lenDigits);
+        var fieldLen=parseInt(lenStr,10);
+        pos+=lenDigits;
+        rawVal=raw.substr(pos,fieldLen*2);
+        // Try to interpret as ASCII if not binary
+        if(schema[2].indexOf('b')===0){
+          value=rawVal+' (hex)';
+        } else {
+          // Convert hex pairs to ASCII chars
+          value='';
+          for(var ci=0;ci<rawVal.length;ci+=2){
+            var code=parseInt(rawVal.substr(ci,2),16);
+            value+=code>=32&&code<127?String.fromCharCode(code):('.').replace('.',rawVal.substr(ci,2)+'h');
+          }
+        }
+        pos+=fieldLen*2;
+      } else {
+        // Fixed length (lenSpec = number of hex chars)
+        rawVal=raw.substr(pos,lenSpec);
+        if(schema[2].indexOf('b')===0){
+          value=rawVal+' (hex)';
+        } else {
+          value='';
+          for(var ci=0;ci<rawVal.length;ci+=2){
+            var code=parseInt(rawVal.substr(ci,2),16);
+            value+=code>=32&&code<127?String.fromCharCode(code):rawVal.substr(ci,2)+'h';
+          }
+        }
+        pos+=lenSpec;
+      }
+    }catch(e){
+      value='(parse error)';
+    }
+
+    parsedDEs.push({de:deNum,name:schema[1],format:schema[2]+' '+schema[3],value:value,raw:rawVal});
+  }
+
+  // Render results
+  _lastResult={mti:mtiInfo,primaryBits:primaryBits,secondaryBits:secondaryBits,primaryHex:primaryHex,secondaryHex:secondaryHex,des:parsedDEs};
+  renderResults(mtiInfo,primaryBits,secondaryBits,primaryHex,secondaryHex,parsedDEs);
+}
+
+function showErr(msg){
+  var el=document.getElementById('decodeErr');
+  el.textContent=msg;el.style.display='block';
+}
+
+function renderResults(mti,pb,sb,phex,shex,des){
+  // MTI grid
+  var mg=document.getElementById('mtiGrid');
+  mg.innerHTML=[
+    ['MTI',mti.raw,'raw code'],
+    ['Version',mti.version,'ISO edition'],
+    ['Class',mti.msgClass,'message class'],
+    ['Function',mti.msgFunction,'msg function'],
+    ['Originator',mti.originator,'originated by']
+  ].map(function(r){return '<div class="mti-box"><div class="mti-digit">'+r[0]+'</div><div class="mti-val">'+r[1]+'</div><div class="mti-label">'+r[2]+'</div></div>';}).join('');
+  document.getElementById('mtiTitle').textContent=mti.raw+' · '+mti.label;
+
+  // Bitmaps
+  var bd=document.getElementById('bitmapDisplay');
+  bd.innerHTML='';
+  function renderBitmapRow(label,bits,hex,offset){
+    var row=document.createElement('div');row.className='bitmap-row';
+    var html='<span style="color:var(--muted);font-size:.52rem">'+label+' ('+hex+'): </span>';
+    bits.forEach(function(b,i){
+      html+='<span class="'+(b?'active':'inactive')+'" title="DE '+(i+1+offset)+(b?' PRESENT':'')+'">'+( b?'1':'0')+'</span>';
+      if((i+1)%8===0&&i<63) html+=' ';
+    });
+    row.innerHTML=html;
+    bd.appendChild(row);
+  }
+  renderBitmapRow('Primary',pb,phex,0);
+  if(sb.length) renderBitmapRow('Secondary',sb,shex,64);
+
+  // DE 39 highlight
+  var de39=des.find(function(d){return d.de===39;});
+  if(de39){
+    var code=de39.value.trim();
+    var def=DE39.find(function(r){return r[0]===code;});
+    var de39sec=document.getElementById('de39Section');
+    de39sec.style.display='block';
+    var box=document.getElementById('de39Box');
+    if(def){
+      box.innerHTML='<div class="de39-box"><div class="de39-code de39-'+def[4]+'">'+def[0]+'</div><div class="de39-name">'+def[1]+'</div><div class="de39-desc">'+def[2]+'</div><div class="de39-action">Recommended action: '+def[3]+'</div></div>';
+    } else {
+      box.innerHTML='<div class="de39-box"><div class="de39-code">'+code+'</div><div class="de39-desc">Response code not found in DE 39 reference. May be scheme-specific.</div></div>';
+    }
+  } else {
+    document.getElementById('de39Section').style.display='none';
+  }
+
+  // DE table
+  var tbody=document.getElementById('deRows');
+  tbody.innerHTML=des.map(function(d){
+    return '<tr><td class="de-num">DE '+d.de+'</td><td class="de-name">'+d.name+'</td><td class="de-fmt">'+d.format+'</td><td class="de-val">'+escHtml(d.value)+'</td></tr>';
+  }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('exportBtn').disabled=false;
+  scrollTo(document.getElementById('resultsPanel'));
+}
+
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+/* ─── EXPORT JSON ─────────────────────────────────────────────── */
+function exportJSON(){
+  if(!_lastResult){return;}
+  var obj={
+    decoded_at:new Date().toISOString(),
+    tool:'ainumbers.co/tools/361-iso8583-message-decoder',
+    mti:_lastResult.mti,
+    primary_bitmap_hex:_lastResult.primaryHex,
+    secondary_bitmap_hex:_lastResult.secondaryHex||null,
+    data_elements:_lastResult.des.map(function(d){return{de:d.de,name:d.name,format:d.format,value:d.value,raw_hex:d.raw};})
+  };
+  var blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='iso8583_decoded_'+new Date().toISOString().replace(/[^0-9]/g,'').substr(0,14)+'.json';
+  a.click();
+  showToast('JSON exported','ok');
+}
+
+/* ─── TABS ────────────────────────────────────────────────────── */
+function switchTab(id){
+  document.querySelectorAll('.tab-btn').forEach(function(b,i){b.classList.remove('active');});
+  document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
+  var idx=['decode','lookup','de-ref'].indexOf(id);
+  document.querySelectorAll('.tab-btn')[idx].classList.add('active');
+  document.getElementById('tab-'+id).classList.add('active');
+}
+
+/* ─── DE 39 LOOKUP ───────────────────────────────────────────── */
+function buildDE39Cards(data){
+  var c=document.getElementById('de39Cards');
+  c.innerHTML=data.map(function(r){
+    return '<div class="de39-card de39-'+r[4]+'-card"><div class="de39-card-code">'+r[0]+'</div><div class="de39-card-name">'+r[1]+'</div><div class="de39-card-desc">'+r[2]+'</div><div class="de39-card-action">→ '+r[3]+'</div></div>';
+  }).join('');
+}
+function filterDE39(){
+  var q=document.getElementById('de39SearchInput').value.toLowerCase();
+  if(!q){buildDE39Cards(DE39);return;}
+  buildDE39Cards(DE39.filter(function(r){return r[0].toLowerCase().includes(q)||r[1].toLowerCase().includes(q)||r[2].toLowerCase().includes(q);}));
+}
+buildDE39Cards(DE39);
+
+/* ─── DE FIELD REFERENCE ─────────────────────────────────────── */
+(function(){
+  var tb=document.getElementById('deRefRows');
+  tb.innerHTML=DE_SCHEMA.map(function(d){
+    return '<tr><td class="de-num">DE '+d[0]+'</td><td class="de-name">'+d[1]+'</td><td class="de-fmt">'+d[2]+'</td><td class="de-fmt">'+d[3]+'</td><td style="font-size:.65rem;color:var(--body);line-height:1.5">'+d[5]+'</td></tr>';
+  }).join('');
+})();
+
+/* ─── MANIFEST ───────────────────────────────────────────────── */
+var MANIFEST={
+  tool_id:'iso8583-message-decoder',version:'1.0.0',title:'ISO 8583 Message Decoder',
+  description:'Decode ISO 8583 financial transaction messages: MTI, bitmaps, DE 1–128, DE 39 response codes.',
+  category:'cat-8',tags:['iso 8583','message decoder','bitmap','de39','response code','card payment','mti','export'],
+  mcp_tool_definition:{name:'decode_iso8583_message',description:'Decode an ISO 8583 financial transaction message, returning MTI, bitmap, all present data elements, and DE 39 response code interpretation.',inputSchema:{type:'object',properties:{hex_message:{type:'string'}},required:['hex_message']}},
+  execution:{type:'browser-javascript',entry:'tools/361-iso8583-message-decoder.html',function_name:'runDecode',timeout_ms:3000},
+  ap2_export:false
+};
+document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+
+/* ─── TOAST ───────────────────────────────────────────────────── */
+function showToast(msg,type){
+  var t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+(type||'');
+  setTimeout(function(){t.className='toast';},2500);
+}
+function scrollTo(el){if(el)el.scrollIntoView({behavior:'smooth',block:'start'});}
+</script>
+</body>
+</html>

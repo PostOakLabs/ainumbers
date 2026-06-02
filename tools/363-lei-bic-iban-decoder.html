@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>LEI / BIC / IBAN Anatomy Decoder · AINumbers.co</title>
+<meta name="description" content="Decode and validate LEI (Legal Entity Identifier), BIC/SWIFT codes, and IBANs in one tool. Check digit validation, anatomy breakdown, and SEPA reachability. Client-side, no PII transmitted.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/363-lei-bic-iban-decoder.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"LEI / BIC / IBAN Anatomy Decoder","url":"https://ainumbers.co/tools/363-lei-bic-iban-decoder.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "lei-bic-iban-decoder",
+  "version": "1.0.0",
+  "title": "LEI / BIC / IBAN Anatomy Decoder",
+  "description": "Decode and validate Legal Entity Identifiers (LEI), BIC/SWIFT codes, and IBANs. Check digit validation, segment anatomy, and SEPA reachability.",
+  "category": "cat-8",
+  "tags": ["lei","bic","iban","swift","decoder","anatomy","check digit","sepa","iso 17442","export"],
+  "mcp_tool_definition": {"name":"decode_lei_bic_iban","description":"Decode and validate a LEI, BIC/SWIFT code, or IBAN, returning structural anatomy, check digit validity, and SEPA reachability where applicable.","inputSchema":{"type":"object","properties":{"identifier":{"type":"string","description":"The identifier to decode (LEI, BIC, or IBAN)"},"type":{"type":"string","enum":["LEI","BIC","IBAN","auto"]}},"required":["identifier"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/363-lei-bic-iban-decoder.html","function_name":"decode","timeout_ms":2000},
+  "ap2_export": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--gold-lt:#E8C06A;--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px;--accent:var(--gold);--accent-dim:var(--gold-dim)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:var(--teal);text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1020px;margin:0 auto;padding:0 1.5rem}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0}
+.lang-inner{max-width:1020px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--accent);color:var(--accent)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.95);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1020px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}.nav-sep{color:var(--border-2)}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;transition:all .2s}
+.nav-pill:hover{border-color:var(--accent);color:var(--accent)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--accent)}
+.hero h1{font-size:clamp(1.5rem,2.8vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--gold-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{padding:2rem 0 4rem}
+/* Type selector */
+.type-row{display:flex;gap:.5rem;margin-bottom:1.25rem}
+.type-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1.25rem;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:var(--radius);transition:all .2s;cursor:pointer}
+.type-btn.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+/* Input panel */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.25rem}
+.panel-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;gap:.75rem}
+.panel-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);border:1px solid rgba(212,168,71,.3);padding:.18rem .55rem;border-radius:3px}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
+.panel-body{padding:1.25rem}
+.input-row{display:flex;gap:.65rem;align-items:flex-end}
+.input-wrap{flex:1}
+.input-wrap label{display:block;font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.id-input{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.85rem;letter-spacing:.1em;padding:.55rem .85rem;border-radius:var(--radius);outline:none;transition:border-color .2s;text-transform:uppercase}
+.id-input:focus{border-color:var(--accent)}
+.id-input.valid{border-color:var(--green)}
+.id-input.invalid{border-color:var(--red)}
+.run-btn{background:var(--accent);color:var(--bg);border:none;padding:.6rem 1.75rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;white-space:nowrap}
+.run-btn:hover{background:var(--gold-lt)}
+.field-hint{font-size:.62rem;color:var(--muted);margin-top:.3rem}
+/* Results */
+.results-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-top:1.25rem;display:none}
+.results-panel.show{display:block}
+.results-header{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.result-title{font-family:'DM Serif Display',serif;font-size:1.15rem;color:var(--white)}
+.validity-badge{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.3rem .85rem;border-radius:3px;border:1px solid;font-weight:600}
+.validity-valid{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.3)}
+.validity-invalid{background:var(--red-dim);color:var(--red);border-color:rgba(239,68,68,.3)}
+.validity-warn{background:var(--warn-dim);color:var(--warn);border-color:rgba(245,158,11,.3)}
+.results-body{padding:1.25rem;display:flex;flex-direction:column;gap:1.25rem}
+.section-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:.6rem}
+/* Anatomy visual */
+.anatomy-bar{font-family:'JetBrains Mono',monospace;font-size:.9rem;letter-spacing:.12em;display:flex;flex-wrap:wrap;gap:2px;margin-bottom:.75rem}
+.anat-seg{padding:.4rem .6rem;border-radius:3px;line-height:1.2;cursor:default;transition:opacity .2s}
+.anat-seg:hover{opacity:.85}
+.anat-lbl{display:block;font-size:.45rem;letter-spacing:.1em;text-transform:uppercase;margin-top:.2rem;font-weight:600}
+.seg-lour{background:rgba(20,184,166,.15);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25)}
+.seg-entity{background:rgba(155,114,245,.15);color:var(--purple);border:1px solid rgba(155,114,245,.25)}
+.seg-check{background:rgba(212,168,71,.15);color:var(--gold-lt);border:1px solid rgba(212,168,71,.25)}
+.seg-inst{background:rgba(20,184,166,.15);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25)}
+.seg-country{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+.seg-loc{background:rgba(245,158,11,.15);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.seg-branch{background:rgba(155,114,245,.15);color:var(--purple);border:1px solid rgba(155,114,245,.25)}
+.seg-bban{background:rgba(212,168,71,.15);color:var(--gold-lt);border:1px solid rgba(212,168,71,.25)}
+/* Detail table */
+.detail-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.detail-table td{padding:.45rem .65rem;border-bottom:1px solid var(--border);vertical-align:top}
+.detail-table tr:last-child td{border-bottom:none}
+.detail-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap;width:160px}
+.detail-table td:last-child{color:var(--bright)}
+.detail-hl{color:var(--gold-lt);font-weight:500}
+/* SEPA pill */
+.sepa-pill{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .6rem;border-radius:3px;border:1px solid;margin-left:.4rem}
+.sepa-yes{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.3)}
+.sepa-no{background:var(--red-dim);color:var(--red);border-color:rgba(239,68,68,.3)}
+.sepa-partial{background:var(--warn-dim);color:var(--warn);border-color:rgba(245,158,11,.3)}
+/* Export row */
+.results-export-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;background:var(--bg-3);border:1px solid var(--border);border-top:2px solid var(--accent);border-radius:var(--radius);padding:.75rem 1rem;margin-top:.5rem}
+.export-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.export-btn{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:var(--bg);border:none;padding:.38rem 1rem;border-radius:var(--radius);font-weight:600;cursor:pointer;transition:background .2s}
+.export-btn:disabled{opacity:.3;cursor:not-allowed}
+.export-btn:not(:disabled):hover{background:var(--gold-lt)}
+.err-msg{background:var(--red-dim);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);padding:.65rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--red);margin-top:.75rem}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem 1.1rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--bright);z-index:9999;transform:translateY(100px);opacity:0;transition:all .3s;pointer-events:none}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.ok{border-left:3px solid var(--green);color:var(--green)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer;margin-top:1.5rem}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.source-notes{background:var(--bg-2);border-top:1px solid var(--border);padding:1.5rem 0;margin-top:2rem;font-size:.7rem;color:var(--body)}
+.source-notes h3{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:.75rem}
+.cite-list{display:flex;flex-direction:column;gap:.4rem}
+.cite{display:flex;gap:.5rem}
+.cite-num{font-family:'JetBrains Mono',monospace;color:var(--accent);flex-shrink:0;width:20px}
+.cite-text{color:var(--muted);line-height:1.6}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links a,.footer-copy{color:var(--muted)}
+.footer-copy{font-family:'JetBrains Mono',monospace;font-size:.5rem}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a class="logo" href="../index.html"><span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span></a>
+  <div class="nav-trail"><a href="../index.html">Home</a><span class="nav-sep">›</span><a href="../index.html#cat-8">Reference & Decoder</a><span class="nav-sep">›</span><span>LEI / BIC / IBAN Decoder</span></div>
+  <a class="nav-pill" href="../index.html#cat-8">Reference Tools</a>
+</div></nav>
+
+<div class="container"><div class="hero">
+  <div class="hero-eyebrow">LEI · ISO 17442 · BIC / SWIFT · IBAN · Check Digit Validation</div>
+  <h1>LEI / BIC / IBAN <em>Anatomy Decoder</em></h1>
+  <p class="hero-desc">Decode the structure, validate check digits, and understand the anatomy of Legal Entity Identifiers (LEI), BIC/SWIFT codes, and IBANs in one unified tool. SEPA reachability included for IBAN countries. All validation is client-side with embedded data.</p>
+  <div class="hero-meta">
+    <span class="badge badge-gold">LEI · ISO 17442</span>
+    <span class="badge badge-teal">BIC · ISO 9362</span>
+    <span class="badge badge-muted">IBAN · ISO 13616</span>
+    <span class="badge badge-teal">Client-Side</span>
+    <span class="badge badge-muted">Zero PII</span>
+    <span class="badge badge-green">Export JSON</span>
+  </div>
+</div></div>
+
+<div class="container"><div class="tool-body">
+  <p class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</p>
+
+  <div class="type-row">
+    <button class="type-btn active" onclick="setType('AUTO')" id="btn-AUTO">Auto-detect</button>
+    <button class="type-btn" onclick="setType('LEI')" id="btn-LEI">LEI</button>
+    <button class="type-btn" onclick="setType('BIC')" id="btn-BIC">BIC / SWIFT</button>
+    <button class="type-btn" onclick="setType('IBAN')" id="btn-IBAN">IBAN</button>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-num">Input</span><span class="panel-label" id="panelLabel">Enter identifier</span></div>
+    <div class="panel-body">
+      <div class="input-row">
+        <div class="input-wrap">
+          <label id="inputLabel">LEI · BIC · IBAN</label>
+          <input class="id-input" id="idInput" type="text" placeholder="e.g. 549300TRUWO2CD2G5692 or GB29NWBK60161331926819" maxlength="40" oninput="onInputChange()">
+          <div class="field-hint" id="inputHint">Spaces and hyphens are stripped automatically.</div>
+        </div>
+        <button class="run-btn" onclick="decode()">Decode →</button>
+      </div>
+      <div id="decodeErr" class="err-msg" style="display:none"></div>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="results-header">
+      <div class="result-title" id="resultTitle">—</div>
+      <span class="validity-badge" id="validityBadge">—</span>
+    </div>
+    <div class="results-body" id="resultsBody"></div>
+  </div>
+
+  <button class="mfst-btn" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block'">
+    <span>📦 manifest.json · MCP tool definition</span><span style="color:var(--muted)">▼</span>
+  </button>
+  <div class="mfst-body"><div class="mfst-code" id="mfstCode"></div></div>
+</div></div>
+
+<div class="source-notes"><div class="container">
+  <h3>Regulatory &amp; Standards Citations</h3>
+  <div class="cite-list">
+    <div class="cite"><span class="cite-num">[1]</span><span class="cite-text">ISO 17442-1:2020 — Financial services: Legal Entity Identifier (LEI). Defines the 20-character alphanumeric structure: 4-char LOU prefix, 14-char entity reference, 2-char check digits. Check digit algorithm uses ISO/IEC 7064 MOD 97-10.</span></div>
+    <div class="cite"><span class="cite-num">[2]</span><span class="cite-text">ISO 9362:2022 — Banking: Business Identifier Code (BIC). Defines the 8 or 11-character BIC structure: 4-char institution code, 2-char country code (ISO 3166-1), 2-char location code, 3-char branch code (optional, 'XXX' = primary office).</span></div>
+    <div class="cite"><span class="cite-num">[3]</span><span class="cite-text">ISO 13616-1:2020 — Financial services: International Bank Account Number (IBAN). Defines the structure: 2-char country code, 2-char check digits, variable-length BBAN. Mod-97 check digit validation algorithm is specified in Annex A.</span></div>
+    <div class="cite"><span class="cite-num">[4]</span><span class="cite-text">GLEIF (Global Legal Entity Identifier Foundation) — Administers the LEI system globally. LOUs (Local Operating Units) issue LEIs; the 4-character LOU prefix identifies the issuing LOU. LEI data is publicly available via the GLEIF API (not called by this tool).</span></div>
+    <div class="cite"><span class="cite-num">[5]</span><span class="cite-text">EPC SEPA Reachability — SEPA Credit Transfer (SCT) and SEPA Direct Debit (SDD) schemes cover 36 countries (all EU/EEA + UK, Switzerland, San Marino, Monaco, Vatican). SEPA Instant Credit Transfer (SCT Inst) covers a subset of participating PSPs within SEPA countries.</span></div>
+  </div>
+</div></div>
+
+<footer><div class="footer-inner">
+  <a href="../index.html" style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--muted)">← Back to AINumbers.co</a>
+  <div class="footer-links"><a href="../index.html">All Tools</a><a href="../guides/reference-hub.html">Reference Hub</a></div>
+  <div class="footer-copy">CC BY 4.0 · Post Oak Labs · ainumbers.co</div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ─── LANG ─────────────────────────────────────────────────── */
+function setLang(l){
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+  var btn=document.querySelector('.lang-btn[onclick="setLang(\''+l+'\')"]');
+  if(btn)btn.classList.add('active');
+  document.documentElement.setAttribute('dir',l==='ar'?'rtl':'ltr');
+  try{sessionStorage.setItem('ain_lang',l);}catch(e){}
+}
+(function(){try{var l=sessionStorage.getItem('ain_lang');if(l)setLang(l);}catch(e){}})();
+
+/* ─── IBAN COUNTRY DATA ──────────────────────────────────────
+   [country_code, country_name, iban_length, bban_structure, sepa_ct, sepa_dd, sepa_inst]
+   sepa: 'yes'/'no'/'partial'
+─────────────────────────────────────────────────────────────── */
+var IBAN_COUNTRIES={
+  AD:{name:'Andorra',len:24,bban:'4n 4n 12c',sepa_ct:'yes',sepa_dd:'no',sepa_inst:'no',bban_desc:'4-digit bank, 4-digit branch, 12-char account'},
+  AE:{name:'United Arab Emirates',len:23,bban:'3n 16n',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'3-digit bank, 16-digit account'},
+  AL:{name:'Albania',len:28,bban:'8n 16c',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'8-digit bank/branch, 16-char account'},
+  AT:{name:'Austria',len:20,bban:'5n 11n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'5-digit bank, 11-digit account'},
+  AZ:{name:'Azerbaijan',len:28,bban:'4a 20c',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'4-char bank, 20-char account'},
+  BA:{name:'Bosnia & Herzegovina',len:20,bban:'3n 3n 8n 2n',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'Bank, branch, account, check'},
+  BE:{name:'Belgium',len:16,bban:'3n 7n 2n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'3-digit bank, 7-digit account, 2-digit check'},
+  BG:{name:'Bulgaria',len:22,bban:'4a 4n 2n 8c',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'4-char bank, 4-digit branch, 2-digit account type, 8-char account'},
+  BH:{name:'Bahrain',len:22,bban:'4a 14c',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'4-char bank, 14-char account'},
+  CH:{name:'Switzerland',len:21,bban:'5n 12c',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'5-digit bank, 12-char account'},
+  CY:{name:'Cyprus',len:28,bban:'3n 5n 16c',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'no',bban_desc:'3-digit bank, 5-digit branch, 16-char account'},
+  CZ:{name:'Czech Republic',len:24,bban:'4n 6n 10n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'4-digit bank, 6-digit prefix, 10-digit account'},
+  DE:{name:'Germany',len:22,bban:'8n 10n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'8-digit bank (Bankleitzahl), 10-digit account (Kontonummer)'},
+  DK:{name:'Denmark',len:18,bban:'4n 9n 1n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'4-digit bank, 9-digit account, 1-digit check'},
+  EE:{name:'Estonia',len:20,bban:'2n 2n 11n 1n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'2-digit bank, 2-digit branch, 11-digit account, 1-digit check'},
+  ES:{name:'Spain',len:24,bban:'4n 4n 1n 1n 10n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'4-digit bank, 4-digit branch, 1-digit check1, 1-digit check2, 10-digit account'},
+  FI:{name:'Finland',len:18,bban:'3n 11n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'3-digit bank, 11-digit account + check'},
+  FR:{name:'France',len:27,bban:'5n 5n 11c 2n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'5-digit bank, 5-digit branch, 11-char account, 2-digit check'},
+  GB:{name:'United Kingdom',len:22,bban:'4a 6n 8n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'partial',bban_desc:'4-char bank (sort code prefix), 6-digit sort code, 8-digit account number'},
+  GE:{name:'Georgia',len:22,bban:'2a 16n',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'2-char bank, 16-digit account'},
+  GI:{name:'Gibraltar',len:23,bban:'4a 15c',sepa_ct:'yes',sepa_dd:'no',sepa_inst:'no',bban_desc:'4-char bank, 15-char account'},
+  GR:{name:'Greece',len:27,bban:'3n 4n 16c',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'partial',bban_desc:'3-digit bank, 4-digit branch, 16-char account'},
+  HR:{name:'Croatia',len:21,bban:'7n 10n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'7-digit bank, 10-digit account'},
+  HU:{name:'Hungary',len:28,bban:'3n 4n 1n 15n 1n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'Bank, branch, check, account, check'},
+  IE:{name:'Ireland',len:22,bban:'4a 6n 8n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'4-char bank, 6-digit sort code, 8-digit account'},
+  IL:{name:'Israel',len:23,bban:'3n 3n 13n',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'3-digit bank, 3-digit branch, 13-digit account'},
+  IS:{name:'Iceland',len:26,bban:'4n 2n 6n 10n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'no',bban_desc:'4-digit bank, 2-digit branch, 6-digit check, 10-digit account'},
+  IT:{name:'Italy',len:27,bban:'1a 5n 5n 12c',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'1-char check, 5-digit bank (ABI), 5-digit branch (CAB), 12-char account (CIN+CC)'},
+  JO:{name:'Jordan',len:30,bban:'4a 4n 18c',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'4-char bank, 4-digit branch, 18-char account'},
+  KW:{name:'Kuwait',len:30,bban:'4a 22c',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'4-char bank, 22-char account'},
+  KZ:{name:'Kazakhstan',len:20,bban:'3n 13c',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'3-digit bank, 13-char account'},
+  LB:{name:'Lebanon',len:28,bban:'4n 20c',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'4-digit bank, 20-char account'},
+  LI:{name:'Liechtenstein',len:21,bban:'5n 12c',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'no',bban_desc:'5-digit bank, 12-char account'},
+  LT:{name:'Lithuania',len:20,bban:'5n 11n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'5-digit bank, 11-digit account'},
+  LU:{name:'Luxembourg',len:20,bban:'3n 13c',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'3-digit bank, 13-char account'},
+  LV:{name:'Latvia',len:21,bban:'4a 13c',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'4-char bank, 13-char account'},
+  MC:{name:'Monaco',len:27,bban:'5n 5n 11c 2n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'no',bban_desc:'Same structure as France.'},
+  MD:{name:'Moldova',len:24,bban:'2c 18c',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'2-char bank, 18-char account'},
+  ME:{name:'Montenegro',len:22,bban:'3n 13n 2n',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'3-digit bank, 13-digit account, 2-digit check'},
+  MK:{name:'North Macedonia',len:19,bban:'3n 10c 2n',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'3-digit bank, 10-char account, 2-digit check'},
+  MT:{name:'Malta',len:31,bban:'4a 5n 18c',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'partial',bban_desc:'4-char bank, 5-digit branch, 18-char account'},
+  MU:{name:'Mauritius',len:30,bban:'4a 2n 2n 12n 3n 3a',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'Bank, branch, account, currency'},
+  NL:{name:'Netherlands',len:18,bban:'4a 10n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'4-char bank code, 10-digit account number'},
+  NO:{name:'Norway',len:15,bban:'4n 6n 1n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'4-digit bank, 6-digit account, 1-digit check'},
+  PL:{name:'Poland',len:28,bban:'8n 16n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'8-digit bank+branch, 16-digit account'},
+  PS:{name:'Palestine',len:29,bban:'4a 21c',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'4-char bank, 21-char account'},
+  PT:{name:'Portugal',len:25,bban:'4n 4n 11n 2n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'4-digit bank, 4-digit branch, 11-digit account, 2-digit check'},
+  QA:{name:'Qatar',len:29,bban:'4a 21c',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'4-char bank, 21-char account'},
+  RO:{name:'Romania',len:24,bban:'4a 16c',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'4-char bank code, 16-char account'},
+  RS:{name:'Serbia',len:22,bban:'3n 13n 2n',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'3-digit bank, 13-digit account, 2-digit check'},
+  SA:{name:'Saudi Arabia',len:24,bban:'2n 18c',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'2-digit bank, 18-char account'},
+  SC:{name:'Seychelles',len:31,bban:'4a 2n 2n 16n 3a',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'Bank, branch, account, currency'},
+  SE:{name:'Sweden',len:24,bban:'3n 16n 1n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'3-digit bank, 16-digit account, 1-digit check'},
+  SI:{name:'Slovenia',len:19,bban:'5n 8n 2n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'5-digit bank, 8-digit account, 2-digit check'},
+  SK:{name:'Slovakia',len:24,bban:'4n 6n 10n',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'yes',bban_desc:'4-digit bank, 6-digit prefix, 10-digit account'},
+  SM:{name:'San Marino',len:27,bban:'1a 5n 5n 12c',sepa_ct:'yes',sepa_dd:'yes',sepa_inst:'no',bban_desc:'Same structure as Italy.'},
+  TN:{name:'Tunisia',len:24,bban:'2n 3n 13n 2n',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'2-digit bank, 3-digit branch, 13-digit account, 2-digit check'},
+  TR:{name:'Turkey',len:26,bban:'5n 1c 16c',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'5-digit bank, 1-char reserved, 16-char account'},
+  UA:{name:'Ukraine',len:29,bban:'6n 19c',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'6-digit bank, 19-char account'},
+  VA:{name:'Vatican City',len:22,bban:'3n 15n',sepa_ct:'yes',sepa_dd:'no',sepa_inst:'no',bban_desc:'3-digit bank, 15-digit account'},
+  VG:{name:'British Virgin Islands',len:24,bban:'4a 16n',sepa_ct:'no',sepa_dd:'no',sepa_inst:'no',bban_desc:'4-char bank, 16-digit account'},
+  XK:{name:'Kosovo',len:20,bban:'4n 10n 2n',sepa_ct:'yes',sepa_dd:'no',sepa_inst:'no',bban_desc:'4-digit bank, 10-digit account, 2-digit check'}
+};
+
+/* ─── LOU REGISTRY (key ones) ─────────────────────────────── */
+var LOU_MAP={
+  '213800':'GLEIF (Global)','254900':'ANNA (ISIN)','335800':'Bloomberg','391200':'Katten (US)',
+  '549300':'DTCC (US)','724500':'CECA (Spain)','7ZW8ZR':'Ubisecure (Finland)',
+  '8860':'Raiffeisenbank','969500':'SWIFT','984500':'UnaVista (LSEG)',
+  'EVKOSKS7XY':'Bundesanzeiger (Germany)','HMDAG':'Banque de France',
+  '097900':'Karafarin (Iran)','029200':'KSD (Korea)','213800':'Regulatory Intelligence'
+};
+
+/* ─── STATE ──────────────────────────────────────────────────── */
+var currentType='AUTO';
+var _lastResult=null;
+
+function setType(t){
+  currentType=t;
+  ['AUTO','LEI','BIC','IBAN'].forEach(function(x){
+    document.getElementById('btn-'+x).classList.toggle('active',x===t);
+  });
+  var hints={AUTO:'Spaces and hyphens are stripped automatically.',LEI:'20-character alphanumeric (e.g. 549300TRUWO2CD2G5692)',BIC:'8 or 11-character BIC/SWIFT code (e.g. DEUTDEDB)',IBAN:'Up to 34 characters (e.g. GB29NWBK60161331926819)'};
+  document.getElementById('inputHint').textContent=hints[t]||hints.AUTO;
+}
+
+function onInputChange(){
+  var val=document.getElementById('idInput').value.replace(/[\s\-]/g,'').toUpperCase();
+  document.getElementById('idInput').className='id-input';
+  document.getElementById('decodeErr').style.display='none';
+}
+
+/* ─── AUTO DETECT ────────────────────────────────────────────── */
+function detectType(s){
+  if(s.length===20&&/^[A-Z0-9]+$/.test(s)) return 'LEI';
+  if((s.length===8||s.length===11)&&/^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(s)) return 'BIC';
+  if(s.length>=15&&s.length<=34&&/^[A-Z]{2}[0-9]{2}/.test(s)) return 'IBAN';
+  return null;
+}
+
+/* ─── DECODE DISPATCHER ──────────────────────────────────────── */
+function decode(){
+  var raw=document.getElementById('idInput').value.replace(/[\s\-]/g,'').toUpperCase();
+  var errEl=document.getElementById('decodeErr');
+  errEl.style.display='none';
+  if(!raw){errEl.textContent='Please enter an identifier.';errEl.style.display='block';return;}
+
+  var type=currentType==='AUTO'?detectType(raw):currentType;
+  if(!type){errEl.textContent='Could not detect identifier type. Select LEI, BIC, or IBAN manually.';errEl.style.display='block';return;}
+
+  var result=null;
+  if(type==='LEI') result=decodeLEI(raw);
+  else if(type==='BIC') result=decodeBIC(raw);
+  else if(type==='IBAN') result=decodeIBAN(raw);
+
+  if(!result){errEl.textContent='Decoding failed. Check the identifier and try again.';errEl.style.display='block';return;}
+
+  _lastResult=result;
+  renderResults(result);
+}
+
+/* ─── LEI ─────────────────────────────────────────────────────── */
+function decodeLEI(s){
+  if(s.length!==20){return {error:'LEI must be exactly 20 characters.'};}
+  if(!/^[A-Z0-9]+$/.test(s)){return {error:'LEI must contain only uppercase letters and digits.'};}
+
+  var lour=s.substr(0,4);
+  var entity=s.substr(4,14);
+  var check=s.substr(18,2);
+
+  // ISO/IEC 7064 MOD 97-10 check (same as IBAN)
+  var valid=mod97Check(s);
+  var louName=LOU_MAP[lour]||LOU_MAP[s.substr(0,6)]||'(LOU not in embedded registry)';
+
+  return {
+    type:'LEI',raw:s,valid:valid,
+    segments:[
+      {label:'LOU Prefix',value:lour,desc:'Local Operating Unit identifier (4 chars)',cls:'seg-lour'},
+      {label:'Entity Reference',value:entity,desc:'Unique entity reference assigned by LOU (14 chars)',cls:'seg-entity'},
+      {label:'Check Digits',value:check,desc:'ISO/IEC 7064 MOD 97-10 check digits (2 chars)',cls:'seg-check'}
+    ],
+    details:[
+      {label:'Full LEI',value:s},
+      {label:'LOU Prefix',value:lour+' — '+louName},
+      {label:'Entity Reference',value:entity},
+      {label:'Check Digits',value:check+' — '+(valid?'✓ Valid (MOD 97-10)':'✗ INVALID — check digit mismatch')},
+      {label:'Check Algorithm',value:'ISO/IEC 7064 MOD 97-10 (same algorithm as IBAN)'},
+      {label:'Standard',value:'ISO 17442-1:2020'},
+      {label:'Administered by',value:'GLEIF (Global Legal Entity Identifier Foundation)'},
+      {label:'Verification',value:'For live entity name and legal jurisdiction, query the GLEIF public API at api.gleif.org/api/v1/lei-records/'+s}
+    ]
+  };
+}
+
+/* ─── BIC ─────────────────────────────────────────────────────── */
+function decodeBIC(s){
+  if(s.length!==8&&s.length!==11){return {error:'BIC must be 8 or 11 characters.'};}
+  if(!/^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(s)){return {error:'BIC format invalid. Expected: 4-letter bank + 2-letter country + 2-char location [+ 3-char branch]'};}
+
+  var inst=s.substr(0,4);
+  var country=s.substr(4,2);
+  var loc=s.substr(6,2);
+  var branch=s.length===11?s.substr(8,3):'XXX';
+  var isPrimary=branch==='XXX';
+
+  // Location code interpretation
+  var locNote='';
+  if(loc[1]==='1') locNote='Passive participant (SWIFT FIN copy service)';
+  else if(loc[1]==='2') locNote='Reverse billing';
+  else if(loc[1]==='3') locNote='Credit to receiver';
+  else locNote='Active participant';
+
+  return {
+    type:'BIC',raw:s,valid:true,
+    segments:[
+      {label:'Institution',value:inst,desc:'Institution / bank code (4 letters)',cls:'seg-inst'},
+      {label:'Country',value:country,desc:'ISO 3166-1 alpha-2 country code (2 letters)',cls:'seg-country'},
+      {label:'Location',value:loc,desc:'Location code (2 alphanumeric)',cls:'seg-loc'},
+      {label:'Branch',value:branch,desc:'Branch code (3 alphanumeric; XXX = primary office)',cls:'seg-branch'}
+    ],
+    details:[
+      {label:'Full BIC',value:s+(s.length===8?' (8-char; branch XXX assumed)':'')},
+      {label:'Institution Code',value:inst+' — Identifies the financial institution (ISO 9362 §5.1)'},
+      {label:'Country Code',value:country+' — ISO 3166-1 alpha-2'},
+      {label:'Location Code',value:loc+(locNote?' ('+locNote+')':'')},
+      {label:'Branch Code',value:branch+(isPrimary?' — Primary office':'')},
+      {label:'SWIFT connected',value:'BIC structure is valid. Live SWIFT connectivity verification requires the SWIFT BIC directory (not accessible offline).'},
+      {label:'Standard',value:'ISO 9362:2022'}
+    ]
+  };
+}
+
+/* ─── IBAN ────────────────────────────────────────────────────── */
+function decodeIBAN(s){
+  if(s.length<15||s.length>34){return {error:'IBAN length '+s.length+' is out of range (15–34 characters).'};}
+
+  var cc=s.substr(0,2);
+  var checkDigits=s.substr(2,2);
+  var bban=s.substr(4);
+
+  if(!/^[A-Z]{2}$/.test(cc)){return {error:'IBAN country code must be two uppercase letters.'};}
+
+  var countryData=IBAN_COUNTRIES[cc];
+  var valid=mod97Check(s);
+  var lenOk=countryData?s.length===countryData.len:null;
+
+  var sepaCt=countryData?countryData.sepa_ct:'unknown';
+  var seppaDd=countryData?countryData.sepa_dd:'unknown';
+  var sepaInst=countryData?countryData.sepa_inst:'unknown';
+
+  function sepaPill(v,label){
+    if(v==='yes') return label+'<span class="sepa-pill sepa-yes">✓ Yes</span>';
+    if(v==='no') return label+'<span class="sepa-pill sepa-no">✗ No</span>';
+    if(v==='partial') return label+'<span class="sepa-pill sepa-partial">Partial</span>';
+    return label+'<span class="sepa-pill sepa-partial">Unknown</span>';
+  }
+
+  return {
+    type:'IBAN',raw:s,valid:valid&&lenOk!==false,
+    lenWarning:lenOk===false?'Expected length for '+cc+': '+countryData.len+' chars; got '+s.length:null,
+    segments:[
+      {label:'Country',value:cc,desc:'ISO 3166-1 alpha-2 country code',cls:'seg-country'},
+      {label:'Check Digits',value:checkDigits,desc:'Mod-97 check digits (ISO 13616)',cls:'seg-check'},
+      {label:'BBAN',value:bban,desc:'Basic Bank Account Number — country-specific format',cls:'seg-bban'}
+    ],
+    details:[
+      {label:'Full IBAN',value:s},
+      {label:'Country',value:cc+(countryData?' — '+countryData.name:'— (country not in embedded registry)')},
+      {label:'Check Digits',value:checkDigits+' — '+(valid?'✓ Valid (MOD 97)':'✗ INVALID — check digit mismatch')},
+      {label:'BBAN',value:bban+(countryData?' ('+countryData.bban_desc+')':'')},
+      {label:'Expected length',value:(countryData?countryData.len+' chars':'N/A (country unknown)')+(lenOk===false?' ✗ MISMATCH (got '+s.length+')':lenOk===true?' ✓':'')},
+      {label:'BBAN structure',value:countryData?countryData.bban:'(unknown)'},
+      {label:'SEPA Reachability',value:(countryData?sepaPill(sepaCt,'SCT ')+' '+sepaPill(seppaDd,'SDD ')+' '+sepaPill(sepaInst,'SCT Inst'):'Unknown — country not in SEPA scope data')},
+      {label:'Standard',value:'ISO 13616-1:2020'}
+    ]
+  };
+}
+
+/* ─── MOD 97 ─────────────────────────────────────────────────── */
+function mod97Check(s){
+  // Move first 4 chars to end, convert letters to numbers (A=10…Z=35)
+  var rearranged=s.substr(4)+s.substr(0,4);
+  var numeric='';
+  for(var i=0;i<rearranged.length;i++){
+    var c=rearranged.charCodeAt(i);
+    if(c>=65&&c<=90) numeric+=(c-55).toString();
+    else numeric+=rearranged[i];
+  }
+  // Modulo 97 in chunks to avoid JS integer overflow
+  var remainder=0;
+  for(var j=0;j<numeric.length;j+=9){
+    var chunk=parseInt(remainder.toString()+numeric.substr(j,9),10);
+    remainder=chunk%97;
+  }
+  return remainder===1;
+}
+
+/* ─── RENDER ─────────────────────────────────────────────────── */
+function renderResults(r){
+  if(r.error){
+    var el=document.getElementById('decodeErr');
+    el.textContent=r.error;el.style.display='block';return;
+  }
+
+  document.getElementById('resultTitle').textContent=r.type+': '+r.raw;
+  var vb=document.getElementById('validityBadge');
+  vb.textContent=r.valid?'✓ Valid':'✗ Invalid';
+  vb.className='validity-badge '+(r.valid?'validity-valid':'validity-invalid');
+
+  var body=document.getElementById('resultsBody');
+  // Anatomy bar
+  var anatHtml='<div><div class="section-label">Anatomy</div><div class="anatomy-bar">';
+  r.segments.forEach(function(seg){
+    anatHtml+='<div class="anat-seg '+seg.cls+'" title="'+seg.desc+'">'+seg.value+'<span class="anat-lbl">'+seg.label+'</span></div>';
+  });
+  anatHtml+='</div></div>';
+
+  // Details table
+  var detailHtml='<div><div class="section-label">Field Breakdown</div><table class="detail-table">';
+  r.details.forEach(function(d){
+    detailHtml+='<tr><td>'+d.label+'</td><td>'+d.value+'</td></tr>';
+  });
+  detailHtml+='</table></div>';
+
+  // Warning
+  var warnHtml='';
+  if(r.lenWarning) warnHtml='<div style="background:var(--warn-dim);border:1px solid rgba(245,158,11,.3);border-radius:var(--radius);padding:.65rem 1rem;font-family:JetBrains Mono,monospace;font-size:.65rem;color:var(--warn)">⚠ '+r.lenWarning+'</div>';
+
+  // Export row
+  var exportHtml='<div class="results-export-row"><span class="export-label">Decode Result · JSON Export · CC BY 4.0 · Post Oak Labs</span><button class="export-btn" onclick="exportJSON()">⬇ Export Decoded JSON</button></div>';
+
+  body.innerHTML=anatHtml+detailHtml+warnHtml+exportHtml;
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('idInput').classList.add(r.valid?'valid':'invalid');
+}
+
+/* ─── EXPORT ─────────────────────────────────────────────────── */
+function exportJSON(){
+  if(!_lastResult) return;
+  var obj={decoded_at:new Date().toISOString(),tool:'ainumbers.co/tools/363-lei-bic-iban-decoder',type:_lastResult.type,identifier:_lastResult.raw,valid:_lastResult.valid,segments:_lastResult.segments.map(function(s){return{label:s.label,value:s.value,description:s.desc};}),details:_lastResult.details};
+  var blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='lei_bic_iban_decoded_'+new Date().toISOString().replace(/[^0-9]/g,'').substr(0,14)+'.json';
+  a.click();
+  showToast('JSON exported','ok');
+}
+
+/* ─── MANIFEST ───────────────────────────────────────────────── */
+var MANIFEST={
+  tool_id:'lei-bic-iban-decoder',version:'1.0.0',
+  title:'LEI / BIC / IBAN Anatomy Decoder',
+  description:'Decode and validate LEI, BIC/SWIFT codes, and IBANs. Check digit validation, anatomy, SEPA reachability.',
+  category:'cat-8',tags:['lei','bic','iban','swift','decoder','anatomy','check digit','sepa','iso 17442','export'],
+  mcp_tool_definition:{name:'decode_lei_bic_iban',description:'Decode and validate a LEI, BIC, or IBAN, returning structural anatomy, check digit validity, and SEPA reachability.',inputSchema:{type:'object',properties:{identifier:{type:'string'},type:{type:'string',enum:['LEI','BIC','IBAN','auto']}},required:['identifier']}},
+  execution:{type:'browser-javascript',entry:'tools/363-lei-bic-iban-decoder.html',function_name:'decode',timeout_ms:2000},
+  ap2_export:false
+};
+document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+
+function showToast(msg,type){var t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+(type||'');setTimeout(function(){t.className='toast';},2500);}
+</script>
+</body>
+</html>
