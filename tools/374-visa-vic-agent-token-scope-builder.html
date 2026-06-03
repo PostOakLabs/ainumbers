@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>Visa VIC Agent Token Scope &amp; Spend Control Policy Builder · T374 · AINumbers.co</title>
+<meta name="description" content="Build and validate a Visa Intelligent Commerce (VIC) agent-scoped payment token — TAP-verified agent identity, MCC scope, spend caps, credential lifecycle, payment rails, and consumer consent tier. Exports an AP2 Policy Mandate. Client-side. Zero PII. Zero network.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/374-visa-vic-agent-token-scope-builder.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Visa Intelligent Commerce Agent Token Scope & Spend Control Policy Builder","url":"https://ainumbers.co/tools/374-visa-vic-agent-token-scope-builder.html","applicationCategory":"DeveloperApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "visa-vic-agent-token-scope-builder",
+  "version": "1.0.0",
+  "title": "Visa Intelligent Commerce Agent Token Scope & Spend Control Policy Builder",
+  "description": "Builds and validates a Visa Intelligent Commerce (VIC) agent-scoped payment credential — TAP-verified agent identity, MCC whitelist/blacklist, per-transaction and aggregate spend caps, credential lifecycle (session/persistent), payment rails (fiat/stablecoin), and consumer consent tier. Exports an AP2 Policy Mandate. Field names aligned with Visa VIC published guidance — verify against Visa Developer Portal.",
+  "category": "cat-mcp",
+  "tags": ["Visa","VIC","Visa Intelligent Commerce","agent token","TAP","spend controls","agentic payments","stablecoin","AP2"],
+  "audience": ["engineer","compliance"],
+  "input_schema": {"type":"object","properties":{"vic_token_scope":{"type":"object"}}},
+  "output_schema": {"type":"object","properties":{"token_scope":{"type":"object"},"findings":{"type":"array"},"risk_level":{"type":"string"}}},
+  "mcp_tool_definition": {"name":"build_visa_vic_agent_token_scope","description":"Build or validate a Visa Intelligent Commerce (VIC) agent-scoped payment token — identity, MCC scope, spend caps, lifecycle, rails, and consent tier.","inputSchema":{"type":"object","properties":{"vic_token_scope":{"type":"object","description":"VIC agent token scope descriptor"}}}},
+  "execution": {"type":"browser-javascript","entry":"tools/374-visa-vic-agent-token-scope-builder.html","function_name":"runBuild","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner,[dir="rtl"] .hero-eyebrow{flex-direction:row-reverse}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:740px;line-height:1.8;margin-bottom:1rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid var(--border);color:var(--muted)}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.scope-note strong{color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase}
+.panels-grid{display:flex;flex-direction:column;gap:1.25rem;margin-bottom:1.5rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem}
+.panel-header{display:flex;align-items:center;gap:.65rem;margin-bottom:.85rem}
+.panel-num{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;color:var(--bg);background:var(--teal);padding:.18rem .5rem;border-radius:3px}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--teal)}
+.panel-hint{font-size:.7rem;color:var(--muted);margin-bottom:.85rem;line-height:1.6}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem}
+@media(max-width:720px){.grid2,.grid3{grid-template-columns:1fr}}
+.lbl{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:.5rem 0 .25rem;display:block}
+.txt,.sel{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.5rem .65rem;border-radius:var(--radius);outline:none;appearance:none}
+.txt:focus,.sel:focus{border-color:var(--teal)}
+.cb-group{display:flex;flex-direction:column;gap:.4rem;margin-top:.3rem}
+.cb-row{display:flex;align-items:center;gap:.55rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);cursor:pointer}
+.cb-row input[type="checkbox"]{accent-color:var(--teal);width:13px;height:13px;cursor:pointer}
+.mcc-grid{display:grid;grid-template-columns:1fr 1fr;gap:.35rem;margin-top:.35rem}
+@media(max-width:640px){.mcc-grid{grid-template-columns:1fr}}
+.btn-row{display:flex;gap:.65rem;flex-wrap:wrap;margin:1.5rem 0 .25rem;align-items:center}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.7rem 2.25rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.ghost-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.5rem 1rem;border-radius:var(--radius);transition:all .2s}
+.ghost-btn:hover{border-color:var(--teal);color:var(--teal)}
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.code-out{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--bright);line-height:1.6;white-space:pre-wrap;word-break:break-word;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem}
+.finding{display:flex;gap:.65rem;padding:.55rem .25rem;border-bottom:1px solid var(--border);font-size:.73rem;line-height:1.5}
+.finding:last-child{border-bottom:none}
+.fi-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.12rem .45rem;border-radius:3px;height:fit-content;white-space:nowrap;border:1px solid;flex-shrink:0}
+.fi-error{color:var(--red);border-color:rgba(239,68,68,.4);background:var(--red-dim)}
+.fi-warn{color:var(--warn);border-color:rgba(245,158,11,.4);background:var(--warn-dim)}
+.fi-pass{color:var(--green);border-color:rgba(34,197,94,.4);background:var(--green-dim)}
+.fi-info{color:var(--teal);border-color:rgba(20,184,166,.4);background:var(--teal-dim)}
+.risk-wrap{display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;padding:.25rem 0}
+.risk-badge{font-family:'DM Serif Display',serif;font-size:2.5rem;line-height:1;letter-spacing:.02em}
+.risk-meta{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);line-height:1.9}
+.compliance-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:.6rem}
+.comp-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .85rem}
+.comp-rule{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.comp-status{font-size:.72rem;display:flex;align-items:center;gap:.4rem}
+.summary-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.summary-table tr{border-bottom:1px solid var(--border)}
+.summary-table td{padding:.45rem .6rem;vertical-align:top;line-height:1.5}
+.summary-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);white-space:nowrap;width:32%}
+.summary-table td:last-child{color:var(--bright)}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.cite-list{font-size:.66rem;color:var(--muted);line-height:1.9}
+.cite-list a{color:var(--teal)}.cite-list b{color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.6rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+.mcc-sub{margin-top:.6rem;padding:.75rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);display:none}
+.mcc-sub.show{display:block}
+.panel-divider{border:none;border-top:1px solid var(--border);margin:.85rem 0}
+</style>
+</head>
+<body>
+
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">Home</a><span class="nav-sep">›</span>
+    <a href="../guides/agentic-commerce-mcp-hub.html">Agentic Commerce &amp; MCP</a><span class="nav-sep">›</span>
+    <span>T374</span>
+  </div>
+  <div class="nav-right">
+    <a href="../guides/agentic-commerce-mcp-hub.html" class="nav-cta">Hub &#8594;</a>
+  </div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Visa Intelligent Commerce · VIC · Agent Token Scope · AP2 Export</div>
+  <span class="hero-badge"><span>v1.0</span></span>
+  <h1 class="tool-title">Visa VIC — <em>Agent Token Scope</em> &amp; Spend Control Policy Builder</h1>
+  <p class="hero-desc">Visa Intelligent Commerce (VIC) lets a consumer authorise an AI agent to pay on their behalf using a <strong>TAP-verified agent token</strong> — a credential scoped to a specific agent identity, merchant category set, spend limits, and consent tier, so the agent never touches the raw PAN. Build and validate the complete VIC agent token scope object, check Visa's published constraint rules, and export as an AP2 Policy Mandate.</p>
+  <div class="hero-badges">
+    <span class="badge badge-teal">Visa Intelligent Commerce</span>
+    <span class="badge badge-gold">TAP · RFC 9421</span>
+    <span class="badge badge-warn">Agentic Ready Programme</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side · No Network</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note"><strong>Scope &amp; reliance —</strong> <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span> VIC agent token schema is aligned with Visa's published VIC and TAP guidance — verify all field names against developer.visa.com before production use. Deterministic · zero PII · CC BY 4.0.</div>
+
+  <div class="panels-grid">
+
+    <!-- PANEL 01: Agent Identity -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-num">01</span>
+        <span class="panel-title">Agent Identity</span>
+      </div>
+      <div class="panel-hint">The VIC agent token binds to a verified agent identity — not just the underlying card. TAP (Trusted Agent Protocol) uses RFC 9421 HTTP Message Signatures to confirm agent provenance at issuance time.</div>
+      <div class="grid2">
+        <div>
+          <label class="lbl" for="agentPlatform">Agent platform</label>
+          <select class="sel" id="agentPlatform">
+            <option value="custom">Custom agent</option>
+            <option value="openai">OpenAI agent</option>
+            <option value="anthropic">Anthropic agent</option>
+            <option value="google">Google agent</option>
+            <option value="microsoft">Microsoft Copilot</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label class="lbl" for="agentId">Agent identifier (domain or DID)</label>
+          <input class="txt" id="agentId" value="agent.example.com" placeholder="agent.example.com or did:web:…">
+        </div>
+        <div>
+          <label class="lbl" for="tapLevel">TAP identity verification level</label>
+          <select class="sel" id="tapLevel">
+            <option value="none">Not verified</option>
+            <option value="webbotauth">Web Bot Auth (Ed25519)</option>
+            <option value="tap_registry" selected>TAP-verified (Visa registry)</option>
+            <option value="tap_sandbox">TAP-verified + VIC sandbox</option>
+          </select>
+        </div>
+        <div>
+          <label class="lbl" for="issuerTier">Issuer programme tier</label>
+          <select class="sel" id="issuerTier">
+            <option value="explorer">VIC Explorer</option>
+            <option value="tier1" selected>VIC Agentic Ready Tier 1</option>
+            <option value="tier2">VIC Agentic Ready Tier 2</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 02: Merchant Scope -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-num">02</span>
+        <span class="panel-title">Merchant Scope</span>
+      </div>
+      <div class="panel-hint">Restrict the token to a defined merchant universe. A fully open scope is high-risk — apply an MCC whitelist or blacklist wherever possible.</div>
+      <div class="grid2">
+        <div>
+          <label class="lbl" for="scopeType">Scope type</label>
+          <select class="sel" id="scopeType" onchange="toggleMccSub()">
+            <option value="open">Open (any merchant)</option>
+            <option value="whitelist" selected>MCC whitelist</option>
+            <option value="blacklist">MCC blacklist</option>
+            <option value="specific">Specific merchant list</option>
+          </select>
+        </div>
+        <div>
+          <label class="lbl" for="geoScope">Merchant geographies</label>
+          <select class="sel" id="geoScope">
+            <option value="domestic">Domestic only</option>
+            <option value="domestic_eu" selected>Domestic + EU</option>
+            <option value="global">Global</option>
+          </select>
+        </div>
+      </div>
+      <div class="mcc-sub show" id="mccSub">
+        <label class="lbl">MCC groups (select all that apply)</label>
+        <div class="mcc-grid">
+          <label class="cb-row"><input type="checkbox" id="mcc_travel" checked> Travel &amp; Transport (3000–3999, 4111, 4511, 4722)</label>
+          <label class="cb-row"><input type="checkbox" id="mcc_retail"> Retail &amp; Shopping (5300–5999)</label>
+          <label class="cb-row"><input type="checkbox" id="mcc_food" checked> Food &amp; Dining (5812, 5814, 7011)</label>
+          <label class="cb-row"><input type="checkbox" id="mcc_software"> Software &amp; Digital (5734, 7372, 7379)</label>
+          <label class="cb-row"><input type="checkbox" id="mcc_health"> Healthcare (8011–8099)</label>
+          <label class="cb-row"><input type="checkbox" id="mcc_entertainment"> Entertainment (7922, 7991, 7999)</label>
+        </div>
+      </div>
+      <div id="specificMerchantDiv" style="display:none;margin-top:.6rem">
+        <label class="lbl" for="specificMerchants">Specific merchant identifiers (comma-separated)</label>
+        <input class="txt" id="specificMerchants" placeholder="grocer.example.com, pharmacy.example.com">
+      </div>
+    </div>
+
+    <!-- PANEL 03: Spend Controls -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-num">03</span>
+        <span class="panel-title">Spend Controls</span>
+      </div>
+      <div class="panel-hint">All monetary limits are in the selected currency (major units). Set 0 to indicate no limit on a given control — note that absence of any monetary cap is flagged as a compliance error.</div>
+      <div class="grid3">
+        <div>
+          <label class="lbl" for="currency">Currency</label>
+          <select class="sel" id="currency">
+            <option value="USD" selected>USD $</option>
+            <option value="GBP">GBP £</option>
+            <option value="EUR">EUR €</option>
+            <option value="SGD">SGD $</option>
+            <option value="AUD">AUD $</option>
+          </select>
+        </div>
+        <div>
+          <label class="lbl" for="perTxLimit">Per-transaction limit (0 = no limit)</label>
+          <input class="txt" id="perTxLimit" type="number" min="0" step="1" value="150">
+        </div>
+        <div>
+          <label class="lbl" for="highValueThreshold">High-value step-up threshold</label>
+          <input class="txt" id="highValueThreshold" type="number" min="0" step="1" value="100">
+        </div>
+        <div>
+          <label class="lbl" for="dailyCap">Daily aggregate cap</label>
+          <input class="txt" id="dailyCap" type="number" min="0" step="1" value="500">
+        </div>
+        <div>
+          <label class="lbl" for="monthlyCap">Monthly aggregate cap</label>
+          <input class="txt" id="monthlyCap" type="number" min="0" step="1" value="2000">
+        </div>
+        <div>
+          <label class="lbl" for="txCountDay">Max transactions per day (0 = no limit)</label>
+          <input class="txt" id="txCountDay" type="number" min="0" step="1" value="10">
+        </div>
+      </div>
+      <div style="margin-top:.75rem">
+        <label class="lbl" for="txCountSession">Max transactions per session (0 = no limit)</label>
+        <input class="txt" id="txCountSession" type="number" min="0" step="1" value="3" style="max-width:200px">
+      </div>
+    </div>
+
+    <!-- PANEL 04: Credential Lifecycle -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-num">04</span>
+        <span class="panel-title">Credential Lifecycle</span>
+      </div>
+      <div class="panel-hint">Define how long the agent token remains valid, the consumer consent model, which payment rails are permitted, and the auto-revocation triggers that protect the consumer if something goes wrong.</div>
+      <div class="grid2">
+        <div>
+          <label class="lbl" for="tokenValidity">Token validity type</label>
+          <select class="sel" id="tokenValidity">
+            <option value="session">Single-session</option>
+            <option value="24h">24-hour</option>
+            <option value="7d" selected>7-day</option>
+            <option value="30d">30-day</option>
+            <option value="until_revoked">Until revoked</option>
+          </select>
+        </div>
+        <div>
+          <label class="lbl" for="consentTier">Consumer consent tier</label>
+          <select class="sel" id="consentTier">
+            <option value="delegated">Fully delegated</option>
+            <option value="confirm_high" selected>Confirm high-value only</option>
+            <option value="confirm_always">Confirm every transaction</option>
+          </select>
+        </div>
+      </div>
+      <hr class="panel-divider">
+      <label class="lbl">Payment rails</label>
+      <div class="cb-group" style="flex-direction:row;flex-wrap:wrap;gap:.75rem">
+        <label class="cb-row"><input type="checkbox" id="rail_visa" checked> Visa network (fiat)</label>
+        <label class="cb-row"><input type="checkbox" id="rail_stablecoin"> Stablecoin settlement (USDC)</label>
+      </div>
+      <hr class="panel-divider">
+      <label class="lbl">Auto-revoke triggers</label>
+      <div class="cb-group" style="flex-direction:row;flex-wrap:wrap;gap:.75rem">
+        <label class="cb-row"><input type="checkbox" id="revoke_suspicious" checked> Suspicious transaction flag</label>
+        <label class="cb-row"><input type="checkbox" id="revoke_platform" checked> Agent platform change</label>
+        <label class="cb-row"><input type="checkbox" id="revoke_breach" checked> Spend limit breach</label>
+      </div>
+    </div>
+
+  </div><!-- /panels-grid -->
+
+  <div class="btn-row">
+    <button class="run-btn" onclick="runBuild()">&#9654; Build &amp; Validate Scope</button>
+    <button class="ghost-btn" onclick="resetForm()">&#8635; Reset</button>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()">
+      <span>&#128230; &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span>
+      <span id="mfstArr" style="color:var(--muted)">&#9660;</span>
+    </button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </div></div>
+</section>
+
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Build and validate a scope above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export AP2 Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/agentic-commerce-mcp-hub.html">Agentic Commerce &amp; MCP Hub</a>
+      <a href="../tools/286-visa-trusted-agent-protocol-inspector.html">TAP Inspector</a>
+      <a href="../tools/287-mastercard-agentic-token-builder.html">Mastercard Agent Pay</a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ── Visa VIC Agent Token Scope Builder · T374 · deterministic · CONTRACT §0 ──
+   Citations:
+   [1] Visa Intelligent Commerce (developer.visa.com/capabilities/intelligent-commerce)
+   [2] Visa Trusted Agent Protocol / TAP (developer.visa.com/capabilities/trusted-agent-protocol)
+   [3] Visa Agentic Ready Program (usa.visa.com/about-visa/newsroom/press-releases.releaseId.22341.html)
+   [4] AP2 Policy Mandate schema v1.0 — Post Oak Labs (ainumbers.co)
+   [5] RFC 9421 — HTTP Message Signatures                                                */
+
+var MCC_GROUPS = {
+  travel:        { label: 'Travel & Transport',   codes: ['3000-3999','4111','4511','4722'] },
+  retail:        { label: 'Retail & Shopping',    codes: ['5300-5999'] },
+  food:          { label: 'Food & Dining',         codes: ['5812','5814','7011'] },
+  software:      { label: 'Software & Digital',   codes: ['5734','7372','7379'] },
+  health:        { label: 'Healthcare',            codes: ['8011-8099'] },
+  entertainment: { label: 'Entertainment',         codes: ['7922','7991','7999'] }
+};
+
+var TAP_WEIGHT  = { none:0, webbotauth:1, tap_registry:2, tap_sandbox:3 };
+var TIER_MIN    = { explorer:0, tier1:1, tier2:2 };
+var TIER_LABEL  = { explorer:'VIC Explorer', tier1:'VIC Agentic Ready Tier 1', tier2:'VIC Agentic Ready Tier 2' };
+var TAP_LABEL   = { none:'Not verified', webbotauth:'Web Bot Auth (Ed25519)', tap_registry:'TAP-verified (Visa registry)', tap_sandbox:'TAP-verified + VIC sandbox' };
+var VALID_LABEL = { session:'Single-session', '24h':'24-hour', '7d':'7-day', '30d':'30-day', until_revoked:'Until revoked' };
+var CONSENT_LBL = { delegated:'Fully delegated', confirm_high:'Confirm high-value only', confirm_always:'Confirm every transaction' };
+var GEO_LABEL   = { domestic:'Domestic only', domestic_eu:'Domestic + EU', global:'Global' };
+var SCOPE_LABEL = { open:'Open (any merchant)', whitelist:'MCC whitelist', blacklist:'MCC blacklist', specific:'Specific merchant list' };
+
+function esc(s){ return String(s).replace(/[&<>'"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]; }); }
+function v(id){ return ((document.getElementById(id)||{}).value||'').trim(); }
+function cb(id){ var el=document.getElementById(id); return el&&el.checked; }
+function num(id){ var n=parseFloat(v(id)); return isNaN(n)?0:n; }
+
+function toggleMccSub(){
+  var st=v('scopeType');
+  var ms=document.getElementById('mccSub'), sp=document.getElementById('specificMerchantDiv');
+  if(st==='whitelist'||st==='blacklist'){ ms.classList.add('show'); sp.style.display='none'; }
+  else if(st==='specific'){ ms.classList.remove('show'); sp.style.display='block'; }
+  else { ms.classList.remove('show'); sp.style.display='none'; }
+}
+
+function getSelectedMcc(){
+  var out=[];
+  Object.keys(MCC_GROUPS).forEach(function(k){ if(cb('mcc_'+k)) out.push({ key:k, label:MCC_GROUPS[k].label, codes:MCC_GROUPS[k].codes }); });
+  return out;
+}
+function getRevokeTriggers(){
+  var t=[];
+  if(cb('revoke_suspicious')) t.push('suspicious_transaction_flag');
+  if(cb('revoke_platform'))   t.push('agent_platform_change');
+  if(cb('revoke_breach'))     t.push('spend_limit_breach');
+  return t;
+}
+function getRails(){
+  var r=[];
+  if(cb('rail_visa'))       r.push('visa_network_fiat');
+  if(cb('rail_stablecoin')) r.push('stablecoin_usdc');
+  return r;
+}
+
+function buildTokenScope(){
+  var st=v('scopeType');
+  var mccGroups=(st==='whitelist'||st==='blacklist')?getSelectedMcc():[];
+  var specList=st==='specific'?v('specificMerchants').split(',').map(function(s){return s.trim();}).filter(Boolean):[];
+
+  var merchantScope;
+  if(st==='open')       merchantScope={type:'open',restriction:'none'};
+  else if(st==='whitelist') merchantScope={type:'mcc_whitelist', mcc_groups:mccGroups.map(function(g){return {label:g.label,codes:g.codes};})};
+  else if(st==='blacklist') merchantScope={type:'mcc_blacklist', excluded_mcc_groups:mccGroups.map(function(g){return {label:g.label,codes:g.codes};})};
+  else merchantScope={type:'specific_merchants',merchants:specList};
+
+  var ccy=v('currency');
+  var perTx=num('perTxLimit'), daily=num('dailyCap'), monthly=num('monthlyCap');
+  var hv=num('highValueThreshold'), txDay=num('txCountDay'), txSess=num('txCountSession');
+
+  return {
+    vic_token_scope_version:'1.0',
+    agent_identity:{ platform:v('agentPlatform'), identifier:v('agentId'), tap_verification_level:v('tapLevel'), issuer_programme_tier:v('issuerTier') },
+    merchant_scope:merchantScope,
+    geography:v('geoScope'),
+    spend_controls:{ currency:ccy, per_transaction_limit:perTx===0?null:perTx, daily_aggregate_cap:daily===0?null:daily, monthly_aggregate_cap:monthly===0?null:monthly, high_value_step_up_threshold:hv===0?null:hv, transaction_count_per_day:txDay===0?null:txDay, transaction_count_per_session:txSess===0?null:txSess },
+    credential_lifecycle:{ token_validity:v('tokenValidity'), consumer_consent_tier:v('consentTier'), payment_rails:getRails(), auto_revoke_triggers:getRevokeTriggers() }
+  };
+}
+
+function validateScope(scope){
+  var F=function(level,rule,msg){return {level:level,rule:rule,msg:msg};};
+  var findings=[];
+  var ai=scope.agent_identity, sc=scope.spend_controls, lc=scope.credential_lifecycle, ms=scope.merchant_scope;
+
+  /* AGENT-01: identifier */
+  if(!ai.identifier||ai.identifier.length<3)
+    findings.push(F('error','AGENT-01','Agent identifier is required. In VIC, every token must bind to a specific verified agent identity.'));
+  else
+    findings.push(F('pass','AGENT-01','Agent identifier present: '+ai.identifier));
+
+  /* AGENT-02: TAP level vs programme tier */
+  var tw=TAP_WEIGHT[ai.tap_verification_level]||0, minTw=TIER_MIN[ai.issuer_programme_tier]||0;
+  if(tw<minTw)
+    findings.push(F('error','AGENT-02','TAP verification level "'+TAP_LABEL[ai.tap_verification_level]+'" is insufficient for '+TIER_LABEL[ai.issuer_programme_tier]+'. Upgrade TAP level or reduce programme tier.'));
+  else
+    findings.push(F('pass','AGENT-02','TAP level ('+TAP_LABEL[ai.tap_verification_level]+') meets '+TIER_LABEL[ai.issuer_programme_tier]+' requirement.'));
+
+  /* AGENT-03: no TAP at all */
+  if(ai.tap_verification_level==='none')
+    findings.push(F('warn','AGENT-03','No TAP verification. VIC recommends at minimum Web Bot Auth (Ed25519) to confirm agent provenance before token issuance.'));
+
+  /* RAIL-01: stablecoin requires Tier 2 */
+  if(lc.payment_rails.indexOf('stablecoin_usdc')!==-1&&ai.issuer_programme_tier!=='tier2')
+    findings.push(F('error','RAIL-01','Stablecoin settlement (USDC) requires VIC Agentic Ready Tier 2. Current: '+TIER_LABEL[ai.issuer_programme_tier]+'.'));
+  else if(lc.payment_rails.indexOf('stablecoin_usdc')!==-1)
+    findings.push(F('pass','RAIL-01','Stablecoin settlement permitted — Tier 2 programme confirmed.'));
+
+  /* RAIL-02: at least one rail */
+  if(lc.payment_rails.length===0)
+    findings.push(F('error','RAIL-02','No payment rail selected. At least one rail must be enabled.'));
+  else
+    findings.push(F('pass','RAIL-02','Rail(s) configured: '+lc.payment_rails.join(', ').replace(/_/g,' ')+'.'));
+
+  /* MERCH-01: scope restriction */
+  if(ms.type==='open')
+    findings.push(F('warn','MERCH-01','Merchant scope is unrestricted (open). VIC recommends binding to an MCC whitelist or specific merchant list.'));
+  else
+    findings.push(F('pass','MERCH-01','Merchant scope restricted: '+SCOPE_LABEL[ms.type]+'.'));
+
+  /* MERCH-02: MCC groups populated when needed */
+  if((ms.type==='whitelist')&&(!ms.mcc_groups||ms.mcc_groups.length===0))
+    findings.push(F('error','MERCH-02','MCC whitelist selected but no MCC groups checked.'));
+  else if((ms.type==='blacklist')&&(!ms.excluded_mcc_groups||ms.excluded_mcc_groups.length===0))
+    findings.push(F('error','MERCH-02','MCC blacklist selected but no MCC groups checked.'));
+  else if(ms.type==='whitelist'||ms.type==='blacklist')
+    findings.push(F('pass','MERCH-02','MCC group selection populated.'));
+
+  /* MERCH-03: specific list populated */
+  if(ms.type==='specific'&&(!ms.merchants||ms.merchants.length===0))
+    findings.push(F('error','MERCH-03','Specific merchant list selected but no merchant identifiers entered.'));
+  else if(ms.type==='specific')
+    findings.push(F('pass','MERCH-03',ms.merchants.length+' specific merchant(s) listed.'));
+
+  /* MERCH-04: global geo */
+  if(v('geoScope')==='global')
+    findings.push(F('warn','MERCH-04','Global geography increases exposure. Restrict to Domestic or Domestic+EU where the agent use-case permits.'));
+
+  /* SPEND-01: at least one cap */
+  if(sc.per_transaction_limit===null&&sc.daily_aggregate_cap===null&&sc.monthly_aggregate_cap===null)
+    findings.push(F('error','SPEND-01','No spend caps set. VIC requires at least one monetary control on an agent token.'));
+  else
+    findings.push(F('pass','SPEND-01','At least one spend cap configured.'));
+
+  /* SPEND-02: per-tx vs daily */
+  if(sc.per_transaction_limit!==null&&sc.daily_aggregate_cap!==null&&sc.per_transaction_limit>sc.daily_aggregate_cap)
+    findings.push(F('error','SPEND-02','Per-transaction limit ('+sc.per_transaction_limit+') exceeds daily aggregate cap ('+sc.daily_aggregate_cap+'). Must be per-tx ≤ daily.'));
+  else if(sc.per_transaction_limit!==null&&sc.daily_aggregate_cap!==null)
+    findings.push(F('pass','SPEND-02','Per-transaction limit ≤ daily cap — logically consistent.'));
+
+  /* SPEND-03: daily vs monthly */
+  if(sc.daily_aggregate_cap!==null&&sc.monthly_aggregate_cap!==null&&sc.daily_aggregate_cap>sc.monthly_aggregate_cap)
+    findings.push(F('error','SPEND-03','Daily aggregate cap ('+sc.daily_aggregate_cap+') exceeds monthly cap ('+sc.monthly_aggregate_cap+'). Must be daily ≤ monthly.'));
+  else if(sc.daily_aggregate_cap!==null&&sc.monthly_aggregate_cap!==null)
+    findings.push(F('pass','SPEND-03','Daily cap ≤ monthly cap — logically consistent.'));
+
+  /* SPEND-04: high-value threshold */
+  if(sc.high_value_step_up_threshold!==null&&sc.per_transaction_limit!==null&&sc.high_value_step_up_threshold>sc.per_transaction_limit)
+    findings.push(F('warn','SPEND-04','High-value step-up threshold ('+sc.high_value_step_up_threshold+') exceeds per-transaction limit ('+sc.per_transaction_limit+'). Step-up will never trigger for transactions already blocked by the per-tx cap.'));
+  else if(sc.high_value_step_up_threshold!==null)
+    findings.push(F('pass','SPEND-04','High-value step-up at '+sc.high_value_step_up_threshold+' '+sc.currency+' configured.'));
+  else
+    findings.push(F('info','SPEND-04','No high-value step-up threshold. Consider adding one when consent tier is Fully delegated.'));
+
+  /* CONSENT-01 */
+  if(lc.consumer_consent_tier==='delegated'&&ms.type==='open')
+    findings.push(F('warn','CONSENT-01','Fully delegated consent with open merchant scope is the highest-risk combination. Restrict merchant scope or upgrade consent tier.'));
+  else if(lc.consumer_consent_tier==='confirm_always')
+    findings.push(F('pass','CONSENT-01','Confirm-every-transaction provides maximum consumer protection.'));
+  else
+    findings.push(F('pass','CONSENT-01','Consent tier: '+CONSENT_LBL[lc.consumer_consent_tier]+'.'));
+
+  /* LIFE-01: until_revoked with no triggers */
+  if(lc.token_validity==='until_revoked'&&lc.auto_revoke_triggers.length===0)
+    findings.push(F('warn','LIFE-01','"Until revoked" token with no auto-revoke triggers is persistent with no automated safeguard. Add at least one trigger.'));
+  else if(lc.token_validity==='until_revoked')
+    findings.push(F('pass','LIFE-01','Persistent token balanced by '+lc.auto_revoke_triggers.length+' auto-revoke trigger(s).'));
+  else
+    findings.push(F('pass','LIFE-01','Token validity: '+VALID_LABEL[lc.token_validity]+'.'));
+
+  /* LIFE-02: revoke triggers */
+  if(lc.auto_revoke_triggers.length===0)
+    findings.push(F('warn','LIFE-02','No auto-revoke triggers configured. Visa TAP recommends suspicious-transaction-flag revocation as a minimum.'));
+  else
+    findings.push(F('pass','LIFE-02',lc.auto_revoke_triggers.length+' auto-revoke trigger(s) active.'));
+
+  return findings;
+}
+
+function computeRisk(scope,findings){
+  var errs=0,warns=0;
+  findings.forEach(function(f){ if(f.level==='error') errs++; else if(f.level==='warn') warns++; });
+  var rs = errs*20+warns*8;
+  var ms=scope.merchant_scope, lc=scope.credential_lifecycle, sc=scope.spend_controls, ai=scope.agent_identity;
+  if(ms.type==='open') rs+=15;
+  if(v('geoScope')==='global') rs+=10;
+  if(lc.consumer_consent_tier==='delegated') rs+=12;
+  else if(lc.consumer_consent_tier==='confirm_high') rs+=4;
+  if(lc.token_validity==='until_revoked') rs+=10;
+  else if(lc.token_validity==='30d') rs+=5;
+  if(!sc.per_transaction_limit&&!sc.daily_aggregate_cap&&!sc.monthly_aggregate_cap) rs+=20;
+  if(ai.tap_verification_level==='none') rs+=15;
+  if(rs>=55) return 'HIGH';
+  if(rs>=25) return 'MEDIUM';
+  return 'LOW';
+}
+function riskColor(r){ return r==='HIGH'?'var(--red)':r==='MEDIUM'?'var(--warn)':'var(--green)'; }
+function riskDesc(r){
+  if(r==='HIGH') return 'Multiple open controls or identity gaps — do not issue in production without remediation.';
+  if(r==='MEDIUM') return 'Moderate exposure — review flagged warnings before issuing.';
+  return 'Controls appear well-scoped — suitable for issuer review.';
+}
+
+var COMPLIANCE_RULES = [
+  {id:'AGENT-01',label:'Agent binding'},{id:'AGENT-02',label:'TAP level vs tier'},{id:'AGENT-03',label:'TAP verification present'},
+  {id:'RAIL-01',label:'Stablecoin tier req.'},{id:'RAIL-02',label:'Rail configured'},
+  {id:'MERCH-01',label:'Merchant restriction'},{id:'MERCH-02',label:'MCC groups populated'},{id:'MERCH-03',label:'Specific list'},{id:'MERCH-04',label:'Geography scope'},
+  {id:'SPEND-01',label:'Spend cap present'},{id:'SPEND-02',label:'Per-tx ≤ daily'},{id:'SPEND-03',label:'Daily ≤ monthly'},{id:'SPEND-04',label:'High-value step-up'},
+  {id:'CONSENT-01',label:'Consent tier safety'},{id:'LIFE-01',label:'Validity + revoke'},{id:'LIFE-02',label:'Auto-revoke triggers'}
+];
+
+function buildComplianceGrid(findings){
+  var byRule={};
+  findings.forEach(function(f){ byRule[f.rule]=f; });
+  return COMPLIANCE_RULES.map(function(rule){
+    var f=byRule[rule.id];
+    if(!f) return '';
+    var icon=f.level==='pass'?'&#10003;':f.level==='error'?'&#10007;':f.level==='warn'?'&#9888;':'&mdash;';
+    var col=f.level==='pass'?'var(--green)':f.level==='error'?'var(--red)':f.level==='warn'?'var(--warn)':'var(--muted)';
+    return '<div class="comp-card"><div class="comp-rule">'+rule.id+'</div><div class="comp-status" style="color:'+col+'"><span>'+icon+'</span><span>'+esc(rule.label)+'</span></div></div>';
+  }).join('');
+}
+
+function buildSummaryRows(scope){
+  var ai=scope.agent_identity, ms=scope.merchant_scope, sc=scope.spend_controls, lc=scope.credential_lifecycle;
+  var ccy=sc.currency;
+  function fmtAmt(val){ return val===null?'No limit':ccy+' '+val.toLocaleString(); }
+  var mccDetail='';
+  if(ms.type==='whitelist'&&ms.mcc_groups&&ms.mcc_groups.length)
+    mccDetail=' ('+ms.mcc_groups.map(function(g){return g.label;}).join(', ')+')';
+  else if(ms.type==='blacklist'&&ms.excluded_mcc_groups&&ms.excluded_mcc_groups.length)
+    mccDetail=' (excl. '+ms.excluded_mcc_groups.map(function(g){return g.label;}).join(', ')+')';
+  else if(ms.type==='specific'&&ms.merchants)
+    mccDetail=' ('+ms.merchants.join(', ')+')';
+  return [
+    ['Agent platform', ai.platform==='custom'?'Custom agent':ai.platform.charAt(0).toUpperCase()+ai.platform.slice(1)],
+    ['Agent identifier', ai.identifier],
+    ['TAP verification', TAP_LABEL[ai.tap_verification_level]],
+    ['Programme tier', TIER_LABEL[ai.issuer_programme_tier]],
+    ['Merchant scope', SCOPE_LABEL[ms.type]+mccDetail],
+    ['Geography', GEO_LABEL[v('geoScope')]],
+    ['Per-transaction limit', fmtAmt(sc.per_transaction_limit)],
+    ['Daily aggregate cap', fmtAmt(sc.daily_aggregate_cap)],
+    ['Monthly aggregate cap', fmtAmt(sc.monthly_aggregate_cap)],
+    ['High-value step-up', sc.high_value_step_up_threshold!==null?ccy+' '+sc.high_value_step_up_threshold:'Not set'],
+    ['Tx count / day', sc.transaction_count_per_day!==null?String(sc.transaction_count_per_day):'No limit'],
+    ['Tx count / session', sc.transaction_count_per_session!==null?String(sc.transaction_count_per_session):'No limit'],
+    ['Token validity', VALID_LABEL[lc.token_validity]],
+    ['Consumer consent', CONSENT_LBL[lc.consumer_consent_tier]],
+    ['Payment rails', lc.payment_rails.length?lc.payment_rails.join(', ').replace(/_/g,' '):'None selected'],
+    ['Auto-revoke triggers', lc.auto_revoke_triggers.length?lc.auto_revoke_triggers.join(', ').replace(/_/g,' '):'None']
+  ];
+}
+
+var _lastScope=null, _lastFindings=null, _lastRisk=null;
+
+function runBuild(){
+  var scope=buildTokenScope();
+  _lastScope=scope; 
+  var findings=validateScope(scope);
+  _lastFindings=findings;
+  var risk=computeRisk(scope,findings);
+  _lastRisk=risk;
+  var json=JSON.stringify(scope,null,2);
+  window._memo='VISA VIC AGENT TOKEN SCOPE\n\n'+json+'\n\nRISK: '+risk+'\n\n'+findings.map(function(f){return '['+f.level.toUpperCase()+'] '+f.rule+' — '+f.msg;}).join('\n');
+
+  var errs=findings.filter(function(f){return f.level==='error';}).length;
+  var warns=findings.filter(function(f){return f.level==='warn';}).length;
+  var passes=findings.filter(function(f){return f.level==='pass';}).length;
+
+  var html='';
+
+  /* 1. Token scope JSON */
+  html+='<div class="out-section">'
+    +'<div class="out-header"><span class="out-title">VIC Agent Token Scope — JSON</span><button class="copy-btn" onclick="copyScope()">Copy JSON</button></div>'
+    +'<div class="out-body"><div class="code-out">'+esc(json)+'</div></div>'
+    +'</div>';
+
+  /* 2. Compliance flags grid */
+  html+='<div class="out-section">'
+    +'<div class="out-header"><span class="out-title">Compliance Flags — VIC Rule Check</span>'
+    +'<span style="font-family:\'JetBrains Mono\',monospace;font-size:.5rem;color:var(--muted)">'+errs+' error &nbsp;\xb7&nbsp; '+warns+' warn &nbsp;\xb7&nbsp; '+passes+' pass</span></div>'
+    +'<div class="out-body"><div class="compliance-grid">'+buildComplianceGrid(findings)+'</div></div>'
+    +'</div>';
+
+  /* 3. Detailed findings */
+  var findRows=findings.map(function(f){
+    var tag=f.level==='error'?'fi-error':f.level==='warn'?'fi-warn':f.level==='pass'?'fi-pass':'fi-info';
+    return '<div class="finding"><span class="fi-tag '+tag+'">'+f.level.toUpperCase()+'</span>'
+      +'<span><span style="font-family:\'JetBrains Mono\',monospace;font-size:.52rem;color:var(--muted);margin-right:.4rem">'+f.rule+'</span>'+esc(f.msg)+'</span></div>';
+  }).join('');
+  html+='<div class="out-section">'
+    +'<div class="out-header"><span class="out-title">Validation Findings</span></div>'
+    +'<div class="out-body" style="padding:.5rem 1.25rem">'+findRows+'</div>'
+    +'</div>';
+
+  /* 4. Risk indicator */
+  var rcol=riskColor(risk);
+  html+='<div class="out-section">'
+    +'<div class="out-header"><span class="out-title">Risk Indicator</span></div>'
+    +'<div class="out-body"><div class="risk-wrap">'
+    +'<div class="risk-badge" style="color:'+rcol+'">'+risk+'</div>'
+    +'<div class="risk-meta"><span style="color:'+rcol+'">'+riskDesc(risk)+'</span><br>'
+    +'Errors: <strong style="color:var(--red)">'+errs+'</strong> &nbsp; Warnings: <strong style="color:var(--warn)">'+warns+'</strong> &nbsp; Passed: <strong style="color:var(--green)">'+passes+'</strong>'
+    +'</div></div></div>'
+    +'</div>';
+
+  /* 5. Policy summary */
+  var sumRows=buildSummaryRows(scope);
+  var sumHtml=sumRows.map(function(r){return '<tr><td>'+esc(r[0])+'</td><td>'+esc(String(r[1]))+'</td></tr>';}).join('');
+  html+='<div class="out-section">'
+    +'<div class="out-header"><span class="out-title">Policy Summary</span><button class="copy-btn" onclick="copySummary()">Copy Summary</button></div>'
+    +'<div class="out-body"><table class="summary-table">'+sumHtml+'</table></div>'
+    +'</div>';
+
+  /* 6. Spec citations */
+  html+='<div class="out-section">'
+    +'<div class="out-header"><span class="out-title">Regulatory &amp; Spec Citations</span></div>'
+    +'<div class="out-body"><div class="cite-list">'
+    +'<b>[1]</b> Visa Intelligent Commerce — Agent token scoping specification. <a href="https://developer.visa.com/capabilities/intelligent-commerce" target="_blank" rel="noopener">developer.visa.com/capabilities/intelligent-commerce</a><br>'
+    +'<b>[2]</b> Visa Trusted Agent Protocol (TAP) — RFC 9421 / Web Bot Auth. <a href="https://developer.visa.com/capabilities/trusted-agent-protocol" target="_blank" rel="noopener">developer.visa.com/capabilities/trusted-agent-protocol</a><br>'
+    +'<b>[3]</b> Visa Agentic Ready Program — programme tier requirements. <a href="https://usa.visa.com/about-visa/newsroom/press-releases.releaseId.22341.html" target="_blank" rel="noopener">usa.visa.com — Press Release releaseId.22341</a><br>'
+    +'<b>[4]</b> AP2 Policy Mandate schema v1.0 — Post Oak Labs. <a href="https://ainumbers.co" target="_blank" rel="noopener">ainumbers.co</a><br>'
+    +'<b>[5]</b> RFC 9421 — HTTP Message Signatures (Web Bot Auth substrate). <a href="https://www.rfc-editor.org/rfc/rfc9421" target="_blank" rel="noopener">rfc-editor.org/rfc/rfc9421</a>'
+    +'</div></div></div>';
+
+  document.getElementById('outputSection').innerHTML=html;
+  window._ap2Result={ output:window._memo.slice(0,3000), inputs:scope };
+  window.enableAP2Btn();
+}
+
+function copyScope(){ if(_lastScope) try{ navigator.clipboard.writeText(JSON.stringify(_lastScope,null,2)); }catch(e){} }
+function copySummary(){
+  if(!_lastScope) return;
+  var rows=buildSummaryRows(_lastScope);
+  var txt=rows.map(function(r){return r[0]+': '+r[1];}).join('\n');
+  try{ navigator.clipboard.writeText(txt); }catch(e){}
+}
+
+function resetForm(){
+  ['agentPlatform','agentId','tapLevel','issuerTier','scopeType','geoScope','currency','perTxLimit','highValueThreshold','dailyCap','monthlyCap','txCountDay','txCountSession','tokenValidity','consentTier'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(!el) return;
+    if(el.tagName==='SELECT') el.value=({'agentPlatform':'custom','tapLevel':'tap_registry','issuerTier':'tier1','scopeType':'whitelist','geoScope':'domestic_eu','currency':'USD','tokenValidity':'7d','consentTier':'confirm_high'})[id]||el.options[0].value;
+    else el.value=({'agentId':'agent.example.com','perTxLimit':'150','highValueThreshold':'100','dailyCap':'500','monthlyCap':'2000','txCountDay':'10','txCountSession':'3'})[id]||'';
+  });
+  ['rail_visa','revoke_suspicious','revoke_platform','revoke_breach'].forEach(function(id){ var e=document.getElementById(id); if(e) e.checked=true; });
+  ['rail_stablecoin','mcc_retail','mcc_software','mcc_health','mcc_entertainment'].forEach(function(id){ var e=document.getElementById(id); if(e) e.checked=false; });
+  ['mcc_travel','mcc_food'].forEach(function(id){ var e=document.getElementById(id); if(e) e.checked=true; });
+  toggleMccSub();
+  document.getElementById('outputSection').innerHTML='';
+  _lastScope=null; _lastFindings=null; _lastRisk=null;
+  var btn=document.getElementById('ap2ExportBtn'); btn.disabled=true; btn.classList.remove('ready');
+}
+
+var TRANSLATIONS={ en:{}, es:{}, fr:{}, ar:{lang_dir:'rtl'}, pt:{}, zh:{} };
+function setLang(lang){
+  if(!TRANSLATIONS[lang]) return;
+  var dict=TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){ var k=el.getAttribute('data-i18n'); if(dict[k]) el.textContent=dict[k]; });
+  document.querySelectorAll('.lang-btn').forEach(function(b){ b.classList.remove('active'); });
+  var a=document.querySelector('.lang-btn[data-lang="'+lang+'"]'); if(a) a.classList.add('active');
+  document.documentElement.setAttribute('dir',lang==='ar'?'rtl':'ltr');
+  document.documentElement.setAttribute('lang',lang);
+  try{ sessionStorage.setItem('ain_lang',lang); }catch(e){}
+}
+(function(){ try{ var s=sessionStorage.getItem('ain_lang'); if(s) setLang(s); }catch(e){} })();
+</script>
+
+<script>
+var MANIFEST={"tool_id":"visa-vic-agent-token-scope-builder","version":"1.0.0","title":"Visa Intelligent Commerce Agent Token Scope & Spend Control Policy Builder","description":"Builds and validates a Visa Intelligent Commerce (VIC) agent-scoped payment credential — TAP-verified agent identity, MCC whitelist/blacklist, spend caps, credential lifecycle, payment rails (fiat/stablecoin), and consumer consent tier. Exports an AP2 Policy Mandate. Zero PII. Zero network.","category":"cat-mcp","tags":["Visa","VIC","Visa Intelligent Commerce","agent token","TAP","spend controls","agentic payments","stablecoin","AP2"],"audience":["engineer","compliance"],"input_schema":{"type":"object","properties":{"vic_token_scope":{"type":"object"}}},"output_schema":{"type":"object","properties":{"token_scope":{"type":"object"},"findings":{"type":"array"},"risk_level":{"type":"string"}}},"mcp_tool_definition":{"name":"build_visa_vic_agent_token_scope","description":"Build or validate a Visa Intelligent Commerce (VIC) agent-scoped payment token — identity, MCC scope, spend caps, lifecycle, rails, and consent tier.","inputSchema":{"type":"object","properties":{"vic_token_scope":{"type":"object","description":"VIC agent token scope descriptor"}}}},"execution":{"type":"browser-javascript","entry":"tools/374-visa-vic-agent-token-scope-builder.html","function_name":"runBuild","timeout_ms":3000},"ap2_export":true};
+
+function toggleMfst(){
+  var b=document.getElementById('mfstBody'), a=document.getElementById('mfstArr');
+  if(b.style.display==='none'||b.style.display===''){
+    b.style.display='block'; if(a) a.textContent='▲';
+    document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+  } else { b.style.display='none'; if(a) a.textContent='▼'; }
+}
+</script>
+
+<!-- ainumbers-universal-chrome-i18n v1 -->
+<script>
+(function(){
+  var UC={
+    en:{'pii.banner':'🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.','footer.alltools':'All Tools','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.privacy':'🔒 Zero PII    📡 No server calls    💻 Client-side'},
+    es:{'pii.banner':'🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No introduzca datos personales reales.','footer.alltools':'Todas las Herramientas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contacto','footer.privacy':'🔒 Sin PII    📡 Sin llamadas al servidor    💻 Cliente'},
+    fr:{'pii.banner':'🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n\'est transmise.','footer.alltools':'Tous les Outils','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.privacy':'🔒 Aucune PII    📡 Aucun appel serveur    💻 Côté client'},
+    ar:{'pii.banner':'🔒 جميع المدخلات تُعالج محلياً في متصفحك. لا تُنقل أي بيانات. لا تُدخل بيانات شخصية حقيقية.','footer.alltools':'جميع الأدوات','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'اتصل','footer.privacy':'🔒 لا بيانات شخصية    📡 لا استدعاءات للخادم    💻 على المتصفح'},
+    pt:{'pii.banner':'🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido.','footer.alltools':'Todas as Ferramentas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contato','footer.privacy':'🔒 Sem PII    📡 Sem chamadas ao servidor    💻 Client-side'},
+    zh:{'pii.banner':'🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。请勿输入真实的个人数据。','footer.alltools':'所有工具','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'联系','footer.privacy':'🔒 零个人数据    📡 无服务器调用    💻 纯客户端'}
+  };
+  function getDict(){ try{ if(typeof TRANSLATIONS!=='undefined') return TRANSLATIONS; }catch(e){} return null; }
+  var target=getDict(); if(!target) return;
+  for(var lang in UC){ if(!target[lang]) target[lang]={}; for(var key in UC[lang]){ if(target[lang][key]===undefined) target[lang][key]=UC[lang][key]; } }
+  try{ if(typeof setLang==='function'){ var saved=null; try{ saved=sessionStorage.getItem('ain_lang'); }catch(e){} if(!saved){ var act=document.querySelector('.lang-btn.active'); if(act) saved=act.getAttribute('data-lang'); } if(saved&&target[saved]) setLang(saved); } }catch(e){}
+})();
+</script>
+
+<!-- ainumbers-per-tool-hero-i18n -->
+<script>
+(function(){
+  var DATA={
+    "eb":{"en":"Visa Intelligent Commerce \xb7 VIC \xb7 Agent Token Scope \xb7 AP2 Export","es":"Visa Intelligent Commerce \xb7 VIC \xb7 Alcance del Token Agente \xb7 Exportaci\xf3n AP2","fr":"Visa Intelligent Commerce \xb7 VIC \xb7 Port\xe9e du Jeton Agent \xb7 Export AP2","ar":"Visa Intelligent Commerce \xb7 VIC \xb7 نطاق رمز الوكيل \xb7 تصدير AP2","pt":"Visa Intelligent Commerce \xb7 VIC \xb7 Escopo do Token Agente \xb7 Exporta\xe7\xe3o AP2","zh":"Visa Intelligent Commerce \xb7 VIC \xb7 代理令牌范围 \xb7 AP2 导出"},
+    "tt":{"en":"Visa VIC — Agent Token Scope & Spend Control Policy Builder","es":"Visa VIC — Constructor de Alcance de Token Agente y Pol\xedtica de Control de Gasto","fr":"Visa VIC — Constructeur de Port\xe9e de Jeton Agent & Politique de Contr\xf4le des D\xe9penses","ar":"Visa VIC — منشئ نطاق رمز الوكيل وسياسة التحكم في الإنفاق","pt":"Visa VIC — Construtor de Escopo de Token Agente & Pol\xedtica de Controle de Gastos","zh":"Visa VIC — 代理令牌范围与消费控制策略构建器"}
+  };
+  function applyHero(lang){
+    var eb=DATA.eb&&DATA.eb[lang], tt=DATA.tt&&DATA.tt[lang];
+    if(eb) document.querySelectorAll('.hero-eyebrow').forEach(function(el){ el.textContent=eb; });
+    if(tt){ var els=document.querySelectorAll('h1.tool-title'); if(!els.length) els=document.querySelectorAll('.hero h1'); els.forEach(function(el){ el.textContent=tt; }); }
+  }
+  if(typeof setLang==='function'){ var _o=setLang; window.setLang=function(l){ try{_o.apply(this,arguments);}catch(e){} applyHero(l); }; }
+  try{ var saved=sessionStorage.getItem('ain_lang'); if(saved) applyHero(saved); else{ var act=document.querySelector('.lang-btn.active'); if(act){ var l=act.getAttribute('data-lang'); if(l) applyHero(l); } } }catch(e){}
+})();
+</script>
+
+<!-- AP2 Policy Mandate Export · CONTRACT §3–§4 -->
+<script>
+(function(){
+if(typeof window.AP2Schema==='undefined') window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  function _f(msg){ throw new Error('AP2Schema: '+msg); }
+  if(!m||typeof m!=='object') _f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string') _f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type) _f('missing mandate_type');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction)) _f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){
+  var b=document.getElementById('ap2ExportBtn');
+  if(b){ b.disabled=false; b.classList.add('ready'); }
+};
+window._ap2Result=window._ap2Result||null;
+window.exportAP2=function(){
+  if(!window._ap2Result){ alert('Build and validate a scope first.'); return; }
+  var ts=new Date().toISOString();
+  var tid=(typeof MANIFEST!=='undefined'&&MANIFEST.tool_id)?MANIFEST.tool_id:'visa-vic-agent-token-scope-builder';
+  var scope=window._ap2Result.inputs||{};
+  var riskLevel=(typeof _lastRisk!=='undefined'&&_lastRisk)?_lastRisk:'UNKNOWN';
+  var mandate={
+    ap2_version:'1.0',
+    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,
+    tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',
+    mandate_type:'compliance_control',
+    jurisdiction:['ZZ'],
+    regulatory_frameworks:['Visa Intelligent Commerce (VIC)','Visa Trusted Agent Protocol (TAP)','RFC 9421','Visa Agentic Ready Program'],
+    payload:window._ap2Result,
+    risk_indicator:riskLevel,
+    vic_token_scope:scope,
+    summary:(typeof MANIFEST!=='undefined'&&MANIFEST.title?MANIFEST.title:document.title)+' — '+ts.slice(0,10),
+    agent_instructions:[
+      'Bind the VIC agent token to the specified TAP-verified agent identity.',
+      'Enforce the MCC merchant scope and geographic restriction at authorisation.',
+      'Apply all spend controls: per-transaction, daily aggregate, and monthly aggregate caps.',
+      'Honour the consumer consent tier — step up for high-value transactions where configured.',
+      'Restrict payment rails to those explicitly listed in the scope.',
+      'Activate auto-revoke triggers immediately on the defined conditions.',
+      'Never expose the raw PAN or full card credentials to the agent.'
+    ],
+    valid_from:ts.slice(0,10),
+    valid_until:new Date(Date.now()+180*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed:ts.slice(0,10),
+    regulatory_citations:[
+      'developer.visa.com/capabilities/intelligent-commerce',
+      'developer.visa.com/capabilities/trusted-agent-protocol',
+      'usa.visa.com/about-visa/newsroom/press-releases.releaseId.22341.html',
+      'rfc-editor.org/rfc/rfc9421'
+    ],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  AP2Schema.validate(mandate);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(mandate,null,2)],{type:'application/json'}));
+  a.download=tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click(); URL.revokeObjectURL(a.href);
+};
+})();
+</script>
+
+</body>
+</html>
