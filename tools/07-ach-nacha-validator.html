@@ -1220,6 +1220,11 @@ function validateFile() {
         };
         if (!line.substring(1,3).trim()) validationErrors.push({ line: lineNum, msg: 'Missing Priority Code in File Header', sub: 'Field positions 2–3 must contain a priority code (typically "01").' });
         if (!line.substring(23,29).trim()) validationErrors.push({ line: lineNum, msg: 'Missing File Creation Date in File Header', sub: 'Field positions 24–29 must be a valid YYMMDD date.' });
+        // Immediate Destination is a 10-char field: leading space + 9-digit routing
+        const immDest = line.substring(3,13).trim();
+        if (/^\d{9}$/.test(immDest) && !validateABACheckDigit(immDest)) {
+          warnings.push({ line: lineNum, msg: 'Immediate Destination routing check digit invalid', sub: 'The 9-digit Immediate Destination routing number failed the [3,7,1] ABA check digit. Verify it is correct.' });
+        }
         break;
       }
       case '5': { // Batch Header
@@ -1276,6 +1281,9 @@ function validateFile() {
         };
         if (!/^\d{9}$/.test(line.substring(3,12).trim())) {
           validationErrors.push({ line: lineNum, msg: 'Invalid routing/transit number format', sub: 'Field positions 4–12 must contain exactly 9 digits.' });
+          rec.status = 'err';
+        } else if (!validateABACheckDigit(line.substring(3,12).trim())) {
+          validationErrors.push({ line: lineNum, msg: 'Invalid ABA routing check digit', sub: 'The 9th digit failed the [3,7,1] weighted checksum (ABA/Federal Reserve spec). Verify the routing number is correct.' });
           rec.status = 'err';
         }
         if (!line.substring(29,39).trim().match(/^\d+$/)) {
@@ -1388,6 +1396,17 @@ enableAP2Btn();
 function formatCents(cents) {
   if (isNaN(cents) || cents === 0) return '$0.00';
   return '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/* ABA routing number check-digit validator.
+   Weights per Federal Reserve / ABA spec: [3,7,1,3,7,1,3,7,1]
+   Sum of (digit × weight) must be divisible by 10.
+   Returns true if valid, false if not. */
+function validateABACheckDigit(routing9) {
+  if (!/^\d{9}$/.test(routing9)) return false;
+  const w = [3, 7, 1, 3, 7, 1, 3, 7, 1];
+  const sum = routing9.split('').reduce((s, d, i) => s + parseInt(d, 10) * w[i], 0);
+  return sum % 10 === 0;
 }
 
 function renderValidationResults(warnings) {

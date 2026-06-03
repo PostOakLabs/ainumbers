@@ -572,47 +572,155 @@ function runSimulation() {
   pssAutoSave();
 }
 
+/* drawChart — native Canvas 2D implementation.
+   No external library required; complies with CONTRACT §0 (zero-network, zero CDN). */
 function drawChart(results, horizon, yearsToRetire) {
-  if (!window.Chart) {
-    // Chart.js must be bundled inline per CONTRACT §0 (no CDN after page load)
-    // TODO: embed Chart.js inline to enable this visualization
-    document.getElementById('fire-chart').parentElement.innerHTML = '<p style="color:var(--warn);padding:1rem">Chart requires Chart.js — see CONTRACT §0 for inline bundling.\</p>';
-    return;
-  }
-  if (_chartInstance) { _chartInstance.destroy(); _chartInstance = null; }
+  const canvas = document.getElementById('fire-chart');
+  if (!canvas) return;
 
+  // Resolve DPR for crisp rendering on HiDPI screens
+  const dpr    = window.devicePixelRatio || 1;
+  const W      = canvas.parentElement.clientWidth  || 640;
+  const H      = 280;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  // Layout margins
+  const PAD_L = 58, PAD_R = 16, PAD_T = 14, PAD_B = 36;
+  const plotW = W - PAD_L - PAD_R;
+  const plotH = H - PAD_T - PAD_B;
+
+  // Compute percentile bands at each year
   const totalYears = horizon;
-  const labels = Array.from({length: totalYears+1}, (_,i) => `Yr ${i}`);
-
-  // Build percentile bands across all simulations at each year
-  const getPercentile = (sims, pct) => {
-    return Array.from({length: totalYears+1}, (_,y) => {
-      const vals = sims.map(s => s.track[y]||0).sort((a,b)=>a-b);
-      return vals[Math.floor(vals.length*pct)]||0;
+  function getPercentile(pct) {
+    return Array.from({length: totalYears + 1}, (_, y) => {
+      const vals = results.map(s => s.track ? (s.track[y] || 0) : 0).sort((a, b) => a - b);
+      return vals[Math.floor(vals.length * pct)] || 0;
     });
-  };
+  }
+  const p90 = getPercentile(0.90);
+  const p75 = getPercentile(0.75);
+  const p50 = getPercentile(0.50);
+  const p25 = getPercentile(0.25);
+  const p10 = getPercentile(0.10);
 
-  const ctx = document.getElementById('fire-chart').getContext('2d');
-  _chartInstance = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        { label:'P90', data: getPercentile(results,.90), fill:false, borderColor:'rgba(20,184,166,.3)', borderWidth:1, pointRadius:0, tension:.3 },
-        { label:'P75', data: getPercentile(results,.75), fill:'-1', backgroundColor:'rgba(20,184,166,.08)', borderColor:'rgba(20,184,166,.2)', borderWidth:1, pointRadius:0, tension:.3 },
-        { label:'P50 (Median)', data: getPercentile(results,.50), fill:false, borderColor:'var(--teal)', borderWidth:2, pointRadius:0, tension:.3 },
-        { label:'P25', data: getPercentile(results,.25), fill:'+1', backgroundColor:'rgba(20,184,166,.08)', borderColor:'rgba(20,184,166,.2)', borderWidth:1, pointRadius:0, tension:.3 },
-        { label:'P10', data: getPercentile(results,.10), fill:false, borderColor:'rgba(212,168,71,.6)', borderWidth:1.5, borderDash:[4,3], pointRadius:0, tension:.3 }
-      ]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins: { legend:{ labels:{ color:'#6888A8', font:{ family:'JetBrains Mono', size:10 } } } },
-      scales: {
-        x: { ticks:{ color:'#3A5270', font:{family:'JetBrains Mono',size:9} }, grid:{ color:'rgba(30,47,74,.5)' } },
-        y: { ticks:{ color:'#3A5270', font:{family:'JetBrains Mono',size:9}, callback: v => v>=1e6?'$'+(v/1e6).toFixed(1)+'M':v>=1e3?'$'+(v/1e3).toFixed(0)+'K':'$'+v }, grid:{ color:'rgba(30,47,74,.5)' } }
-      }
-    }
+  // Y-axis scale
+  const allVals = [...p90, ...p10];
+  const minV = 0;
+  const maxV = Math.max(...allVals) * 1.05 || 1;
+
+  function xPos(i) { return PAD_L + (i / totalYears) * plotW; }
+  function yPos(v) { return PAD_T + plotH - ((Math.max(v, 0) - minV) / (maxV - minV)) * plotH; }
+
+  // Background
+  ctx.fillStyle = '#0d1b2e';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(30,47,74,.7)';
+  ctx.lineWidth = 0.5;
+  const yTicks = 5;
+  for (let t = 0; t <= yTicks; t++) {
+    const v = minV + (t / yTicks) * (maxV - minV);
+    const y = yPos(v);
+    ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y); ctx.stroke();
+  }
+  const xTickStep = Math.max(1, Math.ceil(totalYears / 8));
+  for (let i = 0; i <= totalYears; i += xTickStep) {
+    const x = xPos(i);
+    ctx.beginPath(); ctx.moveTo(x, PAD_T); ctx.lineTo(x, H - PAD_B); ctx.stroke();
+  }
+
+  // Fill band P10–P90 (lightest)
+  ctx.beginPath();
+  p90.forEach((v, i) => i === 0 ? ctx.moveTo(xPos(i), yPos(v)) : ctx.lineTo(xPos(i), yPos(v)));
+  for (let i = p10.length - 1; i >= 0; i--) ctx.lineTo(xPos(i), yPos(p10[i]));
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(20,184,166,0.06)';
+  ctx.fill();
+
+  // Fill band P25–P75 (medium)
+  ctx.beginPath();
+  p75.forEach((v, i) => i === 0 ? ctx.moveTo(xPos(i), yPos(v)) : ctx.lineTo(xPos(i), yPos(v)));
+  for (let i = p25.length - 1; i >= 0; i--) ctx.lineTo(xPos(i), yPos(p25[i]));
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(20,184,166,0.12)';
+  ctx.fill();
+
+  // Helper: draw a line series
+  function drawLine(data, color, width, dash) {
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.setLineDash(dash || []);
+    data.forEach((v, i) => i === 0 ? ctx.moveTo(xPos(i), yPos(v)) : ctx.lineTo(xPos(i), yPos(v)));
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  drawLine(p90, 'rgba(20,184,166,0.30)', 1);
+  drawLine(p75, 'rgba(20,184,166,0.45)', 1);
+  drawLine(p50, 'rgba(20,184,166,1.00)', 2);      // median — most prominent
+  drawLine(p25, 'rgba(20,184,166,0.45)', 1);
+  drawLine(p10, 'rgba(212,168,71,0.70)',  1.5, [4, 3]);
+
+  // Retirement year marker
+  if (yearsToRetire > 0 && yearsToRetire < totalYears) {
+    const rx = xPos(yearsToRetire);
+    ctx.strokeStyle = 'rgba(212,168,71,0.5)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(rx, PAD_T); ctx.lineTo(rx, H - PAD_B); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(212,168,71,0.8)';
+    ctx.font = '9px JetBrains Mono, monospace';
+    ctx.fillText('Retire Yr ' + yearsToRetire, rx + 3, PAD_T + 10);
+  }
+
+  // Y-axis labels
+  ctx.fillStyle = '#3A5270';
+  ctx.font = '9px JetBrains Mono, monospace';
+  ctx.textAlign = 'right';
+  for (let t = 0; t <= yTicks; t++) {
+    const v = minV + (t / yTicks) * (maxV - minV);
+    const y = yPos(v);
+    const label = v >= 1e6 ? '$' + (v / 1e6).toFixed(1) + 'M'
+                : v >= 1e3 ? '$' + (v / 1e3).toFixed(0) + 'K'
+                : '$' + Math.round(v);
+    ctx.fillText(label, PAD_L - 4, y + 3);
+  }
+
+  // X-axis labels
+  ctx.textAlign = 'center';
+  for (let i = 0; i <= totalYears; i += xTickStep) {
+    ctx.fillText('Yr ' + i, xPos(i), H - PAD_B + 13);
+  }
+
+  // Legend
+  const legendItems = [
+    { label: 'P90', color: 'rgba(20,184,166,0.5)',  dash: [] },
+    { label: 'P75', color: 'rgba(20,184,166,0.7)',  dash: [] },
+    { label: 'P50', color: 'rgba(20,184,166,1.0)',  dash: [] },
+    { label: 'P25', color: 'rgba(20,184,166,0.7)',  dash: [] },
+    { label: 'P10', color: 'rgba(212,168,71,0.8)',  dash: [4,3] },
+  ];
+  let lx = PAD_L;
+  ctx.font = '9px JetBrains Mono, monospace';
+  ctx.textAlign = 'left';
+  legendItems.forEach(item => {
+    ctx.strokeStyle = item.color;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash(item.dash);
+    ctx.beginPath(); ctx.moveTo(lx, H - 8); ctx.lineTo(lx + 16, H - 8); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#6888A8';
+    ctx.fillText(item.label, lx + 19, H - 5);
+    lx += 52;
   });
 }
 
