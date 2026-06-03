@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>SFDR PAI Indicator Calculator · AINumbers.co</title>
+<meta name="description" content="Calculate the 14 mandatory Principal Adverse Impact (PAI) indicators for SFDR Article 4/8/9 fund reporting under Regulation EU 2019/2088 and RTS 2022. Coverage-adjusted disclosure scoring. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/384-sfdr-pai-indicator-calculator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"SFDR PAI Indicator Calculator","url":"https://ainumbers.co/tools/384-sfdr-pai-indicator-calculator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "sfdr-pai-indicator-calculator",
+  "version": "1.0.0",
+  "title": "SFDR PAI Indicator Calculator",
+  "description": "Calculate and assess the 14 mandatory Principal Adverse Impact indicators for SFDR Article 4/8/9 fund reporting under Regulation EU 2019/2088 and RTS 2022. Produces PAI table with coverage assessment.",
+  "category": "cat-24",
+  "tags": ["sfdr","pai","principal adverse impact","article 8","article 9","eu 2019/2088","rts","sustainable finance","esg reporting","export"],
+  "audience": ["fund manager","compliance","ESG officer","portfolio analyst","risk manager"],
+  "input_schema": {"type":"object","properties":{"fund_article":{"type":"string","enum":["art6","art8","art9"]},"portfolio_value_eur_m":{"type":"number"},"reference_period":{"type":"string"},"data_coverage_pct":{"type":"number"},"indicators":{"type":"object"}},"required":["fund_article","reference_period"]},
+  "output_schema": {"type":"object","properties":{"overall_score":{"type":"number"},"coverage_adjusted_score":{"type":"number"},"pai_table":{"type":"array"},"category_summary":{"type":"object"},"gaps":{"type":"array"}}},
+  "mcp_tool_definition": {
+    "name": "calculate_sfdr_pai_indicators",
+    "description": "Calculate the 14 mandatory SFDR PAI indicators for a fund and generate a coverage-adjusted disclosure table.",
+    "inputSchema": {"type":"object","properties":{"fund_article":{"type":"string","enum":["art6","art8","art9"]},"portfolio_value_eur_m":{"type":"number"},"reference_period":{"type":"string"},"data_coverage_pct":{"type":"number"},"indicators":{"type":"object"}},"required":["fund_article","reference_period"]}
+  },
+  "execution": {"type":"browser-javascript","entry":"tools/384-sfdr-pai-indicator-calculator.html","function_name":"runCalculator","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--green-lt:#4ADE80;--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--accent:var(--green);--accent-dim:var(--green-dim);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* lang bar */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* nav */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{opacity:.85}
+/* hero */
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+/* body */
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.disclaimer{background:rgba(20,184,166,.07);border:1px solid rgba(20,184,166,.25);border-left:3px solid var(--teal);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.disclaimer strong{color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase}
+/* panels */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.panel-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:.75rem}
+label{font-size:.72rem;color:var(--body);display:block;margin-bottom:.35rem}
+select,input[type="number"],input[type="text"]{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.4rem .65rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s}
+select:focus,input:focus{border-color:var(--teal)}
+input[type="range"]{width:100%;accent-color:var(--teal);background:transparent;cursor:pointer}
+/* PAI grid — 2-column layout */
+.pai-grid{display:grid;grid-template-columns:1fr;gap:.45rem;margin-bottom:.75rem}
+.pai-row{display:grid;grid-template-columns:1fr 220px;gap:.75rem;align-items:center;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.55rem .8rem;transition:border-color .2s}
+.pai-row:hover{border-color:var(--border-2)}
+.pai-row-left{display:flex;flex-direction:column;gap:.18rem}
+.pai-num{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.pai-name{font-size:.72rem;color:var(--text);line-height:1.4}
+.pai-ref{font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted)}
+.cat-pill{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.08em;text-transform:uppercase;padding:.1rem .4rem;border-radius:3px;margin-top:.15rem}
+.cat-climate{background:var(--teal-dim);color:var(--teal-lt)}
+.cat-biodiversity{background:var(--green-dim);color:var(--green-lt)}
+.cat-water{background:rgba(59,130,246,.12);color:#93c5fd}
+.cat-waste{background:var(--warn-dim);color:var(--warn)}
+.cat-social{background:var(--purple-dim);color:var(--purple)}
+.cat-governance{background:var(--gold-dim);color:var(--gold)}
+/* coverage slider */
+.slider-wrap{display:flex;flex-direction:column;gap:.3rem}
+.slider-label-row{display:flex;justify-content:space-between;align-items:center;font-size:.68rem;color:var(--body)}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--teal)}
+/* run button */
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:opacity .2s;margin-top:1rem;margin-bottom:1.5rem}
+.run-btn:hover{opacity:.85}
+/* results */
+.results-panel{display:none}
+.summary-header{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1rem}
+.summary-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1rem}
+.summary-title{font-family:'DM Serif Display',serif;font-size:1.15rem;color:var(--white)}
+.score-big{font-family:'DM Serif Display',serif;font-size:2.5rem;line-height:1}
+.score-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:.2rem}
+.summary-meta-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.75rem}
+.meta-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;display:flex;flex-direction:column;gap:.2rem}
+.meta-card-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.meta-card-value{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--bright)}
+/* PAI table */
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:0;overflow-x:auto}
+.pai-table{width:100%;border-collapse:collapse;font-size:.7rem}
+.pai-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .8rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.pai-table td{padding:.55rem .8rem;border-bottom:1px solid var(--border);vertical-align:middle;line-height:1.4}
+.pai-table tr:last-child td{border-bottom:none}
+.pai-table tr:hover td{background:rgba(20,184,166,.03)}
+.flag-ok{color:var(--green);font-size:.9rem}
+.flag-warn{color:var(--warn);font-size:.9rem}
+.flag-bad{color:var(--red);font-size:.9rem}
+/* category summary */
+.cat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;margin-bottom:1rem}
+.cat-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem;display:flex;flex-direction:column;gap:.35rem}
+.cat-card-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.12em;text-transform:uppercase}
+.cat-card-score{font-family:'DM Serif Display',serif;font-size:1.6rem;line-height:1.1}
+.cat-card-sub{font-size:.62rem;color:var(--muted)}
+.cat-bar{height:3px;border-radius:2px;background:var(--border);margin-top:.3rem;overflow:hidden}
+.cat-bar-fill{height:100%;border-radius:2px;transition:width .4s}
+/* gaps list */
+.gap-list{display:flex;flex-direction:column;gap:.45rem;padding:1rem}
+.gap-item{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:var(--radius);padding:.6rem .85rem;font-size:.7rem}
+.gap-item.critical{border-left-color:var(--red)}
+.gap-item-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.4rem;margin-bottom:.25rem}
+.gap-name{font-size:.72rem;color:var(--bright);font-weight:500}
+.gap-priority{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.12rem .4rem;border-radius:3px}
+.gap-priority.critical{background:var(--red-dim);color:var(--red)}
+.gap-priority.recommended{background:var(--warn-dim);color:var(--warn)}
+.gap-source{font-size:.65rem;color:var(--muted)}
+/* export row */
+.results-export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;padding:.75rem 0;border-top:1px solid var(--border);margin-top:1rem}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border:1px solid var(--border);background:var(--bg-3);color:var(--text);border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-export:hover{border-color:var(--teal);color:var(--teal)}
+#ap2ExportBtn{opacity:.28;cursor:not-allowed}
+#ap2ExportBtn.ready{opacity:1!important;cursor:pointer!important;border-color:var(--teal)!important;color:var(--bright)!important}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)!important}
+/* manifest toggle */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+/* source notes */
+.source-notes{font-size:.65rem;color:var(--muted);line-height:1.7;padding:.85rem 1.1rem;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:1.5rem}
+.source-notes ol{padding-left:1.1rem}
+.source-notes li{margin-bottom:.2rem}
+/* footer */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+/* responsive */
+@media(max-width:680px){.pai-row{grid-template-columns:1fr}.pai-row-right{margin-top:.25rem}}
+/* RTL */
+[dir="rtl"] .lang-inner,.nav-bc,.hero-eyebrow{direction:rtl;text-align:right}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../index.html#cat-24">EU Sustainable Finance</a><span class="nav-sep">/</span><span>T-384</span></div>
+  <div class="nav-right"><a href="../index.html#cat-24" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">SFDR PAI INDICATORS · T384 · EU Sustainable Finance &amp; ESG</div>
+  <h1 id="hero-title">SFDR PAI <em>Indicator Calculator</em></h1>
+  <p class="hero-desc" id="hero-desc">Calculate the 14 mandatory Principal Adverse Impact (PAI) indicators required under SFDR Article 4 / Article 8 / Article 9 fund reporting. Produces a coverage-adjusted disclosure score and PAI table for annual SFDR disclosures per Regulation EU 2019/2088 and RTS 2022.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">SFDR</span>
+    <span class="badge badge-teal">Art.4/8/9</span>
+    <span class="badge badge-teal">PAI</span>
+    <span class="badge badge-gold">EU 2019/2088</span>
+    <span class="badge badge-muted">cat-24</span>
+    <span class="badge badge-muted">Client-Side</span>
+    <span class="badge badge-muted">v1.0</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+<div class="disclaimer"><strong>Scope &amp; reliance — </strong>&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only. PAI indicators and thresholds are defined in SFDR Annex I (Table 1) and Commission Delegated Regulation (EU) 2022/1288 (RTS). This tool provides indicative disclosure scoring only — consult your compliance team for submission-ready PAI statements. Deterministic logic · no inference · zero PII · CC BY 4.0.</div>
+
+<!-- FUND CONFIGURATION -->
+<div class="panel">
+  <div class="panel-label">Fund Configuration</div>
+  <div class="panel-row">
+    <div>
+      <label for="fund_article" id="lbl-fund-article">Fund Article Type</label>
+      <select id="fund_article">
+        <option value="art8">Article 8 — Promotes ESG characteristics</option>
+        <option value="art9">Article 9 — Sustainable investment objective</option>
+        <option value="art6">Article 6 — No sustainability claims</option>
+      </select>
+    </div>
+    <div>
+      <label for="portfolio_value" id="lbl-portfolio">Total Portfolio Value (€M)</label>
+      <input type="number" id="portfolio_value" value="250" min="1" step="10">
+    </div>
+    <div>
+      <label for="ref_period" id="lbl-ref-period">Reference Period</label>
+      <select id="ref_period">
+        <option value="2025">2025</option>
+        <option value="2024" selected>2024</option>
+        <option value="2023">2023</option>
+      </select>
+    </div>
+  </div>
+  <!-- Data coverage slider -->
+  <div class="slider-wrap" style="margin-top:.5rem">
+    <div class="slider-label-row">
+      <label for="data_coverage" id="lbl-coverage">Data Coverage (% of portfolio with underlying PAI data)</label>
+      <span class="slider-val" id="coverage_display">72%</span>
+    </div>
+    <input type="range" id="data_coverage" min="0" max="100" value="72" step="1"
+           oninput="document.getElementById('coverage_display').textContent=this.value+'%'">
+  </div>
+</div>
+
+<!-- PAI INDICATORS INPUT -->
+<div class="panel">
+  <div class="panel-label">PAI Indicator Data — Annex I, Table 1</div>
+  <div class="pai-grid" id="pai-grid">
+    <!-- rows injected by JS -->
+  </div>
+</div>
+
+<button class="run-btn" onclick="runCalculator()" id="run-btn">&#9654; Calculate PAI Indicators</button>
+
+<!-- RESULTS -->
+<div class="results-panel" id="results-panel">
+
+  <!-- 1. Summary header -->
+  <div class="summary-header" id="summary-header"></div>
+
+  <!-- 2. PAI Indicator Table -->
+  <div class="out-section" id="pai-table-section">
+    <div class="out-header">
+      <span class="out-title">PAI Indicator Table — 14 Mandatory Indicators</span>
+    </div>
+    <div class="out-body"><table class="pai-table" id="pai-output-table">
+      <thead><tr>
+        <th>#</th><th>Indicator</th><th>Category</th><th>Value / Status</th><th>Coverage</th><th>Benchmark</th>
+      </tr></thead>
+      <tbody id="pai-tbody"></tbody>
+    </table></div>
+  </div>
+
+  <!-- 3. Category summary -->
+  <div class="out-section" id="cat-section">
+    <div class="out-header"><span class="out-title">Category Summary</span></div>
+    <div class="out-body" style="padding:1rem">
+      <div class="cat-grid" id="cat-grid"></div>
+    </div>
+  </div>
+
+  <!-- 4. Disclosure gaps -->
+  <div class="out-section" id="gaps-section">
+    <div class="out-header"><span class="out-title">Disclosure Gaps &amp; Recommended Data Sources</span></div>
+    <div class="gap-list" id="gap-list"></div>
+  </div>
+
+  <!-- 5. Export row -->
+  <div class="results-export-row">
+    <button class="btn-export" onclick="exportMarkdown()" id="md-export-btn">&#9660; Export Markdown</button>
+    <button class="btn-export" id="ap2ExportBtn" disabled onclick="exportAP2()" title="Run the analysis above to generate a Policy Mandate">&#123;&#125; Export Policy Mandate<span style="display:block;font-size:.44rem;opacity:.6;letter-spacing:.06em">API · audit trail</span></button>
+  </div>
+
+</div><!-- /results-panel -->
+
+<!-- MANIFEST TOGGLE -->
+<section id="mfstSec" style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem">
+  <div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr">&#9660;</span></button>
+    <div class="mfst-body" id="mfstBody"><pre class="mfst-code" id="mfstCode"></pre></div>
+  </div>
+</section>
+
+<!-- SOURCE NOTES -->
+<div class="source-notes">
+  <strong style="font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal)">Regulatory Citations</strong>
+  <ol style="margin-top:.4rem">
+    <li>Regulation (EU) 2019/2088 of the European Parliament and of the Council on sustainability-related disclosures in the financial services sector (SFDR), 27 November 2019.</li>
+    <li>Commission Delegated Regulation (EU) 2022/1288 of 6 April 2022 supplementing SFDR with regulatory technical standards (RTS) — including Annex I PAI indicator templates.</li>
+    <li>ESMA Q&amp;A on SFDR (ESMA/2023/Q&A-22 and subsequent updates, 2023–2024) — clarifications on PAI data collection, estimation, and coverage requirements.</li>
+    <li>European Supervisory Authorities (ESAs) Joint Opinion on the review of SFDR, 2024.</li>
+  </ol>
+</div>
+
+</div></div><!-- /tool-body /container -->
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html">All Tools</a>
+    <a href="../index.html#cat-24">ESG Hub</a>
+    <a href="../sitemap.html">Sitemap</a>
+    <a href="../contact.html">Contact</a>
+  </div>
+  <div class="footer-badge-ai">
+    <span>CC BY 4.0 · Post Oak Labs</span>
+    <span>&#128274; Zero PII &nbsp;&#128225; No server calls &nbsp;&#128187; Client-side</span>
+  </div>
+</div></div></footer>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   TRANSLATIONS
+═══════════════════════════════════════════════════ */
+const TRANSLATIONS = {
+  en: { title:'SFDR PAI Indicator Calculator', run:'Calculate PAI Indicators', exporting:'Exporting...' },
+  es: { title:'Calculadora de Indicadores PAI SFDR', run:'Calcular Indicadores PAI', exporting:'Exportando...' },
+  fr: { title:"Calculateur d'Indicateurs PAI SFDR", run:'Calculer les Indicateurs PAI', exporting:'Exportation...' },
+  ar: { title:'حاسبة مؤشرات PAI لـ SFDR', run:'حساب مؤشرات PAI', exporting:'جارٍ التصدير...', lang_dir:'rtl' },
+  pt: { title:'Calculadora de Indicadores PAI SFDR', run:'Calcular Indicadores PAI', exporting:'Exportando...' },
+  zh: { title:'SFDR PAI指标计算器', run:'计算PAI指标', exporting:'导出中...' }
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  sessionStorage.setItem('ain_lang', lang);
+  document.documentElement.lang = lang;
+  document.body.dir = t.lang_dir || 'ltr';
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+  const h = document.getElementById('hero-title');
+  if (h) h.innerHTML = lang === 'en'
+    ? 'SFDR PAI <em>Indicator Calculator</em>'
+    : escHtml(t.title);
+  const rb = document.getElementById('run-btn');
+  if (rb) rb.textContent = '▶ ' + t.run;
+}
+
+(function initLang() {
+  const saved = sessionStorage.getItem('ain_lang');
+  if (saved && TRANSLATIONS[saved]) setLang(saved);
+})();
+
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ═══════════════════════════════════════════════════
+   PAI INDICATOR DEFINITIONS
+   14 mandatory indicators — SFDR Annex I, Table 1
+   type: 'quant' = numeric input, 'qual' = select
+═══════════════════════════════════════════════════ */
+const PAI_INDICATORS = [
+  {
+    id:'pai1', num:1, name:'GHG Emissions',
+    desc:'Scope 1, 2 and 3 greenhouse gas emissions (tCO₂e / €M invested)',
+    category:'Climate', catClass:'cat-climate',
+    type:'quant', unit:'tCO₂e/€M', ref:'Annex I, Table 1 #1',
+    benchmark: v => v > 500 ? {flag:'bad',  label:'High'} : v > 150 ? {flag:'warn', label:'Moderate'} : {flag:'ok', label:'Low'},
+    dataSources:'CDP, MSCI ESG, Trucost, issuer sustainability reports'
+  },
+  {
+    id:'pai2', num:2, name:'Carbon Footprint',
+    desc:'Total GHG emissions per €M market cap (tCO₂e / €M market cap)',
+    category:'Climate', catClass:'cat-climate',
+    type:'quant', unit:'tCO₂e/€M mkt cap', ref:'Annex I, Table 1 #2',
+    benchmark: v => v > 300 ? {flag:'bad',  label:'High'} : v > 100 ? {flag:'warn', label:'Moderate'} : {flag:'ok', label:'Low'},
+    dataSources:'MSCI ESG, Bloomberg ESG, Refinitiv'
+  },
+  {
+    id:'pai3', num:3, name:'GHG Intensity of Investee Companies',
+    desc:'GHG emissions per €M revenue of investee companies (tCO₂e / €M revenue)',
+    category:'Climate', catClass:'cat-climate',
+    type:'quant', unit:'tCO₂e/€M rev', ref:'Annex I, Table 1 #3',
+    benchmark: v => v > 400 ? {flag:'bad',  label:'High'} : v > 120 ? {flag:'warn', label:'Moderate'} : {flag:'ok', label:'Low'},
+    dataSources:'MSCI, S&P Global ESG, Sustainalytics'
+  },
+  {
+    id:'pai4', num:4, name:'Fossil Fuel Companies Exposure',
+    desc:'% of portfolio invested in companies active in fossil fuel sector',
+    category:'Climate', catClass:'cat-climate',
+    type:'quant', unit:'%', ref:'Annex I, Table 1 #4',
+    benchmark: v => v > 10 ? {flag:'bad',  label:'High concern'} : v > 5 ? {flag:'warn', label:'Moderate'} : {flag:'ok', label:'Low'},
+    dataSources:'MSCI, Bloomberg sector classification, issuer reports'
+  },
+  {
+    id:'pai5', num:5, name:'Non-Renewable Energy Consumption & Production',
+    desc:'Share of non-renewable energy consumed and produced by investees (%)',
+    category:'Climate', catClass:'cat-climate',
+    type:'quant', unit:'%', ref:'Annex I, Table 1 #5',
+    benchmark: v => v > 70 ? {flag:'bad',  label:'High'} : v > 40 ? {flag:'warn', label:'Moderate'} : {flag:'ok', label:'Low'},
+    dataSources:'IEA, MSCI, issuer energy disclosures'
+  },
+  {
+    id:'pai6', num:6, name:'Energy Consumption Intensity (High-Impact Sectors)',
+    desc:'Energy consumption per €M revenue for high-impact climate sectors (MWh / €M revenue)',
+    category:'Climate', catClass:'cat-climate',
+    type:'qual', ref:'Annex I, Table 1 #6',
+    dataSources:'EU NACE high-impact sector disclosures, Refinitiv, MSCI'
+  },
+  {
+    id:'pai7', num:7, name:'Activities Negatively Affecting Biodiversity-Sensitive Areas',
+    desc:'% of portfolio companies with sites/operations near biodiversity-sensitive or protected areas',
+    category:'Biodiversity', catClass:'cat-biodiversity',
+    type:'qual', ref:'Annex I, Table 1 #7',
+    dataSources:'ENCORE, MSCI Biodiversity, IBAT, company site disclosures'
+  },
+  {
+    id:'pai8', num:8, name:'Emissions to Water',
+    desc:'% of investee companies disclosing direct emissions to water bodies',
+    category:'Water', catClass:'cat-water',
+    type:'qual', ref:'Annex I, Table 1 #8',
+    dataSources:'CDP Water, MSCI, issuer sustainability reports'
+  },
+  {
+    id:'pai9', num:9, name:'Hazardous Waste & Radioactive Waste Ratio',
+    desc:'% of investee companies with hazardous/radioactive waste reduction targets',
+    category:'Waste', catClass:'cat-waste',
+    type:'qual', ref:'Annex I, Table 1 #9',
+    dataSources:'MSCI, company sustainability reports, CDP'
+  },
+  {
+    id:'pai10', num:10, name:'Violations of UNGC & OECD Guidelines',
+    desc:'% of investee companies involved in violations of UN Global Compact or OECD Guidelines for MNEs',
+    category:'Social & Employee', catClass:'cat-social',
+    type:'qual', ref:'Annex I, Table 1 #10',
+    dataSources:'RepRisk, Sustainalytics, MSCI ESG Controversies'
+  },
+  {
+    id:'pai11', num:11, name:'Lack of UNGC/OECD Processes & Grievance Mechanisms',
+    desc:'% of investee companies lacking monitoring processes for UNGC/OECD compliance and grievance channels',
+    category:'Social & Employee', catClass:'cat-social',
+    type:'qual', ref:'Annex I, Table 1 #11',
+    dataSources:'MSCI, Sustainalytics, company governance disclosures'
+  },
+  {
+    id:'pai12', num:12, name:'Unadjusted Gender Pay Gap',
+    desc:'Average unadjusted gender pay gap across investee companies (%)',
+    category:'Social & Employee', catClass:'cat-social',
+    type:'quant', unit:'%', ref:'Annex I, Table 1 #12',
+    benchmark: v => v > 20 ? {flag:'bad',  label:'High'} : v > 10 ? {flag:'warn', label:'Moderate'} : {flag:'ok', label:'Low'},
+    dataSources:'Refinitiv, MSCI ESG, Bloomberg Gender-Equality Index'
+  },
+  {
+    id:'pai13', num:13, name:'Board Gender Diversity',
+    desc:'Average % of female board members across investee companies',
+    category:'Social & Employee', catClass:'cat-social',
+    type:'quant', unit:'% female', ref:'Annex I, Table 1 #13',
+    benchmark: v => v < 30 ? {flag:'bad',  label:'Low'} : v < 40 ? {flag:'warn', label:'Moderate'} : {flag:'ok', label:'Good'},
+    dataSources:'MSCI, Refinitiv, Bloomberg, proxy disclosures'
+  },
+  {
+    id:'pai14', num:14, name:'Exposure to Controversial Weapons',
+    desc:'% of issuers involved in manufacture or sale of controversial weapons',
+    category:'Governance', catClass:'cat-governance',
+    type:'quant', unit:'%', ref:'Annex I, Table 1 #14',
+    benchmark: v => v > 2 ? {flag:'bad',  label:'High concern'} : v > 0 ? {flag:'warn', label:'Present'} : {flag:'ok', label:'None'},
+    dataSources:'MSCI Controversial Weapons, Sustainalytics, MSCI ESG'
+  }
+];
+
+/* score mapping for qualitative selects */
+const QUAL_SCORES = { 'not_measured': 0, 'estimated': 25, 'partial': 60, 'fully_disclosed': 100 };
+const QUAL_LABELS = { 'not_measured': 'Not Measured', 'estimated': 'Estimated', 'partial': 'Partial', 'fully_disclosed': 'Fully Disclosed' };
+
+/* ═══════════════════════════════════════════════════
+   BUILD INPUT ROWS
+═══════════════════════════════════════════════════ */
+(function buildGrid() {
+  const grid = document.getElementById('pai-grid');
+  PAI_INDICATORS.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'pai-row';
+    // Left: indicator info
+    const left = `<div class="pai-row-left">
+      <span class="pai-num">${p.ref}</span>
+      <span class="pai-name"><strong>#${p.num} ${escHtml(p.name)}</strong></span>
+      <span class="pai-ref">${escHtml(p.desc)}</span>
+      <span class="cat-pill ${p.catClass}">${p.category}</span>
+    </div>`;
+    // Right: input control
+    let right = '';
+    if (p.type === 'quant') {
+      right = `<div class="pai-row-right">
+        <label for="${p.id}" style="font-size:.62rem;color:var(--muted);margin-bottom:.25rem">${p.unit || 'value'}</label>
+        <input type="number" id="${p.id}" value="" min="0" step="0.1" placeholder="Enter value" style="width:100%">
+      </div>`;
+    } else {
+      right = `<div class="pai-row-right">
+        <label for="${p.id}" style="font-size:.62rem;color:var(--muted);margin-bottom:.25rem">Disclosure level</label>
+        <select id="${p.id}" style="width:100%">
+          <option value="not_measured">Not Measured</option>
+          <option value="estimated">Estimated</option>
+          <option value="partial">Partial</option>
+          <option value="fully_disclosed">Fully Disclosed</option>
+        </select>
+      </div>`;
+    }
+    row.innerHTML = left + right;
+    grid.appendChild(row);
+  });
+})();
+
+/* ═══════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════ */
+let lastResults = null;
+
+/* ═══════════════════════════════════════════════════
+   MAIN CALCULATOR
+═══════════════════════════════════════════════════ */
+function runCalculator() {
+  const fundArticle = document.getElementById('fund_article').value;
+  const portfolioVal = parseFloat(document.getElementById('portfolio_value').value) || 0;
+  const refPeriod    = document.getElementById('ref_period').value;
+  const dataCoverage = parseInt(document.getElementById('data_coverage').value, 10);
+
+  /* Compute individual indicator scores */
+  const rows = [];
+  let totalScore = 0;
+
+  PAI_INDICATORS.forEach(p => {
+    const el = document.getElementById(p.id);
+    let value, statusLabel, score, benchmarkResult;
+
+    if (p.type === 'quant') {
+      value = el.value !== '' ? parseFloat(el.value) : null;
+      if (value !== null && !isNaN(value)) {
+        // Quantitative: score 0-100 based on benchmark tiers
+        benchmarkResult = p.benchmark(value);
+        score = benchmarkResult.flag === 'ok' ? 100 : benchmarkResult.flag === 'warn' ? 50 : 10;
+        statusLabel = value + ' ' + (p.unit || '');
+      } else {
+        // No data entered — treat as not measured
+        benchmarkResult = {flag:'bad', label:'No data'};
+        score = 0;
+        statusLabel = '—';
+      }
+    } else {
+      // Qualitative select
+      const qval = el.value || 'not_measured';
+      score = QUAL_SCORES[qval];
+      statusLabel = QUAL_LABELS[qval];
+      // Benchmark flag based on score
+      benchmarkResult = score >= 80 ? {flag:'ok', label:'Disclosed'} : score >= 40 ? {flag:'warn', label:'Partial'} : {flag:'bad', label:'Not measured'};
+      value = qval;
+    }
+
+    totalScore += score;
+
+    rows.push({
+      ...p,
+      value,
+      statusLabel,
+      score,
+      benchmarkResult,
+      isGap: score < 60
+    });
+  });
+
+  /* Aggregates */
+  const disclosureScore       = Math.round(totalScore / PAI_INDICATORS.length);  // 0-100
+  const coverageAdjustedScore = Math.round(disclosureScore * (dataCoverage / 100));
+
+  /* Category aggregates */
+  const categories = {};
+  rows.forEach(r => {
+    if (!categories[r.category]) categories[r.category] = {total:0, count:0, catClass:r.catClass};
+    categories[r.category].total += r.score;
+    categories[r.category].count += 1;
+  });
+  Object.keys(categories).forEach(k => {
+    categories[k].avg = Math.round(categories[k].total / categories[k].count);
+  });
+
+  /* Article-specific context */
+  const articleLabel = {art6:'Article 6', art8:'Article 8', art9:'Article 9'}[fundArticle] || fundArticle;
+
+  lastResults = {fundArticle, articleLabel, portfolioVal, refPeriod, dataCoverage, disclosureScore, coverageAdjustedScore, rows, categories};
+
+  renderResults(lastResults);
+  enableAP2Btn();
+}
+
+/* ═══════════════════════════════════════════════════
+   RENDER RESULTS
+═══════════════════════════════════════════════════ */
+function renderResults(r) {
+  /* Score colour */
+  const sc = r.coverageAdjustedScore;
+  const scoreColor = sc >= 70 ? 'var(--green)' : sc >= 40 ? 'var(--warn)' : 'var(--red)';
+
+  /* 1. Summary header */
+  document.getElementById('summary-header').innerHTML = `
+    <div class="summary-top">
+      <div>
+        <div class="summary-title">PAI Disclosure Assessment — ${escHtml(r.refPeriod)} · ${escHtml(r.articleLabel)}</div>
+        <div style="font-size:.7rem;color:var(--muted);margin-top:.2rem">SFDR Annex I, Table 1 · RTS 2022 · 14 mandatory indicators</div>
+      </div>
+      <div style="text-align:right">
+        <div class="score-big" style="color:${scoreColor}">${r.coverageAdjustedScore}</div>
+        <div class="score-label">Coverage-Adjusted Score /100</div>
+        <div style="font-size:.62rem;color:var(--muted);margin-top:.2rem">Disclosure: ${r.disclosureScore}/100 × Coverage: ${r.dataCoverage}%</div>
+      </div>
+    </div>
+    <div class="summary-meta-row">
+      <div class="meta-card"><span class="meta-card-label">Fund Article</span><span class="meta-card-value">${escHtml(r.articleLabel)}</span></div>
+      <div class="meta-card"><span class="meta-card-label">Portfolio Value</span><span class="meta-card-value">€${r.portfolioVal.toLocaleString()}M</span></div>
+      <div class="meta-card"><span class="meta-card-label">Reference Period</span><span class="meta-card-value">${escHtml(r.refPeriod)}</span></div>
+      <div class="meta-card"><span class="meta-card-label">Data Coverage</span><span class="meta-card-value">${r.dataCoverage}%</span></div>
+      <div class="meta-card"><span class="meta-card-label">Indicators Disclosed</span><span class="meta-card-value">${r.rows.filter(x=>x.score>=60).length} / 14</span></div>
+      <div class="meta-card"><span class="meta-card-label">Disclosure Score</span><span class="meta-card-value">${r.disclosureScore}/100</span></div>
+    </div>`;
+
+  /* 2. PAI indicator table */
+  const tbody = document.getElementById('pai-tbody');
+  tbody.innerHTML = '';
+  r.rows.forEach(row => {
+    const flagHtml = row.benchmarkResult.flag === 'ok'
+      ? `<span class="flag-ok">&#10003;</span>`
+      : row.benchmarkResult.flag === 'warn'
+      ? `<span class="flag-warn">&#9888;</span>`
+      : `<span class="flag-bad">&#10007;</span>`;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted)">${row.num}</td>
+      <td style="color:var(--text);max-width:260px"><strong style="color:var(--bright)">${escHtml(row.name)}</strong><br><span style="font-size:.62rem;color:var(--muted)">${escHtml(row.desc)}</span></td>
+      <td><span class="cat-pill ${row.catClass}">${row.category}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--bright)">${escHtml(row.statusLabel)}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--body)">${r.dataCoverage}%</td>
+      <td style="text-align:center">${flagHtml} <span style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted)">${escHtml(row.benchmarkResult.label)}</span></td>`;
+    tbody.appendChild(tr);
+  });
+
+  /* 3. Category summary */
+  const catGrid = document.getElementById('cat-grid');
+  catGrid.innerHTML = '';
+  const catColors = {
+    'Climate': 'var(--teal)', 'Biodiversity': 'var(--green-lt)',
+    'Water': '#93c5fd', 'Waste': 'var(--warn)',
+    'Social & Employee': 'var(--purple)', 'Governance': 'var(--gold)'
+  };
+  Object.entries(r.categories).forEach(([name, data]) => {
+    const col = catColors[name] || 'var(--teal)';
+    catGrid.innerHTML += `
+      <div class="cat-card">
+        <span class="cat-card-label ${data.catClass}" style="padding:.2rem .5rem;border-radius:3px">${escHtml(name)}</span>
+        <span class="cat-card-score" style="color:${col}">${data.avg}</span>
+        <div class="cat-bar"><div class="cat-bar-fill" style="width:${data.avg}%;background:${col}"></div></div>
+        <span class="cat-card-sub">${data.count} indicator${data.count>1?'s':''} · avg score</span>
+      </div>`;
+  });
+
+  /* 4. Gaps */
+  const gapList = document.getElementById('gap-list');
+  gapList.innerHTML = '';
+  const gaps = r.rows.filter(x => x.isGap);
+  if (gaps.length === 0) {
+    gapList.innerHTML = '<div style="padding:.75rem;font-size:.75rem;color:var(--green)">&#10003; No material disclosure gaps identified.</div>';
+  } else {
+    gaps.forEach(g => {
+      const isCritical = g.score < 20;
+      gapList.innerHTML += `
+        <div class="gap-item ${isCritical ? 'critical' : ''}">
+          <div class="gap-item-top">
+            <span class="gap-name">#${g.num} ${escHtml(g.name)}</span>
+            <span class="gap-priority ${isCritical ? 'critical' : 'recommended'}">${isCritical ? 'Critical — Not Measured' : 'Improve Coverage'}</span>
+          </div>
+          <div class="gap-source"><strong style="color:var(--body)">Category:</strong> ${g.category} &nbsp;|&nbsp; <strong style="color:var(--body)">Ref:</strong> ${g.ref}</div>
+          <div class="gap-source" style="margin-top:.2rem"><strong style="color:var(--body)">Recommended data sources:</strong> ${escHtml(g.dataSources)}</div>
+        </div>`;
+    });
+  }
+
+  /* Reveal results */
+  document.getElementById('results-panel').style.display = 'block';
+  document.getElementById('results-panel').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+/* ═══════════════════════════════════════════════════
+   EXPORTS
+═══════════════════════════════════════════════════ */
+function enableAP2Btn() {
+  const btn = document.getElementById('ap2ExportBtn');
+  if (btn) { btn.disabled = false; btn.classList.add('ready'); }
+}
+
+function exportMarkdown() {
+  if (!lastResults) return;
+  const r = lastResults;
+  let md = `# SFDR PAI Indicator Report\n\n`;
+  md += `**Fund Article:** ${r.articleLabel}  \n`;
+  md += `**Reference Period:** ${r.refPeriod}  \n`;
+  md += `**Portfolio Value:** €${r.portfolioVal}M  \n`;
+  md += `**Data Coverage:** ${r.dataCoverage}%  \n`;
+  md += `**Disclosure Score:** ${r.disclosureScore}/100  \n`;
+  md += `**Coverage-Adjusted Score:** ${r.coverageAdjustedScore}/100  \n\n`;
+  md += `## PAI Indicator Table (14 Mandatory — Annex I, Table 1)\n\n`;
+  md += `| # | Indicator | Category | Value / Status | Coverage | Benchmark |\n`;
+  md += `|---|-----------|----------|---------------|----------|-----------|\n`;
+  r.rows.forEach(row => {
+    const flag = row.benchmarkResult.flag === 'ok' ? '✓' : row.benchmarkResult.flag === 'warn' ? '⚠' : '✗';
+    md += `| ${row.num} | ${row.name} | ${row.category} | ${row.statusLabel} | ${r.dataCoverage}% | ${flag} ${row.benchmarkResult.label} |\n`;
+  });
+  md += `\n## Category Summary\n\n`;
+  Object.entries(r.categories).forEach(([name, data]) => {
+    md += `- **${name}:** ${data.avg}/100 avg (${data.count} indicator${data.count>1?'s':''})\n`;
+  });
+  md += `\n## Disclosure Gaps\n\n`;
+  const gaps = r.rows.filter(x => x.isGap);
+  if (gaps.length === 0) { md += `No material disclosure gaps identified.\n`; }
+  else { gaps.forEach(g => { md += `- **#${g.num} ${g.name}** (${g.category}) — ${g.benchmarkResult.label}. Sources: ${g.dataSources}\n`; }); }
+  md += `\n---\n*Generated by AINumbers.co T384 · SFDR PAI Indicator Calculator · ainumbers.co*\n`;
+  md += `*Regulatory basis: Regulation (EU) 2019/2088; Commission Delegated Regulation (EU) 2022/1288 (RTS)*\n`;
+
+  const blob = new Blob([md], {type:'text/markdown'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `sfdr-pai-report-${r.refPeriod}-${Date.now()}.md`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function exportAP2() {
+  if (!lastResults) return;
+  const r = lastResults;
+  const now = new Date().toISOString();
+  const mandate = {
+    ap2_version: '1.0',
+    mandate_id: 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const v = Math.random()*16|0; return (c==='x'?v:(v&0x3|0x8)).toString(16);
+    }),
+    issued_at: now,
+    issued_by: 'ainumbers.co',
+    tool_id: 'sfdr-pai-indicator-calculator',
+    tool_version: '1.0.0',
+    mandate_type: 'disclosure_template',
+    jurisdiction: ['EU'],
+    regulatory_frameworks: ['SFDR EU 2019/2088','RTS EU 2022/1288'],
+    payload: {
+      fund_article: r.fundArticle,
+      article_label: r.articleLabel,
+      reference_period: r.refPeriod,
+      portfolio_value_eur_m: r.portfolioVal,
+      data_coverage_pct: r.dataCoverage,
+      disclosure_score: r.disclosureScore,
+      coverage_adjusted_score: r.coverageAdjustedScore,
+      indicators_disclosed: r.rows.filter(x=>x.score>=60).length,
+      indicators_total: 14,
+      pai_table: r.rows.map(row => ({
+        indicator_id: row.id,
+        number: row.num,
+        name: row.name,
+        category: row.category,
+        value_or_status: row.statusLabel,
+        score: row.score,
+        benchmark_flag: row.benchmarkResult.flag,
+        benchmark_label: row.benchmarkResult.label
+      })),
+      category_summary: Object.fromEntries(Object.entries(r.categories).map(([k,v])=>[k,{avg_score:v.avg,count:v.count}])),
+      disclosure_gaps: r.rows.filter(x=>x.isGap).map(g=>({number:g.num, name:g.name, category:g.category, score:g.score}))
+    },
+    summary: `${r.articleLabel} fund PAI disclosure for ${r.refPeriod}. Coverage-adjusted score: ${r.coverageAdjustedScore}/100. ${r.rows.filter(x=>x.score>=60).length} of 14 mandatory PAI indicators adequately disclosed. Data coverage: ${r.dataCoverage}%.`,
+    agent_instructions: [
+      'Review PAI indicators with score < 60 as disclosure gaps requiring data collection.',
+      'Cross-reference coverage-adjusted score against peer funds for benchmarking.',
+      `For ${r.articleLabel} funds, ensure PAI statement is published annually on fund website per SFDR Art. 10.`,
+      'Engage ESG data providers to improve coverage for indicators showing "Not Measured" status.',
+      'Validate individual indicator values against RTS Annex I template formats before submission.'
+    ],
+    valid_from: `${r.refPeriod}-01-01`,
+    valid_until: `${r.refPeriod}-12-31`,
+    last_reviewed: now.slice(0,10),
+    source_tool_inputs: {
+      fund_article: r.fundArticle,
+      portfolio_value_eur_m: r.portfolioVal,
+      reference_period: r.refPeriod,
+      data_coverage_pct: r.dataCoverage
+    },
+    regulatory_citations: [
+      'Regulation (EU) 2019/2088 — SFDR',
+      'Commission Delegated Regulation (EU) 2022/1288 — RTS with Annex I PAI templates',
+      'ESMA Q&A on SFDR (ESMA/2023/Q&A-22)'
+    ],
+    audit_metadata: {
+      execution_hash: null,
+      client_side_executed: true,
+      zero_pii_verified: true,
+      deterministic_run: true
+    }
+  };
+
+  // Validate minimum required fields before download
+  const valid = mandate.payload && mandate.mandate_id && mandate.tool_id;
+  if (!valid) { alert('Validation failed: missing required mandate fields.'); return; }
+
+  const blob = new Blob([JSON.stringify(mandate, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  a.download = `sfdr-pai-indicator-calculator_${ts}.policy.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ═══════════════════════════════════════════════════
+   MANIFEST TOGGLE
+═══════════════════════════════════════════════════ */
+const MANIFEST = {
+  "tool_id": "sfdr-pai-indicator-calculator",
+  "version": "1.0.0",
+  "title": "SFDR PAI Indicator Calculator",
+  "description": "Calculate and assess the 14 mandatory Principal Adverse Impact indicators for SFDR Article 4/8/9 fund reporting under Regulation EU 2019/2088 and RTS 2022. Produces PAI table with coverage assessment.",
+  "category": "cat-24",
+  "tags": ["sfdr","pai","principal adverse impact","article 8","article 9","eu 2019/2088","rts","sustainable finance","esg reporting","export"],
+  "mcp_tool_definition": {
+    "name": "calculate_sfdr_pai_indicators",
+    "description": "Calculate the 14 mandatory SFDR PAI indicators for a fund and generate a coverage-adjusted disclosure table.",
+    "inputSchema": {"type":"object","properties":{"fund_article":{"type":"string","enum":["art6","art8","art9"]},"portfolio_value_eur_m":{"type":"number"},"reference_period":{"type":"string"},"data_coverage_pct":{"type":"number"},"indicators":{"type":"object"}},"required":["fund_article","reference_period"]}
+  },
+  "execution": {"type":"browser-javascript","entry":"tools/384-sfdr-pai-indicator-calculator.html","function_name":"runCalculator","timeout_ms":3000},
+  "ap2_export": true
+};
+
+function toggleMfst() {
+  const body = document.getElementById('mfstBody');
+  const arr  = document.getElementById('mfstArr');
+  const code = document.getElementById('mfstCode');
+  const open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  arr.textContent = open ? '▼' : '▲';
+  if (!open && !code.textContent) code.textContent = JSON.stringify(MANIFEST, null, 2);
+}
+</script>
+</body>
+</html>

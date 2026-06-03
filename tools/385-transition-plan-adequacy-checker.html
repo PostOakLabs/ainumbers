@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>Transition Plan Adequacy Checker &middot; AINumbers.co</title>
+<meta name="description" content="Evaluate transition plan quality against FCA PS23/24, EU CSRD/CS3D, and ISSB S2. Scores ambition, milestones, CapEx alignment, governance, and supply chain coverage. Gap registry and narrative checklist. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/385-transition-plan-adequacy-checker.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Transition Plan Adequacy Checker","url":"https://ainumbers.co/tools/385-transition-plan-adequacy-checker.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}<\/script>
+<!-- manifest.json
+{
+  "tool_id": "transition-plan-adequacy-checker",
+  "version": "1.0.0",
+  "title": "Transition Plan Adequacy Checker",
+  "description": "Evaluate transition plan quality against FCA PS23/24, EU CSRD/CS3D, and ISSB S2 requirements. Scores ambition, milestones, CapEx alignment, governance, and supply chain coverage. Produces a gap registry and required narrative checklist.",
+  "category": "cat-24",
+  "tags": ["transition plan","fca ps23/24","csrd","cs3d","issb s2","net zero","capex alignment","climate governance","adequacy","export"],
+  "mcp_tool_definition": {
+    "name": "check_transition_plan_adequacy",
+    "description": "Score transition plan adequacy against FCA PS23/24, EU CSRD/CS3D, and ISSB S2 frameworks. Returns per-framework scores, gap registry, and narrative element checklist.",
+    "inputSchema": {"type":"object","properties":{"entity_type":{"type":"string"},"ambition":{"type":"string","enum":["1p5c","well_below_2c","below_2c","none"]},"net_zero_year":{"type":"string"},"interim_milestones":{"type":"string","enum":["yes","partial","no"]},"capex_pct":{"type":"number"},"board_oversight":{"type":"boolean"},"scope3_covered":{"type":"string","enum":["yes","partial","no"]}},"required":["entity_type","ambition"]}
+  },
+  "execution": {"type":"browser-javascript","entry":"tools/385-transition-plan-adequacy-checker.html","function_name":"runChecker","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--green-lt:#4ADE80;--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--accent:var(--green);--accent-dim:var(--green-dim);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.010) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.010) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.input-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:640px){.form-grid{grid-template-columns:1fr}}
+.form-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
+@media(max-width:720px){.form-grid-3{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.form-grid-3{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:.35rem}
+.field label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.field select{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'Sora',sans-serif;font-size:.78rem;padding:.4rem .6rem;border-radius:var(--radius);outline:none;transition:border-color .2s;-webkit-appearance:none;appearance:none}
+.field select:focus{border-color:var(--teal)}
+.range-wrap{display:flex;align-items:center;gap:.75rem}
+.range-wrap input[type=range]{flex:1;accent-color:var(--teal);height:4px;cursor:pointer;padding:0;border:none;background:var(--bg-3);border-radius:2px}
+.range-val{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--bright);min-width:2.5rem;text-align:right}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.7rem 2.2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.5rem}
+.run-btn:hover{background:var(--teal-lt)}
+.results-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.verdict-wrap{display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap}
+.verdict-badge{font-family:'DM Serif Display',serif;font-size:1.6rem;padding:.4rem 1.2rem;border-radius:8px;border:2px solid}
+.verdict-detail{display:flex;flex-direction:column;gap:.25rem}
+.verdict-score{font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:var(--bright)}
+.verdict-label{font-size:.78rem;color:var(--body)}
+.scorecard-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
+@media(max-width:700px){.scorecard-grid{grid-template-columns:1fr}}
+.fw-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem}
+.fw-card-name{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.fw-card-score{font-family:'DM Serif Display',serif;font-size:2rem;margin-bottom:.3rem}
+.fw-card-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.6rem}
+.prog-outer{height:6px;background:var(--bg);border-radius:3px;overflow:hidden}
+.prog-inner{height:100%;border-radius:3px;transition:width .6s ease}
+.fw-na{opacity:.45;font-style:italic;font-size:.72rem;color:var(--muted)}
+.gap-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.gap-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.gap-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.gap-table tr:last-child td{border-bottom:none}
+.gap-table tr:hover td{background:var(--bg-3)}
+.prio-high{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase}
+.prio-medium{color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase}
+.prio-low{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase}
+.status-gap{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.5rem;text-transform:uppercase}
+.status-partial{color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.5rem;text-transform:uppercase}
+.status-present{color:var(--green);font-family:'JetBrains Mono',monospace;font-size:.5rem;text-transform:uppercase}
+.narrative-list{display:flex;flex-direction:column;gap:.5rem}
+.narrative-item{display:flex;align-items:flex-start;gap:.75rem;padding:.6rem .85rem;border-radius:var(--radius);background:var(--bg-3);border:1px solid var(--border)}
+.narrative-check{flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:.8rem;margin-top:.05rem}
+.narrative-present{border-color:rgba(34,197,94,.2)}
+.narrative-gap{border-color:rgba(239,68,68,.2)}
+.narrative-partial{border-color:rgba(245,158,11,.2)}
+.narrative-present .narrative-check{color:var(--green)}
+.narrative-gap .narrative-check{color:var(--red)}
+.narrative-partial .narrative-check{color:var(--warn)}
+.narrative-text{font-size:.76rem;line-height:1.6}
+.narrative-text strong{color:var(--bright);font-weight:500;display:block;font-size:.78rem}
+.narrative-text span{color:var(--body);font-size:.72rem}
+.export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;padding:.75rem 0;border-top:1px solid var(--border)}
+.exp-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.42rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.exp-btn:hover{border-color:var(--teal);color:var(--bright)}
+.exp-btn:disabled{opacity:.45;cursor:not-allowed}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.source-notes{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);line-height:1.8;margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+</head>
+<body>
+
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">&#20013;&#25991;</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a>
+    <span class="nav-bc-sep">/</span>
+    <a href="../index.html#cat-24">EU Sustainable Finance</a>
+    <span class="nav-bc-sep">/</span>
+    <span>T385</span>
+  </div>
+  <div class="nav-right">
+    <a href="../index.html#cat-24" class="nav-cta">EU Sustainable Finance &#8594;</a>
+  </div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">TRANSITION PLAN ADEQUACY &middot; T385</div>
+  <div class="hero-meta">
+    <span class="hero-badge badge-muted"><span>v1.0</span></span>
+  </div>
+  <h1 class="tool-title" data-i18n="title">Transition Plan <em>Adequacy Checker</em></h1>
+  <p class="hero-desc">Evaluate your entity&apos;s transition plan against three regulatory frameworks: FCA PS23/24 (UK), EU CSRD / CS3D (ESRS E1 and Due Diligence), and ISSB S2. Scores ambition, interim milestones, CapEx alignment, governance, and supply chain coverage. Generates a gap registry and required narrative checklist. Client-side &mdash; zero data transmitted.</p>
+  <div class="hero-badges">
+    <span class="badge badge-teal">FCA PS23/24</span>
+    <span class="badge badge-gold">CSRD / CS3D</span>
+    <span class="badge badge-purple">ISSB S2</span>
+    <span class="badge badge-muted">cat-24</span>
+    <span class="badge badge-green">Zero PII</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted or stored. Use anonymised or synthetic inputs only. Scores are indicative reference outputs &mdash; verify against current primary regulatory sources and qualified legal or sustainability counsel before use in compliance decisions. Deterministic logic &middot; no inference &middot; CC BY 4.0.</div>
+
+  <div class="input-panel">
+    <div class="panel-title">Entity &amp; Target Profile</div>
+    <div class="form-grid">
+      <div class="field">
+        <label>Entity Type</label>
+        <select id="entityType">
+          <option value="large_listed">Large Listed Company (FCA)</option>
+          <option value="csrd_wave1">CSRD Wave 1 Issuer</option>
+          <option value="csrd_wave2">CSRD Wave 2 Issuer</option>
+          <option value="financial">Financial Institution</option>
+          <option value="asset_manager">Asset Manager</option>
+          <option value="sme">SME (Voluntary)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Net Zero Ambition</label>
+        <select id="ambition">
+          <option value="1p5c">1.5&deg;C Aligned</option>
+          <option value="well_below_2c">Well Below 2&deg;C</option>
+          <option value="below_2c">Below 2&deg;C</option>
+          <option value="none">No Formal Target</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Emissions Base Year</label>
+        <select id="baseYear">
+          <option value="2019">2019</option>
+          <option value="2020">2020</option>
+          <option value="2021">2021</option>
+          <option value="2022">2022</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Net Zero Target Year</label>
+        <select id="targetYear">
+          <option value="2040">2040</option>
+          <option value="2045">2045</option>
+          <option value="2050" selected>2050</option>
+          <option value="none">No Target</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="input-panel">
+    <div class="panel-title">Plan Elements</div>
+    <div class="form-grid-3">
+      <div class="field">
+        <label>Interim Milestones (5-year intervals)</label>
+        <select id="milestones">
+          <option value="yes">Yes &mdash; Full 5-year milestones</option>
+          <option value="partial">Partial &mdash; Some milestones only</option>
+          <option value="no">No milestones</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>CapEx Directed to Net-Zero Activities (%)</label>
+        <div class="range-wrap">
+          <input type="range" id="capexPct" min="0" max="100" value="30" oninput="document.getElementById('capexVal').textContent=this.value+'%'">
+          <span class="range-val" id="capexVal">30%</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>OpEx Decarbonisation Plan Included</label>
+        <select id="opexPlan">
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Board-Level Oversight of Transition Plan</label>
+        <select id="boardOversight">
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Supply Chain / Scope 3 Coverage</label>
+        <select id="scope3">
+          <option value="yes">Yes &mdash; Fully covered</option>
+          <option value="partial">Partial &mdash; Some categories</option>
+          <option value="no">No coverage</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Financed Emissions / Engagement Policy (Financials)</label>
+        <select id="financedEmissions">
+          <option value="na">N/A &mdash; Not a financial institution</option>
+          <option value="yes">Yes &mdash; Fully covered</option>
+          <option value="partial">Partial</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:1rem" class="field">
+      <label>Just Transition / Social Impacts Addressed</label>
+      <select id="justTransition" style="max-width:340px">
+        <option value="yes">Yes</option>
+        <option value="no">No</option>
+      </select>
+    </div>
+  </div>
+
+  <button class="run-btn" onclick="runChecker()">&#9654; <span data-i18n="run">Check Adequacy</span></button>
+
+  <div class="results-section" id="resultsSection" style="display:none">
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Overall Adequacy Verdict</span></div>
+      <div class="out-body">
+        <div class="verdict-wrap">
+          <div class="verdict-badge" id="verdictBadge"></div>
+          <div class="verdict-detail">
+            <div class="verdict-score" id="verdictScore"></div>
+            <div class="verdict-label" id="verdictLabel"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Framework Scorecard</span></div>
+      <div class="out-body">
+        <div class="scorecard-grid" id="scorecardGrid"></div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Gap Registry</span></div>
+      <div class="out-body" style="overflow-x:auto">
+        <table class="gap-table">
+          <thead>
+            <tr>
+              <th>Requirement</th>
+              <th>Framework</th>
+              <th>Current Status</th>
+              <th>Priority</th>
+              <th>Recommended Action</th>
+            </tr>
+          </thead>
+          <tbody id="gapTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Required Narrative Elements</span></div>
+      <div class="out-body">
+        <div class="narrative-list" id="narrativeList"></div>
+      </div>
+    </div>
+
+    <div class="export-row">
+      <button id="ap2ExportBtn" class="exp-btn" onclick="exportAP2()" disabled>{} Export Policy Mandate <span style="color:var(--muted);font-size:.85em">JSON &middot; AP2</span></button>
+      <button class="exp-btn" id="mdExportBtn" onclick="exportMarkdown()" disabled>&#8659; Export Markdown</button>
+    </div>
+
+  </div>
+
+  <section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()">
+        <span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span>
+        <span id="mfstArr" style="color:var(--muted)">&#9660;</span>
+      </button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </section>
+
+  <div class="source-notes">
+    <strong style="color:var(--text)">Sources &amp; Citations</strong><br>
+    1. FCA Policy Statement PS23/24 &mdash; Sustainability Disclosure Requirements and investment labels (Nov 2023); Appendix 3: Transition Plan Disclosures.<br>
+    2. EU Regulation 2022/2464 (CSRD) &mdash; Corporate Sustainability Reporting Directive; ESRS E1 Climate Change (Commission Delegated Regulation 2023/2772).<br>
+    3. EU Directive 2024/1760 (CS3D) &mdash; Corporate Sustainability Due Diligence Directive, Art. 22 transition plan obligations.<br>
+    4. ISSB IFRS S2 &mdash; Climate-related Disclosures (June 2023), paragraphs 14&ndash;16 and Appendix B transition plan guidance.<br>
+    <span style="margin-top:.35rem;display:block">Scores are based on publicly available framework text as of June 2025. Framework requirements evolve &mdash; verify against current published standards.</span>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="../index.html#cat-24">EU Sustainable Finance</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ── i18n ── */
+var LANGS={
+  en:{title:'Transition Plan Adequacy Checker',run:'Check Adequacy',exporting:'Exporting...'},
+  es:{title:'Verificador de Idoneidad del Plan de Transición',run:'Verificar Idoneidad',exporting:'Exportando...'},
+  fr:{title:'Vérificateur d’Adéquation du Plan de Transition',run:'Vérifier l’Adéquation',exporting:'Exportation...'},
+  ar:{title:'مدقق كفاية خطة التحول',run:'التحقق من الكفاية',exporting:'جارٍ التصدير...'},
+  pt:{title:'Verificador de Adequação do Plano de Transição',run:'Verificar Adequação',exporting:'Exportando...'},
+  zh:{title:'过渡计划充分性检查工具',run:'检查充分性',exporting:'导出中...'}
+};
+var currentLang='en';
+function setLang(l){
+  if(!LANGS[l])return;
+  currentLang=l;
+  try{sessionStorage.setItem('ain_lang',l);}catch(e){}
+  document.querySelectorAll('.lang-btn').forEach(function(b){b.classList.toggle('active',b.dataset.lang===l);});
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var k=el.dataset.i18n;
+    if(LANGS[l][k])el.textContent=LANGS[l][k];
+  });
+  document.documentElement.lang=l;
+  document.documentElement.dir=l==='ar'?'rtl':'ltr';
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s&&LANGS[s])setLang(s);}catch(e){}})();
+
+/* ── Scoring ── */
+function scoreFCA(inp){
+  var s=0;
+  s+={_1p5c:25,well_below_2c:18,below_2c:10,none:0}[inp.ambition]||0;
+  s+={yes:20,partial:10,no:0}[inp.milestones]||0;
+  if(inp.boardOversight==='yes')s+=15;
+  s+=(inp.capexPct/100)*20;
+  s+={yes:20,partial:10,no:0}[inp.scope3]||0;
+  return Math.min(100,Math.round(s));
+}
+function scoreCSRD(inp){
+  var s=0;
+  s+={_1p5c:25,well_below_2c:15,below_2c:8,none:0}[inp.ambition]||0;
+  if(inp.targetYear!=='none')s+=10;
+  s+={yes:15,partial:8,no:0}[inp.milestones]||0;
+  s+=(inp.capexPct/100)*20;
+  if(inp.opexPlan==='yes')s+=10;
+  if(inp.boardOversight==='yes')s+=10;
+  if(inp.justTransition==='yes')s+=10;
+  return Math.min(100,Math.round(s));
+}
+function scoreISSB(inp){
+  var s=0;
+  s+={_1p5c:20,well_below_2c:15,below_2c:8,none:0}[inp.ambition]||0;
+  s+={yes:20,partial:10,no:0}[inp.milestones]||0;
+  s+=(inp.capexPct/100)*20;
+  var s3=(inp.financedEmissions!=='na')?inp.financedEmissions:inp.scope3;
+  s+={yes:20,partial:10,no:0}[s3]||0;
+  if(inp.boardOversight==='yes')s+=10;
+  if(inp.opexPlan==='yes')s+=10;
+  return Math.min(100,Math.round(s));
+}
+
+/* ambition key mapping: "1p5c" not "_1p5c" — fix lookup */
+function ambKey(v){return v==='1p5c'?'_1p5c':v;}
+function scoreFCA2(inp){
+  var i=Object.assign({},inp,{ambition:ambKey(inp.ambition)});return scoreFCA(i);
+}
+function scoreCSRD2(inp){
+  var i=Object.assign({},inp,{ambition:ambKey(inp.ambition)});return scoreCSRD(i);
+}
+function scoreISSB2(inp){
+  var i=Object.assign({},inp,{ambition:ambKey(inp.ambition)});return scoreISSB(i);
+}
+
+var CSRD_ENTITIES=['csrd_wave1','csrd_wave2','financial','asset_manager'];
+function includesCSRD(et){return CSRD_ENTITIES.indexOf(et)>=0;}
+
+function getBand(score){
+  if(score>=90)return{label:'Strong',color:'var(--green)'};
+  if(score>=75)return{label:'Adequate',color:'var(--teal)'};
+  if(score>=55)return{label:'Developing',color:'var(--gold)'};
+  if(score>=30)return{label:'Partial',color:'var(--warn)'};
+  return{label:'Inadequate',color:'var(--red)'};
+}
+
+/* ── Gap registry ── */
+function buildGaps(inp,withCSRD){
+  var rows=[];
+  function add(req,fw,status,priority,action){rows.push({req:req,frameworks:fw,status:status,priority:priority,action:action});}
+  if(inp.ambition==='none'){
+    add('Net Zero Ambition Statement','FCA / CSRD / ISSB S2','Gap','High','Adopt a formal net zero target aligned to a recognised science-based pathway; minimum 2°C alignment required for baseline compliance.');
+  } else if(inp.ambition==='below_2c'){
+    add('1.5°C Alignment','FCA / CSRD / ISSB S2','Partial','Medium','Strengthen ambition to 1.5°C alignment to meet FCA PS23/24 best-practice and ISSB S2 expectations.');
+  }
+  if(inp.targetYear==='none'){
+    add('Net Zero Target Year','CSRD / CS3D','Gap','High','Set an explicit net zero year (≤2050) as required by ESRS E1 and CS3D Art. 22.');
+  }
+  if(inp.milestones==='no'){
+    add('Interim 5-Year Milestones','FCA / CSRD / ISSB S2','Gap','High','Define quantified interim milestones at 5-year intervals (2025, 2030, 2035…) aligned to science-based pathways.');
+  } else if(inp.milestones==='partial'){
+    add('Interim Milestones — Completeness','FCA / CSRD / ISSB S2','Partial','Medium','Complete the milestone schedule to cover all relevant 5-year intervals with absolute and intensity targets.');
+  }
+  if(inp.capexPct<25){
+    add('CapEx Alignment with Transition','FCA / CSRD / ISSB S2',inp.capexPct===0?'Gap':'Partial',inp.capexPct<10?'High':'Medium','Increase proportion of CapEx directed to net-zero activities; disclose planned capital allocation with timeline and project pipeline.');
+  }
+  if(inp.opexPlan==='no'){
+    add('OpEx Decarbonisation Plan','CSRD / ISSB S2','Gap','Medium','Develop and disclose an operational expenditure plan covering energy, logistics, and process decarbonisation.');
+  }
+  if(inp.boardOversight==='no'){
+    add('Board Oversight of Transition Plan','FCA / CSRD / ISSB S2','Gap','High','Assign board-level accountability (e.g. sustainability committee or designated NED) with documented oversight mandate and reporting cadence.');
+  }
+  if(inp.scope3==='no'){
+    add('Scope 3 / Supply Chain Coverage','FCA / CSRD / ISSB S2','Gap','High','Conduct Scope 3 screening and engage material supply chain partners; disclose coverage approach and engagement policy per ESRS E1 and ISSB S2 para 29.');
+  } else if(inp.scope3==='partial'){
+    add('Scope 3 — Full Category Coverage','FCA / CSRD / ISSB S2','Partial','Medium','Extend Scope 3 disclosure to all material categories; disclose boundary and methodology for excluded categories.');
+  }
+  if(['financial','asset_manager'].indexOf(inp.entityType)>=0){
+    if(inp.financedEmissions==='no'||inp.financedEmissions==='na'){
+      add('Financed Emissions & Engagement Policy','CSRD / CS3D / ISSB S2','Gap','High','Disclose portfolio-level financed emissions (PCAF methodology) and publish a climate engagement and escalation policy for investees / borrowers.');
+    } else if(inp.financedEmissions==='partial'){
+      add('Financed Emissions — Portfolio Completeness','CSRD / ISSB S2','Partial','Medium','Expand financed emissions coverage to full AUM / loan book; disclose data quality scores and coverage ratios.');
+    }
+  }
+  if(inp.justTransition==='no'){
+    add('Just Transition / Social Impacts',withCSRD?'CSRD / CS3D':'CSRD','Gap','Medium','Address workforce and community impacts; include retraining commitments, social dialogue evidence, and supply chain worker protections per CS3D requirements.');
+  }
+  return rows;
+}
+
+/* ── Narrative elements ── */
+function buildNarrative(inp){
+  var isFinancial=['financial','asset_manager'].indexOf(inp.entityType)>=0;
+  return[
+    {key:'baseline',title:'Scope 1/2/3 Emissions Baseline & Methodology',desc:'Absolute GHG emissions for base year, boundary, methodology (GHG Protocol / ISO 14064), and data quality statement.',present:true},
+    {key:'ambition',title:'Net Zero Ambition & Science-Based Pathway Reference',desc:'Explicit temperature alignment claim, reference scenario (IEA NZE, IPCC 1.5°C), and science-based target validation status.',present:inp.ambition!=='none',partial:inp.ambition==='below_2c'||inp.ambition==='well_below_2c'},
+    {key:'milestones',title:'Quantified Interim Milestones at 5-Year Intervals',desc:'Absolute and/or intensity targets for 2025, 2030, 2035, 2040, 2045 with year-on-year decarbonisation rate.',present:inp.milestones==='yes',partial:inp.milestones==='partial'},
+    {key:'capex',title:'CapEx / OpEx Decarbonisation Plan',desc:'Multi-year capital and operational expenditure plan showing investment in low-carbon assets, R&D, and efficiency measures with disclosed percentages.',present:inp.capexPct>=50&&inp.opexPlan==='yes',partial:inp.capexPct>0||inp.opexPlan==='yes'},
+    {key:'governance',title:'Board Accountability & Oversight Mechanism',desc:'Named board committee or designated director responsible for transition plan; oversight frequency; link to executive remuneration.',present:inp.boardOversight==='yes'},
+    {key:'scope3',title:'Supply Chain Engagement Strategy & Scope 3 Reduction Plan',desc:'Material Scope 3 categories identified, engagement programme for top-tier suppliers, and target reduction trajectory.',present:inp.scope3==='yes',partial:inp.scope3==='partial'},
+    {key:'financed',title:'Financed Emissions Disclosure & Engagement Policy',desc:'Portfolio-level financed emissions (PCAF), sectoral pathways for high-emitting sectors, client/investee engagement and escalation policy.',present:isFinancial?(inp.financedEmissions==='yes'):null,partial:isFinancial?(inp.financedEmissions==='partial'):false,na:!isFinancial},
+    {key:'just',title:'Just Transition & Social Impact Assessment',desc:'Workforce reskilling commitments, affected community consultation, supply chain labour standards, and social dialogue evidence.',present:inp.justTransition==='yes'},
+    {key:'dependencies',title:'Policy & Technology Dependencies',desc:'Explicit identification of technology (e.g. CCUS, green hydrogen), infrastructure, and policy assumptions underlying the plan, with sensitivity analysis.',informational:true},
+    {key:'monitoring',title:'Annual Progress Monitoring & Restatement Policy',desc:'KPI framework, data assurance level, annual disclosure cadence, and policy for restating prior-year figures when methodology changes.',informational:true}
+  ];
+}
+
+/* ── Render ── */
+var lastResult=null;
+
+function runChecker(){
+  var inp={
+    entityType:document.getElementById('entityType').value,
+    ambition:document.getElementById('ambition').value,
+    baseYear:document.getElementById('baseYear').value,
+    targetYear:document.getElementById('targetYear').value,
+    milestones:document.getElementById('milestones').value,
+    capexPct:parseInt(document.getElementById('capexPct').value,10),
+    opexPlan:document.getElementById('opexPlan').value,
+    boardOversight:document.getElementById('boardOversight').value,
+    scope3:document.getElementById('scope3').value,
+    financedEmissions:document.getElementById('financedEmissions').value,
+    justTransition:document.getElementById('justTransition').value
+  };
+
+  var withCSRD=includesCSRD(inp.entityType);
+  var fcaScore=scoreFCA2(inp);
+  var csrdScore=withCSRD?scoreCSRD2(inp):null;
+  var issbScore=scoreISSB2(inp);
+
+  var applicable=[fcaScore,issbScore];
+  if(withCSRD)applicable.push(csrdScore);
+  var overall=Math.round(applicable.reduce(function(a,b){return a+b;},0)/applicable.length);
+  var band=getBand(overall);
+
+  /* Verdict */
+  var vb=document.getElementById('verdictBadge');
+  vb.textContent=band.label;
+  vb.style.color=band.color;
+  vb.style.borderColor=band.color;
+  vb.style.background=band.color.replace('var(--','').replace(')','');
+  vb.style.background='transparent';
+  vb.style.borderColor=band.color;
+  /* use inline opacity via a wrapper color trick */
+  document.getElementById('verdictScore').textContent='Overall: '+overall+' / 100';
+  document.getElementById('verdictLabel').textContent='Assessed against '+(withCSRD?3:2)+' frameworks · Band: '+band.label+(withCSRD?' · CSRD applicable':' · CSRD not applicable for this entity type');
+
+  /* Scorecard */
+  var frameworks=[
+    {name:'FCA PS23/24',score:fcaScore,na:false},
+    {name:'EU CSRD / CS3D',score:csrdScore,na:!withCSRD},
+    {name:'ISSB S2',score:issbScore,na:false}
+  ];
+  document.getElementById('scorecardGrid').innerHTML=frameworks.map(function(fw){
+    if(fw.na){
+      return '<div class="fw-card"><div class="fw-card-name">'+fw.name+'</div><div class="fw-na">Not applicable for selected entity type</div></div>';
+    }
+    var b=getBand(fw.score);
+    return '<div class="fw-card" style="border-left:3px solid '+b.color+'">'+
+      '<div class="fw-card-name">'+fw.name+'</div>'+
+      '<div class="fw-card-score" style="color:'+b.color+'">'+fw.score+'<span style="font-family:\'JetBrains Mono\',monospace;font-size:.7rem;color:var(--muted);font-weight:300"> / 100</span></div>'+
+      '<div class="fw-card-label" style="color:'+b.color+'">'+b.label+'</div>'+
+      '<div class="prog-outer"><div class="prog-inner" style="width:'+fw.score+'%;background:'+b.color+'"></div></div>'+
+      '</div>';
+  }).join('');
+
+  /* Gap registry */
+  var gaps=buildGaps(inp,withCSRD);
+  var gb=document.getElementById('gapTableBody');
+  if(gaps.length===0){
+    gb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--green);padding:1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.6rem;letter-spacing:.08em">No material gaps identified for selected inputs</td></tr>';
+  } else {
+    gb.innerHTML=gaps.map(function(g){
+      var sc=g.status==='Gap'?'status-gap':g.status==='Partial'?'status-partial':'status-present';
+      var pc=g.priority==='High'?'prio-high':g.priority==='Medium'?'prio-medium':'prio-low';
+      return '<tr><td style="color:var(--bright);font-weight:400">'+g.req+'</td>'+
+        '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.58rem;color:var(--muted);white-space:nowrap">'+g.frameworks+'</td>'+
+        '<td><span class="'+sc+'">'+g.status+'</span></td>'+
+        '<td><span class="'+pc+'">'+g.priority+'</span></td>'+
+        '<td style="font-size:.72rem;color:var(--body);max-width:300px">'+g.action+'</td></tr>';
+    }).join('');
+  }
+
+  /* Narrative */
+  var narr=buildNarrative(inp);
+  document.getElementById('narrativeList').innerHTML=narr.map(function(n){
+    if(n.na){
+      return '<div class="narrative-item" style="opacity:.5"><span class="narrative-check" style="color:var(--muted)">—</span><div class="narrative-text"><strong>'+n.title+'</strong><span>N/A for this entity type</span></div></div>';
+    }
+    if(n.informational){
+      return '<div class="narrative-item"><span class="narrative-check" style="color:var(--muted)">?</span><div class="narrative-text"><strong>'+n.title+'</strong><span style="color:var(--warn)">Not assessed via current inputs — verify manually</span><span style="display:block;margin-top:.2rem">'+n.desc+'</span></div></div>';
+    }
+    var cls=n.present?'narrative-present':n.partial?'narrative-partial':'narrative-gap';
+    var icon=n.present?'✓':n.partial?'∼':'✗';
+    var statusNote=n.present?'Present':n.partial?'Partially addressed':'Missing — required';
+    var nc=n.present?'var(--green)':n.partial?'var(--warn)':'var(--red)';
+    return '<div class="narrative-item '+cls+'">'+
+      '<span class="narrative-check">'+icon+'</span>'+
+      '<div class="narrative-text"><strong>'+n.title+'</strong>'+
+      '<span style="color:'+nc+';font-family:\'JetBrains Mono\',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase">'+statusNote+'</span>'+
+      '<span style="display:block;margin-top:.2rem">'+n.desc+'</span></div></div>';
+  }).join('');
+
+  lastResult={inp:inp,fcaScore:fcaScore,csrdScore:csrdScore,issbScore:issbScore,overall:overall,band:band,gaps:gaps,narr:narr,withCSRD:withCSRD,ts:new Date().toISOString()};
+
+  var ap2Btn=document.getElementById('ap2ExportBtn');
+  ap2Btn.disabled=false;
+  ap2Btn.classList.add('ready');
+  document.getElementById('mdExportBtn').disabled=false;
+
+  document.getElementById('resultsSection').style.display='flex';
+  document.getElementById('resultsSection').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+/* ── Exports ── */
+function exportAP2(){
+  if(!lastResult)return;
+  var r=lastResult;
+  var payload={
+    schema:'ap2/v1',
+    tool_id:'transition-plan-adequacy-checker',
+    tool_version:'1.0.0',
+    generated_at:r.ts,
+    inputs:r.inp,
+    results:{
+      overall_score:r.overall,
+      band:r.band.label,
+      frameworks:{
+        fca_ps23_24:{score:r.fcaScore,band:getBand(r.fcaScore).label},
+        eu_csrd_cs3d:r.withCSRD?{score:r.csrdScore,band:getBand(r.csrdScore).label}:{applicable:false},
+        issb_s2:{score:r.issbScore,band:getBand(r.issbScore).label}
+      },
+      gaps:r.gaps,
+      narrative_elements:r.narr.filter(function(n){return !n.na&&!n.informational;}).map(function(n){
+        return{key:n.key,title:n.title,status:n.present?'present':n.partial?'partial':'missing'};
+      })
+    },
+    citations:[
+      'FCA PS23/24 — Transition Plan Disclosures (Nov 2023)',
+      'EU Regulation 2022/2464 (CSRD)',
+      'EU Directive 2024/1760 (CS3D)',
+      'ISSB IFRS S2 — Climate-related Disclosures (June 2023)'
+    ]
+  };
+  dlFile('transition-plan-ap2.json',JSON.stringify(payload,null,2),'application/json');
+}
+
+function exportMarkdown(){
+  if(!lastResult)return;
+  var r=lastResult;
+  var lines=[
+    '# Transition Plan Adequacy Assessment',
+    '',
+    '**Generated:** '+r.ts,
+    '**Tool:** T385 — Transition Plan Adequacy Checker · AINumbers.co',
+    '',
+    '## Overall Verdict',
+    '- **Score:** '+r.overall+' / 100',
+    '- **Band:** '+r.band.label,
+    '- **Frameworks assessed:** FCA PS23/24'+(r.withCSRD?', EU CSRD/CS3D':'')+', ISSB S2',
+    '',
+    '## Framework Scores',
+    '| Framework | Score | Band |',
+    '|-----------|-------|------|',
+    '| FCA PS23/24 | '+r.fcaScore+' | '+getBand(r.fcaScore).label+' |',
+    r.withCSRD?'| EU CSRD / CS3D | '+r.csrdScore+' | '+getBand(r.csrdScore).label+' |':'| EU CSRD / CS3D | N/A | Not applicable |',
+    '| ISSB S2 | '+r.issbScore+' | '+getBand(r.issbScore).label+' |',
+    '',
+    '## Gap Registry',
+    '| Requirement | Frameworks | Status | Priority | Recommended Action |',
+    '|-------------|------------|--------|----------|--------------------|'
+  ];
+  r.gaps.forEach(function(g){lines.push('| '+g.req+' | '+g.frameworks+' | '+g.status+' | '+g.priority+' | '+g.action+' |');});
+  if(r.gaps.length===0)lines.push('| No material gaps identified | — | — | — | — |');
+  lines.push('','## Required Narrative Elements','');
+  r.narr.forEach(function(n){
+    if(n.na)return;
+    if(n.informational){lines.push('- **[?] '+n.title+'** — Not assessed via inputs; verify manually.');return;}
+    var flag=n.present?'[PRESENT]':n.partial?'[PARTIAL]':'[MISSING]';
+    lines.push('- **'+flag+' '+n.title+'** — '+n.desc);
+  });
+  lines.push('','---','*Citations: FCA PS23/24; EU Regulation 2022/2464 (CSRD); EU Directive 2024/1760 (CS3D); ISSB IFRS S2 (June 2023)*','*Output is indicative reference only — verify against current regulatory sources and qualified counsel.*');
+  dlFile('transition-plan-assessment.md',lines.join('\n'),'text/markdown');
+}
+
+function dlFile(filename,content,mimeType){
+  var blob=new Blob([content],{type:mimeType});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){URL.revokeObjectURL(url);document.body.removeChild(a);},500);
+}
+
+/* ── Manifest toggle ── */
+var MANIFEST={
+  tool_id:'transition-plan-adequacy-checker',
+  version:'1.0.0',
+  title:'Transition Plan Adequacy Checker',
+  description:'Evaluate transition plan quality against FCA PS23/24, EU CSRD/CS3D, and ISSB S2 requirements.',
+  category:'cat-24',
+  tags:['transition plan','fca ps23/24','csrd','cs3d','issb s2','net zero','capex alignment','climate governance','adequacy','export'],
+  mcp_tool_definition:{
+    name:'check_transition_plan_adequacy',
+    description:'Score transition plan adequacy against FCA PS23/24, EU CSRD/CS3D, and ISSB S2 frameworks.',
+    inputSchema:{type:'object',properties:{entity_type:{type:'string'},ambition:{type:'string',enum:['1p5c','well_below_2c','below_2c','none']},net_zero_year:{type:'string'},interim_milestones:{type:'string',enum:['yes','partial','no']},capex_pct:{type:'number'},board_oversight:{type:'boolean'},scope3_covered:{type:'string',enum:['yes','partial','no']}},required:['entity_type','ambition']}
+  },
+  execution:{type:'browser-javascript',entry:'tools/385-transition-plan-adequacy-checker.html',function_name:'runChecker',timeout_ms:3000},
+  ap2_export:true
+};
+
+function toggleMfst(){
+  var body=document.getElementById('mfstBody');
+  var arr=document.getElementById('mfstArr');
+  var open=body.style.display==='block';
+  body.style.display=open?'none':'block';
+  arr.textContent=open?'▼':'▲';
+  if(!open)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+</script>
+</body>
+</html>
