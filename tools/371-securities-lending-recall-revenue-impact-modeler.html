@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>Securities Lending Recall Revenue Impact Modeler · AINumbers.co</title>
+<meta name="description" content="Model the revenue impact on a securities lending programme of shortening recall periods to comply with UK T+1 settlement (October 2027). Quantifies revenue lost from tenor compression, CSDR penalty savings, and optimal rebalancing strategy.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/371-securities-lending-recall-revenue-impact-modeler.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Securities Lending Recall Revenue Impact Modeler","url":"https://ainumbers.co/tools/371-securities-lending-recall-revenue-impact-modeler.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "securities-lending-recall-revenue-impact-modeler",
+  "version": "1.0.0",
+  "title": "Securities Lending Recall Revenue Impact Modeler",
+  "description": "Models revenue impact on a securities lending programme from shortening recall periods to comply with UK T+1 (October 2027). Quantifies tenor compression losses, CSDR penalty avoidance, net P&L impact, and optimal rebalancing strategy.",
+  "category": "cat-23",
+  "tags": ["securities lending","T+1","recall","CSDR","settlement","UK","capital markets","tenor","revenue","ISLA"],
+  "audience": ["treasury","risk","compliance","ops","product"],
+  "ap2_export": true,
+  "input_schema": {"type":"object","properties":{"aum":{"type":"number"},"utilisation":{"type":"number"},"assetType":{"type":"string"},"allInFee":{"type":"number"},"pctOvernight":{"type":"number"},"pct2to7":{"type":"number"},"pct8to30":{"type":"number"},"pct30plus":{"type":"number"},"pctNonRecallable":{"type":"number"},"recallNotice":{"type":"string"},"failRate":{"type":"number"}},"required":["aum","utilisation","allInFee"]},
+  "output_schema": {"type":"object","properties":{"currentRevenue":{"type":"number"},"t1Revenue":{"type":"number"},"revenueLoss":{"type":"number"},"penaltySaving":{"type":"number"},"netImpact":{"type":"number"},"breakEvenFeeIncrease":{"type":"number"},"recommendedMix":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"model_sec_lending_recall_revenue_impact","description":"Model the P&L impact on a securities lending programme from shortening recall periods for T+1 settlement compliance. Returns current vs T+1-compliant revenue, penalty savings, net impact, and optimal tenor rebalancing strategy.","inputSchema":{"type":"object","properties":{"aum":{"type":"number","description":"Total lending programme AUM in GBP/EUR millions"},"utilisation":{"type":"number","description":"Utilisation rate 0-100"},"assetType":{"type":"string","enum":["equities","fixed_income","mixed"]},"allInFee":{"type":"number","description":"All-in lending fee in basis points per annum"},"pctOvernight":{"type":"number"},"pct2to7":{"type":"number"},"pct8to30":{"type":"number"},"pct30plus":{"type":"number"},"pctNonRecallable":{"type":"number"},"recallNotice":{"type":"string","enum":["same_day","t1","t2","t3plus"]},"failRate":{"type":"number"}},"required":["aum","utilisation","allInFee"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/371-securities-lending-recall-revenue-impact-modeler.html","function_name":"runModeler","timeout_ms":3000}
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:var(--teal);text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1020px;margin:0 auto;padding:0 1.5rem}
+/* Lang bar */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0}
+.lang-inner{max-width:1020px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* Nav */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.95);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1020px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}.nav-sep{color:var(--border-2)}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+/* Hero */
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.5rem,2.8vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+/* Tool body */
+.tool-body{padding:2rem 0 4rem}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+/* Panels */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.25rem}
+.panel-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;gap:.75rem}
+.panel-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);border:1px solid rgba(20,184,166,.3);padding:.18rem .55rem;border-radius:3px}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
+.panel-body{padding:1.25rem}
+.panel-row{margin-bottom:1rem}
+.panel-row:last-child{margin-bottom:0}
+.panel-row label{display:block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.panel-row select,.panel-row input[type="number"]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none;transition:border-color .2s;-webkit-appearance:none}
+.panel-row select:focus,.panel-row input[type="number"]:focus{border-color:var(--teal)}
+.field-hint{font-size:.62rem;color:var(--muted);margin-top:.25rem;line-height:1.5}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+@media(max-width:640px){.grid-2{grid-template-columns:1fr}}
+/* Slider rows */
+.slider-row{margin-bottom:1rem}
+.slider-row label{display:block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.slider-wrap{display:flex;align-items:center;gap:.75rem}
+.slider-wrap input[type="range"]{flex:1;-webkit-appearance:none;appearance:none;height:4px;background:var(--border);border-radius:2px;outline:none;cursor:pointer}
+.slider-wrap input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--teal);cursor:pointer}
+.slider-wrap input[type="range"]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--teal);border:none;cursor:pointer}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--bright);min-width:38px;text-align:right}
+.tenor-sum-hint{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-top:.5rem;padding:.35rem .65rem;border-radius:3px;display:inline-block}
+.tenor-sum-hint.ok{color:var(--green);background:var(--green-dim);border:1px solid rgba(34,197,94,.25)}
+.tenor-sum-hint.err{color:var(--red);background:var(--red-dim);border:1px solid rgba(239,68,68,.25)}
+/* Auto-fill notice */
+.autofill-badge{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--teal);background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);border-radius:3px;padding:.18rem .55rem;margin-left:.5rem}
+/* Run button */
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.5rem}
+.run-btn:hover{background:var(--teal-lt)}
+/* Results */
+.results-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-top:1.25rem;display:none}
+.results-panel.show{display:block}
+.results-header{padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;border-bottom:1px solid var(--border)}
+.results-body{padding:1.25rem;display:flex;flex-direction:column;gap:1.25rem}
+.section-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:.75rem}
+.stat-box{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem}
+.stat-val{font-family:'DM Serif Display',serif;font-size:1.35rem;color:var(--white);line-height:1;margin-bottom:.25rem}
+.stat-val.good{color:var(--green)}.stat-val.warn{color:var(--warn)}.stat-val.bad{color:var(--red)}.stat-val.neutral{color:var(--teal)}
+.stat-lbl{font-family:'JetBrains Mono',monospace;font-size:.47rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.stat-sub{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--body);margin-top:.2rem}
+/* Recommendation block */
+.rec-block{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:var(--radius);padding:.85rem 1.1rem}
+.rec-block.warn-block{border-left-color:var(--warn)}
+.rec-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.5rem}
+.rec-title.warn-title{color:var(--warn)}
+.rec-body{font-size:.75rem;color:var(--text);line-height:1.75}
+.rec-body strong{color:var(--bright);font-weight:500}
+/* Tenor mix bar */
+.tenor-bar-row{display:flex;height:20px;border-radius:4px;overflow:hidden;margin:.5rem 0}
+.tenor-seg{display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--bg);font-weight:600;transition:width .4s}
+/* Table */
+.res-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.res-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400}
+.res-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.res-table tr:last-child td{border-bottom:none}
+.res-table tr:hover td{background:rgba(255,255,255,.02)}
+/* AP2 / export row */
+.results-export-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;background:var(--bg-3);border:1px solid var(--border);border-top:2px solid var(--teal);border-radius:var(--radius);padding:.75rem 1rem;margin-top:.5rem}
+.export-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+#ap2ExportBtn{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;background:var(--teal);color:var(--bg);border:none;padding:.38rem 1rem;border-radius:var(--radius);font-weight:600;cursor:not-allowed;opacity:.5;transition:opacity .2s}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer}
+/* Citations */
+.source-notes{background:var(--bg-2);border-top:1px solid var(--border);padding:1.5rem 0;margin-top:2rem;font-size:.7rem;color:var(--body)}
+.source-notes h3{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem}
+.cite-list{display:flex;flex-direction:column;gap:.45rem}
+.cite{display:flex;gap:.6rem}
+.cite-num{font-family:'JetBrains Mono',monospace;color:var(--teal);flex-shrink:0;width:20px}
+.cite-text{color:var(--muted);line-height:1.6}
+/* Manifest */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+/* Footer */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links a:hover{color:var(--teal-lt)}
+.footer-copy{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a class="logo" href="../index.html"><span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span></a>
+  <div class="nav-trail">
+    <a href="../index.html">Home</a>
+    <span class="nav-sep">›</span>
+    <a href="../index.html#cat-23">Capital Markets Settlement</a>
+    <span class="nav-sep">›</span>
+    <span>Sec Lending Recall Revenue Modeler</span>
+  </div>
+  <div class="nav-right"><a class="nav-pill" href="../index.html#cat-23">Settlement Hub</a></div>
+</div></nav>
+
+<div class="container"><div class="hero">
+  <div class="hero-eyebrow">Cat-23 · T371 · Capital Markets Settlement · UK T+1 Oct 2027</div>
+  <h1>Securities Lending Recall <em>Revenue Impact</em> Modeler</h1>
+  <p class="hero-desc">Under UK T+1 settlement (effective October 2027), lent securities must be recallable same-day or T+1 to avoid fails and CSDR penalties. This tool quantifies the revenue impact of shortening tenor mix, the penalty cost avoided, the net P&amp;L outcome, and the optimal rebalancing strategy for your lending programme.</p>
+  <div class="hero-meta">
+    <span class="badge badge-warn">UK T+1 Oct 11 2027</span>
+    <span class="badge badge-teal">ISLA Guidance</span>
+    <span class="badge badge-teal">CSDR Art.7 Penalties</span>
+    <span class="badge badge-gold">FCA Dear CO Jan 2026</span>
+    <span class="badge badge-muted">Zero PII · Browser-only</span>
+  </div>
+  <span class="badge badge-muted">v1.0</span>
+</div></div>
+
+<div class="container"><div class="tool-body">
+  <p class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &#8212; use synthetic or anonymised inputs only.</p>
+
+  <!-- PANEL 01: Lending Book -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-num">Panel 01</span>
+      <span class="panel-label">Lending Book</span>
+    </div>
+    <div class="panel-body">
+      <div class="grid-2">
+        <div class="panel-row">
+          <label for="aum">Total lending programme AUM (&#163;/&#8364; million)</label>
+          <input type="number" id="aum" value="500" min="1" max="1000000" step="1">
+          <p class="field-hint">Total assets available for lending</p>
+        </div>
+        <div class="panel-row">
+          <label for="assetType">Asset type</label>
+          <select id="assetType" onchange="onAssetTypeChange()">
+            <option value="equities">Equities only</option>
+            <option value="fixed_income">Fixed income only</option>
+            <option value="mixed" selected>Mixed</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="panel-row">
+          <div class="slider-row">
+            <label for="utilisation">Current average utilisation rate (%)</label>
+            <div class="slider-wrap">
+              <input type="range" id="utilisation" min="0" max="100" value="45" oninput="sv('utilisation',this.value,'%')">
+              <span class="slider-val" id="utilisation_v">45%</span>
+            </div>
+            <p class="field-hint">Portion of AUM actively on loan</p>
+          </div>
+        </div>
+        <div class="panel-row">
+          <label for="allInFee">Current average all-in lending fee (bp pa)</label>
+          <input type="number" id="allInFee" value="80" min="1" max="2000" step="1">
+          <p class="field-hint">Typical: 10&#8211;500 bp equities · 5&#8211;50 bp bonds</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL 02: Tenor Mix -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-num">Panel 02</span>
+      <span class="panel-label">Current Tenor Mix (must sum to 100%)</span>
+    </div>
+    <div class="panel-body">
+      <div class="slider-row">
+        <label for="pctOvernight">% of book in overnight / open loans</label>
+        <div class="slider-wrap">
+          <input type="range" id="pctOvernight" min="0" max="100" value="20" oninput="sv('pctOvernight',this.value,'%');checkTenorSum()">
+          <span class="slider-val" id="pctOvernight_v">20%</span>
+        </div>
+        <p class="field-hint">Open / demand loans &#8212; low fee, immediate recall</p>
+      </div>
+      <div class="slider-row">
+        <label for="pct2to7">% of book in 2&#8211;7 day term loans</label>
+        <div class="slider-wrap">
+          <input type="range" id="pct2to7" min="0" max="100" value="30" oninput="sv('pct2to7',this.value,'%');checkTenorSum()">
+          <span class="slider-val" id="pct2to7_v">30%</span>
+        </div>
+        <p class="field-hint">Short term &#8212; T+1 recall feasible with notice provisions</p>
+      </div>
+      <div class="slider-row">
+        <label for="pct8to30">% of book in 8&#8211;30 day term loans</label>
+        <div class="slider-wrap">
+          <input type="range" id="pct8to30" min="0" max="100" value="30" oninput="sv('pct8to30',this.value,'%');checkTenorSum()">
+          <span class="slider-val" id="pct8to30_v">30%</span>
+        </div>
+        <p class="field-hint">Medium term &#8212; recall requires contractual notice periods</p>
+      </div>
+      <div class="slider-row">
+        <label for="pct30plus">% of book in 30+ day term loans</label>
+        <div class="slider-wrap">
+          <input type="range" id="pct30plus" min="0" max="100" value="20" oninput="sv('pct30plus',this.value,'%');checkTenorSum()">
+          <span class="slider-val" id="pct30plus_v">20%</span>
+        </div>
+        <p class="field-hint">Long term &#8212; highest fee income but recall near-impossible for T+1</p>
+      </div>
+      <div id="tenorSumHint" class="tenor-sum-hint ok">Tenor mix sums to 100% &#10003;</div>
+    </div>
+  </div>
+
+  <!-- PANEL 03: T+1 Recall Constraints -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-num">Panel 03</span>
+      <span class="panel-label">T+1 Recall Constraints</span>
+    </div>
+    <div class="panel-body">
+      <div class="grid-2">
+        <div class="panel-row">
+          <div class="slider-row">
+            <label for="pctNonRecallable">% of book that cannot be recalled same-day (counterparty / system constraints)</label>
+            <div class="slider-wrap">
+              <input type="range" id="pctNonRecallable" min="0" max="50" value="15" oninput="sv('pctNonRecallable',this.value,'%')">
+              <span class="slider-val" id="pctNonRecallable_v">15%</span>
+            </div>
+            <p class="field-hint">Structural constraints preventing same-day recall</p>
+          </div>
+        </div>
+        <div class="panel-row">
+          <label for="recallNotice">Average counterparty recall notice period</label>
+          <select id="recallNotice">
+            <option value="same_day">Same-day</option>
+            <option value="t1" selected>T+1</option>
+            <option value="t2">T+2</option>
+            <option value="t3plus">T+3+</option>
+          </select>
+          <p class="field-hint">T+1 requires same-day or T+1 recall capability</p>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="panel-row">
+          <label for="penaltyRate">Settlement fail penalty rate (auto-filled from CSDR) <span class="autofill-badge">CSDR Art.7</span></label>
+          <input type="number" id="penaltyRate" value="1.00" min="0.01" max="10" step="0.01" readonly style="opacity:.7;cursor:not-allowed">
+          <p class="field-hint">Equities: 1 bp/day &middot; Bonds: 0.1 bp/day &middot; MMI: 0.5 bp/day</p>
+        </div>
+        <div class="panel-row">
+          <div class="slider-row">
+            <label for="failRate">Expected fail rate without recall improvement (%)</label>
+            <div class="slider-wrap">
+              <input type="range" id="failRate" min="0" max="20" value="5" step="0.5" oninput="sv('failRate',this.value,'%')">
+              <span class="slider-val" id="failRate_v">5%</span>
+            </div>
+            <p class="field-hint">% of settlements that would fail under current recall capability</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="run-btn" onclick="runModeler()">&#9654; Model Revenue Impact</button>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+    <div class="results-header">
+      <span style="font-family:'DM Serif Display',serif;font-size:1.15rem;color:var(--white)">Revenue Impact Results</span>
+      <span id="complianceVerdict" class="badge badge-teal">Calculating...</span>
+    </div>
+    <div class="results-body" id="resultsBody">
+      <!-- injected by JS -->
+    </div>
+    <div class="results-export-row">
+      <span class="export-label">AP2 Policy Mandate Export</span>
+      <button id="ap2ExportBtn" onclick="exportAP2()" disabled>&#123;&#125; Export Policy Mandate &nbsp;<span style="font-size:.85em;opacity:.7">API · audit trail</span></button>
+    </div>
+  </div>
+
+</div></div>
+
+<!-- Regulatory Citations -->
+<div class="source-notes">
+  <div class="container">
+    <h3>Regulatory Citations</h3>
+    <div class="cite-list">
+      <div class="cite"><span class="cite-num">[1]</span><span class="cite-text">UK Accelerated Settlement Taskforce (AST) T+1 Implementation — securities lending recall requirements under T+1 (effective October 11, 2027)</span></div>
+      <div class="cite"><span class="cite-num">[2]</span><span class="cite-text">THEIA T+1 Industry Report, January 2026 — Securities lending identified as the highest operational impact area for T+1 transition</span></div>
+      <div class="cite"><span class="cite-num">[3]</span><span class="cite-text">ISLA (International Securities Lending Association) T+1 Operational Guidance — contractual recall provisions, notice period standards, counterparty framework</span></div>
+      <div class="cite"><span class="cite-num">[4]</span><span class="cite-text">CSDR Article 7 — Settlement penalty regime: equities 1 bp/day, sovereign bonds 0.1 bp/day, money market instruments 0.5 bp/day on fail value</span></div>
+      <div class="cite"><span class="cite-num">[5]</span><span class="cite-text">FCA T+1 Dear Chief Officer Letter, January 2026 — Recall obligations, operational readiness expectations, and supervisory focus on securities lending under T+1</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Manifest section -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()">
+        <span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span>
+        <span id="mfstArr" style="color:var(--muted)">&#9660;</span>
+      </button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="container">
+  <div class="footer-inner">
+    <a href="../index.html" class="logo"><span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span></a>
+    <div class="footer-links">
+      <a href="../index.html" data-i18n="footer.alltools">All Tools</a>
+      <a href="../index.html#cat-23">Capital Markets Settlement</a>
+      <a href="../sitemap.html" data-i18n="footer.sitemap">Sitemap</a>
+      <a href="../contact.html" data-i18n="footer.contact">Contact</a>
+    </div>
+    <div class="footer-copy">
+      <span data-i18n="footer.cc">CC BY 4.0 &middot; Post Oak Labs</span><br>
+      <span data-i18n="footer.privacy">&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+/* ── Utilities ─────────────────────────────────── */
+function sv(id, val, suffix) {
+  document.getElementById(id + '_v').textContent = val + (suffix || '');
+}
+
+function fmt(n, decimals) {
+  if (isNaN(n)) return '—';
+  return n.toLocaleString('en-GB', {minimumFractionDigits: decimals||0, maximumFractionDigits: decimals||0});
+}
+
+function fmtBP(n) {
+  return fmt(n, 1) + ' bp';
+}
+
+/* ── CSDR penalty auto-fill ────────────────────── */
+function onAssetTypeChange() {
+  var at = document.getElementById('assetType').value;
+  var rate = at === 'equities' ? 1.0 : at === 'fixed_income' ? 0.1 : 0.5;
+  document.getElementById('penaltyRate').value = rate.toFixed(2);
+}
+
+/* ── Tenor sum check ───────────────────────────── */
+function checkTenorSum() {
+  var sum = +document.getElementById('pctOvernight').value
+          + +document.getElementById('pct2to7').value
+          + +document.getElementById('pct8to30').value
+          + +document.getElementById('pct30plus').value;
+  var el = document.getElementById('tenorSumHint');
+  if (sum === 100) {
+    el.className = 'tenor-sum-hint ok';
+    el.textContent = 'Tenor mix sums to 100% ✓';
+  } else {
+    el.className = 'tenor-sum-hint err';
+    el.textContent = 'Tenor mix sums to ' + sum + '% — must equal 100%';
+  }
+  return sum === 100;
+}
+
+/* ── Fee multipliers by tenor ──────────────────── */
+// Relative fee income factor vs overnight (1.0)
+// Overnight/open = 1.0x base fee (low demand premium)
+// 2-7 day = 1.2x (slightly higher certainty)
+// 8-30 day = 1.55x (term premium)
+// 30+ day = 1.85x (long-term demand, max fee income)
+var TENOR_FEE_MULT = {overnight: 1.0, t2to7: 1.2, t8to30: 1.55, t30plus: 1.85};
+
+// Under T+1, practical maximum tenor to allow T+1 recall is 7 days.
+// Anything in 8-30d or 30+ buckets must be compressed toward overnight/2-7d.
+// We model: under T+1 compliance, 8-30d and 30+ must be replaced with 2-7d loans
+// (the highest tenor that still allows T+1 contractual recall with proper notice).
+var T1_MAX_TENOR_MULT = 1.2; // max fee multiplier achievable in T+1-compliant book
+
+/* ── Weighted average fee multiplier ──────────── */
+function weightedMult(pctON, pct2to7, pct8to30, pct30plus) {
+  return (pctON * TENOR_FEE_MULT.overnight
+        + pct2to7 * TENOR_FEE_MULT.t2to7
+        + pct8to30 * TENOR_FEE_MULT.t8to30
+        + pct30plus * TENOR_FEE_MULT.t30plus) / 100;
+}
+
+/* ── Main model ────────────────────────────────── */
+function runModeler() {
+  if (!checkTenorSum()) {
+    alert('Tenor mix must sum to 100%. Please adjust the sliders in Panel 02.');
+    return;
+  }
+
+  var aum            = +document.getElementById('aum').value;           // £m
+  var util           = +document.getElementById('utilisation').value;   // %
+  var allInFee       = +document.getElementById('allInFee').value;      // bp pa
+  var assetType      = document.getElementById('assetType').value;
+  var pctON          = +document.getElementById('pctOvernight').value;
+  var pct2to7        = +document.getElementById('pct2to7').value;
+  var pct8to30       = +document.getElementById('pct8to30').value;
+  var pct30plus      = +document.getElementById('pct30plus').value;
+  var pctNonRec      = +document.getElementById('pctNonRecallable').value;
+  var recallNotice   = document.getElementById('recallNotice').value;
+  var penaltyRateBP  = +document.getElementById('penaltyRate').value;   // bp/day
+  var failRate       = +document.getElementById('failRate').value;      // %
+
+  // ── Loan book at cost ──────────────────────────
+  var loanedAUM      = aum * util / 100;       // £m on loan
+  var loanedGBP      = loanedAUM * 1e6;        // in £
+
+  // ── Current annual revenue ─────────────────────
+  // Revenue = loaned £ × all-in fee (bp pa) / 10000
+  // Adjusted for tenor-weighted fee multiplier vs baseline overnight book
+  var currentMult    = weightedMult(pctON, pct2to7, pct8to30, pct30plus);
+  // All-in fee is stated for the current mix, so we use it directly
+  var currentRevenue = loanedGBP * allInFee / 10000;   // £ pa
+
+  // ── T+1-compliant revenue ─────────────────────
+  // Under T+1, max practical tenor = 7 days to enable T+1 recall
+  // 30+ day and 8-30 day books must be compressed to short/overnight
+  // Revenue drops proportionally to the fee multiplier shift
+  // T+1 optimal mix: all term loans capped at 7 days
+  //   - Overnight retained: pctON
+  //   - 2-7d retained: pct2to7
+  //   - 8-30d → reallocated to 2-7d (same recall tier, lower fee)
+  //   - 30+d  → reallocated to 2-7d (forced compression)
+  var t1PctON       = pctON;
+  var t1Pct2to7     = pct2to7 + pct8to30 + pct30plus; // forced compression
+  var t1Pct8to30    = 0;
+  var t1Pct30plus   = 0;
+
+  var t1Mult        = weightedMult(t1PctON, t1Pct2to7, t1Pct8to30, t1Pct30plus);
+  // Effective fee under T+1 = allInFee scaled by mult ratio
+  var t1EffFee      = allInFee * (t1Mult / currentMult);
+  var t1Revenue     = loanedGBP * t1EffFee / 10000;
+
+  // ── Also factor in non-recallable book reduction ─────────────────
+  // % of book that structurally cannot be recalled — must be unwound
+  // This directly reduces the loanable AUM until systems are fixed
+  var recallAdj     = (100 - pctNonRec) / 100;
+  var t1RevenueAdj  = t1Revenue * recallAdj;
+
+  // Notice period penalty (structural compliance risk premium on revenue)
+  var noticeHaircut = {same_day: 0, t1: 0, t2: 0.03, t3plus: 0.08};
+  var noticePenaltyFactor = 1 - (noticeHaircut[recallNotice] || 0);
+  t1RevenueAdj = t1RevenueAdj * noticePenaltyFactor;
+
+  // ── Revenue loss ─────────────────────────────────────────────────
+  var revenueLoss   = currentRevenue - t1RevenueAdj;
+  var revLossPct    = currentRevenue > 0 ? (revenueLoss / currentRevenue * 100) : 0;
+
+  // ── CSDR penalty cost (current, without recall improvement) ──────
+  // Penalty = loaned AUM × fail rate × penalty rate (bp/day) × avg fail duration
+  // CSDR penalties apply per calendar day; assume average fail duration = 3 days
+  var AVG_FAIL_DAYS      = 3;
+  var TRADING_DAYS       = 252;
+  // Fail value = portion of loanedAUM that fails × number of settlement events
+  // Simplified: annual settlements ≈ daily turnovers × TRADING_DAYS
+  // For lending: assume each loan generates 1 settlement event at inception
+  // Annual penalty = loanedGBP × failRate% × penaltyBP/10000 × avgFailDays
+  var penaltyCurrent     = loanedGBP * (failRate / 100) * (penaltyRateBP / 10000) * AVG_FAIL_DAYS;
+  // Under T+1 with recall improvement, fail rate reduced by ~80% from better recall
+  var failRatePost       = failRate * 0.20;
+  var penaltyPost        = loanedGBP * (failRatePost / 100) * (penaltyRateBP / 10000) * AVG_FAIL_DAYS;
+  var penaltySaving      = penaltyCurrent - penaltyPost;
+
+  // ── Net P&L impact ─────────────────────────────────────────────
+  var netImpact          = penaltySaving - revenueLoss;
+  // Positive = net benefit; negative = net cost
+
+  // ── Break-even fee increase ───────────────────────────────────
+  // What fee uplift (bp) on T+1-compliant book offsets the revenue loss?
+  var breakEvenFeeIncrease = loanedGBP > 0 ? (revenueLoss / (loanedGBP * recallAdj) * 10000) : 0;
+  // This must be achieved on the compressed book (loanedGBP × recallAdj)
+
+  // ── Recommended tenor split ───────────────────────────────────
+  // Optimal: maximise overnight for strategic/liquid holdings,
+  // push general collateral to 2-7d, avoid any term beyond 7d
+  // Rule: overnight = max(current overnight, 25%); 2-7d = rest; 8-30d = 0; 30+ = 0
+  var recON    = Math.max(pctON, 25);
+  var rec2to7  = 100 - recON;
+  var rec8to30 = 0;
+  var rec30p   = 0;
+
+  // ── Prepare output ─────────────────────────────────────────────
+  window._lastResult = {
+    aum, util, allInFee, assetType,
+    loanedAUM, loanedGBP,
+    pctON, pct2to7, pct8to30, pct30plus,
+    pctNonRec, recallNotice, penaltyRateBP, failRate,
+    currentRevenue, t1Revenue: t1RevenueAdj,
+    revenueLoss, revLossPct,
+    penaltyCurrent, penaltyPost, penaltySaving,
+    netImpact,
+    breakEvenFeeIncrease,
+    recON, rec2to7, rec8to30, rec30p,
+    t1PctON, t1Pct2to7, t1Pct8to30, t1Pct30plus,
+    currentMult, t1Mult, t1EffFee
+  };
+
+  renderResults(window._lastResult);
+}
+
+function renderResults(r) {
+  var netColor   = r.netImpact >= 0 ? 'good' : 'bad';
+  var lossColor  = r.revenueLoss > 0 ? 'bad' : 'good';
+  var savingColor = r.penaltySaving > 0 ? 'good' : 'neutral';
+
+  var compLabel, compClass;
+  if (r.revLossPct < 5) { compLabel = 'Low Impact'; compClass = 'badge-green'; }
+  else if (r.revLossPct < 15) { compLabel = 'Moderate Impact'; compClass = 'badge-teal'; }
+  else if (r.revLossPct < 30) { compLabel = 'High Impact'; compClass = 'badge-warn'; }
+  else { compLabel = 'Critical Impact'; compClass = 'badge badge-warn'; }
+
+  document.getElementById('complianceVerdict').className = 'badge ' + compClass;
+  document.getElementById('complianceVerdict').textContent = compLabel;
+
+  // Tenor bars
+  function tenorBar(on, t2, t8, t30, label) {
+    return '<div class="section-label">' + label + '</div>'
+      + '<div class="tenor-bar-row">'
+      + (on   > 0 ? '<div class="tenor-seg" style="width:'+on  +'%;background:var(--teal)">'+on  +'%</div>' : '')
+      + (t2   > 0 ? '<div class="tenor-seg" style="width:'+t2  +'%;background:var(--green)">'+t2 +'%</div>' : '')
+      + (t8   > 0 ? '<div class="tenor-seg" style="width:'+t8  +'%;background:var(--warn)">'+t8  +'%</div>' : '')
+      + (t30  > 0 ? '<div class="tenor-seg" style="width:'+t30 +'%;background:var(--red)">'+t30  +'%</div>' : '')
+      + '</div>'
+      + '<div style="display:flex;gap:1rem;font-family:\'JetBrains Mono\',monospace;font-size:.48rem;color:var(--muted);margin-bottom:.75rem">'
+      + (on  > 0 ? '<span style="color:var(--teal)">&#9632; Overnight/open ('+on+'%)</span>' : '')
+      + (t2  > 0 ? '<span style="color:var(--green)">&#9632; 2&#8211;7 day ('+t2+'%)</span>' : '')
+      + (t8  > 0 ? '<span style="color:var(--warn)">&#9632; 8&#8211;30 day ('+t8+'%)</span>' : '')
+      + (t30 > 0 ? '<span style="color:var(--red)">&#9632; 30+ day ('+t30+'%)</span>' : '')
+      + '</div>';
+  }
+
+  var noticeLabels = {same_day:'Same-day', t1:'T+1', t2:'T+2', t3plus:'T+3+'};
+  var assetLabels  = {equities:'Equities', fixed_income:'Fixed Income', mixed:'Mixed'};
+
+  var html = '';
+
+  // Revenue summary
+  html += '<div>'
+    + '<div class="section-label">Revenue Overview</div>'
+    + '<div class="stat-grid">'
+    + statBox(fmt(r.currentRevenue,0,'&#163;'),'Current Annual Revenue','&#163;'+fmt(r.loanedAUM,0)+'m on loan &middot; '+fmt(r.allInFee,0)+' bp pa','neutral')
+    + statBox(fmt(r.t1Revenue,0,'&#163;'),'T+1-Compliant Revenue','After tenor compression + recall constraints','neutral')
+    + statBox(fmt(r.revenueLoss,0,'&#163;') + (r.revenueLoss>0?' lost':''),
+              'Revenue Reduction', fmt(r.revLossPct,1)+'% of current revenue', lossColor)
+    + statBox(fmt(r.penaltySaving,0,'&#163;'),'CSDR Penalties Avoided pa','Fail rate reduced to '+fmt(r.failRate * 0.20,1)+'% post-recall improvement', savingColor)
+    + statBox((r.netImpact>=0?'+':'')+fmt(r.netImpact,0,'&#163;'),'Net P&amp;L Impact',r.netImpact>=0?'Net benefit of T+1 compliance':'Net cost of T+1 compliance',netColor)
+    + statBox(fmt(r.breakEvenFeeIncrease,1)+' bp','Break-even Fee Increase','Fee uplift needed to offset tenor compression loss','warn')
+    + '</div>'
+    + '</div>';
+
+  // Tenor mix visualisation
+  html += '<div>'
+    + tenorBar(r.pctON, r.pct2to7, r.pct8to30, r.pct30plus, 'Current Tenor Mix')
+    + tenorBar(r.t1PctON, r.t1Pct2to7, 0, 0, 'T+1-Compliant Tenor Mix (forced compression)')
+    + tenorBar(r.recON, r.rec2to7, 0, 0, 'Recommended Optimal Mix (minimise revenue loss)')
+    + '</div>';
+
+  // Detailed breakdown table
+  html += '<div>'
+    + '<div class="section-label">Detailed Breakdown</div>'
+    + '<table class="res-table">'
+    + '<thead><tr><th>Item</th><th>Current</th><th>T+1 Compliant</th><th>Delta</th></tr></thead>'
+    + '<tbody>'
+    + tRow('Utilised AUM', '&#163;'+fmt(r.loanedAUM,1)+'m', '&#163;'+fmt(r.loanedAUM * (100-r.pctNonRec)/100,1)+'m', '&#8722;&#163;'+fmt(r.loanedAUM * r.pctNonRec/100,1)+'m (non-recallable unwound)')
+    + tRow('Effective all-in fee', fmt(r.allInFee,1)+' bp pa', fmt(r.t1EffFee,1)+' bp pa', fmt(r.t1EffFee - r.allInFee,1)+' bp')
+    + tRow('Tenor-fee multiplier', fmt(r.currentMult,3)+'x', fmt(r.t1Mult,3)+'x', fmt(r.t1Mult - r.currentMult,3)+'x')
+    + tRow('Annual lending revenue', '&#163;'+fmt(r.currentRevenue,0), '&#163;'+fmt(r.t1Revenue,0), '&#8722;&#163;'+fmt(r.revenueLoss,0)+' ('+fmt(r.revLossPct,1)+'%)')
+    + tRow('CSDR penalty exposure pa', '&#163;'+fmt(r.penaltyCurrent,0), '&#163;'+fmt(r.penaltyPost,0), '&#8722;&#163;'+fmt(r.penaltySaving,0)+' saved')
+    + tRow('Penalty rate (CSDR Art.7)', fmt(r.penaltyRateBP,2)+' bp/day', fmt(r.penaltyRateBP,2)+' bp/day', 'Fixed (regulatory)')
+    + tRow('Counterparty recall notice', noticeLabels[r.recallNotice], 'T+1 required', r.recallNotice==='same_day'||r.recallNotice==='t1'?'&#10003; Compliant':'&#9888; Requires renegotiation')
+    + '</tbody></table>'
+    + '</div>';
+
+  // Recommendations
+  html += '<div>'
+    + '<div class="section-label">Strategic Recommendations</div>';
+
+  html += recBlock(
+    'Recommended Tenor Rebalancing',
+    false,
+    '<strong>Optimal T+1-compliant mix:</strong> Overnight/open: <strong>' + r.recON + '%</strong> &mdash; 2&ndash;7 day term: <strong>' + r.rec2to7 + '%</strong> &mdash; 8&ndash;30 day: <strong>0%</strong> &mdash; 30+ day: <strong>0%</strong>. '
+    + 'Prioritise overnight demand for high-value securities (HVS) and specialist names where fee income is driven by scarcity. '
+    + 'Migrate general collateral to short-term open structures. Renegotiate all term contracts to include contractual same-day or T+1 recall provisions before October 2027.'
+  );
+
+  html += recBlock(
+    r.revenueLoss > r.penaltySaving ? 'Revenue Loss Exceeds Penalty Saving &mdash; Action Required' : 'Compliance Is Net Positive &mdash; Proceed',
+    r.revenueLoss > r.penaltySaving,
+    r.revenueLoss > r.penaltySaving
+      ? 'The projected revenue loss (&#163;' + fmt(r.revenueLoss,0) + ' pa) exceeds CSDR penalty savings (&#163;' + fmt(r.penaltySaving,0) + ' pa). '
+        + 'Break-even requires a <strong>' + fmt(r.breakEvenFeeIncrease,1) + ' bp</strong> increase in the all-in lending fee on the T+1-compliant book. '
+        + 'Options: (1) target higher-fee specialist lending within T+1 recall windows; (2) negotiate agency lending agreements with improved fee splits; '
+        + '(3) deploy collateral upgrade trades to offset margin on compressed book; (4) recover non-recallable portion (' + r.pctNonRec + '%) via system investment.'
+      : 'The net P&amp;L impact is positive (&#163;' + fmt(r.netImpact,0) + ' pa net benefit). CSDR penalty savings more than offset tenor compression losses. '
+        + 'Proceed with T+1 recall compliance programme. Focus operational investment on reducing the ' + r.pctNonRec + '% non-recallable structural constraint.'
+  );
+
+  html += recBlock(
+    'Operational Priorities',
+    false,
+    '1. Audit all term loan contracts and insert T+1 recall break-clauses before October 2027.<br>'
+    + '2. Implement same-day recall messaging (SWIFT MT527 or equivalent) with all prime broker counterparties.<br>'
+    + '3. Engage ISLA recall protocol working group for standardised notice period frameworks.<br>'
+    + '4. Upgrade collateral management system to support intraday recall confirmation and tracking.<br>'
+    + '5. Run parallel T+1 recall simulation with key counterparties by Q2 2027 (deadline per FCA Dear CO Letter).'
+  );
+
+  html += '</div>';
+
+  document.getElementById('resultsBody').innerHTML = html;
+  document.getElementById('resultsPanel').classList.add('show');
+
+  // Enable AP2 button
+  var btn = document.getElementById('ap2ExportBtn');
+  if (btn) { btn.disabled = false; btn.classList.add('ready'); }
+}
+
+function statBox(val, lbl, sub, colorClass) {
+  return '<div class="stat-box">'
+    + '<div class="stat-val ' + (colorClass||'') + '">' + val + '</div>'
+    + '<div class="stat-lbl">' + lbl + '</div>'
+    + (sub ? '<div class="stat-sub">' + sub + '</div>' : '')
+    + '</div>';
+}
+
+function tRow(label, cur, t1, delta) {
+  return '<tr><td style="color:var(--body);font-size:.7rem">' + label + '</td>'
+    + '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.68rem;color:var(--text)">' + cur + '</td>'
+    + '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.68rem;color:var(--text)">' + t1 + '</td>'
+    + '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--muted)">' + delta + '</td>'
+    + '</tr>';
+}
+
+function recBlock(title, isWarn, body) {
+  return '<div class="rec-block ' + (isWarn ? 'warn-block' : '') + '" style="margin-bottom:.75rem">'
+    + '<div class="rec-title ' + (isWarn ? 'warn-title' : '') + '">' + title + '</div>'
+    + '<div class="rec-body">' + body + '</div>'
+    + '</div>';
+}
+
+/* ── AP2 Export ─────────────────────────────────── */
+function exportAP2() {
+  var r = window._lastResult;
+  if (!r) { alert('Run the model first.'); return; }
+  var ts = new Date().toISOString();
+  var mandate = {
+    ap2_version: '1.0',
+    mandate_id: 'sl-recall-modeler-' + ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at: ts, issued_by: 'ainumbers.co',
+    tool_id: 'securities-lending-recall-revenue-impact-modeler',
+    tool_version: '1.0.0',
+    mandate_type: 'revenue_impact_mandate',
+    jurisdiction: ['GB'],
+    regulatory_frameworks: ['UK-AST-T1','CSDR-Art7','FCA-T1-DearCO-2026','ISLA-T1-Guidance','THEIA-T1-2026'],
+    payload: {
+      inputs: {
+        aum_m: r.aum, utilisation_pct: r.util, asset_type: r.assetType,
+        all_in_fee_bp: r.allInFee,
+        tenor_mix: {overnight_pct: r.pctON, t2to7_pct: r.pct2to7, t8to30_pct: r.pct8to30, t30plus_pct: r.pct30plus},
+        non_recallable_pct: r.pctNonRec, recall_notice: r.recallNotice,
+        penalty_rate_bp_day: r.penaltyRateBP, fail_rate_pct: r.failRate
+      },
+      outputs: {
+        current_annual_revenue_gbp: Math.round(r.currentRevenue),
+        t1_compliant_revenue_gbp: Math.round(r.t1Revenue),
+        revenue_loss_gbp: Math.round(r.revenueLoss),
+        revenue_loss_pct: +r.revLossPct.toFixed(2),
+        csdr_penalty_current_gbp: Math.round(r.penaltyCurrent),
+        csdr_penalty_post_gbp: Math.round(r.penaltyPost),
+        penalty_saving_gbp: Math.round(r.penaltySaving),
+        net_pl_impact_gbp: Math.round(r.netImpact),
+        breakeven_fee_increase_bp: +r.breakEvenFeeIncrease.toFixed(2),
+        recommended_tenor_mix: {overnight_pct: r.recON, t2to7_pct: r.rec2to7, t8to30_pct: 0, t30plus_pct: 0}
+      }
+    },
+    summary: 'Securities lending recall revenue impact model — UK T+1 compliance — assessed ' + ts.slice(0,10),
+    agent_instructions: [
+      'Review revenue loss vs penalty saving trade-off before programme restructuring.',
+      'Validate all-in fee assumptions against live agent/principal lending agreements.',
+      'Confirm CSDR penalty rate for asset class with settlement agent.'
+    ],
+    valid_from: ts.slice(0,10),
+    valid_until: new Date(Date.now() + 365*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed: ts.slice(0,10),
+    regulatory_citations: [
+      'UK AST T+1 Implementation Oct 2027',
+      'THEIA T+1 Report Jan 2026',
+      'ISLA T+1 Operational Guidance',
+      'CSDR Article 7 Settlement Discipline',
+      'FCA Dear CO Letter Jan 2026'
+    ],
+    audit_metadata: {client_side_executed: true, zero_pii_verified: true, deterministic_run: true}
+  };
+  var json = JSON.stringify(mandate, null, 2);
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'sl-recall-modeler_' + ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14) + '.policy.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ── Manifest toggle ──────────────────────────── */
+var MANIFEST = {
+  tool_id: 'securities-lending-recall-revenue-impact-modeler',
+  version: '1.0.0',
+  title: 'Securities Lending Recall Revenue Impact Modeler',
+  description: 'Models revenue impact on a securities lending programme from shortening recall periods to comply with UK T+1 (October 2027). Quantifies tenor compression losses, CSDR penalty avoidance, net P&L, and optimal rebalancing strategy.',
+  category: 'cat-23',
+  tags: ['securities lending','T+1','recall','CSDR','UK','capital markets','ISLA','tenor','revenue'],
+  audience: ['treasury','risk','compliance','ops'],
+  ap2_export: true,
+  input_schema: {type:'object',properties:{aum:{type:'number'},utilisation:{type:'number'},assetType:{type:'string'},allInFee:{type:'number'},pctOvernight:{type:'number'},pct2to7:{type:'number'},pct8to30:{type:'number'},pct30plus:{type:'number'},pctNonRecallable:{type:'number'},recallNotice:{type:'string'},failRate:{type:'number'}},required:['aum','utilisation','allInFee']},
+  output_schema: {type:'object',properties:{currentRevenue:{type:'number'},t1Revenue:{type:'number'},revenueLoss:{type:'number'},penaltySaving:{type:'number'},netImpact:{type:'number'},breakEvenFeeIncrease:{type:'number'},recommendedMix:{type:'object'}}},
+  mcp_tool_definition: {name:'model_sec_lending_recall_revenue_impact',description:'Model P&L impact on a securities lending programme from shortening recall periods for T+1 settlement compliance.',inputSchema:{type:'object',properties:{aum:{type:'number',description:'AUM in GBP/EUR millions'},utilisation:{type:'number'},allInFee:{type:'number',description:'All-in fee in basis points pa'}},required:['aum','utilisation','allInFee']}},
+  execution: {type:'browser-javascript',entry:'tools/371-securities-lending-recall-revenue-impact-modeler.html',function_name:'runModeler',timeout_ms:3000}
+};
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  var a = document.getElementById('mfstArr');
+  if (!b.style.display || b.style.display === 'none') {
+    b.style.display = 'block';
+    if (a) a.textContent = '▲';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else {
+    b.style.display = 'none';
+    if (a) a.textContent = '▼';
+  }
+}
+
+/* ── i18n ─────────────────────────────────────── */
+var TRANSLATIONS = {
+  en: {'footer.alltools':'All Tools','footer.sitemap':'Sitemap','footer.contact':'Contact','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Zero PII    📡 No server calls    💻 Client-side','pii.banner':'🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.'},
+  es: {'footer.alltools':'Todas las Herramientas','footer.sitemap':'Mapa del Sitio','footer.contact':'Contacto','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Sin PII    📡 Sin llamadas al servidor    💻 Cliente','pii.banner':'🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos.'},
+  fr: {'footer.alltools':'Tous les Outils','footer.sitemap':'Plan du Site','footer.contact':'Contact','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Aucune PII    📡 Aucun appel serveur    💻 Côté client','pii.banner':'🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n’est transmise.'},
+  ar: {'footer.alltools':'جميع الأدوات','footer.sitemap':'خريطة الموقع','footer.contact':'اتصل','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 لا بيانات شخصية    📡 لا استدعاءات للخادم','pii.banner':'🔒 جميع المدخلات تُعالج محلياً في متصفحك.'},
+  pt: {'footer.alltools':'Todas as Ferramentas','footer.sitemap':'Mapa do Site','footer.contact':'Contato','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Sem PII    📡 Sem chamadas ao servidor    💻 Client-side','pii.banner':'🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido.'},
+  zh: {'footer.alltools':'所有工具','footer.sitemap':'网站地图','footer.contact':'联系','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 零个人数据    📡 无服务器调用    💻 纯客户端','pii.banner':'🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。'}
+};
+
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  var dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    var key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(function(b) { b.classList.remove('active'); });
+  var active = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (active) active.classList.add('active');
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function() {
+  // Restore saved lang
+  try { var s = sessionStorage.getItem('ain_lang'); if (s) setLang(s); } catch(e) {}
+  // Auto-fill penalty rate on load
+  onAssetTypeChange();
+  // Init tenor sum hint
+  checkTenorSum();
+})();
+</script>
+</body>
+</html>

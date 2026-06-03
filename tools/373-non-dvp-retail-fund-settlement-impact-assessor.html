@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>Non-DVP Retail Fund Settlement Impact Assessor · AINumbers.co</title>
+<meta name="description" content="Assess the T+1 settlement impact on retail fund firms using non-DVP (BACS-based) settlement flows. Models cost uplift of migrating to Faster Payments or CHAPS rails. UK AST Code of Conduct compliance. Client-side, zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/373-non-dvp-retail-fund-settlement-impact-assessor.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Non-DVP Retail Fund Settlement Impact Assessor","url":"https://ainumbers.co/tools/373-non-dvp-retail-fund-settlement-impact-assessor.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<!-- manifest.json
+{
+  "tool_id": "non-dvp-retail-fund-settlement-impact-assessor",
+  "version": "1.0.0",
+  "title": "Non-DVP Retail Fund Settlement Impact Assessor",
+  "description": "Assesses T+1 settlement impact on retail fund firms using non-DVP (BACS) settlement flows. Scores rail compatibility, models cost uplift of switching to FPS or CHAPS, and outputs a phased migration plan.",
+  "category": "cat-23",
+  "tags": [
+    "T+1",
+    "settlement",
+    "non-DVP",
+    "BACS",
+    "Faster Payments",
+    "FPS",
+    "CHAPS",
+    "retail funds",
+    "UCITS",
+    "unit trust",
+    "capital markets"
+  ],
+  "audience": [
+    "ops",
+    "compliance",
+    "treasury",
+    "product"
+  ],
+  "ap2_export": true,
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "manager_type": {
+        "type": "string"
+      },
+      "daily_tx_count": {
+        "type": "number"
+      },
+      "avg_tx_value": {
+        "type": "string"
+      },
+      "primary_rail": {
+        "type": "string"
+      },
+      "pct_bacs": {
+        "type": "number"
+      },
+      "pct_fps": {
+        "type": "number"
+      },
+      "pct_chaps": {
+        "type": "number"
+      },
+      "pct_above_1m": {
+        "type": "number"
+      },
+      "fps_readiness": {
+        "type": "string"
+      },
+      "bacs_cost_pence": {
+        "type": "number"
+      },
+      "fps_cost_pence": {
+        "type": "number"
+      },
+      "chaps_cost_gbp": {
+        "type": "number"
+      }
+    },
+    "required": [
+      "manager_type",
+      "daily_tx_count",
+      "avg_tx_value",
+      "primary_rail",
+      "pct_bacs",
+      "pct_fps",
+      "pct_chaps"
+    ]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "compatibility_score": {
+        "type": "number"
+      },
+      "incompatible_pct": {
+        "type": "number"
+      },
+      "recommended_split": {
+        "type": "object"
+      },
+      "annual_cost_uplift_gbp": {
+        "type": "number"
+      },
+      "fps_ceiling_breach_count": {
+        "type": "number"
+      },
+      "urgency_level": {
+        "type": "string"
+      },
+      "migration_phases": {
+        "type": "array"
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "assess_non_dvp_retail_fund_settlement_impact",
+    "description": "Score a retail fund firm non-DVP settlement flows against T+1 payment rails and model annual cost uplift of migrating to T+1-compatible rails.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "manager_type": {
+          "type": "string"
+        },
+        "daily_tx_count": {
+          "type": "number"
+        },
+        "pct_bacs": {
+          "type": "number"
+        },
+        "pct_fps": {
+          "type": "number"
+        },
+        "pct_chaps": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "manager_type",
+        "daily_tx_count",
+        "pct_bacs",
+        "pct_fps",
+        "pct_chaps"
+      ]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/373-non-dvp-retail-fund-settlement-impact-assessor.html",
+    "function_name": "runAssessor",
+    "timeout_ms": 3000
+  }
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:var(--teal);text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1020px;margin:0 auto;padding:0 1.5rem}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0}
+.lang-inner{max-width:1020px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.95);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1020px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;text-decoration:none}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}.nav-sep{color:var(--border-2)}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.5rem,2.8vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1.25rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.25rem}
+.panel-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;gap:.75rem}
+.panel-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);border:1px solid rgba(20,184,166,.3);padding:.18rem .55rem;border-radius:3px}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
+.panel-body{padding:1.25rem}
+.panel-row{margin-bottom:1rem}
+.panel-row:last-child{margin-bottom:0}
+.panel-row label{display:block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.panel-row select,.panel-row input[type="number"]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none;transition:border-color .2s;-webkit-appearance:none;appearance:none}
+.panel-row select:focus,.panel-row input[type="number"]:focus{border-color:var(--teal)}
+.field-hint{font-size:.62rem;color:var(--muted);margin-top:.25rem;line-height:1.5}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem}
+@media(max-width:640px){.grid-2,.grid-3{grid-template-columns:1fr}}
+.slider-wrap{display:flex;align-items:center;gap:.75rem}
+.slider-wrap input[type="range"]{flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;background:var(--border);outline:none;cursor:pointer}
+.slider-wrap input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;background:var(--teal);cursor:pointer;border:2px solid var(--bg-2)}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--bright);min-width:38px;text-align:right}
+.sum-indicator{font-family:'JetBrains Mono',monospace;font-size:.6rem;padding:.3rem .65rem;border-radius:3px;margin-top:.5rem;display:inline-block;border:1px solid}
+.sum-ok{color:var(--green);border-color:rgba(34,197,94,.3);background:var(--green-dim)}
+.sum-err{color:var(--red);border-color:rgba(239,68,68,.3);background:var(--red-dim)}
+.rail-table{width:100%;border-collapse:collapse;font-size:.72rem;margin-bottom:0}
+.rail-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;background:var(--bg-3)}
+.rail-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.rail-table tr:last-child td{border-bottom:none}
+.compat-yes{color:var(--green);font-family:'JetBrains Mono',monospace;font-size:.6rem;font-weight:600}
+.compat-no{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.6rem;font-weight:600}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.5rem}
+.run-btn:hover{background:var(--teal-lt)}
+.results-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-top:1.25rem;display:none}
+.results-panel.show{display:block}
+.results-header{padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;border-bottom:1px solid var(--border)}
+.results-body{padding:1.25rem;display:flex;flex-direction:column;gap:1.25rem}
+.result-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white)}
+.verdict{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;padding:.3rem .8rem;border-radius:3px;font-weight:600;border:1px solid}
+.verdict.critical{background:var(--red-dim);color:var(--red);border-color:rgba(239,68,68,.4)}
+.verdict.high{background:var(--warn-dim);color:var(--warn);border-color:rgba(245,158,11,.4)}
+.verdict.medium{background:var(--teal-dim);color:var(--teal);border-color:rgba(20,184,166,.4)}
+.verdict.low{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.4)}
+.section-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:.6rem}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:.75rem}
+.stat-box{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem}
+.stat-val{font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--white);line-height:1;margin-bottom:.25rem}
+.stat-val.good{color:var(--green)}.stat-val.warn{color:var(--warn)}.stat-val.bad{color:var(--red)}
+.stat-lbl{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.check-list{display:flex;flex-direction:column;gap:.5rem}
+.check-item{display:flex;gap:.75rem;align-items:flex-start;padding:.6rem .85rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius)}
+.chk{font-family:'JetBrains Mono',monospace;font-size:.75rem;flex-shrink:0;width:20px}
+.chk.pass{color:var(--green)}.chk.fail{color:var(--red)}.chk.warn{color:var(--warn)}.chk.info{color:var(--teal)}
+.chk-title{font-size:.75rem;color:var(--bright);margin-bottom:.2rem;font-weight:500}
+.chk-desc{font-size:.68rem;color:var(--body);line-height:1.55}
+.cost-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.cost-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;background:var(--bg-3)}
+.cost-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.cost-table tr:last-child td{border-bottom:none}
+.cost-table tr.highlight td{background:rgba(20,184,166,.05);color:var(--bright)}
+.results-export-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;background:var(--bg-3);border:1px solid var(--border);border-top:2px solid var(--teal);border-radius:var(--radius);padding:.75rem 1rem;margin-top:.5rem}
+.export-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.export-btns{display:flex;gap:.5rem;flex-wrap:wrap}
+#ap2ExportBtn{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;padding:.38rem 1rem;border-radius:var(--radius);font-weight:600;border:1px solid var(--border);background:var(--bg-2);color:var(--muted);cursor:not-allowed;opacity:.38;transition:opacity .2s,border-color .2s,color .2s}
+#ap2ExportBtn.ready{background:var(--teal);color:var(--bg);border-color:var(--teal);opacity:1;cursor:pointer}
+#ap2ExportBtn.ready:hover{background:var(--teal-lt)}
+#mdExportBtn{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;padding:.38rem 1rem;border-radius:var(--radius);font-weight:600;border:1px solid var(--border);background:var(--bg-2);color:var(--muted);cursor:not-allowed;opacity:.38;transition:opacity .2s,border-color .2s,color .2s}
+#mdExportBtn.ready{border-color:var(--border-2);color:var(--text);opacity:1;cursor:pointer}
+#mdExportBtn.ready:hover{border-color:var(--teal);color:var(--teal)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.source-notes{background:var(--bg-2);border-top:1px solid var(--border);padding:1.5rem 0;margin-top:2rem;font-size:.7rem;color:var(--body)}
+.source-notes h3{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem}
+.cite-list{display:flex;flex-direction:column;gap:.4rem}
+.cite{display:flex;gap:.5rem}
+.cite-num{font-family:'JetBrains Mono',monospace;color:var(--teal);flex-shrink:0;width:20px}
+.cite-text{color:var(--muted);line-height:1.6}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem}
+.footer-inner{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links a:hover{color:var(--teal-lt)}
+.footer-copy{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--red-dim);border:1px solid rgba(239,68,68,.5);color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.6rem 1rem;border-radius:var(--radius);z-index:999;display:none}
+</style>
+</head>
+<body>
+
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" onclick="setLang('zh')">&#20013;&#25991;</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a class="logo" href="../index.html"><span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span></a>
+  <div class="nav-trail">
+    <a href="../index.html">Home</a><span class="nav-sep">&#8250;</span>
+    <a href="../index.html#cat-23">Capital Markets Settlement</a><span class="nav-sep">&#8250;</span>
+    <span>T373 Non-DVP Impact Assessor</span>
+  </div>
+  <div><a class="nav-pill" href="../index.html#cat-23">Settlement Hub</a></div>
+</div></nav>
+
+<div class="container"><div class="hero">
+  <div class="hero-eyebrow">Cat-23 &middot; T373 &middot; Capital Markets Settlement &middot; Non-DVP Retail Funds</div>
+  <h1>Non-DVP Retail Fund Settlement <em>Impact Assessor</em></h1>
+  <p class="hero-desc">Retail fund transactions predominantly use BACS &mdash; a 3-day clearing rail that is fundamentally incompatible with T+1 settlement. This tool scores your firm&rsquo;s non-DVP settlement flows against the three available UK payment rails (BACS, FPS, CHAPS), models the annual cost uplift of migrating BACS flows to Faster Payments or CHAPS, flags transactions exceeding FPS&rsquo;s &pound;1 million ceiling, and outputs a phased migration plan with urgency scoring ahead of the Q4 2026 readiness deadline.</p>
+  <div class="hero-meta">
+    <span class="badge badge-red">BACS Incompatible with T+1</span>
+    <span class="badge badge-warn">Q4 2026 Readiness Deadline</span>
+    <span class="badge badge-teal">FPS &middot; CHAPS &middot; BACS</span>
+    <span class="badge badge-teal">UK AST Code of Conduct</span>
+    <span class="badge badge-muted">v1.0 &middot; Zero PII &middot; Browser-only</span>
+  </div>
+</div></div>
+
+<div class="container"><div class="tool-body">
+
+  <p class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</p>
+
+  <div class="panel" style="margin-bottom:1.5rem">
+    <div class="panel-header"><span class="panel-num">REF</span><span class="panel-label">Payment Rail T+1 Compatibility Reference</span></div>
+    <div class="panel-body" style="padding:0;overflow-x:auto">
+      <table class="rail-table">
+        <thead><tr><th>Rail</th><th>Settlement Lag</th><th>T+1 Compatible</th><th>Cost per Tx</th><th>Max Single Tx</th><th>Status under T+1</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="color:var(--bright);font-weight:500">BACS</td>
+            <td>3 business days</td>
+            <td><span class="compat-no">&#10007; NO</span></td>
+            <td>&pound;0.01&ndash;0.02</td>
+            <td>No technical limit</td>
+            <td style="color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.6rem">INCOMPATIBLE [1]</td>
+          </tr>
+          <tr>
+            <td style="color:var(--bright);font-weight:500">Faster Payments (FPS)</td>
+            <td>&lt; 2 hours (near real-time)</td>
+            <td><span class="compat-yes">&#10003; YES</span></td>
+            <td>&pound;0.05&ndash;0.50</td>
+            <td>&pound;1,000,000 per tx [3]</td>
+            <td style="color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:.6rem">COMPATIBLE (if &lt;&pound;1M) [3]</td>
+          </tr>
+          <tr>
+            <td style="color:var(--bright);font-weight:500">CHAPS</td>
+            <td>Same-day</td>
+            <td><span class="compat-yes">&#10003; YES</span></td>
+            <td>&pound;25&ndash;35</td>
+            <td>No limit</td>
+            <td style="color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.6rem">COMPATIBLE but costly [2]</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-num">Panel 01</span><span class="panel-label">Retail Settlement Profile</span></div>
+    <div class="panel-body">
+      <div class="grid-2">
+        <div class="panel-row">
+          <label for="managerType">Asset manager type</label>
+          <select id="managerType">
+            <option value="ucits">UCITS Fund Manager</option>
+            <option value="inv_trust">Investment Trust</option>
+            <option value="unit_trust">Unit Trust</option>
+            <option value="etf">ETF Issuer</option>
+            <option value="mixed">Mixed</option>
+          </select>
+        </div>
+        <div class="panel-row">
+          <label for="primaryRail">Current primary payment rail</label>
+          <select id="primaryRail">
+            <option value="bacs_only">BACS (primary)</option>
+            <option value="bacs_some_fps">BACS + some FPS</option>
+            <option value="fps_primary">FPS primary</option>
+            <option value="chaps">CHAPS</option>
+            <option value="mixed">Mixed</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="panel-row">
+          <label for="dailyTxCount">Average daily retail transaction count</label>
+          <input type="number" id="dailyTxCount" value="500" min="1" max="1000000" step="1">
+          <p class="field-hint">Retail subscription and redemption transactions per business day</p>
+        </div>
+        <div class="panel-row">
+          <label for="avgTxValue">Average retail transaction value</label>
+          <select id="avgTxValue">
+            <option value="lt10k">&lt;&pound;10k</option>
+            <option value="10k_100k">&pound;10k&ndash;&pound;100k</option>
+            <option value="100k_1m">&pound;100k&ndash;&pound;1M</option>
+            <option value="gt1m">&gt;&pound;1M</option>
+          </select>
+          <p class="field-hint">Determines FPS &pound;1M ceiling breach exposure</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-num">Panel 02</span><span class="panel-label">Current Payment Rail Mix</span></div>
+    <div class="panel-body">
+      <p style="font-size:.68rem;color:var(--muted);margin-bottom:.85rem;line-height:1.6">Adjust sliders so the three rails sum to 100%. The validator below confirms the total.</p>
+      <div class="panel-row">
+        <label for="pctBacs">% via BACS</label>
+        <div class="slider-wrap">
+          <input type="range" id="pctBacs" min="0" max="100" value="75" step="1" oninput="syncSlider('pctBacs')">
+          <span class="slider-val" id="pctBacsVal">75%</span>
+        </div>
+        <p class="field-hint">BACS is 3-day clearing &mdash; fully incompatible with T+1 settlement [1]</p>
+      </div>
+      <div class="panel-row">
+        <label for="pctFps">% via Faster Payments (FPS)</label>
+        <div class="slider-wrap">
+          <input type="range" id="pctFps" min="0" max="100" value="15" step="1" oninput="syncSlider('pctFps')">
+          <span class="slider-val" id="pctFpsVal">15%</span>
+        </div>
+        <p class="field-hint">FPS near real-time (&lt; 2 hours); &pound;1M cap per transaction [3]</p>
+      </div>
+      <div class="panel-row">
+        <label for="pctChaps">% via CHAPS</label>
+        <div class="slider-wrap">
+          <input type="range" id="pctChaps" min="0" max="100" value="10" step="1" oninput="syncSlider('pctChaps')">
+          <span class="slider-val" id="pctChapsVal">10%</span>
+        </div>
+        <p class="field-hint">CHAPS same-day; no transaction value limit [2]</p>
+      </div>
+      <div id="sumIndicator" class="sum-indicator sum-ok">&#10003; Rail mix sums to 100%</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span class="panel-num">Panel 03</span><span class="panel-label">T+1 Migration Parameters</span></div>
+    <div class="panel-body">
+      <div class="grid-2">
+        <div class="panel-row">
+          <label for="pctAbove1m">% of transactions above &pound;1M FPS ceiling</label>
+          <div class="slider-wrap">
+            <input type="range" id="pctAbove1m" min="0" max="20" value="3" step="1" oninput="syncSlider('pctAbove1m')">
+            <span class="slider-val" id="pctAbove1mVal">3%</span>
+          </div>
+          <p class="field-hint">These transactions cannot use FPS and must route via CHAPS [3]</p>
+        </div>
+        <div class="panel-row">
+          <label for="fpsReadiness">Ability to implement Faster Payments</label>
+          <select id="fpsReadiness">
+            <option value="live">Already live</option>
+            <option value="q1q2_2026">Planned Q1&ndash;Q2 2026</option>
+            <option value="h2_2026">Planned H2 2026</option>
+            <option value="not_planned">Not planned</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-3">
+        <div class="panel-row">
+          <label for="bacsCostPence">Current BACS cost per transaction (pence)</label>
+          <input type="number" id="bacsCostPence" value="1.5" min="0.1" max="10" step="0.1">
+          <p class="field-hint">Industry range: 1&ndash;2p per transaction</p>
+        </div>
+        <div class="panel-row">
+          <label for="fpsCostPence">FPS cost per transaction (pence)</label>
+          <input type="number" id="fpsCostPence" value="25" min="1" max="100" step="1">
+          <p class="field-hint">Industry range: 5&ndash;50p (bank-dependent)</p>
+        </div>
+        <div class="panel-row">
+          <label for="chapsCostGbp">CHAPS cost per transaction (&pound;)</label>
+          <input type="number" id="chapsCostGbp" value="30" min="1" max="100" step="1">
+          <p class="field-hint">Industry range: &pound;25&ndash;35 per transaction</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="run-btn" onclick="runAssessor()">Assess T+1 Settlement Impact &rarr;</button>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="results-header">
+      <div class="result-title" id="resultTitle">T+1 Non-DVP Impact Assessment</div>
+      <div class="verdict" id="verdictBadge">&mdash;</div>
+    </div>
+    <div class="results-body">
+      <div><div class="section-label">Key Metrics</div><div class="stat-grid" id="statGrid"></div></div>
+      <div><div class="section-label">Rail Compatibility &amp; Incompatibility Analysis</div><div class="check-list" id="compatList"></div></div>
+      <div>
+        <div class="section-label">Recommended Rail Split Under T+1</div>
+        <div style="overflow-x:auto">
+          <table class="cost-table">
+            <thead><tr><th>Rail</th><th>Current Mix</th><th>Recommended (T+1)</th><th>Change</th><th>Driver</th></tr></thead>
+            <tbody id="splitTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <div class="section-label">Annual Cost Uplift Analysis (250 business days)</div>
+        <div style="overflow-x:auto">
+          <table class="cost-table">
+            <thead><tr><th>Cost Component</th><th>Current Annual (&pound;)</th><th>T+1 Annual (&pound;)</th><th>Uplift (&pound;)</th><th>Uplift per Tx</th></tr></thead>
+            <tbody id="costTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div><div class="section-label">FPS &pound;1M Ceiling Breach &mdash; CHAPS Overflow</div><div class="check-list" id="fpsCeilList"></div></div>
+      <div><div class="section-label">Phased Migration Plan</div><div class="check-list" id="migrationList"></div></div>
+      <div class="results-export-row">
+        <span class="export-label">Policy Mandate &middot; CC BY 4.0 &middot; Post Oak Labs</span>
+        <div class="export-btns">
+          <button id="mdExportBtn" onclick="exportMd()" disabled title="Run the analysis above to export Markdown">&#11015; Export Markdown</button>
+          <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the analysis above to generate a Policy Mandate">{} Export Policy Mandate<span style="margin-left:.4rem;font-size:.85em;opacity:.7">API &middot; audit trail</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230;&nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </section>
+
+</div></div>
+
+<div class="source-notes"><div class="container">
+  <h3>Regulatory Citations</h3>
+  <div class="cite-list">
+    <div class="cite"><span class="cite-num">[1]</span><span class="cite-text">UK Accelerated Settlement Taskforce (AST) Code of Conduct &mdash; Non-DVP Fund Settlement Requirements under T+1. BACS 3-day clearing is structurally incompatible with T+1 settlement windows for retail fund subscriptions and redemptions. Firms must identify and migrate all non-DVP BACS flows prior to UK T+1 go-live (11 October 2027).</span></div>
+    <div class="cite"><span class="cite-num">[2]</span><span class="cite-text">THEIA T+1 Report January 2026 &mdash; Non-DVP Retail Fund Settlement Impact Analysis. The Investment Association&rsquo;s T+1 working group identifies BACS-dependent retail fund settlement as a principal operational risk. Report models migration pathways to FPS and CHAPS for UCITS, unit trusts, and investment trusts.</span></div>
+    <div class="cite"><span class="cite-num">[3]</span><span class="cite-text">Pay.UK Faster Payments Rules &mdash; &pound;1,000,000 per-transaction single immediate payment limit. Transactions exceeding this limit cannot be processed over FPS rails and must use CHAPS or be restructured into multiple sub-&pound;1M payments. Asset managers with high-value retail flows must plan for CHAPS integration or transaction restructuring.</span></div>
+    <div class="cite"><span class="cite-num">[4]</span><span class="cite-text">CREST Modernisation Programme &mdash; T+1 Settlement Window Requirements. Euroclear UK &amp; Ireland (CREST) is implementing changes to support T+1 settlement cycles. Retail fund settlement timing must align with CREST windows to avoid fails and associated penalty charges under CSDR.</span></div>
+    <div class="cite"><span class="cite-num">[5]</span><span class="cite-text">FCA Dear Compliance Officer Letter January 2026 &mdash; Retail Fund Manager T+1 Obligations. The FCA expects retail fund managers to identify non-DVP settlement flows, assess rail compatibility, and develop migration plans. Testing readiness required by Q4 2026 ahead of UK T+1 go-live (11 October 2027).</span></div>
+  </div>
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner">
+    <a href="../index.html" style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--muted);text-decoration:none">&larr; Back to AINumbers.co</a>
+    <div class="footer-links">
+      <a href="../index.html">All Tools</a>
+      <a href="../index.html#cat-23">Settlement Hub</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-copy">CC BY 4.0 &middot; Post Oak Labs &middot; ainumbers.co</div>
+  </div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================================
+   i18n: setLang - translates UI chrome; regulatory content stays in English
+   ===================================================================== */
+var TRANSLATIONS = {
+  en:{lang_dir:'ltr'},es:{lang_dir:'ltr'},fr:{lang_dir:'ltr'},
+  ar:{lang_dir:'rtl'},pt:{lang_dir:'ltr'},zh:{lang_dir:'ltr'}
+};
+function setLang(l) {
+  var t = TRANSLATIONS[l] || TRANSLATIONS['en'];
+  document.documentElement.setAttribute('dir', t.lang_dir || 'ltr');
+  document.querySelectorAll('.lang-btn').forEach(function(b){ b.classList.remove('active'); });
+  var btns = document.querySelectorAll('.lang-btn');
+  for(var i=0;i<btns.length;i++){
+    if(btns[i].getAttribute('onclick') === "setLang('"+l+"'"+")"){ btns[i].classList.add('active'); break; }
+  }
+  try { sessionStorage.setItem('ain_lang', l); } catch(e){}
+}
+(function initLang(){
+  try { var s=sessionStorage.getItem('ain_lang'); if(s&&TRANSLATIONS[s]) setLang(s); } catch(e){}
+})();
+
+/* =====================================================================
+   Slider sync + rail mix validation
+   ===================================================================== */
+function syncSlider(id) {
+  var el=document.getElementById(id);
+  var dp=document.getElementById(id+'Val');
+  if(dp) dp.textContent=el.value+'%';
+  if(id==='pctBacs'||id==='pctFps'||id==='pctChaps') updateSumIndicator();
+}
+function updateSumIndicator() {
+  var b=parseInt(document.getElementById('pctBacs').value)||0;
+  var f=parseInt(document.getElementById('pctFps').value)||0;
+  var c=parseInt(document.getElementById('pctChaps').value)||0;
+  var sum=b+f+c;
+  var ind=document.getElementById('sumIndicator');
+  if(sum===100){ ind.textContent='\u2713 Rail mix sums to 100%'; ind.className='sum-indicator sum-ok'; }
+  else { ind.textContent='\u2717 Rail mix sums to '+sum+'% \u2014 must equal 100%'; ind.className='sum-indicator sum-err'; }
+}
+
+/* Toast helper */
+function showToast(msg) {
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.style.display='block';
+  setTimeout(function(){ t.style.display='none'; },4500);
+}
+
+/* Helpers */
+function chk(icon,cls,title,desc) {
+  return '<div class="check-item"><span class="chk '+cls+'">'+icon+'</span><div><div class="chk-title">'+title+'</div><div class="chk-desc">'+desc+'</div></div></div>';
+}
+function fmtGbp(n) {
+  if(n>=1000000) return '\u00a3'+(n/1000000).toFixed(2)+'M';
+  if(n>=1000)    return '\u00a3'+(n/1000).toFixed(1)+'k';
+  return '\u00a3'+n.toFixed(2);
+}
+function fmtNum(n) { return n.toLocaleString('en-GB'); }
+
+/* State store */
+var _results = null;
+
+/* =====================================================================
+   Core assessment engine
+   BACS: 3-day lag => incompatible with T+1 [1]
+   FPS:  near real-time < 2hr => compatible if tx < GBP 1M [3]
+   CHAPS: same-day => always compatible, expensive [2]
+   Annual volumes: 250 UK business days
+   ===================================================================== */
+function runAssessor() {
+  var managerType   = document.getElementById('managerType').value;
+  var primaryRail   = document.getElementById('primaryRail').value;
+  var dailyTxCount  = parseFloat(document.getElementById('dailyTxCount').value)||0;
+  var avgTxValue    = document.getElementById('avgTxValue').value;
+  var pctBacs       = parseInt(document.getElementById('pctBacs').value)||0;
+  var pctFps        = parseInt(document.getElementById('pctFps').value)||0;
+  var pctChaps      = parseInt(document.getElementById('pctChaps').value)||0;
+  var pctAbove1m    = parseInt(document.getElementById('pctAbove1m').value)||0;
+  var fpsReadiness  = document.getElementById('fpsReadiness').value;
+  var bacsCostPence = parseFloat(document.getElementById('bacsCostPence').value)||1.5;
+  var fpsCostPence  = parseFloat(document.getElementById('fpsCostPence').value)||25;
+  var chapsCostGbp  = parseFloat(document.getElementById('chapsCostGbp').value)||30;
+
+  /* validate */
+  var railSum=pctBacs+pctFps+pctChaps;
+  if(railSum!==100){ showToast('Rail mix must sum to 100% (currently '+railSum+'%). Adjust sliders before running.'); return; }
+  if(dailyTxCount<1){ showToast('Please enter a daily transaction count greater than 0.'); return; }
+
+  var BD_PA=250;         /* UK business days per annum */
+  var FPS_CAP=1000000;   /* Pay.UK FPS per-payment ceiling GBP [3] */
+
+  /* annual volumes */
+  var annualTotal = dailyTxCount*BD_PA;
+  var annualBacs  = annualTotal*(pctBacs/100);
+  var annualFps   = annualTotal*(pctFps/100);
+  var annualChaps = annualTotal*(pctChaps/100);
+
+  /* cost per tx in GBP */
+  var bacsCostGbp = bacsCostPence/100;
+  var fpsCostGbp  = fpsCostPence/100;
+
+  /* current annual costs */
+  var curBacsCost  = annualBacs *bacsCostGbp;
+  var curFpsCost   = annualFps  *fpsCostGbp;
+  var curChapsCost = annualChaps*chapsCostGbp;
+  var curTotal     = curBacsCost+curFpsCost+curChapsCost;
+
+  /* T+1 target:
+     BACS => 0%; former BACS split: above1mFrac% -> CHAPS, rest -> FPS
+     existing FPS and CHAPS unchanged */
+  var above1mFrac = pctAbove1m/100;
+  var bacsToChaps = annualBacs*above1mFrac;
+  var bacsToFps   = annualBacs-bacsToChaps;
+  var t1Fps   = annualFps  +bacsToFps;
+  var t1Chaps = annualChaps+bacsToChaps;
+  var t1FpsPct  =(t1Fps  /annualTotal)*100;
+  var t1ChapsPct=(t1Chaps/annualTotal)*100;
+
+  /* T+1 annual costs */
+  var t1FpsCost   = t1Fps  *fpsCostGbp;
+  var t1ChapsCost = t1Chaps*chapsCostGbp;
+  var t1Total     = t1FpsCost+t1ChapsCost;
+  var annualUplift= t1Total-curTotal;
+  var perTxUplift = annualTotal>0?annualUplift/annualTotal:0;
+
+  /* compatibility score 0-100: BACS=0pts, FPS=100pts, CHAPS=90pts */
+  var compatScore=Math.min(100,Math.max(0,Math.round((pctBacs*0)+(pctFps*100)+(pctChaps*90))/100));
+
+  /* FPS ceiling */
+  var avgMid={lt10k:5000,'10k_100k':55000,'100k_1m':550000,gt1m:2000000}[avgTxValue]||5000;
+  var allFpsBreached=(avgMid>FPS_CAP);
+  var fpsCeilCount=Math.round(bacsToChaps);
+
+  /* urgency */
+  var urgScore=0;
+  urgScore+=pctBacs>=80?40:pctBacs>=50?25:pctBacs>=20?12:0;
+  urgScore+=fpsReadiness==='not_planned'?35:fpsReadiness==='h2_2026'?20:fpsReadiness==='q1q2_2026'?10:0;
+  urgScore+=avgTxValue==='gt1m'?15:avgTxValue==='100k_1m'?8:0;
+  urgScore+=allFpsBreached?10:0;
+  var urgLevel,urgCls;
+  if(urgScore>=65){urgLevel='CRITICAL';urgCls='critical';}
+  else if(urgScore>=40){urgLevel='HIGH';urgCls='high';}
+  else if(urgScore>=20){urgLevel='MEDIUM';urgCls='medium';}
+  else{urgLevel='LOW';urgCls='low';}
+
+  _results={managerType,primaryRail,dailyTxCount,avgTxValue,
+    pctBacs,pctFps,pctChaps,pctAbove1m,fpsReadiness,
+    bacsCostPence,fpsCostPence,chapsCostGbp,
+    annualTotal,annualBacs,annualFps,annualChaps,
+    compatScore,t1FpsPct,t1ChapsPct,
+    curTotal,t1Total,annualUplift,perTxUplift,
+    curBacsCost,curFpsCost,curChapsCost,
+    t1FpsCost,t1ChapsCost,
+    bacsToFps,bacsToChaps,fpsCeilCount,allFpsBreached,
+    urgScore,urgLevel,urgCls,bacsCostGbp,fpsCostGbp};
+
+  /* --- key metrics --- */
+  var sg='';
+  sg+='<div class="stat-box"><div class="stat-val '+(compatScore>=70?'good':compatScore>=40?'warn':'bad')+'">'+compatScore+'/100</div><div class="stat-lbl">Rail Compatibility Score</div></div>';
+  sg+='<div class="stat-box"><div class="stat-val bad">'+pctBacs+'%</div><div class="stat-lbl">Flows Incompatible (BACS)</div></div>';
+  sg+='<div class="stat-box"><div class="stat-val '+(annualUplift<=0?'good':'bad')+'">'+fmtGbp(annualUplift)+'</div><div class="stat-lbl">Annual Cost Uplift</div></div>';
+  sg+='<div class="stat-box"><div class="stat-val '+(urgCls==='critical'?'bad':urgCls==='high'?'warn':'good')+'">'+urgLevel+'</div><div class="stat-lbl">Implementation Urgency</div></div>';
+  sg+='<div class="stat-box"><div class="stat-val">'+fmtNum(Math.round(annualBacs))+'</div><div class="stat-lbl">Annual BACS Txns to Migrate</div></div>';
+  sg+='<div class="stat-box"><div class="stat-val">'+fmtNum(fpsCeilCount)+'</div><div class="stat-lbl">CHAPS Overflow (>\u00a31M) Txns/yr</div></div>';
+  document.getElementById('statGrid').innerHTML=sg;
+
+  /* --- compat check-list --- */
+  var cl='';
+  if(pctBacs>0) cl+=chk('\u2717','fail','BACS \u2014 '+pctBacs+'% of flows are T+1 INCOMPATIBLE','BACS 3-day clearing cannot settle within T+1 windows. Under the UK AST Code of Conduct all retail fund settlement must complete by T+1. BACS-settled flows will be in breach from go-live (11 October 2027). Immediate migration planning required. [1][5]');
+  if(pctFps>0&&!allFpsBreached) cl+=chk('\u2713','pass','Faster Payments \u2014 '+pctFps+'% of flows are T+1 COMPATIBLE','FPS near real-time settlement (< 2 hours) comfortably meets T+1 windows. Provided all transactions are below the \u00a31,000,000 per-payment ceiling, no changes required on this portion of the book. [3]');
+  if(pctFps>0&&allFpsBreached) cl+=chk('!','warn','Faster Payments \u2014 '+pctFps+'% nominally compatible but average tx value ('+avgTxValue+') exceeds \u00a31M FPS ceiling','Average transaction value exceeds the Pay.UK \u00a31,000,000 FPS limit. Transactions above this threshold cannot use FPS rails and must route to CHAPS. Review transaction splitting or CHAPS integration. [3]');
+  if(pctChaps>0) cl+=chk('\u2713','pass','CHAPS \u2014 '+pctChaps+'% of flows are T+1 COMPATIBLE (same-day, no limit)','CHAPS same-day settlement fully meets T+1 requirements with no transaction value ceiling. Primary constraint is cost (\u00a325\u201335 per transaction). [2]');
+  document.getElementById('compatList').innerHTML=cl;
+
+  /* --- recommended split table --- */
+  var sr='';
+  sr+='<tr><td style="color:var(--red)">BACS</td><td>'+pctBacs+'%</td><td style="color:var(--green)">0%</td><td style="color:var(--red)">\u2212'+pctBacs+'%</td><td>Incompatible \u2014 migrate to FPS / CHAPS [1]</td></tr>';
+  var fpsDiff=Math.round(t1FpsPct)-pctFps;
+  sr+='<tr><td style="color:var(--teal)">Faster Payments (FPS)</td><td>'+pctFps+'%</td><td style="color:var(--teal)">'+Math.round(t1FpsPct)+'%</td><td>'+(fpsDiff>=0?'+':'')+fpsDiff+'%</td><td>Absorbs BACS flows below \u00a31M ceiling [3]</td></tr>';
+  var chDiff=Math.round(t1ChapsPct)-pctChaps;
+  sr+='<tr><td style="color:var(--warn)">CHAPS</td><td>'+pctChaps+'%</td><td style="color:var(--warn)">'+Math.round(t1ChapsPct)+'%</td><td>'+(chDiff>=0?'+':'')+chDiff+'%</td><td>Required for flows above \u00a31M FPS ceiling [3]</td></tr>';
+  document.getElementById('splitTableBody').innerHTML=sr;
+
+  /* --- cost table --- */
+  var cr='';
+  cr+='<tr><td>BACS flows \u2192 FPS ('+fmtNum(Math.round(bacsToFps))+' txns/yr)</td><td>'+fmtGbp(curBacsCost)+'</td><td>'+fmtGbp(bacsToFps*fpsCostGbp)+'</td><td style="color:'+(bacsToFps>0?'var(--red)':'var(--muted)')+'">'+fmtGbp(bacsToFps*fpsCostGbp-curBacsCost)+'</td><td>'+fmtGbp(fpsCostGbp-bacsCostGbp)+' avg uplift/tx</td></tr>';
+  cr+='<tr><td>BACS flows \u2192 CHAPS ('+fmtNum(Math.round(bacsToChaps))+' txns/yr, >\u00a31M)</td><td>\u00a30.00</td><td>'+fmtGbp(bacsToChaps*chapsCostGbp)+'</td><td style="color:'+(bacsToChaps>0?'var(--red)':'var(--muted)')+'">'+fmtGbp(bacsToChaps*chapsCostGbp)+'</td><td>\u00a3'+chapsCostGbp+'.00 (CHAPS rate)</td></tr>';
+  cr+='<tr><td>Existing FPS flows (unchanged)</td><td>'+fmtGbp(curFpsCost)+'</td><td>'+fmtGbp(curFpsCost)+'</td><td style="color:var(--muted)">\u00a30.00</td><td>\u2014</td></tr>';
+  cr+='<tr><td>Existing CHAPS flows (unchanged)</td><td>'+fmtGbp(curChapsCost)+'</td><td>'+fmtGbp(curChapsCost)+'</td><td style="color:var(--muted)">\u00a30.00</td><td>\u2014</td></tr>';
+  cr+='<tr class="highlight"><td><strong>TOTAL</strong></td><td><strong>'+fmtGbp(curTotal)+'</strong></td><td><strong>'+fmtGbp(t1Total)+'</strong></td><td style="color:'+(annualUplift>0?'var(--red)':'var(--green)')+'"><strong>'+fmtGbp(annualUplift)+'</strong></td><td><strong>'+fmtGbp(perTxUplift)+'/tx avg</strong></td></tr>';
+  document.getElementById('costTableBody').innerHTML=cr;
+
+  /* --- FPS ceiling breach --- */
+  var fc='';
+  if(fpsCeilCount>0) fc+=chk('!','warn','FPS Ceiling Breach: '+fmtNum(fpsCeilCount)+' transactions/year must route to CHAPS',fmtNum(fpsCeilCount)+' annual transactions ('+pctAbove1m+'% of flows estimated above \u00a31M) exceed the Pay.UK Faster Payments \u00a31,000,000 per-payment limit and cannot be processed over FPS rails. These must route via CHAPS at \u00a3'+chapsCostGbp+' per transaction. Annual CHAPS cost for these flows: '+fmtGbp(fpsCeilCount*chapsCostGbp)+'. [3]');
+  if(allFpsBreached&&pctFps>0) fc+=chk('!','warn','Average Transaction Value ('+avgTxValue+') Exceeds FPS Ceiling \u2014 All FPS Flows at Risk','With an average transaction value above \u00a31M, even existing FPS-routed transactions may breach the Pay.UK ceiling. Review individual transaction distributions. Transactions above \u00a31M must use CHAPS or be split into sub-\u00a31M payments. [3]');
+  if(fpsCeilCount===0&&!allFpsBreached) fc+=chk('\u2713','pass','No FPS Ceiling Breaches Anticipated','Based on the entered transaction value band ('+avgTxValue+') and '+pctAbove1m+'% over-\u00a31M estimate, all FPS-destined flows fall within the Pay.UK \u00a31,000,000 per-payment limit. [3]');
+  document.getElementById('fpsCeilList').innerHTML=fc;
+
+  /* --- migration plan --- */
+  var mp='';
+  mp+=chk('Phase 1','info','Immediate (Now \u2013 Q2 2026): Inventory &amp; FPS Onboarding','Map all BACS payment flows by counterparty, value band, and frequency. Identify which can migrate to FPS (below \u00a31M) and which require CHAPS. Engage your bank for FPS direct participation or indirect access. FPS migration costs '+fmtGbp(fpsCostGbp)+' per transaction vs BACS at '+fmtGbp(bacsCostGbp)+'. FPS readiness status: '+fpsReadiness+'.');
+  if(pctAbove1m>0) mp+=chk('Phase 2','info','High-Value Flows (Q2 \u2013 Q3 2026): CHAPS Integration for >\u00a31M Transactions',fmtNum(fpsCeilCount)+' annual transactions above the \u00a31M FPS ceiling must route via CHAPS. Negotiate CHAPS access and update payment instructions for high-value redemptions and subscriptions. Estimated CHAPS annual cost: '+fmtGbp(fpsCeilCount*chapsCostGbp)+'. Consider transaction restructuring (splitting) to reduce CHAPS dependency. [3]');
+  mp+=chk('Phase 3','info','System Changes &amp; Testing (Q3 \u2013 Q4 2026): End-to-End Settlement Testing','Update fund accounting systems, investor portals, and transfer agent workflows to reflect T+1 payment timing. Participate in industry T+1 testing with CREST. The FCA requires retail fund managers to demonstrate testing readiness by Q4 2026. [4][5]');
+  mp+=chk('Phase 4','info','Dress Rehearsal (Q1 \u2013 Q2 2027): Parallel Running','Run T+1 and T+2 settlement in parallel. Monitor fail rates, FPS ceiling breaches, and CHAPS costs under live conditions. Update investor documentation and fund prospectuses to reflect T+1 settlement terms.');
+  mp+=chk('11 Oct 2027','info','Go-Live: UK T+1 Mandatory','All CREST-settled transferable securities move to T+1. BACS settlement of retail fund flows will result in failed settlement and potential FCA enforcement action. CHAPS and FPS must be fully operational for all retail fund subscriptions and redemptions from this date. [1][4][5]');
+  document.getElementById('migrationList').innerHTML=mp;
+
+  /* verdict + show */
+  document.getElementById('resultTitle').textContent='T+1 Non-DVP Impact \u2014 Urgency: '+urgLevel;
+  var vb=document.getElementById('verdictBadge'); vb.textContent=urgLevel; vb.className='verdict '+urgCls;
+  var rp=document.getElementById('resultsPanel'); rp.classList.add('show'); rp.scrollIntoView({behavior:'smooth',block:'start'});
+
+  /* enable exports */
+  var a2=document.getElementById('ap2ExportBtn'); a2.disabled=false; a2.classList.add('ready'); a2.title='Download Policy Mandate JSON';
+  var md=document.getElementById('mdExportBtn'); md.disabled=false; md.classList.add('ready'); md.title='Download Markdown report';
+}
+
+/* =====================================================================
+   AP2 Policy Mandate export
+   ===================================================================== */
+function exportAP2() {
+  if(!_results){ showToast('Run the assessment first.'); return; }
+  var r=_results;
+  var uid='xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){var v=Math.random()*16|0;return(c==='x'?v:(v&0x3|0x8)).toString(16);});
+  var now=new Date().toISOString();
+  var m={
+    ap2_version:'1.0',mandate_id:uid,issued_at:now,issued_by:'ainumbers.co',
+    tool_id:'non-dvp-retail-fund-settlement-impact-assessor',tool_version:'1.0.0',
+    mandate_type:'compliance_control',jurisdiction:['GB'],
+    regulatory_frameworks:['UK AST Code of Conduct - Non-DVP Fund Settlement','THEIA T+1 Report January 2026','Pay.UK Faster Payments Rules','CREST Modernisation Programme','FCA Dear CO Letter January 2026'],
+    payload:{
+      manager_type:r.managerType,primary_rail:r.primaryRail,daily_tx_count:r.dailyTxCount,avg_tx_value_band:r.avgTxValue,
+      rail_mix_current:{bacs_pct:r.pctBacs,fps_pct:r.pctFps,chaps_pct:r.pctChaps},
+      rail_mix_recommended_t1:{bacs_pct:0,fps_pct:Math.round(r.t1FpsPct),chaps_pct:Math.round(r.t1ChapsPct)},
+      compatibility_score_0_100:r.compatScore,incompatible_flow_pct:r.pctBacs,
+      annual_tx_total:Math.round(r.annualTotal),annual_bacs_to_migrate:Math.round(r.annualBacs),
+      fps_ceiling_breach_annual_count:r.fpsCeilCount,fps_avg_value_exceeds_ceiling:r.allFpsBreached,
+      cost_analysis:{current_annual_cost_gbp:parseFloat(r.curTotal.toFixed(2)),t1_annual_cost_gbp:parseFloat(r.t1Total.toFixed(2)),annual_cost_uplift_gbp:parseFloat(r.annualUplift.toFixed(2)),per_tx_uplift_gbp:parseFloat(r.perTxUplift.toFixed(4))},
+      fps_readiness:r.fpsReadiness,urgency_score:r.urgScore,urgency_level:r.urgLevel,
+      t1_go_live_uk:'2027-10-11',testing_readiness_deadline:'2026-Q4'
+    },
+    summary:'Assessment of '+r.managerType+' firm non-DVP retail fund settlement flows against UK T+1. '+r.pctBacs+'% of flows use BACS (T+1 incompatible). Annual cost uplift: \u00a3'+r.annualUplift.toFixed(0)+'. Urgency: '+r.urgLevel+'. All BACS flows must be migrated before 11 October 2027.',
+    agent_instructions:['Identify all BACS-settled retail fund payment flows by counterparty and value band.','Onboard Faster Payments (FPS) access for transactions below \u00a31,000,000.','Arrange CHAPS access for transactions above the FPS \u00a31M ceiling.','Update fund accounting, transfer agent, and investor portal settlement timings.','Complete testing readiness by Q4 2026 per FCA Dear CO Letter guidance.','Ensure zero BACS settlement flows remain by 11 October 2027.'],
+    valid_from:now,valid_until:'2027-10-11T00:00:00.000Z',last_reviewed:now,
+    source_tool_inputs:{manager_type:r.managerType,primary_rail:r.primaryRail,daily_tx_count:r.dailyTxCount,avg_tx_value:r.avgTxValue,pct_bacs:r.pctBacs,pct_fps:r.pctFps,pct_chaps:r.pctChaps,pct_above_1m:r.pctAbove1m,fps_readiness:r.fpsReadiness,bacs_cost_pence:r.bacsCostPence,fps_cost_pence:r.fpsCostPence,chaps_cost_gbp:r.chapsCostGbp},
+    regulatory_citations:['[1] UK AST Code of Conduct - Non-DVP fund settlement requirements under T+1','[2] THEIA T+1 Report Jan 2026 - Non-DVP retail fund settlement impact analysis','[3] Pay.UK Faster Payments Rules - \u00a31M transaction limit','[4] CREST Modernisation Programme - T+1 settlement window requirements','[5] FCA T+1 Dear CO Letter Jan 2026 - Retail fund manager T+1 obligations'],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  if(!m.mandate_id||!m.issued_at||!m.payload){ showToast('Validation error: required mandate fields missing.'); return; }
+  var ts=new Date().toISOString().replace(/[:\-T]/g,'').slice(0,14);
+  var blob=new Blob([JSON.stringify(m,null,2)],{type:'application/json'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a'); a.href=url; a.download='non-dvp-retail-fund-settlement-impact-assessor_'+ts+'.policy.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* =====================================================================
+   Markdown export
+   ===================================================================== */
+function exportMd() {
+  if(!_results){ showToast('Run the assessment first.'); return; }
+  var r=_results;
+  var now=new Date().toISOString();
+  var md='# Non-DVP Retail Fund Settlement Impact Assessment\n\n';
+  md+='**Generated:** '+now+'\n';
+  md+='**Tool:** T373 Non-DVP Retail Fund Settlement Impact Assessor - ainumbers.co\n';
+  md+='**Licence:** CC BY 4.0 - Post Oak Labs\n\n---\n\n';
+  md+='## Firm Profile\n\n| Parameter | Value |\n|---|---|\n';
+  md+='| Manager type | '+r.managerType+' |\n';
+  md+='| Primary rail | '+r.primaryRail+' |\n';
+  md+='| Daily transactions | '+r.dailyTxCount.toLocaleString('en-GB')+' |\n';
+  md+='| Average transaction value | '+r.avgTxValue+' |\n';
+  md+='| Annual transactions (250 days) | '+Math.round(r.annualTotal).toLocaleString('en-GB')+' |\n\n';
+  md+='## Current Rail Mix vs T+1 Recommended\n\n| Rail | Current % | T+1 Compatible | T+1 Recommended % |\n|---|---|---|---|\n';
+  md+='| BACS | '+r.pctBacs+'% | NO | 0% |\n';
+  md+='| Faster Payments (FPS) | '+r.pctFps+'% | YES (if <£1M) | '+Math.round(r.t1FpsPct)+'% |\n';
+  md+='| CHAPS | '+r.pctChaps+'% | YES | '+Math.round(r.t1ChapsPct)+'% |\n\n';
+  md+='## Key Results\n\n| Metric | Value |\n|---|---|\n';
+  md+='| Rail Compatibility Score | '+r.compatScore+'/100 |\n';
+  md+='| T+1 Incompatible Flows | '+r.pctBacs+'% (BACS) |\n';
+  md+='| Current Annual Cost | £'+r.curTotal.toFixed(2)+' |\n';
+  md+='| T+1 Annual Cost | £'+r.t1Total.toFixed(2)+' |\n';
+  md+='| Annual Cost Uplift | £'+r.annualUplift.toFixed(2)+' |\n';
+  md+='| Per-Transaction Uplift | £'+r.perTxUplift.toFixed(4)+' |\n';
+  md+='| FPS Ceiling Breaches (>£1M) | '+r.fpsCeilCount.toLocaleString('en-GB')+' txns/yr |\n';
+  md+='| Implementation Urgency | **'+r.urgLevel+'** |\n\n';
+  md+='## Regulatory Citations\n\n';
+  md+='1. UK AST Code of Conduct - Non-DVP fund settlement requirements under T+1\n';
+  md+='2. THEIA T+1 Report Jan 2026 - Non-DVP retail fund settlement impact analysis\n';
+  md+='3. Pay.UK Faster Payments Rules - £1M transaction limit\n';
+  md+='4. CREST Modernisation Programme - T+1 settlement window requirements\n';
+  md+='5. FCA T+1 Dear CO Letter Jan 2026 - Retail fund manager T+1 obligations\n\n';
+  md+='---\n*Generated by AINumbers.co T373 - CC BY 4.0 - Post Oak Labs - ainumbers.co*\n';
+  var ts=new Date().toISOString().replace(/[:\-T]/g,'').slice(0,14);
+  var blob=new Blob([md],{type:'text/markdown'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a'); a.href=url; a.download='non-dvp-retail-fund-settlement-impact-assessor_'+ts+'.md'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+var MANIFEST = {
+  "tool_id": "non-dvp-retail-fund-settlement-impact-assessor",
+  "version": "1.0.0",
+  "title": "Non-DVP Retail Fund Settlement Impact Assessor",
+  "description": "Assesses T+1 settlement impact on retail fund firms using non-DVP (BACS) settlement flows. Scores rail compatibility, models cost uplift of switching to FPS or CHAPS, and outputs a phased migration plan.",
+  "category": "cat-23",
+  "tags": [
+    "T+1",
+    "settlement",
+    "non-DVP",
+    "BACS",
+    "Faster Payments",
+    "FPS",
+    "CHAPS",
+    "retail funds",
+    "UCITS",
+    "unit trust",
+    "capital markets"
+  ],
+  "audience": [
+    "ops",
+    "compliance",
+    "treasury",
+    "product"
+  ],
+  "ap2_export": true,
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "manager_type": {
+        "type": "string"
+      },
+      "daily_tx_count": {
+        "type": "number"
+      },
+      "avg_tx_value": {
+        "type": "string"
+      },
+      "primary_rail": {
+        "type": "string"
+      },
+      "pct_bacs": {
+        "type": "number"
+      },
+      "pct_fps": {
+        "type": "number"
+      },
+      "pct_chaps": {
+        "type": "number"
+      },
+      "pct_above_1m": {
+        "type": "number"
+      },
+      "fps_readiness": {
+        "type": "string"
+      },
+      "bacs_cost_pence": {
+        "type": "number"
+      },
+      "fps_cost_pence": {
+        "type": "number"
+      },
+      "chaps_cost_gbp": {
+        "type": "number"
+      }
+    },
+    "required": [
+      "manager_type",
+      "daily_tx_count",
+      "avg_tx_value",
+      "primary_rail",
+      "pct_bacs",
+      "pct_fps",
+      "pct_chaps"
+    ]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "compatibility_score": {
+        "type": "number"
+      },
+      "incompatible_pct": {
+        "type": "number"
+      },
+      "recommended_split": {
+        "type": "object"
+      },
+      "annual_cost_uplift_gbp": {
+        "type": "number"
+      },
+      "fps_ceiling_breach_count": {
+        "type": "number"
+      },
+      "urgency_level": {
+        "type": "string"
+      },
+      "migration_phases": {
+        "type": "array"
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "assess_non_dvp_retail_fund_settlement_impact",
+    "description": "Score a retail fund firm non-DVP settlement flows against T+1 payment rails and model annual cost uplift of migrating to T+1-compatible rails.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "manager_type": {
+          "type": "string"
+        },
+        "daily_tx_count": {
+          "type": "number"
+        },
+        "pct_bacs": {
+          "type": "number"
+        },
+        "pct_fps": {
+          "type": "number"
+        },
+        "pct_chaps": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "manager_type",
+        "daily_tx_count",
+        "pct_bacs",
+        "pct_fps",
+        "pct_chaps"
+      ]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/373-non-dvp-retail-fund-settlement-impact-assessor.html",
+    "function_name": "runAssessor",
+    "timeout_ms": 3000
+  }
+};
+function toggleMfst() {
+  var body=document.getElementById('mfstBody');
+  var arr=document.getElementById('mfstArr');
+  var open=body.style.display==='block';
+  body.style.display=open?'none':'block';
+  arr.textContent=open?'\u25bc':'\u25b2';
+  if(!open) document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>Settlement Efficiency Rate Calculator &amp; AST Benchmark · AINumbers.co</title>
+<meta name="description" content="Calculate your firm's Settlement Efficiency Rate (SER) by fail cause, benchmark against the UK AST target of 98% by value, and map the improvement trajectory to July-September 2027. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/370-settlement-efficiency-rate-calculator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Settlement Efficiency Rate Calculator & AST Benchmark","url":"https://ainumbers.co/tools/370-settlement-efficiency-rate-calculator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "settlement-efficiency-rate-calculator",
+  "version": "1.0.0",
+  "title": "Settlement Efficiency Rate Calculator & AST Benchmark",
+  "description": "Calculates a firm's Settlement Efficiency Rate (SER) by fail cause, benchmarks against the UK AST 98% target (Jul-Sep 2027), outputs improvement trajectory and remediation priority order. Client-side. Zero PII.",
+  "category": "cat-23",
+  "tags": ["settlement","SER","AST","T+1","CSDR","settlement discipline","capital markets","fail rate","settlement efficiency"],
+  "audience": ["operations","compliance","risk","treasury","settlements"],
+  "input_schema": {"type":"object","properties":{"total_intended_value":{"type":"number"},"total_settled_value":{"type":"number"},"alloc_fails":{"type":"integer"},"securities_fails":{"type":"integer"},"cash_fails":{"type":"integer"},"technical_fails":{"type":"integer"},"counterparty_fails":{"type":"integer"},"other_fails":{"type":"integer"},"avg_fail_value_k":{"type":"number"},"asset_class":{"type":"string"},"peer_group":{"type":"string"},"measurement_period":{"type":"string"}},"required":["total_intended_value","total_settled_value"]},
+  "output_schema": {"type":"object","properties":{"ser_pct":{"type":"number"},"gap_to_target":{"type":"number"},"fail_breakdown":{"type":"array"},"monthly_improvement_needed":{"type":"number"},"remediation_priority":{"type":"array"},"peer_context":{"type":"string"}}},
+  "mcp_tool_definition": {"name":"calculate_settlement_efficiency_rate","description":"Calculates SER by fail cause, benchmarks against UK AST 98% target and outputs improvement trajectory and remediation priorities for capital markets settlement operations.","inputSchema":{"type":"object","properties":{"total_intended_value":{"type":"number","description":"Total value due to settle this period (in millions)"},"total_settled_value":{"type":"number","description":"Total value settled on intended settlement date (in millions)"}},"required":["total_intended_value","total_settled_value"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/370-settlement-efficiency-rate-calculator.html","function_name":"runSER","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.010) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.010) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* Lang Bar */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* Nav */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+/* Hero */
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+/* PII Notice */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+/* Scope Note */
+.scope-note{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);border-left:3px solid var(--teal);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.25rem;color:var(--body)}
+.scope-note strong{color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase}
+/* Tool Body */
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+/* Panels */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.6rem}
+.panel-label::before{content:'';display:block;width:16px;height:1px;background:var(--teal)}
+.panel-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:.85rem}
+.panel-row.triple{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:640px){.panel-row,.panel-row.triple{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:.3rem}
+.field label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.field input,.field select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.74rem;padding:.45rem .65rem;border-radius:var(--radius);outline:none;transition:border-color .2s;-webkit-appearance:none;width:100%}
+.field input:focus,.field select:focus{border-color:var(--teal)}
+.field .hint{font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted);line-height:1.4}
+.divider-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:.4rem 0;border-top:1px solid var(--border);margin:.25rem 0 .75rem;display:flex;align-items:center;gap:.5rem}
+.divider-label::after{content:'';flex:1;height:1px;background:var(--border)}
+/* Run Button */
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.7rem 2.2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.5rem}
+.run-btn:hover{background:var(--teal-lt)}
+/* Results */
+.results-panel{display:none}
+.results-panel.visible{display:block}
+/* SER Hero */
+.ser-hero{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.75rem 1.5rem;margin-bottom:1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1.25rem}
+.ser-main{display:flex;flex-direction:column;gap:.3rem}
+.ser-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.ser-value{font-family:'DM Serif Display',serif;font-size:clamp(2.8rem,6vw,4rem);font-weight:400;line-height:1}
+.ser-value.above-target{color:var(--green)}
+.ser-value.near-target{color:var(--warn)}
+.ser-value.below-target{color:var(--red)}
+.ser-sub{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:.25rem}
+.ser-gap-col{display:flex;flex-direction:column;gap:.5rem;align-items:flex-end}
+.ser-gap-pill{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.35rem .9rem;border-radius:4px;letter-spacing:.08em}
+.ser-gap-pill.good{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+.ser-gap-pill.warn{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.ser-gap-pill.bad{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.ser-target-bar{flex:1;min-width:180px}
+.target-bar-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem;display:flex;justify-content:space-between}
+.target-bar-outer{height:14px;background:var(--bg-3);border-radius:4px;overflow:hidden;border:1px solid var(--border);position:relative}
+.target-bar-inner{height:100%;border-radius:3px;transition:width .6s ease}
+.target-bar-marker{position:absolute;top:0;bottom:0;width:2px;background:var(--teal);opacity:.8}
+.target-bar-marker-label{position:absolute;top:-18px;font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--teal);white-space:nowrap;transform:translateX(-50%)}
+/* Out sections */
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.25rem}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+/* Fail table */
+.fail-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.fail-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.fail-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.fail-table tr:last-child td{border-bottom:none}
+.fail-table tr:hover td{background:var(--bg-3)}
+.fail-table tr.top-cause td{background:rgba(239,68,68,.04)}
+.bar-cell{display:flex;align-items:center;gap:.5rem}
+.bar-outer{flex:1;height:10px;background:var(--bg-3);border-radius:3px;overflow:hidden;max-width:120px}
+.bar-inner{height:100%;border-radius:3px}
+.rank-badge{font-family:'JetBrains Mono',monospace;font-size:.5rem;background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.2);padding:.1rem .4rem;border-radius:3px}
+/* Stats grid */
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
+@media(max-width:640px){.stats-grid{grid-template-columns:1fr 1fr}}
+.stat-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.9rem 1rem}
+.stat-card-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+.stat-card-value{font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:500;color:var(--bright)}
+.stat-card-sub{font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted);margin-top:.2rem}
+/* Trajectory */
+.traj-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;margin-bottom:.75rem}
+.traj-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.5rem}
+.traj-steps{display:flex;flex-direction:column;gap:.4rem}
+.traj-step{display:flex;align-items:center;gap:.75rem;font-family:'JetBrains Mono',monospace;font-size:.65rem}
+.traj-step-date{color:var(--muted);min-width:80px;font-size:.52rem}
+.traj-step-bar{flex:1;height:8px;background:var(--bg-2);border-radius:3px;overflow:hidden;border:1px solid var(--border)}
+.traj-step-fill{height:100%;border-radius:2px;background:var(--teal)}
+.traj-step-val{color:var(--text);min-width:48px;text-align:right;font-size:.58rem}
+/* Remediation */
+.remed-list{display:flex;flex-direction:column;gap:.6rem}
+.remed-item{display:flex;align-items:flex-start;gap:.75rem;padding:.8rem .9rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius)}
+.remed-rank{font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:600;color:var(--teal);min-width:22px}
+.remed-content{flex:1}
+.remed-cause{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--bright);margin-bottom:.2rem}
+.remed-action{font-size:.7rem;color:var(--body);line-height:1.5}
+.remed-impact{font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--teal);margin-top:.25rem}
+/* Peer */
+.peer-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}
+@media(max-width:640px){.peer-grid{grid-template-columns:1fr}}
+.peer-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;display:flex;flex-direction:column;gap:.3rem}
+.peer-type{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.peer-range{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.peer-note{font-size:.68rem;color:var(--body);line-height:1.4}
+.peer-you{border-color:var(--teal);background:var(--teal-dim)}
+.peer-you .peer-type{color:var(--teal)}
+.peer-you .peer-range{color:var(--teal-lt)}
+/* Memo */
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--body);line-height:1.8;white-space:pre-wrap;max-height:350px;overflow-y:auto}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* Citations */
+.cit-list{display:flex;flex-direction:column;gap:.5rem}
+.cit-item{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);padding:.45rem .75rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);line-height:1.5}
+.cit-num{color:var(--teal);margin-right:.4rem}
+/* Export row */
+.results-export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.65rem 0;border-top:1px solid var(--border)}
+#ap2ExportBtn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.28;transition:opacity .2s,border-color .2s}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+#mdExportBtn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.28;transition:opacity .2s,border-color .2s}
+#mdExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#mdExportBtn.ready:hover{background:var(--bg-4)}
+/* Manifest */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+/* Footer */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Field errors */
+.field-error{border-color:var(--red) !important}
+.err-msg{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--red);margin-top:.2rem}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--red);color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.6rem 1rem;border-radius:var(--radius);z-index:999;display:none}
+.toast.show{display:block}
+</style>
+</head>
+<body>
+
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">&#20013;&#25991;</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a>
+    <span class="nav-sep">/</span>
+    <a href="../index.html#cat-23">Cat-23 Hub</a>
+    <span class="nav-sep">/</span>
+    <span class="nav-bc-current">T-370</span>
+  </div>
+  <div class="nav-right">
+    <a href="../guides/capital-markets-settlement-hub.html" class="nav-cta">Hub &#8594;</a>
+  </div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-23 &middot; T370 &middot; Capital Markets Settlement</div>
+  <div class="hero-meta">
+    <span class="hero-badge badge-muted"><span>v1.0</span></span>
+    <span class="hero-badge badge-teal">UK AST 2027</span>
+    <span class="hero-badge badge-green">Zero PII</span>
+    <span class="hero-badge badge-muted">Client-Side</span>
+  </div>
+  <h1 class="tool-title">Settlement Efficiency Rate <em>Calculator</em> &amp; AST Benchmark</h1>
+  <p class="hero-desc">Calculate your firm's Settlement Efficiency Rate (SER) by fail cause, benchmark against the UK AST &#8805;98% target, and see what improvement is needed by the July&ndash;September 2027 measurement window. Deterministic &middot; Zero PII &middot; Client-side.</p>
+  <div class="scope-note"><strong>Scope &amp; reliance &mdash;</strong> All inputs are processed locally in your browser. No data is transmitted. Regulatory thresholds (AST &#8805;98%, CSDR Art.7) are static reference values verified as of May 2026 &mdash; confirm against current primary sources before relying on any output for compliance or commercial decisions. Deterministic logic &middot; no inference &middot; CC BY 4.0.</div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="panel">
+    <div class="panel-label">Panel 01 &mdash; Settlement Data (Value Method)</div>
+    <div class="pii-notice" data-i18n="pii.banner">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+    <div class="panel-row">
+      <div class="field">
+        <label for="totalIntended">Total value due to settle this period (&euro;/&pound; millions)</label>
+        <input type="number" id="totalIntended" placeholder="e.g. 4500" min="0" step="0.01">
+        <span class="hint">Denominator of SER &mdash; all instructions due for settlement on ISD.</span>
+      </div>
+      <div class="field">
+        <label for="totalSettled">Total value settled on intended settlement date (&euro;/&pound; millions)</label>
+        <input type="number" id="totalSettled" placeholder="e.g. 4350" min="0" step="0.01">
+        <span class="hint">Numerator &mdash; instructions that settled on ISD without carry-over or partial.</span>
+      </div>
+    </div>
+    <div class="divider-label">Or derive fails from counts in Panel 02 &mdash; both methods work independently</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Panel 02 &mdash; Fail Cause Breakdown (optional detail layer)</div>
+    <p style="font-size:.72rem;color:var(--body);margin-bottom:1rem;line-height:1.6">Enter fail counts by cause plus average fail value to derive total failed value and per-cause SER impact. Leave blank if using value totals in Panel 01 only.</p>
+    <div class="panel-row triple">
+      <div class="field">
+        <label for="allocFails">Allocation / confirmation fails (count)</label>
+        <input type="number" id="allocFails" placeholder="0" min="0" step="1">
+      </div>
+      <div class="field">
+        <label for="secFails">Securities unavailable / short position (count)</label>
+        <input type="number" id="secFails" placeholder="0" min="0" step="1">
+      </div>
+      <div class="field">
+        <label for="cashFails">Cash / funding fails (count)</label>
+        <input type="number" id="cashFails" placeholder="0" min="0" step="1">
+      </div>
+    </div>
+    <div class="panel-row triple">
+      <div class="field">
+        <label for="techFails">Technical / system fails (count)</label>
+        <input type="number" id="techFails" placeholder="0" min="0" step="1">
+      </div>
+      <div class="field">
+        <label for="cpFails">Counterparty fails (count)</label>
+        <input type="number" id="cpFails" placeholder="0" min="0" step="1">
+      </div>
+      <div class="field">
+        <label for="otherFails">Other fails (count)</label>
+        <input type="number" id="otherFails" placeholder="0" min="0" step="1">
+      </div>
+    </div>
+    <div class="panel-row" style="grid-template-columns:1fr 1fr">
+      <div class="field">
+        <label for="avgFailValue">Average fail value (&euro;k per fail)</label>
+        <input type="number" id="avgFailValue" placeholder="e.g. 850" min="0" step="0.01">
+        <span class="hint">Used to convert fail counts to monetary fail value for per-cause SER breakdown.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Panel 03 &mdash; Context &amp; Peer Benchmark</div>
+    <div class="panel-row triple">
+      <div class="field">
+        <label for="assetClass">Asset class mix</label>
+        <select id="assetClass">
+          <option value="equities">Equities only</option>
+          <option value="mixed" selected>Mixed equities &amp; bonds</option>
+          <option value="fixed_income">Fixed income only</option>
+          <option value="multi_asset">Multi-asset</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="peerGroup">Peer benchmark group</label>
+        <select id="peerGroup">
+          <option value="asset_manager">Asset Manager</option>
+          <option value="broker_dealer" selected>Broker-Dealer</option>
+          <option value="custodian">Custodian</option>
+          <option value="csd_member">CSD Member</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="measurePeriod">Measurement period</label>
+        <select id="measurePeriod">
+          <option value="current_month">Current month</option>
+          <option value="last_quarter" selected>Last quarter</option>
+          <option value="trailing_6m">Trailing 6 months</option>
+          <option value="jul_sep_2027">Estimated Jul&ndash;Sep 2027</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;align-items:center;margin-bottom:2rem">
+    <button class="run-btn" id="runBtn" onclick="runSER()">&#9654; Calculate SER</button>
+    <button onclick="resetTool()" style="font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.45rem 1rem;border-radius:var(--radius);transition:all .2s" onmouseover="this.style.borderColor='var(--teal)';this.style.color='var(--teal)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">&#8635; Reset</button>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+
+    <div class="ser-hero" id="serHero"></div>
+
+    <div class="out-section" id="failBreakdownSection" style="display:none">
+      <div class="out-header"><span class="out-title">SER by Fail Cause</span></div>
+      <div class="out-body" style="padding:0;overflow-x:auto">
+        <table class="fail-table">
+          <thead><tr>
+            <th>Fail Cause</th>
+            <th>Count</th>
+            <th>Est. Value (&euro;M)</th>
+            <th>% of Total Fails</th>
+            <th>SER Impact</th>
+            <th>Share of Gap</th>
+          </tr></thead>
+          <tbody id="failTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Key Metrics</span></div>
+      <div class="out-body"><div class="stats-grid" id="statsGrid"></div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Improvement Trajectory to 98% (Jul&ndash;Sep 2027)</span></div>
+      <div class="out-body"><div id="trajBlock"></div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Remediation Priority Order</span></div>
+      <div class="out-body"><div class="remed-list" id="remedList"></div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Peer Benchmark Context</span></div>
+      <div class="out-body"><div class="peer-grid" id="peerGrid"></div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header">
+        <span class="out-title">Markdown Report</span>
+        <button class="copy-btn" onclick="copyMemo()">Copy</button>
+      </div>
+      <div class="out-body" style="padding:.75rem"><div class="memo-block" id="memoBlock"></div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Regulatory Citations</span></div>
+      <div class="out-body">
+        <div class="cit-list">
+          <div class="cit-item"><span class="cit-num">[1]</span>UK AST Code of Conduct (2025) &mdash; Settlement Efficiency Rate target of &#8805;98% by value for the Jul&ndash;Sep 2027 measurement period.</div>
+          <div class="cit-item"><span class="cit-num">[2]</span>Finadium (2025) &mdash; Industry reaction to the AST settlement efficiency rate target; analysis of SER measurement methodology and peer dispersion.</div>
+          <div class="cit-item"><span class="cit-num">[3]</span>CSDR Art.7 (EU 909/2014) &mdash; Settlement discipline framework; basis for cash penalty regime on settlement fails in EEA CCPs and CSDs.</div>
+          <div class="cit-item"><span class="cit-num">[4]</span>FCA T+1 Regulatory Expectations (January 2026) &mdash; Shortened settlement cycle requirements and operational readiness for UK equities markets.</div>
+          <div class="cit-item"><span class="cit-num">[5]</span>Euroclear T+1 Operational Readiness Framework (2025) &mdash; Infrastructure standards and SER measurement conventions for CSD participants.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="results-export-row">
+      <button id="mdExportBtn" onclick="exportMD()" disabled title="Run the analysis above to export Markdown">&#8595; Export Markdown</button>
+      <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the analysis above to generate a Policy Mandate">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API &middot; audit trail</span></button>
+    </div>
+
+  </div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()">
+        <span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span>
+        <span id="mfstArr" style="color:var(--muted)">&#9660;</span>
+      </button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../guides/capital-markets-settlement-hub.html">Settlement Hub</a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 &middot; Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =================================================================
+   T370 Settlement Efficiency Rate Calculator & AST Benchmark
+   Formula: SER = (value_settled_on_ISD / total_value_due) * 100
+   UK AST Target: >= 98% by value (measurement window Jul-Sep 2027)
+   Version: 1.0.0 | Post Oak Labs | CC BY 4.0
+================================================================= */
+
+var PEER_DATA = {
+  asset_manager:  { range:'96-97%',     typical:96.5, note:'Asset managers typically operate near 96-97% SER; allocation confirmation latency and fund dealing timelines are the primary drag.' },
+  broker_dealer:  { range:'97-98%',     typical:97.3, note:'Broker-dealers show 97-98%; counterparty and cash funding fails dominate their gap to the AST target.' },
+  custodian:      { range:'98-99%',     typical:98.5, note:'Custodians benchmark at 98-99%; they benefit from pre-matching infrastructure, CSD membership and internalised settlement.' },
+  csd_member:     { range:'98.5-99.5%', typical:99.0, note:'CSD members sit at the higher end; direct CSD access reduces relay latency and partial settlement drag.' },
+  other:          { range:'95-98%',     typical:96.8, note:'Varies significantly by entity type and asset class mix. Benchmark against your closest peer category.' }
+};
+
+var FAIL_CAUSES = [
+  { id:'alloc', label:'Allocation / Confirmation',
+    remediation:'Automate allocation workflows via SWIFT ISO 20022 pre-matching. Move to same-day confirmations. Integrate custodian central matching platforms (DTCC CTM, SWIFT Accord). Enrich SSI databases to eliminate manual SSI lookups.',
+    levers:['Same-day allocation automation','Central matching adoption','SSI database enrichment'] },
+  { id:'sec', label:'Securities Unavailable / Short Position',
+    remediation:'Implement automated securities lending recall triggers before ISD. Strengthen pre-settlement inventory monitoring with real-time position feeds. Use auto-borrow and securities financing where permitted under your entity type.',
+    levers:['Pre-settlement inventory checks','Auto-borrow/lending integration','Short position alert rules'] },
+  { id:'cash', label:'Cash / Funding Fails',
+    remediation:'Implement intraday liquidity management dashboards with fail prediction. Strengthen RTGS/DVP cash pre-funding buffers. Automate cash recall from money-market positions ahead of settlement windows.',
+    levers:['Intraday liquidity dashboards','DVP pre-funding buffers','Cash recall automation'] },
+  { id:'tech', label:'Technical / System Fails',
+    remediation:'Conduct settlement system resilience review aligned to DORA Article 11. Implement automated fail retry logic with STP escalation paths. Ensure CSD connectivity SLAs include fail-prevention guarantees and failover coverage.',
+    levers:['DORA-aligned resilience testing','STP retry automation','CSD connectivity SLA review'] },
+  { id:'cp', label:'Counterparty Fails',
+    remediation:'Escalate repeat-fail counterparties to bilateral buy-in or enhanced pre-matching agreements. Flag counterparties under CSDR Art.7 cash penalty tracking. Consider post-settlement netting optimisation to reduce gross exposure.',
+    levers:['Buy-in eligibility monitoring','CSDR Art.7 penalty tracking','Bilateral pre-matching SLAs'] },
+  { id:'other', label:'Other Fails',
+    remediation:'Categorise and analyse "other" fails over 3 rolling periods to identify systemic sub-causes. Standard remediation: dedicated manual review queue, daily operations stand-up with fail drill-down, root-cause classification target of 95%.',
+    levers:['Fail root-cause analysis','Daily ops review cadence','Manual queue prioritisation'] }
+];
+
+var _lastResult = null;
+
+/* ── MAIN CALCULATION ── */
+function runSER() {
+  clearErrors();
+
+  var intended = parseFloat(document.getElementById('totalIntended').value);
+  var settled  = parseFloat(document.getElementById('totalSettled').value);
+  var allocC = parseInt(document.getElementById('allocFails').value)  || 0;
+  var secC   = parseInt(document.getElementById('secFails').value)    || 0;
+  var cashC  = parseInt(document.getElementById('cashFails').value)   || 0;
+  var techC  = parseInt(document.getElementById('techFails').value)   || 0;
+  var cpC    = parseInt(document.getElementById('cpFails').value)     || 0;
+  var otherC = parseInt(document.getElementById('otherFails').value)  || 0;
+  var avgFV  = parseFloat(document.getElementById('avgFailValue').value) || 0;
+  var assetClass  = document.getElementById('assetClass').value;
+  var peerGroup   = document.getElementById('peerGroup').value;
+  var measPeriod  = document.getElementById('measurePeriod').value;
+
+  /* Validation */
+  var valid = true;
+  if (isNaN(intended) || intended <= 0) { showErr('totalIntended','Required: total value due to settle (> 0).'); valid = false; }
+  if (isNaN(settled) || settled < 0)    { showErr('totalSettled','Required: value settled on ISD (>= 0).'); valid = false; }
+  if (!isNaN(intended) && !isNaN(settled) && settled > intended) { showErr('totalSettled','Settled value cannot exceed total intended value.'); valid = false; }
+  if (!valid) { showToast('Please fix the highlighted inputs.'); return; }
+
+  /* SER formula: (settled / intended) * 100 */
+  var ser = (settled / intended) * 100;
+  var failedValue = intended - settled;
+  var gap = 98 - ser;
+
+  /* Fail breakdown */
+  var totalCounts = allocC + secC + cashC + techC + cpC + otherC;
+  var hasFails = totalCounts > 0 && avgFV > 0;
+  var failBreakdown = [];
+
+  if (hasFails) {
+    var counts = [allocC, secC, cashC, techC, cpC, otherC];
+    FAIL_CAUSES.forEach(function(fc, i) {
+      var cnt = counts[i];
+      if (cnt === 0) return;
+      var pct = (cnt / totalCounts) * 100;
+      var failVal = cnt * avgFV / 1000; /* EUR k -> EUR M */
+      var serImpact = (failVal / intended) * 100;
+      var shareOfGap = gap > 0 ? Math.min((serImpact / Math.max(gap, 0.0001)) * 100, 100) : 0;
+      failBreakdown.push({ id:fc.id, label:fc.label, count:cnt, failVal:failVal, pct:pct, serImpact:serImpact, shareOfGap:shareOfGap });
+    });
+    failBreakdown.sort(function(a,b){ return b.serImpact - a.serImpact; });
+  }
+
+  /* Trajectory: Jun 2026 -> Jul 2027 = ~13 months */
+  var MONTHS = 13;
+  var monthlyImp = gap > 0 ? gap / MONTHS : 0;
+  var waypoints  = ['Q3 2026','Q4 2026','Q1 2027','Q2 2027','Jul-Sep 2027'];
+  var wpMonths   = [3, 6, 9, 12, 13];
+  var trajSteps  = waypoints.map(function(label, i) {
+    return { label:label, ser:Math.min(ser + monthlyImp * wpMonths[i], 100) };
+  });
+
+  /* Remediation priority */
+  var remedPriority;
+  if (failBreakdown.length > 0) {
+    remedPriority = failBreakdown.map(function(fb) {
+      var fc = FAIL_CAUSES.find(function(f){ return f.id === fb.id; });
+      return { label:fb.label, remediation:fc.remediation, levers:fc.levers, impact:fb.serImpact, shareOfGap:fb.shareOfGap };
+    });
+  } else {
+    var defaultOrder = ['sec','cash','alloc','cp','tech','other'];
+    remedPriority = defaultOrder.map(function(id) {
+      var fc = FAIL_CAUSES.find(function(f){ return f.id === id; });
+      return { label:fc.label, remediation:fc.remediation, levers:fc.levers, impact:null, shareOfGap:null };
+    });
+  }
+
+  var peer = PEER_DATA[peerGroup];
+  var allPeers = Object.keys(PEER_DATA).map(function(k) {
+    return { key:k, label:k.replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}), data:PEER_DATA[k], isYou:k===peerGroup };
+  });
+
+  var periodLabel = {current_month:'Current Month',last_quarter:'Last Quarter',trailing_6m:'Trailing 6 Months',jul_sep_2027:'Estimated Jul-Sep 2027'}[measPeriod];
+  var peerLabel   = {asset_manager:'Asset Manager',broker_dealer:'Broker-Dealer',custodian:'Custodian',csd_member:'CSD Member',other:'Other'}[peerGroup];
+  var acLabel     = {equities:'Equities Only',mixed:'Mixed Equities & Bonds',fixed_income:'Fixed Income Only',multi_asset:'Multi-Asset'}[assetClass];
+  var memo        = buildMemo(ser, gap, intended, settled, failedValue, failBreakdown, monthlyImp, trajSteps, remedPriority, peer, peerLabel, acLabel, periodLabel);
+
+  _lastResult = { ser_pct:Math.round(ser*100)/100, gap_to_target:Math.round(gap*100)/100, intended_value_m:intended, settled_value_m:settled, failed_value_m:Math.round(failedValue*100)/100, monthly_improvement_needed_pp:Math.round(monthlyImp*100)/100, fail_breakdown:failBreakdown, remediation_priority:remedPriority, peer_context:peer.note, asset_class:assetClass, peer_group:peerGroup, measurement_period:measPeriod, ast_target_pct:98, memo:memo };
+
+  renderSERHero(ser, gap, intended, settled);
+  if (failBreakdown.length > 0) { renderFailTable(failBreakdown); document.getElementById('failBreakdownSection').style.display=''; }
+  else { document.getElementById('failBreakdownSection').style.display='none'; }
+  renderStats(ser, gap, failedValue, monthlyImp, totalCounts, intended);
+  renderTrajectory(ser, trajSteps, gap, monthlyImp);
+  renderRemediation(remedPriority);
+  renderPeerContext(allPeers, ser);
+  document.getElementById('memoBlock').textContent = memo;
+  window._memo = memo;
+
+  document.getElementById('resultsPanel').classList.add('visible');
+  var ap2Btn = document.getElementById('ap2ExportBtn');
+  var mdBtn  = document.getElementById('mdExportBtn');
+  if (ap2Btn) { ap2Btn.disabled = false; ap2Btn.classList.add('ready'); }
+  if (mdBtn)  { mdBtn.disabled = false;  mdBtn.classList.add('ready'); }
+  document.getElementById('resultsPanel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+/* ── RENDER FUNCTIONS ── */
+
+function renderSERHero(ser, gap, intended, settled) {
+  var cls = ser >= 98 ? 'above-target' : ser >= 96 ? 'near-target' : 'below-target';
+  var gapCls = gap <= 0 ? 'good' : gap <= 2 ? 'warn' : 'bad';
+  var gapText = gap <= 0 ? '&#10003; Above AST Target' : 'Gap to 98%: ' + Math.abs(gap).toFixed(2) + ' pp';
+  var barW = ((Math.min(Math.max(ser,80),100) - 80) / 20 * 100).toFixed(1);
+  var markerPct = ((98 - 80) / 20 * 100).toFixed(1);
+  var barCol = ser >= 98 ? 'var(--green)' : ser >= 96 ? 'var(--warn)' : 'var(--red)';
+  document.getElementById('serHero').innerHTML =
+    '<div class="ser-main">' +
+      '<div class="ser-label">Current SER (Settlement Efficiency Rate)</div>' +
+      '<div class="ser-value ' + cls + '">' + ser.toFixed(2) + '%</div>' +
+      '<div class="ser-sub">Settled: &euro;' + settled.toLocaleString(undefined,{maximumFractionDigits:2}) + 'M &nbsp;/&nbsp; Due: &euro;' + intended.toLocaleString(undefined,{maximumFractionDigits:2}) + 'M</div>' +
+    '</div>' +
+    '<div class="ser-target-bar">' +
+      '<div class="target-bar-label"><span>80%</span><span style="color:var(--teal)">UK AST Target: 98%</span><span>100%</span></div>' +
+      '<div class="target-bar-outer">' +
+        '<div class="target-bar-inner" style="width:' + barW + '%;background:' + barCol + '"></div>' +
+        '<div class="target-bar-marker" style="left:' + markerPct + '%"><div class="target-bar-marker-label">98%</div></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="ser-gap-col">' +
+      '<div class="ser-gap-pill ' + gapCls + '">' + gapText + '</div>' +
+      (gap > 0 ? '<div class="ser-gap-pill warn">Monthly gain needed: ' + (gap/13).toFixed(3) + ' pp/mo</div>' : '') +
+    '</div>';
+}
+
+function renderFailTable(breakdown) {
+  var maxImpact = Math.max.apply(null, breakdown.map(function(b){ return b.serImpact; }));
+  var rows = breakdown.map(function(fb, i) {
+    var bw = maxImpact > 0 ? (fb.serImpact / maxImpact * 100).toFixed(1) : 0;
+    var bc = i===0?'var(--red)':i===1?'var(--warn)':'var(--teal)';
+    return '<tr class="' + (i===0?'top-cause':'') + '">' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--bright)">' + (i===0?'<span class="rank-badge">#1 Cause</span> ':'') + fb.label + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem">' + fb.count.toLocaleString() + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem">&euro;' + fb.failVal.toFixed(2) + 'M</td>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem">' + fb.pct.toFixed(1) + '%</td>' +
+      '<td><div class="bar-cell"><div class="bar-outer"><div class="bar-inner" style="width:' + bw + '%;background:' + bc + '"></div></div><span style="font-family:\'JetBrains Mono\',monospace;font-size:.62rem;color:' + bc + '">' + fb.serImpact.toFixed(3) + ' pp</span></div></td>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:' + (i===0?'var(--red)':'var(--text)') + '">' + fb.shareOfGap.toFixed(1) + '%</td>' +
+      '</tr>';
+  }).join('');
+  document.getElementById('failTableBody').innerHTML = rows;
+}
+
+function renderStats(ser, gap, failedValue, monthlyImp, totalCounts, intended) {
+  var failRate = (failedValue / intended) * 100;
+  var cards = [
+    { label:'SER vs AST Target', value: gap<=0?'On target':(gap.toFixed(2)+' pp below'), sub:'UK AST threshold: &ge;98%', col: gap<=0?'var(--green)':gap<=2?'var(--warn)':'var(--red)' },
+    { label:'Failed Value', value:'&euro;'+failedValue.toFixed(2)+'M', sub:'Estimated failed settlement value', col:'var(--bright)' },
+    { label:'Fail Rate (by value)', value:failRate.toFixed(3)+'%', sub:'Complement of SER', col:failRate<2?'var(--teal)':failRate<4?'var(--warn)':'var(--red)' },
+    { label:'Monthly Gain Required', value:gap>0?(monthlyImp.toFixed(3)+' pp/mo'):'None', sub:'To reach 98% by Jul 2027 (13 months)', col:gap<=0?'var(--green)':'var(--warn)' },
+    { label:'Total Fail Count', value:totalCounts>0?totalCounts.toLocaleString():'N/A', sub:'From Panel 02 (if entered)', col:'var(--bright)' },
+    { label:'AST Measurement Window', value:'Jul&ndash;Sep 2027', sub:'UK AST Code of Conduct, 2025 [1]', col:'var(--teal)' }
+  ];
+  document.getElementById('statsGrid').innerHTML = cards.map(function(c) {
+    return '<div class="stat-card"><div class="stat-card-label">' + c.label + '</div><div class="stat-card-value" style="color:' + c.col + '">' + c.value + '</div><div class="stat-card-sub">' + c.sub + '</div></div>';
+  }).join('');
+}
+
+function renderTrajectory(ser, steps, gap, monthlyImp) {
+  if (gap <= 0) {
+    document.getElementById('trajBlock').innerHTML = '<div style="font-family:\'JetBrains Mono\',monospace;font-size:.68rem;color:var(--green);padding:.5rem 0">&#10003; Your current SER (' + ser.toFixed(2) + '%) already meets or exceeds the UK AST 98% target. Maintain current controls and monitor through the Jul&ndash;Sep 2027 measurement window.</div>';
+    return;
+  }
+  var stepHTML = steps.map(function(s) {
+    var bw = Math.min(Math.max((s.ser-80)/20*100,0),100).toFixed(1);
+    var col = s.ser>=98?'var(--green)':s.ser>=96?'var(--warn)':'var(--red)';
+    return '<div class="traj-step"><span class="traj-step-date">' + s.label + '</span><div class="traj-step-bar"><div class="traj-step-fill" style="width:' + bw + '%;background:' + col + '"></div></div><span class="traj-step-val" style="color:' + col + '">' + s.ser.toFixed(2) + '%' + (s.ser>=98?' &#10003;':'') + '</span></div>';
+  }).join('');
+  document.getElementById('trajBlock').innerHTML =
+    '<div class="traj-block"><div class="traj-title">Linear improvement path &mdash; ' + monthlyImp.toFixed(3) + ' pp/month required</div><div class="traj-steps">' + stepHTML + '</div></div>' +
+    '<div style="font-family:\'JetBrains Mono\',monospace;font-size:.56rem;color:var(--muted);margin-top:.75rem;line-height:1.6">Trajectory assumes uniform monthly improvement. Actual progress may front-load via quick wins (STP automation, SSI enrichment) or lag due to counterparty coordination. Quarterly milestone reviews recommended.</div>';
+}
+
+function renderRemediation(priority) {
+  document.getElementById('remedList').innerHTML = priority.map(function(item, i) {
+    var impStr = item.impact !== null ? ' &mdash; SER impact: ' + item.impact.toFixed(3) + ' pp (' + item.shareOfGap.toFixed(1) + '% of gap)' : '';
+    return '<div class="remed-item"><div class="remed-rank">' + (i+1) + '.</div><div class="remed-content"><div class="remed-cause">' + item.label + '</div><div class="remed-action">' + item.remediation + '</div><div class="remed-impact">' + item.levers.map(function(l){return '&rarr; '+l;}).join(' &middot; ') + impStr + '</div></div></div>';
+  }).join('');
+}
+
+function renderPeerContext(allPeers, ser) {
+  document.getElementById('peerGrid').innerHTML = allPeers.map(function(p) {
+    var cls = p.isYou ? 'peer-card peer-you' : 'peer-card';
+    var marker = p.isYou ? ' <span style="font-size:.42rem;color:var(--teal);font-family:\'JetBrains Mono\',monospace"> &larr; You: ' + ser.toFixed(2) + '%</span>' : '';
+    return '<div class="' + cls + '"><div class="peer-type">' + p.label + (p.isYou?' (Your Group)':'') + '</div><div class="peer-range">' + p.data.range + marker + '</div><div class="peer-note">' + p.data.note + '</div></div>';
+  }).join('');
+}
+
+function buildMemo(ser, gap, intended, settled, failedValue, failBreakdown, monthlyImp, trajSteps, remedPriority, peer, peerLabel, acLabel, periodLabel) {
+  var ts = new Date().toISOString().slice(0,10);
+  var lines = [
+    '# Settlement Efficiency Rate (SER) Assessment',
+    '',
+    '**Generated:** ' + ts,
+    '**Tool:** AINumbers.co T370 - Settlement Efficiency Rate Calculator & AST Benchmark',
+    '**Framework:** UK AST Code of Conduct (2025) - SER target >=98% by Jul-Sep 2027',
+    '**Period:** ' + periodLabel,
+    '**Asset Class:** ' + acLabel,
+    '**Peer Group:** ' + peerLabel,
+    '',
+    '---',
+    '',
+    '## 1. Settlement Efficiency Rate',
+    '',
+    '| Metric | Value |',
+    '|--------|-------|',
+    '| SER (current) | **' + ser.toFixed(2) + '%** |',
+    '| Total value due to settle | EUR ' + intended.toFixed(2) + 'M |',
+    '| Total settled on ISD | EUR ' + settled.toFixed(2) + 'M |',
+    '| Failed value | EUR ' + failedValue.toFixed(2) + 'M |',
+    '| UK AST target | >=98% |',
+    '| Gap to target | ' + (gap > 0 ? gap.toFixed(2) + ' pp below' : 'None - on/above target') + ' |',
+    '| Monthly improvement needed | ' + (gap > 0 ? monthlyImp.toFixed(3) + ' pp/month (to Jul 2027)' : 'N/A - already meeting target') + ' |',
+    '',
+    '---',
+    '',
+    '## 2. Improvement Trajectory'
+  ];
+  if (gap <= 0) {
+    lines.push('');
+    lines.push('Current SER meets the UK AST >=98% target. Maintain current settlement controls through the Jul-Sep 2027 measurement window.');
+  } else {
+    lines.push('');
+    lines.push('Required linear path to Jul-Sep 2027 measurement window:');
+    lines.push('');
+    trajSteps.forEach(function(s) { lines.push('- **' + s.label + ':** ' + s.ser.toFixed(2) + '%' + (s.ser>=98?' (target met)':'')); });
+  }
+  lines.push('');
+  lines.push('---');
+  lines.push('');
+  if (failBreakdown.length > 0) {
+    lines.push('## 3. Fail Cause Breakdown');
+    lines.push('');
+    lines.push('| Rank | Cause | Count | Value (EUR M) | SER Impact (pp) | Share of Gap |');
+    lines.push('|------|-------|-------|--------------|-----------------|--------------|');
+    failBreakdown.forEach(function(fb, i) { lines.push('| ' + (i+1) + ' | ' + fb.label + ' | ' + fb.count + ' | ' + fb.failVal.toFixed(2) + ' | ' + fb.serImpact.toFixed(3) + ' | ' + fb.shareOfGap.toFixed(1) + '% |'); });
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+  }
+  var sec = failBreakdown.length > 0 ? '4' : '3';
+  lines.push('## ' + sec + '. Remediation Priority Order');
+  lines.push('');
+  remedPriority.forEach(function(r, i) {
+    lines.push('### ' + (i+1) + '. ' + r.label);
+    lines.push('');
+    lines.push(r.remediation);
+    lines.push('');
+    lines.push('**Key levers:** ' + r.levers.join(' | '));
+    if (r.impact !== null) { lines.push('**Estimated SER impact if resolved:** ' + r.impact.toFixed(3) + ' pp'); }
+    lines.push('');
+  });
+  lines.push('---');
+  lines.push('');
+  lines.push('## ' + (parseInt(sec)+1) + '. Peer Context (' + peerLabel + ')');
+  lines.push('');
+  lines.push('- **Peer group SER range:** ' + peer.range);
+  lines.push('- **Your current SER:** ' + ser.toFixed(2) + '%');
+  lines.push('- ' + peer.note);
+  lines.push('');
+  lines.push('---');
+  lines.push('');
+  lines.push('## Regulatory Citations');
+  lines.push('');
+  lines.push('[1] UK AST Code of Conduct (2025) - SER target >=98% by value, Jul-Sep 2027 measurement window.');
+  lines.push('[2] Finadium (2025) - Industry analysis of AST SER target methodology and peer dispersion.');
+  lines.push('[3] CSDR Art.7 (EU 909/2014) - Settlement discipline framework; cash penalty regime for settlement fails.');
+  lines.push('[4] FCA T+1 Regulatory Expectations (January 2026) - Shortened settlement cycle requirements.');
+  lines.push('[5] Euroclear T+1 Operational Readiness Framework (2025) - CSD infrastructure SER standards.');
+  lines.push('');
+  lines.push('---');
+  lines.push('*Generated by AINumbers.co T370 | Deterministic | Zero PII | CC BY 4.0 | Post Oak Labs*');
+  return lines.join('\n');
+}
+
+/* ── UTILITIES ── */
+function showErr(id, msg) {
+  var el = document.getElementById(id);
+  if (el) el.classList.add('field-error');
+  var p = el && el.closest('.field');
+  if (p && !p.querySelector('.err-msg')) { var s=document.createElement('span'); s.className='err-msg'; s.textContent=msg; p.appendChild(s); }
+}
+function clearErrors() {
+  document.querySelectorAll('.field-error').forEach(function(e){e.classList.remove('field-error');});
+  document.querySelectorAll('.err-msg').forEach(function(e){e.remove();});
+}
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 3500);
+}
+function resetTool() {
+  ['totalIntended','totalSettled','allocFails','secFails','cashFails','techFails','cpFails','otherFails','avgFailValue'].forEach(function(id){ var e=document.getElementById(id); if(e)e.value=''; });
+  clearErrors(); _lastResult = null;
+  document.getElementById('resultsPanel').classList.remove('visible');
+  var a=document.getElementById('ap2ExportBtn'), m=document.getElementById('mdExportBtn');
+  if(a){a.disabled=true;a.classList.remove('ready');} if(m){m.disabled=true;m.classList.remove('ready');}
+}
+function copyMemo() {
+  if (window._memo) { navigator.clipboard.writeText(window._memo).then(function(){ var b=document.querySelector('.copy-btn'); if(b){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},2000);} }); }
+}
+function exportMD() {
+  if (!window._memo) { showToast('Run the analysis first.'); return; }
+  var ts = new Date().toISOString().replace(/[:.TZ-]/g,'').slice(0,14);
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([window._memo],{type:'text/markdown'}));
+  a.download = 'settlement-efficiency-rate-calculator_' + ts + '.md';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* ── AP2 POLICY MANDATE EXPORT ── */
+var AP2Schema = {
+  validate: function(m) {
+    if (!m||typeof m!=='object') throw new Error('AP2Schema: mandate must be an object');
+    if (typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string') throw new Error('AP2Schema: missing identity field');
+    if (typeof m.mandate_type!=='string'||!m.mandate_type) throw new Error('AP2Schema: missing mandate_type');
+    if ('jurisdiction' in m&&!Array.isArray(m.jurisdiction)) throw new Error('AP2Schema: jurisdiction must be array');
+    return true;
+  }
+};
+function uuidv4() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){ var r=Math.random()*16|0,v=c==='x'?r:(r&0x3|0x8); return v.toString(16); });
+}
+function exportAP2() {
+  if (!_lastResult) { showToast('Run the analysis above to generate a Policy Mandate.'); return; }
+  var ts = new Date().toISOString();
+  var tid = 'settlement-efficiency-rate-calculator';
+  var inputs = {};
+  ['totalIntended','totalSettled','allocFails','secFails','cashFails','techFails','cpFails','otherFails','avgFailValue','assetClass','peerGroup','measurePeriod'].forEach(function(id){ var e=document.getElementById(id); if(e&&e.value) inputs[id]=e.value; });
+  var mandate = {
+    ap2_version:'1.0', mandate_id:uuidv4(), issued_at:ts, issued_by:'ainumbers.co',
+    tool_id:tid, tool_version:'1.0.0', mandate_type:'compliance_control',
+    jurisdiction:['GB'],
+    regulatory_frameworks:['UK AST Code of Conduct (2025)','CSDR Article 7 (EU 909/2014)','FCA T+1 Regulatory Expectations (2026)','Euroclear T+1 Operational Readiness Framework (2025)'],
+    payload:{
+      ser_pct:_lastResult.ser_pct,
+      gap_to_target_pp:_lastResult.gap_to_target,
+      intended_value_m:_lastResult.intended_value_m,
+      settled_value_m:_lastResult.settled_value_m,
+      failed_value_m:_lastResult.failed_value_m,
+      ast_target_pct:98,
+      monthly_improvement_needed_pp:_lastResult.monthly_improvement_needed_pp,
+      asset_class:_lastResult.asset_class,
+      peer_group:_lastResult.peer_group,
+      measurement_period:_lastResult.measurement_period,
+      fail_count_by_cause:_lastResult.fail_breakdown.map(function(f){return{cause:f.label,count:f.count,ser_impact_pp:f.serImpact};}),
+      top_remediation_action:_lastResult.remediation_priority.length>0?_lastResult.remediation_priority[0].label:'N/A'
+    },
+    summary:'SER of ' + _lastResult.ser_pct + '% assessed against UK AST >=98% target. Gap: ' + _lastResult.gap_to_target + ' pp. Monthly improvement needed: ' + _lastResult.monthly_improvement_needed_pp + ' pp/month to Jul-Sep 2027 window.',
+    agent_instructions:[
+      'Verify current SER against the UK AST Code of Conduct >=98% target for Jul-Sep 2027.',
+      'Prioritise remediation actions in the order listed under payload.fail_count_by_cause.',
+      'Implement monthly milestone reviews tracking pp improvement vs linear trajectory.',
+      'Monitor CSDR Art.7 cash penalty exposure for settlement fails exceeding thresholds.',
+      'Engage CSD and custodian partners on pre-matching and STP automation readiness.'
+    ],
+    valid_from:ts.slice(0,10), valid_until:'2027-09-30', last_reviewed:ts.slice(0,10),
+    source_tool_inputs:inputs,
+    regulatory_citations:['UK AST Code of Conduct (2025) - SER >=98% by value, Jul-Sep 2027','Finadium (2025) - AST SER target analysis','CSDR Art.7 (EU 909/2014) - Settlement discipline/penalty regime','FCA T+1 Regulatory Expectations (January 2026)','Euroclear T+1 Operational Readiness Framework (2025)'],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  try { AP2Schema.validate(mandate); } catch(e) { showToast('Policy Mandate validation failed: ' + e.message); return; }
+  var json = JSON.stringify(mandate,null,2);
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download = tid + '_' + ts.replace(/[:.TZ-]/g,'').slice(0,14) + '.policy.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* ── MANIFEST + TOGGLE ── */
+var MANIFEST = {
+  tool_id:'settlement-efficiency-rate-calculator', version:'1.0.0',
+  title:'Settlement Efficiency Rate Calculator & AST Benchmark',
+  description:'Calculates a firm SER by fail cause, benchmarks against UK AST >=98% target (Jul-Sep 2027), outputs improvement trajectory and remediation priority order. Client-side. Zero PII.',
+  category:'cat-23',
+  tags:['settlement','SER','AST','T+1','CSDR','settlement discipline','capital markets','fail rate'],
+  audience:['operations','compliance','risk','treasury','settlements'],
+  input_schema:{type:'object',properties:{total_intended_value:{type:'number'},total_settled_value:{type:'number'},alloc_fails:{type:'integer'},securities_fails:{type:'integer'},cash_fails:{type:'integer'},technical_fails:{type:'integer'},counterparty_fails:{type:'integer'},other_fails:{type:'integer'},avg_fail_value_k:{type:'number'},asset_class:{type:'string'},peer_group:{type:'string'},measurement_period:{type:'string'}},required:['total_intended_value','total_settled_value']},
+  output_schema:{type:'object',properties:{ser_pct:{type:'number'},gap_to_target:{type:'number'},fail_breakdown:{type:'array'},monthly_improvement_needed:{type:'number'},remediation_priority:{type:'array'},peer_context:{type:'string'}}},
+  mcp_tool_definition:{name:'calculate_settlement_efficiency_rate',description:'Calculates SER by fail cause, benchmarks against UK AST 98% target and outputs improvement trajectory and remediation priorities.',inputSchema:{type:'object',properties:{total_intended_value:{type:'number',description:'Total value due to settle (in millions)'},total_settled_value:{type:'number',description:'Total value settled on ISD (in millions)'}},required:['total_intended_value','total_settled_value']}},
+  execution:{type:'browser-javascript',entry:'tools/370-settlement-efficiency-rate-calculator.html',function_name:'runSER',timeout_ms:3000},
+  ap2_export:true
+};
+function toggleMfst() {
+  var b=document.getElementById('mfstBody'), a=document.getElementById('mfstArr');
+  if (!b.style.display||b.style.display==='none') { b.style.display='block'; if(a)a.textContent='&#9650;'; document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2); }
+  else { b.style.display='none'; if(a)a.textContent='&#9660;'; }
+}
+
+/* ── i18n ── */
+var TRANSLATIONS = {
+  en:{'pii.banner':'&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data - use synthetic or anonymised inputs only.','footer.alltools':'All Tools','footer.cc':'CC BY 4.0 - Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Sitemap','footer.privacy':'&#128274; Zero PII   &#128225; No server calls   &#128187; Client-side'},
+  es:{'pii.banner':'&#128274; Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No introduzca datos personales reales - utilice entradas sinteticas o anonimizadas unicamente.','footer.alltools':'Todas las Herramientas','footer.cc':'CC BY 4.0 - Post Oak Labs','footer.contact':'Contacto','footer.sitemap':'Mapa del Sitio','footer.privacy':'&#128274; Sin PII   &#128225; Sin llamadas al servidor   &#128187; Cliente'},
+  fr:{'pii.banner':'&#128274; Toutes les entrees sont traitees localement dans votre navigateur. Aucune donnee n\'est transmise. N\'entrez pas de donnees personnelles reelles - utilisez uniquement des entrees synthetiques ou anonymisees.','footer.alltools':'Tous les Outils','footer.cc':'CC BY 4.0 - Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Plan du Site','footer.privacy':'&#128274; Aucune PII   &#128225; Aucun appel serveur   &#128187; Cote client'},
+  ar:{'pii.banner':'&#128274; جميع المدخلات تعالج محليا في متصفحك. لا تنقل اي بيانات. لا تدخل بيانات شخصية حقيقية.','footer.alltools':'جميع الادوات','footer.cc':'CC BY 4.0 - Post Oak Labs','footer.contact':'اتصل','footer.sitemap':'خريطة الموقع','footer.privacy':'&#128274; لا بيانات شخصية   &#128225; لا استدعاءات للخادم   &#128187; على المتصفح',lang_dir:'rtl'},
+  pt:{'pii.banner':'&#128274; Todas as entradas sao processadas localmente no seu navegador. Nenhum dado e transmitido. Nao insira dados pessoais reais - utilize apenas entradas sinteticas ou anonimizadas.','footer.alltools':'Todas as Ferramentas','footer.cc':'CC BY 4.0 - Post Oak Labs','footer.contact':'Contato','footer.sitemap':'Mapa do Site','footer.privacy':'&#128274; Sem PII   &#128225; Sem chamadas ao servidor   &#128187; Client-side'},
+  zh:{'pii.banner':'&#128274; 所有输入均在您的浏览器中本地处理。不传输任何数据。请勿输入真实个人数据。','footer.alltools':'所有工具','footer.cc':'CC BY 4.0 - Post Oak Labs','footer.contact':'联系','footer.sitemap':'网站地图','footer.privacy':'&#128274; 零个人数据   &#128225; 无服务器调用   &#128187; 纯客户端'}
+};
+function setLang(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  var dict = TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){ var k=el.getAttribute('data-i18n'); if(dict[k])el.innerHTML=dict[k]; });
+  document.querySelectorAll('.lang-btn').forEach(function(b){b.classList.remove('active');});
+  var act = document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if (act) act.classList.add('active');
+  document.documentElement.setAttribute('dir', dict.lang_dir==='rtl'?'rtl':'ltr');
+  document.documentElement.setAttribute('lang', lang);
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function(){ try { var s=sessionStorage.getItem('ain_lang'); if(s) setLang(s); } catch(e){} })();
+</script>
+</body>
+</html>

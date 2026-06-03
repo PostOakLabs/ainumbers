@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>Buy-In Scope Classifier &amp; Cost vs. Penalty Estimator · AINumbers.co</title>
+<meta name="description" content="CSDR Art.7 buy-in scope classifier: determines trigger status, calculates cumulative cash penalties, estimates buy-in execution cost, and recommends accept-penalty vs execute buy-in. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/372-buyin-scope-classifier-cost-penalty-estimator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Buy-In Scope Classifier & Cost vs. Penalty Estimator","url":"https://ainumbers.co/tools/372-buyin-scope-classifier-cost-penalty-estimator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "buyin-scope-classifier-cost-penalty-estimator",
+  "version": "1.0.0",
+  "title": "Buy-In Scope Classifier & Cost vs. Penalty Estimator",
+  "description": "Classifies whether an instrument is in CSDR mandatory buy-in scope, calculates the buy-in trigger date, estimates cumulative cash penalties, models buy-in execution cost, and recommends accept-penalty vs execute buy-in with break-even day analysis.",
+  "category": "cat-23",
+  "tags": ["CSDR","buy-in","settlement discipline","settlement failure","penalty","capital markets","equities","bonds"],
+  "audience": ["settlements","compliance","operations","risk"],
+  "input_schema": {"type":"object","properties":{"instrument_type":{"type":"string"},"reference_price":{"type":"number"},"quantity_failed":{"type":"number"},"fail_duration_days":{"type":"integer"},"bid_offer_spread_bp":{"type":"number"},"agent_fee_bp":{"type":"number"},"market_liquidity":{"type":"string"},"time_to_source":{"type":"string"}},"required":["instrument_type","reference_price","quantity_failed","fail_duration_days"]},
+  "output_schema": {"type":"object","properties":{"buyin_trigger_status":{"type":"string"},"days_until_trigger":{"type":"integer"},"cumulative_penalty_eur":{"type":"number"},"daily_penalty_eur":{"type":"number"},"buyin_execution_cost_eur":{"type":"number"},"recommendation":{"type":"string"},"breakeven_day":{"type":"integer"}}},
+  "mcp_tool_definition": {"name":"classify_buyin_scope_estimate_penalty","description":"Classifies CSDR mandatory buy-in scope, calculates penalty accrual, estimates buy-in execution cost, and recommends accept-penalty vs execute buy-in.","inputSchema":{"type":"object","properties":{"instrument_type":{"type":"string","enum":["liquid_equity","other_equity","etf","sovereign_bond","corporate_bond","sme_growth","other"]},"reference_price":{"type":"number","description":"Mid-price per unit in EUR"},"quantity_failed":{"type":"number","description":"Number of units failed to settle"},"fail_duration_days":{"type":"integer","description":"Business days already failed (1-60)"},"bid_offer_spread_bp":{"type":"number"},"agent_fee_bp":{"type":"number"}},"required":["instrument_type","reference_price","quantity_failed","fail_duration_days"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/372-buyin-scope-classifier-cost-penalty-estimator.html","function_name":"runAnalysis","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* LANG BAR */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+
+/* NAV */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+
+/* HERO */
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:700px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.75rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:.5rem}
+
+/* PII NOTICE */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+
+/* TOOL BODY */
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+
+/* PANELS */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-header{display:flex;align-items:center;gap:.65rem;margin-bottom:1rem;padding-bottom:.65rem;border-bottom:1px solid var(--border)}
+.panel-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.15rem .5rem;border-radius:3px}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.panel-row{display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-bottom:.75rem}
+.panel-row.row-3{grid-template-columns:1fr 1fr 1fr}
+.panel-row.row-1{grid-template-columns:1fr}
+@media(max-width:640px){.panel-row,.panel-row.row-3{grid-template-columns:1fr}}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem;display:block}
+.field-input,.field-select{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.4rem .65rem;border-radius:3px;outline:none;transition:border-color .2s;-webkit-appearance:none;appearance:none}
+.field-input:focus,.field-select:focus{border-color:var(--teal)}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.45rem;color:var(--muted);margin-top:.2rem;line-height:1.4}
+
+/* RUN BUTTON */
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.run-btn.ghost{background:var(--bg-3);color:var(--text);border:1px solid var(--border)}
+.run-btn.ghost:hover{border-color:var(--teal);color:var(--teal)}
+
+/* RESULTS PANEL */
+.results-panel{display:none;margin-top:1.5rem;flex-direction:column;gap:1rem}
+.results-panel.visible{display:flex}
+.res-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.res-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+.res-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.res-body{padding:1.25rem}
+
+/* STATUS CARD GRID */
+.status-card{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1rem}
+@media(max-width:700px){.status-card{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:420px){.status-card{grid-template-columns:1fr}}
+.stat-box{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center}
+.stat-box.hl-red{border-color:rgba(239,68,68,.4);background:var(--red-dim)}
+.stat-box.hl-warn{border-color:rgba(245,158,11,.4);background:var(--warn-dim)}
+.stat-box.hl-green{border-color:rgba(34,197,94,.4);background:var(--green-dim)}
+.stat-box.hl-teal{border-color:rgba(20,184,166,.4);background:var(--teal-dim)}
+.stat-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:1.05rem;font-weight:500;color:var(--bright);line-height:1.2}
+.stat-sub{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.2rem;line-height:1.4}
+
+/* TRIGGER BADGE */
+.trigger-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.65rem;font-weight:600;letter-spacing:.08em;padding:.35rem .9rem;border-radius:4px;text-transform:uppercase}
+.trigger-fired{background:rgba(239,68,68,.18);color:var(--red);border:1px solid rgba(239,68,68,.4)}
+.trigger-due{background:rgba(245,158,11,.18);color:var(--warn);border:1px solid rgba(245,158,11,.4)}
+.trigger-monitoring{background:rgba(20,184,166,.12);color:var(--teal);border:1px solid rgba(20,184,166,.3)}
+
+/* RECOMMENDATION */
+.rec-box{border-radius:var(--radius);padding:1rem 1.25rem;margin-top:.75rem}
+.rec-box.rec-penalty{background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.22);border-left:3px solid var(--green)}
+.rec-box.rec-buyin{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.22);border-left:3px solid var(--red)}
+.rec-title{font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.5rem;color:var(--bright)}
+.rec-rationale{font-size:.75rem;color:var(--body);line-height:1.75}
+
+/* COST TABLE */
+.cost-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.cost-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.cost-table td{padding:.45rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.cost-table tr:last-child td{border-bottom:none}
+.cost-table tr.total-row td{color:var(--bright);font-weight:600;background:rgba(20,184,166,.04);border-top:1px solid var(--border)}
+.cost-table .mono{font-family:'JetBrains Mono',monospace;font-size:.68rem}
+.cost-table .note-col{color:var(--muted);font-size:.64rem}
+
+/* CHART */
+.chart-wrap{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;line-height:1.9;overflow-x:auto}
+.chart-row{display:flex;align-items:center;gap:.5rem;white-space:nowrap;min-height:18px}
+.chart-day-lbl{color:var(--muted);width:3.8rem;flex-shrink:0;text-align:right;font-size:.5rem}
+.chart-bar-wrap{flex:1;min-width:100px;display:flex;align-items:center;gap:.4rem}
+.chart-bar-pen{height:9px;background:var(--warn);border-radius:2px;min-width:2px}
+.chart-bar-buy{height:9px;background:rgba(239,68,68,.55);border-radius:2px;min-width:2px}
+.chart-val{color:var(--text);font-size:.48rem;flex-shrink:0}
+.chart-marker{font-size:.44rem;flex-shrink:0}
+.chart-legend{display:flex;gap:1.25rem;margin-top:.65rem;font-size:.5rem;color:var(--muted);flex-wrap:wrap}
+.chart-legend-item{display:flex;align-items:center;gap:.35rem}
+.chart-dot-pen{width:8px;height:8px;background:var(--warn);border-radius:2px;flex-shrink:0}
+.chart-dot-buy{width:8px;height:8px;background:rgba(239,68,68,.55);border-radius:2px;flex-shrink:0}
+
+/* CITATIONS */
+.cite-list{list-style:none;padding:0;font-size:.72rem;line-height:1.8;color:var(--body)}
+.cite-list li{padding:.3rem 0;border-bottom:1px solid var(--border);display:flex;gap:.65rem}
+.cite-list li:last-child{border-bottom:none}
+.cite-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--teal);flex-shrink:0;padding-top:.25rem;min-width:1.5rem}
+
+/* EXPORT ROW */
+.results-export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.75rem 0;border-top:1px solid var(--border);margin-top:.5rem}
+#ap2ExportBtn,#mdExportBtn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s,color .2s}
+#ap2ExportBtn.ready,#mdExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover,#mdExportBtn.ready:hover{background:var(--bg-4)}
+
+/* MANIFEST */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+
+/* FOOTER */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+
+/* TOAST */
+#toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.55rem 1rem;border-radius:var(--radius);z-index:9999;opacity:0;pointer-events:none;transition:opacity .2s;max-width:320px}
+#toast.show{opacity:1}
+#toast.toast-error{border-color:var(--red);color:var(--red)}
+</style>
+</head>
+<body>
+
+<!-- LANG BAR -->
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">&#20013;&#25991;</button>
+</div></div>
+
+<!-- NAV -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a>
+    <span class="nav-sep">/</span>
+    <a href="../index.html#cat-23">Capital Markets Settlement</a>
+    <span class="nav-sep">/</span>
+    <span class="nav-bc-current">T-372</span>
+  </div>
+  <div class="nav-right">
+    <a href="../index.html#cat-23" class="nav-cta">Hub &#8594;</a>
+  </div>
+</div></nav>
+
+<!-- HERO -->
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-23 &middot; T372 &middot; Capital Markets Settlement</div>
+  <div class="hero-meta">
+    <span class="badge badge-muted">v1.0</span>
+    <span class="badge badge-teal">CSDR Art.7</span>
+    <span class="badge badge-gold">RTS 2018/1229</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+  <h1>Buy-In Scope Classifier &amp; <em>Cost vs. Penalty</em> Estimator</h1>
+  <p class="hero-desc">Under CSDR mandatory settlement discipline, failed trades incur daily cash penalties and may trigger a mandatory buy-in. This tool classifies whether your instrument is in buy-in scope, calculates the trigger date, models cumulative penalty accrual, estimates buy-in execution cost, and recommends whether to accept the penalty or execute the buy-in &mdash; with break-even day analysis.</p>
+  <div class="disclaimer">&#9888; Outputs are deterministic estimates based on CSDR Art.7 and RTS 2018/1229 reference data. Buy-in trigger day counts, penalty rates, and cost estimates are indicative. Verify against CCP/CSD rules, your custodian, and current regulatory guidance before taking action. See CSDR Refit (Reg. (EU) 2023/2845) for the Oct 2025 RTS amendments.</div>
+</div></div>
+
+<!-- TOOL BODY -->
+<div class="tool-body"><div class="container">
+
+  <p class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &#8212; use synthetic or anonymised inputs only.</p>
+
+  <!-- PANEL 01 — INSTRUMENT DETAILS -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-num">Panel 01</span>
+      <span class="panel-label" data-i18n="p1.label">Instrument Details</span>
+    </div>
+    <div class="panel-row">
+      <div>
+        <label class="field-label" for="instrumentType" data-i18n="f.instrumentType">Instrument Type</label>
+        <select class="field-select" id="instrumentType" onchange="onInstrumentChange()">
+          <option value="liquid_equity">Liquid Equity (admitted to most liquid market)</option>
+          <option value="other_equity">Other Equity / Non-Liquid Share</option>
+          <option value="etf">ETF (Exchange-Traded Fund)</option>
+          <option value="sovereign_bond">Sovereign / Government Bond</option>
+          <option value="corporate_bond">Corporate Bond / Other Debt</option>
+          <option value="sme_growth">SME Growth Market Instrument</option>
+          <option value="other">Other Financial Instrument</option>
+        </select>
+        <div class="field-hint" id="instrHint">Buy-in trigger: 4 business days after intended settlement date [CSDR Art.7(3)(a)]</div>
+      </div>
+      <div>
+        <label class="field-label" for="refPrice" data-i18n="f.refPrice">Reference Price (&#8364; per unit)</label>
+        <input class="field-input" type="number" id="refPrice" min="0.0001" step="0.01" placeholder="e.g. 42.50">
+        <div class="field-hint">Mid-market price per unit in EUR</div>
+      </div>
+    </div>
+    <div class="panel-row row-3">
+      <div>
+        <label class="field-label" for="qtyFailed" data-i18n="f.qtyFailed">Quantity Failed (units)</label>
+        <input class="field-input" type="number" id="qtyFailed" min="1" step="1" placeholder="e.g. 10000">
+        <div class="field-hint">Number of units that failed to settle</div>
+      </div>
+      <div>
+        <label class="field-label" for="failDays" data-i18n="f.failDays">Current Fail Duration (business days)</label>
+        <input class="field-input" type="number" id="failDays" min="1" max="60" step="1" placeholder="e.g. 5">
+        <div class="field-hint">Business days elapsed since intended settlement date (ISD)</div>
+      </div>
+      <div>
+        <label class="field-label">Notional Value (&#8364;)</label>
+        <div style="background:var(--bg-3);border:1px solid var(--border);border-radius:3px;padding:.4rem .65rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted);min-height:2.1rem;display:flex;align-items:center" id="nomValueDisplay">&#8212; enter price &amp; qty</div>
+        <div class="field-hint">Price &times; Quantity (auto-calculated)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL 02 — BUY-IN PARAMETERS -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-num">Panel 02</span>
+      <span class="panel-label" data-i18n="p2.label">Buy-In Parameters</span>
+    </div>
+    <div class="panel-row">
+      <div>
+        <label class="field-label" for="bidOfferBp" data-i18n="f.bidOfferBp">Estimated Bid-Offer Spread (bp)</label>
+        <input class="field-input" type="number" id="bidOfferBp" min="0.5" step="0.5" placeholder="Auto-filled by type">
+        <div class="field-hint" id="bidOfferHint">Default auto-filled by instrument type. Adjust to reflect actual market conditions.</div>
+      </div>
+      <div>
+        <label class="field-label" for="agentFeeBp" data-i18n="f.agentFeeBp">Buy-In Agent Fee (bp)</label>
+        <input class="field-input" type="number" id="agentFeeBp" min="0" step="0.5" value="7" placeholder="7">
+        <div class="field-hint">Typical range: 5&#8211;10 bp. Includes agency execution markup.</div>
+      </div>
+    </div>
+    <div class="panel-row">
+      <div>
+        <label class="field-label" for="marketLiquidity" data-i18n="f.marketLiquidity">Market Liquidity</label>
+        <select class="field-select" id="marketLiquidity">
+          <option value="highly_liquid">Highly Liquid</option>
+          <option value="normal" selected>Normal</option>
+          <option value="illiquid">Illiquid</option>
+          <option value="distressed">Distressed</option>
+        </select>
+        <div class="field-hint">Affects spread multiplier applied to bid-offer in buy-in cost estimate</div>
+      </div>
+      <div>
+        <label class="field-label" for="timeToSource" data-i18n="f.timeToSource">Time to Source Replacement</label>
+        <select class="field-select" id="timeToSource">
+          <option value="lt1">&lt;1 business day</option>
+          <option value="1to3" selected>1&#8211;3 business days</option>
+          <option value="3to5">3&#8211;5 business days</option>
+          <option value="gt5">&gt;5 business days</option>
+        </select>
+        <div class="field-hint">Indicates market depth and sourcing risk for buy-in agent</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div style="display:flex;gap:.75rem;margin-bottom:1.5rem;flex-wrap:wrap">
+    <button class="run-btn" id="runBtn" onclick="runAnalysis()">&#9654; Run Analysis</button>
+    <button class="run-btn ghost" onclick="resetTool()">&#8635; Reset</button>
+  </div>
+
+  <!-- RESULTS PANEL -->
+  <div class="results-panel" id="resultsPanel">
+
+    <!-- TRIGGER STATUS -->
+    <div class="res-section">
+      <div class="res-header">
+        <span class="res-title" data-i18n="r.triggerStatus">Buy-In Trigger Status</span>
+        <span id="triggerBadge" class="trigger-badge trigger-monitoring">MONITORING</span>
+      </div>
+      <div class="res-body">
+        <div class="status-card" id="statusCard"></div>
+        <div id="recBox" class="rec-box rec-penalty">
+          <div class="rec-title" id="recTitle">Recommendation</div>
+          <div class="rec-rationale" id="recBody"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COST BREAKDOWN -->
+    <div class="res-section">
+      <div class="res-header">
+        <span class="res-title" data-i18n="r.costBreakdown">Cost Breakdown</span>
+      </div>
+      <div class="res-body" id="costBreakdown"></div>
+    </div>
+
+    <!-- CHART -->
+    <div class="res-section">
+      <div class="res-header">
+        <span class="res-title" data-i18n="r.chart">Daily Penalty Accrual vs. Buy-In Cost (&#8364;)</span>
+      </div>
+      <div class="res-body">
+        <div class="chart-wrap" id="chartWrap"></div>
+        <div class="chart-legend">
+          <div class="chart-legend-item"><div class="chart-dot-pen"></div><span>Cumulative penalty accrual</span></div>
+          <div class="chart-legend-item"><div class="chart-dot-buy"></div><span>Buy-in execution cost (fixed)</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REGULATORY CITATIONS -->
+    <div class="res-section">
+      <div class="res-header">
+        <span class="res-title" data-i18n="r.citations">Regulatory Citations</span>
+      </div>
+      <div class="res-body">
+        <ul class="cite-list">
+          <li><span class="cite-num">[1]</span><span>CSDR Art.7 &mdash; Settlement discipline, mandatory buy-in regime. Regulation (EU) No 909/2014 of the European Parliament and of the Council on improving securities settlement in the European Union.</span></li>
+          <li><span class="cite-num">[2]</span><span>Commission Delegated Regulation (EU) 2018/1229 &mdash; RTS specifying the details of the buy-in process by instrument class and the daily cash penalty rates for settlement fails.</span></li>
+          <li><span class="cite-num">[3]</span><span>ESMA RTS Amendments Oct 2025 &mdash; Updated settlement discipline rules under CSDR Refit (Regulation (EU) 2023/2845). Revised buy-in framework with extended suspension provisions and modified penalty regime.</span></li>
+          <li><span class="cite-num">[4]</span><span>ICMA CSDR Settlement Discipline Guidance &mdash; Practical guidance on buy-in mechanics, cash compensation, and penalty collection published by the International Capital Market Association.</span></li>
+          <li><span class="cite-num">[5]</span><span>UK Onshored CSDR &mdash; The Central Securities Depositories Regulations 2017 (SI 2017/1064), as amended by the Financial Services Act 2021. Equivalent buy-in provisions applicable to UK-settled instruments post-Brexit.</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- EXPORT ROW -->
+    <div class="results-export-row">
+      <button id="mdExportBtn" onclick="exportMarkdown()" disabled title="Run the analysis above first">&#128196; Export Markdown</button>
+      <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the analysis above to generate a Policy Mandate">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API &middot; audit trail</span></button>
+    </div>
+
+  </div><!-- /results-panel -->
+
+</div></div>
+
+<!-- MANIFEST SECTION -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()">
+        <span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span>
+        <span id="mfstArr" style="color:var(--muted)">&#9660;</span>
+      </button>
+      <div class="mfst-body" id="mfstBody">
+        <div class="mfst-code" id="mfstCode"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../index.html#cat-23"><span data-i18n="footer.hub">Capital Markets Hub</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 &middot; Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+   T372 — Buy-In Scope Classifier & Cost vs. Penalty Estimator
+   CSDR Art.7 / Commission Delegated Reg (EU) 2018/1229
+   Deterministic · Zero PII · CC BY 4.0 · Post Oak Labs v1.0.0
+   ============================================================ */
+
+/* ----------------------------------------------------------
+   CONSTANTS
+   Buy-in trigger thresholds (business days after ISD)
+   Source: CSDR Art.7(3) + RTS 2018/1229
+   ---------------------------------------------------------- */
+var TRIGGER_DAYS = {
+  liquid_equity:  4,   // Liquid shares on most liquid market — Art.7(3)(a)
+  other_equity:   7,   // Other shares — Art.7(3)(b)
+  etf:            7,   // ETFs — Art.7(3)(b)
+  sovereign_bond: 15,  // Sovereign / government bonds — Art.7(3)(d)
+  corporate_bond: 7,   // Corporate bonds and other debt — Art.7(3)(c)
+  sme_growth:     15,  // SME growth market instruments — Art.7(3)(e)
+  other:          7    // All other financial instruments — Art.7(3)(b)
+};
+
+/* Daily penalty rates (basis points per day) — RTS 2018/1229 Art.9
+   Applied to notional value: penalty_eur = notional * rate_bp / 10000  */
+var PENALTY_RATE_BP = {
+  liquid_equity:  1.0,   // Liquid equities: 1.0 bp/day
+  other_equity:   0.5,   // Other equities / ETFs: 0.5 bp/day
+  etf:            0.5,
+  sovereign_bond: 0.1,   // Sovereign bonds: 0.1 bp/day
+  corporate_bond: 0.2,   // Corporate bonds: 0.2 bp/day
+  sme_growth:     0.25,  // SME growth market: 0.25 bp/day
+  other:          0.5
+};
+
+/* Default indicative bid-offer spreads (bp) by type */
+var DEFAULT_BID_OFFER_BP = {
+  liquid_equity:  7,    // Liquid equity: 5-10bp typical
+  other_equity:   35,   // Illiquid equity: 20-50bp typical
+  etf:            10,
+  sovereign_bond: 3.5,  // Sovereign bond: 2-5bp typical
+  corporate_bond: 20,   // Corporate bond: 10-30bp typical
+  sme_growth:     40,
+  other:          20
+};
+
+/* Liquidity multiplier on bid-offer spread for buy-in cost */
+var LIQUIDITY_MULT = {
+  highly_liquid: 0.7,
+  normal:        1.0,
+  illiquid:      1.8,
+  distressed:    3.0
+};
+
+var INSTR_NAMES = {
+  liquid_equity:  'Liquid Equity',
+  other_equity:   'Other Equity',
+  etf:            'ETF',
+  sovereign_bond: 'Sovereign Bond',
+  corporate_bond: 'Corporate Bond',
+  sme_growth:     'SME Growth Market',
+  other:          'Other Instrument'
+};
+
+var INSTR_HINTS = {
+  liquid_equity:  'Buy-in trigger: 4 business days after intended settlement date [CSDR Art.7(3)(a)]',
+  other_equity:   'Buy-in trigger: 7 business days after intended settlement date [CSDR Art.7(3)(b)]',
+  etf:            'Buy-in trigger: 7 business days after intended settlement date [CSDR Art.7(3)(b)]',
+  sovereign_bond: 'Buy-in trigger: 15 business days after intended settlement date [CSDR Art.7(3)(d)]',
+  corporate_bond: 'Buy-in trigger: 7 business days after intended settlement date [CSDR Art.7(3)(c)]',
+  sme_growth:     'Buy-in trigger: 15 business days after intended settlement date [CSDR Art.7(3)(e)]',
+  other:          'Buy-in trigger: 7 business days after intended settlement date [CSDR Art.7(3)(b)]'
+};
+
+/* ----------------------------------------------------------
+   TRANSLATIONS — UI chrome only
+   ---------------------------------------------------------- */
+var TRANSLATIONS = {
+  en: {
+    lang_dir:'ltr',
+    'p1.label':'Instrument Details','p2.label':'Buy-In Parameters',
+    'f.instrumentType':'Instrument Type','f.refPrice':'Reference Price (€ per unit)',
+    'f.qtyFailed':'Quantity Failed (units)','f.failDays':'Current Fail Duration (business days)',
+    'f.bidOfferBp':'Estimated Bid-Offer Spread (bp)','f.agentFeeBp':'Buy-In Agent Fee (bp)',
+    'f.marketLiquidity':'Market Liquidity','f.timeToSource':'Time to Source Replacement',
+    'r.triggerStatus':'Buy-In Trigger Status','r.costBreakdown':'Cost Breakdown',
+    'r.chart':'Daily Penalty Accrual vs. Buy-In Cost (€)','r.citations':'Regulatory Citations',
+    'footer.alltools':'All Tools','footer.hub':'Capital Markets Hub',
+    'footer.sitemap':'Sitemap','footer.contact':'Contact',
+    'footer.cc':'CC BY 4.0 · Post Oak Labs',
+    'footer.privacy':'🔒 Zero PII   📡 No server calls   💻 Client-side'
+  },
+  es: {
+    lang_dir:'ltr',
+    'p1.label':'Datos del Instrumento','p2.label':'Parámetros de Recompra',
+    'f.instrumentType':'Tipo de Instrumento','f.refPrice':'Precio de Referencia (€/unidad)',
+    'f.qtyFailed':'Cantidad Fallida (unidades)','f.failDays':'Duración del Fallo (días hábiles)',
+    'f.bidOfferBp':'Diferencial Compra-Venta (pb)','f.agentFeeBp':'Comisión del Agente (pb)',
+    'f.marketLiquidity':'Liquidez del Mercado','f.timeToSource':'Tiempo para Obtener Reemplazo',
+    'r.triggerStatus':'Estado del Disparador','r.costBreakdown':'Desglose de Costes',
+    'r.chart':'Penalización Acumulada vs. Coste de Recompra (€)','r.citations':'Referencias Regulatorias',
+    'footer.alltools':'Todas las Herramientas','footer.hub':'Hub Mercados de Capitales',
+    'footer.sitemap':'Mapa del Sitio','footer.contact':'Contacto',
+    'footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Sin PII   📡 Sin servidor   💻 Cliente'
+  },
+  fr: {
+    lang_dir:'ltr',
+    'p1.label':'Détails de l\'Instrument','p2.label':'Paramètres de Rachat',
+    'f.instrumentType':'Type d\'Instrument','f.refPrice':'Prix de Référence (€/unité)',
+    'f.qtyFailed':'Quantité Échouée (unités)','f.failDays':'Durée de l\'Échec (jours ouvrables)',
+    'f.bidOfferBp':'Écart Achat-Vente (pb)','f.agentFeeBp':'Frais d\'Agent (pb)',
+    'f.marketLiquidity':'Liquidité du Marché','f.timeToSource':'Délai pour Trouver un Remplacement',
+    'r.triggerStatus':'Statut du Déclencheur','r.costBreakdown':'Détail des Coûts',
+    'r.chart':'Pénalité Cumulée vs. Coût de Rachat (€)','r.citations':'Références Réglementaires',
+    'footer.alltools':'Tous les Outils','footer.hub':'Hub Marchés de Capitaux',
+    'footer.sitemap':'Plan du Site','footer.contact':'Contact',
+    'footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Zéro PII   📡 Aucun serveur   💻 Client'
+  },
+  ar: {
+    lang_dir:'rtl',
+    'p1.label':'تفاصيل الأداة المالية',
+    'p2.label':'معاملات الشراء الإلزامي',
+    'f.instrumentType':'نوع الأداة','f.refPrice':'السعر المرجعي',
+    'f.qtyFailed':'الكمية المتعثرة','f.failDays':'مدة التعثر',
+    'f.bidOfferBp':'فارق العرض والطلب','f.agentFeeBp':'رسوم الوكيل',
+    'f.marketLiquidity':'سيولة السوق','f.timeToSource':'وقت إيجاد بديل',
+    'r.triggerStatus':'حالة المشغل','r.costBreakdown':'تفصيل التكاليف',
+    'r.chart':'تراكم الغرامة مقابل تكلفة الشراء',
+    'r.citations':'المراجع التنظيمية',
+    'footer.alltools':'جميع الأدوات','footer.hub':'مركز أسواق رأس المال',
+    'footer.sitemap':'خريطة الموقع','footer.contact':'تواصل',
+    'footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 لا PII   📡 لا خادم   💻 جانب العميل'
+  },
+  pt: {
+    lang_dir:'ltr',
+    'p1.label':'Detalhes do Instrumento','p2.label':'Parâmetros de Recompra',
+    'f.instrumentType':'Tipo de Instrumento','f.refPrice':'Preço de Referência (€/unidade)',
+    'f.qtyFailed':'Quantidade Falhada (unidades)','f.failDays':'Duração da Falha (dias úteis)',
+    'f.bidOfferBp':'Spread Bid-Offer (pb)','f.agentFeeBp':'Honorários do Agente (pb)',
+    'f.marketLiquidity':'Liquidez do Mercado','f.timeToSource':'Tempo para Obter Substituição',
+    'r.triggerStatus':'Estado do Gatilho','r.costBreakdown':'Desagregação de Custos',
+    'r.chart':'Penalidade Acumulada vs. Custo de Recompra (€)','r.citations':'Referências Regulatórias',
+    'footer.alltools':'Todas as Ferramentas','footer.hub':'Hub Mercados de Capitais',
+    'footer.sitemap':'Mapa do Site','footer.contact':'Contacto',
+    'footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Zero PII   📡 Sem servidor   💻 Cliente'
+  },
+  zh: {
+    lang_dir:'ltr',
+    'p1.label':'工具详情','p2.label':'强制买入参数',
+    'f.instrumentType':'工具类型','f.refPrice':'参考价格（每单位欧元）',
+    'f.qtyFailed':'未结算数量（单位）','f.failDays':'当前失败天数（工作日）',
+    'f.bidOfferBp':'预估买卖价差（基点）','f.agentFeeBp':'买入代理费（基点）',
+    'f.marketLiquidity':'市场流动性','f.timeToSource':'寻找替代品的时间',
+    'r.triggerStatus':'强制买入触发状态','r.costBreakdown':'成本明细',
+    'r.chart':'每日罚款累计 vs 买入成本（欧元）','r.citations':'监管引用',
+    'footer.alltools':'所有工具','footer.hub':'资本市场中心',
+    'footer.sitemap':'网站地图','footer.contact':'联系我们',
+    'footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 零PII   📡 无服务器调用   💻 客户端'
+  }
+};
+
+function setLang(lang) {
+  var t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  document.documentElement.lang = lang;
+  document.documentElement.dir = t.lang_dir || 'ltr';
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    var key = el.getAttribute('data-i18n');
+    if (t[key] !== undefined) el.textContent = t[key];
+  });
+  document.querySelectorAll('.lang-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
+  });
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function initLang() {
+  var lang = 'en';
+  try { lang = sessionStorage.getItem('ain_lang') || 'en'; } catch(e) {}
+  if (TRANSLATIONS[lang]) setLang(lang);
+}());
+
+/* ----------------------------------------------------------
+   UI HELPERS
+   ---------------------------------------------------------- */
+function fmtEur(n) {
+  if (n === undefined || n === null || isNaN(n)) return '0.00';
+  return n.toLocaleString('en-GB', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function fmtInt(n) { return Math.round(n).toLocaleString('en-GB'); }
+
+function onInstrumentChange() {
+  var type = document.getElementById('instrumentType').value;
+  document.getElementById('instrHint').textContent = INSTR_HINTS[type] || '';
+  var bo = document.getElementById('bidOfferBp');
+  bo.value = DEFAULT_BID_OFFER_BP[type] || 10;
+  document.getElementById('bidOfferHint').textContent =
+    'Default: ' + (DEFAULT_BID_OFFER_BP[type] || 10) + ' bp for ' + INSTR_NAMES[type] + '. Adjust to reflect actual market.';
+  updateNotional();
+}
+
+function updateNotional() {
+  var price = parseFloat(document.getElementById('refPrice').value);
+  var qty   = parseFloat(document.getElementById('qtyFailed').value);
+  var el    = document.getElementById('nomValueDisplay');
+  if (price > 0 && qty > 0) {
+    el.textContent = '€ ' + fmtEur(price * qty);
+    el.style.color = 'var(--bright)';
+  } else {
+    el.innerHTML = '&#8212; enter price &amp; qty';
+    el.style.color = 'var(--muted)';
+  }
+}
+
+document.getElementById('refPrice').addEventListener('input', updateNotional);
+document.getElementById('qtyFailed').addEventListener('input', updateNotional);
+
+function showToast(msg, isError) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = isError ? 'show toast-error' : 'show';
+  setTimeout(function() { t.className = ''; }, 3200);
+}
+
+/* ----------------------------------------------------------
+   CORE CALCULATION — all synchronous, deterministic
+   ---------------------------------------------------------- */
+var lastResult = null;
+
+function runAnalysis() {
+  /* Collect inputs */
+  var instrType    = document.getElementById('instrumentType').value;
+  var refPrice     = parseFloat(document.getElementById('refPrice').value);
+  var qtyFailed    = parseFloat(document.getElementById('qtyFailed').value);
+  var failDays     = parseInt(document.getElementById('failDays').value, 10);
+  var bidOfferBp   = parseFloat(document.getElementById('bidOfferBp').value);
+  var agentFeeBp   = parseFloat(document.getElementById('agentFeeBp').value);
+  var liquidity    = document.getElementById('marketLiquidity').value;
+  var timeToSource = document.getElementById('timeToSource').value;
+
+  /* Validate */
+  var errors = [];
+  if (isNaN(refPrice)  || refPrice  <= 0) errors.push('Reference price must be a positive number.');
+  if (isNaN(qtyFailed) || qtyFailed <= 0) errors.push('Quantity failed must be a positive number.');
+  if (isNaN(failDays)  || failDays < 1 || failDays > 60) errors.push('Fail duration must be 1–60 business days.');
+  if (isNaN(bidOfferBp)|| bidOfferBp <= 0) errors.push('Bid-offer spread must be a positive number.');
+  if (isNaN(agentFeeBp)|| agentFeeBp < 0) errors.push('Agent fee cannot be negative.');
+  if (errors.length) { showToast(errors[0], true); return; }
+
+  /* Derived values */
+  var notionalEur       = refPrice * qtyFailed;
+  var triggerThreshold  = TRIGGER_DAYS[instrType]      || 7;
+  var penaltyRateBp     = PENALTY_RATE_BP[instrType]   || 0.5;
+
+  /* Daily penalty = notional * rate_bp / 10000 */
+  var dailyPenaltyEur   = (notionalEur * penaltyRateBp) / 10000;
+  /* Cumulative penalty = daily * days failed */
+  var cumPenaltyEur     = dailyPenaltyEur * failDays;
+
+  /* Trigger status */
+  var daysUntilTrigger  = triggerThreshold - failDays;
+  var triggerFired      = failDays >= triggerThreshold;
+  var triggerDue        = !triggerFired && daysUntilTrigger <= 3;
+
+  /* Buy-in execution cost */
+  var liqMult          = LIQUIDITY_MULT[liquidity] || 1.0;
+  var adjSpreadBp      = bidOfferBp * liqMult;
+  /* Spread cost = notional * adj_spread / 10000 */
+  var spreadCostEur    = (notionalEur * adjSpreadBp) / 10000;
+  /* Agent fee = notional * agent_fee_bp / 10000 */
+  var agentFeeEur      = (notionalEur * agentFeeBp) / 10000;
+  var buyinCostEur     = spreadCostEur + agentFeeEur;
+
+  /* Break-even day: cumPenalty = buyinCost => day = buyinCost / dailyPenalty */
+  var breakevenDay = null;
+  if (dailyPenaltyEur > 0) {
+    breakevenDay = Math.ceil(buyinCostEur / dailyPenaltyEur);
+  }
+
+  /* Recommendation */
+  var recommendation, recRationale, recClass;
+
+  if (triggerFired) {
+    if (cumPenaltyEur >= buyinCostEur) {
+      recommendation = 'EXECUTE BUY-IN';
+      recRationale   = 'The buy-in trigger has fired and cumulative penalties (€' + fmtEur(cumPenaltyEur) + ') have exceeded estimated buy-in execution cost (€' + fmtEur(buyinCostEur) + '). Every additional business day adds €' + fmtEur(dailyPenaltyEur) + ' in further penalties with no economic advantage over executing the buy-in. Initiate mandatory buy-in proceedings per CSDR Art.7(3) immediately.';
+      recClass = 'rec-buyin';
+    } else {
+      var daysToBreakeven = breakevenDay !== null ? Math.max(0, breakevenDay - failDays) : null;
+      if (daysToBreakeven !== null && daysToBreakeven <= 5) {
+        recommendation = 'EXECUTE BUY-IN';
+        recRationale   = 'The buy-in trigger has fired. Cumulative penalties (€' + fmtEur(cumPenaltyEur) + ') will exceed buy-in execution cost (€' + fmtEur(buyinCostEur) + ') in approximately ' + daysToBreakeven + ' more business day(s) (break-even: day ' + breakevenDay + '). Executing now reduces uncertainty and halts penalty accrual. Initiate mandatory buy-in proceedings per CSDR Art.7(3).';
+        recClass = 'rec-buyin';
+      } else {
+        recommendation = 'ACCEPT PENALTY (MONITOR DAILY)';
+        recRationale   = 'Buy-in trigger has fired, but cumulative penalties (€' + fmtEur(cumPenaltyEur) + ') remain below buy-in execution cost (€' + fmtEur(buyinCostEur) + '). Break-even occurs at business day ' + (breakevenDay !== null ? breakevenDay : 'N/A') + '. Reassess each day. Note: mandatory buy-in proceedings must still be initiated per CSDR Art.7(3) regardless of economic preference — economic analysis informs commercial negotiation, not regulatory compliance.';
+        recClass = 'rec-penalty';
+      }
+    }
+  } else {
+    if (breakevenDay !== null && breakevenDay <= triggerThreshold) {
+      recommendation = 'PREPARE FOR BUY-IN';
+      recRationale   = 'Buy-in trigger has not yet fired (' + daysUntilTrigger + ' business day(s) remaining until day ' + triggerThreshold + '). However, break-even between cumulative penalty (€' + fmtEur(cumPenaltyEur) + ' to date) and buy-in execution cost (€' + fmtEur(buyinCostEur) + ') occurs at business day ' + breakevenDay + ' — before the trigger. Begin pre-positioning sourcing desk and notifying the buy-in agent. Daily penalty: €' + fmtEur(dailyPenaltyEur) + '.';
+      recClass = 'rec-buyin';
+    } else {
+      recommendation = 'MONITORING — ACCEPT PENALTY';
+      recRationale   = 'Buy-in trigger fires in ' + daysUntilTrigger + ' business day(s) (threshold: day ' + triggerThreshold + '). At €' + fmtEur(dailyPenaltyEur) + '/day, break-even between cumulative penalty and buy-in cost (€' + fmtEur(buyinCostEur) + ') occurs at business day ' + (breakevenDay !== null ? breakevenDay : 'N/A') + '. Continue monitoring. If the fail resolves naturally before day ' + triggerThreshold + ', no buy-in is required. Accrued penalty to date: €' + fmtEur(cumPenaltyEur) + '.';
+      recClass = 'rec-penalty';
+    }
+  }
+
+  /* Store for export */
+  lastResult = {
+    instrType:instrType, instrName:INSTR_NAMES[instrType],
+    refPrice:refPrice, qtyFailed:qtyFailed, failDays:failDays,
+    bidOfferBp:bidOfferBp, agentFeeBp:agentFeeBp, liquidity:liquidity, timeToSource:timeToSource,
+    notionalEur:notionalEur, triggerThreshold:triggerThreshold, penaltyRateBp:penaltyRateBp,
+    dailyPenaltyEur:dailyPenaltyEur, cumPenaltyEur:cumPenaltyEur,
+    liqMult:liqMult, adjSpreadBp:adjSpreadBp, spreadCostEur:spreadCostEur,
+    agentFeeEur:agentFeeEur, buyinCostEur:buyinCostEur,
+    breakevenDay:breakevenDay, triggerFired:triggerFired, triggerDue:triggerDue,
+    daysUntilTrigger:daysUntilTrigger,
+    recommendation:recommendation, recRationale:recRationale, recClass:recClass
+  };
+
+  renderResults(lastResult);
+  enableExports();
+}
+
+/* ----------------------------------------------------------
+   RENDER
+   ---------------------------------------------------------- */
+function renderResults(r) {
+  /* Trigger badge */
+  var badge = document.getElementById('triggerBadge');
+  if (r.triggerFired) {
+    badge.textContent = 'BUY-IN TRIGGERED';
+    badge.className = 'trigger-badge trigger-fired';
+  } else if (r.triggerDue) {
+    badge.textContent = 'BUY-IN DUE IN ' + r.daysUntilTrigger + ' DAY(S)';
+    badge.className = 'trigger-badge trigger-due';
+  } else {
+    badge.textContent = 'MONITORING — ' + r.daysUntilTrigger + ' DAY(S) TO TRIGGER';
+    badge.className = 'trigger-badge trigger-monitoring';
+  }
+
+  /* Status card */
+  var thl = r.triggerFired ? 'hl-red' : (r.triggerDue ? 'hl-warn' : 'hl-teal');
+  document.getElementById('statusCard').innerHTML =
+    '<div class="stat-box ' + thl + '">' +
+      '<div class="stat-label">Days Until Trigger</div>' +
+      '<div class="stat-val">' + (r.triggerFired ? 'FIRED' : r.daysUntilTrigger) + '</div>' +
+      '<div class="stat-sub">Threshold: Day ' + r.triggerThreshold + '</div>' +
+    '</div>' +
+    '<div class="stat-box">' +
+      '<div class="stat-label">Cumulative Penalty</div>' +
+      '<div class="stat-val">€ ' + fmtEur(r.cumPenaltyEur) + '</div>' +
+      '<div class="stat-sub">€ ' + fmtEur(r.dailyPenaltyEur) + '/day · ' + r.penaltyRateBp + ' bp/day</div>' +
+    '</div>' +
+    '<div class="stat-box">' +
+      '<div class="stat-label">Buy-In Execution Cost</div>' +
+      '<div class="stat-val">€ ' + fmtEur(r.buyinCostEur) + '</div>' +
+      '<div class="stat-sub">Spread + agent fee (est.)</div>' +
+    '</div>' +
+    '<div class="stat-box">' +
+      '<div class="stat-label">Break-Even Day</div>' +
+      '<div class="stat-val">' + (r.breakevenDay !== null ? 'Day ' + r.breakevenDay : 'N/A') + '</div>' +
+      '<div class="stat-sub">Penalty ≥ buy-in cost</div>' +
+    '</div>' +
+    '<div class="stat-box">' +
+      '<div class="stat-label">Notional Value</div>' +
+      '<div class="stat-val">€ ' + fmtEur(r.notionalEur) + '</div>' +
+      '<div class="stat-sub">' + fmtInt(r.qtyFailed) + ' units @ €' + r.refPrice.toFixed(4) + '</div>' +
+    '</div>' +
+    '<div class="stat-box">' +
+      '<div class="stat-label">Daily Penalty Rate</div>' +
+      '<div class="stat-val">' + r.penaltyRateBp + ' bp</div>' +
+      '<div class="stat-sub">' + r.instrName + '</div>' +
+    '</div>';
+
+  /* Recommendation */
+  var recBox = document.getElementById('recBox');
+  recBox.className = 'rec-box ' + r.recClass;
+  document.getElementById('recTitle').textContent = r.recommendation;
+  document.getElementById('recBody').textContent = r.recRationale;
+
+  /* Cost breakdown table */
+  function mkRow(label, val, note, isTot) {
+    var cls = isTot ? ' class="total-row"' : '';
+    return '<tr' + cls + '>' +
+      '<td>' + label + '</td>' +
+      '<td class="mono" style="text-align:right">' + val + '</td>' +
+      '<td class="note-col">' + note + '</td></tr>';
+  }
+  document.getElementById('costBreakdown').innerHTML =
+    '<table class="cost-table">' +
+    '<thead><tr><th>Component</th><th style="text-align:right">Value</th><th>Notes</th></tr></thead>' +
+    '<tbody>' +
+    mkRow('Penalty Rate',           r.penaltyRateBp + ' bp/day',              'RTS 2018/1229 Art.9 — ' + r.instrName) +
+    mkRow('Daily Penalty',          '€ ' + fmtEur(r.dailyPenaltyEur),    'Notional × ' + r.penaltyRateBp + ' bp / 10,000') +
+    mkRow('Cumulative Penalty (' + r.failDays + ' days)', '€ ' + fmtEur(r.cumPenaltyEur), 'Daily penalty × fail duration') +
+    mkRow('Bid-Offer Spread (adj.)',  r.adjSpreadBp.toFixed(2) + ' bp',        r.bidOfferBp + ' bp × ' + r.liqMult + ' (' + r.liquidity.replace('_',' ') + ')') +
+    mkRow('Buy-In Spread Cost',      '€ ' + fmtEur(r.spreadCostEur),     'Notional × adj. spread / 10,000') +
+    mkRow('Agent Fee',               '€ ' + fmtEur(r.agentFeeEur),       r.agentFeeBp + ' bp on notional') +
+    mkRow('Total Buy-In Cost',       '€ ' + fmtEur(r.buyinCostEur),      'Spread cost + agent fee', true) +
+    mkRow('Break-Even Day',          r.breakevenDay !== null ? 'Business Day ' + r.breakevenDay : 'N/A', 'Day cumulative penalty ≥ buy-in cost') +
+    '</tbody></table>';
+
+  /* Chart */
+  renderChart(r);
+
+  /* Show panel */
+  var panel = document.getElementById('resultsPanel');
+  panel.classList.add('visible');
+  setTimeout(function() { panel.scrollIntoView({behavior:'smooth', block:'start'}); }, 80);
+}
+
+function renderChart(r) {
+  /* Determine x-axis range */
+  var maxDay = Math.min(45, Math.max(r.failDays + 8, r.triggerThreshold + 4, (r.breakevenDay || 0) + 3, 10));
+  var buyinCost  = r.buyinCostEur;
+  var dailyPen   = r.dailyPenaltyEur;
+  /* Max value for bar scaling */
+  var maxVal = Math.max(buyinCost * 1.15, dailyPen * maxDay * 1.1, 1);
+
+  /* Step size: show every day if <= 20 days, every 2 if <= 30, every 3 otherwise */
+  var step = maxDay > 30 ? 3 : (maxDay > 20 ? 2 : 1);
+
+  var html = '';
+  /* Draw buy-in cost as a reference line first */
+  var buyinBarPct = Math.min(96, (buyinCost / maxVal) * 96);
+  html += '<div class="chart-row">' +
+    '<span class="chart-day-lbl" style="color:var(--red);opacity:.7">Buy-in</span>' +
+    '<div class="chart-bar-wrap">' +
+      '<div class="chart-bar-buy" style="width:' + buyinBarPct.toFixed(1) + '%"></div>' +
+      '<span class="chart-val" style="color:rgba(239,68,68,.8)">€' + fmtEur(buyinCost) + ' (fixed cost)</span>' +
+    '</div></div>';
+
+  /* Draw penalty accrual rows */
+  for (var day = 1; day <= maxDay; day += step) {
+    var cumPen   = dailyPen * day;
+    var penPct   = Math.min(96, (cumPen / maxVal) * 96);
+    var marker   = '';
+    var isTrig   = day >= r.triggerThreshold && (day - step) < r.triggerThreshold;
+    var isBe     = r.breakevenDay !== null && day >= r.breakevenDay && (day - step) < r.breakevenDay;
+    var isCur    = day >= r.failDays && (day - step) < r.failDays;
+
+    if (isTrig && isBe) {
+      marker = '<span class="chart-marker" style="color:var(--red)">► TRIGGER + BREAKEVEN</span>';
+    } else if (isTrig) {
+      marker = '<span class="chart-marker" style="color:var(--warn)">► TRIGGER (day ' + r.triggerThreshold + ')</span>';
+    } else if (isBe) {
+      marker = '<span class="chart-marker" style="color:var(--red)">► BREAKEVEN (day ' + r.breakevenDay + ')</span>';
+    } else if (isCur) {
+      marker = '<span class="chart-marker" style="color:var(--teal)">► TODAY (day ' + r.failDays + ')</span>';
+    }
+
+    html += '<div class="chart-row">' +
+      '<span class="chart-day-lbl">D+' + day + '</span>' +
+      '<div class="chart-bar-wrap">' +
+        '<div class="chart-bar-pen" style="width:' + penPct.toFixed(1) + '%"></div>' +
+        '<span class="chart-val">€' + fmtEur(cumPen) + '</span>' +
+        marker +
+      '</div></div>';
+  }
+
+  document.getElementById('chartWrap').innerHTML = html;
+}
+
+/* ----------------------------------------------------------
+   RESET
+   ---------------------------------------------------------- */
+function resetTool() {
+  lastResult = null;
+  document.getElementById('resultsPanel').classList.remove('visible');
+  document.getElementById('ap2ExportBtn').disabled = true;
+  document.getElementById('ap2ExportBtn').classList.remove('ready');
+  document.getElementById('ap2ExportBtn').style.cssText = '';
+  document.getElementById('mdExportBtn').disabled = true;
+  document.getElementById('mdExportBtn').classList.remove('ready');
+}
+
+/* ----------------------------------------------------------
+   ENABLE EXPORTS
+   ---------------------------------------------------------- */
+function enableExports() {
+  var a = document.getElementById('ap2ExportBtn');
+  a.disabled = false;
+  a.classList.add('ready');
+  a.title = 'For API integration · audit trail';
+
+  var m = document.getElementById('mdExportBtn');
+  m.disabled = false;
+  m.classList.add('ready');
+  m.title = 'Download Markdown report';
+}
+
+/* ----------------------------------------------------------
+   MARKDOWN EXPORT
+   ---------------------------------------------------------- */
+function exportMarkdown() {
+  if (!lastResult) { showToast('Run the analysis first.', true); return; }
+  var r = lastResult;
+  var now = new Date();
+  var isoNow = now.toISOString();
+
+  var lines = [
+    '# Buy-In Scope Classifier & Cost vs. Penalty Estimator — T372',
+    '',
+    '**Generated:** ' + isoNow,
+    '**Tool:** AINumbers.co T372 · CC BY 4.0 · Post Oak Labs',
+    '**Regulatory basis:** CSDR Art.7 / Commission Delegated Reg (EU) 2018/1229',
+    '',
+    '---',
+    '',
+    '## Instrument',
+    '',
+    '| Parameter | Value |',
+    '|---|---|',
+    '| Instrument Type | ' + r.instrName + ' |',
+    '| Reference Price | €' + r.refPrice.toFixed(4) + ' per unit |',
+    '| Quantity Failed | ' + fmtInt(r.qtyFailed) + ' units |',
+    '| Notional Value | €' + fmtEur(r.notionalEur) + ' |',
+    '| Current Fail Duration | ' + r.failDays + ' business days |',
+    '',
+    '---',
+    '',
+    '## Buy-In Trigger Status',
+    '',
+    '**Status:** ' + (r.triggerFired ? 'BUY-IN TRIGGERED' : 'BUY-IN DUE IN ' + r.daysUntilTrigger + ' BUSINESS DAYS'),
+    '',
+    '**Trigger Threshold:** Business Day ' + r.triggerThreshold + ' (CSDR Art.7 + RTS 2018/1229)',
+    '',
+    '---',
+    '',
+    '## Cost Analysis',
+    '',
+    '| Component | Value |',
+    '|---|---|',
+    '| Penalty Rate | ' + r.penaltyRateBp + ' bp/day (RTS 2018/1229) |',
+    '| Daily Penalty | €' + fmtEur(r.dailyPenaltyEur) + ' |',
+    '| Cumulative Penalty (' + r.failDays + ' days) | €' + fmtEur(r.cumPenaltyEur) + ' |',
+    '| Adj. Bid-Offer Spread | ' + r.adjSpreadBp.toFixed(2) + ' bp (' + r.bidOfferBp + ' bp × ' + r.liqMult + ' liq. mult.) |',
+    '| Buy-In Spread Cost | €' + fmtEur(r.spreadCostEur) + ' |',
+    '| Buy-In Agent Fee | €' + fmtEur(r.agentFeeEur) + ' (' + r.agentFeeBp + ' bp) |',
+    '| **Total Buy-In Cost** | **€' + fmtEur(r.buyinCostEur) + '** |',
+    '| Break-Even Day | ' + (r.breakevenDay !== null ? 'Business Day ' + r.breakevenDay : 'N/A') + ' |',
+    '',
+    '---',
+    '',
+    '## Recommendation',
+    '',
+    '**' + r.recommendation + '**',
+    '',
+    r.recRationale,
+    '',
+    '---',
+    '',
+    '## Regulatory Citations',
+    '',
+    '1. CSDR Art.7 — Settlement discipline, mandatory buy-in regime. Regulation (EU) No 909/2014.',
+    '2. Commission Delegated Regulation (EU) 2018/1229 — RTS on buy-in triggers by instrument class.',
+    '3. ESMA RTS Amendments Oct 2025 — Updated settlement discipline (CSDR Refit, Reg. (EU) 2023/2845).',
+    '4. ICMA CSDR Settlement Discipline Guidance — Practical buy-in mechanics guidance.',
+    '5. UK Onshored CSDR — SI 2017/1064, Financial Services Act 2021.',
+    '',
+    '---',
+    '',
+    '*Outputs are deterministic estimates for informational purposes only. Verify against current primary sources and your CSD/CCP before taking regulatory or commercial action.*'
+  ];
+
+  var ts = now.toISOString().replace(/[-:T]/g,'').slice(0,14);
+  var blob = new Blob([lines.join('\n')], {type:'text/markdown'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'buyin-scope-classifier_' + ts + '.md';
+  a.click();
+  showToast('Markdown exported.');
+}
+
+/* ----------------------------------------------------------
+   POLICY MANDATE (AP2) EXPORT
+   ---------------------------------------------------------- */
+var AP2Schema = {
+  validate: function(payload) {
+    var required = ['ap2_version','mandate_id','issued_at','issued_by','tool_id',
+                    'tool_version','mandate_type','jurisdiction','regulatory_frameworks',
+                    'payload','summary','agent_instructions','valid_from','valid_until',
+                    'last_reviewed','source_tool_inputs','regulatory_citations','audit_metadata'];
+    var missing = required.filter(function(k) { return !(k in payload); });
+    if (missing.length) return {valid:false, errors:['Missing required fields: ' + missing.join(', ')]};
+    if (payload.ap2_version !== '1.0') return {valid:false, errors:['ap2_version must be "1.0"']};
+    return {valid:true, errors:[]};
+  }
+};
+
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0;
+    var v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+function exportAP2() {
+  if (!lastResult) { showToast('Run the analysis first.', true); return; }
+  var r = lastResult;
+  var now = new Date();
+  var isoNow = now.toISOString();
+  var validUntil = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString();
+
+  var mandate = {
+    ap2_version: '1.0',
+    mandate_id:  generateUUID(),
+    issued_at:   isoNow,
+    issued_by:   'ainumbers.co',
+    tool_id:     'buyin-scope-classifier-cost-penalty-estimator',
+    tool_version:'1.0.0',
+    mandate_type:'compliance_control',
+    jurisdiction:['EU','GB'],
+    regulatory_frameworks:[
+      'CSDR Art.7 — Mandatory buy-in regime',
+      'Commission Delegated Regulation (EU) 2018/1229',
+      'CSDR Refit (Regulation (EU) 2023/2845)',
+      'UK Onshored CSDR (SI 2017/1064)'
+    ],
+    payload: {
+      instrument_type:              r.instrType,
+      instrument_name:              r.instrName,
+      reference_price_eur:          r.refPrice,
+      quantity_failed:              r.qtyFailed,
+      notional_value_eur:           r.notionalEur,
+      fail_duration_business_days:  r.failDays,
+      buyin_trigger_threshold_days: r.triggerThreshold,
+      buyin_triggered:              r.triggerFired,
+      days_until_trigger:           r.daysUntilTrigger,
+      penalty_rate_bp_per_day:      r.penaltyRateBp,
+      daily_penalty_eur:            r.dailyPenaltyEur,
+      cumulative_penalty_eur:       r.cumPenaltyEur,
+      adjusted_spread_bp:           r.adjSpreadBp,
+      spread_cost_eur:              r.spreadCostEur,
+      agent_fee_eur:                r.agentFeeEur,
+      buyin_execution_cost_eur:     r.buyinCostEur,
+      breakeven_business_day:       r.breakevenDay,
+      market_liquidity:             r.liquidity,
+      time_to_source_replacement:   r.timeToSource,
+      recommendation:               r.recommendation
+    },
+    summary: r.recommendation + '. ' + r.recRationale.slice(0, 280) + (r.recRationale.length > 280 ? '...' : ''),
+    agent_instructions: [
+      'Confirm instrument classification under CSDR Art.7 and RTS 2018/1229 with your CSD/CCP.',
+      'Verify fail duration count against official settlement records (ISD + business day calendar).',
+      r.triggerFired
+        ? 'Buy-in trigger has fired: initiate mandatory buy-in proceedings per CSDR Art.7(3). Notify counterparty and appoint a buy-in agent within the required timeframe.'
+        : 'Monitor settlement fail each business day. Buy-in trigger fires on day ' + r.triggerThreshold + '. Pre-position sourcing desk if time-to-source exceeds 3 days.',
+      'Compare cumulative penalty (€' + fmtEur(r.cumPenaltyEur) + ') against buy-in cost (€' + fmtEur(r.buyinCostEur) + ') each business day.',
+      r.breakevenDay !== null
+        ? 'Break-even occurs at business day ' + r.breakevenDay + '. Reassess recommendation at that date.'
+        : 'Break-even could not be computed. Review daily penalty rate and instrument classification.',
+      'Record all settlement failures and buy-in actions in settlement discipline reporting per CSDR Art.7(11).'
+    ],
+    valid_from:   isoNow,
+    valid_until:  validUntil,
+    last_reviewed:isoNow,
+    source_tool_inputs: {
+      instrument_type:        r.instrType,
+      reference_price_eur:    r.refPrice,
+      quantity_failed:        r.qtyFailed,
+      fail_duration_days:     r.failDays,
+      bid_offer_spread_bp:    r.bidOfferBp,
+      agent_fee_bp:           r.agentFeeBp,
+      market_liquidity:       r.liquidity,
+      time_to_source:         r.timeToSource
+    },
+    regulatory_citations: [
+      'CSDR Art.7 — Settlement discipline, mandatory buy-in regime. Regulation (EU) No 909/2014.',
+      'Commission Delegated Regulation (EU) 2018/1229 — RTS on buy-in triggers by instrument class.',
+      'ESMA RTS Amendments Oct 2025 — Updated settlement discipline rules (CSDR Refit, Reg. (EU) 2023/2845).',
+      'ICMA CSDR Settlement Discipline Guidance — Practical guidance on buy-in mechanics.',
+      'UK Onshored CSDR — The Central Securities Depositories Regulations 2017 (SI 2017/1064).'
+    ],
+    audit_metadata: {
+      execution_hash:        null,
+      client_side_executed:  true,
+      zero_pii_verified:     true,
+      deterministic_run:     true
+    }
+  };
+
+  var validation = AP2Schema.validate(mandate);
+  if (!validation.valid) {
+    showToast('Policy Mandate validation failed: ' + validation.errors[0], true);
+    return;
+  }
+
+  var ts = now.toISOString().replace(/[-:T]/g,'').slice(0,14);
+  var blob = new Blob([JSON.stringify(mandate, null, 2)], {type:'application/json'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'buyin-scope-classifier_' + ts + '.policy.json';
+  a.click();
+  showToast('Policy Mandate exported.');
+}
+
+/* ----------------------------------------------------------
+   MANIFEST TOGGLE
+   ---------------------------------------------------------- */
+var MANIFEST = {
+  tool_id:     'buyin-scope-classifier-cost-penalty-estimator',
+  version:     '1.0.0',
+  title:       'Buy-In Scope Classifier & Cost vs. Penalty Estimator',
+  description: 'Classifies CSDR mandatory buy-in scope by instrument type, calculates trigger date, models cumulative penalty accrual, estimates buy-in execution cost, and recommends accept-penalty vs execute buy-in with break-even day analysis.',
+  category:    'cat-23',
+  tags: ['CSDR','buy-in','settlement discipline','settlement failure','penalty','capital markets','equities','bonds','RTS 2018/1229'],
+  audience: ['settlements','compliance','operations','risk'],
+  input_schema: {
+    type: 'object',
+    properties: {
+      instrument_type:    {type:'string', enum:['liquid_equity','other_equity','etf','sovereign_bond','corporate_bond','sme_growth','other']},
+      reference_price:    {type:'number', description:'Mid-price per unit in EUR'},
+      quantity_failed:    {type:'number', description:'Units failed to settle'},
+      fail_duration_days: {type:'integer', description:'Business days already failed (1-60)'},
+      bid_offer_spread_bp:{type:'number', description:'Estimated bid-offer spread in basis points'},
+      agent_fee_bp:       {type:'number', description:'Buy-in agent fee in basis points (default 7)'},
+      market_liquidity:   {type:'string', enum:['highly_liquid','normal','illiquid','distressed']},
+      time_to_source:     {type:'string', enum:['lt1','1to3','3to5','gt5']}
+    },
+    required: ['instrument_type','reference_price','quantity_failed','fail_duration_days']
+  },
+  output_schema: {
+    type: 'object',
+    properties: {
+      buyin_trigger_status:    {type:'string'},
+      days_until_trigger:      {type:'integer'},
+      cumulative_penalty_eur:  {type:'number'},
+      daily_penalty_eur:       {type:'number'},
+      buyin_execution_cost_eur:{type:'number'},
+      recommendation:          {type:'string'},
+      breakeven_day:           {type:'integer'}
+    }
+  },
+  mcp_tool_definition: {
+    name:        'classify_buyin_scope_estimate_penalty',
+    description: 'Classifies CSDR mandatory buy-in scope by instrument type, calculates penalty accrual, estimates buy-in execution cost, and recommends accept-penalty vs execute buy-in.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        instrument_type:    {type:'string', enum:['liquid_equity','other_equity','etf','sovereign_bond','corporate_bond','sme_growth','other']},
+        reference_price:    {type:'number'},
+        quantity_failed:    {type:'number'},
+        fail_duration_days: {type:'integer'},
+        bid_offer_spread_bp:{type:'number'},
+        agent_fee_bp:       {type:'number'}
+      },
+      required: ['instrument_type','reference_price','quantity_failed','fail_duration_days']
+    }
+  },
+  execution: {
+    type:          'browser-javascript',
+    entry:         'tools/372-buyin-scope-classifier-cost-penalty-estimator.html',
+    function_name: 'runAnalysis',
+    timeout_ms:    3000
+  },
+  ap2_export: true
+};
+
+function toggleMfst() {
+  var body = document.getElementById('mfstBody');
+  var arr  = document.getElementById('mfstArr');
+  var code = document.getElementById('mfstCode');
+  if (body.style.display === 'block') {
+    body.style.display = 'none';
+    arr.textContent = '▼';
+  } else {
+    code.textContent = JSON.stringify(MANIFEST, null, 2);
+    body.style.display = 'block';
+    arr.textContent = '▲';
+  }
+}
+
+/* Init: populate defaults for instrument type */
+(function init() { onInstrumentChange(); }());
+</script>
+</body>
+</html>
