@@ -857,7 +857,7 @@ footer { border-top: 1px solid var(--border); padding: 1.75rem 1.5rem; margin-to
     </div>
 
     <div class="btn-row">
-      <button class="btn-primary" onclick="mapMT103()">▶ Map to pacs.008</button>
+      <button class="btn-primary" onclick="mapMT103()">▶ Map Fields + Generate XML</button>
     </div>
 
     <div class="privacy-notice" style="margin:1rem 0">
@@ -1626,26 +1626,133 @@ const IBAN_COUNTRY_NAMES = {
    DATA — MT103 → pacs.008 FIELD MAP
 ═══════════════════════════════════════════ */
 const MT103_FIELD_MAP = [
-  { tag:':20:', name:'Sender\'s Reference', pacs008Path:'GrpHdr/MsgId', iso20022Name:'Message Identification', notes:'Unique reference assigned by sender. Max 16 chars in MT, max 35 chars in ISO 20022.' },
-  { tag:':23B:', name:'Bank Operation Code', pacs008Path:'(scheme context)', iso20022Name:'N/A — CRED = standard credit transfer', notes:'CRED is the standard value. In pacs.008 this is implied by the message type itself.' },
-  { tag:':32A:', name:'Value Date / Currency / Amount', pacs008Path:'CdtTrfTxInf/IntrBkSttlmDt + IntrBkSttlmAmt', iso20022Name:'Interbank Settlement Date + Amount', notes:'32A combines date, currency, and amount. In pacs.008 these are separate elements.' },
-  { tag:':33B:', name:'Currency / Instructed Amount', pacs008Path:'CdtTrfTxInf/InstdAmt', iso20022Name:'Instructed Amount', notes:'Amount instructed by the originator, which may differ from settlement amount after charges.' },
-  { tag:':50A:', name:'Ordering Customer (with IBAN/BIC)', pacs008Path:'CdtTrfTxInf/Dbtr + DbtrAcct/Id/IBAN + DbtrAgt/FinInstnId/BICFI', iso20022Name:'Debtor + Debtor Account + Debtor Agent', notes:'MT field 50A uses the account number. ISO 20022 separates party identity, account, and agent.' },
-  { tag:':50K:', name:'Ordering Customer (name/address)', pacs008Path:'CdtTrfTxInf/Dbtr/Nm + Dbtr/PstlAdr', iso20022Name:'Debtor Name + Postal Address', notes:'Name-and-address format. Maps to Dbtr/Nm and Dbtr/PstlAdr in pacs.008.' },
-  { tag:':52A:', name:'Ordering Institution (BIC)', pacs008Path:'CdtTrfTxInf/DbtrAgt/FinInstnId/BICFI', iso20022Name:'Debtor Agent BIC', notes:'The bank of the ordering customer. Mandatory for SWIFT CBPR+.' },
-  { tag:':52D:', name:'Ordering Institution (name)', pacs008Path:'CdtTrfTxInf/DbtrAgt/FinInstnId/Nm', iso20022Name:'Debtor Agent Name', notes:'Used when BIC is not available. CBPR+ prefers BICFI over name.' },
-  { tag:':53A:', name:'Sender\'s Correspondent (BIC)', pacs008Path:'CdtTrfTxInf/IntrmyAgt1/FinInstnId/BICFI', iso20022Name:'Intermediary Agent 1', notes:'First intermediary in the payment chain. Used for nostro/correspondent routing.' },
-  { tag:':53B:', name:'Sender\'s Correspondent (account)', pacs008Path:'CdtTrfTxInf/IntrmyAgt1Acct/Id', iso20022Name:'Intermediary Agent 1 Account', notes:'Account at the sender\'s correspondent bank.' },
-  { tag:':54A:', name:'Receiver\'s Correspondent (BIC)', pacs008Path:'CdtTrfTxInf/IntrmyAgt2/FinInstnId/BICFI', iso20022Name:'Intermediary Agent 2', notes:'Second intermediary. Used in longer payment chains (e.g., US dollar clearing).' },
-  { tag:':56A:', name:'Intermediary Institution (BIC)', pacs008Path:'CdtTrfTxInf/IntrmyAgt1/FinInstnId/BICFI', iso20022Name:'Intermediary Agent', notes:'Alternative intermediary tag. Maps to IntrmyAgt1 in pacs.008.' },
-  { tag:':57A:', name:'Account with Institution (BIC)', pacs008Path:'CdtTrfTxInf/CdtrAgt/FinInstnId/BICFI', iso20022Name:'Creditor Agent BIC', notes:'The bank where the beneficiary holds their account. Critical for routing.' },
-  { tag:':57D:', name:'Account with Institution (name)', pacs008Path:'CdtTrfTxInf/CdtrAgt/FinInstnId/Nm', iso20022Name:'Creditor Agent Name', notes:'Used when BIC is not available.' },
-  { tag:':59:', name:'Beneficiary Customer (IBAN)', pacs008Path:'CdtTrfTxInf/Cdtr/Nm + CdtrAcct/Id/IBAN', iso20022Name:'Creditor Name + Creditor Account IBAN', notes:'Name and account number of the beneficiary. IBAN mandatory for SEPA; CBPR+ accepts other formats.' },
-  { tag:':59A:', name:'Beneficiary Customer (BIC/account)', pacs008Path:'CdtTrfTxInf/Cdtr + CdtrAcct/Id', iso20022Name:'Creditor + Creditor Account', notes:'BIC-based beneficiary identification.' },
-  { tag:':70:', name:'Remittance Information', pacs008Path:'CdtTrfTxInf/RmtInf/Ustrd', iso20022Name:'Unstructured Remittance Information', notes:'Free-text payment reference. Max 140 chars. Maps to Ustrd; structured version maps to Strd.' },
-  { tag:':71A:', name:'Details of Charges', pacs008Path:'CdtTrfTxInf/ChrgBr', iso20022Name:'Charge Bearer', notes:'BEN → CRED (creditor pays all charges). OUR → DEBT (debtor pays all charges). SHA → SHAR (shared). SEPA requires SLEV.' },
-  { tag:':72:', name:'Sender to Receiver Information', pacs008Path:'CdtTrfTxInf/InstrForCdtrAgt or InstrForNxtAgt', iso20022Name:'Instruction for Creditor Agent / Next Agent', notes:'Free-form instruction codes. Common codes: /ACC/ → InstrForCdtrAgt, /BNF/ → beneficiary info.' },
-  { tag:':77B:', name:'Regulatory Reporting', pacs008Path:'CdtTrfTxInf/RgltryRptg', iso20022Name:'Regulatory Reporting', notes:'Regulatory details for cross-border payments. Maps to RgltryRptg/Dtls/Cd + Inf in pacs.008.' },
+  // cbprMandatory: true = mandatory under SWIFT CBPR+ (pacs.008.001.08)
+  { tag:':20:', name:"Sender's Reference",              cbprMandatory:true,
+    pacs008Path:'GrpHdr/MsgId',
+    iso20022Name:'Message Identification',
+    notes:'Unique message reference. Max 16 chars in MT; max 35 chars in ISO 20022. Map 1:1 to GrpHdr/MsgId.' },
+
+  { tag:':21:', name:"Related Reference / End-to-End ID", cbprMandatory:true,
+    pacs008Path:'CdtTrfTxInf/PmtId/EndToEndId',
+    iso20022Name:'End-to-End Identification',
+    notes:'Present in MT103 STP. Maps to EndToEndId. NOTPROVIDED is deprecated under CBPR+ — use the actual reference.' },
+
+  { tag:':13C:', name:'Time Indication',                 cbprMandatory:false,
+    pacs008Path:'GrpHdr/SttlmInf/SttlmTmIndctn',
+    iso20022Name:'Settlement Time Indication',
+    notes:'Optional. /CLSTIME/, /RNCTIME/, /SNDTIME/ codes map to SttlmTmIndctn/DbtDtTm or CdtDtTm.' },
+
+  { tag:':23B:', name:'Bank Operation Code',              cbprMandatory:true,
+    pacs008Path:'(message type context)',
+    iso20022Name:'N/A — CRED implied by pacs.008',
+    notes:'CRED is the standard value; it is implicit in the pacs.008 message type. No direct XML element.' },
+
+  { tag:':26T:', name:'Transaction Type Code',            cbprMandatory:false,
+    pacs008Path:'CdtTrfTxInf/Purp/Cd',
+    iso20022Name:'Purpose Code',
+    notes:'Maps to Purp/Cd. Use ISO 20022 ExternalPurpose1Code values (e.g. SALA, SUPP, GDDS). Not all MT codes map 1:1.' },
+
+  { tag:':32A:', name:'Value Date / Currency / Amount',   cbprMandatory:true,
+    pacs008Path:'CdtTrfTxInf/IntrBkSttlmDt + IntrBkSttlmAmt',
+    iso20022Name:'Interbank Settlement Date + Amount',
+    notes:'32A packs YYMMDD, 3-char currency, and amount (comma decimal). In pacs.008 these are separate elements. Date: YYYY-MM-DD format.' },
+
+  { tag:':33B:', name:'Currency / Instructed Amount',     cbprMandatory:false,
+    pacs008Path:'CdtTrfTxInf/InstdAmt',
+    iso20022Name:'Instructed Amount',
+    notes:'Amount instructed by the originator, which may differ from settlement amount after charges. Currency attribute required on InstdAmt.' },
+
+  { tag:':36:', name:'Exchange Rate',                     cbprMandatory:false,
+    pacs008Path:'CdtTrfTxInf/XchgRate',
+    iso20022Name:'Exchange Rate',
+    notes:'Used when instructed amount currency differs from settlement currency. Decimal rate, e.g. 1.0842.' },
+
+  { tag:':50A:', name:"Ordering Customer (BIC + account)", cbprMandatory:false,
+    pacs008Path:'CdtTrfTxInf/Dbtr + DbtrAcct/Id/IBAN + DbtrAgt/FinInstnId/BICFI',
+    iso20022Name:'Debtor + Debtor Account + Debtor Agent',
+    notes:'50A uses /IBAN
+BIC format. In pacs.008: Dbtr holds party identity, DbtrAcct holds the IBAN, DbtrAgt holds the BIC.' },
+
+  { tag:':50F:', name:"Ordering Customer (party identifier)", cbprMandatory:false,
+    pacs008Path:'CdtTrfTxInf/Dbtr/Id/OrgId or PrvtId',
+    iso20022Name:'Debtor (with structured party identifier)',
+    notes:'MT103+ format. Lines: 1=party identifier, 2=name, 3+=address. Maps to Dbtr/Id/OrgId/Othr or Dbtr/Id/PrvtId/Othr.' },
+
+  { tag:':50K:', name:"Ordering Customer (name/address)",  cbprMandatory:true,
+    pacs008Path:'CdtTrfTxInf/Dbtr/Nm + Dbtr/PstlAdr + DbtrAcct/Id/IBAN',
+    iso20022Name:'Debtor Name + Postal Address + Account',
+    notes:'Name-and-address format. First line may be /IBAN. Maps to Dbtr/Nm and Dbtr/PstlAdr/AdrLine in pacs.008.' },
+
+  { tag:':52A:', name:"Ordering Institution (BIC)",        cbprMandatory:true,
+    pacs008Path:'CdtTrfTxInf/DbtrAgt/FinInstnId/BICFI',
+    iso20022Name:'Debtor Agent BIC',
+    notes:'The bank of the ordering customer. BICFI is mandatory for SWIFT CBPR+. 8 or 11 character BIC.' },
+
+  { tag:':52D:', name:"Ordering Institution (name)",       cbprMandatory:false,
+    pacs008Path:'CdtTrfTxInf/DbtrAgt/FinInstnId/Nm',
+    iso20022Name:'Debtor Agent Name',
+    notes:'Used when BIC is unavailable. CBPR+ strongly prefers BICFI. Under CBPR+ this field is deprecated.' },
+
+  { tag:':53A:', name:"Sender's Correspondent (BIC)",      cbprMandatory:false,
+    pacs008Path:'CdtTrfTxInf/IntrmyAgt1/FinInstnId/BICFI',
+    iso20022Name:'Intermediary Agent 1',
+    notes:'First intermediary in the payment chain. Used for nostro/correspondent routing.' },
+
+  { tag:':53B:', name:"Sender's Correspondent (account)", cbprMandatory:false,
+    pacs008Path:'CdtTrfTxInf/IntrmyAgt1Acct/Id',
+    iso20022Name:'Intermediary Agent 1 Account',
+    notes:"Account at the sender's correspondent bank." },
+
+  { tag:':54A:', name:"Receiver's Correspondent (BIC)",   cbprMandatory:false,
+    pacs008Path:'CdtTrfTxInf/IntrmyAgt2/FinInstnId/BICFI',
+    iso20022Name:'Intermediary Agent 2',
+    notes:'Second intermediary. Used in longer payment chains (e.g. US dollar clearing via CHIPS).' },
+
+  { tag:':56A:', name:'Intermediary Institution (BIC)',    cbprMandatory:false,
+    pacs008Path:'CdtTrfTxInf/IntrmyAgt1/FinInstnId/BICFI',
+    iso20022Name:'Intermediary Agent',
+    notes:'Alternative intermediary tag. Maps to IntrmyAgt1 in pacs.008.' },
+
+  { tag:':57A:', name:'Account with Institution (BIC)',    cbprMandatory:true,
+    pacs008Path:'CdtTrfTxInf/CdtrAgt/FinInstnId/BICFI',
+    iso20022Name:'Creditor Agent BIC',
+    notes:'The bank where the beneficiary holds their account. Critical for routing. CBPR+ mandatory.' },
+
+  { tag:':57D:', name:'Account with Institution (name)',   cbprMandatory:false,
+    pacs008Path:'CdtTrfTxInf/CdtrAgt/FinInstnId/Nm',
+    iso20022Name:'Creditor Agent Name',
+    notes:'Used when BIC is unavailable. Deprecated under CBPR+.' },
+
+  { tag:':59:', name:'Beneficiary Customer (IBAN)',        cbprMandatory:true,
+    pacs008Path:'CdtTrfTxInf/Cdtr/Nm + CdtrAcct/Id/IBAN',
+    iso20022Name:'Creditor Name + Creditor Account IBAN',
+    notes:'Name and account number of the beneficiary. IBAN mandatory for SEPA; CBPR+ accepts IBAN or Othr/Id.' },
+
+  { tag:':59A:', name:'Beneficiary Customer (BIC/account)', cbprMandatory:false,
+    pacs008Path:'CdtTrfTxInf/Cdtr + CdtrAcct/Id',
+    iso20022Name:'Creditor + Creditor Account',
+    notes:'BIC-based beneficiary identification. Less common than :59:.' },
+
+  { tag:':70:', name:'Remittance Information',             cbprMandatory:false,
+    pacs008Path:'CdtTrfTxInf/RmtInf/Ustrd',
+    iso20022Name:'Unstructured Remittance Information',
+    notes:'Free-text payment reference. Max 140 chars in ISO 20022. For structured (invoice refs), use RmtInf/Strd instead.' },
+
+  { tag:':71A:', name:'Details of Charges',                cbprMandatory:true,
+    pacs008Path:'CdtTrfTxInf/ChrgBr',
+    iso20022Name:'Charge Bearer',
+    notes:'BEN→CRED (creditor pays all), OUR→DEBT (debtor pays all), SHA→SHAR (shared). SEPA requires SLEV. CBPR+ allows DEBT/CRED/SHAR.' },
+
+  { tag:':72:', name:'Sender to Receiver Information',     cbprMandatory:false,
+    pacs008Path:'CdtTrfTxInf/InstrForCdtrAgt or InstrForNxtAgt',
+    iso20022Name:'Instruction for Creditor Agent / Next Agent',
+    notes:'/ACC/ → InstrForCdtrAgt/Cd=ACC, /BNF/ → beneficiary instruction. Max 6 lines × 35 chars.' },
+
+  { tag:':77B:', name:'Regulatory Reporting',              cbprMandatory:false,
+    pacs008Path:'CdtTrfTxInf/RgltryRptg',
+    iso20022Name:'Regulatory Reporting',
+    notes:'Regulatory details for cross-border payments. Maps to RgltryRptg/Dtls/Cd + Inf in pacs.008.' },
+];
 ];
 
 /* ═══════════════════════════════════════════
@@ -2412,53 +2519,303 @@ LONDON
   mapMT103();
 }
 
-function mapMT103() {
-  const raw = document.getElementById('mt103-input').value.trim();
-  const out = document.getElementById('mt103-results');
-  out.style.display = 'block';
-  if (!raw) { out.innerHTML = '<div class="warn-item"><div class="error-rule">Paste an MT103 message first.</div></div>'; return; }
-
-  // Parse MT103 fields
+/* ── Parse raw MT103 text into [{tag, value}] ── */
+function parseMT103Fields(raw) {
   const fieldRegex = /:(\d{2}[A-Z]?):([\s\S]*?)(?=:\d{2}[A-Z]?:|$)/g;
   const parsed = [];
   let m;
   while ((m = fieldRegex.exec(raw)) !== null) {
     parsed.push({ tag: ':' + m[1] + ':', value: m[2].trim() });
   }
+  return parsed;
+}
+
+/* ── Extract a single field value by tag ── */
+function mt103Get(parsed, tag) {
+  const f = parsed.find(x => x.tag === tag);
+  return f ? f.value : '';
+}
+
+/* ── Parse :32A: into { date, ccy, amount } ── */
+function parse32A(raw) {
+  // Format: YYMMDDCCC[amount] e.g. 260112EUR12500,00
+  const m = raw.match(/^(\d{6})([A-Z]{3})(.+)$/);
+  if (!m) return { date: '', ccy: '', amount: '' };
+  const yy = m[1].substring(0, 2), mm = m[1].substring(2, 4), dd = m[1].substring(4, 6);
+  const year = parseInt(yy, 10) < 50 ? '20' + yy : '19' + yy;
+  return {
+    date:   year + '-' + mm + '-' + dd,
+    ccy:    m[2],
+    amount: m[3].replace(',', '.')
+  };
+}
+
+/* ── Map :71A: charge bearer code ── */
+function mapChargBearer(code) {
+  return { BEN: 'CRED', OUR: 'DEBT', SHA: 'SHAR' }[code.trim().toUpperCase()] || code.trim();
+}
+
+/* ── Extract IBAN from a field value (first line may be /IBAN or /account) ── */
+function extractIBAN(val) {
+  const firstLine = val.split('\n')[0].trim();
+  if (firstLine.startsWith('/')) {
+    const acct = firstLine.substring(1).trim();
+    return acct;
+  }
+  return '';
+}
+
+/* ── Extract name lines from :50K: / :59: (skip account line if present) ── */
+function extractName(val) {
+  const lines = val.split('\n').map(l => l.trim()).filter(Boolean);
+  const start = lines[0].startsWith('/') ? 1 : 0;
+  return lines.slice(start, start + 1).join(' ').trim();
+}
+
+function extractAddrLines(val) {
+  const lines = val.split('\n').map(l => l.trim()).filter(Boolean);
+  const start = lines[0].startsWith('/') ? 2 : 1;
+  return lines.slice(start).filter(Boolean);
+}
+
+/* ── Generate pacs.008.001.08 XML skeleton from parsed MT103 ── */
+function generatePacs008(parsed) {
+  const msgId   = mt103Get(parsed, ':20:') || 'MSG-' + Date.now();
+  const e2eId   = mt103Get(parsed, ':21:') || 'NOTPROVIDED';
+  const raw32a  = mt103Get(parsed, ':32A:');
+  const { date, ccy, amount } = parse32A(raw32a);
+  const instrAmt = mt103Get(parsed, ':33B:');
+  const xchgRate = mt103Get(parsed, ':36:');
+  const dbtrBic  = mt103Get(parsed, ':52A:').trim();
+  const dbtrRaw  = mt103Get(parsed, ':50K:') || mt103Get(parsed, ':50A:') || mt103Get(parsed, ':50F:');
+  const dbtrIBAN = extractIBAN(dbtrRaw);
+  const dbtrNm   = extractName(dbtrRaw);
+  const dbtrAddr = extractAddrLines(dbtrRaw);
+  const intrm1   = mt103Get(parsed, ':53A:').trim() || mt103Get(parsed, ':56A:').trim();
+  const intrm2   = mt103Get(parsed, ':54A:').trim();
+  const cdtrAgtBic = mt103Get(parsed, ':57A:').trim() || mt103Get(parsed, ':57D:').trim();
+  const cdtrRaw  = mt103Get(parsed, ':59:') || mt103Get(parsed, ':59A:');
+  const cdtrIBAN = extractIBAN(cdtrRaw);
+  const cdtrNm   = extractName(cdtrRaw);
+  const cdtrAddr = extractAddrLines(cdtrRaw);
+  const chrgBr   = mapChargBearer(mt103Get(parsed, ':71A:') || 'SHAR');
+  const rmtInf   = mt103Get(parsed, ':70:').replace(/\n/g, ' ');
+  const purpRaw  = mt103Get(parsed, ':26T:').trim();
+  const rgltryRaw = mt103Get(parsed, ':77B:').trim();
+
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  const creDtTm  = new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
+  const instrId  = 'INSTR-' + msgId;
+
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+  xml    += `<!-- Generated by AINumbers T98 MT103→pacs.008 converter -->\n`;
+  xml    += `<!-- Verify all fields before production submission -->\n`;
+  xml    += `<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08">\n`;
+  xml    += `  <FIToFICstmrCdtTrf>\n`;
+  xml    += `    <GrpHdr>\n`;
+  xml    += `      <MsgId>${esc(msgId)}</MsgId>\n`;
+  xml    += `      <CreDtTm>${creDtTm}</CreDtTm>\n`;
+  xml    += `      <NbOfTxs>1</NbOfTxs>\n`;
+  if (ccy && amount) {
+    xml  += `      <TtlIntrBkSttlmAmt Ccy="${esc(ccy)}">${esc(amount)}</TtlIntrBkSttlmAmt>\n`;
+    xml  += `      <IntrBkSttlmDt>${date || '<!-- YYMMDD from :32A: invalid -->'}</IntrBkSttlmDt>\n`;
+  }
+  xml    += `      <SttlmInf>\n`;
+  xml    += `        <SttlmMtd>CLRG</SttlmMtd>\n`;
+  xml    += `      </SttlmInf>\n`;
+  xml    += `    </GrpHdr>\n`;
+  xml    += `    <CdtTrfTxInf>\n`;
+  xml    += `      <PmtId>\n`;
+  xml    += `        <InstrId>${esc(instrId)}</InstrId>\n`;
+  xml    += `        <EndToEndId>${esc(e2eId)}</EndToEndId>\n`;
+  xml    += `      </PmtId>\n`;
+  if (ccy && amount) {
+    xml  += `      <IntrBkSttlmAmt Ccy="${esc(ccy)}">${esc(amount)}</IntrBkSttlmAmt>\n`;
+    xml  += `      <IntrBkSttlmDt>${date}</IntrBkSttlmDt>\n`;
+  }
+  if (purpRaw) {
+    xml  += `      <Purp><Cd>${esc(purpRaw.substring(0,4))}</Cd></Purp>\n`;
+  }
+  xml    += `      <ChrgBr>${chrgBr}</ChrgBr>\n`;
+  if (dbtrBic) {
+    xml  += `      <DbtrAgt>\n`;
+    xml  += `        <FinInstnId><BICFI>${esc(dbtrBic)}</BICFI></FinInstnId>\n`;
+    xml  += `      </DbtrAgt>\n`;
+  }
+  xml    += `      <Dbtr>\n`;
+  if (dbtrNm) xml += `        <Nm>${esc(dbtrNm)}</Nm>\n`;
+  if (dbtrAddr.length) {
+    xml  += `        <PstlAdr>\n`;
+    dbtrAddr.forEach(l => { xml += `          <AdrLine>${esc(l)}</AdrLine>\n`; });
+    xml  += `        </PstlAdr>\n`;
+  }
+  xml    += `      </Dbtr>\n`;
+  if (dbtrIBAN) {
+    xml  += `      <DbtrAcct><Id><IBAN>${esc(dbtrIBAN)}</IBAN></Id></DbtrAcct>\n`;
+  }
+  if (intrm1) {
+    xml  += `      <IntrmyAgt1>\n`;
+    xml  += `        <FinInstnId><BICFI>${esc(intrm1)}</BICFI></FinInstnId>\n`;
+    xml  += `      </IntrmyAgt1>\n`;
+  }
+  if (intrm2) {
+    xml  += `      <IntrmyAgt2>\n`;
+    xml  += `        <FinInstnId><BICFI>${esc(intrm2)}</BICFI></FinInstnId>\n`;
+    xml  += `      </IntrmyAgt2>\n`;
+  }
+  if (cdtrAgtBic) {
+    xml  += `      <CdtrAgt>\n`;
+    xml  += `        <FinInstnId><BICFI>${esc(cdtrAgtBic)}</BICFI></FinInstnId>\n`;
+    xml  += `      </CdtrAgt>\n`;
+  }
+  xml    += `      <Cdtr>\n`;
+  if (cdtrNm) xml += `        <Nm>${esc(cdtrNm)}</Nm>\n`;
+  if (cdtrAddr.length) {
+    xml  += `        <PstlAdr>\n`;
+    cdtrAddr.forEach(l => { xml += `          <AdrLine>${esc(l)}</AdrLine>\n`; });
+    xml  += `        </PstlAdr>\n`;
+  }
+  xml    += `      </Cdtr>\n`;
+  if (cdtrIBAN) {
+    xml  += `      <CdtrAcct><Id><IBAN>${esc(cdtrIBAN)}</IBAN></Id></CdtrAcct>\n`;
+  }
+  if (instrAmt) {
+    const instrM = instrAmt.match(/^([A-Z]{3})(.+)$/);
+    if (instrM) {
+      xml += `      <InstdAmt Ccy="${esc(instrM[1])}">${esc(instrM[2].replace(',','.'))}</InstdAmt>\n`;
+    }
+  }
+  if (xchgRate) {
+    xml  += `      <XchgRate>${esc(xchgRate.replace(',','.'))}</XchgRate>\n`;
+  }
+  if (rmtInf) {
+    xml  += `      <RmtInf><Ustrd>${esc(rmtInf.substring(0, 140))}</Ustrd></RmtInf>\n`;
+  }
+  if (rgltryRaw) {
+    xml  += `      <RgltryRptg><Dtls><Inf>${esc(rgltryRaw)}</Inf></Dtls></RgltryRptg>\n`;
+  }
+  xml    += `    </CdtTrfTxInf>\n`;
+  xml    += `  </FIToFICstmrCdtTrf>\n`;
+  xml    += `</Document>`;
+  return xml;
+}
+
+/* ── Open generated XML in Tab 1 for immediate validation ── */
+function openMT103InValidator(xmlId) {
+  const el = document.getElementById(xmlId); const xml = el.dataset.raw || el.textContent;
+  document.getElementById('xml-input').value = xml;
+  switchTab('tab-validate', document.querySelector('.tab-btn'));
+  validateXML();
+}
+
+/* ── Copy generated pacs.008 XML ── */
+function copyMT103Xml(xmlId, btnId) {
+  const xml = document.getElementById(xmlId).textContent;
+  navigator.clipboard.writeText(xml).then(() => {
+    const btn = document.getElementById(btnId);
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    btn.style.color = 'var(--teal)';
+    setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 1800);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = xml;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  });
+}
+
+function mapMT103() {
+  const raw = document.getElementById('mt103-input').value.trim();
+  const out = document.getElementById('mt103-results');
+  out.style.display = 'block';
+  if (!raw) {
+    out.innerHTML = '<div class="warn-item"><div class="error-rule">Paste an MT103 message first.</div></div>';
+    return;
+  }
+
+  const parsed = parseMT103Fields(raw);
 
   if (!parsed.length) {
     out.innerHTML = '<div class="warn-item"><div class="error-rule">No recognised MT103 field tags found. Ensure each field starts on a new line with format :NNA:value.</div></div>';
     return;
   }
 
+  const recognised = parsed.filter(f => MT103_FIELD_MAP.find(d => d.tag === f.tag));
+  const unknown    = parsed.filter(f => !MT103_FIELD_MAP.find(d => d.tag === f.tag));
+
+  // Mandatory CBPR+ fields present/missing
+  const mandatoryTags = MT103_FIELD_MAP.filter(d => d.cbprMandatory).map(d => d.tag);
+  const presentTags   = parsed.map(f => f.tag);
+  const missingMandatory = mandatoryTags.filter(t => !presentTags.includes(t));
+
+  // Generate pacs.008
+  const pacs008xml = generatePacs008(parsed);
+  const xmlDivId   = 'mt103-pacs-xml-' + Date.now();
+  const copyBtnId  = 'mt103-copy-btn-' + Date.now();
+
+  // Field mapping table rows
   const rows = parsed.map(f => {
     const def = MT103_FIELD_MAP.find(d => d.tag === f.tag);
-    const valueDisplay = f.value.replace(/\n/g,'<br>');
+    const valueDisplay = f.value.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
     if (def) {
+      const mandPill = def.cbprMandatory
+        ? '<span style="font-size:.6rem;background:rgba(20,184,166,.12);color:var(--teal);padding:.1rem .35rem;border-radius:3px;margin-left:.4rem">CBPR+</span>'
+        : '';
       return `<tr>
-        <td style="font-family:'JetBrains Mono',monospace;color:var(--gold);white-space:nowrap">${def.tag}</td>
+        <td style="font-family:\'JetBrains Mono\',monospace;color:var(--gold);white-space:nowrap">${def.tag}${mandPill}</td>
         <td style="font-size:0.72rem;color:var(--text)">${def.name}</td>
-        <td style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--teal)">${def.pacs008Path}</td>
-        <td style="font-size:0.72rem;color:var(--body)">${valueDisplay}</td>
-        <td style="font-size:0.68rem;color:var(--muted);font-style:italic">${def.notes}</td>
+        <td style="font-family:\'JetBrains Mono\',monospace;font-size:0.62rem;color:var(--teal)">${def.pacs008Path}</td>
+        <td style="font-size:0.7rem;color:var(--body);max-width:160px;word-break:break-word">${valueDisplay}</td>
+        <td style="font-size:0.65rem;color:var(--muted);font-style:italic">${def.notes}</td>
       </tr>`;
     } else {
       return `<tr>
-        <td style="font-family:'JetBrains Mono',monospace;color:var(--muted)">${f.tag}</td>
+        <td style="font-family:\'JetBrains Mono\',monospace;color:var(--muted)">${f.tag}</td>
         <td style="color:var(--muted);font-size:0.72rem">Unknown tag</td>
         <td style="color:var(--muted)">—</td>
-        <td style="font-size:0.72rem;color:var(--body)">${valueDisplay}</td>
-        <td style="font-size:0.68rem;color:var(--muted)">Tag not in MT103 standard map</td>
+        <td style="font-size:0.7rem;color:var(--body)">${valueDisplay}</td>
+        <td style="font-size:0.65rem;color:var(--muted)">Tag not in MT103 standard map</td>
       </tr>`;
     }
   }).join('');
 
+  const missingBlock = missingMandatory.length
+    ? `<div class="warn-item" style="margin-bottom:1rem">
+         <div class="error-rule" style="font-size:.72rem">
+           <strong>⚠ Missing CBPR+ mandatory fields:</strong>
+           ${missingMandatory.map(t => `<code style="font-family:\'JetBrains Mono\',monospace;color:var(--gold)">${t}</code>`).join(' ')}
+         </div>
+       </div>`
+    : `<div style="font-size:.7rem;color:var(--teal);margin-bottom:.75rem">✓ All CBPR+ mandatory fields present</div>`;
+
   out.innerHTML = `
-    <div class="result-status-bar" style="margin-bottom:1.25rem">
+    <div class="result-status-bar" style="margin-bottom:0.75rem">
       <div class="status-dot"></div>
-      <div class="status-text"><strong>${parsed.length} field(s) mapped</strong></div>
-      <div class="status-meta">${parsed.filter(f=>MT103_FIELD_MAP.find(d=>d.tag===f.tag)).length} recognised · ${parsed.filter(f=>!MT103_FIELD_MAP.find(d=>d.tag===f.tag)).length} unknown</div>
+      <div class="status-text"><strong>${parsed.length} field(s) parsed</strong></div>
+      <div class="status-meta">${recognised.length} recognised · ${unknown.length} unknown</div>
     </div>
+
+    ${missingBlock}
+
+    <!-- ── Generated pacs.008 XML ── -->
+    <div class="section-head" style="margin-top:1.25rem">Generated pacs.008.001.08 XML Skeleton</div>
+    <div style="position:relative;margin-bottom:1.25rem">
+      <pre id="${xmlDivId}" style="background:var(--bg-3);border:1px solid var(--border);border-radius:6px;padding:1rem;font-family:\'JetBrains Mono\',monospace;font-size:.62rem;line-height:1.6;overflow-x:auto;color:var(--body);white-space:pre;max-height:360px;overflow-y:auto">${pacs008xml.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+      <div style="display:flex;gap:.6rem;margin-top:.5rem;flex-wrap:wrap">
+        <button id="${copyBtnId}" class="btn-ghost" style="font-size:.62rem" onclick="copyMT103Xml('${xmlDivId}','${copyBtnId}')">⎘ Copy XML</button>
+        <button class="btn-ghost" style="font-size:.62rem" onclick="openMT103InValidator('${xmlDivId}')">→ Open in Validator (Tab 1)</button>
+      </div>
+      <p style="font-size:.6rem;color:var(--muted);margin-top:.5rem;font-style:italic">
+        ⚠ Review generated XML before production submission. Optional elements omitted when source field absent. Date/amount parsing requires well-formed :32A: field.
+      </p>
+    </div>
+
+    <!-- ── Field mapping table ── -->
+    <div class="section-head">Field-by-Field MT103 → pacs.008 Mapping</div>
     <div style="overflow-x:auto">
       <table class="batch-table">
         <thead><tr>
@@ -2467,19 +2824,32 @@ function mapMT103() {
         <tbody>${rows}</tbody>
       </table>
     </div>`;
+
+  // Fix: make pre element hold raw text (not HTML-escaped) for clipboard
+  const preEl = document.getElementById(xmlDivId);
+  preEl.textContent = pacs008xml;
+  // Re-escape for display
+  preEl.innerHTML = pacs008xml.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  preEl.dataset.raw = pacs008xml;
 }
 
 function renderMT103RefTable() {
   const tbl = document.getElementById('mt103-ref-table');
   if (!tbl) return;
   tbl.innerHTML = `<thead><tr>
-    <th>MT Tag</th><th>MT Field Name</th><th>ISO 20022 pacs.008 Path</th><th>ISO 20022 Element</th><th>Migration Notes</th>
-  </tr></thead><tbody>${MT103_FIELD_MAP.map(f=>`<tr>
-    <td style="font-family:'JetBrains Mono',monospace;color:var(--gold);white-space:nowrap">${f.tag}</td>
-    <td style="font-size:0.75rem">${f.name}</td>
-    <td style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--teal)">${f.pacs008Path}</td>
-    <td style="font-size:0.72rem;color:var(--text)">${f.iso20022Name}</td>
-    <td style="font-size:0.68rem;color:var(--muted);font-style:italic">${f.notes}</td>
+    <th>MT Tag</th>
+    <th>CBPR+</th>
+    <th>MT Field Name</th>
+    <th>ISO 20022 pacs.008 Path</th>
+    <th>ISO 20022 Element Name</th>
+    <th>Migration Notes</th>
+  </tr></thead><tbody>${MT103_FIELD_MAP.map(f => `<tr>
+    <td style="font-family:\'JetBrains Mono\',monospace;color:var(--gold);white-space:nowrap">${f.tag}</td>
+    <td style="text-align:center">${f.cbprMandatory ? '<span style="color:var(--teal);font-size:.7rem">●</span>' : '<span style="color:var(--muted);font-size:.7rem">○</span>'}</td>
+    <td style="font-size:0.72rem">${f.name}</td>
+    <td style="font-family:\'JetBrains Mono\',monospace;font-size:0.6rem;color:var(--teal)">${f.pacs008Path}</td>
+    <td style="font-size:0.68rem;color:var(--text)">${f.iso20022Name}</td>
+    <td style="font-size:0.65rem;color:var(--muted);font-style:italic">${f.notes}</td>
   </tr>`).join('')}</tbody>`;
 }
 
