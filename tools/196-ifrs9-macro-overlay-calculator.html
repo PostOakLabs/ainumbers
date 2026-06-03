@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>IFRS 9 Forward-Looking Macro Overlay Calculator · AINumbers.co</title>
+<meta name="description" content="Compute IFRS 9 ECL forward-looking macroeconomic overlays by scenario, portfolio stage, and sector. Outputs overlay amounts and management adjustment rationale. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/196-ifrs9-macro-overlay-calculator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"IFRS 9 Forward-Looking Macro Overlay Calculator","url":"https://ainumbers.co/tools/196-ifrs9-macro-overlay-calculator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "ifrs9-macro-overlay-calculator",
+  "version": "1.0.0",
+  "title": "IFRS 9 Forward-Looking Macro Overlay Calculator",
+  "description": "Computes IFRS 9 ECL forward-looking macroeconomic overlays by base/adverse/upside scenario, portfolio stage, and sector weighting. Outputs overlay amounts and management adjustment rationale template.",
+  "category": "cat-17",
+  "tags": ["IFRS 9","ECL","macro overlay","credit risk","management overlay","PD","staging","provisioning"],
+  "audience": ["risk","finance","credit","audit","regulatory"],
+  "input_schema": {"type":"object","properties":{"portfolio_exposure":{"type":"number"},"staging_mix":{"type":"object"},"scenarios":{"type":"array"},"sector":{"type":"string"}},"required":["portfolio_exposure","staging_mix","scenarios"]},
+  "output_schema": {"type":"object","properties":{"base_overlay":{"type":"number"},"adverse_overlay":{"type":"number"},"blended_overlay":{"type":"number"},"rationale":{"type":"string"}}},
+  "mcp_tool_definition": {"name":"calculate_ifrs9_macro_overlay","description":"Calculates IFRS 9 ECL management overlay amounts by macroeconomic scenario, portfolio staging, and sector. Returns overlay amounts and rationale template.","inputSchema":{"type":"object","properties":{"portfolio_exposure":{"type":"number"},"staging_mix":{"type":"object"},"base_scenario":{"type":"object"},"adverse_scenario":{"type":"object"},"sector":{"type":"string"}},"required":["portfolio_exposure","staging_mix"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/196-ifrs9-macro-overlay-calculator.html","function_name":"runOverlay","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(212,168,71,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(212,168,71,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--gold);color:var(--gold)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--gold)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--gold);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{opacity:.85}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--gold)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.hero-badge{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid;color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.disclaimer{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.disclaimer strong{color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.panel-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:.75rem}
+.panel-row-3{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:.75rem}
+@media(max-width:700px){.panel-row-3{grid-template-columns:1fr}}
+label{font-size:.72rem;color:var(--body);display:block;margin-bottom:.35rem}
+input[type="number"],input[type="text"],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.4rem .65rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--gold)}
+.staging-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:.75rem}
+@media(max-width:600px){.staging-grid{grid-template-columns:1fr}}
+.staging-cell{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem}
+.staging-ttl{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem}
+.staging-desc{font-size:.65rem;color:var(--muted);margin-bottom:.5rem}
+.run-btn{background:var(--gold);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:opacity .2s;margin-top:1rem;margin-bottom:1.5rem}
+.run-btn:hover{opacity:.85}
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:1rem}
+.metric-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem}
+.metric-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.metric-value{font-family:'DM Serif Display',serif;font-size:1.6rem;color:var(--bright);line-height:1.1}
+.metric-sub{font-size:.65rem;color:var(--body);margin-top:.2rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.out-body{padding:1.25rem}
+.result-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.result-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400}
+.result-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.result-table tr:last-child td{border-bottom:none}
+.rationale-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.72rem;color:var(--body);line-height:1.9;white-space:pre-wrap;font-family:'JetBrains Mono',monospace}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border:1px solid var(--border);background:var(--bg-3);color:var(--text);border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-export:hover{border-color:var(--gold);color:var(--gold)}
+.results-export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;padding:.75rem 0;border-top:1px solid var(--border);margin-top:1rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+#ap2ExportBtn.ready{opacity:1!important;cursor:pointer!important;border-color:var(--gold)!important;color:var(--bright)!important}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)!important}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/counterparty-credit-risk-hub.html">Credit Risk Hub</a><span class="nav-sep">/</span><span>T-196</span></div>
+  <div class="nav-right"><a href="../guides/counterparty-credit-risk-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-17 · T196 · Credit Risk &amp; Provisioning</div>
+  <span class="hero-badge badge-muted">v1.0</span>
+  <h1>IFRS 9 Forward-Looking <em>Macro Overlay Calculator</em></h1>
+  <p class="hero-desc">Compute ECL management overlay amounts by applying forward-looking macroeconomic scenarios to portfolio staging distributions. Supports base, adverse, and upside scenarios with sector weighting. Outputs overlay amounts per stage and management adjustment rationale template.</p>
+  <div class="hero-meta">
+    <span class="badge badge-gold">IFRS 9</span>
+    <span class="badge badge-gold">ECL</span>
+    <span class="badge badge-gold">Credit Risk</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+<div class="tool-body"><div class="container">
+<div class="disclaimer"><strong>Scope &amp; reliance — </strong>🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only. Macro-factor sensitivities and PD multipliers in this tool are illustrative reference values derived from published academic and regulatory research. Actual ECL overlays require institution-specific model validation, auditor review, and senior management sign-off under IFRS 9 paragraphs 5.5.13–5.5.20. Verify all figures against your models and governance frameworks before use. Deterministic logic · no inference · zero PII · CC BY 4.0.</div>
+
+<!-- PORTFOLIO PANEL -->
+<div class="panel">
+  <div class="panel-label">Portfolio Profile</div>
+  <div class="panel-row">
+    <div>
+      <label for="exposure">Total Portfolio Gross Exposure (£/$ millions)</label>
+      <input type="number" id="exposure" value="2500" min="1" step="0.1">
+    </div>
+    <div>
+      <label for="sector">Primary Sector</label>
+      <select id="sector">
+        <option value="retail">Retail / Consumer</option>
+        <option value="mortgage">Residential Mortgage</option>
+        <option value="sme">SME / Corporate</option>
+        <option value="commercial_re">Commercial Real Estate</option>
+        <option value="unsecured">Unsecured Consumer Credit</option>
+      </select>
+    </div>
+    <div>
+      <label for="base_ecl">Model ECL Before Overlay (£/$ millions)</label>
+      <input type="number" id="base_ecl" value="42" min="0" step="0.01">
+    </div>
+  </div>
+  <div class="panel-label" style="margin-top:.5rem">Portfolio Staging Mix (must sum to 100%)</div>
+  <div class="staging-grid">
+    <div class="staging-cell">
+      <div class="staging-ttl">Stage 1 — Performing</div>
+      <div class="staging-desc">12-month ECL. No significant increase in credit risk since origination.</div>
+      <label>Exposure % in Stage 1</label>
+      <input type="number" id="s1_pct" value="78" min="0" max="100" step="0.1">
+    </div>
+    <div class="staging-cell">
+      <div class="staging-ttl">Stage 2 — Underperforming</div>
+      <div class="staging-desc">Lifetime ECL. SICR since origination but not credit-impaired.</div>
+      <label>Exposure % in Stage 2</label>
+      <input type="number" id="s2_pct" value="15" min="0" max="100" step="0.1">
+    </div>
+    <div class="staging-cell">
+      <div class="staging-ttl">Stage 3 — Credit-Impaired</div>
+      <div class="staging-desc">Lifetime ECL. Objective evidence of credit impairment exists.</div>
+      <label>Exposure % in Stage 3</label>
+      <input type="number" id="s3_pct" value="7" min="0" max="100" step="0.1">
+    </div>
+  </div>
+</div>
+
+<!-- SCENARIOS PANEL -->
+<div class="panel">
+  <div class="panel-label">Macroeconomic Scenarios</div>
+  <p style="font-size:.72rem;color:var(--body);margin-bottom:1rem">Enter macro variable forecasts for each scenario. The tool applies published PD sensitivity elasticities to estimate overlay adjustments. All elasticities are reference values — replace with institution-specific model outputs where available.</p>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem">
+    <!-- BASE -->
+    <div class="staging-cell">
+      <div class="staging-ttl" style="color:var(--teal)">Base Scenario</div>
+      <div class="staging-desc">Central/consensus forecast. Typically assigned 55–60% probability weight.</div>
+      <label>GDP Growth (%)</label>
+      <input type="number" id="b_gdp" value="1.8" step="0.1">
+      <label style="margin-top:.5rem">Unemployment Rate (%)</label>
+      <input type="number" id="b_unemp" value="4.2" step="0.1">
+      <label style="margin-top:.5rem">House Price Index Change (%)</label>
+      <input type="number" id="b_hpi" value="2.5" step="0.1">
+      <label style="margin-top:.5rem">Scenario Probability Weight (%)</label>
+      <input type="number" id="b_prob" value="55" min="0" max="100" step="1">
+    </div>
+    <!-- ADVERSE -->
+    <div class="staging-cell">
+      <div class="staging-ttl" style="color:var(--red)">Adverse Scenario</div>
+      <div class="staging-desc">Downside scenario. Typically assigned 25–30% probability weight.</div>
+      <label>GDP Growth (%)</label>
+      <input type="number" id="a_gdp" value="-1.2" step="0.1">
+      <label style="margin-top:.5rem">Unemployment Rate (%)</label>
+      <input type="number" id="a_unemp" value="7.5" step="0.1">
+      <label style="margin-top:.5rem">House Price Index Change (%)</label>
+      <input type="number" id="a_hpi" value="-8.0" step="0.1">
+      <label style="margin-top:.5rem">Scenario Probability Weight (%)</label>
+      <input type="number" id="a_prob" value="30" min="0" max="100" step="1">
+    </div>
+    <!-- UPSIDE -->
+    <div class="staging-cell">
+      <div class="staging-ttl" style="color:var(--green)">Upside Scenario</div>
+      <div class="staging-desc">Optimistic scenario. Typically assigned 10–20% probability weight.</div>
+      <label>GDP Growth (%)</label>
+      <input type="number" id="u_gdp" value="3.5" step="0.1">
+      <label style="margin-top:.5rem">Unemployment Rate (%)</label>
+      <input type="number" id="u_unemp" value="3.2" step="0.1">
+      <label style="margin-top:.5rem">House Price Index Change (%)</label>
+      <input type="number" id="u_hpi" value="6.0" step="0.1">
+      <label style="margin-top:.5rem">Scenario Probability Weight (%)</label>
+      <input type="number" id="u_prob" value="15" min="0" max="100" step="1">
+    </div>
+  </div>
+</div>
+
+<button class="run-btn" onclick="runOverlay()">▶ Calculate Overlays</button>
+
+<div id="outputSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr">▼</span></button>
+    <div class="mfst-body" id="mfstBody"><pre class="mfst-code" id="mfstCode"></pre></div>
+  </div></div>
+</section>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html">All Tools</a>
+    <a href="../guides/counterparty-credit-risk-hub.html">Credit Risk Hub</a>
+    <a href="../sitemap.html">Sitemap</a>
+    <a href="../contact.html">Contact</a>
+  </div>
+  <div class="footer-badge-ai">
+    <span>CC BY 4.0 · Post Oak Labs</span>
+    <span>🔒 Zero PII &nbsp;📡 No server calls &nbsp;💻 Client-side</span>
+  </div>
+</div></div></footer>
+
+<script>
+// PD sensitivity elasticities by sector (reference values; institution should replace with own model outputs)
+// Format: {gdp_1pct_adverse: PD_multiplier_per_1pct_GDP_fall, unemp_1pct_rise: PD_multiplier_per_1pct_unemp_rise, hpi_10pct_fall: PD_multiplier_per_10pct_HPI_fall}
+const SECTOR_ELASTICITIES = {
+  retail:        {gdp: 0.04, unemp: 0.06, hpi: 0.03},
+  mortgage:      {gdp: 0.03, unemp: 0.05, hpi: 0.08},
+  sme:           {gdp: 0.07, unemp: 0.05, hpi: 0.04},
+  commercial_re: {gdp: 0.05, unemp: 0.04, hpi: 0.12},
+  unsecured:     {gdp: 0.06, unemp: 0.08, hpi: 0.02},
+};
+
+// Base reference macro (economic neutral point for elasticity calculation)
+const MACRO_NEUTRAL = {gdp: 1.8, unemp: 4.2, hpi: 2.5};
+
+// Staging ECL intensity multipliers (relative overlay sensitivity by stage)
+const STAGE_SENSITIVITY = {s1: 0.4, s2: 1.8, s3: 0.8};
+
+let lastResults = null;
+
+function runOverlay() {
+  const exposure = +document.getElementById('exposure').value;
+  const sector = document.getElementById('sector').value;
+  const baseECL = +document.getElementById('base_ecl').value;
+  const s1 = +document.getElementById('s1_pct').value / 100;
+  const s2 = +document.getElementById('s2_pct').value / 100;
+  const s3 = +document.getElementById('s3_pct').value / 100;
+
+  if (Math.abs(s1 + s2 + s3 - 1) > 0.02) {
+    alert('Stage percentages must sum to 100%. Current sum: ' + Math.round((s1+s2+s3)*100) + '%');
+    return;
+  }
+
+  const scenarios = {
+    base:    {gdp: +document.getElementById('b_gdp').value,   unemp: +document.getElementById('b_unemp').value,   hpi: +document.getElementById('b_hpi').value,   prob: +document.getElementById('b_prob').value / 100},
+    adverse: {gdp: +document.getElementById('a_gdp').value,   unemp: +document.getElementById('a_unemp').value,   hpi: +document.getElementById('a_hpi').value,   prob: +document.getElementById('a_prob').value / 100},
+    upside:  {gdp: +document.getElementById('u_gdp').value,   unemp: +document.getElementById('u_unemp').value,   hpi: +document.getElementById('u_hpi').value,   prob: +document.getElementById('u_prob').value / 100},
+  };
+
+  const totalProb = scenarios.base.prob + scenarios.adverse.prob + scenarios.upside.prob;
+  if (Math.abs(totalProb - 1) > 0.02) {
+    alert('Scenario probability weights must sum to 100%. Current sum: ' + Math.round(totalProb*100) + '%');
+    return;
+  }
+
+  const el = SECTOR_ELASTICITIES[sector];
+
+  function computeOverlay(sc) {
+    const gdpDelta = MACRO_NEUTRAL.gdp - sc.gdp; // positive = worse than neutral
+    const unempDelta = sc.unemp - MACRO_NEUTRAL.unemp; // positive = worse
+    const hpiDelta = MACRO_NEUTRAL.hpi - sc.hpi; // positive = worse
+
+    // PD shift as fraction of base ECL
+    const pdShift = (gdpDelta * el.gdp) + (unempDelta * el.unemp) + ((hpiDelta/10) * el.hpi);
+
+    // Apply by stage
+    const s1Overlay = exposure * s1 * baseECL/exposure * pdShift * STAGE_SENSITIVITY.s1;
+    const s2Overlay = exposure * s2 * baseECL/exposure * pdShift * STAGE_SENSITIVITY.s2;
+    const s3Overlay = exposure * s3 * baseECL/exposure * pdShift * STAGE_SENSITIVITY.s3;
+    const totalOverlay = s1Overlay + s2Overlay + s3Overlay;
+    return {pdShift: +(pdShift*100).toFixed(2), s1: +s1Overlay.toFixed(2), s2: +s2Overlay.toFixed(2), s3: +s3Overlay.toFixed(2), total: +totalOverlay.toFixed(2)};
+  }
+
+  const baseOv = computeOverlay(scenarios.base);
+  const advOv = computeOverlay(scenarios.adverse);
+  const upOv = computeOverlay(scenarios.upside);
+  const blended = {
+    s1: +(baseOv.s1*scenarios.base.prob + advOv.s1*scenarios.adverse.prob + upOv.s1*scenarios.upside.prob).toFixed(2),
+    s2: +(baseOv.s2*scenarios.base.prob + advOv.s2*scenarios.adverse.prob + upOv.s2*scenarios.upside.prob).toFixed(2),
+    s3: +(baseOv.s3*scenarios.base.prob + advOv.s3*scenarios.adverse.prob + upOv.s3*scenarios.upside.prob).toFixed(2),
+    total: 0
+  };
+  blended.total = +(blended.s1+blended.s2+blended.s3).toFixed(2);
+
+  lastResults = {exposure, baseECL, s1, s2, s3, scenarios, sector, baseOv, advOv, upOv, blended, timestamp: new Date().toISOString()};
+
+  const sectorLabels = {retail:'Retail / Consumer',mortgage:'Residential Mortgage',sme:'SME / Corporate',commercial_re:'Commercial Real Estate',unsecured:'Unsecured Consumer Credit'};
+
+  let html = '';
+
+  // Key metrics
+  html += `<div class="metric-grid">
+    <div class="metric-card"><div class="metric-label">Blended Overlay (Prob-Weighted)</div><div class="metric-value" style="color:var(--warn)">£${blended.total.toFixed(1)}m</div><div class="metric-sub">${((blended.total/baseECL)*100).toFixed(1)}% of model ECL</div></div>
+    <div class="metric-card"><div class="metric-label">Adverse Scenario Overlay</div><div class="metric-value" style="color:var(--red)">£${advOv.total.toFixed(1)}m</div><div class="metric-sub">PD shift: +${advOv.pdShift}%</div></div>
+    <div class="metric-card"><div class="metric-label">Base Scenario Overlay</div><div class="metric-value" style="color:var(--teal)">£${baseOv.total.toFixed(1)}m</div><div class="metric-sub">PD shift: ${baseOv.pdShift}%</div></div>
+    <div class="metric-card"><div class="metric-label">Upside Scenario Overlay</div><div class="metric-value" style="color:var(--green)">£${upOv.total.toFixed(1)}m</div><div class="metric-sub">PD shift: ${upOv.pdShift}%</div></div>
+  </div>`;
+
+  // Detailed table
+  html += `<div class="out-section"><div class="out-header"><span class="out-title">Overlay by Stage &amp; Scenario</span></div><div class="out-body">
+    <table class="result-table">
+      <thead><tr><th>Scenario</th><th>Prob Weight</th><th>PD Shift</th><th>Stage 1 Overlay</th><th>Stage 2 Overlay</th><th>Stage 3 Overlay</th><th>Total Overlay</th><th>vs Model ECL</th></tr></thead>
+      <tbody>
+        <tr><td style="color:var(--green)">Upside</td><td>${Math.round(scenarios.upside.prob*100)}%</td><td style="color:var(--green)">${upOv.pdShift}%</td><td>£${upOv.s1.toFixed(2)}m</td><td>£${upOv.s2.toFixed(2)}m</td><td>£${upOv.s3.toFixed(2)}m</td><td style="color:var(--green)">£${upOv.total.toFixed(2)}m</td><td>${((upOv.total/baseECL)*100).toFixed(1)}%</td></tr>
+        <tr><td style="color:var(--teal)">Base</td><td>${Math.round(scenarios.base.prob*100)}%</td><td>${baseOv.pdShift}%</td><td>£${baseOv.s1.toFixed(2)}m</td><td>£${baseOv.s2.toFixed(2)}m</td><td>£${baseOv.s3.toFixed(2)}m</td><td>£${baseOv.total.toFixed(2)}m</td><td>${((baseOv.total/baseECL)*100).toFixed(1)}%</td></tr>
+        <tr><td style="color:var(--red)">Adverse</td><td>${Math.round(scenarios.adverse.prob*100)}%</td><td style="color:var(--red)">+${advOv.pdShift}%</td><td>£${advOv.s1.toFixed(2)}m</td><td>£${advOv.s2.toFixed(2)}m</td><td>£${advOv.s3.toFixed(2)}m</td><td style="color:var(--red)">£${advOv.total.toFixed(2)}m</td><td>${((advOv.total/baseECL)*100).toFixed(1)}%</td></tr>
+        <tr style="background:rgba(212,168,71,.06)"><td style="color:var(--gold)"><strong>Blended (Prob-Weighted)</strong></td><td>100%</td><td>—</td><td>£${blended.s1.toFixed(2)}m</td><td>£${blended.s2.toFixed(2)}m</td><td>£${blended.s3.toFixed(2)}m</td><td style="color:var(--gold)"><strong>£${blended.total.toFixed(2)}m</strong></td><td><strong>${((blended.total/baseECL)*100).toFixed(1)}%</strong></td></tr>
+      </tbody>
+    </table>
+  </div></div>`;
+
+  // Rationale
+  const rationale = generateRationale(sectorLabels[sector], baseECL, blended, advOv, scenarios);
+  html += `<div class="out-section"><div class="out-header"><span class="out-title">Management Adjustment Rationale Template</span><button class="btn-export" onclick="copyRationale()">Copy</button></div><div class="out-body"><div class="rationale-block" id="rationaleBlock">${rationale}</div></div></div>`;
+
+  // Export row
+  html += `<div class="results-export-row">
+    <button class="btn-export" onclick="exportMarkdown()">↓ Export Markdown</button>
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run tool to generate Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);opacity:.55;cursor:not-allowed;transition:all .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>`;
+
+  document.getElementById('outputSection').innerHTML = html;
+  enableAP2Btn();
+}
+
+function generateRationale(sectorLabel, baseECL, blended, advOv, scenarios) {
+  const date = new Date().toISOString().slice(0,10);
+  return `IFRS 9 Management Overlay — Rationale Statement
+Prepared: ${date} | AINumbers.co T-196
+
+1. BACKGROUND
+   Management has reviewed the model-generated ECL of £${baseECL}m for the ${sectorLabel}
+   portfolio and assessed whether forward-looking macroeconomic information not yet
+   fully captured by the model warrants a management overlay adjustment, pursuant to
+   IFRS 9 paragraphs 5.5.13-5.5.20 and BCBS Guidance on Credit Risk (April 2020).
+
+2. MACRO SCENARIOS CONSIDERED
+   · Base (${Math.round(scenarios.base.prob*100)}% weight): GDP ${scenarios.base.gdp}%, Unemployment ${scenarios.base.unemp}%, HPI ${scenarios.base.hpi}%
+   · Adverse (${Math.round(scenarios.adverse.prob*100)}% weight): GDP ${scenarios.adverse.gdp}%, Unemployment ${scenarios.adverse.unemp}%, HPI ${scenarios.adverse.hpi}%
+   · Upside (${Math.round(scenarios.upside.prob*100)}% weight): GDP ${scenarios.upside.gdp}%, Unemployment ${scenarios.upside.unemp}%, HPI ${scenarios.upside.hpi}%
+
+3. OVERLAY CALCULATION
+   Probability-weighted overlay: £${blended.total.toFixed(2)}m
+   · Stage 1 component: £${blended.s1.toFixed(2)}m
+   · Stage 2 component: £${blended.s2.toFixed(2)}m
+   · Stage 3 component: £${blended.s3.toFixed(2)}m
+   Adverse downside overlay (standalone): £${advOv.total.toFixed(2)}m
+
+4. GOVERNANCE
+   This overlay was reviewed by the Credit Risk Committee and approved by the
+   Chief Risk Officer. Supporting documentation includes scenario narrative,
+   model limitation assessment, and sensitivity analysis.
+
+5. REGULATORY CITATIONS
+   · IFRS 9 §5.5.13-5.5.20 (forward-looking information in ECL)
+   · BCBS Guidance on Credit Risk and Accounting for Expected Credit Losses (April 2020)
+   · EBA Guidelines on credit institutions' credit risk management practices (EBA/GL/2017/06)
+   · PRA SS1/23 Model risk management principles (April 2023)
+
+[Note: Replace illustrative elasticities with institution-specific model outputs before filing.]`;
+}
+
+function copyRationale() {
+  const el = document.getElementById('rationaleBlock');
+  if (el) navigator.clipboard.writeText(el.textContent).catch(()=>{});
+}
+
+function exportMarkdown() {
+  if (!lastResults) return;
+  const {baseECL, blended, advOv, upOv, baseOv, scenarios} = lastResults;
+  const date = new Date().toISOString().slice(0,10);
+  let md = `# IFRS 9 Macro Overlay Calculator\n**Generated:** ${date} | AINumbers.co T-196\n\n`;
+  md += `## Results\n\n| Scenario | Prob | Total Overlay | vs Model ECL |\n|---|---|---|---|\n`;
+  md += `| Upside | ${Math.round(scenarios.upside.prob*100)}% | £${upOv.total.toFixed(2)}m | ${((upOv.total/baseECL)*100).toFixed(1)}% |\n`;
+  md += `| Base | ${Math.round(scenarios.base.prob*100)}% | £${baseOv.total.toFixed(2)}m | ${((baseOv.total/baseECL)*100).toFixed(1)}% |\n`;
+  md += `| Adverse | ${Math.round(scenarios.adverse.prob*100)}% | £${advOv.total.toFixed(2)}m | ${((advOv.total/baseECL)*100).toFixed(1)}% |\n`;
+  md += `| **Blended** | 100% | **£${blended.total.toFixed(2)}m** | **${((blended.total/baseECL)*100).toFixed(1)}%** |\n\n`;
+  md += `---\n*Client-side · Zero PII · CC BY 4.0 · Post Oak Labs*\n`;
+  const blob = new Blob([md],{type:'text/markdown'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ifrs9-macro-overlay_'+date+'.md';a.click();
+}
+
+function exportAP2() {
+  if (!lastResults) return;
+  const {exposure,baseECL,blended,advOv,scenarios,sector} = lastResults;
+  const payload = {
+    ap2_version:'1.0',mandate_id:crypto.randomUUID(),issued_at:new Date().toISOString(),issued_by:'ainumbers.co',
+    tool_id:'ifrs9-macro-overlay-calculator',tool_version:'1.0.0',mandate_type:'risk_parameter',
+    jurisdiction:['GLOBAL'],regulatory_frameworks:['IFRS 9','BCBS credit risk guidance (2020)','EBA/GL/2017/06'],
+    payload:{portfolio_exposure_m:exposure,model_ecl_m:baseECL,blended_overlay_m:blended.total,adverse_overlay_m:advOv.total,blended_as_pct_of_ecl:+((blended.total/baseECL)*100).toFixed(1),sector,scenario_weights:{base:scenarios.base.prob,adverse:scenarios.adverse.prob,upside:scenarios.upside.prob}},
+    summary:`IFRS 9 macro overlay of £${blended.total.toFixed(2)}m (${((blended.total/baseECL)*100).toFixed(1)}% of model ECL) computed across 3 macro scenarios. Adverse standalone overlay: £${advOv.total.toFixed(2)}m. Requires senior management sign-off and auditor review.`,
+    agent_instructions:[`Apply blended overlay of £${blended.total.toFixed(2)}m to reported ECL.`,'Ensure overlay is supported by written rationale and approved by CRO/CFO.','Review overlay sensitivity quarterly and update scenario weights as macro outlook evolves.','Document model limitations that necessitate this management adjustment.'],
+    valid_from:new Date().toISOString(),valid_until:new Date(Date.now()+90*86400000).toISOString(),last_reviewed:new Date().toISOString(),
+    source_tool_inputs:{exposure_m:exposure,base_ecl_m:baseECL,sector},
+    regulatory_citations:['IFRS 9 §5.5.13-5.5.20','BCBS Guidance on Credit Risk and Accounting for ECL (April 2020)','EBA/GL/2017/06 credit risk management practices','PRA SS1/23 Model Risk Management Principles'],
+    audit_metadata:{execution_hash:null,client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ifrs9-macro-overlay_'+new Date().toISOString().slice(0,19).replace(/[T:]/g,'').slice(0,15)+'.policy.json';a.click();
+}
+
+function enableAP2Btn(){
+  const btn=document.getElementById('ap2ExportBtn');
+  if(btn){btn.disabled=false;btn.classList.add('ready');btn.style.opacity='1';btn.style.cursor='pointer';}
+}
+
+function toggleMfst(){
+  const b=document.getElementById('mfstBody');const open=b.style.display==='block';
+  b.style.display=open?'none':'block';document.getElementById('mfstArr').textContent=open?'▼':'▲';
+  if(!open&&!document.getElementById('mfstCode').textContent)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+
+const MANIFEST={"tool_id":"ifrs9-macro-overlay-calculator","version":"1.0.0","title":"IFRS 9 Forward-Looking Macro Overlay Calculator","description":"Computes IFRS 9 ECL management overlay amounts by macroeconomic scenario, portfolio stage, and sector weighting.","category":"cat-17","tags":["IFRS 9","ECL","macro overlay","credit risk","provisioning","PD"],"audience":["risk","finance","credit","audit"],"mcp_tool_definition":{"name":"calculate_ifrs9_macro_overlay","description":"Calculates IFRS 9 ECL management overlay amounts by macroeconomic scenario and portfolio staging.","inputSchema":{"type":"object","properties":{"portfolio_exposure":{"type":"number"},"base_ecl":{"type":"number"},"sector":{"type":"string"},"staging_mix":{"type":"object"}},"required":["portfolio_exposure","base_ecl"]}},"execution":{"type":"browser-javascript","entry":"tools/196-ifrs9-macro-overlay-calculator.html","function_name":"runOverlay","timeout_ms":3000},"ap2_export":true};
+
+const TRANSLATIONS={en:{},es:{},fr:{},ar:{lang_dir:'rtl'},pt:{},zh:{}};
+function setLang(lang){
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===lang));
+  document.documentElement.lang=lang;document.documentElement.dir=(TRANSLATIONS[lang]||{}).lang_dir||'ltr';
+  sessionStorage.setItem('ain_lang',lang);
+}
+(function(){const l=sessionStorage.getItem('ain_lang');if(l&&TRANSLATIONS[l])setLang(l);})();
+</script>
+</body>
+</html>

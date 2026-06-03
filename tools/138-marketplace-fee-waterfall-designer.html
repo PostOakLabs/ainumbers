@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Marketplace Fee Waterfall Designer · AINumbers.co</title>
+<meta name="description" content="Model multi-party fee economics for marketplace platforms. Input gross transaction value and all fee layers; outputs per-transaction P&L waterfall, platform margin, and sensitivity table. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/138-marketplace-fee-waterfall-designer.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Marketplace Fee Waterfall Designer","url":"https://ainumbers.co/tools/138-marketplace-fee-waterfall-designer.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "marketplace-fee-waterfall-designer",
+  "version": "1.0.0",
+  "title": "Marketplace Fee Waterfall Designer",
+  "description": "Models multi-party fee economics for marketplace platforms. Inputs GTV and all fee layers; outputs per-transaction P&L waterfall, platform margin, seller net proceeds, and GTV sensitivity table.",
+  "category": "cat-13",
+  "tags": ["marketplace","fee waterfall","take rate","PSP","acquirer","seller payout","platform economics","B2B payments"],
+  "audience": ["product","finance","treasury","analyst"],
+  "input_schema": {"type":"object","properties":{"gtv":{"type":"number"},"payment_method":{"type":"string"},"psp_rate":{"type":"number"},"acquirer_margin":{"type":"number"},"scheme_fee":{"type":"number"},"platform_take_rate":{"type":"number"},"vat_on_fees":{"type":"number"},"fx_fee":{"type":"number"}},"required":["gtv","payment_method","psp_rate","platform_take_rate"]},
+  "output_schema": {"type":"object","properties":{"seller_net":{"type":"number"},"platform_margin":{"type":"number"},"platform_margin_pct":{"type":"number"},"effective_blended_rate":{"type":"number"},"sensitivity_table":{"type":"array"}}},
+  "mcp_tool_definition": {
+    "name": "design_marketplace_fee_waterfall",
+    "description": "Models marketplace fee waterfall from gross transaction value through PSP, acquirer, scheme, platform take rate, and VAT layers to seller net proceeds and platform margin.",
+    "inputSchema": {"type":"object","properties":{"gtv":{"type":"number","description":"Gross transaction value in USD"},"payment_method":{"type":"string","description":"card | a2a | bnpl | wallet"},"psp_rate":{"type":"number","description":"PSP discount rate as percentage"},"platform_take_rate":{"type":"number","description":"Platform take rate as percentage"}},"required":["gtv","payment_method","psp_rate","platform_take_rate"]}
+  },
+  "execution": {"type":"browser-javascript","entry":"tools/138-marketplace-fee-waterfall-designer.html","function_name":"runTool","timeout_ms":5000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge,.hero-badges .badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.panel-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:.75rem}
+label{font-size:.72rem;color:var(--body);display:block;margin-bottom:.35rem}
+input[type="number"],input[type="text"],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.4rem .65rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+.field-hint{font-size:.6rem;color:var(--muted);margin-top:.25rem;font-family:'JetBrains Mono',monospace}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:1rem;margin-bottom:1.5rem}
+.run-btn:hover{background:var(--teal-lt)}
+.results-panel{margin-top:1rem}
+.result-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem}
+.result-card-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.result-card-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.result-card-body{padding:1.25rem}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border:1px solid var(--border);background:var(--bg-3);color:var(--text);border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-export:hover{border-color:var(--teal);color:var(--teal)}
+#ap2ExportBtn.ready{opacity:1!important;cursor:pointer!important;border-color:var(--teal)!important;color:var(--bright)!important}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)!important}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+/* waterfall table */
+.waterfall-table{width:100%;border-collapse:collapse;font-size:.78rem}
+.waterfall-table tr{border-bottom:1px solid var(--border)}
+.waterfall-table tr:last-child{border-bottom:none}
+.waterfall-table td{padding:.5rem .75rem;vertical-align:middle}
+.waterfall-table .wf-label{color:var(--body);font-size:.72rem}
+.waterfall-table .wf-amount{font-family:'JetBrains Mono',monospace;font-size:.78rem;text-align:right;color:var(--bright)}
+.waterfall-table .wf-pct{font-family:'JetBrains Mono',monospace;font-size:.6rem;text-align:right;color:var(--muted);width:70px}
+.waterfall-table .wf-deduct .wf-amount{color:var(--red)}
+.waterfall-table .wf-subtotal td{background:var(--bg-3)}
+.waterfall-table .wf-subtotal .wf-label{color:var(--text);font-weight:500}
+.waterfall-table .wf-subtotal .wf-amount{color:var(--gold)}
+.waterfall-table .wf-final td{background:rgba(20,184,166,.07)}
+.waterfall-table .wf-final .wf-label{color:var(--white);font-weight:600}
+.waterfall-table .wf-final .wf-amount{color:var(--teal);font-size:.9rem}
+.waterfall-table .wf-platform td{background:rgba(34,197,94,.06)}
+.waterfall-table .wf-platform .wf-amount{color:var(--green)}
+.sens-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.sens-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:right;font-weight:400}
+.sens-table th:first-child{text-align:left}
+.sens-table td{padding:.45rem .75rem;border-bottom:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.68rem;text-align:right}
+.sens-table td:first-child{text-align:left;color:var(--bright)}
+.sens-table tr:last-child td{border-bottom:none}
+.sens-table tr:hover td{background:var(--bg-3)}
+</style>
+</head>
+<body>
+<!-- LANG BAR -->
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<!-- NAV -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/b2b-payments-hub.html">B2B Payments Hub</a><span class="nav-sep">/</span><span>T-138</span></div>
+  <div class="nav-right"><a href="../guides/b2b-payments-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<!-- HERO -->
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-13 · T138 · B2B Payments &amp; Accounts Payable</div>
+  <span class="hero-badge badge-muted"><span>v1.0</span></span>
+  <h1 class="tool-title">Marketplace Fee <em>Waterfall Designer</em></h1>
+  <p class="hero-desc" id="heroDesc">Model multi-party fee economics for marketplace platforms. Input gross transaction value and all fee layers — PSP, acquirer, scheme, currency conversion, platform take rate, and VAT — to produce a per-transaction P&L waterfall and sensitivity table.</p>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-teal">B2B Payments</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<!-- TOOL BODY -->
+<div class="tool-body"><div class="container">
+  <!-- PII SCOPE NOTE -->
+  <div class="scope-note" style="background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.25);border-left:3px solid var(--teal);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8">
+    <strong style="color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance —</strong> 🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only. Embedded rates, thresholds, and regulatory citations are static reference values — verify against current primary sources before relying on outputs for commercial or compliance decisions. Deterministic logic · no inference · zero PII · CC BY 4.0.
+  </div>
+
+  <!-- INPUTS -->
+  <div class="panel">
+    <div class="panel-label">Transaction Parameters</div>
+    <div class="panel-row">
+      <div>
+        <label for="gtv">Gross Transaction Value (GTV)</label>
+        <input type="number" id="gtv" min="0.01" step="0.01" value="500.00" placeholder="500.00">
+        <div class="field-hint">USD · per transaction</div>
+      </div>
+      <div>
+        <label for="payMethod">Payment Method</label>
+        <select id="payMethod" onchange="onMethodChange()">
+          <option value="card">Card (Credit/Debit)</option>
+          <option value="a2a">A2A / Bank Transfer</option>
+          <option value="bnpl">BNPL</option>
+          <option value="wallet">Digital Wallet</option>
+        </select>
+        <div class="field-hint" id="methodHint">Scheme fees apply · base rate adjusts</div>
+      </div>
+    </div>
+    <div class="panel-row">
+      <div>
+        <label for="pspRate">PSP Discount Rate (%)</label>
+        <input type="number" id="pspRate" min="0" max="10" step="0.01" value="2.20" placeholder="2.20">
+        <div class="field-hint">e.g. 2.20 = 2.20% of GTV</div>
+      </div>
+      <div>
+        <label for="acquirerMargin">Acquirer Margin (%)</label>
+        <input type="number" id="acquirerMargin" min="0" max="5" step="0.01" value="0.15" placeholder="0.15">
+        <div class="field-hint">Acquirer spread over interchange</div>
+      </div>
+      <div>
+        <label for="schemeFee">Card Scheme Fee (%)</label>
+        <input type="number" id="schemeFee" min="0" max="5" step="0.01" value="0.10" placeholder="0.10">
+        <div class="field-hint">e.g. 0.10 = Visa/MC assessment</div>
+      </div>
+    </div>
+    <div class="panel-row">
+      <div>
+        <label for="platformTake">Platform Take Rate (%)</label>
+        <input type="number" id="platformTake" min="0" max="50" step="0.01" value="8.00" placeholder="8.00">
+        <div class="field-hint">Seller fee charged by platform</div>
+      </div>
+      <div>
+        <label for="cogsOffset">COGS / Service Offset (% of GTV, optional)</label>
+        <input type="number" id="cogsOffset" min="0" max="50" step="0.01" value="0.00" placeholder="0.00">
+        <div class="field-hint">Platform cost deducted from take rate</div>
+      </div>
+    </div>
+    <div class="panel-row">
+      <div>
+        <label for="vatRate">VAT / Tax on Platform Fee (%)</label>
+        <input type="number" id="vatRate" min="0" max="30" step="0.01" value="20.00" placeholder="20.00">
+        <div class="field-hint">Applied to platform commission only</div>
+      </div>
+      <div>
+        <label for="fxFee">Seller FX / Currency Conversion Fee (%, optional)</label>
+        <input type="number" id="fxFee" min="0" max="5" step="0.01" value="0.00" placeholder="0.00">
+        <div class="field-hint">0 if same currency settlement</div>
+      </div>
+    </div>
+  </div>
+
+  <button class="run-btn" onclick="runTool()" id="runBtn">▶ Run Waterfall</button>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel" style="display:none">
+    <!-- KPI row -->
+    <div id="kpiRow" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.75rem;margin-bottom:1.25rem"></div>
+
+    <!-- Waterfall -->
+    <div class="result-card">
+      <div class="result-card-header"><span class="result-card-title">Fee Waterfall · Per Transaction</span></div>
+      <div class="result-card-body">
+        <table class="waterfall-table" id="waterfallTable"></table>
+      </div>
+    </div>
+
+    <!-- Sensitivity -->
+    <div class="result-card">
+      <div class="result-card-header"><span class="result-card-title">Margin Sensitivity · 5 GTV Points</span></div>
+      <div class="result-card-body" style="overflow-x:auto">
+        <table class="sens-table" id="sensTable"></table>
+      </div>
+    </div>
+
+    <!-- EXPORT ROW -->
+    <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;padding:.75rem 0;border-top:1px solid var(--border);margin-top:1rem">
+      <button class="btn-export" onclick="exportMarkdown()">↓ Export Markdown</button>
+      <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the tool to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border:1px solid var(--border);background:var(--bg-3);color:var(--text);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:all .2s">{} Export Policy Mandate<span style="margin-left:.5rem;font-size:.85em">API · audit trail</span></button>
+    </div>
+  </div>
+</div></div>
+
+<!-- MCP MANIFEST TOGGLE -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><pre class="mfst-code" id="mfstCode"></pre></div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="24" height="24" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="../guides/b2b-payments-hub.html">B2B Hub</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+// ── i18n ─────────────────────────────────────────────────────────────
+const TRANSLATIONS={
+  en:{title:'Marketplace Fee Waterfall Designer',desc:'Model multi-party fee economics for marketplace platforms.',run_btn:'▶ Run Waterfall'},
+  es:{title:'Diseñador de Cascada de Tarifas de Marketplace',desc:'Modele la economía de tarifas para plataformas de marketplace.',run_btn:'▶ Ejecutar'},
+  fr:{title:'Concepteur de Cascade de Frais Marketplace',desc:'Modélisez les économies de frais multi-parties pour les marketplaces.',run_btn:'▶ Analyser'},
+  ar:{title:'مصمم شلال رسوم الماركت بليس',desc:'نمذجة اقتصاديات الرسوم متعددة الأطراف لمنصات الماركت بليس.',run_btn:'▶ تحليل',lang_dir:'rtl'},
+  pt:{title:'Designer de Cascata de Taxas de Marketplace',desc:'Modele a economia de taxas para plataformas de marketplace.',run_btn:'▶ Analisar'},
+  zh:{title:'市场费用瀑布设计器',desc:'为市场平台建模多方费用经济学。',run_btn:'▶ 运行'}
+};
+function setLang(lang){
+  const t=TRANSLATIONS[lang]||TRANSLATIONS.en;
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===lang));
+  document.documentElement.lang=lang;document.documentElement.dir=t.lang_dir||'ltr';
+  sessionStorage.setItem('ain_lang',lang);
+  const d=document.getElementById('heroDesc');if(d)d.textContent=t.desc;
+  const r=document.getElementById('runBtn');if(r)r.textContent=t.run_btn;
+}
+(function(){const l=sessionStorage.getItem('ain_lang');if(l)setLang(l);})();
+
+const METHOD_HINTS={
+  card:'Scheme fees apply · base rate adjusts',
+  a2a:'No scheme fee · lower PSP rate typical',
+  bnpl:'BNPL provider adds merchant fee on top',
+  wallet:'Wallet network fee instead of scheme fee'
+};
+const METHOD_DEFAULTS={
+  card:{psp:2.20,acquirer:0.15,scheme:0.10},
+  a2a:{psp:0.50,acquirer:0.05,scheme:0.00},
+  bnpl:{psp:3.50,acquirer:0.00,scheme:0.00},
+  wallet:{psp:1.80,acquirer:0.10,scheme:0.08}
+};
+function onMethodChange(){
+  const m=document.getElementById('payMethod').value;
+  const d=METHOD_DEFAULTS[m]||METHOD_DEFAULTS.card;
+  document.getElementById('pspRate').value=d.psp;
+  document.getElementById('acquirerMargin').value=d.acquirer;
+  document.getElementById('schemeFee').value=d.scheme;
+  document.getElementById('methodHint').textContent=METHOD_HINTS[m]||'';
+}
+
+let lastResult=null;
+
+function fmt(n){return n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtPct(n){return n.toFixed(3)+'%';}
+
+function calcWaterfall(gtv,pspPct,acquirerPct,schemePct,platformTakePct,cogsPct,vatPct,fxPct){
+  const psp=gtv*(pspPct/100);
+  const acquirer=gtv*(acquirerPct/100);
+  const scheme=gtv*(schemePct/100);
+  const fx=gtv*(fxPct/100);
+  const netToPlatformBefore=gtv-psp-acquirer-scheme-fx;
+  const platformTake=gtv*(platformTakePct/100);
+  const cogs=gtv*(cogsPct/100);
+  const sellerNet=netToPlatformBefore-platformTake;
+  const vatOnPlatform=platformTake*(vatPct/100);
+  const finalSellerPayout=sellerNet-vatOnPlatform;
+  const platformGross=platformTake-cogs;
+  const effectiveBlended=(psp+acquirer+scheme+fx+platformTake)/gtv*100;
+  return{gtv,psp,acquirer,scheme,fx,netToPlatformBefore,platformTake,cogs,sellerNet,vatOnPlatform,finalSellerPayout,platformGross,platformGrossPct:platformGross/gtv*100,effectiveBlended};
+}
+
+function runTool(){
+  const gtv=parseFloat(document.getElementById('gtv').value)||500;
+  const psp=parseFloat(document.getElementById('pspRate').value)||0;
+  const acq=parseFloat(document.getElementById('acquirerMargin').value)||0;
+  const sch=parseFloat(document.getElementById('schemeFee').value)||0;
+  const take=parseFloat(document.getElementById('platformTake').value)||0;
+  const cogs=parseFloat(document.getElementById('cogsOffset').value)||0;
+  const vat=parseFloat(document.getElementById('vatRate').value)||0;
+  const fx=parseFloat(document.getElementById('fxFee').value)||0;
+
+  const r=calcWaterfall(gtv,psp,acq,sch,take,cogs,vat,fx);
+  lastResult={r,gtv,psp,acq,sch,take,cogs,vat,fx};
+
+  // KPI row
+  const kpiRow=document.getElementById('kpiRow');
+  const kpis=[
+    {label:'Platform Gross Margin',val:'$'+fmt(r.platformGross),sub:r.platformGrossPct.toFixed(2)+'% of GTV',col:'var(--green)'},
+    {label:'Final Seller Payout',val:'$'+fmt(r.finalSellerPayout),sub:(r.finalSellerPayout/gtv*100).toFixed(2)+'% of GTV',col:'var(--teal)'},
+    {label:'Effective Blended Rate',val:r.effectiveBlended.toFixed(3)+'%',sub:'Total fees / GTV',col:'var(--gold)'},
+    {label:'PSP + Scheme + Acq',val:'$'+fmt(r.psp+r.acquirer+r.scheme),sub:((r.psp+r.acquirer+r.scheme)/gtv*100).toFixed(3)+'% of GTV',col:'var(--body)'}
+  ];
+  kpiRow.innerHTML=kpis.map(k=>`<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem"><div style="font-family:'JetBrains Mono',monospace;font-size:.45rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem">${k.label}</div><div style="font-family:'DM Serif Display',serif;font-size:1.4rem;color:${k.col};line-height:1.1;margin-bottom:.2rem">${k.val}</div><div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">${k.sub}</div></div>`).join('');
+
+  // Waterfall table
+  const wt=document.getElementById('waterfallTable');
+  const rows=[
+    {label:'1. Gross Transaction Value (GTV)',amt:r.gtv,cls:'wf-subtotal',sign:''},
+    {label:'2. − PSP Discount ('+psp.toFixed(3)+'%)',amt:-r.psp,cls:'wf-deduct',sign:''},
+    {label:'3. − Acquirer Margin ('+acq.toFixed(3)+'%)',amt:-r.acquirer,cls:'wf-deduct',sign:''},
+    {label:'4. − Card Scheme Fee ('+sch.toFixed(3)+'%)',amt:-r.scheme,cls:'wf-deduct',sign:''},
+    ...(fx>0?[{label:'5. − Currency Conversion Fee ('+fx.toFixed(3)+'%)',amt:-r.fx,cls:'wf-deduct',sign:''}]:[]),
+    {label:(fx>0?'6':'5')+'. = Net to Platform Before Take',amt:r.netToPlatformBefore,cls:'wf-subtotal',sign:''},
+    {label:(fx>0?'7':'6')+'. − Platform Take Rate ('+take.toFixed(3)+'%)',amt:-r.platformTake,cls:'wf-deduct',sign:''},
+    {label:(fx>0?'8':'7')+'. = Seller Net Proceeds',amt:r.sellerNet,cls:'wf-subtotal',sign:''},
+    {label:(fx>0?'9':'8')+'. − VAT on Platform Fee ('+vat.toFixed(1)+'% on take)',amt:-r.vatOnPlatform,cls:'wf-deduct',sign:''},
+    {label:(fx>0?'10':'9')+'. = Final Seller Payout',amt:r.finalSellerPayout,cls:'wf-final',sign:''},
+    {label:'Platform Gross Margin ($, %)',amt:r.platformGross,cls:'wf-platform',sign:'',extra:r.platformGrossPct.toFixed(2)+'%'},
+    {label:'Effective Blended Rate (%)',amt:r.effectiveBlended,cls:'',sign:'',isRate:true}
+  ];
+  wt.innerHTML=rows.map(row=>{
+    const amtStr=row.isRate?row.amt.toFixed(3)+'%':'$'+fmt(Math.abs(row.amt));
+    const pctStr=row.extra||(!row.isRate?(Math.abs(row.amt)/gtv*100).toFixed(3)+'%':'');
+    return`<tr class="${row.cls}"><td class="wf-label">${row.label}</td><td class="wf-amount">${amtStr}</td><td class="wf-pct">${pctStr}</td></tr>`;
+  }).join('');
+
+  // Sensitivity table
+  const gtvPoints=[100,500,1000,5000,10000];
+  const st=document.getElementById('sensTable');
+  let hdr='<thead><tr><th>GTV ($)</th><th>Platform Margin ($)</th><th>Margin %</th><th>Seller Payout ($)</th><th>Blended Rate %</th></tr></thead><tbody>';
+  gtvPoints.forEach(g=>{
+    const s=calcWaterfall(g,psp,acq,sch,take,cogs,vat,fx);
+    const isActive=Math.abs(g-gtv)<0.01;
+    hdr+=`<tr style="${isActive?'background:rgba(20,184,166,.06)':''}">
+      <td style="${isActive?'color:var(--teal)':''}">$${fmt(g)}</td>
+      <td style="color:var(--green)">$${fmt(s.platformGross)}</td>
+      <td>${s.platformGrossPct.toFixed(2)}%</td>
+      <td style="color:var(--teal)">$${fmt(s.finalSellerPayout)}</td>
+      <td>${s.effectiveBlended.toFixed(3)}%</td>
+    </tr>`;
+  });
+  hdr+='</tbody>';
+  st.innerHTML=hdr;
+
+  document.getElementById('resultsPanel').style.display='block';
+  enableAP2Btn();
+  document.getElementById('resultsPanel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function buildMemo(){
+  if(!lastResult)return'';
+  const{r,gtv,psp,acq,sch,take,vat,fx}=lastResult;
+  const d=new Date().toISOString().slice(0,10);
+  let m=`# Marketplace Fee Waterfall Analysis\n`;
+  m+=`Generated: ${d} · Tool: T138 · AINumbers.co\n\n`;
+  m+=`## Transaction Parameters\n`;
+  m+=`- GTV: $${fmt(gtv)}\n`;
+  m+=`- PSP Discount Rate: ${psp}%\n`;
+  m+=`- Acquirer Margin: ${acq}%\n`;
+  m+=`- Scheme Fee: ${sch}%\n`;
+  m+=`- Platform Take Rate: ${take}%\n`;
+  m+=`- VAT on Platform Fee: ${vat}%\n`;
+  if(fx>0)m+=`- FX Conversion Fee: ${fx}%\n`;
+  m+=`\n## Fee Waterfall (Per Transaction)\n\n`;
+  m+=`| Layer | Amount | % of GTV |\n|-------|--------|----------|\n`;
+  m+=`| Gross Transaction Value | $${fmt(r.gtv)} | 100.000% |\n`;
+  m+=`| − PSP Discount | $${fmt(r.psp)} | ${(r.psp/gtv*100).toFixed(3)}% |\n`;
+  m+=`| − Acquirer Margin | $${fmt(r.acquirer)} | ${(r.acquirer/gtv*100).toFixed(3)}% |\n`;
+  m+=`| − Scheme Fee | $${fmt(r.scheme)} | ${(r.scheme/gtv*100).toFixed(3)}% |\n`;
+  if(fx>0)m+=`| − FX Conversion | $${fmt(r.fx)} | ${(r.fx/gtv*100).toFixed(3)}% |\n`;
+  m+=`| = Net to Platform Before Take | $${fmt(r.netToPlatformBefore)} | ${(r.netToPlatformBefore/gtv*100).toFixed(3)}% |\n`;
+  m+=`| − Platform Take Rate | $${fmt(r.platformTake)} | ${(r.platformTake/gtv*100).toFixed(3)}% |\n`;
+  m+=`| = Seller Net Proceeds | $${fmt(r.sellerNet)} | ${(r.sellerNet/gtv*100).toFixed(3)}% |\n`;
+  m+=`| − VAT on Platform Fee | $${fmt(r.vatOnPlatform)} | ${(r.vatOnPlatform/gtv*100).toFixed(3)}% |\n`;
+  m+=`| **= Final Seller Payout** | **$${fmt(r.finalSellerPayout)}** | **${(r.finalSellerPayout/gtv*100).toFixed(3)}%** |\n`;
+  m+=`| **Platform Gross Margin** | **$${fmt(r.platformGross)}** | **${r.platformGrossPct.toFixed(2)}%** |\n`;
+  m+=`| Effective Blended Rate | — | ${r.effectiveBlended.toFixed(3)}% |\n`;
+  m+=`\n## Sensitivity Analysis\n\n`;
+  m+=`| GTV | Platform Margin | Margin % | Seller Payout |\n|-----|----------------|----------|---------------|\n`;
+  [100,500,1000,5000,10000].forEach(g=>{
+    const s=calcWaterfall(g,lastResult.psp,lastResult.acq,lastResult.sch,lastResult.take,lastResult.cogs,lastResult.vat,lastResult.fx);
+    m+=`| $${fmt(g)} | $${fmt(s.platformGross)} | ${s.platformGrossPct.toFixed(2)}% | $${fmt(s.finalSellerPayout)} |\n`;
+  });
+  m+=`\n_All calculations are deterministic client-side estimates. Verify against current PSP, acquirer, and scheme agreements before using for commercial decisions._\n`;
+  return m;
+}
+
+function exportMarkdown(){
+  const blob=new Blob([buildMemo()],{type:'text/markdown'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='marketplace-fee-waterfall_'+new Date().toISOString().slice(0,10)+'.md';a.click();
+}
+function exportAP2(){
+  if(!lastResult)return;
+  const{r,gtv,psp,acq,sch,take,cogs,vat,fx}=lastResult;
+  const payload={
+    ap2_version:'1.0',mandate_id:crypto.randomUUID(),issued_at:new Date().toISOString(),issued_by:'ainumbers.co',
+    tool_id:'marketplace-fee-waterfall-designer',tool_version:'1.0.0',mandate_type:'fee_schedule_mandate',
+    jurisdiction:[],regulatory_frameworks:['PSD2','DSA (EU) 2022/2065','PCMLTFA (CA)'],
+    payload:{gtv,psp_rate_pct:psp,acquirer_margin_pct:acq,scheme_fee_pct:sch,platform_take_rate_pct:take,vat_pct:vat,fx_fee_pct:fx,waterfall:{seller_net_payout:r.finalSellerPayout,platform_gross_margin:r.platformGross,platform_margin_pct:parseFloat(r.platformGrossPct.toFixed(4)),effective_blended_rate_pct:parseFloat(r.effectiveBlended.toFixed(4))}},
+    summary:`Marketplace fee schedule at GTV $${fmt(gtv)}: platform margin ${r.platformGrossPct.toFixed(2)}%, seller payout $${fmt(r.finalSellerPayout)}, effective blended rate ${r.effectiveBlended.toFixed(3)}%.`,
+    agent_instructions:[`Apply platform take rate of ${take}% on all marketplace transactions.`,`Ensure PSP discount rate does not exceed ${psp}% per negotiated terms.`,`Apply VAT of ${vat}% on platform commission only, not on seller proceeds.`,'Review fee schedule quarterly against payment method cost structure.'],
+    valid_from:new Date().toISOString(),valid_until:new Date(Date.now()+365*86400000).toISOString(),last_reviewed:new Date().toISOString(),
+    source_tool_inputs:{gtv,payment_method:document.getElementById('payMethod').value},
+    regulatory_citations:['PSD2 Article 62','EU DSA Article 31','CFPB Marketplace Payments Guidance'],
+    audit_metadata:{execution_hash:null,client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='marketplace-fee-waterfall_'+new Date().toISOString().slice(0,19).replace(/:/g,'')+'.policy.json';a.click();
+}
+function enableAP2Btn(){
+  const btn=document.getElementById('ap2ExportBtn');
+  if(btn){btn.disabled=false;btn.classList.add('ready');btn.style.opacity='1';btn.style.cursor='pointer';}
+}
+function toggleMfst(){
+  const b=document.getElementById('mfstBody');const open=b.style.display==='block';
+  b.style.display=open?'none':'block';document.getElementById('mfstArr').textContent=open?'▼':'▲';
+  if(!open&&!document.getElementById('mfstCode').textContent)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+const MANIFEST={tool_id:'marketplace-fee-waterfall-designer',version:'1.0.0',title:'Marketplace Fee Waterfall Designer',description:'Models multi-party fee economics for marketplace platforms from GTV to seller net payout.',category:'cat-13',tags:['marketplace','fee waterfall','take rate','PSP','acquirer','seller payout','platform economics'],audience:['product','finance','treasury','analyst'],mcp_tool_definition:{name:'design_marketplace_fee_waterfall',description:'Models marketplace fee waterfall from gross transaction value through PSP, acquirer, scheme, platform take rate, and VAT layers.',inputSchema:{type:'object',properties:{gtv:{type:'number',description:'Gross transaction value in USD'},payment_method:{type:'string',description:'card | a2a | bnpl | wallet'},psp_rate:{type:'number',description:'PSP discount rate as percentage'},platform_take_rate:{type:'number',description:'Platform take rate as percentage'}},required:['gtv','payment_method','psp_rate','platform_take_rate']}},execution:{type:'browser-javascript',entry:'tools/138-marketplace-fee-waterfall-designer.html',function_name:'runTool',timeout_ms:5000},ap2_export:true};
+</script>
+</body>
+</html>

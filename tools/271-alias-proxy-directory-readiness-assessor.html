@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Alias/Proxy Payment Directory Readiness Assessor · AINumbers.co</title>
+<meta name="description" content="Evaluate PSP readiness for alias-based payment routing systems: FedNow alias, UK CoP, UPI, PayID, Zelle. Covers enrollment, lookup, misdirected payment recovery, and GDPR obligations. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/271-alias-proxy-directory-readiness-assessor.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Alias/Proxy Payment Directory Readiness Assessor","url":"https://ainumbers.co/tools/271-alias-proxy-directory-readiness-assessor.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "alias-proxy-directory-readiness-assessor",
+  "version": "1.0.0",
+  "title": "Alias/Proxy Payment Directory Readiness Assessor",
+  "description": "Evaluates PSP readiness for alias-based RTP routing: enrollment, lookup, misdirected payment recovery, GDPR/privacy obligations, and dispute handling. Covers FedNow alias, UK CoP, UPI, PayID, Zelle.",
+  "category": "cat-21",
+  "tags": ["alias payment","proxy directory","Confirmation of Payee","FedNow","UPI","PayID","Zelle","RTP","misdirected payment","CoP"],
+  "audience": ["payment ops","product","compliance","engineer"],
+  "input_schema": {"type":"object","properties":{"networks":{"type":"array"},"enrollment_rate":{"type":"number"}},"required":["networks"]},
+  "output_schema": {"type":"object","properties":{"readiness_score":{"type":"number"},"rag_status":{"type":"string"},"gaps":{"type":"array"}}},
+  "mcp_tool_definition": {"name":"assess_alias_proxy_directory_readiness","description":"Evaluates PSP readiness for alias-based payment routing systems including enrollment, lookup, and misdirected payment recovery.","inputSchema":{"type":"object","properties":{"target_networks":{"type":"array"},"enrollment_rate_pct":{"type":"number"}},"required":["target_networks"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/271-alias-proxy-directory-readiness-assessor.html","function_name":"runAliasAssessment","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.hero-badge{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid;color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.disclaimer{background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.25);border-left:3px solid var(--teal);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.disclaimer strong{color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.panel-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:.75rem}
+label{font-size:.72rem;color:var(--body);display:block;margin-bottom:.35rem}
+input[type="number"],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.4rem .65rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+.check-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:.65rem;margin-bottom:.75rem}
+.check-item{display:flex;align-items:flex-start;gap:.6rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .85rem;cursor:pointer;transition:border-color .2s}
+.check-item:hover{border-color:var(--teal)}
+.check-item input[type="checkbox"]{width:14px;height:14px;margin-top:.15rem;flex-shrink:0;accent-color:var(--teal)}
+.check-item label{font-size:.72rem;color:var(--text);cursor:pointer;margin:0;line-height:1.5}
+.check-sub{font-size:.62rem;color:var(--muted);display:block;margin-top:.15rem}
+.network-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.65rem;margin-bottom:.75rem}
+.net-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;display:flex;align-items:flex-start;gap:.6rem;cursor:pointer}
+.net-card:hover{border-color:var(--teal)}
+.net-card input[type="checkbox"]{width:14px;height:14px;margin-top:.2rem;flex-shrink:0;accent-color:var(--teal)}
+.net-card-body{flex:1}
+.net-name{font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:500;color:var(--bright);margin-bottom:.15rem}
+.net-desc{font-size:.62rem;color:var(--muted);line-height:1.4}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:1rem;margin-bottom:1.5rem}
+.run-btn:hover{background:var(--teal-lt)}
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1rem}
+.metric-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem}
+.metric-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.metric-value{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--bright);line-height:1.1}
+.metric-sub{font-size:.62rem;color:var(--body);margin-top:.2rem}
+.gap-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.gap-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400}
+.gap-table td{padding:.55rem .75rem;border-bottom:1px solid var(--border);vertical-align:top}
+.gap-table tr:last-child td{border-bottom:none}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border:1px solid var(--border);background:var(--bg-3);color:var(--text);border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-export:hover{border-color:var(--teal);color:var(--teal)}
+.results-export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;padding:.75rem 0;border-top:1px solid var(--border);margin-top:1rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+#ap2ExportBtn.ready{opacity:1!important;cursor:pointer!important;border-color:var(--teal)!important;color:var(--bright)!important}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)!important}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/realtime-payments-ops-hub.html">RTP Ops Hub</a><span class="nav-sep">/</span><span>T-271</span></div>
+  <div class="nav-right"><a href="../guides/realtime-payments-ops-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-21 · T271 · Real-Time Payments &amp; Alias Routing</div>
+  <span class="hero-badge badge-muted">v1.0</span>
+  <h1>Alias/Proxy Payment Directory <em>Readiness Assessor</em></h1>
+  <p class="hero-desc">Evaluate your PSP's readiness to participate in alias-based real-time payment routing systems. Covers enrollment flows, directory lookup, misdirected payment recovery, GDPR/privacy obligations on alias data, and dispute handling — across FedNow alias, UK Confirmation of Payee, UPI, PayID (AUS), and Zelle.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">RTP</span>
+    <span class="badge badge-teal">Alias Routing</span>
+    <span class="badge badge-purple">CoP · FedNow · UPI</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+<div class="tool-body"><div class="container">
+<div class="disclaimer"><strong>Scope &amp; reliance — </strong>🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only. Alias directory requirements vary significantly by network and jurisdiction. Verify against each network's operating rules and your legal counsel before implementation. Not a substitute for legal or compliance advice. Deterministic logic · no inference · zero PII · CC BY 4.0.</div>
+
+<!-- TARGET NETWORKS -->
+<div class="panel">
+  <div class="panel-label">Target Alias Networks (select all applicable)</div>
+  <div class="network-grid">
+    <label class="net-card"><input type="checkbox" id="net_fednow" checked><div class="net-card-body"><div class="net-name">FedNow Alias</div><div class="net-desc">US · Fed alias directory for account-to-account RTP. Optional feature for FedNow participants.</div></div></label>
+    <label class="net-card"><input type="checkbox" id="net_cop"><div class="net-card-body"><div class="net-name">UK Confirmation of Payee (CoP)</div><div class="net-desc">UK · PSR mandated name verification before Faster Payments and CHAPS. VocaLink central directory.</div></div></label>
+    <label class="net-card"><input type="checkbox" id="net_zelle"><div class="net-card-body"><div class="net-name">Zelle / EWS Directory</div><div class="net-desc">US · Email/mobile alias routing via Early Warning Services. Bank-to-bank RTP network.</div></div></label>
+    <label class="net-card"><input type="checkbox" id="net_upi"><div class="net-card-body"><div class="net-name">UPI (India)</div><div class="net-desc">India · VPA (Virtual Payment Address) alias system. NPCI managed. Global UPI expansion via RBI.</div></div></label>
+    <label class="net-card"><input type="checkbox" id="net_payid"><div class="net-card-body"><div class="net-name">PayID (Australia)</div><div class="net-desc">AUS · NPPA alias registry (mobile/email/ABN). Osko RTP network. PayID name check mandatory.</div></div></label>
+    <label class="net-card"><input type="checkbox" id="net_sepa_proxy"><div class="net-card-body"><div class="net-name">SEPA Proxy Lookup (SPL)</div><div class="net-desc">EU · EPC proxy lookup scheme for SCT Inst. Mobile number / email to IBAN resolution.</div></div></label>
+  </div>
+</div>
+
+<!-- ENROLLMENT -->
+<div class="panel">
+  <div class="panel-label">Enrollment &amp; Registration</div>
+  <div class="panel-row">
+    <div>
+      <label for="enrollment_rate">Customer Alias Enrollment Rate (%)</label>
+      <input type="number" id="enrollment_rate" value="34" min="0" max="100" step="1">
+    </div>
+    <div>
+      <label for="enrolled_count">Total Enrolled Customers (estimate)</label>
+      <input type="number" id="enrolled_count" value="150000" min="0" step="1000">
+    </div>
+  </div>
+  <div class="check-grid">
+    <label class="check-item"><input type="checkbox" id="enrl_selfserve"><span><strong>Self-service enrollment in app/portal</strong><span class="check-sub">Customer can register alias without contacting support</span></span></label>
+    <label class="check-item"><input type="checkbox" id="enrl_consent"><span><strong>Explicit consent captured at enrollment</strong><span class="check-sub">Consent for alias directory publication recorded with timestamp</span></span></label>
+    <label class="check-item"><input type="checkbox" id="enrl_deregister"><span><strong>Self-service de-registration available</strong><span class="check-sub">Customer can remove alias from directory without friction</span></span></label>
+    <label class="check-item"><input type="checkbox" id="enrl_update"><span><strong>Alias update on account change automated</strong><span class="check-sub">Directory auto-updated when account number/sort code changes</span></span></label>
+  </div>
+</div>
+
+<!-- LOOKUP & VERIFICATION -->
+<div class="panel">
+  <div class="panel-label">Directory Lookup &amp; Name Verification</div>
+  <div class="check-grid">
+    <label class="check-item"><input type="checkbox" id="lkp_latency"><span><strong>Lookup latency &lt; 500ms (P95)</strong><span class="check-sub">Directory query response within real-time payment SLA</span></span></label>
+    <label class="check-item"><input type="checkbox" id="lkp_name_match"><span><strong>Name matching algorithm implemented</strong><span class="check-sub">Fuzzy name match (not exact) to reduce false negatives</span></span></label>
+    <label class="check-item"><input type="checkbox" id="lkp_result_display"><span><strong>Match result displayed to payer before confirmation</strong><span class="check-sub">'Match', 'Close Match', 'No Match', 'Unable to Check' presented</span></span></label>
+    <label class="check-item"><input type="checkbox" id="lkp_no_match_warn"><span><strong>Non-match warning and friction step</strong><span class="check-sub">Payer must actively proceed past a non-match — not default continue</span></span></label>
+    <label class="check-item"><input type="checkbox" id="lkp_audit_trail"><span><strong>Lookup result audit trail retained</strong><span class="check-sub">Match result logged per transaction for dispute purposes (min. 6 years)</span></span></label>
+    <label class="check-item"><input type="checkbox" id="lkp_fallback"><span><strong>Graceful fallback when directory unavailable</strong><span class="check-sub">Payment can proceed with user warning if directory is down</span></span></label>
+  </div>
+</div>
+
+<!-- MISDIRECTED PAYMENTS -->
+<div class="panel">
+  <div class="panel-label">Misdirected Payment Recovery</div>
+  <div class="check-grid">
+    <label class="check-item"><input type="checkbox" id="mis_process"><span><strong>Misdirected payment recovery procedure documented</strong><span class="check-sub">Written procedure for requesting return of mis-sent funds</span></span></label>
+    <label class="check-item"><input type="checkbox" id="mis_timeframe"><span><strong>Recovery timeframe defined (max 20 days per PSR)</strong><span class="check-sub">UK PSR: recipient has 20 business days to return before escalation</span></span></label>
+    <label class="check-item"><input type="checkbox" id="mis_customer_notify"><span><strong>Customer notification within 24 hours of misdirection</strong><span class="check-sub">Payer informed promptly when recovery request is initiated</span></span></label>
+    <label class="check-item"><input type="checkbox" id="mis_fraud_escalation"><span><strong>Fraud escalation path for non-return cases</strong><span class="check-sub">Formal path to fraud/legal team if recipient refuses return</span></span></label>
+  </div>
+</div>
+
+<!-- PRIVACY -->
+<div class="panel">
+  <div class="panel-label">Privacy &amp; GDPR / Local Data Law</div>
+  <div class="check-grid">
+    <label class="check-item"><input type="checkbox" id="prv_dpia"><span><strong>DPIA completed for alias directory processing</strong><span class="check-sub">Data Protection Impact Assessment covers alias data as personal data</span></span></label>
+    <label class="check-item"><input type="checkbox" id="prv_retention"><span><strong>Alias data retention policy defined</strong><span class="check-sub">Alias data deleted within defined period of de-registration</span></span></label>
+    <label class="check-item"><input type="checkbox" id="prv_sar"><span><strong>SAR process covers alias data</strong><span class="check-sub">Subject Access Requests can return alias registration records</span></span></label>
+    <label class="check-item"><input type="checkbox" id="prv_lookup_logging"><span><strong>Lookup query logging minimised / anonymised</strong><span class="check-sub">Queries to directory do not create linkable records of payer intent</span></span></label>
+  </div>
+</div>
+
+<button class="run-btn" onclick="runAliasAssessment()">▶ Run Readiness Assessment</button>
+<div id="outputSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr">▼</span></button>
+    <div class="mfst-body" id="mfstBody"><pre class="mfst-code" id="mfstCode"></pre></div>
+  </div></div>
+</section>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html">All Tools</a>
+    <a href="../guides/realtime-payments-ops-hub.html">RTP Hub</a>
+    <a href="../sitemap.html">Sitemap</a>
+    <a href="../contact.html">Contact</a>
+  </div>
+  <div class="footer-badge-ai">
+    <span>CC BY 4.0 · Post Oak Labs</span>
+    <span>🔒 Zero PII &nbsp;📡 No server calls &nbsp;💻 Client-side</span>
+  </div>
+</div></div></footer>
+
+<script>
+const CHECKS=[
+  {id:'enrl_selfserve',  area:'Enrollment',    weight:7,  label:'Self-service enrollment in app/portal',          reg:'UK PSR CoP Standards §4.2; FedNow Alias Guide'},
+  {id:'enrl_consent',    area:'Enrollment',    weight:9,  label:'Explicit consent captured at enrollment',        reg:'GDPR Art.7; UK PECR'},
+  {id:'enrl_deregister', area:'Enrollment',    weight:8,  label:'Self-service de-registration available',         reg:'GDPR Art.17 (right to erasure)'},
+  {id:'enrl_update',     area:'Enrollment',    weight:7,  label:'Alias auto-updated on account change',           reg:'EPC SPL Rulebook §3.5'},
+  {id:'lkp_latency',     area:'Lookup',        weight:6,  label:'Directory lookup latency <500ms P95',            reg:'FedNow SLA; UK Faster Payments SLA'},
+  {id:'lkp_name_match',  area:'Lookup',        weight:9,  label:'Fuzzy name matching algorithm implemented',      reg:'UK PSR CoP Standards §5.1'},
+  {id:'lkp_result_display',area:'Lookup',      weight:10, label:'Match result displayed to payer before confirm', reg:'UK PSR CoP Standards §5.3; PSR Policy Statement 22/4'},
+  {id:'lkp_no_match_warn',area:'Lookup',       weight:9,  label:'Non-match warning with friction step',           reg:'UK PSR CoP Standards §5.4; APP Fraud reimbursement'},
+  {id:'lkp_audit_trail', area:'Lookup',        weight:8,  label:'Lookup result audit trail retained (6 years)',   reg:'UK PSR CoP Standards §7.1'},
+  {id:'lkp_fallback',    area:'Lookup',        weight:5,  label:'Graceful fallback on directory unavailability',  reg:'FedNow Alias Technical Spec'},
+  {id:'mis_process',     area:'Recovery',      weight:8,  label:'Misdirected payment recovery procedure',         reg:'UK PSR APP Reimbursement PS23/3'},
+  {id:'mis_timeframe',   area:'Recovery',      weight:7,  label:'Recovery timeframe defined (20 business days)',  reg:'UK PSRs 2017 Reg.91; PSR PS23/3'},
+  {id:'mis_customer_notify',area:'Recovery',   weight:6,  label:'Customer notification within 24 hours',          reg:'FCA BCOBS 5.1.11R'},
+  {id:'mis_fraud_escalation',area:'Recovery',  weight:7,  label:'Fraud escalation path for non-return cases',     reg:'UK PSR APP Fraud Policy; FedNow Network Rules'},
+  {id:'prv_dpia',        area:'Privacy',       weight:9,  label:'DPIA completed for alias directory processing',  reg:'GDPR Art.35'},
+  {id:'prv_retention',   area:'Privacy',       weight:7,  label:'Alias data retention policy defined',            reg:'GDPR Art.5(1)(e)'},
+  {id:'prv_sar',         area:'Privacy',       weight:6,  label:'SAR process covers alias registration data',     reg:'GDPR Art.15'},
+  {id:'prv_lookup_logging',area:'Privacy',     weight:5,  label:'Lookup query logging minimised/anonymised',      reg:'GDPR Art.5(1)(c) — data minimisation'},
+];
+
+let lastResults=null;
+
+function runAliasAssessment(){
+  const enrollRate=+document.getElementById('enrollment_rate').value;
+  const enrollCount=+document.getElementById('enrolled_count').value;
+  const selectedNetworks=[];
+  ['fednow','cop','zelle','upi','payid','sepa_proxy'].forEach(n=>{
+    const el=document.getElementById('net_'+n);if(el&&el.checked)selectedNetworks.push(n);
+  });
+  if(selectedNetworks.length===0){alert('Please select at least one target alias network.');return;}
+
+  const totalWeight=CHECKS.reduce((s,c)=>s+c.weight,0);
+  let earned=0;const gaps=[],passes=[];
+  CHECKS.forEach(c=>{
+    const el=document.getElementById(c.id);
+    if(el&&el.checked){earned+=c.weight;passes.push(c);}
+    else gaps.push({...c,priority:c.weight>=8?'HIGH':c.weight>=6?'MEDIUM':'LOW'});
+  });
+
+  const score=Math.round(earned/totalWeight*100);
+  const rag=score>=80?'GREEN':score>=60?'AMBER':'RED';
+  const ragColor=rag==='GREEN'?'var(--green)':rag==='AMBER'?'var(--warn)':'var(--red)';
+
+  const netLabels={fednow:'FedNow Alias',cop:'UK CoP',zelle:'Zelle/EWS',upi:'UPI',payid:'PayID',sepa_proxy:'SEPA Proxy Lookup'};
+
+  lastResults={score,rag,gaps,passes,enrollRate,enrollCount,selectedNetworks,timestamp:new Date().toISOString()};
+
+  let html='';
+
+  // Metrics
+  html+=`<div class="metric-grid">
+    <div class="metric-card"><div class="metric-label">Readiness Score</div><div class="metric-value" style="color:${ragColor}">${score}%</div><div class="metric-sub">${rag} — ${passes.length}/${CHECKS.length} checks passed</div></div>
+    <div class="metric-card"><div class="metric-label">Networks Targeted</div><div class="metric-value">${selectedNetworks.length}</div><div class="metric-sub">${selectedNetworks.map(n=>netLabels[n]).join(', ')}</div></div>
+    <div class="metric-card"><div class="metric-label">Enrollment Rate</div><div class="metric-value" style="color:${enrollRate>=60?'var(--green)':enrollRate>=30?'var(--warn)':'var(--red)'}">${enrollRate}%</div><div class="metric-sub">${enrollCount.toLocaleString()} customers enrolled</div></div>
+    <div class="metric-card"><div class="metric-label">Gaps Found</div><div class="metric-value" style="color:${gaps.filter(g=>g.priority==='HIGH').length>0?'var(--red)':'var(--warn)'}">${gaps.length}</div><div class="metric-sub">${gaps.filter(g=>g.priority==='HIGH').length} HIGH priority</div></div>
+  </div>`;
+
+  if(gaps.length>0){
+    html+=`<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem">
+      <div style="padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3)"><span style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--red)">Gap Registry — ${gaps.length} Items</span></div>
+      <div style="padding:1.25rem;overflow-x:auto"><table class="gap-table">
+        <thead><tr><th>Area</th><th>Requirement</th><th>Priority</th><th>Reference</th></tr></thead>
+        <tbody>${gaps.map(g=>`<tr>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted)">${g.area}</td>
+          <td>${g.label}</td>
+          <td><span style="font-family:'JetBrains Mono',monospace;font-size:.5rem;padding:.15rem .5rem;border-radius:3px;background:${g.priority==='HIGH'?'rgba(239,68,68,.15)':g.priority==='MEDIUM'?'rgba(245,158,11,.15)':'rgba(58,82,112,.25)'};color:${g.priority==='HIGH'?'var(--red)':g.priority==='MEDIUM'?'var(--warn)':'var(--muted)'}">${g.priority}</span></td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--body)">${g.reg}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
+  }
+
+  html+=`<div class="results-export-row">
+    <button class="btn-export" onclick="exportMarkdown()">↓ Export Markdown</button>
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run tool to generate Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);opacity:.55;cursor:not-allowed;transition:all .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>`;
+
+  document.getElementById('outputSection').innerHTML=html;
+  enableAP2Btn();
+}
+
+function exportMarkdown(){
+  if(!lastResults)return;
+  const{score,rag,gaps,enrollRate,selectedNetworks}=lastResults;
+  const date=new Date().toISOString().slice(0,10);
+  let md=`# Alias/Proxy Directory Readiness Assessment\n**Generated:** ${date} | AINumbers.co T-271\n\n## Score: ${score}% — ${rag}\n\n- Networks: ${selectedNetworks.join(', ')}\n- Enrollment Rate: ${enrollRate}%\n\n`;
+  if(gaps.length>0){md+=`## Gaps\n\n| Area | Requirement | Priority |\n|---|---|---|\n`;gaps.forEach(g=>md+=`| ${g.area} | ${g.label} | ${g.priority} |\n`);}
+  md+=`\n---\n*Client-side · Zero PII · CC BY 4.0 · Post Oak Labs*\n`;
+  const blob=new Blob([md],{type:'text/markdown'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='alias-proxy-readiness_'+date+'.md';a.click();
+}
+
+function exportAP2(){
+  if(!lastResults)return;
+  const{score,rag,gaps,enrollRate,selectedNetworks}=lastResults;
+  const payload={
+    ap2_version:'1.0',mandate_id:crypto.randomUUID(),issued_at:new Date().toISOString(),issued_by:'ainumbers.co',
+    tool_id:'alias-proxy-directory-readiness-assessor',tool_version:'1.0.0',mandate_type:'routing_policy',
+    jurisdiction:['GLOBAL'],regulatory_frameworks:['UK PSR CoP Standards','FedNow Operating Procedures','GDPR','EPC SEPA Proxy Lookup Rulebook'],
+    payload:{readiness_score_pct:score,rag_status:rag,target_networks:selectedNetworks,enrollment_rate_pct:enrollRate,gaps_count:gaps.length,high_priority_gaps:gaps.filter(g=>g.priority==='HIGH').length},
+    summary:`Alias payment directory readiness: ${score}% (${rag}) across ${selectedNetworks.length} target network(s). ${gaps.filter(g=>g.priority==='HIGH').length} HIGH priority gaps require immediate remediation. Customer enrollment rate: ${enrollRate}%.`,
+    agent_instructions:[`Alias directory readiness: ${score}% (${rag}).`,...gaps.filter(g=>g.priority==='HIGH').map(g=>`HIGH: ${g.label} — ref ${g.reg}.`),'Conduct network-specific operating rules review for each target network before going live.'],
+    valid_from:new Date().toISOString(),valid_until:new Date(Date.now()+90*86400000).toISOString(),last_reviewed:new Date().toISOString(),
+    source_tool_inputs:{target_networks:selectedNetworks,enrollment_rate_pct:enrollRate},
+    regulatory_citations:['UK PSR Confirmation of Payee Standards','FedNow Alias Operator Rules','GDPR Art.7/17/35','EPC SEPA Proxy Lookup Rulebook'],
+    audit_metadata:{execution_hash:null,client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='alias-proxy-readiness_'+new Date().toISOString().slice(0,19).replace(/[T:]/g,'').slice(0,15)+'.policy.json';a.click();
+}
+
+function enableAP2Btn(){
+  const btn=document.getElementById('ap2ExportBtn');
+  if(btn){btn.disabled=false;btn.classList.add('ready');btn.style.opacity='1';btn.style.cursor='pointer';}
+}
+function toggleMfst(){
+  const b=document.getElementById('mfstBody');const open=b.style.display==='block';
+  b.style.display=open?'none':'block';document.getElementById('mfstArr').textContent=open?'▼':'▲';
+  if(!open&&!document.getElementById('mfstCode').textContent)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+const MANIFEST={"tool_id":"alias-proxy-directory-readiness-assessor","version":"1.0.0","title":"Alias/Proxy Payment Directory Readiness Assessor","description":"Evaluates PSP readiness for alias-based RTP routing across FedNow, UK CoP, UPI, PayID, Zelle, and SEPA Proxy Lookup.","category":"cat-21","tags":["alias payment","proxy directory","CoP","FedNow","UPI","PayID","RTP","misdirected payment"],"audience":["payment ops","product","compliance","engineer"],"mcp_tool_definition":{"name":"assess_alias_proxy_directory_readiness","description":"Evaluates PSP readiness for alias-based payment routing systems.","inputSchema":{"type":"object","properties":{"target_networks":{"type":"array"},"enrollment_rate_pct":{"type":"number"}},"required":["target_networks"]}},"execution":{"type":"browser-javascript","entry":"tools/271-alias-proxy-directory-readiness-assessor.html","function_name":"runAliasAssessment","timeout_ms":3000},"ap2_export":true};
+
+const TRANSLATIONS={en:{},es:{},fr:{},ar:{lang_dir:'rtl'},pt:{},zh:{}};
+function setLang(lang){
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===lang));
+  document.documentElement.lang=lang;document.documentElement.dir=(TRANSLATIONS[lang]||{}).lang_dir||'ltr';
+  sessionStorage.setItem('ain_lang',lang);
+}
+(function(){const l=sessionStorage.getItem('ain_lang');if(l&&TRANSLATIONS[l])setLang(l);})();
+</script>
+</body>
+</html>

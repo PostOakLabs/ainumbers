@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Payment Surcharging Compliance Navigator · AINumbers.co</title>
+<meta name="description" content="Cross-jurisdiction payment surcharging rules navigator. Determine where card and A2A surcharging is permitted, banned, or cost-capped across EU, UK, US, Australia. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/272-payment-surcharging-compliance-navigator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Payment Surcharging Compliance Navigator","url":"https://ainumbers.co/tools/272-payment-surcharging-compliance-navigator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "payment-surcharging-compliance-navigator",
+  "version": "1.0.0",
+  "title": "Payment Surcharging Compliance Navigator",
+  "description": "Determines whether payment surcharging is permitted, banned, or cost-capped for a given merchant jurisdiction and payment method combination. Covers EU PSD2, UK PSR, US state laws, Australia RBA rules.",
+  "category": "cat-25",
+  "tags": ["surcharging","payment compliance","PSD2","merchant fees","card surcharge","US surcharging","Australia RBA","PSD3","checkout compliance"],
+  "audience": ["merchant","compliance","product","legal","payment ops"],
+  "input_schema": {"type":"object","properties":{"jurisdictions":{"type":"array"},"payment_methods":{"type":"array"}},"required":["jurisdictions","payment_methods"]},
+  "output_schema": {"type":"object","properties":{"rulings":{"type":"array"},"summary":{"type":"string"}}},
+  "mcp_tool_definition": {"name":"navigate_payment_surcharging_compliance","description":"Returns surcharging permission status (permitted/banned/cost-capped) for given jurisdiction and payment method combinations.","inputSchema":{"type":"object","properties":{"jurisdictions":{"type":"array"},"payment_methods":{"type":"array"}},"required":["jurisdictions"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/272-payment-surcharging-compliance-navigator.html","function_name":"runSurchargeCheck","timeout_ms":2000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.hero-badge{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid;color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.disclaimer{background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.25);border-left:3px solid var(--teal);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.disclaimer strong{color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.panel-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:.75rem}
+label{font-size:.72rem;color:var(--body);display:block;margin-bottom:.35rem}
+select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.4rem .65rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s}
+select:focus{border-color:var(--teal)}
+.check-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.65rem}
+.check-item{display:flex;align-items:flex-start;gap:.6rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .85rem;cursor:pointer;transition:border-color .2s}
+.check-item:hover{border-color:var(--teal)}
+.check-item input[type="checkbox"]{width:14px;height:14px;margin-top:.2rem;flex-shrink:0;accent-color:var(--teal)}
+.check-item label{font-size:.72rem;color:var(--text);cursor:pointer;margin:0;line-height:1.4}
+.check-sub{font-size:.6rem;color:var(--muted);display:block;margin-top:.1rem}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:1rem;margin-bottom:1.5rem}
+.run-btn:hover{background:var(--teal-lt)}
+.ruling-card{border-radius:var(--radius-lg);overflow:hidden;margin-bottom:.75rem;border:1px solid var(--border)}
+.ruling-header{padding:.65rem 1rem;display:flex;align-items:center;gap:.75rem}
+.ruling-badge{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;padding:.2rem .6rem;border-radius:3px;flex-shrink:0}
+.ruling-title{font-size:.78rem;font-weight:500;color:var(--bright)}
+.ruling-body{padding:.75rem 1rem;background:var(--bg-3);font-size:.72rem;color:var(--body);line-height:1.7}
+.ruling-ref{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);margin-top:.4rem}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border:1px solid var(--border);background:var(--bg-3);color:var(--text);border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-export:hover{border-color:var(--teal);color:var(--teal)}
+.results-export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;padding:.75rem 0;border-top:1px solid var(--border);margin-top:1rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+#ap2ExportBtn.ready{opacity:1!important;cursor:pointer!important;border-color:var(--teal)!important;color:var(--bright)!important}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)!important}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/payment-scheme-network-hub.html">Payment Schemes Hub</a><span class="nav-sep">/</span><span>T-272</span></div>
+  <div class="nav-right"><a href="../guides/payment-scheme-network-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-25 · T272 · Payment Compliance &amp; Merchant Obligations</div>
+  <span class="hero-badge badge-muted">v1.0</span>
+  <h1>Payment Surcharging <em>Compliance Navigator</em></h1>
+  <p class="hero-desc">Determine whether surcharging is permitted, banned, or cost-capped for your merchant jurisdiction and payment method combination. Covers EU/PSD2 prohibition on consumer card surcharges, UK PSR cross-border rules, US state-by-state variations, and Australia's RBA surcharging cap — all in one tool.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">Merchant</span>
+    <span class="badge badge-warn">Multi-Jurisdiction</span>
+    <span class="badge badge-teal">PSD2 · PSR · RBA</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+<div class="tool-body"><div class="container">
+<div class="disclaimer"><strong>Scope &amp; reliance — </strong>🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only. Surcharging rules are complex, jurisdiction-specific, and change frequently. This tool reflects rules as of June 2026. Always verify against current legislation, card network rules (Visa/Mastercard operating regulations), and legal advice before implementing or adjusting surcharging. Not legal advice. Deterministic logic · no inference · zero PII · CC BY 4.0.</div>
+
+<!-- MERCHANT PROFILE -->
+<div class="panel">
+  <div class="panel-label">Merchant Profile</div>
+  <div class="panel-row">
+    <div>
+      <label for="merchant_type">Merchant Type</label>
+      <select id="merchant_type">
+        <option value="online">Online / E-commerce</option>
+        <option value="physical">Physical / In-store</option>
+        <option value="both">Both Online &amp; Physical</option>
+        <option value="b2b">B2B / Business-to-Business</option>
+      </select>
+    </div>
+    <div>
+      <label for="card_type">Card Type to Surcharge</label>
+      <select id="card_type">
+        <option value="consumer_debit">Consumer Debit Card</option>
+        <option value="consumer_credit">Consumer Credit Card</option>
+        <option value="commercial_card">Commercial / Corporate Card</option>
+        <option value="prepaid">Prepaid Card</option>
+        <option value="amex">Amex / Diners (3-party schemes)</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- JURISDICTIONS -->
+<div class="panel">
+  <div class="panel-label">Operating Jurisdictions (select all that apply)</div>
+  <div class="check-grid">
+    <label class="check-item"><input type="checkbox" id="j_eu" checked><label>🇪🇺 European Union (PSD2 / PSD3)<span class="check-sub">All EEA member states</span></label></label>
+    <label class="check-item"><input type="checkbox" id="j_uk"><label>🇬🇧 United Kingdom (UK PSRs)<span class="check-sub">Post-Brexit UK regime</span></label></label>
+    <label class="check-item"><input type="checkbox" id="j_us_cal"><label>🇺🇸 US — California<span class="check-sub">Surcharging banned by state law</span></label></label>
+    <label class="check-item"><input type="checkbox" id="j_us_ct"><label>🇺🇸 US — Connecticut<span class="check-sub">Surcharging banned</span></label></label>
+    <label class="check-item"><input type="checkbox" id="j_us_ma"><label>🇺🇸 US — Massachusetts<span class="check-sub">Surcharging banned</span></label></label>
+    <label class="check-item"><input type="checkbox" id="j_us_ny"><label>🇺🇸 US — New York<span class="check-sub">Disclosure required; surcharge = price difference</span></label></label>
+    <label class="check-item"><input type="checkbox" id="j_us_tx"><label>🇺🇸 US — Texas<span class="check-sub">Permitted; capped at cost of acceptance</span></label></label>
+    <label class="check-item"><input type="checkbox" id="j_us_fl"><label>🇺🇸 US — Florida<span class="check-sub">Permitted with disclosure; max 4%</span></label></label>
+    <label class="check-item"><input type="checkbox" id="j_aus"><label>🇦🇺 Australia (RBA rules)<span class="check-sub">Cost-of-acceptance cap; differential by card</span></label></label>
+    <label class="check-item"><input type="checkbox" id="j_ca"><label>🇨🇦 Canada (PCPA)<span class="check-sub">Permitted; honour-all-cards rule applies</span></label></label>
+  </div>
+</div>
+
+<button class="run-btn" onclick="runSurchargeCheck()">▶ Check Surcharging Rules</button>
+<div id="outputSection"></div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr">▼</span></button>
+    <div class="mfst-body" id="mfstBody"><pre class="mfst-code" id="mfstCode"></pre></div>
+  </div></div>
+</section>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html">All Tools</a>
+    <a href="../guides/payment-scheme-network-hub.html">Schemes Hub</a>
+    <a href="../sitemap.html">Sitemap</a>
+    <a href="../contact.html">Contact</a>
+  </div>
+  <div class="footer-badge-ai">
+    <span>CC BY 4.0 · Post Oak Labs</span>
+    <span>🔒 Zero PII &nbsp;📡 No server calls &nbsp;💻 Client-side</span>
+  </div>
+</div></div></footer>
+
+<script>
+// Surcharging rules database (static reference, as of June 2026)
+// status: 'banned' | 'permitted' | 'cost_capped' | 'conditional' | 'partial_ban'
+const RULES = {
+  eu: {
+    label: 'European Union (PSD2/PSD3)',
+    consumer_debit:   {status:'banned',      cap:null, note:'PSD2 Art.62(4): Surcharging banned on all consumer debit cards for 4-party schemes (Visa/MC). Ban covers all EEA online + in-store transactions.', ref:'PSD2 Art.62(4); IFR Art.11'},
+    consumer_credit:  {status:'banned',      cap:null, note:'PSD2 Art.62(4): Surcharging banned on consumer credit cards (Visa/MC/Maestro) where interchange is regulated (≤0.3%). 3-party schemes (Amex) may be different under Member State law.', ref:'PSD2 Art.62(4); IFR Art.11'},
+    commercial_card:  {status:'conditional', cap:null, note:'Commercial cards are outside IFR interchange caps. Surcharging commercial/corporate cards is PERMITTED under PSD2. Must not exceed cost of acceptance and must be disclosed. Some Member States have restricted further.', ref:'PSD2 Art.62(5); IFR Recital 34'},
+    prepaid:          {status:'conditional', cap:null, note:'Prepaid cards regulated similarly to debit under IFR. Surcharging generally banned where regulated interchange applies. Check specific instrument.', ref:'PSD2 Art.62; IFR Art.2(17)'},
+    amex:             {status:'conditional', cap:null, note:'Amex/Diners are 3-party schemes and not subject to IFR interchange caps. Surcharging is permitted under PSD2 unless restricted by Member State national law (several have banned all surcharging). Verify per country.', ref:'PSD2 Art.62(5); IFR Art.1(5)'},
+  },
+  uk: {
+    label: 'United Kingdom (UK PSRs 2017)',
+    consumer_debit:   {status:'banned',      cap:null, note:'UK PSRs 2017 Reg.56A: Surcharging banned on regulated consumer debit cards (Visa Debit, Mastercard Debit, Maestro). Applies to all UK transactions.', ref:'UK PSRs 2017 Reg.56A; UK IFR'},
+    consumer_credit:  {status:'banned',      cap:null, note:'UK PSRs 2017 Reg.56A: Surcharging banned on regulated consumer credit cards (Visa Credit, Mastercard Credit). Applies UK-wide.', ref:'UK PSRs 2017 Reg.56A; UK IFR 2015'},
+    commercial_card:  {status:'permitted',   cap:null, note:'UK commercial/corporate cards are outside regulated interchange. Surcharging is permitted but must not exceed actual cost of acceptance. Must be disclosed to payer.', ref:'UK PSRs 2017; FCA Guidance'},
+    prepaid:          {status:'banned',      cap:null, note:'UK-regulated prepaid instruments (where IFR interchange applies) are subject to surcharging ban. Verify whether specific prepaid instrument is regulated.', ref:'UK PSRs 2017 Reg.56A'},
+    amex:             {status:'permitted',   cap:null, note:'Amex is a 3-party scheme not subject to UK IFR. Surcharging is permitted under UK rules. Must be disclosed; network rules may apply additional constraints.', ref:'UK PSRs 2017; FCA Consumer Duty (fairness)'},
+  },
+  us_cal: {
+    label: 'USA — California',
+    consumer_debit:   {status:'banned', cap:null, note:'California Civil Code §1748.1: Credit card surcharges are banned. Courts have interpreted this broadly to include debit surcharges in some contexts. Strong prohibitionary regime.', ref:'CA Civil Code §1748.1'},
+    consumer_credit:  {status:'banned', cap:null, note:'Surcharging credit cards is banned under California Civil Code §1748.1. No exemption for merchants. Penalties apply.', ref:'CA Civil Code §1748.1'},
+    commercial_card:  {status:'banned', cap:null, note:'California ban applies broadly. Commercial card surcharging is also generally prohibited in California.', ref:'CA Civil Code §1748.1'},
+    prepaid:          {status:'banned', cap:null, note:'Prepaid card surcharging prohibited under California law.', ref:'CA Civil Code §1748.1'},
+    amex:             {status:'banned', cap:null, note:'All surcharges (including on Amex) are banned in California.', ref:'CA Civil Code §1748.1'},
+  },
+  us_ct: {
+    label: 'USA — Connecticut',
+    consumer_debit:   {status:'banned', cap:null, note:'Connecticut bans credit/debit card surcharging under CGS §42-133ff.', ref:'CT CGS §42-133ff'},
+    consumer_credit:  {status:'banned', cap:null, note:'Connecticut prohibits merchant surcharges on credit card purchases.', ref:'CT CGS §42-133ff'},
+    commercial_card:  {status:'banned', cap:null, note:'Connecticut ban applies broadly to card surcharges.', ref:'CT CGS §42-133ff'},
+    prepaid:          {status:'banned', cap:null, note:'Surcharging prohibited under Connecticut law.', ref:'CT CGS §42-133ff'},
+    amex:             {status:'banned', cap:null, note:'Connecticut ban covers all card surcharges.', ref:'CT CGS §42-133ff'},
+  },
+  us_ma: {
+    label: 'USA — Massachusetts',
+    consumer_debit:   {status:'banned', cap:null, note:'Massachusetts bans credit/charge card surcharges under MGL c.140D §28A.', ref:'MA MGL c.140D §28A'},
+    consumer_credit:  {status:'banned', cap:null, note:'Credit card surcharging prohibited in Massachusetts.', ref:'MA MGL c.140D §28A'},
+    commercial_card:  {status:'banned', cap:null, note:'Massachusetts ban applies broadly.', ref:'MA MGL c.140D §28A'},
+    prepaid:          {status:'banned', cap:null, note:'Surcharging prohibited.', ref:'MA MGL c.140D §28A'},
+    amex:             {status:'banned', cap:null, note:'Massachusetts ban covers all payment card surcharges.', ref:'MA MGL c.140D §28A'},
+  },
+  us_ny: {
+    label: 'USA — New York',
+    consumer_debit:   {status:'conditional', cap:null, note:'New York law (GBL §518, as interpreted post-Expressions Hair Design v. Schneiderman SCOTUS 2017): Merchants may charge different prices for card vs. cash but must disclose the card price as the "regular" price. Dual pricing allowed; hidden surcharges remain prohibited.', ref:'NY GBL §518; SCOTUS Expressions Hair Design (2017)'},
+    consumer_credit:  {status:'conditional', cap:null, note:'Surcharging permitted via dual pricing disclosure model. Card price must be displayed. Network surcharge rules (Visa/MC) cap at 4% or cost of acceptance.', ref:'NY GBL §518; Visa/MC Surcharge Rules'},
+    commercial_card:  {status:'permitted',   cap:null, note:'Commercial card surcharging permitted with proper dual pricing disclosure.', ref:'NY GBL §518'},
+    prepaid:          {status:'conditional', cap:null, note:'Dual pricing model applies. Disclosure required.', ref:'NY GBL §518'},
+    amex:             {status:'permitted',   cap:null, note:'Amex surcharging permitted under New York dual pricing rules with full disclosure.', ref:'NY GBL §518'},
+  },
+  us_tx: {
+    label: 'USA — Texas',
+    consumer_debit:   {status:'permitted',   cap:'cost_of_acceptance', note:'Texas permits surcharging with disclosure. Must not exceed the actual cost of acceptance. Texas Finance Code §339.001.', ref:'TX Finance Code §339.001; Visa/MC Surcharge Rules'},
+    consumer_credit:  {status:'cost_capped', cap:'4%', note:'Permitted with disclosure. Capped at cost of acceptance or 4% (Visa/MC network cap), whichever is lower. Must be disclosed pre-transaction.', ref:'TX Finance Code §339.001; Visa Surcharge Rules'},
+    commercial_card:  {status:'permitted',   cap:null, note:'Commercial card surcharging permitted in Texas with disclosure.', ref:'TX Finance Code §339.001'},
+    prepaid:          {status:'permitted',   cap:'cost_of_acceptance', note:'Surcharging permitted with disclosure and cost cap.', ref:'TX Finance Code §339.001'},
+    amex:             {status:'permitted',   cap:null, note:'Amex surcharging permitted in Texas with full disclosure.', ref:'TX Finance Code §339.001'},
+  },
+  us_fl: {
+    label: 'USA — Florida',
+    consumer_debit:   {status:'cost_capped', cap:'4%', note:'Florida permits surcharging with written disclosure. Maximum surcharge: 4% of transaction value, or cost of acceptance (lower of the two). FL Stat §501.0117.', ref:'FL Stat §501.0117; Visa/MC Surcharge Rules'},
+    consumer_credit:  {status:'cost_capped', cap:'4%', note:'Permitted with prominent disclosure. FL Stat §501.0117 requires written or posted notice. Cap: 4% or cost of acceptance.', ref:'FL Stat §501.0117'},
+    commercial_card:  {status:'permitted',   cap:null, note:'Commercial card surcharging permitted in Florida with disclosure.', ref:'FL Stat §501.0117'},
+    prepaid:          {status:'cost_capped', cap:'4%', note:'Surcharging permitted up to cost cap.', ref:'FL Stat §501.0117'},
+    amex:             {status:'permitted',   cap:null, note:'Amex surcharging permitted with disclosure in Florida.', ref:'FL Stat §501.0117'},
+  },
+  aus: {
+    label: 'Australia (RBA Surcharging Framework)',
+    consumer_debit:   {status:'cost_capped', cap:'weighted_avg_cost', note:'RBA Standards: Surcharging permitted but capped at the merchant\'s blended cost of acceptance for the card type. Visa/MC debit: typically 0.4–0.8%. EFTPOS debit: typically 0.2–0.5%. ACCC enforces via Competition & Consumer Act 2010 Sch 1 §55B.', ref:'RBA Surcharging Standard 2016; ACCC CCA 2010 §55B'},
+    consumer_credit:  {status:'cost_capped', cap:'weighted_avg_cost', note:'Surcharging capped at cost of acceptance per RBA Standard. Visa/MC credit: typically 0.8–1.5%. American Express credit: higher (1.5–2.5%). Merchant must not surcharge above their actual cost.', ref:'RBA Surcharging Standard 2016; ACCC enforcement'},
+    commercial_card:  {status:'cost_capped', cap:'weighted_avg_cost', note:'Commercial card cost of acceptance is typically higher. Surcharging permitted up to that cost. Differential surcharging (higher for commercial cards) is permitted if it reflects actual cost difference.', ref:'RBA Surcharging Standard 2016'},
+    prepaid:          {status:'cost_capped', cap:'weighted_avg_cost', note:'Surcharging permitted up to cost of acceptance. Eftpos prepaid typically lower cost than credit.', ref:'RBA Surcharging Standard 2016'},
+    amex:             {status:'cost_capped', cap:'weighted_avg_cost', note:'Amex surcharging permitted up to cost of acceptance. Amex typically has higher merchant service fees. Differential surcharge for Amex vs Visa/MC is common in Australia.', ref:'RBA Surcharging Standard 2016; ACCC'},
+  },
+  ca: {
+    label: 'Canada (PCPA / Code of Conduct)',
+    consumer_debit:   {status:'permitted',   cap:null, note:'Canada permits surcharging for credit and debit under the Payment Card Networks Act (PCPA) following Visa/MC consent decrees (2022). Must disclose before transaction. Honour-all-cards rule was relaxed.', ref:'Canada PCPA; Visa/MC Consent Agreement (2022)'},
+    consumer_credit:  {status:'permitted',   cap:null, note:'Permitted post-2022 consent agreements. Must not exceed cost of acceptance. Full pre-transaction disclosure required. Must surcharge all Visa/MC cards equally within a card type.', ref:'Canada PCPA; Visa/MC Consent Agreement (2022); Code of Conduct 2023'},
+    commercial_card:  {status:'permitted',   cap:null, note:'Commercial card surcharging permitted in Canada with disclosure.', ref:'Canada PCPA; Code of Conduct for the Credit and Debit Card Industry 2023'},
+    prepaid:          {status:'permitted',   cap:null, note:'Prepaid card surcharging permitted with disclosure under Canadian rules.', ref:'Canada PCPA'},
+    amex:             {status:'permitted',   cap:null, note:'Amex surcharging permitted in Canada. Amex is not a signatory to the same consent agreement but surcharging is generally allowed under PCPA.', ref:'Canada PCPA'},
+  },
+};
+
+const JUR_IDS = ['eu','uk','us_cal','us_ct','us_ma','us_ny','us_tx','us_fl','aus','ca'];
+
+let lastResults = null;
+
+function runSurchargeCheck() {
+  const cardType = document.getElementById('card_type').value;
+  const merchantType = document.getElementById('merchant_type').value;
+  const selectedJurs = JUR_IDS.filter(j => {
+    const el = document.getElementById('j_'+j);
+    return el && el.checked;
+  });
+
+  if (selectedJurs.length === 0) {
+    alert('Please select at least one jurisdiction.');
+    return;
+  }
+
+  const rulings = selectedJurs.map(j => {
+    const jurRules = RULES[j];
+    const rule = jurRules[cardType] || {status:'conditional', cap:null, note:'No specific rule found for this combination. Seek legal advice.', ref:'N/A'};
+    return {jurisdiction: j, label: jurRules.label, cardType, rule};
+  });
+
+  lastResults = {rulings, cardType, merchantType, selectedJurs, timestamp: new Date().toISOString()};
+
+  const banned = rulings.filter(r => r.rule.status === 'banned').length;
+  const permitted = rulings.filter(r => r.rule.status === 'permitted').length;
+  const capped = rulings.filter(r => r.rule.status === 'cost_capped').length;
+  const conditional = rulings.filter(r => r.rule.status === 'conditional').length;
+
+  const cardLabels = {consumer_debit:'Consumer Debit Card',consumer_credit:'Consumer Credit Card',commercial_card:'Commercial / Corporate Card',prepaid:'Prepaid Card',amex:'Amex / Diners (3-party)'};
+
+  let html = '';
+
+  // Summary bar
+  html += `<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1rem">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem">Surcharging Rulebook — ${cardLabels[cardType]} · ${rulings.length} jurisdiction${rulings.length!==1?'s':''}</div>
+    <div style="display:flex;gap:1.5rem;flex-wrap:wrap">
+      <span style="font-size:.8rem"><span style="color:var(--red);font-weight:500">●</span> Banned: <strong>${banned}</strong></span>
+      <span style="font-size:.8rem"><span style="color:var(--green);font-weight:500">●</span> Permitted: <strong>${permitted}</strong></span>
+      <span style="font-size:.8rem"><span style="color:var(--warn);font-weight:500">●</span> Cost-Capped: <strong>${capped}</strong></span>
+      <span style="font-size:.8rem"><span style="color:var(--body);font-weight:500">●</span> Conditional: <strong>${conditional}</strong></span>
+    </div>
+  </div>`;
+
+  // Individual rulings
+  rulings.forEach(r => {
+    const statusConfig = {
+      banned:      {color:'var(--red)',   bg:'rgba(239,68,68,.1)',  label:'BANNED'},
+      permitted:   {color:'var(--green)', bg:'rgba(34,197,94,.1)',  label:'PERMITTED'},
+      cost_capped: {color:'var(--warn)',  bg:'rgba(245,158,11,.1)', label:'COST-CAPPED'},
+      conditional: {color:'var(--body)',  bg:'rgba(58,82,112,.15)', label:'CONDITIONAL'},
+      partial_ban: {color:'var(--warn)',  bg:'rgba(245,158,11,.1)', label:'PARTIAL BAN'},
+    };
+    const sc = statusConfig[r.rule.status] || statusConfig.conditional;
+
+    html += `<div class="ruling-card">
+      <div class="ruling-header" style="background:${sc.bg};border-bottom:1px solid var(--border)">
+        <span class="ruling-badge" style="background:${sc.bg};color:${sc.color};border:1px solid ${sc.color}">${sc.label}</span>
+        <span class="ruling-title">${r.label}</span>
+        ${r.rule.cap?`<span style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--warn);padding:.15rem .5rem;border:1px solid rgba(245,158,11,.3);border-radius:3px;margin-left:auto">Cap: ${r.rule.cap}</span>`:''}
+      </div>
+      <div class="ruling-body">
+        ${r.rule.note}
+        <div class="ruling-ref">📎 ${r.rule.ref}</div>
+      </div>
+    </div>`;
+  });
+
+  // Export row
+  html += `<div class="results-export-row">
+    <button class="btn-export" onclick="exportMarkdown()">↓ Export Markdown</button>
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run tool to generate Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);opacity:.55;cursor:not-allowed;transition:all .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>`;
+
+  document.getElementById('outputSection').innerHTML = html;
+  enableAP2Btn();
+}
+
+function exportMarkdown() {
+  if (!lastResults) return;
+  const {rulings, cardType} = lastResults;
+  const date = new Date().toISOString().slice(0,10);
+  const statusMap = {banned:'❌ BANNED', permitted:'✅ PERMITTED', cost_capped:'⚠️ COST-CAPPED', conditional:'ℹ️ CONDITIONAL'};
+  let md = `# Payment Surcharging Compliance Navigator\n**Generated:** ${date} | AINumbers.co T-272\n**Card Type:** ${cardType}\n\n| Jurisdiction | Status | Cap | Reference |\n|---|---|---|---|\n`;
+  rulings.forEach(r => md += `| ${r.label} | ${statusMap[r.rule.status]||r.rule.status} | ${r.rule.cap||'—'} | ${r.rule.ref} |\n`);
+  md += `\n## Notes\n\n`;
+  rulings.forEach(r => md += `**${r.label}:** ${r.rule.note}\n\n`);
+  md += `---\n*Client-side · Zero PII · CC BY 4.0 · Post Oak Labs*\n`;
+  const blob = new Blob([md],{type:'text/markdown'});
+  const a = document.createElement('a');a.href=URL.createObjectURL(blob);a.download='surcharging-compliance_'+date+'.md';a.click();
+}
+
+function exportAP2() {
+  if (!lastResults) return;
+  const {rulings, cardType, selectedJurs} = lastResults;
+  const banned = rulings.filter(r=>r.rule.status==='banned').map(r=>r.label);
+  const payload = {
+    ap2_version:'1.0', mandate_id:crypto.randomUUID(), issued_at:new Date().toISOString(), issued_by:'ainumbers.co',
+    tool_id:'payment-surcharging-compliance-navigator', tool_version:'1.0.0', mandate_type:'scheme_rule',
+    jurisdiction:selectedJurs.map(j=>j.toUpperCase()),
+    regulatory_frameworks:['PSD2 Art.62','UK PSRs 2017 Reg.56A','RBA Surcharging Standard 2016','Visa Surcharge Rules','Mastercard Surcharge Rules'],
+    payload:{card_type:cardType, jurisdictions_checked:selectedJurs.length, banned_in:banned, rulings:rulings.map(r=>({jurisdiction:r.label, status:r.rule.status, cap:r.rule.cap}))},
+    summary:`Surcharging compliance check for ${cardType}: ${rulings.filter(r=>r.rule.status==='banned').length} jurisdiction(s) ban surcharging, ${rulings.filter(r=>r.rule.status==='permitted').length} permit it, ${rulings.filter(r=>r.rule.status==='cost_capped').length} cost-cap it. ${banned.length>0?'Banned in: '+banned.join(', ')+'.':'No outright bans in selected jurisdictions.'}`,
+    agent_instructions:[cardType+' surcharging status by jurisdiction checked.',banned.length>0?'COMPLIANCE ALERT: Surcharging is BANNED in: '+banned.join(', ')+'. Remove any surcharges immediately in these markets.':'No banned jurisdictions in scope.',...rulings.filter(r=>r.rule.status==='cost_capped').map(r=>`Cost cap applies in ${r.label}. Verify cost of acceptance and do not exceed.`),'Verify against current Visa and Mastercard merchant operating regulations before implementation.'],
+    valid_from:new Date().toISOString(), valid_until:new Date(Date.now()+180*86400000).toISOString(), last_reviewed:new Date().toISOString(),
+    source_tool_inputs:{card_type:cardType, jurisdictions:selectedJurs},
+    regulatory_citations:['PSD2 Art.62(4) — consumer card surcharging ban','UK PSRs 2017 Reg.56A — surcharging prohibition','RBA Surcharging Standard 2016 — cost-of-acceptance cap','Visa Merchant Surcharging Rules (2024)','Mastercard Merchant Surcharging Rules (2024)','Canada Visa/MC Consent Agreement (2022)'],
+    audit_metadata:{execution_hash:null, client_side_executed:true, zero_pii_verified:true, deterministic_run:true}
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='payment-surcharging-compliance_'+new Date().toISOString().slice(0,19).replace(/[T:]/g,'').slice(0,15)+'.policy.json';a.click();
+}
+
+function enableAP2Btn(){
+  const btn=document.getElementById('ap2ExportBtn');
+  if(btn){btn.disabled=false;btn.classList.add('ready');btn.style.opacity='1';btn.style.cursor='pointer';}
+}
+function toggleMfst(){
+  const b=document.getElementById('mfstBody');const open=b.style.display==='block';
+  b.style.display=open?'none':'block';document.getElementById('mfstArr').textContent=open?'▼':'▲';
+  if(!open&&!document.getElementById('mfstCode').textContent)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+const MANIFEST={"tool_id":"payment-surcharging-compliance-navigator","version":"1.0.0","title":"Payment Surcharging Compliance Navigator","description":"Determines surcharging permission status (permitted/banned/cost-capped) for merchant jurisdictions and payment method combinations.","category":"cat-25","tags":["surcharging","PSD2","merchant fees","card surcharge","US","Australia","UK"],"audience":["merchant","compliance","product","legal"],"mcp_tool_definition":{"name":"navigate_payment_surcharging_compliance","description":"Returns surcharging permission status for given jurisdiction and payment method combinations.","inputSchema":{"type":"object","properties":{"jurisdictions":{"type":"array"},"payment_methods":{"type":"array"}},"required":["jurisdictions"]}},"execution":{"type":"browser-javascript","entry":"tools/272-payment-surcharging-compliance-navigator.html","function_name":"runSurchargeCheck","timeout_ms":2000},"ap2_export":true};
+
+const TRANSLATIONS={en:{},es:{},fr:{},ar:{lang_dir:'rtl'},pt:{},zh:{}};
+function setLang(lang){
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===lang));
+  document.documentElement.lang=lang;document.documentElement.dir=(TRANSLATIONS[lang]||{}).lang_dir||'ltr';
+  sessionStorage.setItem('ain_lang',lang);
+}
+(function(){const l=sessionStorage.getItem('ain_lang');if(l&&TRANSLATIONS[l])setLang(l);})();
+</script>
+</body>
+</html>

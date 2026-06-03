@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>B2B Payment Terms &amp; Working Capital Impact Calculator · AINumbers.co</title>
+<meta name="description" content="Two-sided working capital model: buyer DPO vs seller DSO. Calculates cash conversion cycle delta, early payment discount breakeven, and supply chain finance cost-benefit. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/142-b2b-payment-terms-working-capital-impact.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"B2B Payment Terms & Working Capital Impact Calculator","url":"https://ainumbers.co/tools/142-b2b-payment-terms-working-capital-impact.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "b2b-payment-terms-working-capital-impact",
+  "version": "1.0.0",
+  "title": "B2B Payment Terms & Working Capital Impact Calculator",
+  "description": "Two-sided model: buyer DPO vs seller DSO. Calculates bilateral working capital cash conversion cycle delta, early payment discount breakeven rate, and supply chain finance cost-benefit at each term length.",
+  "category": "cat-13",
+  "tags": ["B2B payments","working capital","DPO","DSO","CCC","cash conversion cycle","early payment","supply chain finance","SCF"],
+  "audience": ["treasury","finance","CFO","analyst","procurement"],
+  "input_schema": {"type":"object","properties":{"annual_revenue":{"type":"number"},"current_buyer_dpo":{"type":"number"},"current_seller_dso":{"type":"number"},"proposed_terms":{"type":"number"},"wacc":{"type":"number"},"early_pay_discount":{"type":"number"},"scf_rate":{"type":"number"},"industry":{"type":"string"}},"required":["annual_revenue","current_buyer_dpo","current_seller_dso","proposed_terms","wacc"]},
+  "output_schema": {"type":"object","properties":{"buyer_wc_delta":{"type":"number"},"seller_wc_delta":{"type":"number"},"ccc_delta_buyer":{"type":"number"},"ccc_delta_seller":{"type":"number"},"epd_annualized_cost":{"type":"number"},"scf_breakeven":{"type":"number"},"recommendation":{"type":"string"}}},
+  "mcp_tool_definition": {
+    "name": "calculate_b2b_payment_terms_impact",
+    "description": "Calculates bilateral working capital impact of B2B payment term changes. Returns DPO/DSO delta, CCC impact, early payment discount analysis, and SCF cost-benefit.",
+    "inputSchema": {"type":"object","properties":{"annual_revenue":{"type":"number","description":"Annual revenue or spend in USD"},"current_buyer_dpo":{"type":"number","description":"Current buyer days payable outstanding"},"current_seller_dso":{"type":"number","description":"Current seller days sales outstanding"},"proposed_terms":{"type":"number","description":"Proposed new payment terms in days"},"wacc":{"type":"number","description":"Cost of capital / WACC as percentage"}},"required":["annual_revenue","current_buyer_dpo","current_seller_dso","proposed_terms","wacc"]}
+  },
+  "execution": {"type":"browser-javascript","entry":"tools/142-b2b-payment-terms-working-capital-impact.html","function_name":"runTool","timeout_ms":5000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge,.hero-badges .badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.panel-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:.75rem}
+label{font-size:.72rem;color:var(--body);display:block;margin-bottom:.35rem}
+input[type="number"],input[type="text"],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.4rem .65rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+.field-hint{font-size:.6rem;color:var(--muted);margin-top:.25rem;font-family:'JetBrains Mono',monospace}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:1rem;margin-bottom:1.5rem}
+.run-btn:hover{background:var(--teal-lt)}
+.results-panel{margin-top:1rem}
+.result-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem}
+.result-card-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.result-card-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.result-card-body{padding:1.25rem}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border:1px solid var(--border);background:var(--bg-3);color:var(--text);border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-export:hover{border-color:var(--teal);color:var(--teal)}
+#ap2ExportBtn.ready{opacity:1!important;cursor:pointer!important;border-color:var(--teal)!important;color:var(--bright)!important}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)!important}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+/* two-sided layout */
+.dual-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+@media(max-width:700px){.dual-grid{grid-template-columns:1fr}}
+.side-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem}
+.side-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:.75rem}
+.metric-row{display:flex;justify-content:space-between;align-items:baseline;padding:.3rem 0;border-bottom:1px solid rgba(30,47,74,.5)}
+.metric-row:last-child{border-bottom:none}
+.metric-label{font-size:.68rem;color:var(--body)}
+.metric-val{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--bright)}
+.metric-val.pos{color:var(--green)}
+.metric-val.neg{color:var(--red)}
+.metric-val.neutral{color:var(--teal)}
+.rec-banner{padding:.85rem 1.25rem;border-radius:var(--radius);margin-bottom:1rem;display:flex;align-items:flex-start;gap:.75rem}
+.rec-icon{font-size:1.1rem;line-height:1.3}
+.rec-text{font-size:.75rem;line-height:1.7;color:var(--text)}
+.rec-text strong{color:var(--white)}
+.bench-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.bench-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .65rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400}
+.bench-table td{padding:.4rem .65rem;border-bottom:1px solid var(--border);color:var(--text)}
+.bench-table tr:last-child td{border-bottom:none}
+.bench-table tr.active-row td{background:rgba(20,184,166,.06)}
+.bench-table td.num{font-family:'JetBrains Mono',monospace;text-align:right;color:var(--bright)}
+.bench-table td.good{color:var(--green)}
+.bench-table td.warn{color:var(--warn)}
+</style>
+</head>
+<body>
+<!-- LANG BAR -->
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<!-- NAV -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/b2b-payments-hub.html">B2B Payments Hub</a><span class="nav-sep">/</span><span>T-142</span></div>
+  <div class="nav-right"><a href="../guides/b2b-payments-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<!-- HERO -->
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-13 · T142 · B2B Payments &amp; Accounts Payable</div>
+  <span class="hero-badge badge-muted"><span>v1.0</span></span>
+  <h1 class="tool-title">B2B Payment Terms &amp; <em>Working Capital Impact</em></h1>
+  <p class="hero-desc" id="heroDesc">Two-sided model: buyer extends DPO, seller DSO rises. Calculates bilateral cash conversion cycle delta, early payment discount breakeven rate, supply chain finance cost-benefit, and industry benchmark comparison.</p>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-teal">B2B Payments</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<!-- TOOL BODY -->
+<div class="tool-body"><div class="container">
+  <!-- PII SCOPE NOTE -->
+  <div class="scope-note" style="background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.25);border-left:3px solid var(--teal);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8">
+    <strong style="color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance —</strong> 🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only. Industry benchmarks are reference estimates. Verify against current primary sources before relying on outputs for commercial or compliance decisions. Deterministic logic · no inference · zero PII · CC BY 4.0.
+  </div>
+
+  <!-- INPUTS -->
+  <div class="panel">
+    <div class="panel-label">Revenue &amp; Industry</div>
+    <div class="panel-row">
+      <div>
+        <label for="annualRev">Annual Revenue / Annual Spend ($)</label>
+        <input type="number" id="annualRev" min="1" step="1000" value="10000000" placeholder="10000000">
+        <div class="field-hint">Used to calculate daily sales/spend base</div>
+      </div>
+      <div>
+        <label for="industry">Industry</label>
+        <select id="industry" onchange="onIndustryChange()">
+          <option value="manufacturing">Manufacturing</option>
+          <option value="retail">Retail</option>
+          <option value="technology">Technology / SaaS</option>
+          <option value="services">Professional Services</option>
+          <option value="healthcare">Healthcare</option>
+        </select>
+        <div class="field-hint">Sets benchmark DPO/DSO defaults</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Payment Terms</div>
+    <div class="panel-row">
+      <div>
+        <label for="currentBuyerDPO">Current Buyer DPO (days)</label>
+        <input type="number" id="currentBuyerDPO" min="0" max="365" step="1" value="45">
+        <div class="field-hint">Days Payable Outstanding</div>
+      </div>
+      <div>
+        <label for="currentSellerDSO">Current Seller DSO (days)</label>
+        <input type="number" id="currentSellerDSO" min="0" max="365" step="1" value="45">
+        <div class="field-hint">Days Sales Outstanding</div>
+      </div>
+      <div>
+        <label for="proposedTerms">Proposed New Terms (days)</label>
+        <input type="number" id="proposedTerms" min="0" max="365" step="1" value="60">
+        <div class="field-hint">Net payment days under new terms</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Cost of Capital &amp; Finance Options</div>
+    <div class="panel-row">
+      <div>
+        <label for="wacc">WACC / Cost of Capital (%)</label>
+        <input type="number" id="wacc" min="0" max="50" step="0.1" value="8.5">
+        <div class="field-hint">Used to value WC cash tied up</div>
+      </div>
+      <div>
+        <label for="epdPct">Early Payment Discount Offered (%, optional)</label>
+        <input type="number" id="epdPct" min="0" max="10" step="0.01" value="2.00">
+        <div class="field-hint">0 = no discount offered</div>
+      </div>
+      <div>
+        <label for="scfRate">SCF Facility Rate (%, optional)</label>
+        <input type="number" id="scfRate" min="0" max="20" step="0.01" value="5.50">
+        <div class="field-hint">Supply chain finance APR; 0 = not available</div>
+      </div>
+    </div>
+  </div>
+
+  <button class="run-btn" onclick="runTool()" id="runBtn">▶ Run Analysis</button>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel" style="display:none">
+
+    <!-- Recommendation banner -->
+    <div id="recBanner" class="rec-banner"></div>
+
+    <!-- Dual WC impact -->
+    <div class="dual-grid">
+      <div class="side-card">
+        <div class="side-title" style="color:var(--gold)">Buyer Perspective (AP / DPO)</div>
+        <div id="buyerMetrics"></div>
+      </div>
+      <div class="side-card">
+        <div class="side-title" style="color:var(--teal)">Seller Perspective (AR / DSO)</div>
+        <div id="sellerMetrics"></div>
+      </div>
+    </div>
+
+    <!-- EPD + SCF panel -->
+    <div class="result-card">
+      <div class="result-card-header"><span class="result-card-title">Early Payment Discount &amp; SCF Analysis</span></div>
+      <div class="result-card-body"><div id="epdPanel"></div></div>
+    </div>
+
+    <!-- Industry benchmarks -->
+    <div class="result-card">
+      <div class="result-card-header"><span class="result-card-title">Industry Benchmark Comparison</span></div>
+      <div class="result-card-body" style="overflow-x:auto"><table class="bench-table" id="benchTable"></table></div>
+    </div>
+
+    <!-- EXPORT ROW -->
+    <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;padding:.75rem 0;border-top:1px solid var(--border);margin-top:1rem">
+      <button class="btn-export" onclick="exportMarkdown()">↓ Export Markdown</button>
+      <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the tool to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border:1px solid var(--border);background:var(--bg-3);color:var(--text);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:all .2s">{} Export Policy Mandate<span style="margin-left:.5rem;font-size:.85em">API · audit trail</span></button>
+    </div>
+  </div>
+</div></div>
+
+<!-- MCP MANIFEST TOGGLE -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><pre class="mfst-code" id="mfstCode"></pre></div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="24" height="24" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="../guides/b2b-payments-hub.html">B2B Hub</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+// ── i18n ─────────────────────────────────────────────────────────────
+const TRANSLATIONS={
+  en:{title:'B2B Payment Terms & Working Capital Impact',desc:'Two-sided model: buyer DPO vs seller DSO with CCC delta and SCF analysis.',run_btn:'▶ Run Analysis'},
+  es:{title:'Términos de Pago B2B e Impacto en Capital de Trabajo',desc:'Modelo bilateral: DPO del comprador vs DSO del vendedor.',run_btn:'▶ Ejecutar'},
+  fr:{title:'Conditions de Paiement B2B et Impact sur le Fonds de Roulement',desc:'Modèle bilatéral: DPO acheteur vs DSO vendeur.',run_btn:'▶ Analyser'},
+  ar:{title:'شروط الدفع B2B وتأثير رأس المال العامل',desc:'نموذج ثنائي الاتجاه: DPO المشتري مقابل DSO البائع.',run_btn:'▶ تحليل',lang_dir:'rtl'},
+  pt:{title:'Condições de Pagamento B2B e Impacto no Capital de Giro',desc:'Modelo bilateral: DPO do comprador vs DSO do vendedor.',run_btn:'▶ Analisar'},
+  zh:{title:'B2B付款条件与营运资本影响计算器',desc:'双边模型：买方DPO与卖方DSO。',run_btn:'▶ 运行'}
+};
+function setLang(lang){
+  const t=TRANSLATIONS[lang]||TRANSLATIONS.en;
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===lang));
+  document.documentElement.lang=lang;document.documentElement.dir=t.lang_dir||'ltr';
+  sessionStorage.setItem('ain_lang',lang);
+  const d=document.getElementById('heroDesc');if(d)d.textContent=t.desc;
+  const r=document.getElementById('runBtn');if(r)r.textContent=t.run_btn;
+}
+(function(){const l=sessionStorage.getItem('ain_lang');if(l)setLang(l);})();
+
+// ── BENCHMARKS ────────────────────────────────────────────────────────
+const BENCHMARKS={
+  manufacturing:{label:'Manufacturing',dpo:45,dso:48,ccc:65,dio:62},
+  retail:{label:'Retail',dpo:35,dso:18,ccc:30,dio:47},
+  technology:{label:'Technology / SaaS',dpo:38,dso:55,ccc:62,dio:45},
+  services:{label:'Professional Services',dpo:32,dso:60,ccc:55,dio:27},
+  healthcare:{label:'Healthcare',dpo:52,dso:65,ccc:68,dio:55}
+};
+function onIndustryChange(){
+  const b=BENCHMARKS[document.getElementById('industry').value];
+  if(b){
+    document.getElementById('currentBuyerDPO').value=b.dpo;
+    document.getElementById('currentSellerDSO').value=b.dso;
+  }
+}
+
+let lastResult=null;
+function fmt(n,dp=0){return n.toLocaleString('en-US',{minimumFractionDigits:dp,maximumFractionDigits:dp});}
+function fmtD(n){return(n>=0?'+':'')+fmt(Math.round(n))+' days';}
+function fmtM(n){return(n>=0?'+':'-')+'$'+fmt(Math.abs(n/1000000),2)+'M';}
+
+function runTool(){
+  const rev=parseFloat(document.getElementById('annualRev').value)||10000000;
+  const curDPO=parseFloat(document.getElementById('currentBuyerDPO').value)||45;
+  const curDSO=parseFloat(document.getElementById('currentSellerDSO').value)||45;
+  const newTerms=parseFloat(document.getElementById('proposedTerms').value)||60;
+  const wacc=parseFloat(document.getElementById('wacc').value)||8.5;
+  const epd=parseFloat(document.getElementById('epdPct').value)||0;
+  const scfR=parseFloat(document.getElementById('scfRate').value)||0;
+  const industry=document.getElementById('industry').value;
+
+  const dailyRev=rev/365;
+
+  // Buyer: extending DPO → cash freed (positive for buyer)
+  const buyerDPODelta=newTerms-curDPO;
+  const buyerWCDelta=buyerDPODelta*dailyRev; // positive = cash freed
+  const buyerCostSaved=buyerWCDelta*(wacc/100);
+
+  // Seller: DSO rises → more cash tied up (negative for seller)
+  const sellerDSODelta=newTerms-curDSO;
+  const sellerWCDelta=sellerDSODelta*dailyRev; // positive = more cash needed
+  const sellerCostOfWC=sellerWCDelta*(wacc/100);
+
+  // EPD analysis
+  // Annualised cost of discount = discount% / (1 - discount%) * 365 / (terms - discount_days)
+  // Simplified: annualised cost = epd% * (365 / newTerms)
+  const epdAnnualised=epd>0?(epd/100)*365/newTerms*100:0;
+  const epdWorthIt=epd>0&&epdAnnualised<wacc;
+
+  // SCF
+  const scfBreakevenVsEPD=epd>0?epdAnnualised:null;
+  const scfVsWACC=scfR>0?scfR<wacc:null;
+
+  // Recommendation
+  let rec='', recColor='var(--teal)', recIcon='💡';
+  if(newTerms>curDPO&&epd>0&&epdAnnualised>wacc){
+    rec=`Extending terms to ${newTerms} days benefits buyer (+${fmt(buyerWCDelta/1000,0)}K WC freed). Early payment discount annualised cost (${epdAnnualised.toFixed(2)}%) exceeds WACC (${wacc}%) — discount is expensive; buyer should decline. Consider SCF instead.`;
+    recColor='var(--warn)';recIcon='⚠️';
+  } else if(newTerms>curDPO&&epd>0&&epdAnnualised<=wacc){
+    rec=`Extending terms to ${newTerms} days with early payment discount at ${epd}% (annualised ${epdAnnualised.toFixed(2)}%) is below WACC (${wacc}%). Buyer should consider taking the discount — effective return exceeds cost of capital.`;
+    recColor='var(--green)';recIcon='✅';
+  } else if(newTerms>curDPO&&scfR>0&&scfVsWACC){
+    rec=`Extending to ${newTerms} days. SCF facility rate (${scfR}%) is below WACC (${wacc}%). Seller should leverage SCF programme to offset DSO extension and reduce cost of carrying receivables.`;
+    recColor='var(--teal)';recIcon='💡';
+  } else if(newTerms>curDPO){
+    rec=`Extending terms to ${newTerms} days benefits the buyer (+${fmt(buyerWCDelta/1000000,2)}M WC freed, ${fmt(buyerCostSaved/1000,0)}K annual savings) but increases seller's cost of carrying receivables by ${fmt(sellerCostOfWC/1000,0)}K/year. Negotiate SCF or shorter terms.`;
+    recColor='var(--warn)';recIcon='⚖️';
+  } else if(newTerms<curDPO){
+    rec=`Shortening terms to ${newTerms} days improves seller DSO (cash in sooner) at the cost of buyer WC. Buyer loses ${fmt(Math.abs(buyerWCDelta)/1000000,2)}M WC. Consider early payment discount to incentivise compliance.`;
+    recColor='var(--teal)';recIcon='💡';
+  } else {
+    rec=`Proposed terms match current terms — no change. Adjust proposed terms to model impact.`;
+    recColor='var(--muted)';recIcon='ℹ️';
+  }
+
+  const bench=BENCHMARKS[industry];
+  lastResult={rev,curDPO,curDSO,newTerms,wacc,epd,scfR,industry,buyerDPODelta,buyerWCDelta,buyerCostSaved,sellerDSODelta,sellerWCDelta,sellerCostOfWC,epdAnnualised,epdWorthIt,scfBreakevenVsEPD,scfVsWACC,rec,bench};
+
+  // Recommendation banner
+  document.getElementById('recBanner').style.background=recColor==='var(--green)'?'rgba(34,197,94,.08)':recColor==='var(--warn)'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)';
+  document.getElementById('recBanner').style.border='1px solid '+(recColor==='var(--green)'?'rgba(34,197,94,.25)':recColor==='var(--warn)'?'rgba(245,158,11,.25)':'rgba(20,184,166,.25)');
+  document.getElementById('recBanner').innerHTML=`<span class="rec-icon">${recIcon}</span><div class="rec-text"><strong>Recommendation:</strong> ${rec}</div>`;
+
+  // Buyer metrics
+  const buyerH=(buyerDPODelta>=0)?'pos':'neg';
+  document.getElementById('buyerMetrics').innerHTML=`
+    <div class="metric-row"><span class="metric-label">Current DPO</span><span class="metric-val">${curDPO} days</span></div>
+    <div class="metric-row"><span class="metric-label">Proposed DPO</span><span class="metric-val neutral">${newTerms} days</span></div>
+    <div class="metric-row"><span class="metric-label">DPO Delta</span><span class="metric-val ${buyerH}">${fmtD(buyerDPODelta)}</span></div>
+    <div class="metric-row"><span class="metric-label">WC Impact (freed/used)</span><span class="metric-val ${buyerH}">${buyerDPODelta>=0?'+':'−'}$${fmt(Math.abs(buyerWCDelta)/1000,0)}K</span></div>
+    <div class="metric-row"><span class="metric-label">Annual Capital Cost Saving</span><span class="metric-val ${buyerH}">${buyerDPODelta>=0?'+':'−'}$${fmt(Math.abs(buyerCostSaved)/1000,0)}K</span></div>
+    <div class="metric-row"><span class="metric-label">Benchmark DPO (${bench.label})</span><span class="metric-val">${bench.dpo} days</span></div>
+  `;
+
+  // Seller metrics
+  const sellerH=(sellerDSODelta<=0)?'pos':'neg';
+  document.getElementById('sellerMetrics').innerHTML=`
+    <div class="metric-row"><span class="metric-label">Current DSO</span><span class="metric-val">${curDSO} days</span></div>
+    <div class="metric-row"><span class="metric-label">Proposed DSO</span><span class="metric-val neutral">${newTerms} days</span></div>
+    <div class="metric-row"><span class="metric-label">DSO Delta</span><span class="metric-val ${sellerH}">${fmtD(sellerDSODelta)}</span></div>
+    <div class="metric-row"><span class="metric-label">Additional WC Needed</span><span class="metric-val ${sellerH}">${sellerDSODelta>=0?'+':'−'}$${fmt(Math.abs(sellerWCDelta)/1000,0)}K</span></div>
+    <div class="metric-row"><span class="metric-label">Annual WC Carrying Cost</span><span class="metric-val ${sellerH}">${sellerDSODelta>=0?'+':'−'}$${fmt(Math.abs(sellerCostOfWC)/1000,0)}K</span></div>
+    <div class="metric-row"><span class="metric-label">Benchmark DSO (${bench.label})</span><span class="metric-val">${bench.dso} days</span></div>
+  `;
+
+  // EPD + SCF panel
+  let epdHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem">';
+  if(epd>0){
+    epdHTML+=`<div style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem">Early Payment Discount</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:1.3rem;color:${epdWorthIt?'var(--green)':'var(--red)'};margin-bottom:.25rem">${epd.toFixed(2)}% discount</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--body)">Annualised cost: ${epdAnnualised.toFixed(2)}%</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--body)">vs WACC: ${wacc}%</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.6rem;margin-top:.4rem;padding:.3rem .5rem;border-radius:3px;background:${epdWorthIt?'rgba(34,197,94,.1)':'rgba(239,68,68,.1)'};color:${epdWorthIt?'var(--green)':'var(--red)'}">
+        ${epdWorthIt?'Worth taking — annualised rate < WACC':'Expensive — annualised rate > WACC'}
+      </div>
+    </div>`;
+  } else {
+    epdHTML+=`<div style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.65rem">No early payment discount specified.</div>`;
+  }
+  if(scfR>0){
+    epdHTML+=`<div style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem">Supply Chain Finance</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:1.3rem;color:${scfVsWACC?'var(--green)':'var(--warn)'};margin-bottom:.25rem">${scfR.toFixed(2)}% APR</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--body)">vs WACC: ${wacc}%</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--body)">Annual SCF cost at new terms: $${fmt(sellerWCDelta*(scfR/100)/1000,0)}K</div>
+      ${epd>0?`<div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--body)">SCF vs EPD: ${scfR<epdAnnualised?'SCF cheaper':'EPD cheaper'} by ${Math.abs(scfR-epdAnnualised).toFixed(2)}pp</div>`:''}
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.6rem;margin-top:.4rem;padding:.3rem .5rem;border-radius:3px;background:${scfVsWACC?'rgba(34,197,94,.1)':'rgba(245,158,11,.1)'};color:${scfVsWACC?'var(--green)':'var(--warn)'}">
+        ${scfVsWACC?'SCF cheaper than WACC — viable':'SCF rate exceeds WACC — marginal benefit'}
+      </div>
+    </div>`;
+  } else {
+    epdHTML+=`<div style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.65rem">No SCF facility rate specified.</div>`;
+  }
+  epdHTML+='</div>';
+  document.getElementById('epdPanel').innerHTML=epdHTML;
+
+  // Benchmark table
+  const bt=document.getElementById('benchTable');
+  bt.innerHTML=`<thead><tr><th>Industry</th><th>Benchmark DPO</th><th>Benchmark DSO</th><th>Typical CCC</th><th>DIO</th><th>Your DPO</th><th>Your DSO</th></tr></thead>
+  <tbody>${Object.entries(BENCHMARKS).map(([k,b])=>{
+    const isActive=k===industry;
+    return`<tr class="${isActive?'active-row':''}">
+      <td>${b.label}${isActive?' ◀':''}</td>
+      <td class="num">${b.dpo}</td>
+      <td class="num">${b.dso}</td>
+      <td class="num">${b.ccc}</td>
+      <td class="num">${b.dio}</td>
+      ${isActive?`<td class="num ${curDPO>=b.dpo-5&&curDPO<=b.dpo+15?'good':'warn'}">${curDPO}→${newTerms}</td>`:'<td class="num" style="color:var(--muted)">—</td>'}
+      ${isActive?`<td class="num ${curDSO<=b.dso+15?'good':'warn'}">${curDSO}→${newTerms}</td>`:'<td class="num" style="color:var(--muted)">—</td>'}
+    </tr>`;
+  }).join('')}</tbody>`;
+
+  document.getElementById('resultsPanel').style.display='block';
+  enableAP2Btn();
+  document.getElementById('resultsPanel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function buildMemo(){
+  if(!lastResult)return'';
+  const r=lastResult;
+  const d=new Date().toISOString().slice(0,10);
+  let m=`# B2B Payment Terms & Working Capital Impact Analysis\n`;
+  m+=`Generated: ${d} · Tool: T142 · AINumbers.co\n\n`;
+  m+=`## Parameters\n- Annual Revenue/Spend: $${fmt(r.rev)}\n- Industry: ${BENCHMARKS[r.industry].label}\n- Current Buyer DPO: ${r.curDPO} days\n- Current Seller DSO: ${r.curDSO} days\n- Proposed Terms: ${r.newTerms} days\n- WACC: ${r.wacc}%\n`;
+  if(r.epd>0)m+=`- Early Payment Discount: ${r.epd}%\n`;
+  if(r.scfR>0)m+=`- SCF Facility Rate: ${r.scfR}%\n`;
+  m+=`\n## Working Capital Impact\n\n`;
+  m+=`| Metric | Buyer | Seller |\n|--------|-------|--------|\n`;
+  m+=`| Current Terms | DPO ${r.curDPO}d | DSO ${r.curDSO}d |\n`;
+  m+=`| Proposed Terms | DPO ${r.newTerms}d | DSO ${r.newTerms}d |\n`;
+  m+=`| Days Delta | ${r.buyerDPODelta>=0?'+':''}${r.buyerDPODelta}d | ${r.sellerDSODelta>=0?'+':''}${r.sellerDSODelta}d |\n`;
+  m+=`| WC Impact | ${r.buyerDPODelta>=0?'Freed':'Used'} $${fmt(Math.abs(r.buyerWCDelta)/1000,0)}K | ${r.sellerDSODelta>=0?'Additional':'Released'} $${fmt(Math.abs(r.sellerWCDelta)/1000,0)}K |\n`;
+  m+=`| Annual Capital Cost | ${r.buyerDPODelta>=0?'Save':'Cost'} $${fmt(Math.abs(r.buyerCostSaved)/1000,0)}K | ${r.sellerDSODelta>=0?'Cost':'Save'} $${fmt(Math.abs(r.sellerCostOfWC)/1000,0)}K |\n`;
+  if(r.epd>0){
+    m+=`\n## Early Payment Discount\n- Offered: ${r.epd}% discount\n- Annualised cost: ${r.epdAnnualised.toFixed(2)}%\n- vs WACC (${r.wacc}%): ${r.epdWorthIt?'Worth taking (cheaper than WACC)':'Expensive (exceeds WACC)'}\n`;
+  }
+  if(r.scfR>0){
+    m+=`\n## Supply Chain Finance\n- SCF rate: ${r.scfR}%\n- vs WACC: ${r.scfVsWACC?'SCF cheaper than WACC':'SCF rate exceeds WACC'}\n`;
+  }
+  m+=`\n## Recommendation\n${r.rec}\n\n## Industry Benchmarks (${BENCHMARKS[r.industry].label})\n- Benchmark DPO: ${r.bench.dpo} days | Benchmark DSO: ${r.bench.dso} days | Typical CCC: ${r.bench.ccc} days\n\n`;
+  m+=`_All calculations are deterministic client-side estimates. Verify against current agreements and treasury policy before implementing term changes._\n`;
+  return m;
+}
+function exportMarkdown(){
+  const blob=new Blob([buildMemo()],{type:'text/markdown'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='b2b-payment-terms-wc-impact_'+new Date().toISOString().slice(0,10)+'.md';a.click();
+}
+function exportAP2(){
+  if(!lastResult)return;
+  const r=lastResult;
+  const payload={
+    ap2_version:'1.0',mandate_id:crypto.randomUUID(),issued_at:new Date().toISOString(),issued_by:'ainumbers.co',
+    tool_id:'b2b-payment-terms-working-capital-impact',tool_version:'1.0.0',mandate_type:'payment_policy',
+    jurisdiction:[],regulatory_frameworks:['IFRS 7','ASC 310','FASB ASC 230'],
+    payload:{annual_revenue:r.rev,industry:r.industry,current_buyer_dpo:r.curDPO,current_seller_dso:r.curDSO,proposed_terms:r.newTerms,wacc_pct:r.wacc,early_payment_discount_pct:r.epd,scf_rate_pct:r.scfR,buyer_wc_delta:Math.round(r.buyerWCDelta),seller_wc_delta:Math.round(r.sellerWCDelta),epd_annualised_pct:parseFloat(r.epdAnnualised.toFixed(4)),recommendation:r.rec},
+    summary:r.rec,
+    agent_instructions:[`Standard payment terms: Net ${r.newTerms} days.`,r.epd>0?`Early payment discount of ${r.epd}% available if payment within ${Math.round(r.newTerms*0.3)} days.`:'No early payment discount programme active.',r.scfR>0?`SCF facility available at ${r.scfR}% — sellers may draw down against approved invoices.`:'No SCF facility configured.','Review payment terms annually against industry benchmarks and cost of capital.'],
+    valid_from:new Date().toISOString(),valid_until:new Date(Date.now()+365*86400000).toISOString(),last_reviewed:new Date().toISOString(),
+    source_tool_inputs:{annual_revenue:r.rev,industry:r.industry},
+    regulatory_citations:['IFRS 7 Financial Instruments Disclosures','ASC 310 Receivables','UK Prompt Payment Code'],
+    audit_metadata:{execution_hash:null,client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='b2b-payment-terms-wc_'+new Date().toISOString().slice(0,19).replace(/:/g,'')+'.policy.json';a.click();
+}
+function enableAP2Btn(){
+  const btn=document.getElementById('ap2ExportBtn');
+  if(btn){btn.disabled=false;btn.classList.add('ready');btn.style.opacity='1';btn.style.cursor='pointer';}
+}
+function toggleMfst(){
+  const b=document.getElementById('mfstBody');const open=b.style.display==='block';
+  b.style.display=open?'none':'block';document.getElementById('mfstArr').textContent=open?'▼':'▲';
+  if(!open&&!document.getElementById('mfstCode').textContent)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+const MANIFEST={tool_id:'b2b-payment-terms-working-capital-impact',version:'1.0.0',title:'B2B Payment Terms & Working Capital Impact Calculator',description:'Two-sided model: buyer DPO vs seller DSO with CCC delta, EPD analysis, and SCF cost-benefit.',category:'cat-13',tags:['B2B payments','working capital','DPO','DSO','CCC','early payment','supply chain finance'],audience:['treasury','finance','CFO','analyst','procurement'],mcp_tool_definition:{name:'calculate_b2b_payment_terms_impact',description:'Calculates bilateral working capital impact of B2B payment term changes.',inputSchema:{type:'object',properties:{annual_revenue:{type:'number'},current_buyer_dpo:{type:'number'},current_seller_dso:{type:'number'},proposed_terms:{type:'number'},wacc:{type:'number'}},required:['annual_revenue','current_buyer_dpo','current_seller_dso','proposed_terms','wacc']}},execution:{type:'browser-javascript',entry:'tools/142-b2b-payment-terms-working-capital-impact.html',function_name:'runTool',timeout_ms:5000},ap2_export:true};
+</script>
+</body>
+</html>

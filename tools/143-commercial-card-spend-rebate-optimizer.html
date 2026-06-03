@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Commercial Card Spend &amp; Rebate Optimizer · AINumbers.co</title>
+<meta name="description" content="Model total spend by card type, compute interchange rebate on commercial card programs, and optimise card mix for maximum rebate. Corporate buyer perspective. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/143-commercial-card-spend-rebate-optimizer.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Commercial Card Spend & Rebate Optimizer","url":"https://ainumbers.co/tools/143-commercial-card-spend-rebate-optimizer.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "commercial-card-spend-rebate-optimizer",
+  "version": "1.0.0",
+  "title": "Commercial Card Spend & Rebate Optimizer",
+  "description": "For corporate treasury: model total spend by card type, compute interchange earned/rebate on commercial card programs (purchasing, T&E, virtual), and optimise card mix for maximum rebate.",
+  "category": "cat-13",
+  "tags": ["commercial card","virtual card","T&E","rebate","interchange","purchasing card","corporate card","treasury"],
+  "audience": ["treasury","CFO","finance","procurement"],
+  "input_schema": {"type":"object","properties":{"total_annual_spend":{"type":"number"},"spend_mix":{"type":"object"},"card_program":{"type":"string"},"rebate_tiers":{"type":"array"},"network":{"type":"string"}},"required":["total_annual_spend","spend_mix","card_program","network"]},
+  "output_schema": {"type":"object","properties":{"total_interchange":{"type":"number"},"rebate_earned":{"type":"number"},"rebate_pct":{"type":"number"},"next_tier_gap":{"type":"number"},"vcard_uplift":{"type":"number"},"optimization_actions":{"type":"array"}}},
+  "mcp_tool_definition": {
+    "name": "optimize_commercial_card_rebates",
+    "description": "Models commercial card program economics: blended interchange by spend category, rebate earned at current and next tier, and virtual card migration optimization.",
+    "inputSchema": {"type":"object","properties":{"total_annual_spend":{"type":"number","description":"Total annual card spend in USD"},"spend_mix":{"type":"object","description":"Spend percentages by category (te, b2b, it, fleet, other)"},"card_program":{"type":"string","description":"purchasing | te | virtual | corporate"},"network":{"type":"string","description":"visa | mastercard | amex"}},"required":["total_annual_spend","spend_mix","card_program","network"]}
+  },
+  "execution": {"type":"browser-javascript","entry":"tools/143-commercial-card-spend-rebate-optimizer.html","function_name":"runTool","timeout_ms":5000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge,.hero-badges .badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.panel-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:.75rem}
+label{font-size:.72rem;color:var(--body);display:block;margin-bottom:.35rem}
+input[type="number"],input[type="text"],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.4rem .65rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+.field-hint{font-size:.6rem;color:var(--muted);margin-top:.25rem;font-family:'JetBrains Mono',monospace}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:1rem;margin-bottom:1.5rem}
+.run-btn:hover{background:var(--teal-lt)}
+.results-panel{margin-top:1rem}
+.result-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem}
+.result-card-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.result-card-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.result-card-body{padding:1.25rem}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border:1px solid var(--border);background:var(--bg-3);color:var(--text);border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-export:hover{border-color:var(--teal);color:var(--teal)}
+#ap2ExportBtn.ready{opacity:1!important;cursor:pointer!important;border-color:var(--teal)!important;color:var(--bright)!important}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)!important}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+/* spend mix sliders */
+.mix-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.85rem}
+.mix-cell{display:flex;flex-direction:column;gap:.3rem}
+.mix-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.mix-row{display:flex;align-items:center;gap:.6rem}
+.mix-pct-input{width:65px;text-align:right}
+.mix-total{font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .65rem;border-radius:3px;margin-top:.5rem;display:inline-flex;align-items:center;gap:.4rem}
+/* tiers */
+.tier-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem}
+@media(max-width:600px){.tier-grid{grid-template-columns:1fr}}
+/* results tables */
+.spend-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.spend-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .65rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.spend-table td{padding:.45rem .65rem;border-bottom:1px solid var(--border);color:var(--text);font-size:.72rem}
+.spend-table tr:last-child td{border-bottom:none}
+.spend-table tr:hover td{background:var(--bg-3)}
+.spend-table td.num{font-family:'JetBrains Mono',monospace;text-align:right;color:var(--bright)}
+.spend-table td.highlight{color:var(--teal)}
+.waterfall-row{display:flex;justify-content:space-between;align-items:center;padding:.45rem .75rem;border-bottom:1px solid rgba(30,47,74,.4);font-size:.73rem}
+.waterfall-row:last-child{border-bottom:none}
+.waterfall-row.subtotal{background:var(--bg-3);font-weight:500}
+.waterfall-row.total{background:rgba(20,184,166,.07);padding:.65rem .75rem}
+.waterfall-row .wlabel{color:var(--body)}
+.waterfall-row .wamt{font-family:'JetBrains Mono',monospace;color:var(--bright)}
+.waterfall-row.total .wlabel{color:var(--white)}
+.waterfall-row.total .wamt{color:var(--teal);font-size:.9rem}
+.opt-action{display:flex;align-items:flex-start;gap:.65rem;padding:.6rem .75rem;border-bottom:1px solid rgba(30,47,74,.4)}
+.opt-action:last-child{border-bottom:none}
+.opt-num{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--teal);min-width:1.5rem;padding-top:.1rem}
+.opt-text{font-size:.72rem;color:var(--text);line-height:1.6}
+.opt-impact{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--green);margin-top:.1rem}
+.tier-progress-wrap{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem;margin-bottom:.75rem}
+.tier-bar-outer{height:12px;background:var(--bg);border-radius:6px;overflow:hidden;margin:.4rem 0}
+.tier-bar-inner{height:100%;border-radius:6px;background:var(--teal);transition:width .4s}
+</style>
+</head>
+<body>
+<!-- LANG BAR -->
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<!-- NAV -->
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/b2b-payments-hub.html">B2B Payments Hub</a><span class="nav-sep">/</span><span>T-143</span></div>
+  <div class="nav-right"><a href="../guides/b2b-payments-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<!-- HERO -->
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-13 · T143 · B2B Payments &amp; Accounts Payable</div>
+  <span class="hero-badge badge-muted"><span>v1.0</span></span>
+  <h1 class="tool-title">Commercial Card Spend &amp; <em>Rebate Optimizer</em></h1>
+  <p class="hero-desc" id="heroDesc">For corporate treasury: model total spend by card type, compute interchange earned and rebate on commercial card programs (purchasing, T&amp;E, virtual), optimise card mix for maximum rebate. Corporate buyer perspective.</p>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-teal">B2B Payments</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<!-- TOOL BODY -->
+<div class="tool-body"><div class="container">
+  <!-- PII SCOPE NOTE -->
+  <div class="scope-note" style="background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.25);border-left:3px solid var(--teal);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8">
+    <strong style="color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance —</strong> 🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only. Reference interchange rates are indicative estimates based on published Visa/MC interchange schedules — actual rates depend on your programme agreement. Verify before relying on outputs for commercial decisions. Deterministic logic · no inference · zero PII · CC BY 4.0.
+  </div>
+
+  <!-- PROGRAMME SETUP -->
+  <div class="panel">
+    <div class="panel-label">Programme Configuration</div>
+    <div class="panel-row">
+      <div>
+        <label for="totalSpend">Total Annual Card Spend ($)</label>
+        <input type="number" id="totalSpend" min="1000" step="10000" value="5000000" placeholder="5000000">
+        <div class="field-hint">Total annual card programme spend in USD</div>
+      </div>
+      <div>
+        <label for="cardProgram">Card Program Type</label>
+        <select id="cardProgram" onchange="onProgramChange()">
+          <option value="purchasing">Purchasing Card (P-Card)</option>
+          <option value="te">T&amp;E / Travel Card</option>
+          <option value="virtual">Virtual Card (vCard)</option>
+          <option value="corporate">Corporate Card</option>
+        </select>
+        <div class="field-hint">Affects rebate tier structure</div>
+      </div>
+      <div>
+        <label for="network">Card Network</label>
+        <select id="network" onchange="onNetworkChange()">
+          <option value="visa">Visa</option>
+          <option value="mastercard">Mastercard</option>
+          <option value="amex">American Express</option>
+        </select>
+        <div class="field-hint">Affects base interchange rates</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SPEND MIX -->
+  <div class="panel">
+    <div class="panel-label">Spend Mix by Category (must sum to 100%)</div>
+    <div class="mix-grid">
+      <div class="mix-cell">
+        <span class="mix-label">T&amp;E / Travel</span>
+        <div class="mix-row">
+          <input type="number" id="mixTE" class="mix-pct-input" min="0" max="100" step="1" value="30" oninput="updateMixTotal()">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted)">%</span>
+        </div>
+      </div>
+      <div class="mix-cell">
+        <span class="mix-label">Supplier / B2B Payments</span>
+        <div class="mix-row">
+          <input type="number" id="mixB2B" class="mix-pct-input" min="0" max="100" step="1" value="35" oninput="updateMixTotal()">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted)">%</span>
+        </div>
+      </div>
+      <div class="mix-cell">
+        <span class="mix-label">IT / SaaS Subscriptions</span>
+        <div class="mix-row">
+          <input type="number" id="mixIT" class="mix-pct-input" min="0" max="100" step="1" value="20" oninput="updateMixTotal()">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted)">%</span>
+        </div>
+      </div>
+      <div class="mix-cell">
+        <span class="mix-label">Fleet / Fuel</span>
+        <div class="mix-row">
+          <input type="number" id="mixFleet" class="mix-pct-input" min="0" max="100" step="1" value="10" oninput="updateMixTotal()">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted)">%</span>
+        </div>
+      </div>
+      <div class="mix-cell">
+        <span class="mix-label">Other</span>
+        <div class="mix-row">
+          <input type="number" id="mixOther" class="mix-pct-input" min="0" max="100" step="1" value="5" oninput="updateMixTotal()">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted)">%</span>
+        </div>
+      </div>
+    </div>
+    <div id="mixTotalBadge" class="mix-total" style="background:rgba(34,197,94,.1);color:var(--green)">✓ Total: 100%</div>
+  </div>
+
+  <!-- INTERCHANGE RATES (user-adjustable) -->
+  <div class="panel">
+    <div class="panel-label">Reference Interchange Rates (user-adjustable)</div>
+    <div class="panel-row" id="ratePanel">
+      <div><label for="rateTE">T&amp;E Rate (%)</label><input type="number" id="rateTE" min="0" max="5" step="0.01" value="2.40"><div class="field-hint">Default: Visa CPS/Hotel 2.40%</div></div>
+      <div><label for="rateB2B">B2B Supplier Rate (%)</label><input type="number" id="rateB2B" min="0" max="5" step="0.01" value="2.65"><div class="field-hint">Default: Visa Commercial 2.65%</div></div>
+      <div><label for="rateIT">IT/SaaS Rate (%)</label><input type="number" id="rateIT" min="0" max="5" step="0.01" value="2.30"><div class="field-hint">Default: Standard commercial 2.30%</div></div>
+      <div><label for="rateFleet">Fleet/Fuel Rate (%)</label><input type="number" id="rateFleet" min="0" max="3" step="0.01" value="0.85"><div class="field-hint">Default: Fleet card negotiated 0.85%</div></div>
+      <div><label for="rateOther">Other Rate (%)</label><input type="number" id="rateOther" min="0" max="5" step="0.01" value="2.10"><div class="field-hint">Default: General commercial 2.10%</div></div>
+      <div><label for="rateVcard">Virtual Card Premium (% uplift)</label><input type="number" id="rateVcard" min="0" max="3" step="0.01" value="0.80"><div class="field-hint">Additional rebate if B2B migrated to vCard</div></div>
+    </div>
+  </div>
+
+  <!-- REBATE TIERS -->
+  <div class="panel">
+    <div class="panel-label">Rebate Tier Structure</div>
+    <div class="tier-grid">
+      <div>
+        <label>Tier 1 — Volume Threshold ($)</label>
+        <input type="number" id="tier1Vol" min="0" step="100000" value="1000000" placeholder="1000000">
+        <label style="margin-top:.5rem">Tier 1 Rebate (%)</label>
+        <input type="number" id="tier1Pct" min="0" max="5" step="0.01" value="0.50" placeholder="0.50">
+      </div>
+      <div>
+        <label>Tier 2 — Volume Threshold ($)</label>
+        <input type="number" id="tier2Vol" min="0" step="100000" value="3000000" placeholder="3000000">
+        <label style="margin-top:.5rem">Tier 2 Rebate (%)</label>
+        <input type="number" id="tier2Pct" min="0" max="5" step="0.01" value="0.85" placeholder="0.85">
+      </div>
+      <div>
+        <label>Tier 3 — Volume Threshold ($)</label>
+        <input type="number" id="tier3Vol" min="0" step="100000" value="7500000" placeholder="7500000">
+        <label style="margin-top:.5rem">Tier 3 Rebate (%)</label>
+        <input type="number" id="tier3Pct" min="0" max="5" step="0.01" value="1.20" placeholder="1.20">
+      </div>
+    </div>
+    <div class="field-hint" style="margin-top:.5rem">Rebate is paid by card issuer as % of total spend. Set threshold to 0 to disable a tier.</div>
+  </div>
+
+  <button class="run-btn" onclick="runTool()" id="runBtn">▶ Optimize Rebates</button>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel" style="display:none">
+    <!-- KPI row -->
+    <div id="kpiRow" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.75rem;margin-bottom:1.25rem"></div>
+
+    <!-- Spend breakdown -->
+    <div class="result-card">
+      <div class="result-card-header"><span class="result-card-title">Spend Breakdown &amp; Interchange Pool</span></div>
+      <div class="result-card-body" style="overflow-x:auto">
+        <table class="spend-table" id="spendTable"></table>
+      </div>
+    </div>
+
+    <!-- Rebate waterfall -->
+    <div class="result-card">
+      <div class="result-card-header"><span class="result-card-title">Rebate Waterfall</span></div>
+      <div class="result-card-body"><div id="rebateWaterfall"></div></div>
+    </div>
+
+    <!-- Tier progress -->
+    <div class="result-card">
+      <div class="result-card-header"><span class="result-card-title">Tier Progress</span></div>
+      <div class="result-card-body"><div id="tierProgress"></div></div>
+    </div>
+
+    <!-- Optimization actions -->
+    <div class="result-card">
+      <div class="result-card-header"><span class="result-card-title">Optimization Actions</span></div>
+      <div class="result-card-body" style="padding:0"><div id="optActions"></div></div>
+    </div>
+
+    <!-- EXPORT ROW -->
+    <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;padding:.75rem 0;border-top:1px solid var(--border);margin-top:1rem">
+      <button class="btn-export" onclick="exportMarkdown()">↓ Export Markdown</button>
+      <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the tool to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border:1px solid var(--border);background:var(--bg-3);color:var(--text);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:all .2s">{} Export Policy Mandate<span style="margin-left:.5rem;font-size:.85em">API · audit trail</span></button>
+    </div>
+  </div>
+</div></div>
+
+<!-- MCP MANIFEST TOGGLE -->
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><pre class="mfst-code" id="mfstCode"></pre></div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="24" height="24" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="../guides/b2b-payments-hub.html">B2B Hub</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+// ── i18n ─────────────────────────────────────────────────────────────
+const TRANSLATIONS={
+  en:{title:'Commercial Card Spend & Rebate Optimizer',desc:'Model commercial card interchange and optimize rebate by spend category and card program type.',run_btn:'▶ Optimize Rebates'},
+  es:{title:'Optimizador de Gastos y Reembolsos de Tarjeta Comercial',desc:'Modele el intercambio de tarjetas comerciales y optimice los reembolsos.',run_btn:'▶ Optimizar'},
+  fr:{title:'Optimiseur de Dépenses et Remises Carte Commerciale',desc:'Modélisez l\'interchange carte commerciale et optimisez les remises.',run_btn:'▶ Optimiser'},
+  ar:{title:'محسّن إنفاق البطاقة التجارية والخصومات',desc:'نمذجة تبادل البطاقات التجارية وتحسين الخصومات.',run_btn:'▶ تحسين',lang_dir:'rtl'},
+  pt:{title:'Otimizador de Gastos e Rebates de Cartão Comercial',desc:'Modele o intercâmbio de cartões comerciais e otimize rebates.',run_btn:'▶ Otimizar'},
+  zh:{title:'商业卡消费与返现优化器',desc:'建模商业卡互换费并按消费类别优化返现。',run_btn:'▶ 优化'}
+};
+function setLang(lang){
+  const t=TRANSLATIONS[lang]||TRANSLATIONS.en;
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===lang));
+  document.documentElement.lang=lang;document.documentElement.dir=t.lang_dir||'ltr';
+  sessionStorage.setItem('ain_lang',lang);
+  const d=document.getElementById('heroDesc');if(d)d.textContent=t.desc;
+  const r=document.getElementById('runBtn');if(r)r.textContent=t.run_btn;
+}
+(function(){const l=sessionStorage.getItem('ain_lang');if(l)setLang(l);})();
+
+// ── NETWORK DEFAULTS ──────────────────────────────────────────────────
+const NETWORK_RATES={
+  visa:{te:2.40,b2b:2.65,it:2.30,fleet:0.85,other:2.10,vcard:3.10},
+  mastercard:{te:2.20,b2b:2.65,it:2.25,fleet:0.85,other:2.05,vcard:3.00},
+  amex:{te:2.55,b2b:2.80,it:2.45,fleet:0.90,other:2.20,vcard:3.20}
+};
+const PROGRAM_REBATE_MODIFIER={purchasing:1.0,te:1.05,virtual:1.15,corporate:0.95};
+
+function onNetworkChange(){
+  const n=document.getElementById('network').value;
+  const r=NETWORK_RATES[n];
+  document.getElementById('rateTE').value=r.te;
+  document.getElementById('rateB2B').value=r.b2b;
+  document.getElementById('rateIT').value=r.it;
+  document.getElementById('rateFleet').value=r.fleet;
+  document.getElementById('rateOther').value=r.other;
+  document.getElementById('rateVcard').value=(r.vcard-r.b2b).toFixed(2);
+}
+function onProgramChange(){}
+
+function updateMixTotal(){
+  const total=[
+    parseFloat(document.getElementById('mixTE').value)||0,
+    parseFloat(document.getElementById('mixB2B').value)||0,
+    parseFloat(document.getElementById('mixIT').value)||0,
+    parseFloat(document.getElementById('mixFleet').value)||0,
+    parseFloat(document.getElementById('mixOther').value)||0
+  ].reduce((a,b)=>a+b,0);
+  const badge=document.getElementById('mixTotalBadge');
+  const ok=Math.abs(total-100)<0.01;
+  badge.style.background=ok?'rgba(34,197,94,.1)':'rgba(239,68,68,.1)';
+  badge.style.color=ok?'var(--green)':'var(--red)';
+  badge.textContent=(ok?'✓ ':'✕ ')+'Total: '+total.toFixed(0)+'%';
+}
+
+let lastResult=null;
+function fmt(n,dp=0){return n.toLocaleString('en-US',{minimumFractionDigits:dp,maximumFractionDigits:dp});}
+
+function runTool(){
+  const totalSpend=parseFloat(document.getElementById('totalSpend').value)||5000000;
+  const program=document.getElementById('cardProgram').value;
+  const network=document.getElementById('network').value;
+
+  const mix={
+    te:parseFloat(document.getElementById('mixTE').value)||0,
+    b2b:parseFloat(document.getElementById('mixB2B').value)||0,
+    it:parseFloat(document.getElementById('mixIT').value)||0,
+    fleet:parseFloat(document.getElementById('mixFleet').value)||0,
+    other:parseFloat(document.getElementById('mixOther').value)||0
+  };
+  const rates={
+    te:parseFloat(document.getElementById('rateTE').value)||0,
+    b2b:parseFloat(document.getElementById('rateB2B').value)||0,
+    it:parseFloat(document.getElementById('rateIT').value)||0,
+    fleet:parseFloat(document.getElementById('rateFleet').value)||0,
+    other:parseFloat(document.getElementById('rateOther').value)||0,
+    vcard:parseFloat(document.getElementById('rateVcard').value)||0
+  };
+  const tiers=[
+    {vol:parseFloat(document.getElementById('tier1Vol').value)||0,pct:parseFloat(document.getElementById('tier1Pct').value)||0},
+    {vol:parseFloat(document.getElementById('tier2Vol').value)||0,pct:parseFloat(document.getElementById('tier2Pct').value)||0},
+    {vol:parseFloat(document.getElementById('tier3Vol').value)||0,pct:parseFloat(document.getElementById('tier3Pct').value)||0}
+  ].filter(t=>t.vol>0).sort((a,b)=>a.vol-b.vol);
+
+  const progMod=PROGRAM_REBATE_MODIFIER[program]||1.0;
+
+  // per-category spend and interchange
+  const cats=[
+    {key:'te',label:'T&E / Travel',pct:mix.te,rate:rates.te},
+    {key:'b2b',label:'Supplier / B2B',pct:mix.b2b,rate:rates.b2b},
+    {key:'it',label:'IT / SaaS',pct:mix.it,rate:rates.it},
+    {key:'fleet',label:'Fleet / Fuel',pct:mix.fleet,rate:rates.fleet},
+    {key:'other',label:'Other',pct:mix.other,rate:rates.other}
+  ];
+  cats.forEach(c=>{
+    c.spend=totalSpend*(c.pct/100);
+    c.interchange=c.spend*(c.rate/100);
+  });
+  const totalInterchange=cats.reduce((a,c)=>a+c.interchange,0);
+  const blendedRate=totalInterchange/totalSpend*100;
+
+  // rebate tier
+  let appliedTier=null;
+  let rebatePct=0;
+  tiers.forEach(t=>{if(totalSpend>=t.vol){appliedTier=t;rebatePct=t.pct;}});
+  const rebateEarned=totalSpend*(rebatePct/100)*progMod;
+
+  // next tier
+  let nextTier=null,nextGap=0,nextRebateGain=0;
+  for(const t of tiers){
+    if(totalSpend<t.vol){nextTier=t;nextGap=t.vol-totalSpend;nextRebateGain=totalSpend*(t.pct/100)*progMod-rebateEarned;break;}
+  }
+
+  // vCard uplift: migrate B2B spend to vCard
+  const b2bSpend=totalSpend*(mix.b2b/100);
+  const vcardUplift=b2bSpend*(rates.vcard/100);
+  const currentB2BInterchange=b2bSpend*(rates.b2b/100);
+  const vcardGain=vcardUplift-currentB2BInterchange;
+
+  lastResult={totalSpend,program,network,mix,rates,tiers,cats,totalInterchange,blendedRate,rebatePct,rebateEarned,nextTier,nextGap,nextRebateGain,vcardGain,vcardUplift,progMod};
+
+  // KPIs
+  const kpiRow=document.getElementById('kpiRow');
+  const kpis=[
+    {label:'Total Interchange Pool',val:'$'+fmt(totalInterchange),sub:blendedRate.toFixed(3)+'% blended',col:'var(--teal)'},
+    {label:'Rebate Earned',val:'$'+fmt(rebateEarned),sub:rebatePct.toFixed(2)+'% × '+progMod.toFixed(2)+'× prog. mod',col:'var(--green)'},
+    {label:'Blended Interchange',val:blendedRate.toFixed(3)+'%',sub:'Wtd avg across categories',col:'var(--gold)'},
+    {label:'vCard Migration Uplift',val:'$'+fmt(vcardGain),sub:'If 100% B2B → vCard',col:'var(--purple)'}
+  ];
+  kpiRow.innerHTML=kpis.map(k=>`<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem"><div style="font-family:'JetBrains Mono',monospace;font-size:.45rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem">${k.label}</div><div style="font-family:'DM Serif Display',serif;font-size:1.3rem;color:${k.col};line-height:1.1;margin-bottom:.2rem">${k.val}</div><div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)">${k.sub}</div></div>`).join('');
+
+  // Spend table
+  const st=document.getElementById('spendTable');
+  st.innerHTML=`<thead><tr><th>Category</th><th>Mix %</th><th>Spend ($)</th><th>Int. Rate</th><th>Interchange ($)</th><th>% of Pool</th></tr></thead>
+  <tbody>${cats.filter(c=>c.pct>0).map(c=>`<tr>
+    <td>${c.label}</td>
+    <td class="num">${c.pct.toFixed(1)}%</td>
+    <td class="num">$${fmt(c.spend)}</td>
+    <td class="num highlight">${c.rate.toFixed(2)}%</td>
+    <td class="num">$${fmt(c.interchange)}</td>
+    <td class="num">${totalInterchange>0?(c.interchange/totalInterchange*100).toFixed(1):'0.0'}%</td>
+  </tr>`).join('')}
+  <tr style="background:var(--bg-3)"><td style="font-weight:500">Total</td><td class="num">${Object.values(mix).reduce((a,b)=>a+b,0).toFixed(0)}%</td><td class="num">$${fmt(totalSpend)}</td><td class="num highlight">${blendedRate.toFixed(3)}%</td><td class="num">$${fmt(totalInterchange)}</td><td class="num">100.0%</td></tr>
+  </tbody>`;
+
+  // Rebate waterfall
+  const rw=document.getElementById('rebateWaterfall');
+  rw.innerHTML=`
+    <div class="waterfall-row"><span class="wlabel">Total Annual Spend</span><span class="wamt">$${fmt(totalSpend)}</span></div>
+    <div class="waterfall-row"><span class="wlabel">Blended Interchange Rate</span><span class="wamt">${blendedRate.toFixed(3)}%</span></div>
+    <div class="waterfall-row subtotal"><span class="wlabel">Total Interchange Pool</span><span class="wamt" style="color:var(--gold)">$${fmt(totalInterchange)}</span></div>
+    <div class="waterfall-row"><span class="wlabel">Applied Rebate Tier</span><span class="wamt">${appliedTier?'Tier at $'+fmt(appliedTier.vol)+' — '+appliedTier.pct+'%':'No tier reached'}</span></div>
+    <div class="waterfall-row"><span class="wlabel">Programme Modifier (${program})</span><span class="wamt">${progMod.toFixed(2)}×</span></div>
+    <div class="waterfall-row total"><span class="wlabel">Rebate Earned</span><span class="wamt">$${fmt(rebateEarned)}</span></div>
+    ${nextTier?`<div class="waterfall-row" style="background:rgba(20,184,166,.04)"><span class="wlabel">Spend to next tier ($${fmt(nextTier.vol)} at ${nextTier.pct}%)</span><span class="wamt" style="color:var(--teal)">$${fmt(nextGap)} more → +$${fmt(nextRebateGain)} rebate</span></div>`:'<div class="waterfall-row"><span class="wlabel">Tier status</span><span class="wamt" style="color:var(--green)">Highest tier reached ✓</span></div>'}
+    <div class="waterfall-row" style="background:rgba(155,114,245,.05)"><span class="wlabel">vCard migration uplift (B2B → vCard)</span><span class="wamt" style="color:var(--purple)">+$${fmt(vcardGain)}</span></div>
+  `;
+
+  // Tier progress
+  const tp=document.getElementById('tierProgress');
+  let tpHTML='';
+  tiers.forEach((t,i)=>{
+    const prog=Math.min(totalSpend/t.vol*100,100);
+    const reached=totalSpend>=t.vol;
+    tpHTML+=`<div class="tier-progress-wrap" style="${reached?'border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.04)':''}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:${reached?'var(--green)':'var(--muted)'}">Tier ${i+1} · $${fmt(t.vol)} threshold · ${t.pct}% rebate</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:${reached?'var(--green)':'var(--text)'}">$${fmt(totalSpend)} / $${fmt(t.vol)} ${reached?'✓':''}</span>
+      </div>
+      <div class="tier-bar-outer"><div class="tier-bar-inner" style="width:${prog}%;background:${reached?'var(--green)':'var(--teal)'}"></div></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)">${reached?'Tier reached — rebate $'+fmt(totalSpend*(t.pct/100)*progMod):'Gap: $'+fmt(t.vol-totalSpend)+' · Potential rebate at threshold: $'+fmt(t.vol*(t.pct/100)*progMod)}</div>
+    </div>`;
+  });
+  tp.innerHTML=tpHTML||'<div style="color:var(--muted);font-size:.72rem;padding:.5rem">No tiers configured.</div>';
+
+  // Optimization actions
+  const actions=[];
+  if(vcardGain>0&&mix.b2b>0){
+    actions.push({title:`Migrate supplier payments to Virtual Card`,detail:`Current B2B spend: $${fmt(b2bSpend)} at ${rates.b2b.toFixed(2)}%. vCard interchange: ${(rates.b2b+rates.vcard).toFixed(2)}%. Estimated additional rebate: $${fmt(vcardGain)}/year.`,impact:'+'+'$'+fmt(vcardGain)+'/year'});
+  }
+  if(nextTier&&nextGap>0){
+    actions.push({title:`Consolidate spend to reach Tier ${tiers.indexOf(nextTier)+1}`,detail:`Current spend $${fmt(totalSpend)}. Need $${fmt(nextGap)} more to unlock ${nextTier.pct}% rebate tier. Consolidate maverick spend onto card programme.`,impact:'+$'+fmt(nextRebateGain)+' incremental rebate'});
+  }
+  if(mix.fleet>15&&rates.fleet<1.5){
+    actions.push({title:`Review fleet card programme`,detail:`Fleet/Fuel interchange rate (${rates.fleet.toFixed(2)}%) is lower than other categories. Consider negotiating enhanced fleet rebates or integrating fuel cards.`,impact:'Rate optimisation opportunity'});
+  }
+  if(program!=='virtual'&&mix.b2b>20){
+    actions.push({title:`Upgrade to Virtual Card programme`,detail:`Your B2B supplier spend (${mix.b2b}%) is high. A dedicated virtual card programme delivers ${(PROGRAM_REBATE_MODIFIER.virtual/PROGRAM_REBATE_MODIFIER[program]-1)*100 .toFixed(0)}% programme modifier uplift over ${program} cards.`,impact:`+${((PROGRAM_REBATE_MODIFIER.virtual-PROGRAM_REBATE_MODIFIER[program])*rebateEarned).toFixed(0)} in programme mod uplift`});
+  }
+  if(mix.te>25&&program!=='te'){
+    actions.push({title:`Activate dedicated T&E card programme`,detail:`T&E spend (${mix.te}%) is significant. Dedicated T&E programmes with premium travel interchange (${rates.te.toFixed(2)}%) plus travel benefits can increase effective rebate.`,impact:'Programme mix optimisation'});
+  }
+  if(actions.length===0){
+    actions.push({title:'Programme is well-optimised',detail:`Spend mix and programme type are well-aligned. Continue monitoring tier progress and negotiate annual rebate review with card issuer.`,impact:'Maintain current structure'});
+  }
+  document.getElementById('optActions').innerHTML=actions.map((a,i)=>`<div class="opt-action"><span class="opt-num">${String(i+1).padStart(2,'0')}</span><div><div class="opt-text"><strong style="color:var(--white)">${a.title}</strong><br>${a.detail}</div><div class="opt-impact">${a.impact}</div></div></div>`).join('');
+
+  document.getElementById('resultsPanel').style.display='block';
+  enableAP2Btn();
+  document.getElementById('resultsPanel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function buildMemo(){
+  if(!lastResult)return'';
+  const r=lastResult;
+  const d=new Date().toISOString().slice(0,10);
+  let m=`# Commercial Card Spend & Rebate Optimization\n`;
+  m+=`Generated: ${d} · Tool: T143 · AINumbers.co\n\n`;
+  m+=`## Programme Configuration\n- Total Annual Spend: $${fmt(r.totalSpend)}\n- Card Program: ${r.program}\n- Network: ${r.network}\n\n`;
+  m+=`## Spend Mix\n`;
+  r.cats.forEach(c=>{if(c.pct>0)m+=`- ${c.label}: ${c.pct.toFixed(1)}% ($${fmt(c.spend)})\n`;});
+  m+=`\n## Interchange Analysis\n\n| Category | Spend | Rate | Interchange |\n|----------|-------|------|-------------|\n`;
+  r.cats.filter(c=>c.pct>0).forEach(c=>{m+=`| ${c.label} | $${fmt(c.spend)} | ${c.rate.toFixed(2)}% | $${fmt(c.interchange)} |\n`;});
+  m+=`| **Total** | **$${fmt(r.totalSpend)}** | **${r.blendedRate.toFixed(3)}%** | **$${fmt(r.totalInterchange)}** |\n`;
+  m+=`\n## Rebate Summary\n- Applied Rebate: ${r.rebatePct.toFixed(2)}% × ${r.progMod.toFixed(2)} programme modifier\n- Rebate Earned: $${fmt(r.rebateEarned)}\n- Blended Interchange: ${r.blendedRate.toFixed(3)}%\n`;
+  if(r.nextTier)m+=`\n## Next Tier Opportunity\n- Gap to next tier: $${fmt(r.nextGap)} additional spend\n- Incremental rebate at next tier: +$${fmt(r.nextRebateGain)}/year\n`;
+  m+=`\n## vCard Optimisation\n- B2B spend eligible for vCard: $${fmt(r.totalSpend*(r.mix.b2b/100))}\n- Additional rebate via vCard migration: +$${fmt(r.vcardGain)}/year\n`;
+  m+=`\n_Reference interchange rates are indicative. Verify against card programme agreement before using for commercial decisions._\n`;
+  return m;
+}
+function exportMarkdown(){
+  const blob=new Blob([buildMemo()],{type:'text/markdown'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='commercial-card-rebate-optimizer_'+new Date().toISOString().slice(0,10)+'.md';a.click();
+}
+function exportAP2(){
+  if(!lastResult)return;
+  const r=lastResult;
+  const payload={
+    ap2_version:'1.0',mandate_id:crypto.randomUUID(),issued_at:new Date().toISOString(),issued_by:'ainumbers.co',
+    tool_id:'commercial-card-spend-rebate-optimizer',tool_version:'1.0.0',mandate_type:'fee_schedule_mandate',
+    jurisdiction:[],regulatory_frameworks:['PCI DSS v4.0','Visa Commercial Programme Rules','MC Corporate Card Guidelines'],
+    payload:{total_annual_spend:r.totalSpend,card_program:r.program,network:r.network,spend_mix:r.mix,blended_interchange_pct:parseFloat(r.blendedRate.toFixed(4)),total_interchange:Math.round(r.totalInterchange),rebate_earned:Math.round(r.rebateEarned),rebate_tier_pct:r.rebatePct,vcard_gain:Math.round(r.vcardGain)},
+    summary:`Commercial card programme: $${fmt(r.totalSpend)} annual spend, ${r.blendedRate.toFixed(3)}% blended interchange, $${fmt(r.rebateEarned)} rebate earned. vCard migration opportunity: +$${fmt(r.vcardGain)}.`,
+    agent_instructions:[`Route all supplier B2B payments through ${r.program} card programme on ${r.network} network.`,r.vcardGain>0?`Migrate B2B supplier payments to Virtual Card to capture additional $${fmt(r.vcardGain)} in annual rebate.`:'Monitor B2B spend for virtual card migration opportunity.',r.nextTier?`Consolidate $${fmt(r.nextGap)} additional spend to reach next rebate tier.`:'Maintain spend at current tier to maximise rebate.','Conduct annual card programme review and rebate renegotiation with issuer.'],
+    valid_from:new Date().toISOString(),valid_until:new Date(Date.now()+365*86400000).toISOString(),last_reviewed:new Date().toISOString(),
+    source_tool_inputs:{total_annual_spend:r.totalSpend,card_program:r.program,network:r.network},
+    regulatory_citations:['PCI DSS v4.0','Visa Commercial Product Guide','Mastercard Corporate Programme Rules'],
+    audit_metadata:{execution_hash:null,client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='commercial-card-rebate_'+new Date().toISOString().slice(0,19).replace(/:/g,'')+'.policy.json';a.click();
+}
+function enableAP2Btn(){
+  const btn=document.getElementById('ap2ExportBtn');
+  if(btn){btn.disabled=false;btn.classList.add('ready');btn.style.opacity='1';btn.style.cursor='pointer';}
+}
+function toggleMfst(){
+  const b=document.getElementById('mfstBody');const open=b.style.display==='block';
+  b.style.display=open?'none':'block';document.getElementById('mfstArr').textContent=open?'▼':'▲';
+  if(!open&&!document.getElementById('mfstCode').textContent)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+const MANIFEST={tool_id:'commercial-card-spend-rebate-optimizer',version:'1.0.0',title:'Commercial Card Spend & Rebate Optimizer',description:'Models commercial card program economics: blended interchange by spend category, rebate earned at current and next tier, and virtual card migration optimization.',category:'cat-13',tags:['commercial card','virtual card','T&E','rebate','interchange','purchasing card','treasury'],audience:['treasury','CFO','finance','procurement'],mcp_tool_definition:{name:'optimize_commercial_card_rebates',description:'Models commercial card program economics and optimizes rebate by spend category and card type.',inputSchema:{type:'object',properties:{total_annual_spend:{type:'number',description:'Total annual card spend in USD'},spend_mix:{type:'object',description:'Spend percentages by category'},card_program:{type:'string',description:'purchasing | te | virtual | corporate'},network:{type:'string',description:'visa | mastercard | amex'}},required:['total_annual_spend','spend_mix','card_program','network']}},execution:{type:'browser-javascript',entry:'tools/143-commercial-card-spend-rebate-optimizer.html',function_name:'runTool',timeout_ms:5000},ap2_export:true};
+</script>
+</body>
+</html>
