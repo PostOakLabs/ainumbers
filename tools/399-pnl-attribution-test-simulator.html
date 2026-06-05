@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>P&L Attribution Test Simulator · AINumbers.co</title>
+<meta name="description" content="Simulates FRTB P&L Attribution Test (PLAT) results to determine IMA vs SA treatment. Computes Pearson/Spearman correlation, UPL statistics, and PLAT zone per MAR32.29-32.36. CSV export.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/399-pnl-attribution-test-simulator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"P&L Attribution Test Simulator","url":"https://ainumbers.co/tools/399-pnl-attribution-test-simulator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "pnl-attribution-test-simulator",
+  "version": "1.0.0",
+  "title": "P&L Attribution Test Simulator",
+  "description": "Simulates FRTB PLAT results. Computes Pearson/Spearman correlation, UPL mean and variance ratio, PLAT zone per MAR32.29-32.36, and IMA eligibility.",
+  "category": "cat-26",
+  "tags": ["FRTB","PLAT","P&L attribution","IMA","Basel IV","MAR32","quantitative"],
+  "audience": ["quant","risk","compliance"],
+  "mcp_tool_definition": {"name":"simulate_frtb_pnl_attribution_test","description":"Simulate FRTB P&L Attribution Test from hypothetical and risk-theoretical P&L series.","inputSchema":{"type":"object","properties":{"hypothetical_pnl":{"type":"array","items":{"type":"number"},"minItems":10,"maxItems":10},"risk_theoretical_pnl":{"type":"array","items":{"type":"number"},"minItems":10,"maxItems":10}},"required":["hypothetical_pnl","risk_theoretical_pnl"]}},
+  "ap2_export": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(212,168,71,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(212,168,71,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--gold);color:var(--gold)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--gold)}.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--gold);padding:.28rem .75rem;border-radius:4px;text-decoration:none;border:none}
+.nav-cta:hover{opacity:.85}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--gold)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.75rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{display:flex;align-items:flex-start;gap:.75rem;padding:.75rem 1rem;background:rgba(212,168,71,.06);border:1px solid rgba(212,168,71,.2);border-radius:var(--radius);font-size:.72rem;color:var(--body);line-height:1.5;margin-top:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.input-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem}
+.series-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+@media(max-width:600px){.series-grid{grid-template-columns:1fr}}
+.series-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.series-inputs{display:flex;flex-direction:column;gap:.4rem}
+.day-row{display:flex;align-items:center;gap:.5rem}
+.day-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);width:42px;flex-shrink:0}
+.day-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.35rem .5rem;border-radius:var(--radius);outline:none;flex:1;transition:border-color .2s}
+.day-input:focus{border-color:var(--gold)}
+.run-btn{background:var(--gold);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:opacity .2s}
+.run-btn:hover{opacity:.85}
+.output-section{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.out-body{padding:1.25rem}
+.verdict-row{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.verdict-chip{font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:500;padding:.4rem 1rem;border-radius:var(--radius);letter-spacing:.06em}
+.chip-green{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.chip-amber{background:rgba(245,158,11,.12);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+.chip-red{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.75rem;margin-top:1rem}
+.stat-cell{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem}
+.stat-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.stat-value{font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:var(--bright)}
+.stat-sub{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);margin-top:.15rem}
+.detail-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.detail-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400}
+.detail-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.detail-table tr:last-child td{border-bottom:none}
+.detail-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);white-space:nowrap}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--body);line-height:1.8;white-space:pre-wrap}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s;cursor:pointer}
+.copy-btn:hover{border-color:var(--gold);color:var(--gold)}
+.dl-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:var(--teal-dim);border:1px solid rgba(20,184,166,.3);color:var(--teal-lt);padding:.4rem 1rem;border-radius:3px;transition:all .2s;cursor:pointer}
+.dl-btn:hover{background:rgba(20,184,166,.2)}
+.export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.75rem 0;border-top:1px solid var(--border);margin-top:1rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);transition:color .2s}.footer-links-ai a:hover{color:var(--gold)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/basel-iv-frtb-model-risk-hub.html">Basel IV Hub</a><span class="nav-sep">/</span><span>T-399</span></div>
+  <div class="nav-right"><a href="../guides/basel-iv-frtb-model-risk-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-26 · T399 · Basel IV / FRTB / Model Risk</div>
+  <div class="hero-meta">
+    <span class="hero-badge badge-muted">v1.0</span>
+    <span class="hero-badge badge-gold">FRTB MAR32</span>
+    <span class="hero-badge badge-teal">Quantitative Calculator</span>
+    <span class="hero-badge badge-green">CSV Export</span>
+  </div>
+  <h1 class="tool-title">P&amp;L Attribution Test <em>Simulator</em></h1>
+  <p class="hero-desc">Simulates FRTB P&amp;L Attribution Test (PLAT) results to determine IMA vs. SA treatment. Enter 10 daily Hypothetical P&amp;L (HPL) and Risk-Theoretical P&amp;L (RTPL) values. Computes Pearson and Spearman correlations, unexplained P&amp;L (UPL) mean and variance ratio, PLAT zone per MAR32.29–32.36, IMA eligibility, and surcharge multiplier. CSV export of inputs and results included.</p>
+  <div class="pii-notice">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note"><strong style="color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Regulatory basis —</strong> BCBS MAR32.29–32.36 (FRTB P&L Attribution Test), CRR3 Art. 325bf, EBA ITS on supervisory reporting. PLAT thresholds: Pearson &ge;0.80 and VaR ratio &le;0.20 for Green; Pearson &ge;0.70 or VaR ratio &le;0.30 for Amber; below those thresholds = Red. These are simplified illustrative thresholds — supervisors set final calibration. Deterministic arithmetic · zero PII · CC BY 4.0.</div>
+
+  <div class="input-panel">
+    <div class="panel-title">P&amp;L Series Inputs — 10 Daily Values (£m, synthetic data only)</div>
+    <div class="series-grid">
+      <div>
+        <div class="series-label">Hypothetical P&amp;L — HPL (£m)</div>
+        <div class="series-inputs" id="hplInputs"></div>
+      </div>
+      <div>
+        <div class="series-label">Risk-Theoretical P&amp;L — RTPL (£m)</div>
+        <div class="series-inputs" id="rtplInputs"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:1.5rem">
+    <button class="run-btn" onclick="runPLAT()">&#9654; Simulate PLAT</button>
+  </div>
+
+  <div class="output-section" id="outputSection">
+    <div class="out-card">
+      <div class="out-header"><span class="out-title">PLAT Zone &amp; IMA Eligibility</span></div>
+      <div class="out-body">
+        <div class="verdict-row" id="platVerdict"></div>
+        <div class="stat-grid" id="statGrid"></div>
+      </div>
+    </div>
+    <div class="out-card">
+      <div class="out-header"><span class="out-title">Detailed Results (MAR32 thresholds)</span></div>
+      <div class="out-body"><div id="detailTable"></div></div>
+    </div>
+    <div class="out-card">
+      <div class="out-header"><span class="out-title">Interpretation</span></div>
+      <div class="out-body"><div class="memo-block" id="interpBlock"></div></div>
+    </div>
+    <div class="export-row">
+      <button class="dl-btn" onclick="exportCSV()">&#8595; Download CSV</button>
+      <button class="copy-btn" onclick="copyInterp()">Copy Interpretation</button>
+    </div>
+  </div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json · MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </div></div>
+</section>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+    <a href="../guides/basel-iv-frtb-model-risk-hub.html">Basel IV Hub</a>
+    <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+    <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+  </div>
+  <div class="footer-badge-ai">
+    <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+    <span><span data-i18n="footer.privacy">🔒 Zero PII   📡 No server calls   💻 Client-side</span></span>
+  </div>
+</div></div></footer>
+
+<script>
+/* ── DEFAULT DATA ── */
+var DEFAULT_HPL  = [2.1, -1.3, 3.5, -0.8, 1.9, -2.2, 4.1, -1.0, 2.7, -0.5];
+var DEFAULT_RTPL = [2.0, -1.2, 3.3, -0.7, 1.8, -2.0, 3.9, -0.9, 2.5, -0.4];
+
+function buildInputs() {
+  var hCont = document.getElementById('hplInputs');
+  var rCont = document.getElementById('rtplInputs');
+  for (var i = 0; i < 10; i++) {
+    hCont.innerHTML += '<div class="day-row"><span class="day-label">Day '+(i+1)+'</span><input type="number" class="day-input" id="hpl'+i+'" value="'+DEFAULT_HPL[i]+'" step="0.01"></div>';
+    rCont.innerHTML += '<div class="day-row"><span class="day-label">Day '+(i+1)+'</span><input type="number" class="day-input" id="rtpl'+i+'" value="'+DEFAULT_RTPL[i]+'" step="0.01"></div>';
+  }
+}
+buildInputs();
+
+/* ── STATISTICS ── */
+function mean(arr) { return arr.reduce(function(a,b){return a+b;},0)/arr.length; }
+function variance(arr) {
+  var m = mean(arr);
+  return arr.reduce(function(a,b){return a+Math.pow(b-m,2);},0)/arr.length;
+}
+function stdDev(arr) { return Math.sqrt(variance(arr)); }
+
+function pearson(x, y) {
+  var mx=mean(x), my=mean(y);
+  var num = x.reduce(function(a,xi,i){return a+(xi-mx)*(y[i]-my);},0);
+  var den = Math.sqrt(x.reduce(function(a,xi){return a+Math.pow(xi-mx,2);},0)*y.reduce(function(a,yi){return a+Math.pow(yi-my,2);},0));
+  return den===0?0:num/den;
+}
+
+function rankArray(arr) {
+  var sorted = arr.slice().sort(function(a,b){return a-b;});
+  return arr.map(function(v){return sorted.indexOf(v)+1;});
+}
+
+function spearman(x, y) {
+  var rx = rankArray(x), ry = rankArray(y);
+  return pearson(rx, ry);
+}
+
+/* PLAT thresholds (illustrative per MAR32 framework; supervisors set final) */
+/* Green: pearson >= 0.80 AND upl_var_ratio <= 0.20 */
+/* Amber: (pearson >= 0.70 OR upl_var_ratio <= 0.30) but not full green */
+/* Red: pearson < 0.70 OR upl_var_ratio > 0.30 */
+function determinePlatZone(pearsonR, uplVarRatio) {
+  var greenP = pearsonR >= 0.80;
+  var greenV = uplVarRatio <= 0.20;
+  var amberP = pearsonR >= 0.70;
+  var amberV = uplVarRatio <= 0.30;
+  if (greenP && greenV) return { zone:'Green', col:'green', ima:'IMA Permitted', surchMult:1.0, desc:'Both PLAT metrics in Green zone. Desk may use IMA capital without surcharge (MAR32.29).' };
+  if (amberP || amberV) return { zone:'Amber', col:'amber', ima:'IMA with Surcharge', surchMult:1.5, desc:'One or more PLAT metrics in Amber zone. IMA permitted with capital surcharge of ×1.5 on ES capital (MAR32.33). Escalate to supervisor.' };
+  return { zone:'Red', col:'red', ima:'SA Fallback Required', surchMult:null, desc:'PLAT metrics below threshold. Desk must revert to Standardised Approach (MAR32.36). IMA not permitted until PLAT pass achieved.' };
+}
+
+var _lastData = null;
+
+function runPLAT() {
+  var hpl = [], rtpl = [];
+  for (var i=0;i<10;i++) {
+    hpl.push(parseFloat(document.getElementById('hpl'+i).value)||0);
+    rtpl.push(parseFloat(document.getElementById('rtpl'+i).value)||0);
+  }
+  var upl = hpl.map(function(h,i){return h-rtpl[i];});
+  var pearsonR = pearson(hpl, rtpl);
+  var spearmanR = spearman(hpl, rtpl);
+  var uplMean = mean(upl);
+  var uplVar = variance(upl);
+  var hplVar = variance(hpl);
+  var uplVarRatio = hplVar===0?999:uplVar/hplVar;
+  var zone = determinePlatZone(pearsonR, uplVarRatio);
+
+  function chip(label, col, small) {
+    var cls = col==='green'?'chip-green':col==='amber'?'chip-amber':'chip-red';
+    var sz = small?'font-size:.6rem;padding:.2rem .5rem':'';
+    return '<span class="verdict-chip '+cls+'" style="'+sz+'">'+label+'</span>';
+  }
+
+  document.getElementById('platVerdict').innerHTML =
+    chip(zone.zone+' Zone', zone.col)+
+    chip(zone.ima, zone.col)+
+    '<div style="font-size:.78rem;color:var(--body);flex:1">'+zone.desc+'</div>';
+
+  document.getElementById('statGrid').innerHTML =
+    '<div class="stat-cell"><div class="stat-label">Pearson Correlation</div><div class="stat-value" style="color:'+(pearsonR>=0.80?'var(--green)':pearsonR>=0.70?'var(--warn)':'var(--red)')+'">'+pearsonR.toFixed(4)+'</div><div class="stat-sub">Green: &ge;0.80 &nbsp; Amber: &ge;0.70</div></div>'+
+    '<div class="stat-cell"><div class="stat-label">Spearman Correlation</div><div class="stat-value">'+spearmanR.toFixed(4)+'</div><div class="stat-sub">Rank-based correlation</div></div>'+
+    '<div class="stat-cell"><div class="stat-label">UPL Mean (£m)</div><div class="stat-value" style="color:'+(Math.abs(uplMean)<0.1?'var(--green)':'var(--warn)')+'">'+uplMean.toFixed(4)+'</div><div class="stat-sub">HPL minus RTPL, average</div></div>'+
+    '<div class="stat-cell"><div class="stat-label">UPL Variance Ratio</div><div class="stat-value" style="color:'+(uplVarRatio<=0.20?'var(--green)':uplVarRatio<=0.30?'var(--warn)':'var(--red)')+'">'+uplVarRatio.toFixed(4)+'</div><div class="stat-sub">UPL var / HPL var &nbsp; Green: &le;0.20</div></div>'+
+    '<div class="stat-cell"><div class="stat-label">Surcharge Multiplier</div><div class="stat-value">'+(zone.surchMult!==null?'&times;'+zone.surchMult.toFixed(1):'SA Fallback')+'</div><div class="stat-sub">Applied to ES capital (MAR32.33)</div></div>'+
+    '<div class="stat-cell"><div class="stat-label">HPL Variance</div><div class="stat-value">'+hplVar.toFixed(4)+'</div><div class="stat-sub">Reference denominator</div></div>';
+
+  document.getElementById('detailTable').innerHTML =
+    '<table class="detail-table"><thead><tr><th>Day</th><th>HPL (£m)</th><th>RTPL (£m)</th><th>UPL (£m)</th><th>Note</th></tr></thead><tbody>'+
+    hpl.map(function(h,i){
+      var u=upl[i];
+      var flag=Math.abs(u)>0.5*Math.abs(h)&&Math.abs(h)>0.01;
+      return '<tr><td>Day '+(i+1)+'</td><td style="font-family:\'JetBrains Mono\',monospace;color:var(--bright)">'+h.toFixed(4)+'</td><td style="font-family:\'JetBrains Mono\',monospace;color:var(--text)">'+rtpl[i].toFixed(4)+'</td><td style="font-family:\'JetBrains Mono\',monospace;color:'+(Math.abs(u)<0.1?'var(--green)':'var(--warn)')+'">'+u.toFixed(4)+'</td><td style="font-size:.62rem;color:var(--muted)">'+(flag?'Large attribution gap':'—')+'</td></tr>';
+    }).join('')+
+    '</tbody></table>';
+
+  var ts = new Date().toISOString();
+  var interp =
+'FRTB P&L ATTRIBUTION TEST (PLAT) SIMULATION RESULTS\n'+
+'Generated: '+ts.slice(0,19).replace('T',' ')+' UTC\n'+
+'Tool: T399 · AINumbers.co · BCBS MAR32.29-32.36 / CRR3 Art.325bf\n\n'+
+'PLAT ZONE: '+zone.zone+'\n'+
+'IMA TREATMENT: '+zone.ima+'\n'+
+'SURCHARGE MULTIPLIER: '+(zone.surchMult!==null?'×'+zone.surchMult.toFixed(1):'N/A — SA fallback')+'\n\n'+
+'KEY STATISTICS\n'+
+'  Pearson Correlation (HPL vs RTPL): '+pearsonR.toFixed(6)+'\n'+
+'  Spearman Correlation:              '+spearmanR.toFixed(6)+'\n'+
+'  UPL Mean:                          '+uplMean.toFixed(6)+' £m\n'+
+'  UPL Variance:                      '+uplVar.toFixed(6)+'\n'+
+'  HPL Variance:                      '+hplVar.toFixed(6)+'\n'+
+'  UPL / HPL Variance Ratio:          '+uplVarRatio.toFixed(6)+'\n\n'+
+'PLAT THRESHOLDS (illustrative per MAR32 framework)\n'+
+'  Green:  Pearson >= 0.80 AND UPL/HPL var ratio <= 0.20\n'+
+'  Amber:  Pearson >= 0.70 OR  UPL/HPL var ratio <= 0.30\n'+
+'  Red:    Below Amber thresholds — SA fallback required\n\n'+
+'INTERPRETATION\n  '+zone.desc+'\n\n'+
+'NOTE: These thresholds are simplified illustrative benchmarks. National supervisors calibrate\n'+
+'final PLAT thresholds and may apply different metrics. Verify against your jurisdiction-specific\n'+
+'implementation and current EBA/PRA/FINMA guidance before operational use.';
+
+  document.getElementById('interpBlock').textContent = interp;
+  document.getElementById('outputSection').style.display = 'flex';
+
+  _lastData = { hpl:hpl, rtpl:rtpl, upl:upl, pearson_r:pearsonR, spearman_r:spearmanR, upl_mean:uplMean, upl_var:uplVar, hpl_var:hplVar, upl_var_ratio:uplVarRatio, plat_zone:zone.zone, ima_treatment:zone.ima, surcharge_mult:zone.surchMult, ts:ts, interp:interp };
+}
+
+function exportCSV() {
+  if (!_lastData) { alert('Run the simulation first.'); return; }
+  var d = _lastData;
+  var rows = ['Day,HPL (£m),RTPL (£m),UPL (£m)'];
+  for (var i=0;i<d.hpl.length;i++) {
+    rows.push((i+1)+','+d.hpl[i].toFixed(4)+','+d.rtpl[i].toFixed(4)+','+d.upl[i].toFixed(4));
+  }
+  rows.push('');
+  rows.push('Metric,Value');
+  rows.push('Pearson Correlation,'+d.pearson_r.toFixed(6));
+  rows.push('Spearman Correlation,'+d.spearman_r.toFixed(6));
+  rows.push('UPL Mean,'+d.upl_mean.toFixed(6));
+  rows.push('UPL Variance,'+d.upl_var.toFixed(6));
+  rows.push('HPL Variance,'+d.hpl_var.toFixed(6));
+  rows.push('UPL/HPL Variance Ratio,'+d.upl_var_ratio.toFixed(6));
+  rows.push('PLAT Zone,'+d.plat_zone);
+  rows.push('IMA Treatment,'+d.ima_treatment);
+  rows.push('Surcharge Multiplier,'+(d.surcharge_mult!==null?d.surcharge_mult:'SA Fallback'));
+  rows.push('Generated,'+d.ts);
+  var csv = rows.join('\n');
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = 'frtb-plat-results_'+d.ts.slice(0,10)+'.csv';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function copyInterp() {
+  if (!_lastData) return;
+  navigator.clipboard.writeText(_lastData.interp).then(function(){
+    var b = document.querySelector('.copy-btn');
+    if(b){b.textContent='Copied ✓';setTimeout(function(){b.textContent='Copy Interpretation';},2000);}
+  });
+}
+
+var TRANSLATIONS = {
+  en:{'pii.banner':'🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.','footer.alltools':'All Tools','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Sitemap','footer.privacy':'🔒 Zero PII   📡 No server calls   💻 Client-side'},
+  es:{'pii.banner':'🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos.','footer.alltools':'Todas las Herramientas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contacto','footer.sitemap':'Mapa del Sitio','footer.privacy':'🔒 Sin PII   📡 Sin llamadas al servidor   💻 Cliente'},
+  fr:{'pii.banner':'🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n\'est transmise.','footer.alltools':'Tous les Outils','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Plan du Site','footer.privacy':'🔒 Aucune PII   📡 Aucun appel serveur   💻 Côté client'},
+  ar:{'pii.banner':'🔒 جميع المدخلات تُعالج محلياً في متصفحك. لا تُنقل أي بيانات.','footer.alltools':'جميع الأدوات','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'اتصل','footer.sitemap':'خريطة الموقع','footer.privacy':'🔒 لا بيانات شخصية   📡 لا استدعاءات للخادم   💻 على المتصفح'},
+  pt:{'pii.banner':'🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido.','footer.alltools':'Todas as Ferramentas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contato','footer.sitemap':'Mapa do Site','footer.privacy':'🔒 Sem PII   📡 Sem chamadas ao servidor   💻 Client-side'},
+  zh:{'pii.banner':'🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。','footer.alltools':'所有工具','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'联系','footer.sitemap':'网站地图','footer.privacy':'🔒 零个人数据   📡 无服务器调用   💻 纯客户端'}
+};
+function setLang(lang){if(!TRANSLATIONS[lang])return;var d=TRANSLATIONS[lang];document.querySelectorAll('[data-i18n]').forEach(function(el){var k=el.getAttribute('data-i18n');if(d[k])el.textContent=d[k];});document.querySelectorAll('.lang-btn').forEach(function(b){b.classList.remove('active');});var a=document.querySelector('.lang-btn[data-lang="'+lang+'"]');if(a)a.classList.add('active');document.documentElement.setAttribute('dir',lang==='ar'?'rtl':'ltr');document.documentElement.setAttribute('lang',lang);try{sessionStorage.setItem('ain_lang',lang);}catch(e){}}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+
+var MANIFEST={"tool_id":"pnl-attribution-test-simulator","version":"1.0.0","title":"P&L Attribution Test Simulator","category":"cat-26","mcp_tool_definition":{"name":"simulate_frtb_pnl_attribution_test","description":"Simulate FRTB P&L Attribution Test from hypothetical and risk-theoretical P&L series (10 daily values each). Returns Pearson/Spearman correlation, UPL statistics, PLAT zone and IMA eligibility.","inputSchema":{"type":"object","properties":{"hypothetical_pnl":{"type":"array","items":{"type":"number"},"minItems":10,"maxItems":10},"risk_theoretical_pnl":{"type":"array","items":{"type":"number"},"minItems":10,"maxItems":10}},"required":["hypothetical_pnl","risk_theoretical_pnl"]}},"ap2_export":false};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+</body>
+</html>

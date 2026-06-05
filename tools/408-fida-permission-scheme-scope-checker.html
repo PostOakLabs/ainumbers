@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>FIDA Permission Scheme Scope Checker · AINumbers.co</title>
+<meta name="description" content="Map which data categories fall under FIDA permission schemes vs. existing PSD2/open banking obligations. In-scope determination, consent requirements, standardisation obligations. Client-side, zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/408-fida-permission-scheme-scope-checker.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FIDA Permission Scheme Scope Checker","url":"https://ainumbers.co/tools/408-fida-permission-scheme-scope-checker.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "fida-permission-scheme-scope-checker",
+  "version": "1.0.0",
+  "title": "FIDA Permission Scheme Scope Checker",
+  "description": "Maps which data categories fall under the FIDA permission scheme vs. existing PSD2/open banking obligations. In Scope / Out of Scope / Existing Obligation per data category, consent requirements, standardisation bodies.",
+  "category": "cat-29",
+  "tags": ["FIDA","permission scheme","PSD2","open banking","data scope","financial data"],
+  "audience": ["compliance","legal","product"],
+  "mcp_tool_definition": {"name":"check_fida_permission_scheme_scope","description":"Determines FIDA scope for data categories held by a data holder, including overlap with PSD2 and consent requirements.","inputSchema":{"type":"object","properties":{"data_holder_type":{"type":"string"},"data_categories":{"type":"array","items":{"type":"string"}},"existing_obligations":{"type":"array","items":{"type":"string"}}},"required":["data_holder_type","data_categories"]}},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-banner{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:640px){.form-grid{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:.35rem}
+.field label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.field select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'Sora',sans-serif;font-size:.78rem;padding:.45rem .6rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+.field select:focus{border-color:var(--teal)}
+.checkbox-group{display:grid;grid-template-columns:1fr 1fr;gap:.4rem}
+@media(max-width:500px){.checkbox-group{grid-template-columns:1fr}}
+.check-item{display:flex;align-items:flex-start;gap:.6rem;cursor:pointer;font-size:.78rem;color:var(--text);line-height:1.4}
+.check-item input[type=checkbox]{accent-color:var(--teal);width:14px;height:14px;cursor:pointer;flex-shrink:0;margin-top:.15rem}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.output-section{margin-top:1.5rem;display:none;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.scope-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.scope-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400}
+.scope-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.scope-table tr:last-child td{border-bottom:none}
+.scope-table tr:hover td{background:var(--bg-3)}
+.pill{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.06em;text-transform:uppercase;padding:.18rem .5rem;border-radius:3px;white-space:nowrap}
+.pill-green{background:var(--green-dim);color:var(--green)}
+.pill-warn{background:rgba(245,158,11,.12);color:var(--warn)}
+.pill-teal{background:var(--teal-dim);color:var(--teal)}
+.pill-muted{background:var(--bg-3);color:var(--muted);border:1px solid var(--border)}
+.pill-gold{background:var(--gold-dim);color:var(--gold)}
+.req-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;margin-bottom:.6rem}
+.req-card h4{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem}
+.req-card p{font-size:.73rem;color:var(--body);line-height:1.6}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s;cursor:pointer}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.json-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);line-height:1.7;white-space:pre;overflow-x:auto}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span><a href="../guides/fida-open-finance-hub.html">FIDA Hub</a><span class="nav-bc-sep">/</span><span>T-408</span></div>
+  <div><a href="../guides/fida-open-finance-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-29 · T408 · FIDA &amp; Open Finance 2.0</div>
+  <span class="hero-badge badge-muted" style="margin-bottom:.5rem"><span>v1.0</span></span>
+  <h1>FIDA Permission Scheme <em>Scope Checker</em></h1>
+  <p class="hero-desc">Determine which data categories held by your firm fall under the FIDA permission scheme versus existing PSD2/open banking obligations. Maps scope status per data category, consent requirements, standardisation body, and overlap with existing sharing duties.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-teal">FIDA Art. 2–13</span>
+    <span class="hero-badge badge-gold">PSD2 / PSD3 Boundary</span>
+    <span class="hero-badge badge-green">Policy Mandate</span>
+    <span class="hero-badge badge-muted">Client-Side · Zero PII</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+  <div class="pii-banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="panel">
+    <div class="panel-title">Data Holder Profile</div>
+    <div class="form-grid">
+      <div class="field">
+        <label>Data Holder Type</label>
+        <select id="holderType">
+          <option value="bank">Bank / Credit Institution</option>
+          <option value="psp">Payment Institution / E-Money Institution</option>
+          <option value="investment_firm" selected>Investment Firm / Asset Manager</option>
+          <option value="insurer">Insurance Undertaking</option>
+          <option value="pension_provider">Pension Provider / IORP</option>
+          <option value="mortgage_lender">Mortgage Lender / Credit Institution</option>
+          <option value="crypto_service">Crypto-Asset Service Provider (MiCA)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Primary Jurisdiction</label>
+        <select id="jurisdiction">
+          <option value="eu" selected>EU Member State</option>
+          <option value="uk">United Kingdom</option>
+          <option value="eea">EEA (non-EU)</option>
+          <option value="third_country">Third Country</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Data Categories Held (select all that apply)</div>
+    <div class="checkbox-group">
+      <label class="check-item"><input type="checkbox" id="d_payment" checked> Payment &amp; Current Accounts</label>
+      <label class="check-item"><input type="checkbox" id="d_savings"> Savings &amp; Deposit Accounts</label>
+      <label class="check-item"><input type="checkbox" id="d_investment"> Investment Portfolio &amp; Securities</label>
+      <label class="check-item"><input type="checkbox" id="d_pension"> Pension Accounts (occupational &amp; personal)</label>
+      <label class="check-item"><input type="checkbox" id="d_mortgage"> Mortgage &amp; Secured Lending</label>
+      <label class="check-item"><input type="checkbox" id="d_insurance"> Non-Life &amp; Life Insurance</label>
+      <label class="check-item"><input type="checkbox" id="d_consumer_credit"> Consumer Credit &amp; Personal Loans</label>
+      <label class="check-item"><input type="checkbox" id="d_crypto"> Crypto-Asset Accounts</label>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Existing Data Sharing Obligations (select all that apply)</div>
+    <div class="checkbox-group">
+      <label class="check-item"><input type="checkbox" id="ob_psd2" checked> PSD2 / Open Banking (payment accounts)</label>
+      <label class="check-item"><input type="checkbox" id="ob_gdpr"> GDPR Art. 20 (data portability)</label>
+      <label class="check-item"><input type="checkbox" id="ob_cma"> CMA Open Banking Order (UK only)</label>
+      <label class="check-item"><input type="checkbox" id="ob_mifid"> MiFID II (investment account data)</label>
+      <label class="check-item"><input type="checkbox" id="ob_other"> Other national open data obligation</label>
+    </div>
+  </div>
+
+  <button class="run-btn" onclick="runChecker()">▶ Check FIDA Scope</button>
+
+  <div class="output-section" id="outputSection">
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Scope Determination by Data Category</span></div>
+      <div class="out-body">
+        <table class="scope-table" id="scopeTable">
+          <thead><tr><th>Data Category</th><th>FIDA Scope</th><th>FIDA Article</th><th>Standardisation Body</th><th>Customer Consent</th><th>Notes</th></tr></thead>
+          <tbody id="scopeBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Permission Scheme Requirements</span></div>
+      <div class="out-body" id="permSchemeBody"></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">PSD2 / FIDA Boundary Analysis</span></div>
+      <div class="out-body" id="boundaryBody"></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header">
+        <span class="out-title">Policy Mandate JSON</span>
+        <button class="copy-btn" onclick="copyJson()">Copy JSON</button>
+      </div>
+      <div class="out-body">
+        <div class="json-block" id="jsonBlock"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="margin-top:1.5rem;padding:.5rem 0;border-top:1px solid var(--border);display:flex;gap:.5rem;justify-content:flex-end;flex-wrap:wrap">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the tool above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate</button>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="../guides/fida-open-finance-hub.html">FIDA Hub</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII · No server calls · Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+const TRANSLATIONS = {
+  en:{pii:"🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only."},
+  es:{pii:"🔒 Todas las entradas se procesan localmente. No se transmiten datos."},
+  fr:{pii:"🔒 Toutes les entrées sont traitées localement. Aucune donnée n'est transmise."},
+  ar:{pii:"🔒 تتم معالجة جميع المدخلات محليًا. لا يتم نقل أي بيانات."},
+  pt:{pii:"🔒 Todas as entradas são processadas localmente. Nenhum dado é transmitido."},
+  zh:{pii:"🔒 所有输入均在浏览器本地处理，不传输任何数据。"}
+};
+function setLang(l){sessionStorage.setItem('ain_lang',l);document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===l));const t=TRANSLATIONS[l]||TRANSLATIONS.en;const el=document.querySelector('.pii-banner');if(el&&t.pii)el.textContent=t.pii;}
+function initLang(){setLang(sessionStorage.getItem('ain_lang')||'en');}
+initLang();
+
+const DATA_CATS = {
+  d_payment:   {name:'Payment & Current Accounts',     art:'Art. 2(1)(a)',    body:'EBA',   psd2:true,  gdpr_port:true,  consent:'Explicit FIDA permission — extends PSD2 AIS scope',       phase:1, year:2026},
+  d_savings:   {name:'Savings & Deposit Accounts',     art:'Art. 2(1)(a)',    body:'EBA',   psd2:false, gdpr_port:true,  consent:'Explicit FIDA permission required',                        phase:1, year:2026},
+  d_investment:{name:'Investment Portfolio & Securities',art:'Art. 2(1)(b)',   body:'ESMA',  psd2:false, gdpr_port:false, consent:'Explicit FIDA permission required',                        phase:2, year:2027},
+  d_pension:   {name:'Pension Accounts',               art:'Art. 2(1)(d)',    body:'EIOPA', psd2:false, gdpr_port:false, consent:'Explicit FIDA permission — heightened sensitivity rules',   phase:3, year:2028},
+  d_mortgage:  {name:'Mortgage & Secured Lending',     art:'Art. 2(1)(e)',    body:'EBA',   psd2:false, gdpr_port:false, consent:'Explicit FIDA permission required',                        phase:2, year:2027},
+  d_insurance: {name:'Non-Life & Life Insurance',      art:'Art. 2(1)(c)',    body:'EIOPA', psd2:false, gdpr_port:false, consent:'Explicit FIDA permission — special category may apply',    phase:3, year:2028},
+  d_consumer_credit:{name:'Consumer Credit & Loans',   art:'Art. 2(1)(e)',    body:'EBA',   psd2:false, gdpr_port:false, consent:'Explicit FIDA permission required',                        phase:2, year:2027},
+  d_crypto:    {name:'Crypto-Asset Accounts',          art:'Art. 2(1)(f)',    body:'ESMA',  psd2:false, gdpr_port:false, consent:'Explicit FIDA permission — MiCA cross-reference',          phase:2, year:2027},
+};
+
+let lastMandate = null;
+
+function runChecker() {
+  const holderType = document.getElementById('holderType').value;
+  const jurisdiction = document.getElementById('jurisdiction').value;
+  const hasPsd2 = document.getElementById('ob_psd2').checked;
+  const hasGdpr = document.getElementById('ob_gdpr').checked;
+  const hasCma = document.getElementById('ob_cma').checked;
+  const hasMifid = document.getElementById('ob_mifid').checked;
+
+  const selectedCats = Object.keys(DATA_CATS).filter(k => document.getElementById(k).checked);
+
+  // Scope determination
+  const rows = selectedCats.map(k => {
+    const c = DATA_CATS[k];
+    let scopeStatus, scopeClass;
+    if (c.psd2 && hasPsd2) {
+      scopeStatus = 'Existing Obligation (PSD2)'; scopeClass = 'pill-gold';
+    } else if (k === 'd_investment' && hasMifid) {
+      scopeStatus = 'Existing Obligation (MiFID II)'; scopeClass = 'pill-gold';
+    } else if (jurisdiction === 'uk') {
+      scopeStatus = 'UK Open Banking (OB order)'; scopeClass = 'pill-teal';
+    } else {
+      scopeStatus = 'FIDA In Scope'; scopeClass = 'pill-green';
+    }
+    return {key:k, cat:c, scopeStatus, scopeClass};
+  });
+
+  const scopeBody = document.getElementById('scopeBody');
+  scopeBody.innerHTML = rows.map(r => `
+    <tr>
+      <td style="color:var(--bright)">${r.cat.name}</td>
+      <td><span class="pill ${r.scopeClass}">${r.scopeStatus}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--teal)">${r.cat.art}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--body)">${r.cat.body}</td>
+      <td style="font-size:.72rem;color:var(--body)">${r.cat.consent}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted)">Phase ${r.cat.phase} · ~${r.cat.year}</td>
+    </tr>`).join('');
+
+  // Permission scheme requirements
+  const inScopeCats = rows.filter(r => r.scopeStatus === 'FIDA In Scope');
+  const schemesByBody = {};
+  inScopeCats.forEach(r => {
+    if (!schemesByBody[r.cat.body]) schemesByBody[r.cat.body] = [];
+    schemesByBody[r.cat.body].push(r.cat.name);
+  });
+
+  const schemeInfo = {
+    EBA: {full:'European Banking Authority', scheme:'EBA-overseen FIDA permission scheme covering banking, payments, and credit data. Expected to build on PSD2 API standards (Berlin Group NextGenPSD2 / STET).'},
+    ESMA: {full:'European Securities and Markets Authority', scheme:'ESMA-overseen permission scheme for investment and crypto-asset data. Will standardise MiFID II account data and portfolio information formats.'},
+    EIOPA: {full:'European Insurance and Occupational Pensions Authority', scheme:'EIOPA-overseen scheme for insurance and pension data. Requires cross-sector data model development given data sensitivity and long-term product nature.'},
+  };
+
+  document.getElementById('permSchemeBody').innerHTML = Object.entries(schemesByBody).map(([body, cats]) => `
+    <div class="req-card">
+      <h4>${body} — ${schemeInfo[body]?.full||body}</h4>
+      <p><strong style="color:var(--bright)">Data categories:</strong> ${cats.join(', ')}</p>
+      <p style="margin-top:.4rem">${schemeInfo[body]?.scheme||''}</p>
+      <p style="margin-top:.4rem;font-size:.68rem;color:var(--muted)">You must register as a member of the ${body} FIDA permission scheme before accessing these data categories. Scheme membership requires meeting technical standards, code of conduct obligations, and governance requirements per FIDA Art. 10–13.</p>
+    </div>`).join('') || '<p style="color:var(--muted);font-size:.78rem">No FIDA-specific permission scheme obligations identified for the selected categories and jurisdiction.</p>';
+
+  // PSD2/FIDA boundary
+  const paymentInScope = rows.find(r => r.key === 'd_payment');
+  const savingsInScope = rows.find(r => r.key === 'd_savings');
+  document.getElementById('boundaryBody').innerHTML = `
+    <div class="req-card">
+      <h4>PSD2 vs. FIDA — Key Boundary Rules</h4>
+      <p>FIDA extends the open banking paradigm established by PSD2. PSD2 AISP access to payment account data continues under PSD3 (proposed) and is not superseded by FIDA. Key distinctions:</p>
+    </div>
+    ${[
+      {title:'Payment Accounts', note: hasPsd2 ? 'Your existing PSD2/AISP obligations cover payment account data. FIDA extends this to savings accounts and adds new permission scheme governance requirements on top of PSD2 API obligations.' : 'Payment accounts are in FIDA scope. Without a PSD2 AISP licence, you must comply with FIDA permission scheme requirements for payment account data access.'},
+      {title:'Savings / Deposit Accounts', note:'Savings accounts are NOT covered by PSD2. FIDA Art. 2(1)(a) explicitly includes deposit accounts beyond payment accounts. New obligation regardless of PSD2 AISP status.'},
+      {title:'Investment Data', note:`FIDA Art. 2(1)(b) covers investment portfolios. This extends well beyond MiFID II data portability rights. ${hasMifid ? 'Your MiFID II obligations partially overlap but FIDA adds standardised API access requirements.' : 'No existing standardised API access obligation — FIDA creates a new duty.'}`},
+      {title:'Insurance & Pensions', note:'No existing EU-level data sharing obligation for insurance or pension data. FIDA creates entirely new obligations. EIOPA will develop technical standards — implementation timeline Phase 3 (~2028).'},
+      {title:'GDPR Portability (Art. 20)', note: hasGdpr ? 'GDPR Art. 20 data portability applies but is limited to data provided by the individual in structured, machine-readable format. FIDA goes further: it mandates standardised API access to all in-scope data, not just user-provided data.' : 'GDPR Art. 20 portability is a parallel right. FIDA creates additional standardised API access obligations beyond GDPR portability scope.'},
+    ].map(b=>`<div class="req-card"><h4>${b.title}</h4><p>${b.note}</p></div>`).join('')}`;
+
+  // Policy Mandate
+  const mandate = {
+    policy_mandate_version: '1.0',
+    tool_id: 'fida-permission-scheme-scope-checker',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    mandate_type: 'scope_determination',
+    regulation: 'EU FIDA Regulation COM/2023/360',
+    data_holder: {type: holderType, jurisdiction},
+    existing_obligations: {psd2: hasPsd2, gdpr_portability: hasGdpr, cma_open_banking: hasCma, mifid_ii: hasMifid},
+    scope_determinations: rows.map(r => ({
+      data_category: r.cat.name,
+      article: r.cat.art,
+      scope_status: r.scopeStatus,
+      standardisation_body: r.cat.body,
+      consent_requirement: r.cat.consent,
+      implementation_phase: r.cat.phase,
+      target_year: r.cat.year
+    })),
+    permission_scheme_memberships_required: Object.keys(schemesByBody),
+    regulatory_basis: ['EU FIDA Regulation COM/2023/360 Art. 2-13','PSD2 Directive 2015/2366','PSD3 Proposal COM/2023/366','GDPR Art. 20 (data portability)'],
+    disclaimer: 'Scope determination based on user inputs and current FIDA proposal text. FIDA is proposed legislation — final scope, timelines, and technical standards are subject to legislative process.'
+  };
+  lastMandate = mandate;
+  document.getElementById('jsonBlock').textContent = JSON.stringify(mandate, null, 2);
+
+  const btn = document.getElementById('ap2ExportBtn');
+  btn.disabled = false; btn.classList.add('ready');
+  btn.style.cursor = 'pointer'; btn.style.opacity = '1';
+
+  const sec = document.getElementById('outputSection');
+  sec.style.display = 'flex';
+  sec.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function copyJson(){if(lastMandate)navigator.clipboard.writeText(JSON.stringify(lastMandate,null,2)).then(()=>{const b=event.target;b.textContent='Copied!';setTimeout(()=>b.textContent='Copy JSON',2000);});}
+function exportAP2(){if(!lastMandate)return;const blob=new Blob([JSON.stringify(lastMandate,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='fida-permission-scope-'+new Date().toISOString().slice(0,10)+'.policy-mandate.json';a.click();}
+</script>
+</body>
+</html>

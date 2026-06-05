@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>CVA Capital Framework Selector · AINumbers.co</title>
+<meta name="description" content="Routes banks to BA-CVA vs SA-CVA based on portfolio, waiver eligibility, and complexity. Outputs recommended CVA approach, waiver assessment, capital multiplier, and key obligations per approach.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/401-cva-capital-framework-selector.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"CVA Capital Framework Selector","url":"https://ainumbers.co/tools/401-cva-capital-framework-selector.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "cva-capital-framework-selector",
+  "version": "1.0.0",
+  "title": "CVA Capital Framework Selector",
+  "description": "Routes banks to BA-CVA vs SA-CVA based on portfolio size, waiver eligibility, and desk capacity per BCBS CVA 2017 / CRR2-3.",
+  "category": "cat-26",
+  "tags": ["CVA","BA-CVA","SA-CVA","Basel IV","counterparty credit risk","CRR3","waiver"],
+  "audience": ["risk","treasury","compliance"],
+  "mcp_tool_definition": {"name":"select_cva_capital_framework","description":"Select CVA capital framework (BA-CVA / SA-CVA / Simplified SA-CVA) based on bank size, model approval, notional threshold, and CVA desk capacity.","inputSchema":{"type":"object","properties":{"bank_size":{"type":"string","enum":["gsib","osii","non_systemic"]},"cva_var_approval":{"type":"boolean"},"below_notional_threshold":{"type":"boolean"},"hedge_ratio_pct":{"type":"number","minimum":0,"maximum":100},"cva_desk_capacity":{"type":"boolean"}},"required":["bank_size","cva_var_approval","below_notional_threshold","cva_desk_capacity"]}},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(212,168,71,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(212,168,71,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--gold);color:var(--gold)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--gold)}.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--gold);padding:.28rem .75rem;border-radius:4px;text-decoration:none;border:none}
+.nav-cta:hover{opacity:.85}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--gold)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.75rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{display:flex;align-items:flex-start;gap:.75rem;padding:.75rem 1rem;background:rgba(212,168,71,.06);border:1px solid rgba(212,168,71,.2);border-radius:var(--radius);font-size:.72rem;color:var(--body);line-height:1.5;margin-top:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.input-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem}
+.form-group{display:flex;flex-direction:column;gap:.35rem}
+label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+label span{color:var(--body);font-size:.45rem;margin-left:.25rem;text-transform:none;letter-spacing:0}
+input[type=number],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .6rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--gold)}select option{background:var(--bg-3)}
+.radio-group{display:flex;gap:.5rem;margin-top:.15rem;flex-wrap:wrap}
+.radio-btn{display:flex;align-items:center;gap:.35rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--text);background:var(--bg-3);border:1px solid var(--border);padding:.3rem .7rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.radio-btn input[type=radio]{width:auto;accent-color:var(--gold)}
+.radio-btn:has(input:checked){border-color:var(--gold);color:var(--gold);background:var(--gold-dim)}
+.run-btn{background:var(--gold);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:opacity .2s}
+.run-btn:hover{opacity:.85}
+.output-section{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.out-body{padding:1.25rem}
+.verdict-row{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.verdict-chip{font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:500;padding:.4rem 1rem;border-radius:var(--radius);letter-spacing:.06em}
+.chip-green{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.chip-amber{background:rgba(245,158,11,.12);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+.chip-gold{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,168,71,.3)}
+.chip-teal{background:var(--teal-dim);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3)}
+.approach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;margin-top:1rem}
+.approach-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem}
+.approach-card.recommended{border-color:rgba(212,168,71,.4);background:rgba(212,168,71,.04)}
+.approach-name{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem}
+.approach-card p{font-size:.73rem;color:var(--body);line-height:1.6}
+.detail-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.detail-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400}
+.detail-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.detail-table tr:last-child td{border-bottom:none}
+.detail-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);white-space:nowrap;width:220px}
+.timeline-list{list-style:none;display:flex;flex-direction:column;gap:.75rem}
+.tl-item{display:flex;gap:1rem;align-items:flex-start;padding:.6rem .8rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius)}
+.tl-date{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--gold);white-space:nowrap;min-width:70px;margin-top:.1rem}
+.tl-desc{font-size:.73rem;color:var(--body);line-height:1.5}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s;cursor:pointer}
+.copy-btn:hover{border-color:var(--gold);color:var(--gold)}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--body);line-height:1.8;white-space:pre-wrap}
+.export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.75rem 0;border-top:1px solid var(--border);margin-top:1rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1!important;cursor:pointer!important;border-color:var(--gold)!important;color:var(--bright)!important}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)!important}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);transition:color .2s}.footer-links-ai a:hover{color:var(--gold)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.form-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/basel-iv-frtb-model-risk-hub.html">Basel IV Hub</a><span class="nav-sep">/</span><span>T-401</span></div>
+  <div class="nav-right"><a href="../guides/basel-iv-frtb-model-risk-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-26 · T401 · Basel IV / FRTB / Model Risk</div>
+  <div class="hero-meta">
+    <span class="hero-badge badge-muted">v1.0</span>
+    <span class="hero-badge badge-gold">CVA / CRR3 2025</span>
+    <span class="hero-badge badge-teal">BA-CVA · SA-CVA</span>
+    <span class="hero-badge badge-green">Policy Mandate Export</span>
+  </div>
+  <h1 class="tool-title">CVA Capital <em>Framework Selector</em></h1>
+  <p class="hero-desc">Routes banks to the appropriate CVA capital approach — BA-CVA, SA-CVA, or Simplified SA-CVA — based on portfolio size, waiver eligibility, CVA VaR model approval, and desk capacity. Outputs recommended approach, waiver eligibility assessment, indicative capital multiplier, key obligations per approach, and implementation timeline. Policy Mandate export included.</p>
+  <div class="pii-notice">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note"><strong style="color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Regulatory basis —</strong> BCBS CVA framework (July 2017), CRR2 Art. 381–386, CRR3 CVA amendments (Regulation 2024/1623, effective Jan 2025 / Jan 2026 phased), EBA RTS on CVA hedging. Waiver threshold: derivative notional below €100bn and not G-SIB/O-SII. Capital multipliers are indicative relative estimates. Deterministic rule-based logic · zero PII · CC BY 4.0.</div>
+
+  <div class="input-panel">
+    <div class="panel-title">Institution &amp; Portfolio Inputs</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="bankSize">Bank Classification</label>
+        <select id="bankSize">
+          <option value="gsib">G-SIB (Global Systemically Important Bank)</option>
+          <option value="osii">O-SII (Other Systemically Important Institution)</option>
+          <option value="non_systemic" selected>Non-Systemic Institution</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="cvaVarApproval">CVA VaR / IHC Model Approval</label>
+        <div class="radio-group">
+          <label class="radio-btn"><input type="radio" name="cvaVar" id="cvaVarYes" value="yes"> Yes — approved</label>
+          <label class="radio-btn"><input type="radio" name="cvaVar" id="cvaVarNo" value="no" checked> No</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="belowThreshold">Derivative Notional Below &euro;100bn Threshold <span>(CRR2 Art. 273a waiver)</span></label>
+        <div class="radio-group">
+          <label class="radio-btn"><input type="radio" name="thresh" id="threshYes" value="yes" checked> Yes</label>
+          <label class="radio-btn"><input type="radio" name="thresh" id="threshNo" value="no"> No</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="cvaDeskCap">CVA Desk / Dedicated Risk Infrastructure</label>
+        <div class="radio-group">
+          <label class="radio-btn"><input type="radio" name="cvaDeskCap" id="deskYes" value="yes"> Yes — operational</label>
+          <label class="radio-btn"><input type="radio" name="cvaDeskCap" id="deskNo" value="no" checked> No</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="hedgeRatio">Covered Transactions Hedge Ratio <span>(% hedged with eligible CVA hedges)</span></label>
+        <input type="number" id="hedgeRatio" value="15" min="0" max="100" step="1">
+      </div>
+      <div class="form-group">
+        <label for="coveredNotional">Covered Transactions Notional <span>(&euro;bn approximate)</span></label>
+        <input type="number" id="coveredNotional" value="30" min="0" step="1">
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:1.5rem">
+    <button class="run-btn" onclick="runCVASelector()">&#9654; Select CVA Framework</button>
+  </div>
+
+  <div class="output-section" id="outputSection">
+    <div class="out-card">
+      <div class="out-header"><span class="out-title">Recommended CVA Approach</span></div>
+      <div class="out-body">
+        <div class="verdict-row" id="cvaVerdict"></div>
+        <div class="approach-grid" id="approachGrid"></div>
+      </div>
+    </div>
+    <div class="out-card">
+      <div class="out-header"><span class="out-title">Waiver &amp; Eligibility Assessment</span></div>
+      <div class="out-body"><div id="waiverDetail"></div></div>
+    </div>
+    <div class="out-card">
+      <div class="out-header"><span class="out-title">Key Obligations &amp; Implementation Timeline</span></div>
+      <div class="out-body"><ul class="timeline-list" id="timelineList"></ul></div>
+    </div>
+    <div class="out-card">
+      <div class="out-header"><span class="out-title">CVA Framework Selection Memo</span><button class="copy-btn" onclick="copyMemo()">Copy</button></div>
+      <div class="out-body"><div class="memo-block" id="memoBlock"></div></div>
+    </div>
+    <div class="export-row">
+      <button id="ap2ExportBtn" onclick="exportAP2()" disabled style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate <span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+    </div>
+  </div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json · MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </div></div>
+</section>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+    <a href="../guides/basel-iv-frtb-model-risk-hub.html">Basel IV Hub</a>
+    <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+    <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+  </div>
+  <div class="footer-badge-ai">
+    <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+    <span><span data-i18n="footer.privacy">🔒 Zero PII   📡 No server calls   💻 Client-side</span></span>
+  </div>
+</div></div></footer>
+
+<script>
+/* CVA FRAMEWORK ROUTING LOGIC */
+/* Decision tree per BCBS CVA 2017 / CRR2 Art.381-386 / CRR3 Reg 2024/1623 */
+
+var BANK_LABELS = { gsib:'G-SIB', osii:'O-SII', non_systemic:'Non-Systemic' };
+
+/* Waiver eligibility: CRR2 Art.273a — available to non-systemic banks below €100bn notional */
+function assessWaiver(bankSize, belowThresh, covNotional) {
+  if ((bankSize === 'gsib' || bankSize === 'osii') && !belowThresh) {
+    return { eligible: false, reason: 'G-SIBs and O-SIIs above €100bn notional are not eligible for CVA waiver (CRR2 Art.273a(1)). Full CVA framework must be applied.' };
+  }
+  if (belowThresh && bankSize === 'non_systemic') {
+    return { eligible: true, reason: 'Institution meets waiver criteria: non-systemic and derivative notional below €100bn (CRR2 Art.273a). CVA risk capital waiver may be available — subject to national supervisor confirmation.' };
+  }
+  return { eligible: false, reason: 'Waiver not available based on inputs. Apply standard CVA framework.' };
+}
+
+/* CVA approach routing */
+function selectCVAApproach(bankSize, cvaVarApproval, belowThresh, deskCap, hedgeRatio, covNotional) {
+  var waiver = assessWaiver(bankSize, belowThresh, covNotional);
+
+  /* Waiver eligible: no CVA capital requirement */
+  if (waiver.eligible) {
+    return {
+      approach: 'CVA Waiver (No CVA Capital)',
+      col: 'teal',
+      capMult: 0,
+      capNote: 'No CVA capital required if waiver confirmed by supervisor',
+      reason: 'Waiver-eligible institution. Subject to supervisory confirmation, no CVA capital charge applies.',
+      waiver: waiver
+    };
+  }
+
+  /* SA-CVA: requires model approval and CVA desk */
+  if (cvaVarApproval && deskCap) {
+    return {
+      approach: 'SA-CVA',
+      col: 'green',
+      capMult: 1.0,
+      capNote: '1.0× reference multiplier (full SA-CVA capital)',
+      reason: 'Model approval + CVA desk capacity → eligible for SA-CVA. Lower capital charge than BA-CVA for well-hedged portfolios. Requires EBA RTS-compliant eligible hedges.',
+      waiver: waiver
+    };
+  }
+
+  /* Simplified SA-CVA: available to institutions below threshold without full desk */
+  if (belowThresh && !deskCap && !cvaVarApproval) {
+    return {
+      approach: 'Simplified SA-CVA (BA-CVA variant)',
+      col: 'amber',
+      capMult: 1.25,
+      capNote: '~1.25× indicative vs SA-CVA (no hedge recognition benefit)',
+      reason: 'Below threshold and no CVA desk → Simplified SA-CVA / BA-CVA. Operationally simpler but no hedge capital recognition. Consider SA-CVA if hedge benefit significant.',
+      waiver: waiver
+    };
+  }
+
+  /* BA-CVA default */
+  return {
+    approach: 'BA-CVA (Basic Approach)',
+    col: 'amber',
+    capMult: 1.5,
+    capNote: '~1.25–1.5× indicative vs SA-CVA (no hedge recognition)',
+    reason: 'No model approval or CVA desk → BA-CVA. Standardised capital add-on, no hedge recognition. Higher capital than SA-CVA for hedged institutions.',
+    waiver: waiver
+  };
+}
+
+function chipHtml(label, col, small) {
+  var cls = col==='green'?'chip-green':col==='amber'?'chip-amber':col==='teal'?'chip-teal':'chip-gold';
+  var sz = small?'font-size:.6rem;padding:.2rem .5rem':'font-size:.85rem';
+  return '<span class="verdict-chip '+cls+'" style="'+sz+'">'+label+'</span>';
+}
+
+var _lastResult = null;
+
+function runCVASelector() {
+  var bankSize = document.getElementById('bankSize').value;
+  var cvaVarApproval = document.querySelector('input[name=cvaVar]:checked').value === 'yes';
+  var belowThresh = document.querySelector('input[name=thresh]:checked').value === 'yes';
+  var deskCap = document.querySelector('input[name=cvaDeskCap]:checked').value === 'yes';
+  var hedgeRatio = parseFloat(document.getElementById('hedgeRatio').value) || 0;
+  var covNotional = parseFloat(document.getElementById('coveredNotional').value) || 0;
+
+  var result = selectCVAApproach(bankSize, cvaVarApproval, belowThresh, deskCap, hedgeRatio, covNotional);
+
+  /* Verdict */
+  document.getElementById('cvaVerdict').innerHTML =
+    chipHtml(result.approach, result.col) +
+    '<div style="font-size:.78rem;color:var(--body);flex:1">'+result.reason+'</div>';
+
+  /* Approach comparison cards */
+  var approaches = [
+    {
+      name:'BA-CVA', col:'amber', rec: result.approach==='BA-CVA (Basic Approach)',
+      desc:'Basic Approach — no internal model required. No recognition of eligible CVA hedges. Highest capital charge. Appropriate for institutions with limited CVA infrastructure or small derivative portfolios.',
+      reqs:['No model approval required','No CVA desk required','Regulatory formula: BA-CVA = K_BASIC (per CRR3 Art.383)','No hedge capital benefit','Available to all institutions by default']
+    },
+    {
+      name:'SA-CVA', col:'green', rec: result.approach==='SA-CVA',
+      desc:'Standardised Approach — requires CVA VaR/IHC model approval + CVA desk. Full recognition of eligible hedges. Lower capital for well-hedged portfolios.',
+      reqs:['CVA IHC model (EBA RTS-approved)','Dedicated CVA desk or risk function','Eligible hedges per EBA RTS on CVA hedging','Supervisory approval required','Reporting: EBA ITS CVA RWA returns']
+    },
+    {
+      name:'CVA Waiver', col:'teal', rec: result.approach.indexOf('Waiver')>=0,
+      desc:'Waiver available to non-systemic institutions below €100bn derivative notional (CRR2 Art.273a). No CVA capital charge if confirmed by national supervisor.',
+      reqs:['Non-systemic institution only','Derivative notional < €100bn','Supervisor confirmation required','Ongoing monitoring of threshold','Not available to G-SIBs or O-SIIs']
+    }
+  ];
+
+  document.getElementById('approachGrid').innerHTML = approaches.map(function(a){
+    return '<div class="approach-card'+(a.rec?' recommended':'')+'">'+
+      '<div class="approach-name">'+a.name+(a.rec?' ← Recommended':'')+'</div>'+
+      '<p>'+a.desc+'</p>'+
+      '<ul style="margin-top:.6rem;padding-left:1rem;font-size:.68rem;color:var(--muted);line-height:1.8">'+
+      a.reqs.map(function(r){return '<li>'+r+'</li>';}).join('')+
+      '</ul></div>';
+  }).join('');
+
+  /* Waiver detail */
+  document.getElementById('waiverDetail').innerHTML =
+    '<table class="detail-table"><thead><tr><th>Factor</th><th>Status</th><th>Impact</th></tr></thead><tbody>'+
+    '<tr><td>Bank Classification</td><td>'+BANK_LABELS[bankSize]+'</td><td style="color:'+(bankSize==='gsib'||bankSize==='osii'?'var(--warn)':'var(--green)')+'">'+( bankSize==='gsib'?'Waiver excluded':'Waiver possible if below threshold')+'</td></tr>'+
+    '<tr><td>Notional Threshold (&euro;100bn)</td><td>'+(belowThresh?'Below threshold':' Above threshold')+'</td><td style="color:'+(belowThresh?'var(--green)':'var(--warn)')+'">'+( belowThresh?'Waiver criteria met':'Waiver excluded')+'</td></tr>'+
+    '<tr><td>CVA VaR/IHC Model Approval</td><td>'+(cvaVarApproval?'Approved':'Not approved')+'</td><td style="color:'+(cvaVarApproval?'var(--green)':'var(--body)')+'">'+( cvaVarApproval?'SA-CVA eligible':'BA-CVA or simplified')+'</td></tr>'+
+    '<tr><td>CVA Desk / Infrastructure</td><td>'+(deskCap?'Operational':'Not in place')+'</td><td style="color:'+(deskCap?'var(--green)':'var(--body)')+'">'+( deskCap?'SA-CVA hedge recognition':'Reduced hedge benefit')+'</td></tr>'+
+    '<tr><td>Hedge Ratio</td><td>'+hedgeRatio+'%</td><td style="color:'+(hedgeRatio>30?'var(--green)':hedgeRatio>10?'var(--warn)':'var(--body)')+'">'+( hedgeRatio>30?'High — SA-CVA more beneficial':hedgeRatio>10?'Moderate':'Low — BA-CVA relatively less costly')+'</td></tr>'+
+    '<tr><td>Covered Notional</td><td>&euro;'+covNotional+'bn</td><td style="color:'+(covNotional<100?'var(--green)':'var(--warn)')+'">'+( covNotional<100?'Below &euro;100bn threshold':'Above &euro;100bn threshold')+'</td></tr>'+
+    '<tr><td>Waiver Eligibility</td><td colspan="2" style="color:'+(result.waiver.eligible?'var(--teal-lt)':'var(--body)')+'">'+result.waiver.reason+'</td></tr>'+
+    '</tbody></table>';
+
+  /* Timeline */
+  var tlItems = [];
+  if (result.approach === 'SA-CVA') {
+    tlItems = [
+      {date:'Now', desc:'Confirm model approval status with internal model risk team. Review EBA RTS on eligible CVA hedges.'},
+      {date:'Q1 2025', desc:'CRR3 CVA framework operative in EU (Regulation 2024/1623 effective). SA-CVA reporting via EBA ITS forms.'},
+      {date:'Q1 2026', desc:'Full CRR3 Basel IV output floor phase-in commences. SA-CVA RWA subject to 50%→72.5% floor ramp.'},
+      {date:'Ongoing', desc:'Quarterly back-testing and hedge eligibility review per EBA RTS. Supervisor notification if model metrics breach thresholds.'}
+    ];
+  } else if (result.approach.indexOf('Waiver') >= 0) {
+    tlItems = [
+      {date:'Now', desc:'Apply to national competent authority for CVA waiver confirmation per CRR2 Art.273a / CRR3. Compile supporting evidence.'},
+      {date:'Q1 2025', desc:'CRR3 amendments operative. Confirm waiver status with supervisor as CRR3 CVA rules differ from CRR2 in certain respects.'},
+      {date:'Annual', desc:'Monitor derivative notional threshold. If breached, notify supervisor and implement applicable CVA approach within 3 months.'}
+    ];
+  } else {
+    tlItems = [
+      {date:'Now', desc:'Confirm BA-CVA calculation methodology with risk team. BA-CVA = K_BASIC per CRR3 Art.383 formula.'},
+      {date:'Q1 2025', desc:'CRR3 BA-CVA formula operative. Update RWA reporting templates for new BA-CVA output floor impact.'},
+      {date:'Q1 2026', desc:'Output floor at 50% — monitor BA-CVA vs SA output floor interaction.'},
+      {date:'Medium-term', desc:'Assess SA-CVA feasibility if hedge ratio grows or CVA desk investment is planned. SA-CVA ROI increases with hedge ratio >15%.'}
+    ];
+  }
+
+  document.getElementById('timelineList').innerHTML = tlItems.map(function(t){
+    return '<li class="tl-item"><span class="tl-date">'+t.date+'</span><span class="tl-desc">'+t.desc+'</span></li>';
+  }).join('');
+
+  var ts = new Date().toISOString();
+  var memo =
+'CVA CAPITAL FRAMEWORK SELECTION\n'+
+'Generated: '+ts.slice(0,19).replace('T',' ')+' UTC\n'+
+'Tool: T401 · AINumbers.co · BCBS CVA 2017 / CRR2 Art.381-386 / CRR3 Reg 2024/1623\n\n'+
+'INPUTS\n'+
+'  Bank Classification:     '+BANK_LABELS[bankSize]+'\n'+
+'  CVA VaR/IHC Approval:   '+(cvaVarApproval?'Yes':'No')+'\n'+
+'  Below €100bn Threshold:  '+(belowThresh?'Yes':'No')+'\n'+
+'  CVA Desk Capacity:       '+(deskCap?'Yes':'No')+'\n'+
+'  Hedge Ratio:             '+hedgeRatio+'%\n'+
+'  Covered Notional:        €'+covNotional+'bn\n\n'+
+'RECOMMENDED APPROACH\n'+
+'  Approach:                '+result.approach+'\n'+
+'  Rationale:               '+result.reason+'\n'+
+'  Capital Multiplier:      '+(result.capMult===0?'0 (waiver — no CVA capital)':'~'+result.capMult.toFixed(2)+'× (indicative vs SA-CVA reference)')+'\n'+
+'  Capital Note:            '+result.capNote+'\n\n'+
+'WAIVER ELIGIBILITY\n'+
+'  Eligible:                '+(result.waiver.eligible?'Yes — subject to supervisor confirmation':'No')+'\n'+
+'  Detail:                  '+result.waiver.reason+'\n\n'+
+'IMPLEMENTATION TIMELINE\n'+tlItems.map(function(t){return '  '+t.date.padEnd(12)+t.desc;}).join('\n')+'\n\n'+
+'DISCLAIMER: Deterministic rule-based routing. Regulatory framework may vary by jurisdiction.\n'+
+'Consult with legal and risk teams before finalising CVA approach selection.';
+
+  document.getElementById('memoBlock').textContent = memo;
+  document.getElementById('outputSection').style.display = 'flex';
+
+  _lastResult = { bank_size:bankSize, cva_var_approval:cvaVarApproval, below_threshold:belowThresh, desk_cap:deskCap, hedge_ratio:hedgeRatio, covered_notional:covNotional, recommended_approach:result.approach, capital_multiplier:result.capMult, waiver_eligible:result.waiver.eligible, memo:memo, ts:ts };
+  window._ap2ToolResult = _lastResult;
+  window.enableAP2Btn && window.enableAP2Btn();
+}
+
+function copyMemo() {
+  if (!_lastResult) return;
+  navigator.clipboard.writeText(_lastResult.memo).then(function(){
+    var b = document.querySelector('.copy-btn');
+    if(b){b.textContent='Copied ✓';setTimeout(function(){b.textContent='Copy';},2000);}
+  });
+}
+
+var TRANSLATIONS = {
+  en:{'pii.banner':'🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.','footer.alltools':'All Tools','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Sitemap','footer.privacy':'🔒 Zero PII   📡 No server calls   💻 Client-side'},
+  es:{'pii.banner':'🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos.','footer.alltools':'Todas las Herramientas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contacto','footer.sitemap':'Mapa del Sitio','footer.privacy':'🔒 Sin PII   📡 Sin llamadas   💻 Cliente'},
+  fr:{'pii.banner':'🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n\'est transmise.','footer.alltools':'Tous les Outils','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Plan du Site','footer.privacy':'🔒 Aucune PII   📡 Aucun appel serveur   💻 Côté client'},
+  ar:{'pii.banner':'🔒 جميع المدخلات تُعالج محلياً في متصفحك.','footer.alltools':'جميع الأدوات','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'اتصل','footer.sitemap':'خريطة الموقع','footer.privacy':'🔒 لا بيانات شخصية   📡 لا استدعاءات   💻 على المتصفح'},
+  pt:{'pii.banner':'🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido.','footer.alltools':'Todas as Ferramentas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contato','footer.sitemap':'Mapa do Site','footer.privacy':'🔒 Sem PII   📡 Sem chamadas   💻 Client-side'},
+  zh:{'pii.banner':'🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。','footer.alltools':'所有工具','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'联系','footer.sitemap':'网站地图','footer.privacy':'🔒 零个人数据   📡 无服务器调用   💻 纯客户端'}
+};
+function setLang(lang){if(!TRANSLATIONS[lang])return;var d=TRANSLATIONS[lang];document.querySelectorAll('[data-i18n]').forEach(function(el){var k=el.getAttribute('data-i18n');if(d[k])el.textContent=d[k];});document.querySelectorAll('.lang-btn').forEach(function(b){b.classList.remove('active');});var a=document.querySelector('.lang-btn[data-lang="'+lang+'"]');if(a)a.classList.add('active');document.documentElement.setAttribute('dir',lang==='ar'?'rtl':'ltr');document.documentElement.setAttribute('lang',lang);try{sessionStorage.setItem('ain_lang',lang);}catch(e){}}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+
+var MANIFEST={"tool_id":"cva-capital-framework-selector","version":"1.0.0","title":"CVA Capital Framework Selector","category":"cat-26","tags":["CVA","BA-CVA","SA-CVA","Basel IV","CRR3","waiver"],"mcp_tool_definition":{"name":"select_cva_capital_framework","description":"Select CVA capital framework (BA-CVA / SA-CVA / Simplified / Waiver) based on bank size, model approval, notional threshold, and CVA desk capacity.","inputSchema":{"type":"object","properties":{"bank_size":{"type":"string","enum":["gsib","osii","non_systemic"]},"cva_var_approval":{"type":"boolean"},"below_notional_threshold":{"type":"boolean"},"hedge_ratio_pct":{"type":"number","minimum":0,"maximum":100},"cva_desk_capacity":{"type":"boolean"}},"required":["bank_size","cva_var_approval","below_notional_threshold","cva_desk_capacity"]}},"ap2_export":true};
+
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+
+window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+window.exportAP2=function(){
+  if(!window._ap2ToolResult){alert('Run the selector first.');return;}
+  var ts=new Date().toISOString(),r=window._ap2ToolResult;
+  var m={ap2_version:'1.0',mandate_id:'cva-framework-'+ts.replace(/[:.]/g,'-').slice(0,19),issued_at:ts,issued_by:'ainumbers.co',tool_id:'cva-capital-framework-selector',tool_version:'1.0.0',mandate_type:'cva_framework_selection',jurisdiction:['EU','UK'],regulatory_frameworks:['BCBS CVA Framework (2017)','CRR2 Art.381-386','CRR3 Reg 2024/1623','EBA RTS on CVA hedging'],payload:r,summary:'CVA Framework: '+r.recommended_approach+' ('+BANK_LABELS[r.bank_size]+', hedge '+r.hedge_ratio+'%)',agent_instructions:['Implement '+r.recommended_approach+' as primary CVA capital approach.','Confirm waiver eligibility with national competent authority if applicable.','Monitor notional threshold quarterly and upgrade approach if warranted.'],valid_from:ts.slice(0,10),valid_until:new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),last_reviewed:ts.slice(0,10),audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  var json=JSON.stringify(m,null,2);
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download='cva-framework-selection_'+ts.slice(0,10)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+</script>
+</body>
+</html>

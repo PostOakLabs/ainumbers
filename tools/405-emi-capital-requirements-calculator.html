@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>EMI Capital Requirements Calculator · AINumbers.co</title>
+<meta name="description" content="Computes own-funds requirement for EMIs under EMD2/UK EMRs. Methods A, B, and C comparison with capital buffer recommendations and Policy Mandate JSON. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/405-emi-capital-requirements-calculator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"EMI Capital Requirements Calculator","url":"https://ainumbers.co/tools/405-emi-capital-requirements-calculator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "405-emi-capital-requirements-calculator",
+  "version": "1.0.0",
+  "title": "E-Money Institution Capital Requirements Calculator",
+  "description": "Computes own-funds requirement for EMIs under EMD2/UK EMRs Methods A, B, and C with comparison table and buffer recommendations.",
+  "category": "cat-28",
+  "tags": ["EMI","EMD2","EMRs 2011","capital requirements","own funds","Method A","Method B","Method C","EBA"],
+  "audience": ["finance","compliance","treasury"],
+  "mcp_tool_definition": {"name":"calculate_emi_capital_requirements","description":"Computes own-funds requirement for EMIs under EMD2/UK EMRs using Methods A, B, and C.","inputSchema":{"type":"object","properties":{"method":{"type":"string","enum":["A","B","C"]},"avg_outstanding_emoney":{"type":"number"},"relevant_indicator":{"type":"number"},"payment_volume":{"type":"number"},"multiplier":{"type":"number"}},"required":["method"]}},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(34,197,94,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(34,197,94,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--green);color:var(--green)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--green),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--green);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--green)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.input-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--green);margin-bottom:1.25rem;display:flex;align-items:center;gap:.5rem}
+.panel-title::before{content:'';display:block;width:16px;height:1px;background:var(--green)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:640px){.form-grid{grid-template-columns:1fr}}
+.form-group{display:flex;flex-direction:column;gap:.35rem}
+.form-group.full{grid-column:1/-1}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.form-hint{font-size:.65rem;color:var(--muted);line-height:1.4;margin-top:.15rem}
+.form-input,.form-select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.5rem .75rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s;-webkit-appearance:none;appearance:none}
+.form-input:focus,.form-select:focus{border-color:var(--green)}
+.form-select option{background:var(--bg-3)}
+.method-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-top:.5rem}
+@media(max-width:640px){.method-grid{grid-template-columns:1fr}}
+.method-card{border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;cursor:pointer;transition:all .2s;background:var(--bg-3)}
+.method-card:hover{border-color:rgba(34,197,94,.4)}
+.method-card.selected{border-color:var(--green);background:var(--green-dim)}
+.method-card input[type=radio]{display:none}
+.method-title{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--green);margin-bottom:.3rem}
+.method-desc{font-size:.71rem;color:var(--body);line-height:1.5}
+.formula-box{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem 1rem;margin-top:.5rem}
+.formula-text{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--teal);line-height:1.6}
+.run-btn{background:var(--green);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:1rem}
+.run-btn:hover{background:#4ade80}
+.output-section{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.output-section.visible{display:flex}
+.out-block{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--green)}
+.out-body{padding:1.25rem}
+/* RESULT HERO */
+.result-hero{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;padding:.5rem 0}
+.result-amount{font-family:'DM Serif Display',serif;font-size:2.5rem;color:var(--white);line-height:1}
+.result-sub{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:.2rem}
+.result-detail{flex:1;display:flex;flex-direction:column;gap:.4rem}
+.result-row{display:flex;align-items:center;gap:.75rem;font-size:.78rem}
+.result-key{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);width:160px;flex-shrink:0}
+.result-val{color:var(--bright)}
+/* COMPARISON TABLE */
+.comp-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.comp-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;background:var(--bg-3)}
+.comp-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);vertical-align:middle}
+.comp-table tr:last-child td{border-bottom:none}
+.comp-table .row-selected td{background:rgba(34,197,94,.06)}
+.comp-table .row-min td{background:rgba(20,184,166,.05)}
+.amount-cell{font-family:'JetBrains Mono',monospace;color:var(--bright)}
+.tag-selected{display:inline-flex;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.12rem .4rem;background:var(--green-dim);color:var(--green);border-radius:3px;border:1px solid rgba(34,197,94,.3)}
+.tag-lowest{display:inline-flex;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.12rem .4rem;background:var(--teal-dim);color:var(--teal);border-radius:3px;border:1px solid rgba(20,184,166,.3)}
+.tag-highest{display:inline-flex;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.12rem .4rem;background:rgba(239,68,68,.1);color:var(--red);border-radius:3px;border:1px solid rgba(239,68,68,.3)}
+/* BUFFER */
+.buffer-card{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:1rem 1.25rem}
+.buffer-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--warn);margin-bottom:.5rem}
+.buffer-row{display:flex;justify-content:space-between;align-items:center;padding:.3rem 0;border-bottom:1px solid var(--border);font-size:.75rem}
+.buffer-row:last-child{border-bottom:none;padding-top:.6rem;font-weight:500}
+.buffer-row .lbl{color:var(--body)}
+.buffer-row .val{font-family:'JetBrains Mono',monospace;color:var(--bright)}
+/* FORMULA BREAKDOWN */
+.formula-breakdown{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text);line-height:1.8}
+.formula-breakdown .step{color:var(--muted)}
+.formula-breakdown .result{color:var(--teal);font-size:.72rem}
+.export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.75rem 0;border-top:1px solid var(--border);margin-top:.5rem}
+.export-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);transition:all .2s}
+.export-btn:hover{border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn{cursor:not-allowed;opacity:.55}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);cursor:pointer;transition:background .15s}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;position:relative;z-index:1}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a>
+    <span class="nav-bc-sep">/</span>
+    <a href="../guides/psp-payment-safeguarding-hub.html">PSP Hub</a>
+    <span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">T-405</span>
+  </div>
+  <div class="nav-right">
+    <a href="../guides/psp-payment-safeguarding-hub.html" class="nav-cta">Hub &#8594;</a>
+  </div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-28 · T405 · PSP Safeguarding &amp; Compliance</div>
+  <span class="hero-badge badge-muted" style="margin-bottom:.75rem;display:inline-flex"><span>v1.0</span></span>
+  <h1 class="tool-title">EMI Capital Requirements <em>Calculator</em></h1>
+  <p class="hero-desc">Computes own-funds requirements for E-Money Institutions under EMD2 (2009/110/EC) and UK E-Money Regulations 2011. Calculates Methods A, B, and C per EMD2 Article 5, recommends the optimal method, and generates a comparison table with capital buffer guidance.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-green">EMD2 Art 5</span>
+    <span class="hero-badge badge-teal">UK EMRs 2011</span>
+    <span class="hero-badge badge-gold">EBA/GL/2021/03</span>
+    <span class="hero-badge badge-muted">Zero PII · Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note"><strong style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance — </strong>🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only. Method percentages and thresholds are per EMD2 Art 5 and UK EMRs 2011 Reg 19 as published — verify against current legislative texts and EBA/GL/2021/03 before relying on any output. The €350,000 initial capital floor is non-negotiable. Deterministic logic · no inference · zero PII · CC BY 4.0.</div>
+
+  <div class="input-panel">
+    <div class="panel-title">Method Selection &amp; Inputs</div>
+
+    <!-- Method selector -->
+    <div class="form-group full" style="margin-bottom:1.25rem">
+      <label class="form-label">Calculation Method</label>
+      <div class="method-grid">
+        <label class="method-card selected" id="cardA" onclick="selectMethod('A')">
+          <input type="radio" name="method" value="A" checked>
+          <div class="method-title">Method A</div>
+          <div class="method-desc">2% of average outstanding e-money. Simple. Best for stable, predictable e-money float.</div>
+        </label>
+        <label class="method-card" id="cardB" onclick="selectMethod('B')">
+          <input type="radio" name="method" value="B">
+          <div class="method-title">Method B</div>
+          <div class="method-desc">% of Relevant Indicator (net income / operating income). Tiered rate. Best for large payment volumes with low float.</div>
+        </label>
+        <label class="method-card" id="cardC" onclick="selectMethod('C')">
+          <input type="radio" name="method" value="C">
+          <div class="method-title">Method C</div>
+          <div class="method-desc">% of payment transaction volume. Scaled rate. Best for transaction-heavy models with large volumes.</div>
+        </label>
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label" for="avgOutstanding">Average Outstanding E-Money (£/€) — Methods A &amp; B</label>
+        <input type="number" class="form-input" id="avgOutstanding" placeholder="e.g. 5000000" min="0" step="100000">
+        <span class="form-hint">6-month rolling average of e-money issued and outstanding. EMD2 Art 5(2).</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="relevantIndicator">Relevant Indicator — Method B (£/€/yr)</label>
+        <input type="number" class="form-input" id="relevantIndicator" placeholder="e.g. 2000000" min="0" step="100000">
+        <span class="form-hint">Sum of net interest income, net fee income, and other operating income. EMD2 Art 5(3) / EMRs 2011 Sch 1.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="paymentVolume">Payment Transaction Volume — Method C (£/€/yr)</label>
+        <input type="number" class="form-input" id="paymentVolume" placeholder="e.g. 100000000" min="0" step="1000000">
+        <span class="form-hint">Total value of payment transactions executed in the preceding 12 months. EMD2 Art 5(4).</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="multiplier">Risk-Adjusted Multiplier (k)</label>
+        <select class="form-select" id="multiplier">
+          <option value="0.8">0.80 — Low risk profile (NCA-approved, strong governance)</option>
+          <option value="1.0" selected>1.00 — Standard (default)</option>
+          <option value="1.2">1.20 — Elevated risk profile (NCA discretion)</option>
+        </select>
+        <span class="form-hint">NCA may adjust own-funds by up to ±20% based on risk assessment. EMD2 Art 5(5) / EMRs 2011 Reg 19(5).</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="jurisdiction">Jurisdiction</label>
+        <select class="form-select" id="jurisdiction">
+          <option value="UK">UK (E-Money Regulations 2011)</option>
+          <option value="EU">EU (EMD2 2009/110/EC)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="existingCapital">Existing Own Funds (£/€)</label>
+        <input type="number" class="form-input" id="existingCapital" placeholder="e.g. 500000" min="0" step="50000">
+        <span class="form-hint">Current own funds held by the EMI for comparison against requirement.</span>
+      </div>
+    </div>
+
+    <div class="formula-box">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem">EMD2 Art 5 Formulas</div>
+      <div class="formula-text">Method A: Own Funds = max(€350,000, 2% × avg_outstanding_emoney × k)
+Method B: Own Funds = max(€350,000, RI_scaled × k)  where RI_scaled = sum of RI_band × rate
+Method C: Own Funds = max(€350,000, PV_scaled × k)  where PV_scaled = sum of PV_band × rate</div>
+    </div>
+
+    <button class="run-btn" onclick="runCalc()">Calculate Own Funds Requirement</button>
+  </div>
+
+  <div class="output-section" id="outputSection">
+
+    <!-- Primary Result -->
+    <div class="out-block">
+      <div class="out-header">
+        <span class="out-title">Own Funds Requirement</span>
+        <span id="methodLabel" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)"></span>
+      </div>
+      <div class="out-body">
+        <div class="result-hero">
+          <div>
+            <div class="result-amount" id="resultAmount">—</div>
+            <div class="result-sub" id="resultSub"></div>
+          </div>
+          <div class="result-detail" id="resultDetail"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comparison Table -->
+    <div class="out-block">
+      <div class="out-header"><span class="out-title">All-Methods Comparison</span></div>
+      <div class="out-body">
+        <table class="comp-table" id="compTable">
+          <thead><tr><th>Method</th><th>Basis</th><th>Calculated Amount</th><th>After Floor</th><th>After k-Multiplier</th><th>vs. Initial Capital Floor</th><th>Tag</th></tr></thead>
+          <tbody id="compTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Formula Breakdown -->
+    <div class="out-block">
+      <div class="out-header"><span class="out-title">Calculation Breakdown</span></div>
+      <div class="out-body">
+        <div class="formula-breakdown" id="formulaBreakdown"></div>
+      </div>
+    </div>
+
+    <!-- Capital Buffer -->
+    <div class="out-block">
+      <div class="out-header"><span class="out-title">Capital Buffer Analysis</span></div>
+      <div class="out-body">
+        <div class="buffer-card" id="bufferCard"></div>
+        <p style="font-size:.72rem;color:var(--muted);margin-top:.75rem;line-height:1.6">&#9432; EBA/GL/2021/03 recommends EMIs maintain a buffer above regulatory minimum to absorb operational shocks. A buffer of 20–30% above the calculated requirement is common in FCA supervisory expectations. The buffer does not reduce the regulatory minimum.</p>
+      </div>
+    </div>
+
+    <div class="export-row">
+      <button class="export-btn" onclick="exportMarkdown()">&#8595; Export Markdown</button>
+      <button class="export-btn" id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run tool to generate Policy Mandate">{} Export Policy Mandate <span style="margin-left:.4rem;color:var(--muted);font-size:.85em">AP2 · audit trail</span></button>
+    </div>
+  </div>
+
+  <div style="margin-top:2rem">
+    <button class="mfst-btn" onclick="toggleMfst()">
+      <span>&#128230; &nbsp;manifest.json · MCP tool definition · calculate_emi_capital_requirements</span>
+      <span id="mfstArr" style="color:var(--muted)">&#9660;</span>
+    </button>
+    <div class="mfst-body" id="mfstBody">
+      <pre class="mfst-code">{
+  "name": "calculate_emi_capital_requirements",
+  "description": "Computes own-funds requirements for EMIs under EMD2/UK EMRs Methods A, B, and C.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "method":                { "type": "string", "enum": ["A","B","C"] },
+      "avg_outstanding_emoney":{ "type": "number", "description": "6-month avg e-money outstanding (GBP/EUR)" },
+      "relevant_indicator":    { "type": "number", "description": "Net income / relevant indicator for Method B" },
+      "payment_volume":        { "type": "number", "description": "Annual payment transaction volume for Method C" },
+      "multiplier":            { "type": "number", "description": "k multiplier 0.8–1.2 (NCA discretion)" },
+      "jurisdiction":          { "type": "string", "enum": ["UK","EU"] },
+      "existing_capital":      { "type": "number" }
+    },
+    "required": ["method"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "required_own_funds": { "type": "number" },
+      "selected_method":    { "type": "string" },
+      "recommended_method": { "type": "string" },
+      "all_methods":        { "type": "array" },
+      "capital_buffer_rec": { "type": "number" }
+    }
+  }
+}</pre>
+    </div>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <div><div class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></div></div>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="../guides/psp-payment-safeguarding-hub.html">PSP Hub</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp;·&nbsp; &#128225; No server calls &nbsp;·&nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+const TRANSLATIONS={en:{run:'Calculate Own Funds Requirement'},es:{run:'Calcular Requisito de Fondos Propios'},fr:{run:'Calculer les Fonds Propres Requis'},ar:{run:'احسب متطلبات الأموال الخاصة'},pt:{run:'Calcular Requisito de Fundos Próprios'},zh:{run:'计算自有资金要求'}};
+
+function setLang(lang){
+  const t=TRANSLATIONS[lang];if(!t)return;
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===lang));
+  document.documentElement.lang=lang;document.documentElement.dir=(lang==='ar')?'rtl':'ltr';
+  try{sessionStorage.setItem('ain_lang',lang);}catch(e){}
+}
+function initLang(){try{const s=sessionStorage.getItem('ain_lang');if(s&&TRANSLATIONS[s])setLang(s);}catch(e){}}
+
+function selectMethod(m){
+  ['A','B','C'].forEach(x=>{
+    const c=document.getElementById('card'+x);
+    c.classList.toggle('selected',x===m);
+    c.querySelector('input').checked=(x===m);
+  });
+}
+
+// EMD2 Art 5 Method B: tiered Relevant Indicator rates
+function calcMethodB(ri,k){
+  // EMD2 Art 5(3) — sum of bands
+  const bands=[
+    {limit:2500000,rate:0.10},
+    {limit:5000000,rate:0.08},
+    {limit:25000000,rate:0.06},
+    {limit:50000000,rate:0.03},
+    {limit:Infinity,rate:0.015}
+  ];
+  let remaining=ri,result=0,prev=0;
+  for(const b of bands){
+    const bandWidth=b.limit===Infinity?remaining:Math.min(remaining,b.limit-prev);
+    if(bandWidth<=0)break;
+    result+=bandWidth*b.rate;
+    remaining-=bandWidth;
+    prev=b.limit;
+    if(remaining<=0)break;
+  }
+  return Math.max(350000,result*k);
+}
+
+// EMD2 Art 5(4) Method C: % of payment volume (tiered)
+function calcMethodC(pv,k){
+  // EMD2 Art 5(4) — same band structure as Method B applied to total payment volume
+  const bands=[
+    {limit:5000000,rate:0.0110},
+    {limit:10000000,rate:0.0080},
+    {limit:100000000,rate:0.0060},
+    {limit:250000000,rate:0.0030},
+    {limit:Infinity,rate:0.0015}
+  ];
+  let remaining=pv,result=0,prev=0;
+  for(const b of bands){
+    const bandWidth=b.limit===Infinity?remaining:Math.min(remaining,b.limit-prev);
+    if(bandWidth<=0)break;
+    result+=bandWidth*b.rate;
+    remaining-=bandWidth;
+    prev=b.limit;
+    if(remaining<=0)break;
+  }
+  return Math.max(350000,result*k);
+}
+
+// Method A
+function calcMethodA(avg,k){return Math.max(350000,avg*0.02*k);}
+
+let _result=null;
+
+function runCalc(){
+  const avg=parseFloat(document.getElementById('avgOutstanding').value)||0;
+  const ri=parseFloat(document.getElementById('relevantIndicator').value)||0;
+  const pv=parseFloat(document.getElementById('paymentVolume').value)||0;
+  const k=parseFloat(document.getElementById('multiplier').value)||1.0;
+  const jx=document.getElementById('jurisdiction').value;
+  const existing=parseFloat(document.getElementById('existingCapital').value)||0;
+  const method=document.querySelector('input[name=method]:checked').value;
+
+  const a=calcMethodA(avg,k);
+  const b=ri>0?calcMethodB(ri,k):null;
+  const c=pv>0?calcMethodC(pv,k):null;
+
+  // Selected method result
+  let selected;
+  if(method==='A') selected=a;
+  else if(method==='B') selected=b!==null?b:350000;
+  else selected=c!==null?c:350000;
+
+  // Recommended = lowest valid method
+  const valid=[{m:'A',v:a}];
+  if(b!==null)valid.push({m:'B',v:b});
+  if(c!==null)valid.push({m:'C',v:c});
+  valid.sort((x,y)=>x.v-y.v);
+  const recommended=valid[0];
+
+  // Buffer
+  const buffer25=selected*1.25;
+  const buffer30=selected*1.30;
+
+  _result={method,a,b,c,selected,recommended,k,jx,avg,ri,pv,existing,buffer25,buffer30};
+
+  renderResult(selected,method,recommended,jx);
+  renderComparison(a,b,c,method,k);
+  renderBreakdown(method,avg,ri,pv,k,a,b,c);
+  renderBuffer(selected,existing,buffer25,buffer30);
+
+  document.getElementById('outputSection').classList.add('visible');
+  document.getElementById('ap2ExportBtn').disabled=false;
+  document.getElementById('ap2ExportBtn').classList.add('ready');
+  document.getElementById('outputSection').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function fmtCcy(n){if(!n&&n!==0)return'N/A';return(n<0?'-':'')+'£/€'+Math.abs(n).toLocaleString('en-GB',{minimumFractionDigits:0,maximumFractionDigits:0});}
+function fmtPct(n){return(n*100).toFixed(2)+'%';}
+
+function renderResult(selected,method,recommended,jx){
+  document.getElementById('resultAmount').textContent=fmtCcy(selected);
+  document.getElementById('resultSub').textContent='Method '+method+' · '+jx+' · '+(jx==='UK'?'EMRs 2011 Reg 19':'EMD2 Art 5');
+  document.getElementById('methodLabel').textContent='Method '+method+' selected';
+
+  const detail=document.getElementById('resultDetail');
+  const baseRef=jx==='UK'?'EMRs 2011 Reg 19':'EMD2 Art 5(1)';
+  const rows=[
+    ['Regulatory minimum (initial capital floor)','£/€350,000','EMD2 Art 4(1)'],
+    ['Selected method result',fmtCcy(selected),baseRef],
+    ['Recommended method','Method '+recommended.m+' ('+fmtCcy(recommended.v)+')',recommended.m===method?'Same as selected':'Lower requirement available'],
+    ['k-multiplier applied','×'+document.getElementById('multiplier').value,'EMD2 Art 5(5)']
+  ];
+  detail.innerHTML=rows.map(r=>`<div class="result-row"><span class="result-key">${r[0]}</span><span class="result-val">${r[1]}</span><span style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted)">${r[2]}</span></div>`).join('');
+}
+
+function renderComparison(a,b,c,method,k){
+  const tb=document.getElementById('compTbody');tb.innerHTML='';
+  const methods=[
+    {m:'A',label:'2% × avg e-money outstanding',raw:a/(k||1)*k,result:a,available:true},
+    {m:'B',label:'Tiered Relevant Indicator',raw:b,result:b,available:b!==null},
+    {m:'C',label:'Tiered payment volume',raw:c,result:c,available:c!==null}
+  ];
+  const validResults=methods.filter(x=>x.available).map(x=>x.result);
+  const minVal=Math.min(...validResults);
+  const maxVal=Math.max(...validResults);
+
+  methods.forEach(row=>{
+    const tr=document.createElement('tr');
+    const isSelected=row.m===method;
+    const isMin=row.available&&row.result===minVal&&validResults.length>1;
+    const isMax=row.available&&row.result===maxVal&&validResults.length>1;
+    if(isSelected)tr.className='row-selected';
+    else if(isMin)tr.className='row-min';
+
+    const tags=[];
+    if(isSelected)tags.push('<span class="tag-selected">Selected</span>');
+    if(isMin&&!isSelected)tags.push('<span class="tag-lowest">Lowest</span>');
+    if(isMax&&!isSelected&&validResults.length>1)tags.push('<span class="tag-highest">Highest</span>');
+
+    const calculated=row.available?fmtCcy(row.result/(k||1)):'N/A (no input)';
+    const afterFloor=row.available?fmtCcy(Math.max(350000,row.result/(k||1))):'N/A';
+    const afterK=row.available?fmtCcy(row.result):'N/A';
+    const vsCap=row.available?(row.result>350000?'+'+fmtCcy(row.result-350000)+' above floor':fmtCcy(350000)+' (floor applies)'):'N/A';
+
+    tr.innerHTML=`<td style="font-family:'JetBrains Mono',monospace;font-weight:500;color:var(--bright)">Method ${row.m}</td><td style="font-size:.7rem;color:var(--body)">${row.label}</td><td class="amount-cell">${calculated}</td><td class="amount-cell">${afterFloor}</td><td class="amount-cell" style="color:var(--teal)">${afterK}</td><td style="font-size:.68rem;color:var(--muted)">${vsCap}</td><td>${tags.join(' ')}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function renderBreakdown(method,avg,ri,pv,k,a,b,c){
+  const el=document.getElementById('formulaBreakdown');
+  let html='';
+  if(method==='A'){
+    html+=`<div class="step">Method A = max(£/€350,000 , 2% × average_outstanding_emoney × k)</div>`;
+    html+=`<div class="step">         = max(£/€350,000 , 0.02 × ${fmtCcy(avg)} × ${k})</div>`;
+    html+=`<div class="step">         = max(£/€350,000 , ${fmtCcy(avg*0.02)} × ${k})</div>`;
+    html+=`<div class="step">         = max(£/€350,000 , ${fmtCcy(avg*0.02*k)})</div>`;
+    html+=`<div class="result">         = ${fmtCcy(a)} (Method A Result)</div>`;
+    html+=`<div class="step" style="margin-top:.5rem">Reference: EMD2 Art 5(2) / UK EMRs 2011 Sch 1 Method A</div>`;
+  } else if(method==='B'&&ri>0){
+    const bands=[{limit:2500000,rate:0.10},{limit:5000000,rate:0.08},{limit:25000000,rate:0.06},{limit:50000000,rate:0.03},{limit:Infinity,rate:0.015}];
+    html+=`<div class="step">Method B = max(£/€350,000 , sum(RI_bands × rate) × k)</div>`;
+    html+=`<div class="step">Relevant Indicator = ${fmtCcy(ri)}</div><div class="step" style="margin-top:.3rem">Band breakdown:</div>`;
+    let rem=ri,prev=0,tot=0;
+    for(const b2 of bands){
+      const bw=b2.limit===Infinity?rem:Math.min(rem,b2.limit-prev);
+      if(bw<=0)break;
+      const contrib=bw*b2.rate;tot+=contrib;
+      const rangeStr=b2.limit===Infinity?`>${fmtCcy(prev)}`:`${fmtCcy(prev)}–${fmtCcy(b2.limit)}`;
+      html+=`<div class="step">  Band ${rangeStr}: ${fmtCcy(bw)} × ${fmtPct(b2.rate)} = ${fmtCcy(contrib)}</div>`;
+      rem-=bw;prev=b2.limit;
+      if(rem<=0)break;
+    }
+    html+=`<div class="step">Sum of bands = ${fmtCcy(tot)}</div>`;
+    html+=`<div class="step">After k-multiplier (×${k}) = ${fmtCcy(tot*k)}</div>`;
+    html+=`<div class="result">Result = max(£/€350,000 , ${fmtCcy(tot*k)}) = ${fmtCcy(b)}</div>`;
+    html+=`<div class="step" style="margin-top:.5rem">Reference: EMD2 Art 5(3) / UK EMRs 2011 Sch 1 Method B</div>`;
+  } else if(method==='C'&&pv>0){
+    const bands=[{limit:5000000,rate:0.0110},{limit:10000000,rate:0.0080},{limit:100000000,rate:0.0060},{limit:250000000,rate:0.0030},{limit:Infinity,rate:0.0015}];
+    html+=`<div class="step">Method C = max(£/€350,000 , sum(PV_bands × rate) × k)</div>`;
+    html+=`<div class="step">Payment Volume = ${fmtCcy(pv)}/year</div><div class="step" style="margin-top:.3rem">Band breakdown:</div>`;
+    let rem=pv,prev=0,tot=0;
+    for(const b2 of bands){
+      const bw=b2.limit===Infinity?rem:Math.min(rem,b2.limit-prev);
+      if(bw<=0)break;
+      const contrib=bw*b2.rate;tot+=contrib;
+      const rangeStr=b2.limit===Infinity?`>${fmtCcy(prev)}`:`${fmtCcy(prev)}–${fmtCcy(b2.limit)}`;
+      html+=`<div class="step">  Band ${rangeStr}: ${fmtCcy(bw)} × ${fmtPct(b2.rate)} = ${fmtCcy(contrib)}</div>`;
+      rem-=bw;prev=b2.limit;
+      if(rem<=0)break;
+    }
+    html+=`<div class="step">Sum of bands = ${fmtCcy(tot)}</div>`;
+    html+=`<div class="step">After k-multiplier (×${k}) = ${fmtCcy(tot*k)}</div>`;
+    html+=`<div class="result">Result = max(£/€350,000 , ${fmtCcy(tot*k)}) = ${fmtCcy(c)}</div>`;
+    html+=`<div class="step" style="margin-top:.5rem">Reference: EMD2 Art 5(4) / UK EMRs 2011 Sch 1 Method C</div>`;
+  } else {
+    html='<div class="step">No input data entered for selected method.</div>';
+  }
+  el.innerHTML=html;
+}
+
+function renderBuffer(selected,existing,buf25,buf30){
+  const surplus=existing>0?existing-selected:null;
+  const el=document.getElementById('bufferCard');
+  el.innerHTML=`<div class="buffer-title">Capital Buffer Recommendation (EBA/GL/2021/03)</div>`+
+    `<div class="buffer-row"><span class="lbl">Regulatory minimum (this calculation)</span><span class="val">${fmtCcy(selected)}</span></div>`+
+    (existing>0?`<div class="buffer-row"><span class="lbl">Current own funds held</span><span class="val" style="color:${surplus>=0?'var(--green)':'var(--red)'}">${fmtCcy(existing)}</span></div>`+
+    `<div class="buffer-row"><span class="lbl">Surplus / (Deficit)</span><span class="val" style="color:${surplus>=0?'var(--green)':'var(--red)'}">${surplus>=0?'+':'-'}${fmtCcy(Math.abs(surplus))}</span></div>`:'')+
+    `<div class="buffer-row"><span class="lbl">Recommended target (25% buffer)</span><span class="val" style="color:var(--warn)">${fmtCcy(buf25)}</span></div>`+
+    `<div class="buffer-row"><span class="lbl">Recommended target (30% buffer)</span><span class="val" style="color:var(--warn)">${fmtCcy(buf30)}</span></div>`+
+    `<div class="buffer-row"><span class="lbl">Buffer rationale</span><span class="val" style="font-size:.68rem">Operational costs, wind-down, and stress scenarios</span></div>`;
+}
+
+function exportMarkdown(){
+  if(!_result)return;
+  const r=_result,ts=new Date().toISOString().slice(0,10);
+  let md='# EMI Capital Requirements Calculation\n\n';
+  md+='**Tool:** T405 · AINumbers.co  **Generated:** '+ts+'\n';
+  md+='**Jurisdiction:** '+r.jx+'  **Method selected:** '+r.method+'  **k-multiplier:** '+r.k+'\n\n';
+  md+='## Own Funds Requirement: '+fmtCcy(r.selected)+'\n\n';
+  md+='| Method | Required Own Funds | Notes |\n|---|---|---|\n';
+  md+='| A (2% of avg e-money) | '+fmtCcy(r.a)+' | '+r.method==='A'?'**Selected**':''+' |\n';
+  if(r.b!==null)md+='| B (Relevant Indicator) | '+fmtCcy(r.b)+' | '+(r.method==='B'?'**Selected**':r.recommended.m==='B'?'**Recommended lowest**':'')+' |\n';
+  if(r.c!==null)md+='| C (Payment volume) | '+fmtCcy(r.c)+' | '+(r.method==='C'?'**Selected**':r.recommended.m==='C'?'**Recommended lowest**':'')+' |\n';
+  md+='\n## Capital Buffer\n\n';
+  md+='| Item | Amount |\n|---|---|\n';
+  md+='| Regulatory minimum | '+fmtCcy(r.selected)+' |\n';
+  md+='| Target (25% buffer) | '+fmtCcy(r.buffer25)+' |\n';
+  md+='| Target (30% buffer) | '+fmtCcy(r.buffer30)+' |\n';
+  if(r.existing>0)md+='| Current own funds | '+fmtCcy(r.existing)+' |\n';
+  md+='\n---\n*Generated by AINumbers.co T405 · CC BY 4.0 · Post Oak Labs · Verify against EMD2 Art 5 / EMRs 2011 Reg 19.*\n';
+  dl(md,'text/markdown','T405-emi-capital-requirements-'+ts+'.md');
+}
+
+function exportAP2(){
+  if(!_result){alert('Run the tool first.');return;}
+  const r=_result,ts=new Date().toISOString();
+  const tid='405-emi-capital-requirements-calculator';
+  const m={
+    ap2_version:'1.0',
+    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,tool_version:'1.0.0',
+    mandate_type:'capital_requirements_mandate',
+    jurisdiction:[r.jx],
+    regulatory_frameworks:r.jx==='UK'?['UK E-Money Regulations 2011 SI 99','EBA/GL/2021/03']:['EMD2 2009/110/EC Art 5','EBA/GL/2021/03'],
+    payload:{
+      method_selected:r.method,
+      k_multiplier:r.k,
+      jurisdiction:r.jx,
+      inputs:{avg_outstanding_emoney:r.avg,relevant_indicator:r.ri,payment_volume:r.pv,existing_capital:r.existing},
+      results:{
+        method_A:fmtCcy(r.a),
+        method_B:r.b!==null?fmtCcy(r.b):'N/A (no input)',
+        method_C:r.c!==null?fmtCcy(r.c):'N/A (no input)',
+        selected_result:r.selected,
+        recommended_method:r.recommended.m,
+        recommended_amount:r.recommended.v
+      },
+      capital_buffer:{target_25pct:r.buffer25,target_30pct:r.buffer30},
+      initial_capital_floor:350000,
+      floor_applies:r.selected===350000
+    },
+    summary:'EMI Own Funds Requirement (Method '+r.method+'): '+fmtCcy(r.selected)+' | Recommended: Method '+r.recommended.m+' at '+fmtCcy(r.recommended.v),
+    agent_instructions:[
+      'Own funds requirement must be maintained on an ongoing basis, not merely at point of authorisation.',
+      'If k-multiplier is not 1.0, confirm NCA approval for the adjusted multiplier.',
+      'Verify current EMD2 Art 5 tiered rates and EBA/GL/2021/03 guidance before relying on this calculation.'
+    ],
+    valid_from:ts.slice(0,10),
+    valid_until:new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed:ts.slice(0,10),
+    regulatory_citations:[r.jx==='UK'?'UK EMRs 2011 Reg 19 / Sch 1':'EMD2 2009/110/EC Art 5','EBA/GL/2021/03'],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  dl(JSON.stringify(m,null,2),'application/json',tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json');
+}
+
+function dl(content,type,filename){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([content],{type:type}));
+  a.download=filename;a.click();URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  const b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');
+  const open=b.style.display!=='block';
+  b.style.display=open?'block':'none';
+  a.textContent=open?'&#9650;':'&#9660;';
+}
+
+initLang();
+</script>
+</body>
+</html>

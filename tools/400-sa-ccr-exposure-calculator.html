@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>SA-CCR Exposure-at-Default Calculator · AINumbers.co</title>
+<meta name="description" content="Computes SA-CCR EAD for derivatives under Basel IV. Calculates Replacement Cost, PFE using supervisory delta/maturity factor/supervisory factor, and EAD = alpha x (RC + PFE). Full formula workings shown. Policy Mandate export.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/400-sa-ccr-exposure-calculator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"SA-CCR Exposure-at-Default Calculator","url":"https://ainumbers.co/tools/400-sa-ccr-exposure-calculator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "sa-ccr-exposure-calculator",
+  "version": "1.0.0",
+  "title": "SA-CCR Exposure-at-Default Calculator",
+  "description": "Computes SA-CCR EAD = alpha x (RC + PFE) for derivatives per BCBS SA-CCR (2014) and CRR2/CRR3.",
+  "category": "cat-26",
+  "tags": ["SA-CCR","EAD","counterparty credit risk","Basel IV","derivatives","CRR2","CRR3"],
+  "audience": ["risk","treasury","quant","compliance"],
+  "mcp_tool_definition": {"name":"calculate_sa_ccr_exposure","description":"Calculate SA-CCR Exposure-at-Default for a derivatives transaction per BCBS SA-CCR 2014 / CRR3.","inputSchema":{"type":"object","properties":{"asset_class":{"type":"string","enum":["ir","fx","credit","equity","commodity"]},"transaction_type":{"type":"string","enum":["swap","option","forward","other"]},"notional_gbp":{"type":"number"},"maturity_years":{"type":"number"},"itm_amount_gbp":{"type":"number"},"collateral_held_gbp":{"type":"number"},"netting_set":{"type":"boolean"}},"required":["asset_class","transaction_type","notional_gbp","maturity_years"]}},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(212,168,71,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(212,168,71,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--gold);color:var(--gold)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--gold)}.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--gold);padding:.28rem .75rem;border-radius:4px;text-decoration:none;border:none}
+.nav-cta:hover{opacity:.85}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--gold)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.75rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{display:flex;align-items:flex-start;gap:.75rem;padding:.75rem 1rem;background:rgba(212,168,71,.06);border:1px solid rgba(212,168,71,.2);border-radius:var(--radius);font-size:.72rem;color:var(--body);line-height:1.5;margin-top:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.input-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1rem}
+.form-group{display:flex;flex-direction:column;gap:.35rem}
+label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+label span{color:var(--body);font-size:.45rem;margin-left:.25rem;text-transform:none;letter-spacing:0}
+input[type=number],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .6rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--gold)}select option{background:var(--bg-3)}
+.radio-group{display:flex;gap:.5rem;margin-top:.15rem}
+.radio-btn{display:flex;align-items:center;gap:.35rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--text);background:var(--bg-3);border:1px solid var(--border);padding:.3rem .7rem;border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.radio-btn input[type=radio]{width:auto;accent-color:var(--gold)}
+.radio-btn:has(input:checked){border-color:var(--gold);color:var(--gold);background:var(--gold-dim)}
+.run-btn{background:var(--gold);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:opacity .2s}
+.run-btn:hover{opacity:.85}
+.output-section{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.out-body{padding:1.25rem}
+.ead-display{background:var(--gold-dim);border:1px solid rgba(212,168,71,.3);border-radius:var(--radius-lg);padding:1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1rem}
+.ead-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.ead-value{font-family:'DM Serif Display',serif;font-size:2rem;color:var(--white)}
+.ead-formula{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted)}
+.formula-steps{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--body);line-height:2;white-space:pre}
+.detail-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.detail-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400}
+.detail-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.detail-table tr:last-child td{border-bottom:none}
+.detail-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);white-space:nowrap;width:200px}
+.detail-table td.val{font-family:'JetBrains Mono',monospace;color:var(--bright)}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s;cursor:pointer}
+.copy-btn:hover{border-color:var(--gold);color:var(--gold)}
+.export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.75rem 0;border-top:1px solid var(--border);margin-top:1rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1!important;cursor:pointer!important;border-color:var(--gold)!important;color:var(--bright)!important}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)!important}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);transition:color .2s}.footer-links-ai a:hover{color:var(--gold)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.form-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/basel-iv-frtb-model-risk-hub.html">Basel IV Hub</a><span class="nav-sep">/</span><span>T-400</span></div>
+  <div class="nav-right"><a href="../guides/basel-iv-frtb-model-risk-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-26 · T400 · Basel IV / FRTB / Model Risk</div>
+  <div class="hero-meta">
+    <span class="hero-badge badge-muted">v1.0</span>
+    <span class="hero-badge badge-gold">SA-CCR / Basel IV</span>
+    <span class="hero-badge badge-teal">EAD = &alpha; &times; (RC + PFE)</span>
+    <span class="hero-badge badge-green">Policy Mandate Export</span>
+  </div>
+  <h1 class="tool-title">SA-CCR <em>Exposure-at-Default</em> Calculator</h1>
+  <p class="hero-desc">Computes Standardised Approach for Counterparty Credit Risk (SA-CCR) Exposure at Default for derivatives under Basel IV. Calculates Replacement Cost (RC), Potential Future Exposure (PFE) using supervisory delta, maturity factor, and supervisory factors per asset class. EAD = 1.4 &times; (RC + PFE). Full formula workings displayed. All client-side — zero data transmitted.</p>
+  <div class="pii-notice">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note"><strong style="color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Regulatory basis —</strong> BCBS SA-CCR (March 2014), CRR2 Art. 274–280, Basel IV CRR3 amendments. Alpha = 1.4 (regulatory fixed). Supervisory factors and maturity factors per BCBS SA-CCR Annex 1. Single-trade netting set. For multi-netting-set portfolios, aggregate RC and PFE per counterparty. Deterministic arithmetic · zero PII · CC BY 4.0.</div>
+
+  <div class="input-panel">
+    <div class="panel-title">Transaction Inputs</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="assetClass">Asset Class</label>
+        <select id="assetClass" onchange="updateSF()">
+          <option value="ir">Interest Rate (IR)</option>
+          <option value="fx" selected>FX</option>
+          <option value="credit">Credit</option>
+          <option value="equity">Equity</option>
+          <option value="commodity">Commodity</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="txType">Transaction Type</label>
+        <select id="txType">
+          <option value="swap">Swap / Linear</option>
+          <option value="option">Option (Bought)</option>
+          <option value="forward">Forward</option>
+          <option value="other">Other Derivative</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="notional">Notional <span>(£m, adjusted notional for IR = notional × SD)</span></label>
+        <input type="number" id="notional" value="100" min="0" step="0.01">
+      </div>
+      <div class="form-group">
+        <label for="maturity">Remaining Maturity <span>(years)</span></label>
+        <input type="number" id="maturity" value="5" min="0.01" step="0.01">
+      </div>
+      <div class="form-group">
+        <label for="itmAmount">Mark-to-Market (V) <span>(£m, positive if ITM, negative if OTM)</span></label>
+        <input type="number" id="itmAmount" value="2.5" step="0.01">
+      </div>
+      <div class="form-group">
+        <label for="collateral">Collateral Held (C) <span>(£m, VM + IM received, net)</span></label>
+        <input type="number" id="collateral" value="1.0" step="0.01">
+      </div>
+      <div class="form-group">
+        <label for="sfDisplay">Supervisory Factor (auto)</label>
+        <input type="text" id="sfDisplay" value="4.0%" readonly style="background:var(--bg-4);color:var(--muted);cursor:not-allowed">
+      </div>
+      <div class="form-group">
+        <label>Netting Set</label>
+        <div class="radio-group">
+          <label class="radio-btn"><input type="radio" name="netting" value="yes" checked> Yes</label>
+          <label class="radio-btn"><input type="radio" name="netting" value="no"> No</label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:1.5rem">
+    <button class="run-btn" onclick="runSACCR()">&#9654; Calculate SA-CCR EAD</button>
+  </div>
+
+  <div class="output-section" id="outputSection">
+    <div class="out-card">
+      <div class="out-header"><span class="out-title">EAD Result — EAD = &alpha; &times; (RC + PFE)</span></div>
+      <div class="out-body">
+        <div class="ead-display">
+          <div><div class="ead-label">Exposure at Default (EAD)</div><div class="ead-value" id="eadValue">—</div><div class="ead-formula">EAD = 1.4 × (RC + PFE)</div></div>
+          <div style="text-align:right">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:.25rem">RC = max(V − C, 0)</div>
+            <div id="rcLabel" style="font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--gold)"></div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:.5rem;margin-bottom:.25rem">PFE = SF × MF × Notional</div>
+            <div id="pfeLabel" style="font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--teal-lt)"></div>
+          </div>
+        </div>
+        <div class="formula-steps" id="formulaSteps"></div>
+      </div>
+    </div>
+    <div class="out-card">
+      <div class="out-header"><span class="out-title">Parameter Detail</span></div>
+      <div class="out-body"><div id="paramDetail"></div></div>
+    </div>
+    <div class="out-card">
+      <div class="out-header"><span class="out-title">SA-CCR Workings Memo</span><button class="copy-btn" onclick="copyMemo()">Copy</button></div>
+      <div class="out-body"><div class="formula-steps" id="memoBlock"></div></div>
+    </div>
+    <div class="export-row">
+      <button id="ap2ExportBtn" onclick="exportAP2()" disabled style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate <span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+    </div>
+  </div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json · MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </div></div>
+</section>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+    <a href="../guides/basel-iv-frtb-model-risk-hub.html">Basel IV Hub</a>
+    <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+    <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+  </div>
+  <div class="footer-badge-ai">
+    <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+    <span><span data-i18n="footer.privacy">🔒 Zero PII   📡 No server calls   💻 Client-side</span></span>
+  </div>
+</div></div></footer>
+
+<script>
+/* SA-CCR SUPERVISORY FACTORS (BCBS SA-CCR Annex 1, Table 1) */
+/* Expressed as decimal (e.g. 0.005 = 0.5%) */
+var SF = {
+  ir: 0.005,         /* 0.5% for interest rate */
+  fx: 0.04,          /* 4.0% for FX */
+  credit: 0.005,     /* 0.5% IG single-name; simplified to 0.5% */
+  equity: 0.32,      /* 32% single stock (simplified) */
+  commodity: 0.18    /* 18% energy/metals/other simplified average */
+};
+
+var SF_LABELS = {
+  ir:'0.5% (BCBS SA-CCR Annex 1, IR)',
+  fx:'4.0% (BCBS SA-CCR Annex 1, FX)',
+  credit:'0.5% (simplified IG single-name)',
+  equity:'32% (single-stock — simplified)',
+  commodity:'18% (energy/metals average — simplified)'
+};
+
+var AC_LABELS = { ir:'Interest Rate', fx:'FX', credit:'Credit', equity:'Equity', commodity:'Commodity' };
+
+function updateSF() {
+  var ac = document.getElementById('assetClass').value;
+  document.getElementById('sfDisplay').value = (SF[ac]*100).toFixed(1)+'%';
+}
+updateSF();
+
+/* Maturity Factor: MF = sqrt(min(M,1) / 1) for unmargined, capped at 1 year for >1y */
+/* Simplified: MF = sqrt(min(M, 1)) for margined / sqrt(min(M, 1)*3/2) for unmargined >1y */
+/* We use: MF = min(1, sqrt(M/1)) for maturity < 1, MF = 1.0 for maturity >= 1 per BCBS SA-CCR §30 */
+function maturityFactor(M) {
+  /* BCBS SA-CCR: for unmargined, MF = sqrt(min(M,1)) where M in years */
+  /* For M >= 1: MF = sqrt(1) = 1.0; for M < 1: MF = sqrt(M) */
+  if (M >= 1) return 1.0;
+  return Math.sqrt(M);
+}
+
+/* Supervisory delta for options: simplified to 1.0 for linear instruments */
+/* For proper options: delta = N(+/-ln(S/K) +/- 0.5*sigma^2*T / sigma*sqrt(T)) — requires market data */
+/* We use simplified: swap/forward/other = 1.0; bought option = 0.5 (illustrative, no market data) */
+function supDelta(txType) {
+  if (txType === 'option') return 0.5; /* simplified — actual requires Black-Scholes inputs */
+  return 1.0;
+}
+
+var _lastResult = null;
+
+function runSACCR() {
+  var ac = document.getElementById('assetClass').value;
+  var tx = document.getElementById('txType').value;
+  var N = parseFloat(document.getElementById('notional').value) || 0;
+  var M = parseFloat(document.getElementById('maturity').value) || 1;
+  var V = parseFloat(document.getElementById('itmAmount').value) || 0;
+  var C = parseFloat(document.getElementById('collateral').value) || 0;
+  var netting = document.querySelector('input[name=netting]:checked').value === 'yes';
+
+  var sf = SF[ac];
+  var mf = maturityFactor(M);
+  var delta = supDelta(tx);
+  var ALPHA = 1.4;
+
+  /* Replacement Cost: RC = max(V - C, 0) for unmargined netting set */
+  var RC = Math.max(V - C, 0);
+
+  /* Adjusted Notional: d = delta * N (simplified — full IR: d = N * SD where SD = (1-e^-r*M)/r ) */
+  var dN = delta * N;
+
+  /* PFE Add-On: AddOn = SF * MF * d (single trade, single asset class) */
+  var AddOn = sf * mf * dN;
+
+  /* For netting set: PFE = Agg * (0.15 + 0.85 * hedging benefit ratio) */
+  /* Simplified single-trade: PFE = AddOn */
+  var PFE = AddOn;
+
+  /* EAD = alpha * (RC + PFE) */
+  var EAD = ALPHA * (RC + PFE);
+
+  /* RWA at 100% risk weight (illustrative, actual depends on counterparty credit quality) */
+  var RWA_illustrative = EAD * 1.0;
+
+  var ts = new Date().toISOString();
+
+  document.getElementById('eadValue').textContent = '£'+EAD.toFixed(4)+'m';
+  document.getElementById('rcLabel').textContent = 'RC = £'+RC.toFixed(4)+'m';
+  document.getElementById('pfeLabel').textContent = 'PFE = £'+PFE.toFixed(4)+'m';
+
+  var steps =
+'STEP 1: Inputs\n'+
+'  Asset Class:          '+AC_LABELS[ac]+'\n'+
+'  Transaction Type:     '+tx.charAt(0).toUpperCase()+tx.slice(1)+'\n'+
+'  Notional (N):         £'+N.toFixed(4)+'m\n'+
+'  Remaining Maturity:   '+M.toFixed(2)+' years\n'+
+'  MtM Value (V):        £'+V.toFixed(4)+'m\n'+
+'  Collateral Held (C):  £'+C.toFixed(4)+'m\n'+
+'\n'+
+'STEP 2: Replacement Cost (RC)\n'+
+'  RC = max(V − C, 0) = max('+V.toFixed(4)+' − '+C.toFixed(4)+', 0) = £'+RC.toFixed(4)+'m\n'+
+'\n'+
+'STEP 3: Potential Future Exposure (PFE)\n'+
+'  Supervisory Factor (SF):    '+( sf*100).toFixed(1)+'%  ['+SF_LABELS[ac]+']\n'+
+'  Maturity Factor (MF):       '+mf.toFixed(4)+'  [sqrt(min('+M.toFixed(2)+',1)) = sqrt('+Math.min(M,1).toFixed(4)+')]\n'+
+'  Supervisory Delta (δ):      '+delta.toFixed(2)+'  ['+(tx==='option'?'Bought option (simplified 0.5)':'Linear instrument (1.0)')+']\n'+
+'  Adjusted Notional (d=δ×N):  £'+dN.toFixed(4)+'m\n'+
+'  AddOn = SF × MF × d:        '+sf.toFixed(4)+' × '+mf.toFixed(4)+' × '+dN.toFixed(4)+' = £'+AddOn.toFixed(4)+'m\n'+
+'  PFE (single trade):         £'+PFE.toFixed(4)+'m\n'+
+'\n'+
+'STEP 4: EAD\n'+
+'  EAD = α × (RC + PFE)\n'+
+'      = '+ALPHA+' × ('+RC.toFixed(4)+' + '+PFE.toFixed(4)+')\n'+
+'      = '+ALPHA+' × '+((RC+PFE).toFixed(4))+'\n'+
+'      = £'+EAD.toFixed(4)+'m\n'+
+'\n'+
+'  (α = 1.4, regulatory fixed per BCBS SA-CCR §26 / CRR2 Art.274)\n'+
+'\n'+
+'STEP 5: Illustrative RWA (assuming 100% RW — verify actual CQS)\n'+
+'  RWA = EAD × RW = £'+EAD.toFixed(4)+'m × 100% = £'+RWA_illustrative.toFixed(4)+'m';
+
+  document.getElementById('formulaSteps').textContent = steps;
+
+  document.getElementById('paramDetail').innerHTML =
+    '<table class="detail-table"><thead><tr><th>Parameter</th><th>Value</th><th>Regulatory Reference</th></tr></thead><tbody>'+
+    '<tr><td>Alpha (α)</td><td class="val">1.4</td><td>BCBS SA-CCR §26; CRR2 Art.274(1)</td></tr>'+
+    '<tr><td>Supervisory Factor</td><td class="val">'+( sf*100).toFixed(1)+'%</td><td>BCBS SA-CCR Annex 1 Table 1; CRR2 Art.277a</td></tr>'+
+    '<tr><td>Maturity Factor</td><td class="val">'+mf.toFixed(6)+'</td><td>BCBS SA-CCR §32; CRR2 Art.279b</td></tr>'+
+    '<tr><td>Supervisory Delta</td><td class="val">'+delta.toFixed(2)+'</td><td>BCBS SA-CCR §29; CRR2 Art.279a</td></tr>'+
+    '<tr><td>Replacement Cost (RC)</td><td class="val">£'+RC.toFixed(4)+'m</td><td>BCBS SA-CCR §40–42; CRR2 Art.274</td></tr>'+
+    '<tr><td>PFE Add-On</td><td class="val">£'+PFE.toFixed(4)+'m</td><td>BCBS SA-CCR §43–60; CRR2 Art.278</td></tr>'+
+    '<tr><td>EAD</td><td class="val" style="color:var(--gold)">£'+EAD.toFixed(4)+'m</td><td>BCBS SA-CCR §26; CRR3 Art.274</td></tr>'+
+    '<tr><td>Netting Set</td><td class="val">'+(netting?'Yes — single netting set applied':'No — standalone trade')+'</td><td>BCBS SA-CCR §37–39; CRR2 Art.275</td></tr>'+
+    '</tbody></table>';
+
+  document.getElementById('memoBlock').textContent = steps;
+  document.getElementById('outputSection').style.display = 'flex';
+
+  _lastResult = { asset_class:ac, tx_type:tx, notional_gbpm:N, maturity_years:M, mtm_value_gbpm:V, collateral_gbpm:C, netting_set:netting, alpha:ALPHA, sf:sf, mf:mf, delta:delta, RC:RC, PFE:PFE, EAD:EAD, steps:steps, ts:ts };
+  window._ap2ToolResult = _lastResult;
+  window.enableAP2Btn && window.enableAP2Btn();
+}
+
+function copyMemo() {
+  if (!_lastResult) return;
+  navigator.clipboard.writeText(_lastResult.steps).then(function(){
+    var b = document.querySelector('.copy-btn');
+    if(b){b.textContent='Copied ✓';setTimeout(function(){b.textContent='Copy';},2000);}
+  });
+}
+
+var TRANSLATIONS = {
+  en:{'pii.banner':'🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.','footer.alltools':'All Tools','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Sitemap','footer.privacy':'🔒 Zero PII   📡 No server calls   💻 Client-side'},
+  es:{'pii.banner':'🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos.','footer.alltools':'Todas las Herramientas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contacto','footer.sitemap':'Mapa del Sitio','footer.privacy':'🔒 Sin PII   📡 Sin llamadas   💻 Cliente'},
+  fr:{'pii.banner':'🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n\'est transmise.','footer.alltools':'Tous les Outils','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Plan du Site','footer.privacy':'🔒 Aucune PII   📡 Aucun appel serveur   💻 Côté client'},
+  ar:{'pii.banner':'🔒 جميع المدخلات تُعالج محلياً في متصفحك.','footer.alltools':'جميع الأدوات','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'اتصل','footer.sitemap':'خريطة الموقع','footer.privacy':'🔒 لا بيانات شخصية   📡 لا استدعاءات   💻 على المتصفح'},
+  pt:{'pii.banner':'🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido.','footer.alltools':'Todas as Ferramentas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contato','footer.sitemap':'Mapa do Site','footer.privacy':'🔒 Sem PII   📡 Sem chamadas   💻 Client-side'},
+  zh:{'pii.banner':'🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。','footer.alltools':'所有工具','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'联系','footer.sitemap':'网站地图','footer.privacy':'🔒 零个人数据   📡 无服务器调用   💻 纯客户端'}
+};
+function setLang(lang){if(!TRANSLATIONS[lang])return;var d=TRANSLATIONS[lang];document.querySelectorAll('[data-i18n]').forEach(function(el){var k=el.getAttribute('data-i18n');if(d[k])el.textContent=d[k];});document.querySelectorAll('.lang-btn').forEach(function(b){b.classList.remove('active');});var a=document.querySelector('.lang-btn[data-lang="'+lang+'"]');if(a)a.classList.add('active');document.documentElement.setAttribute('dir',lang==='ar'?'rtl':'ltr');document.documentElement.setAttribute('lang',lang);try{sessionStorage.setItem('ain_lang',lang);}catch(e){}}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+
+var MANIFEST={"tool_id":"sa-ccr-exposure-calculator","version":"1.0.0","title":"SA-CCR Exposure-at-Default Calculator","category":"cat-26","tags":["SA-CCR","EAD","Basel IV","derivatives","CRR3"],"mcp_tool_definition":{"name":"calculate_sa_ccr_exposure","description":"Calculate SA-CCR Exposure-at-Default for a derivatives transaction. Returns RC, PFE, and EAD = alpha*(RC+PFE) with full formula workings.","inputSchema":{"type":"object","properties":{"asset_class":{"type":"string","enum":["ir","fx","credit","equity","commodity"]},"transaction_type":{"type":"string","enum":["swap","option","forward","other"]},"notional_gbp":{"type":"number","minimum":0},"maturity_years":{"type":"number","minimum":0.01},"itm_amount_gbp":{"type":"number"},"collateral_held_gbp":{"type":"number","minimum":0},"netting_set":{"type":"boolean"}},"required":["asset_class","transaction_type","notional_gbp","maturity_years"]}},"ap2_export":true};
+
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+
+window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+window.exportAP2=function(){
+  if(!window._ap2ToolResult){alert('Run the calculator first.');return;}
+  var ts=new Date().toISOString(),r=window._ap2ToolResult;
+  var m={ap2_version:'1.0',mandate_id:'sa-ccr-'+ts.replace(/[:.]/g,'-').slice(0,19),issued_at:ts,issued_by:'ainumbers.co',tool_id:'sa-ccr-exposure-calculator',tool_version:'1.0.0',mandate_type:'sa_ccr_ead_calculation',jurisdiction:['EU','UK'],regulatory_frameworks:['BCBS SA-CCR (2014)','CRR2 Art.274-280','CRR3 amendments'],payload:{asset_class:r.asset_class,tx_type:r.tx_type,notional_gbpm:r.notional_gbpm,maturity_years:r.maturity_years,RC:r.RC,PFE:r.PFE,EAD:r.EAD,alpha:r.alpha,sf:r.sf,mf:r.mf,delta:r.delta},summary:'SA-CCR EAD: £'+r.EAD.toFixed(4)+'m ('+AC_LABELS[r.asset_class]+' '+r.tx_type+' '+r.notional_gbpm+'m notional)',agent_instructions:['Apply computed EAD in counterparty credit risk capital calculation.','Verify supervisory factor and maturity factor against current CRR3 / local regulatory rules.','For multi-trade netting sets aggregate RC and PFE at counterparty level.'],valid_from:ts.slice(0,10),valid_until:new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),last_reviewed:ts.slice(0,10),audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  var json=JSON.stringify(m,null,2);
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download='sa-ccr-ead_'+r.asset_class+'_'+ts.slice(0,10)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+</script>
+</body>
+</html>

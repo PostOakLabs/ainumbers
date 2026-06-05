@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Payment Error Code Resolver · AINumbers.co</title>
+<meta name="description" content="Resolve payment decline, error, and rejection codes across SWIFT, SEPA, Faster Payments, FedNow, RTP, NACHA ACH, Visa, and Mastercard. Root cause, remediation, retry eligibility — all client-side, zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/403-payment-error-code-resolver.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Payment Error Code Resolver","url":"https://ainumbers.co/tools/403-payment-error-code-resolver.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "403-payment-error-code-resolver",
+  "version": "1.0.0",
+  "title": "Payment Error Code Resolver",
+  "description": "Resolves payment decline/error/rejection codes across SWIFT, SEPA, Faster Payments, FedNow, RTP, NACHA ACH, Visa, and Mastercard. Returns root cause, explanation, remediation steps, retry eligibility, and typical resolution time.",
+  "category": "cat-27",
+  "tags": ["payment errors","decline codes","SWIFT","SEPA","NACHA","ACH","Visa","Mastercard","FedNow","RTP","payment rails","remediation"],
+  "mcp_tool_definition": {"name":"resolve_payment_error_code","description":"Resolves a payment decline or error code for a given rail, returning root cause, explanation, remediation steps, retry eligibility, and resolution time.","inputSchema":{"type":"object","properties":{"rail":{"type":"string","description":"Payment rail: SWIFT, SEPA, NACHA_ACH, Visa, Mastercard, Faster_Payments, FedNow, RTP"},"code":{"type":"string","description":"The error or decline code to resolve"}},"required":["rail","code"]}},
+  "ap2_export": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:900px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.015) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* LANG BAR */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:900px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* NAV */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:900px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body);transition:color .2s}.nav-trail a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+/* HERO */
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(20,184,166,.05) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.4rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.85rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+/* PII */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1.25rem}
+/* TOOL BODY */
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+/* FORM */
+.form-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+@media(max-width:600px){.form-row{grid-template-columns:1fr}}
+.field-group{display:flex;flex-direction:column;gap:.4rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.field-select,.field-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.8rem;padding:.55rem .75rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s;-webkit-appearance:none}
+.field-select:focus,.field-input:focus{border-color:var(--teal)}
+.field-select option{background:var(--bg-3)}
+.field-hint{font-size:.65rem;color:var(--muted);font-family:'JetBrains Mono',monospace}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.clear-btn{background:transparent;color:var(--muted);border:1px solid var(--border);padding:.65rem 1.25rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;transition:all .2s}
+.clear-btn:hover{border-color:var(--teal);color:var(--teal)}
+.btn-row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap}
+/* RESULT */
+.result-panel{display:none}
+.result-panel.show{display:block}
+.result-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem}
+.rc-header{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+.rc-code-badge{font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:500;color:var(--teal)}
+.rc-rail-badge{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .65rem;border:1px solid rgba(20,184,166,.3);color:var(--teal);border-radius:3px}
+.rc-name{font-family:'Sora',sans-serif;font-size:.72rem;font-weight:500;color:var(--bright);margin-top:.15rem}
+.rc-body{padding:1.25rem;display:flex;flex-direction:column;gap:1rem}
+.rc-row{display:grid;grid-template-columns:160px 1fr;gap:.75rem;align-items:flex-start}
+@media(max-width:560px){.rc-row{grid-template-columns:1fr}}
+.rc-key{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding-top:.15rem}
+.rc-val{font-size:.82rem;color:var(--text);line-height:1.65}
+.cat-pill{display:inline-flex;align-items:center;gap:.35rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.25rem .65rem;border-radius:3px;margin-bottom:.25rem}
+.cat-account{background:rgba(212,168,71,.1);color:var(--gold)}
+.cat-funds{background:rgba(239,68,68,.1);color:var(--red)}
+.cat-auth{background:rgba(155,114,245,.1);color:var(--purple)}
+.cat-format{background:rgba(20,184,166,.1);color:var(--teal)}
+.cat-mandate{background:rgba(245,158,11,.1);color:var(--warn)}
+.cat-system{background:rgba(34,197,94,.1);color:var(--green)}
+.cat-compliance{background:rgba(239,68,68,.1);color:var(--red)}
+.cat-duplicate{background:rgba(108,92,231,.1);color:#6C5CE7}
+.retry-yes{color:var(--green)}
+.retry-no{color:var(--red)}
+.retry-conditional{color:var(--warn)}
+.remed-list{list-style:none;display:flex;flex-direction:column;gap:.45rem}
+.remed-item{display:flex;gap:.6rem;align-items:flex-start;font-size:.82rem;color:var(--body);line-height:1.6}
+.remed-item::before{content:'→';color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:.7rem;flex-shrink:0;margin-top:.2rem}
+/* EXPORT */
+.results-export-row{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.5rem}
+.export-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.3rem .75rem;border-radius:3px;transition:all .2s}
+.export-btn:hover{border-color:var(--teal);color:var(--teal)}
+.export-btn.primary{border-color:rgba(20,184,166,.3);color:var(--teal);background:rgba(20,184,166,.05)}
+/* NOT FOUND */
+.not-found{background:var(--bg-2);border:1px solid rgba(239,68,68,.25);border-radius:var(--radius-lg);padding:1.5rem;text-align:center;margin-bottom:1rem}
+.nf-code{font-family:'JetBrains Mono',monospace;font-size:1.2rem;color:var(--red);margin-bottom:.5rem}
+.nf-msg{font-size:.82rem;color:var(--body)}
+/* REF TABLE */
+.ref-section{margin-top:2.5rem}
+.ref-toggle-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border:1px solid var(--border);color:var(--body);background:transparent;border-radius:var(--radius);transition:all .2s;cursor:pointer;display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem}
+.ref-toggle-btn:hover{border-color:var(--teal);color:var(--teal)}
+.ref-panel{display:none}
+.ref-panel.open{display:block}
+.ref-rail-header{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);padding:.5rem 0;border-bottom:1px solid rgba(20,184,166,.2);margin:1.25rem 0 .75rem;display:flex;align-items:center;gap:.6rem}
+.ref-rail-header::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(20,184,166,.15),transparent)}
+.ref-table{width:100%;border-collapse:collapse;font-size:.72rem;margin-bottom:1rem}
+.ref-table th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;background:var(--bg-3)}
+.ref-table td{padding:.45rem .75rem;border-bottom:1px solid var(--border);color:var(--body);vertical-align:top}
+.ref-table tr:last-child td{border-bottom:none}
+.ref-table td:first-child{font-family:'JetBrains Mono',monospace;color:var(--teal);white-space:nowrap}
+.ref-table td:nth-child(2){color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem}
+.ref-table tr:hover td{background:var(--bg-3)}
+.clickable-code{cursor:pointer;text-decoration:underline;text-decoration-color:rgba(20,184,166,.4)}
+/* FOOTER */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:3rem;position:relative;z-index:1}
+.footer-inner-ai{max-width:900px;margin:0 auto;display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+.footer-cat-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);line-height:1.4;margin-top:.15rem}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:640px){.hero{padding:2rem 0 1.5rem}}
+</style>
+</head>
+<body>
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <div class="logo-text">
+        <span class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">Numbers.co</span></span>
+      </div>
+    </a>
+    <div class="nav-trail">
+      <a href="../index.html">All Tools</a>
+      <span class="nav-sep">›</span>
+      <span>Payment Reference Library</span>
+      <span class="nav-sep">›</span>
+      <span>T403</span>
+    </div>
+    <div class="nav-right">
+      <a href="../index.html" class="nav-pill">← Tools</a>
+    </div>
+  </div>
+</nav>
+<section class="hero">
+  <div class="container">
+    <div class="hero-eyebrow" data-i18n="eyebrow">Cat-27 · Payment Reference Library · T403</div>
+    <h1><span data-i18n="h1_part1">Payment Error Code</span> <em data-i18n="h1_part2">Resolver</em></h1>
+    <p class="hero-desc" data-i18n="hero_desc">Select a payment rail and enter a decline, rejection, or error code to instantly retrieve the root cause category, full explanation, step-by-step remediation, retry eligibility, and typical resolution time. Covers SWIFT ISO pain codes, SEPA, NACHA ACH R-codes, and card network decline codes.</p>
+    <div class="hero-badges">
+      <span class="badge badge-teal">SWIFT / SEPA ISO</span>
+      <span class="badge badge-gold">NACHA ACH</span>
+      <span class="badge badge-purple">Visa · Mastercard</span>
+      <span class="badge badge-green">Faster Payments · FedNow · RTP</span>
+      <span class="badge badge-muted">Zero PII</span>
+    </div>
+  </div>
+</section>
+<div class="tool-body">
+  <div class="container">
+    <p class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</p>
+    <div class="form-panel">
+      <div class="form-row">
+        <div class="field-group">
+          <label class="field-label" for="railSelect" data-i18n="rail_label">Payment Rail</label>
+          <select class="field-select" id="railSelect">
+            <option value="">— Select rail —</option>
+            <option value="SWIFT">SWIFT (ISO 20022 pain)</option>
+            <option value="SEPA">SEPA (ISO pain codes)</option>
+            <option value="NACHA_ACH">NACHA ACH (R-codes)</option>
+            <option value="Visa">Visa (decline codes)</option>
+            <option value="Mastercard">Mastercard (decline codes)</option>
+            <option value="Faster_Payments">Faster Payments (UK)</option>
+            <option value="FedNow">FedNow (US)</option>
+            <option value="RTP">RTP / TCH (US)</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="codeInput" data-i18n="code_label">Error / Decline Code</label>
+          <input class="field-input" id="codeInput" type="text" placeholder="e.g. AC01, R01, 51" autocomplete="off" spellcheck="false">
+          <span class="field-hint" data-i18n="code_hint">Enter code exactly as received — e.g. AC01, R01, 05</span>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="run-btn" onclick="resolveCode()" data-i18n="resolve_btn">Resolve Code</button>
+        <button class="clear-btn" onclick="clearAll()" data-i18n="clear_btn">Clear</button>
+      </div>
+    </div>
+    <div class="result-panel" id="resultPanel"></div>
+    <div class="ref-section">
+      <button class="ref-toggle-btn" onclick="toggleRef(this)" aria-expanded="false">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        <span data-i18n="ref_toggle">Show Full Code Reference</span>
+      </button>
+      <div class="ref-panel" id="refPanel"></div>
+    </div>
+  </div>
+</div>
+<footer>
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div>
+        <div class="footer-wordmark"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+        <div class="footer-cat-tag">Payment Reference Library · T403</div>
+      </div>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII · 📡 No server calls · 💻 Client-side</span>
+    </div>
+  </div>
+</footer>
+<script>
+const CODE_DB={SWIFT:{AC01:{name:'InvalidAccountNumber',cat:'account',explanation:'The account number specified is structurally invalid (e.g., failed IBAN check digit, incorrect format for the receiving country).',remediation:['Verify the beneficiary IBAN using the ISO 13616 check-digit algorithm.','Confirm the IBAN country prefix matches the beneficiary bank\'s country.','Contact the beneficiary to re-confirm their account number.','Check for typos or character transpositions in the account field.'],retry:'conditional',resolution:'1–2 business days after correction'},AC04:{name:'ClosedAccountNumber',cat:'account',explanation:'The creditor account has been closed by the bank and can no longer receive funds.',remediation:['Contact the beneficiary to obtain their current active account details.','Do not retry to the same account — the account is permanently closed.','Update your records with the new account information before resubmitting.'],retry:false,resolution:'Only after new account details obtained'},AC06:{name:'BlockedAccount',cat:'account',explanation:'The creditor account is blocked, potentially due to a legal hold, regulatory freeze, or bank-initiated restriction.',remediation:['Contact the beneficiary to understand why their account is blocked.','If legally required (e.g., sanctions or court order), do not attempt to circumvent.','If the block is temporary (e.g., AML hold), await resolution and retry after confirmation.','Document the return for compliance and audit purposes.'],retry:'conditional',resolution:'3–10 business days depending on block reason'},AG01:{name:'TransactionForbidden',cat:'compliance',explanation:'The transaction type is not allowed for this account or under current regulatory conditions. This often indicates a sanctions hit, restricted currency, or prohibited transaction category.',remediation:['Perform enhanced due diligence on the beneficiary and originator.','Check beneficiary against current sanctions lists (OFAC SDN, EU Consolidated, UN).','Consult with your compliance team before any retry.','File a SAR if there is suspicion of financial crime.','Do not retry without compliance clearance.'],retry:false,resolution:'Requires compliance investigation — timeline varies'},AG02:{name:'InvalidBankOperationCode',cat:'format',explanation:'The operation code or bank operation code in the message is not valid or not supported by the receiving bank.',remediation:['Review the BankOperationCode field in the pain.001/pain.008 message.','Confirm the operation code is supported by the receiving correspondent.','Resubmit with the corrected operation code.'],retry:'conditional',resolution:'1 business day after format correction'},AM01:{name:'ZeroAmount',cat:'format',explanation:'The transaction amount is zero. Zero-value payments are not permitted on most rails.',remediation:['Check the instruction amount field for a zero value.','Investigate the source system for data mapping errors.','Resubmit with the correct non-zero amount.'],retry:'conditional',resolution:'Immediate after correction'},AM02:{name:'NotAllowedAmount',cat:'funds',explanation:'The amount exceeds a limit defined for the account, product, or transaction type (e.g., daily transaction limit or maximum single payment threshold).',remediation:['Check account-level transaction limits with the sending bank.','Consider splitting the payment into multiple tranches if permitted.','Request a temporary limit increase from the sending bank.'],retry:'conditional',resolution:'1–2 business days after limit adjustment'},AM04:{name:'InsufficientFunds',cat:'funds',explanation:'The debtor account does not have sufficient available funds to cover the transaction amount at the time of processing.',remediation:['Advise the debtor to fund their account before retrying.','Check for pending debits that may have reduced available balance.','Retry after confirmed funding — typically next business day.'],retry:true,resolution:'Retry after account is funded — typically 1 business day'},AM05:{name:'Duplication',cat:'duplicate',explanation:'The transaction is identified as a duplicate of an already processed instruction (same end-to-end ID, amount, and value date).',remediation:['Verify the end-to-end ID of the original transaction to confirm it was processed.','Do not resubmit without confirming the original was not completed.','If the original failed, generate a new unique end-to-end ID before resubmitting.'],retry:false,resolution:'Only if original is confirmed failed with new end-to-end ID'},AM09:{name:'WrongAmount',cat:'format',explanation:'The amount in the transaction does not match the amount in the referenced instruction or mandate (relevant for direct debits).',remediation:['Compare the presented amount against the mandate or referenced instruction amount.','Correct the amount to match the authorised figure.','If the mandate amount has changed, obtain fresh authorisation from the debtor.'],retry:'conditional',resolution:'1–2 business days after amount correction'},AM14:{name:'InconsistentWithEndToEndId',cat:'format',explanation:'The transaction amount or other attributes are inconsistent with a previously received instruction carrying the same end-to-end ID.',remediation:['Verify the end-to-end ID is unique per transaction.','If correcting a previously submitted instruction, use the original message ID in the correction flow.','Do not reuse end-to-end IDs across different transactions.'],retry:'conditional',resolution:'1 business day after ID correction'},BE01:{name:'InconsistentWithRegisteredAddress',cat:'compliance',explanation:'The debtor address provided does not match the address registered with the debtor\'s bank (used for AML/KYC verification).',remediation:['Verify the debtor\'s registered address with your own KYC records.','Update the address in the payment instruction to match the debtor\'s registered details.','Consult compliance if address mismatch triggers AML screening flags.'],retry:'conditional',resolution:'2–5 business days depending on KYC update process'},BE04:{name:'MissingCreditorAddress',cat:'format',explanation:'The creditor address is missing from the payment instruction. Many corridors require a complete creditor postal address for compliance purposes.',remediation:['Add the creditor\'s full postal address to the PostalAddress block in the pain message.','Verify minimum required address fields for the destination country.','Resubmit with the corrected message.'],retry:'conditional',resolution:'Immediate after address added'},CH03:{name:'RequestedExecutionDateTooFarInFuture',cat:'format',explanation:'The requested execution date or collection date exceeds the maximum forward-dating window permitted by the bank or scheme.',remediation:['Check the maximum forward-dating limit for the specific scheme (SEPA typically 14 days).','Adjust the requested execution date to within the permitted window.','Hold in your own system and resubmit closer to the value date.'],retry:'conditional',resolution:'Immediate after date correction'},DT01:{name:'InvalidDate',cat:'format',explanation:'The date in the payment instruction is invalid — either in the wrong format, a non-business day, a past date, or outside the permitted date range.',remediation:['Verify the date is in ISO 8601 format (YYYY-MM-DD).','Ensure the value date is a TARGET2/local market business day.','Check that the date is not in the past.'],retry:'conditional',resolution:'Immediate after date correction'},ED01:{name:'CorrespondentBankNotPossible',cat:'system',explanation:'The payment cannot be processed because no correspondent banking route exists to the beneficiary bank.',remediation:['Verify the beneficiary BIC is active in the SWIFT BIC directory.','Check if an alternative intermediary bank can be used.','Contact your correspondent banking team to investigate routing options.'],retry:'conditional',resolution:'2–5 business days after correspondent route established'},ED05:{name:'SettlementFailed',cat:'system',explanation:'The payment settled in the interbank system but final settlement to the beneficiary account failed.',remediation:['Contact the beneficiary bank to investigate the settlement failure.','Request SWIFT GPI payment tracker confirmation from your bank.','Initiate a payment investigation / gSRP request if payment is untracked.'],retry:false,resolution:'3–5 business days — requires bank investigation'},FF01:{name:'InvalidFileFormat',cat:'format',explanation:'The payment file or message does not comply with the expected format schema (e.g., pain.001, pain.008 XSD validation failure).',remediation:['Validate the XML message against the applicable pain schema using an XSD validator.','Check for missing mandatory fields, incorrect field types, or encoding issues.','Regenerate the file from your payment system and resubmit.'],retry:'conditional',resolution:'Immediate after format correction'},MD01:{name:'NoMandate',cat:'mandate',explanation:'No valid direct debit mandate exists between the creditor and debtor for the presented collection.',remediation:['Verify the mandate reference (MndtId) in your records.','Confirm the mandate has not been cancelled or expired.','Obtain a new signed mandate from the debtor before resubmitting.'],retry:false,resolution:'Only after valid mandate obtained'},MD02:{name:'MissingMandatoryInformationInMandate',cat:'mandate',explanation:'The mandate referenced in the direct debit instruction is missing mandatory information required by the scheme rules.',remediation:['Review the mandate data against the SEPA Core Direct Debit Scheme Rulebook mandatory fields.','Obtain an amended mandate from the debtor with all required fields.','Common missing fields: debtor BIC, debtor name, mandate date, creditor scheme ID.'],retry:false,resolution:'Only after complete mandate obtained'},MS02:{name:'NotSpecifiedReasonCustomerGenerated',cat:'auth',explanation:'The debtor\'s bank has returned the transaction at the customer\'s explicit request without specifying a detailed reason.',remediation:['Contact the debtor directly to understand their reason for return.','Do not retry without obtaining explicit authorisation from the debtor.','If the return is disputed, initiate a dispute resolution process.'],retry:false,resolution:'Requires debtor engagement — timeline varies'},MS03:{name:'NotSpecifiedReasonAgentGenerated',cat:'system',explanation:'The debtor\'s bank has returned the transaction without specifying a reason (bank-initiated return).',remediation:['Contact the beneficiary/debtor bank for the specific return reason.','Request a detailed investigation if the bank cannot provide a reason.','Document for reconciliation and escalate if pattern repeats.'],retry:'conditional',resolution:'2–3 business days after investigation'},RC01:{name:'BankIdentifierIncorrect',cat:'account',explanation:'The BIC (Bank Identifier Code) or bank routing code provided in the instruction is incorrect or does not match the beneficiary account.',remediation:['Verify the 8 or 11-character BIC against the SWIFT BIC directory.','Confirm the BIC matches the beneficiary\'s bank (not an intermediary).','Update the beneficiary record in your system with the correct BIC.'],retry:'conditional',resolution:'Immediate after BIC correction'},RR01:{name:'MissingDebtorAccountOrIdentification',cat:'format',explanation:'The debtor account number or identification is missing from the transaction instruction.',remediation:['Add the debtor IBAN or account number to the DbtrAcct block.','Verify the account identification type is appropriate.','Resubmit with the complete debtor account details.'],retry:'conditional',resolution:'Immediate after account details added'},RR02:{name:'MissingDebtorsNameOrAddress',cat:'format',explanation:'The debtor name or address is missing. Required for AML compliance in many corridors.',remediation:['Add the debtor\'s full legal name to the Dbtr/Nm field.','Add postal address details where required by the destination country.','Review FATF wire transfer rules (R.16) for required originator information.'],retry:'conditional',resolution:'Immediate after information added'},RR03:{name:'MissingCreditorNameOrAddress',cat:'format',explanation:'The creditor name or address is missing from the payment instruction. Required by FATF Recommendation 16 for cross-border payments.',remediation:['Add the creditor\'s full legal name to the Cdtr/Nm field.','Add beneficiary postal address (at minimum: town, country).','Verify requirements for the destination jurisdiction.'],retry:'conditional',resolution:'Immediate after information added'},RR04:{name:'RegulatoryReason',cat:'compliance',explanation:'The transaction has been rejected due to a regulatory requirement — this may include sanctions screening, AML flags, tax authority holds, or capital controls.',remediation:['Do not retry without full compliance investigation.','Screen all parties against current sanctions lists.','Engage your compliance and legal teams immediately.','File required regulatory reports if applicable.'],retry:false,resolution:'Requires compliance sign-off — timeline varies'},SL01:{name:'DueToSpecificServiceOfferedByDebtorAgent',cat:'account',explanation:'The return is due to a specific service offered by the debtor\'s bank (e.g., name-matching service rejection, specific account product restriction).',remediation:['Contact the debtor\'s bank to understand the specific service restriction.','Verify beneficiary name matches account holder name (CoP/Confirmation of Payee).','If name mismatch, confirm details with the beneficiary and resubmit.'],retry:'conditional',resolution:'1–3 business days after investigation'},TM01:{name:'InvalidCutOffTime',cat:'system',explanation:'The payment instruction was received after the cut-off time for the relevant processing window or value date.',remediation:['Resubmit the instruction in the next available processing window.','Update the requested execution date to the next valid business day.','Review cut-off times for your bank and the relevant scheme (typically 15:00–17:00 CET for SEPA).'],retry:true,resolution:'Next business day — resubmit in early morning window'}},SEPA:{AC01:{name:'InvalidAccountNumber',cat:'account',explanation:'SEPA: The IBAN provided is structurally invalid. SEPA mandates full IBAN for all SCT/SDD instructions.',remediation:['Validate the IBAN using the ISO 13616 check-digit algorithm.','Confirm the IBAN belongs to a SEPA-reachable bank.','Obtain the corrected IBAN from the beneficiary.','Resubmit via SCT with the valid IBAN.'],retry:'conditional',resolution:'Immediate after IBAN correction'},AC04:{name:'ClosedAccountNumber',cat:'account',explanation:'SEPA: The IBAN belongs to a closed account. The creditor account no longer exists at the receiving PSP.',remediation:['Contact the beneficiary to obtain their current active IBAN.','Do not retry to this IBAN.','Update records and resubmit.'],retry:false,resolution:'Only after new IBAN obtained'},AC06:{name:'BlockedAccount',cat:'account',explanation:'SEPA: The creditor account is blocked, potentially due to an AML/CTF hold, court order, or PSP restriction.',remediation:['Contact the beneficiary regarding the account block.','Do not attempt to bypass regulatory holds.','Retry only after confirmed unblocking.'],retry:'conditional',resolution:'3–10 business days'},AG01:{name:'TransactionForbidden',cat:'compliance',explanation:'SEPA: The transaction type is not permitted for this account under SEPA scheme rules or national regulation.',remediation:['Check compliance with SEPA Rulebook transaction type requirements.','Screen parties against EU Consolidated Sanctions List.','Consult compliance before any retry.'],retry:false,resolution:'Compliance investigation required'},AG02:{name:'InvalidBankOperationCode',cat:'format',explanation:'SEPA: The bank operation code in the SCT/SDD instruction is not valid for the receiving PSP.',remediation:['Review BankOperationCode in the pain.001/pain.008 file.','Resubmit with corrected operation code per SEPA Rulebook.'],retry:'conditional',resolution:'1 business day'},AM01:{name:'ZeroAmount',cat:'format',explanation:'SEPA: Zero-value SCT instructions are not permitted under SEPA Core Rulebook rules.',remediation:['Correct the instruction amount in the pain.001 file.','Resubmit with a valid non-zero amount.'],retry:'conditional',resolution:'Immediate'},AM02:{name:'NotAllowedAmount',cat:'funds',explanation:'SEPA: The transaction amount exceeds account or scheme limits. SEPA SDD Core maximum is EUR 999,999,999.99.',remediation:['Verify applicable transaction limits.','Split or restructure the payment if permitted.'],retry:'conditional',resolution:'1 business day'},AM04:{name:'InsufficientFunds',cat:'funds',explanation:'SEPA SDD: Insufficient funds in the debtor account at collection time.',remediation:['Notify the debtor to fund their account.','Retry collection after 2–5 business days.','Consider a represented SDD if permitted by mandate.'],retry:true,resolution:'Retry after account funded — 1–2 business days'},AM05:{name:'Duplication',cat:'duplicate',explanation:'SEPA: Duplicate SCT or SDD detected. The end-to-end ID matches a previously processed instruction.',remediation:['Confirm the original transaction status.','Generate a new unique end-to-end ID if resubmission is required.'],retry:false,resolution:'New end-to-end ID required'},AM09:{name:'WrongAmount',cat:'format',explanation:'SEPA SDD: Collected amount does not match the authorised mandate amount.',remediation:['Correct the amount to match the mandate.','Obtain updated mandate authorisation if amount has changed.'],retry:'conditional',resolution:'1–2 business days'},BE01:{name:'InconsistentWithRegisteredAddress',cat:'compliance',explanation:'SEPA: Debtor address inconsistent with registration — may trigger PSP KYC flag.',remediation:['Update debtor address in your records.','Resubmit after address correction.'],retry:'conditional',resolution:'2–5 business days'},BE04:{name:'MissingCreditorAddress',cat:'format',explanation:'SEPA: Creditor address missing from pain message. Required for some SEPA corridors.',remediation:['Add creditor postal address to the pain.001 instruction.','Minimum: TwnNm + Ctry fields.'],retry:'conditional',resolution:'Immediate'},DT01:{name:'InvalidDate',cat:'format',explanation:'SEPA: Requested execution date is invalid — past date, non-TARGET2 business day, or outside scheme window.',remediation:['Advance the ReqdExctnDt to the next valid TARGET2 business day.','Check the EPC SEPA scheme calendar for processing days.'],retry:'conditional',resolution:'Immediate'},FF01:{name:'InvalidFileFormat',cat:'format',explanation:'SEPA: The pain.001/pain.008 file fails XSD schema validation against the EPC specification.',remediation:['Validate the XML against the applicable EPC pain schema.','Fix structural errors and regenerate the file.'],retry:'conditional',resolution:'Immediate'},MD01:{name:'NoMandate',cat:'mandate',explanation:'SEPA SDD: No valid mandate exists. The mandate reference cannot be found or has been cancelled.',remediation:['Check your mandate database for the MndtId.','Obtain a new SEPA mandate if the original was cancelled.','Do not retry without a valid mandate.'],retry:false,resolution:'New mandate required'},MD02:{name:'MissingMandatoryInformationInMandate',cat:'mandate',explanation:'SEPA SDD: Mandatory mandate fields missing — commonly Creditor Scheme ID, Debtor BIC, or mandate date.',remediation:['Review EPC SDD Scheme Rulebook mandatory mandate fields.','Obtain a corrected complete mandate from the debtor.'],retry:false,resolution:'Complete mandate required'},MS02:{name:'NotSpecifiedReasonCustomerGenerated',cat:'auth',explanation:'SEPA: Debtor bank returns at debtor\'s request without specifying a reason. Right to refund (Art. 76 PSD2) for unauthorised transactions.',remediation:['Contact the debtor to understand the reason.','If disputed, initiate scheme dispute resolution within 8 weeks.'],retry:false,resolution:'Debtor engagement required'},RC01:{name:'BankIdentifierIncorrect',cat:'account',explanation:'SEPA: The BIC in the instruction does not match the receiving PSP or is not SEPA-reachable.',remediation:['Verify BIC against EPC SEPA-reachable BIC list.','Correct the BIC and resubmit.'],retry:'conditional',resolution:'Immediate'},RR01:{name:'MissingDebtorAccountOrIdentification',cat:'format',explanation:'SEPA: Debtor IBAN missing from the SDD instruction.',remediation:['Add the debtor IBAN to DbtrAcct/Id/IBAN.','Resubmit with complete debtor account.'],retry:'conditional',resolution:'Immediate'},RR03:{name:'MissingCreditorNameOrAddress',cat:'format',explanation:'SEPA: Creditor name or address absent from the SCT instruction. Required under FATF R.16 / Wire Transfer Regulation.',remediation:['Add creditor name and address to Cdtr block.','Resubmit with complete creditor details.'],retry:'conditional',resolution:'Immediate'},RR04:{name:'RegulatoryReason',cat:'compliance',explanation:'SEPA: Regulatory block — sanctions, AML, or national competent authority instruction.',remediation:['Immediate compliance investigation required.','Do not retry without clearance.','File applicable regulatory reports.'],retry:false,resolution:'Compliance sign-off required'}},NACHA_ACH:{R01:{name:'InsufficientFunds',cat:'funds',explanation:'The available balance in the RDFI account is insufficient to cover the debit entry at the time of posting.',remediation:['Notify the originator/customer of the NSF return.','Wait for the customer to fund their account.','Standard WEB/PPD/CCD entries may be re-presented per NACHA rules.','Presented check entries (RCK) may be re-presented up to 2 times.'],retry:true,resolution:'Re-present after 2–10 business days'},R02:{name:'AccountClosed',cat:'account',explanation:'The account has been closed by the account holder or the RDFI. No further entries should be posted.',remediation:['Obtain new banking information from the customer immediately.','Remove the account from recurring payment schedules.','Do not re-present to this account.'],retry:false,resolution:'New account information required'},R03:{name:'NoAccountOnFile',cat:'account',explanation:'The account number does not correspond to any account at the RDFI. The number structure may be correct but no matching account exists.',remediation:['Verify account number with the customer.','Check for transposition errors in routing and account number.','Obtain corrected banking details and re-initiate.'],retry:false,resolution:'New account information required'},R04:{name:'InvalidAccountNumber',cat:'account',explanation:'The account number structure is invalid — typically wrong length or contains non-numeric characters for the RDFI.',remediation:['Verify the account number format (typically 9–17 digits for US ACH).','Correct the account number in your records.','Re-initiate with the corrected account number.'],retry:'conditional',resolution:'Immediate after correction'},R05:{name:'UnauthorizedDebitToConsumer',cat:'auth',explanation:'A CCD or CTX debit was posted to a consumer (personal) account without proper authorisation. Consumer accounts require PPD or WEB authorisation.',remediation:['Verify the account type — consumer vs. business.','Obtain proper PPD/WEB authorisation for consumer accounts.','Never originate CCD to a personal account without explicit agreement.','Review your customer database for account type mismatch.'],retry:false,resolution:'Proper authorisation required before retry'},R06:{name:'ReturnedByODFI',cat:'system',explanation:'The ODFI has requested the return of the entry — typically due to an error made by the ODFI in the origination of the entry.',remediation:['Investigate the ODFI-originated error.','Correct the entry at the ODFI level.','Re-originate with corrected information.'],retry:'conditional',resolution:'1–2 business days after ODFI correction'},R07:{name:'AuthorizationRevokedByCustomer',cat:'auth',explanation:'The customer has revoked the authorisation previously given to the originator. Future entries to this account are no longer permitted.',remediation:['Stop all future entries to this customer account immediately.','Update CRM/payment system to flag the revoked authorisation.','Contact the customer if the revocation is disputed.'],retry:false,resolution:'Do not re-present — authorisation revoked'},R08:{name:'PaymentStopped',cat:'auth',explanation:'A stop payment order has been placed on the specific entry or the account by the account holder.',remediation:['Contact the account holder to understand the stop payment reason.','Do not re-originate while stop is in force.','If stop was placed in error, obtain customer confirmation to re-present.'],retry:false,resolution:'Requires customer approval to re-present'},R09:{name:'UncollectedFunds',cat:'funds',explanation:'A sufficient ledger balance exists but the funds are not yet collected/available (e.g., recently deposited cheques still on hold).',remediation:['Wait for the hold period on deposited funds to expire (typically 1–5 business days).','Re-present the entry after hold release.','Advise the customer to notify you when funds are available.'],retry:true,resolution:'Re-present after 2–5 business days'},R10:{name:'CustomerAdvisesNotAuthorized',cat:'auth',explanation:'The customer has advised the RDFI that the originator did not obtain proper authorisation, or the entry was generated with incorrect account information.',remediation:['Investigate the authorisation documentation for this customer.','Do not re-present without fresh valid authorisation.','Retain all authorisation records — may be subject to NACHA audit.'],retry:false,resolution:'Fresh authorisation required'},R11:{name:'CheckTruncationEntryReturn',cat:'format',explanation:'The check/item has already been processed through the check collection system and the ACH entry is a duplicate.',remediation:['Verify the entry was not also processed as a paper item.','Reconcile with your cheque clearing records.','Do not re-present via ACH.'],retry:false,resolution:'Do not re-present — duplicate item'},R16:{name:'AccountFrozen',cat:'account',explanation:'Access to the account is temporarily blocked — typically due to regulatory action, legal hold, or death of the account holder.',remediation:['Contact the RDFI for the reason for the freeze.','Do not re-present while the freeze is in effect.','Engage legal/compliance if the freeze is regulatory.'],retry:'conditional',resolution:'3–10 business days — RDFI investigation required'},R20:{name:'NonTransactionAccount',cat:'account',explanation:'The account does not permit ACH transactions — typically a savings account that has exceeded Regulation D monthly transfer limits, or a restricted account type.',remediation:['Contact the customer to use a qualifying transaction account (DDA).','Obtain updated account details (checking/current account).','Re-initiate with the new account information.'],retry:false,resolution:'New transaction account required'},R21:{name:'InvalidIndividualIDNumber',cat:'format',explanation:'The Individual ID Number field in the entry detail record is invalid.',remediation:['Verify the Individual ID Number field content.','Correct any formatting or structural errors.','Resubmit with the valid ID number.'],retry:'conditional',resolution:'Immediate after correction'},R22:{name:'InvalidIndividualName',cat:'format',explanation:'The Individual Name field in the entry detail record is invalid or does not match account records.',remediation:['Verify the account holder name in your records.','Correct the Individual Name field to match exactly.','Resubmit with the corrected name.'],retry:'conditional',resolution:'Immediate after correction'},R23:{name:'CreditRefusedByRDFI',cat:'auth',explanation:'The receiving bank has refused the credit entry at the customer\'s request or per the bank\'s terms.',remediation:['Contact the beneficiary to understand why they refused the credit.','Do not re-present without beneficiary consent.','Verify the beneficiary\'s bank account can receive ACH credits.'],retry:false,resolution:'Beneficiary consent required'},R29:{name:'CorporateCustomerAdvisesNotAuthorized',cat:'auth',explanation:'A corporate account holder has advised that the debit was not authorised. Relevant for CCD and CTX entry classes.',remediation:['Review the corporate authorisation agreement and ACH debit authorisation arrangements.','Do not re-present without fresh corporate authorisation.','Engage legal if the corporate authorisation is disputed.'],retry:false,resolution:'Fresh corporate authorisation required'}},Visa:{'05':{name:'DoNotHonor',cat:'auth',explanation:'The card-issuing bank has declined the transaction without specifying a reason. This is the most generic Visa decline code and can indicate suspected fraud, risk scoring, or issuer policy.',remediation:['Advise the cardholder to contact their card issuer for the specific reason.','Do not retry the same transaction multiple times (risk of hard decline escalation).','Suggest the cardholder use an alternative payment method.'],retry:false,resolution:'Cardholder must contact issuer'},'14':{name:'InvalidCardNumber',cat:'format',explanation:'The card number provided does not pass Luhn check or is not recognised by the issuer.',remediation:['Verify the full 16-digit card number with the cardholder.','Check for data entry errors — transposed digits, missing digits.','Prompt the cardholder to re-enter their card number carefully.'],retry:'conditional',resolution:'Immediate after card number corrected'},'51':{name:'InsufficientFunds',cat:'funds',explanation:'The cardholder\'s account does not have sufficient available credit or funds to cover the transaction.',remediation:['Advise the cardholder to check their available balance or credit limit.','Suggest a smaller transaction amount.','Cardholder should contact their issuer if they believe there is an error.'],retry:'conditional',resolution:'After cardholder resolves funding'},'54':{name:'ExpiredCard',cat:'auth',explanation:'The card expiry date has passed. The card is no longer valid.',remediation:['Request the cardholder\'s updated card details (new card issued by their bank).','Update stored payment credentials with the new expiry date.','Prompt the cardholder to re-enter their current card details.'],retry:'conditional',resolution:'Immediate with updated card details'},'57':{name:'TransactionNotPermittedToCardholder',cat:'auth',explanation:'The transaction type is not allowed for this card or account. Possible reasons: card product restrictions, spending controls set by the cardholder, or MCC block by the issuer.',remediation:['Advise the cardholder to contact their issuer to check account restrictions.','Verify the MCC (Merchant Category Code) is appropriate for the transaction.'],retry:false,resolution:'Cardholder must resolve with issuer'},'61':{name:'ExceedsWithdrawalAmountLimit',cat:'funds',explanation:'The transaction amount exceeds the daily withdrawal or transaction limit set on the card.',remediation:['Suggest a smaller transaction amount within the daily limit.','Advise the cardholder to contact their issuer to request a temporary limit increase.'],retry:'conditional',resolution:'After limit reset or increase'},'62':{name:'RestrictedCard',cat:'auth',explanation:'The card has been placed on a restricted list. This may be due to reported loss/theft, account suspension, or a block placed by the issuer.',remediation:['Advise the cardholder to contact their issuer immediately.','Do not retry.','If the card is physically present, do not return it — follow your card-capture procedures.'],retry:false,resolution:'Cardholder must contact issuer immediately'},'65':{name:'ExceedsWithdrawalFrequencyLimit',cat:'funds',explanation:'The number of transactions in the current period exceeds the frequency limit set on the card account.',remediation:['Advise the cardholder their daily transaction count limit has been reached.','Suggest retrying after the limit reset (typically midnight local time).'],retry:true,resolution:'After daily frequency limit resets'},'78':{name:'NoAccountOnFile',cat:'account',explanation:'The card number is valid but there is no account associated with it at the issuer.',remediation:['Verify the card number is correct.','Advise the cardholder to contact their issuer.','Request fresh card details from the cardholder.'],retry:'conditional',resolution:'Correct card details required'},'91':{name:'IssuerUnavailable',cat:'system',explanation:'The card issuer\'s authorisation system is unavailable or timed out. This is a technical/systemic issue on the issuer side.',remediation:['Retry the transaction after a short delay (5–15 minutes).','If the issuer is experiencing extended outages, advise the cardholder to use an alternative payment method.'],retry:true,resolution:'Retry in 5–15 minutes'},'96':{name:'SystemError',cat:'system',explanation:'A technical error occurred in the Visa network or at the issuer during transaction processing.',remediation:['Retry the transaction once.','If the error persists, contact your acquiring bank.','Advise the cardholder to try again or use an alternative payment method.'],retry:true,resolution:'Retry once — if persistent, contact acquirer'}},Mastercard:{'03':{name:'InvalidMerchant',cat:'compliance',explanation:'The merchant\'s MCC or merchant ID is not valid or not permitted by the issuer\'s terms for this card type.',remediation:['Verify your merchant ID and MCC with your acquiring bank.','Ensure the MCC correctly reflects your business category.','Contact your acquirer if the merchant ID is incorrectly configured.'],retry:false,resolution:'Acquirer configuration review required'},'04':{name:'PickupCard',cat:'auth',explanation:'The issuer instructs the merchant to retain the card. This typically indicates a reported lost or stolen card or fraudulent card.',remediation:['If card is physically present: do NOT return the card — follow your card-capture procedures.','Do not complete the transaction.','Contact your acquirer\'s pickup card hotline.'],retry:false,resolution:'Card capture required — contact acquirer'},'05':{name:'DoNotHonor',cat:'auth',explanation:'Generic decline from the issuer — no specific reason disclosed. May be due to risk scoring, fraud detection, account status, or issuer policy.',remediation:['Advise the cardholder to contact their issuer.','Do not retry repeatedly — escalation risk.','Suggest an alternative payment method.'],retry:false,resolution:'Cardholder must contact issuer'},'12':{name:'InvalidTransaction',cat:'format',explanation:'The transaction type, format, or data is not valid for the card or account.',remediation:['Verify the transaction type code is correct for the card scheme.','Check that the card type supports the transaction.','Review POS/gateway configuration for Mastercard transaction type mapping.'],retry:'conditional',resolution:'Gateway/POS configuration review'},'14':{name:'InvalidCardNumber',cat:'format',explanation:'The card number fails Luhn algorithm validation or is not recognised by the Mastercard network.',remediation:['Verify the 16-digit card number with the cardholder.','Check for input errors — re-enter the card number.','For stored credentials, request a new card number from the cardholder.'],retry:'conditional',resolution:'Immediate with corrected card number'},'30':{name:'FormatError',cat:'format',explanation:'A field in the authorisation request message is incorrectly formatted — wrong length, invalid characters, or field type mismatch.',remediation:['Review the authorisation request message format against the Mastercard Authorization System Manual.','Fix the formatting error in your gateway and resubmit.'],retry:'conditional',resolution:'Immediate after format correction'},'41':{name:'LostCard',cat:'auth',explanation:'The card has been reported lost by the cardholder.',remediation:['Do not complete the transaction.','If card is physically present, capture it if safe to do so and contact your acquirer.','Flag the transaction for fraud review.'],retry:false,resolution:'Card capture/no transaction — contact acquirer'},'43':{name:'StolenCard',cat:'auth',explanation:'The card has been reported stolen. The issuer is instructing the merchant to retain the card.',remediation:['Do not complete the transaction.','If card is physically present, capture it per your card-capture procedure.','Flag immediately for fraud team review.'],retry:false,resolution:'Card capture required — contact security team'},'51':{name:'InsufficientFunds',cat:'funds',explanation:'Insufficient available balance or credit limit on the cardholder account.',remediation:['Advise the cardholder to check their balance.','Suggest a lower transaction amount or alternative payment method.'],retry:'conditional',resolution:'After cardholder resolves funding'},'54':{name:'ExpiredCard',cat:'auth',explanation:'The card expiry date has passed.',remediation:['Request updated card details from the cardholder.','Update stored credentials with the current expiry date.','Resubmit with updated card information.'],retry:'conditional',resolution:'Immediate with updated expiry date'},'57':{name:'TransactionNotPermitted',cat:'auth',explanation:'The transaction type is not permitted for this card or account — may be related to card product restrictions, spending controls, or MCC block.',remediation:['Advise the cardholder to contact their issuer.','Verify your MCC is appropriate.','Suggest the cardholder review their card spending controls.'],retry:false,resolution:'Cardholder/issuer resolution required'},'61':{name:'ExceedsLimit',cat:'funds',explanation:'Transaction amount exceeds the daily or period limit configured on the card account.',remediation:['Suggest a lower amount or split across days.','Advise the cardholder to request a limit increase from their issuer.'],retry:'conditional',resolution:'After limit reset or increase'},'65':{name:'ExceedsFrequency',cat:'funds',explanation:'The number of transactions in the current period exceeds the permitted frequency limit.',remediation:['Retry after the daily frequency limit resets (typically midnight).','Advise the cardholder to contact their issuer for a limit increase.'],retry:true,resolution:'After frequency limit resets'}},Faster_Payments:{AC01:{name:'InvalidAccountNumber',cat:'account',explanation:'Faster Payments (UK): The sort code and account number combination is not valid or does not exist at the receiving bank. Use Confirmation of Payee (CoP) before submission.',remediation:['Verify sort code (6 digits) and account number (8 digits) with the payee.','Use Confirmation of Payee (CoP) to validate name/account match (PSR PS20/3).','Check the sort code is in the sort code directory and active for Faster Payments.','Resubmit with corrected account details.'],retry:'conditional',resolution:'Immediate after details corrected'},AC04:{name:'AccountClosed',cat:'account',explanation:'Faster Payments (UK): The account at the receiving bank has been closed.',remediation:['Obtain new account details from the payee.','Do not retry to the same account.'],retry:false,resolution:'New account details required'},AC06:{name:'BlockedAccount',cat:'account',explanation:'Faster Payments (UK): The receiving account is blocked — may be due to a fraud hold or bank restriction.',remediation:['Contact the payee to investigate the account block.','Retry after confirmed unblocking.'],retry:'conditional',resolution:'3–10 business days'},AG01:{name:'TransactionForbidden',cat:'compliance',explanation:'Faster Payments (UK): The transaction is forbidden — possible sanctions match or regulatory block.',remediation:['Full compliance investigation required.','Screen all parties against HM Treasury Consolidated List.','Do not retry without compliance clearance.'],retry:false,resolution:'Compliance investigation required'},AM04:{name:'InsufficientFunds',cat:'funds',explanation:'Faster Payments (UK): Insufficient funds in the sending account.',remediation:['Fund the account and retry.','Faster Payments operate 24/7 — retry as soon as funds are available.'],retry:true,resolution:'Immediate after funding'},FF01:{name:'InvalidFileFormat',cat:'format',explanation:'Faster Payments (UK): The payment message does not conform to the Pay.UK ISO 20022 message schema.',remediation:['Validate the message structure against the Pay.UK ISO 20022 specification.','Fix formatting errors and resubmit.'],retry:'conditional',resolution:'Immediate after format fix'},RR01:{name:'MissingDebtorAccountOrIdentification',cat:'format',explanation:'Faster Payments (UK): Payer account details are missing from the instruction.',remediation:['Add the originating sort code and account number to the payment instruction.','Resubmit with complete payer details.'],retry:'conditional',resolution:'Immediate'},TM01:{name:'InvalidCutOffTime',cat:'system',explanation:'Faster Payments (UK): Faster Payments processes 24/7/365. This indicates a batch processing window issue at your PSP.',remediation:['Resubmit immediately — Faster Payments is available round the clock.','Contact your PSP if the error persists outside maintenance windows.'],retry:true,resolution:'Immediate retry'}},FedNow:{AC01:{name:'InvalidAccountNumber',cat:'account',explanation:'FedNow: The account number provided is not valid at the receiving depository institution. FedNow uses ISO 20022 pacs messages.',remediation:['Verify the RTN (routing transit number) and account number with the payee.','Confirm the receiving bank is a FedNow participant (Fed FedNow directory).','Resubmit with corrected account details.'],retry:'conditional',resolution:'Immediate after correction'},AC04:{name:'ClosedAccountNumber',cat:'account',explanation:'FedNow: The account at the RDFI has been closed.',remediation:['Obtain current active account details from the payee.','Do not retry.'],retry:false,resolution:'New account details required'},AM04:{name:'InsufficientFunds',cat:'funds',explanation:'FedNow: Insufficient funds at the originating institution for real-time settlement.',remediation:['Check the originating bank\'s Fed account balance.','FedNow settles in real-time — fund the account and retry.'],retry:true,resolution:'Immediate after funding'},RC01:{name:'BankIdentifierIncorrect',cat:'account',explanation:'FedNow: The routing transit number (RTN) in the pacs message does not match a FedNow participant.',remediation:['Verify the 9-digit ABA RTN against the FedNow participant directory.','Correct the RTN and resubmit.'],retry:'conditional',resolution:'Immediate after RTN correction'},TM01:{name:'InvalidCutOffTime',cat:'system',explanation:'FedNow: FedNow operates 24/7/365 for participant institutions. This is rare and indicates a participant maintenance issue.',remediation:['Retry immediately.','Check FedNow service status at frbservices.org if persistent.'],retry:true,resolution:'Immediate retry'},FF01:{name:'InvalidFileFormat',cat:'format',explanation:'FedNow: The pacs.008 or pacs.004 message fails ISO 20022 schema validation.',remediation:['Validate the pacs message against the FedNow ISO 20022 specification.','Fix the format error and resubmit.'],retry:'conditional',resolution:'Immediate after fix'},AG01:{name:'TransactionForbidden',cat:'compliance',explanation:'FedNow: Transaction type is not permitted — OFAC/sanctions match or regulatory restriction.',remediation:['Full OFAC compliance investigation required.','Do not retry without clearance.','File required FinCEN reports if applicable.'],retry:false,resolution:'Compliance investigation required'}},RTP:{AC01:{name:'InvalidAccountNumber',cat:'account',explanation:'RTP (TCH): The account number is invalid at the receiving bank. RTP uses ISO 20022 pacs.008 messages over the TCH network.',remediation:['Verify RTN and account number with the payee.','Confirm the receiving bank is an RTP participant (TCH RTP directory).','Resubmit with corrected details.'],retry:'conditional',resolution:'Immediate after correction'},AC04:{name:'ClosedAccountNumber',cat:'account',explanation:'RTP (TCH): The beneficiary account is closed.',remediation:['Obtain new account details from the beneficiary.','Do not retry.'],retry:false,resolution:'New account details required'},AM04:{name:'InsufficientFunds',cat:'funds',explanation:'RTP (TCH): Insufficient funds at the sending institution. RTP settles immediately; the sending bank must have sufficient liquidity in their TCH prefunded balance.',remediation:['Sending bank should prefund their TCH settlement account.','Retry after funding confirmed.'],retry:true,resolution:'Immediate after funding'},RC01:{name:'BankIdentifierIncorrect',cat:'account',explanation:'RTP (TCH): The receiving bank\'s ABA routing number is not an active RTP participant.',remediation:['Check the TCH RTP participant directory for the receiving bank.','Correct the routing number and resubmit.','If the bank is not an RTP participant, use ACH or another rail.'],retry:'conditional',resolution:'Immediate after RTN correction or rail switch'},FF01:{name:'InvalidFileFormat',cat:'format',explanation:'RTP (TCH): The pacs.008 message fails schema validation against the TCH ISO 20022 specification.',remediation:['Validate against TCH RTP ISO 20022 message specs.','Correct the format error and resubmit.'],retry:'conditional',resolution:'Immediate after fix'},AG01:{name:'TransactionForbidden',cat:'compliance',explanation:'RTP (TCH): Transaction is forbidden — OFAC sanctions match or regulatory block.',remediation:['Compliance investigation required.','Do not retry without clearance.'],retry:false,resolution:'Compliance clearance required'},TM01:{name:'InvalidCutOffTime',cat:'system',explanation:'RTP (TCH): RTP operates 24/7/365. Rare — indicates a participant maintenance window.',remediation:['Retry immediately.','Check TCH system status if error persists.'],retry:true,resolution:'Immediate retry'}}};
+
+const CAT_CLASS={account:'cat-account',funds:'cat-funds',auth:'cat-auth',format:'cat-format',mandate:'cat-mandate',system:'cat-system',compliance:'cat-compliance',duplicate:'cat-duplicate'};
+const CAT_LABEL={account:'Account / Routing',funds:'Funds / Limits',auth:'Authorisation',format:'Format / Validation',mandate:'Mandate',system:'System / Network',compliance:'Compliance / Regulatory',duplicate:'Duplicate'};
+const RETRY_LABEL={true:'Yes — eligible for retry',false:'No — do not re-present',conditional:'Conditional — see remediation'};
+const RETRY_CLASS={true:'retry-yes',false:'retry-no',conditional:'retry-conditional'};
+
+const TRANSLATIONS={
+  en:{eyebrow:'Cat-27 · Payment Reference Library · T403',h1_part1:'Payment Error Code',h1_part2:'Resolver',hero_desc:'Select a payment rail and enter a decline, rejection, or error code to instantly retrieve the root cause category, full explanation, step-by-step remediation, retry eligibility, and typical resolution time.',rail_label:'Payment Rail',code_label:'Error / Decline Code',code_hint:'Enter code exactly as received — e.g. AC01, R01, 05',resolve_btn:'Resolve Code',clear_btn:'Clear',ref_toggle:'Show Full Code Reference',not_found_msg:'Code not found in the embedded lookup table for this rail. Verify the exact code as received from your payment processor or bank.'},
+  es:{eyebrow:'Cat-27 · Biblioteca de Referencia de Pagos · T403',h1_part1:'Código de Error de Pago',h1_part2:'Resolvedor',hero_desc:'Seleccione el rail de pago e introduzca el código de rechazo o error para obtener la causa raíz, pasos de remediación, elegibilidad de reintento y tiempo de resolución.',rail_label:'Rail de Pago',code_label:'Código de Error / Rechazo',code_hint:'Introduzca el código exactamente como se recibió — p.ej. AC01, R01, 05',resolve_btn:'Resolver Código',clear_btn:'Limpiar',ref_toggle:'Mostrar Referencia Completa de Códigos',not_found_msg:'Código no encontrado en la tabla de búsqueda integrada para este rail.'},
+  fr:{eyebrow:'Cat-27 · Bibliothèque de Référence des Paiements · T403',h1_part1:'Code d\'Erreur de Paiement',h1_part2:'Résolveur',hero_desc:'Sélectionnez le rail de paiement et saisissez le code de refus ou d\'erreur pour obtenir la cause racine, les étapes de remédiation et l\'éligibilité à la relance.',rail_label:'Rail de Paiement',code_label:'Code d\'Erreur / Refus',code_hint:'Saisissez le code exactement tel que reçu — ex. AC01, R01, 05',resolve_btn:'Résoudre le Code',clear_btn:'Effacer',ref_toggle:'Afficher la Référence Complète des Codes',not_found_msg:'Code introuvable dans la table de recherche intégrée pour ce rail.'},
+  ar:{eyebrow:'القط-27 · مكتبة مرجع المدفوعات · T403',h1_part1:'رمز خطأ الدفع',h1_part2:'المحلل',hero_desc:'حدد مسار الدفع وأدخل رمز الرفض أو الخطأ للحصول على السبب الجذري وخطوات المعالجة وأهلية إعادة المحاولة.',rail_label:'مسار الدفع',code_label:'رمز الخطأ / الرفض',code_hint:'أدخل الرمز كما تم استلامه — مثال: AC01, R01, 05',resolve_btn:'حل الرمز',clear_btn:'مسح',ref_toggle:'عرض مرجع الرموز الكامل',not_found_msg:'الرمز غير موجود في جدول البحث المدمج لهذا المسار.'},
+  pt:{eyebrow:'Cat-27 · Biblioteca de Referência de Pagamentos · T403',h1_part1:'Código de Erro de Pagamento',h1_part2:'Resolvedor',hero_desc:'Seleccione o rail de pagamento e introduza o código de recusa ou erro para obter a causa raiz, passos de remediação e elegibilidade de reenvio.',rail_label:'Rail de Pagamento',code_label:'Código de Erro / Recusa',code_hint:'Introduza o código exactamente como recebido — ex. AC01, R01, 05',resolve_btn:'Resolver Código',clear_btn:'Limpar',ref_toggle:'Mostrar Referência Completa de Códigos',not_found_msg:'Código não encontrado na tabela de pesquisa integrada para este rail.'},
+  zh:{eyebrow:'Cat-27 · 支付参考库 · T403',h1_part1:'支付错误代码',h1_part2:'解析器',hero_desc:'选择支付通道并输入拒绝或错误代码，即可获取根本原因、补救步骤、重试资格和解决时间。',rail_label:'支付通道',code_label:'错误/拒绝代码',code_hint:'请按原样输入代码 — 例如 AC01、R01、05',resolve_btn:'解析代码',clear_btn:'清除',ref_toggle:'显示完整代码参考',not_found_msg:'在该通道的内置查询表中未找到该代码。'}
+};
+
+function setLang(lang){
+  const t=TRANSLATIONS[lang];if(!t)return;
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===lang));
+  document.documentElement.lang=lang;
+  document.documentElement.dir=(lang==='ar')?'rtl':'ltr';
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.dataset.i18n;if(t[k])el.textContent=t[k];});
+  try{sessionStorage.setItem('ain_lang',lang);}catch(e){}
+}
+
+function resolveCode(){
+  const rail=document.getElementById('railSelect').value.trim();
+  const code=document.getElementById('codeInput').value.trim().toUpperCase();
+  const panel=document.getElementById('resultPanel');
+  const lang=document.documentElement.lang||'en';
+  const t=TRANSLATIONS[lang]||TRANSLATIONS.en;
+  if(!rail||!code){
+    panel.innerHTML='<div class="not-found"><div class="nf-code">&#9888;</div><div class="nf-msg">Please select a payment rail and enter a code.</div></div>';
+    panel.className='result-panel show';return;
+  }
+  const railData=CODE_DB[rail];
+  if(!railData){panel.innerHTML=`<div class="not-found"><div class="nf-code">${esc(rail)}</div><div class="nf-msg">Rail not found.</div></div>`;panel.className='result-panel show';return;}
+  const entry=railData[code];
+  if(!entry){panel.innerHTML=`<div class="not-found"><div class="nf-code">${esc(rail)} &middot; ${esc(code)}</div><div class="nf-msg">${esc(t.not_found_msg)}</div></div>`;panel.className='result-panel show';return;}
+  const retryKey=String(entry.retry);
+  const retryLabel=RETRY_LABEL[retryKey]||retryKey;
+  const retryClass=RETRY_CLASS[retryKey]||'';
+  const catClass=CAT_CLASS[entry.cat]||'';
+  const catLabel=CAT_LABEL[entry.cat]||entry.cat;
+  const remedHtml=entry.remediation.map(r=>`<li class="remed-item">${esc(r)}</li>`).join('');
+  const railNames={SWIFT:'SWIFT (ISO 20022)',SEPA:'SEPA (ISO pain)',NACHA_ACH:'NACHA ACH',Visa:'Visa',Mastercard:'Mastercard',Faster_Payments:'Faster Payments (UK)',FedNow:'FedNow',RTP:'RTP (TCH)'};
+  panel.innerHTML=`<div class="result-card"><div class="rc-header"><div><div class="rc-code-badge">${esc(code)}</div><div class="rc-name">${esc(entry.name)}</div></div><span class="rc-rail-badge">${esc(railNames[rail]||rail)}</span></div><div class="rc-body"><div class="rc-row"><span class="rc-key">Root Cause Category</span><span class="rc-val"><span class="cat-pill ${catClass}">${esc(catLabel)}</span></span></div><div class="rc-row"><span class="rc-key">Explanation</span><span class="rc-val">${esc(entry.explanation)}</span></div><div class="rc-row"><span class="rc-key">Remediation Steps</span><span class="rc-val"><ul class="remed-list">${remedHtml}</ul></span></div><div class="rc-row"><span class="rc-key">Retry Eligible</span><span class="rc-val ${retryClass}">${esc(retryLabel)}</span></div><div class="rc-row"><span class="rc-key">Resolution Time</span><span class="rc-val">${esc(entry.resolution)}</span></div></div></div><div class="results-export-row"><button class="export-btn primary" onclick="exportMd('${esc(rail)}','${esc(code)}')">&#x2B07; Export Markdown</button><button class="export-btn" onclick="copyMd('${esc(rail)}','${esc(code)}')">Copy to Clipboard</button></div>`;
+  panel.className='result-panel show';
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function buildMd(rail,code){
+  const entry=(CODE_DB[rail]||{})[code];if(!entry)return'# Code not found';
+  const rk=String(entry.retry);
+  return`# Payment Error Code Resolution\n\n**Rail:** ${rail}  \n**Code:** ${code}  \n**Name:** ${entry.name}  \n\n## Root Cause Category\n${CAT_LABEL[entry.cat]||entry.cat}\n\n## Explanation\n${entry.explanation}\n\n## Remediation Steps\n${entry.remediation.map(r=>'- '+r).join('\n')}\n\n## Retry Eligible\n${RETRY_LABEL[rk]||rk}\n\n## Typical Resolution Time\n${entry.resolution}\n\n---\n*Generated by AINumbers.co Payment Error Code Resolver (T403) — Post Oak Labs · CC BY 4.0*`;
+}
+function exportMd(rail,code){
+  const blob=new Blob([buildMd(rail,code)],{type:'text/markdown;charset=utf-8'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');
+  a.href=url;a.download=`payment-error-${rail}-${code}.md`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+function copyMd(rail,code){navigator.clipboard.writeText(buildMd(rail,code)).catch(()=>{});}
+
+function toggleRef(btn){
+  const panel=document.getElementById('refPanel');
+  const isOpen=panel.classList.toggle('open');
+  btn.setAttribute('aria-expanded',String(isOpen));
+  const svg=btn.querySelector('svg');if(svg)svg.style.transform=isOpen?'rotate(180deg)':'';
+  const span=btn.querySelector('[data-i18n="ref_toggle"]');
+  if(span)span.textContent=isOpen?'Hide Code Reference':'Show Full Code Reference';
+  if(isOpen&&!panel.dataset.built)buildRefTable();
+}
+function buildRefTable(){
+  const panel=document.getElementById('refPanel');
+  const railOrder=['SWIFT','SEPA','NACHA_ACH','Visa','Mastercard','Faster_Payments','FedNow','RTP'];
+  const railNames={SWIFT:'SWIFT / ISO 20022 pain codes',SEPA:'SEPA (ISO pain codes)',NACHA_ACH:'NACHA ACH (R-codes)',Visa:'Visa decline codes',Mastercard:'Mastercard decline codes',Faster_Payments:'Faster Payments (UK)',FedNow:'FedNow (US, ISO 20022)',RTP:'RTP / TCH (US, ISO 20022)'};
+  let html='';
+  railOrder.forEach(rail=>{
+    const db=CODE_DB[rail];if(!db)return;
+    html+=`<div class="ref-rail-header">${railNames[rail]}</div>`;
+    html+='<table class="ref-table"><thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Retry</th></tr></thead><tbody>';
+    Object.keys(db).sort().forEach(code=>{
+      const e=db[code];
+      const cl=CAT_LABEL[e.cat]||e.cat;
+      const rk=String(e.retry);
+      const rs={true:'Yes',false:'No',conditional:'Conditional'}[rk]||rk;
+      html+=`<tr onclick="fillAndResolve('${rail}','${esc(code)}')" style="cursor:pointer" title="Click to resolve ${esc(code)}"><td class="clickable-code">${esc(code)}</td><td>${esc(e.name)}</td><td>${esc(cl)}</td><td>${rs}</td></tr>`;
+    });
+    html+='</tbody></table>';
+  });
+  panel.innerHTML=html;panel.dataset.built='1';
+}
+function fillAndResolve(rail,code){
+  document.getElementById('railSelect').value=rail;
+  document.getElementById('codeInput').value=code;
+  resolveCode();
+  document.getElementById('resultPanel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function clearAll(){
+  document.getElementById('railSelect').value='';
+  document.getElementById('codeInput').value='';
+  const p=document.getElementById('resultPanel');p.innerHTML='';p.className='result-panel';
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+document.getElementById('codeInput').addEventListener('keydown',e=>{if(e.key==='Enter')resolveCode();});
+(function(){try{const s=sessionStorage.getItem('ain_lang');if(s&&TRANSLATIONS[s])setLang(s);}catch(e){}})();
+</script>
+</body>
+</html>

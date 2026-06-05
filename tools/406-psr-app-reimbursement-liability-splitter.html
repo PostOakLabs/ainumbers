@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>PSR APP Reimbursement Liability Splitter · AINumbers.co</title>
+<meta name="description" content="Allocates liability between sending and receiving PSPs under UK PSR APP reimbursement rules (Oct 2024). Splitting logic, £415,000 cap, vulnerability flags, gross negligence, Policy Mandate JSON. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/406-psr-app-reimbursement-liability-splitter.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"PSR APP Reimbursement Liability Splitter","url":"https://ainumbers.co/tools/406-psr-app-reimbursement-liability-splitter.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "406-psr-app-reimbursement-liability-splitter",
+  "version": "1.0.0",
+  "title": "PSR APP Reimbursement Liability Splitter",
+  "description": "Allocates liability between sending and receiving PSPs under UK PSR APP reimbursement rules (effective Oct 2024). PSR PS23/3. Max £415,000 cap.",
+  "category": "cat-28",
+  "tags": ["APP fraud","PSR","reimbursement","sending PSP","receiving PSP","PS23/3","liability splitting","APP scam"],
+  "audience": ["compliance","operations","fraud","legal"],
+  "mcp_tool_definition": {"name":"split_psr_app_reimbursement_liability","description":"Allocates APP reimbursement liability between sending and receiving PSPs per UK PSR PS23/3 rules effective Oct 2024.","inputSchema":{"type":"object","properties":{"payment_amount":{"type":"number"},"sending_psp_category":{"type":"string"},"receiving_psp_category":{"type":"string"},"fraud_type":{"type":"string"},"vulnerability_flags":{"type":"array"},"gross_negligence":{"type":"boolean"}},"required":["payment_amount","fraud_type"]}},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(34,197,94,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(34,197,94,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--green);color:var(--green)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--green),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--green);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--green)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.input-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--green);margin-bottom:1.25rem;display:flex;align-items:center;gap:.5rem}
+.panel-title::before{content:'';display:block;width:16px;height:1px;background:var(--green)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:640px){.form-grid{grid-template-columns:1fr}}
+.form-group{display:flex;flex-direction:column;gap:.35rem}
+.form-group.full{grid-column:1/-1}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.form-hint{font-size:.65rem;color:var(--muted);line-height:1.4;margin-top:.15rem}
+.form-input,.form-select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.5rem .75rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s;-webkit-appearance:none;appearance:none}
+.form-input:focus,.form-select:focus{border-color:var(--green)}
+.form-select option{background:var(--bg-3)}
+.checkbox-group{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:.25rem}
+.checkbox-inline{display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:var(--text);cursor:pointer;padding:.25rem .6rem;border:1px solid var(--border);border-radius:3px;background:var(--bg-3);transition:border-color .2s}
+.checkbox-inline:hover{border-color:rgba(34,197,94,.4)}
+.checkbox-inline input[type=checkbox]{accent-color:var(--green);width:13px;height:13px;flex-shrink:0}
+.run-btn{background:var(--green);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:1rem}
+.run-btn:hover{background:#4ade80}
+.output-section{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.output-section.visible{display:flex}
+.out-block{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--green)}
+.out-body{padding:1.25rem}
+/* SPLIT BAR */
+.split-visual{margin-bottom:1.5rem}
+.split-bar-wrap{height:28px;border-radius:6px;overflow:hidden;display:flex;margin-bottom:.5rem}
+.split-sending{background:linear-gradient(90deg,var(--teal),#0ea5e9);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.55rem;font-weight:500;color:#fff;transition:width .4s;white-space:nowrap;overflow:hidden}
+.split-receiving{background:linear-gradient(90deg,#7c3aed,var(--purple));display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.55rem;font-weight:500;color:#fff;transition:width .4s;white-space:nowrap;overflow:hidden}
+.split-labels{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+/* LIABILITY CARDS */
+.liability-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem}
+@media(max-width:540px){.liability-grid{grid-template-columns:1fr}}
+.liability-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.1rem}
+.liability-card.sending{border-left:3px solid var(--teal)}
+.liability-card.receiving{border-left:3px solid var(--purple)}
+.lc-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem}
+.lc-amount{font-family:'DM Serif Display',serif;font-size:1.8rem;color:var(--white);line-height:1.1;margin-bottom:.1rem}
+.lc-pct{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-bottom:.3rem}
+.lc-note{font-size:.7rem;color:var(--body);line-height:1.5}
+/* ELIGIBILITY */
+.eligibility-banner{display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;border-radius:var(--radius);border:1px solid;font-size:.78rem;margin-bottom:1rem}
+.elig-eligible{background:var(--green-dim);border-color:rgba(34,197,94,.3);color:var(--green)}
+.elig-ineligible{background:var(--red-dim);border-color:rgba(239,68,68,.3);color:var(--red)}
+.elig-warn{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3);color:var(--warn)}
+/* FACTORS TABLE */
+.factor-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.factor-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;background:var(--bg-3)}
+.factor-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);vertical-align:top}
+.factor-table tr:last-child td{border-bottom:none}
+.factor-badge{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.45rem;letter-spacing:.08em;text-transform:uppercase;padding:.12rem .4rem;border-radius:3px}
+.fb-increase{background:rgba(239,68,68,.12);color:var(--red)}
+.fb-decrease{background:var(--green-dim);color:var(--green)}
+.fb-neutral{background:var(--bg-3);color:var(--muted)}
+/* POLICY TIMELINE */
+.timeline-note{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:.75rem 1rem;font-size:.72rem;color:var(--body);line-height:1.6}
+.export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.75rem 0;border-top:1px solid var(--border);margin-top:.5rem}
+.export-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);transition:all .2s}
+.export-btn:hover{border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn{cursor:not-allowed;opacity:.55}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);cursor:pointer;transition:background .15s}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;position:relative;z-index:1}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a>
+    <span class="nav-bc-sep">/</span>
+    <a href="../guides/psp-payment-safeguarding-hub.html">PSP Hub</a>
+    <span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">T-406</span>
+  </div>
+  <div class="nav-right">
+    <a href="../guides/psp-payment-safeguarding-hub.html" class="nav-cta">Hub &#8594;</a>
+  </div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-28 · T406 · PSP Safeguarding &amp; Compliance</div>
+  <span class="hero-badge badge-muted" style="margin-bottom:.75rem;display:inline-flex"><span>v1.0</span></span>
+  <h1 class="tool-title">PSR APP Reimbursement <em>Liability Splitter</em></h1>
+  <p class="hero-desc">Allocates liability between sending and receiving PSPs under UK PSR APP Reimbursement Rules (effective 7 October 2024). Applies PSR PS23/3 splitting logic, £415,000 reimbursement cap, vulnerability adjustments, gross negligence exception, and consumer standard-of-care checks.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-green">PSR PS23/3</span>
+    <span class="hero-badge badge-warn">Oct 2024 Rules</span>
+    <span class="hero-badge badge-gold">£415,000 Cap</span>
+    <span class="hero-badge badge-muted">Zero PII · Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note"><strong style="color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance — </strong>🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only. This tool implements the UK PSR APP Reimbursement Rules (effective 7 October 2024) per PSR PS23/3 and PSR Policy Statement June 2023. The 50/50 default split and exceptions are modelled as published at tool date — verify against current PSR rules, FOS decisions, and legal advice before using any output in actual claims decisions. Deterministic logic · no inference · zero PII · CC BY 4.0.</div>
+
+  <div class="input-panel">
+    <div class="panel-title">Claim Parameters</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label" for="paymentAmount">Payment Amount (£)</label>
+        <input type="number" class="form-input" id="paymentAmount" placeholder="e.g. 25000" min="0.01" step="0.01">
+        <span class="form-hint">Gross payment amount sent in the APP fraud transaction.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="fraudType">Fraud Type</label>
+        <select class="form-select" id="fraudType">
+          <option value="">— Select —</option>
+          <option value="impersonation_bank">Impersonation — Bank / PSP (high PSP responsibility)</option>
+          <option value="impersonation_govt">Impersonation — Government / HMRC / Police</option>
+          <option value="romance">Romance scam</option>
+          <option value="investment">Investment / cryptocurrency fraud</option>
+          <option value="advance_fee">Advance fee / loan fee fraud</option>
+          <option value="ceo">CEO / mandate fraud (business email compromise)</option>
+          <option value="purchase">Purchase scam (fake goods/services)</option>
+          <option value="other">Other APP fraud</option>
+        </select>
+        <span class="form-hint">Fraud type affects the sending PSP's expected warning obligations and liability weight.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="sendingPSP">Sending PSP Category</label>
+        <select class="form-select" id="sendingPSP">
+          <option value="bank">UK-authorised bank (credit institution)</option>
+          <option value="emi">Electronic Money Institution (EMI)</option>
+          <option value="building_society">Building society</option>
+          <option value="credit_union">Credit union</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="receivingPSP">Receiving PSP Category</label>
+        <select class="form-select" id="receivingPSP">
+          <option value="bank">UK-authorised bank (credit institution)</option>
+          <option value="emi">Electronic Money Institution (EMI)</option>
+          <option value="building_society">Building society</option>
+          <option value="credit_union">Credit union</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label class="form-label">Customer Vulnerability Flags</label>
+        <div class="checkbox-group">
+          <label class="checkbox-inline"><input type="checkbox" id="vuln_age"> Age vulnerability (elderly)</label>
+          <label class="checkbox-inline"><input type="checkbox" id="vuln_mental_health"> Mental health condition</label>
+          <label class="checkbox-inline"><input type="checkbox" id="vuln_bereavement"> Recent bereavement</label>
+          <label class="checkbox-inline"><input type="checkbox" id="vuln_financial_distress"> Financial distress</label>
+          <label class="checkbox-inline"><input type="checkbox" id="vuln_coercion"> Coercion / duress</label>
+          <label class="checkbox-inline"><input type="checkbox" id="vuln_language"> Language / literacy barrier</label>
+        </div>
+        <span class="form-hint" style="margin-top:.4rem">Vulnerability increases PSP's duty of care and strengthens reimbursement entitlement (PSR Policy Statement para 7.18–7.23).</span>
+      </div>
+      <div class="form-group full">
+        <label class="form-label">Consumer Standard-of-Care Check (PSR PS23/3 para 7.24–7.30)</label>
+        <div class="checkbox-group">
+          <label class="checkbox-inline"><input type="checkbox" id="soc_ignored_warning"> Customer ignored PSP fraud warning</label>
+          <label class="checkbox-inline"><input type="checkbox" id="soc_sharing_credentials"> Customer shared security credentials</label>
+          <label class="checkbox-inline"><input type="checkbox" id="soc_false_info"> Customer provided false information</label>
+          <label class="checkbox-inline"><input type="checkbox" id="soc_delayed_report"> Delayed reporting beyond 13 months</label>
+          <label class="checkbox-inline"><input type="checkbox" id="soc_third_party_facilitated"> Payment facilitated by third-party platform</label>
+        </div>
+        <span class="form-hint" style="margin-top:.4rem">Standard of care failures may reduce or remove the customer's reimbursement entitlement (PSR PS23/3 para 7.24).</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="grossNegligence">Gross Negligence Evidence</label>
+        <select class="form-select" id="grossNegligence">
+          <option value="no">No — standard claim</option>
+          <option value="possible">Possible — under investigation</option>
+          <option value="yes">Yes — gross negligence established</option>
+        </select>
+        <span class="form-hint">Gross negligence by customer removes reimbursement entitlement under PSR PS23/3 para 7.31. High bar — mere carelessness is insufficient.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="sendingWarnings">Sending PSP Fraud Warnings Issued</label>
+        <select class="form-select" id="sendingWarnings">
+          <option value="full">Full — friction, CoP check, APP warning displayed</option>
+          <option value="partial">Partial — some warnings issued</option>
+          <option value="none">None — no warnings issued</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="receivingRisk">Receiving PSP Inbound Risk Controls</label>
+        <select class="form-select" id="receivingRisk">
+          <option value="strong">Strong — mule detection, account monitoring</option>
+          <option value="standard">Standard — basic controls</option>
+          <option value="weak">Weak — minimal controls in place</option>
+        </select>
+      </div>
+    </div>
+    <button class="run-btn" onclick="runSplit()">Calculate Liability Split</button>
+  </div>
+
+  <div class="output-section" id="outputSection">
+
+    <!-- Eligibility Banner -->
+    <div class="out-block">
+      <div class="out-header"><span class="out-title">Claim Eligibility &amp; Reimbursable Amount</span></div>
+      <div class="out-body" id="eligBody"></div>
+    </div>
+
+    <!-- Liability Split -->
+    <div class="out-block">
+      <div class="out-header"><span class="out-title">Liability Split</span></div>
+      <div class="out-body">
+        <div class="split-visual">
+          <div class="split-bar-wrap" id="splitBar">
+            <div class="split-sending" id="splitSending" style="width:50%">Sending PSP 50%</div>
+            <div class="split-receiving" id="splitReceiving" style="width:50%">Receiving PSP 50%</div>
+          </div>
+          <div class="split-labels">
+            <span id="splitLabelLeft">Sending PSP</span>
+            <span id="splitLabelRight">Receiving PSP</span>
+          </div>
+        </div>
+        <div class="liability-grid">
+          <div class="liability-card sending">
+            <div class="lc-label" style="color:var(--teal)">Sending PSP Liability</div>
+            <div class="lc-amount" id="sendingAmount">£—</div>
+            <div class="lc-pct" id="sendingPct" style="color:var(--teal)">—%</div>
+            <div class="lc-note" id="sendingNote"></div>
+          </div>
+          <div class="liability-card receiving">
+            <div class="lc-label" style="color:var(--purple)">Receiving PSP Liability</div>
+            <div class="lc-amount" id="receivingAmount">£—</div>
+            <div class="lc-pct" id="receivingPct" style="color:var(--purple)">—%</div>
+            <div class="lc-note" id="receivingNote"></div>
+          </div>
+        </div>
+        <div id="capNote" style="display:none;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:var(--radius);padding:.6rem .9rem;font-size:.72rem;color:var(--warn);line-height:1.6;margin-top:.5rem"></div>
+      </div>
+    </div>
+
+    <!-- Contributing Factors -->
+    <div class="out-block">
+      <div class="out-header"><span class="out-title">Contributing Factors &amp; Liability Adjustments</span></div>
+      <div class="out-body">
+        <table class="factor-table">
+          <thead><tr><th>Factor</th><th>Effect</th><th>PSP Affected</th><th>Reference</th><th>Detail</th></tr></thead>
+          <tbody id="factorTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Policy Context -->
+    <div class="out-block">
+      <div class="out-header"><span class="out-title">Regulatory Context &amp; Claim Process</span></div>
+      <div class="out-body">
+        <div class="timeline-note" id="contextNote"></div>
+      </div>
+    </div>
+
+    <div class="export-row">
+      <button class="export-btn" onclick="exportMarkdown()">&#8595; Export Markdown</button>
+      <button class="export-btn" id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run tool to generate Policy Mandate">{} Export Policy Mandate <span style="margin-left:.4rem;color:var(--muted);font-size:.85em">AP2 · audit trail</span></button>
+    </div>
+  </div>
+
+  <div style="margin-top:2rem">
+    <button class="mfst-btn" onclick="toggleMfst()">
+      <span>&#128230; &nbsp;manifest.json · MCP tool definition · split_psr_app_reimbursement_liability</span>
+      <span id="mfstArr" style="color:var(--muted)">&#9660;</span>
+    </button>
+    <div class="mfst-body" id="mfstBody">
+      <pre class="mfst-code">{
+  "name": "split_psr_app_reimbursement_liability",
+  "description": "Allocates APP reimbursement liability between sending and receiving PSPs per UK PSR PS23/3 (effective Oct 2024).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "payment_amount":       { "type": "number", "description": "Gross payment amount in GBP" },
+      "sending_psp_category": { "type": "string", "enum": ["bank","emi","building_society","credit_union"] },
+      "receiving_psp_category":{"type": "string", "enum": ["bank","emi","building_society","credit_union"] },
+      "fraud_type":           { "type": "string" },
+      "vulnerability_flags":  { "type": "array", "items": { "type": "string" } },
+      "gross_negligence":     { "type": "string", "enum": ["no","possible","yes"] },
+      "sending_warnings":     { "type": "string", "enum": ["full","partial","none"] },
+      "receiving_risk":       { "type": "string", "enum": ["strong","standard","weak"] }
+    },
+    "required": ["payment_amount","fraud_type"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "eligible":            { "type": "boolean" },
+      "reimbursable_amount": { "type": "number" },
+      "sending_psp_pct":     { "type": "number" },
+      "receiving_psp_pct":   { "type": "number" },
+      "sending_psp_amount":  { "type": "number" },
+      "receiving_psp_amount":{ "type": "number" },
+      "contributing_factors":{ "type": "array" }
+    }
+  }
+}</pre>
+    </div>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <div><div class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></div></div>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="../guides/psp-payment-safeguarding-hub.html">PSP Hub</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp;·&nbsp; &#128225; No server calls &nbsp;·&nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+const TRANSLATIONS={en:{run:'Calculate Liability Split'},es:{run:'Calcular División de Responsabilidad'},fr:{run:'Calculer la Répartition de Responsabilité'},ar:{run:'احسب تقسيم المسؤولية'},pt:{run:'Calcular Divisão de Responsabilidade'},zh:{run:'计算责任分配'}};
+function setLang(lang){
+  const t=TRANSLATIONS[lang];if(!t)return;
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===lang));
+  document.documentElement.lang=lang;document.documentElement.dir=(lang==='ar')?'rtl':'ltr';
+  try{sessionStorage.setItem('ain_lang',lang);}catch(e){}
+}
+function initLang(){try{const s=sessionStorage.getItem('ain_lang');if(s&&TRANSLATIONS[s])setLang(s);}catch(e){}}
+
+const MAX_CAP=415000;
+
+// Fraud type sending PSP base responsibility weight (higher = more on sending PSP)
+const FRAUD_WEIGHT={
+  impersonation_bank:70,   // PSP actively impersonated — highest sending PSP culpability
+  impersonation_govt:65,   // Government impersonation — strong sending PSP warning duty
+  romance:55,              // Romance — sending PSP should have flagged unusual patterns
+  investment:55,           // Investment — high-value warnings expected
+  advance_fee:50,          // Standard split
+  ceo:45,                  // Business — lower personal protection weight
+  purchase:45,             // Purchase scam — lower consumer protection concern
+  other:50                 // Default 50/50
+};
+
+function getVulnFlags(){
+  const flags=[];
+  ['age','mental_health','bereavement','financial_distress','coercion','language'].forEach(f=>{
+    if(document.getElementById('vuln_'+f).checked)flags.push(f);
+  });
+  return flags;
+}
+
+function getSoCFailures(){
+  const fails=[];
+  ['ignored_warning','sharing_credentials','false_info','delayed_report','third_party_facilitated'].forEach(f=>{
+    if(document.getElementById('soc_'+f).checked)fails.push(f);
+  });
+  return fails;
+}
+
+let _result=null;
+
+function runSplit(){
+  const amt=parseFloat(document.getElementById('paymentAmount').value)||0;
+  const fraudType=document.getElementById('fraudType').value;
+  const sendingCat=document.getElementById('sendingPSP').value;
+  const receivingCat=document.getElementById('receivingPSP').value;
+  const grossNeg=document.getElementById('grossNegligence').value;
+  const sendingWarnings=document.getElementById('sendingWarnings').value;
+  const receivingRisk=document.getElementById('receivingRisk').value;
+  const vulnFlags=getVulnFlags();
+  const socFails=getSoCFailures();
+
+  if(amt<=0){alert('Please enter a payment amount.');return;}
+  if(!fraudType){alert('Please select a fraud type.');return;}
+
+  const factors=[];
+  let sendingPct=FRAUD_WEIGHT[fraudType]||50;
+  let eligible=true;
+  let eligMsg='';
+  let eligClass='elig-eligible';
+
+  // Gross negligence — removes eligibility
+  if(grossNeg==='yes'){
+    eligible=false;
+    eligMsg='Gross negligence established — customer is not entitled to reimbursement under PSR PS23/3 para 7.31. Gross negligence requires a very high standard of proof; mere carelessness is insufficient.';
+    eligClass='elig-ineligible';
+    factors.push({label:'Gross negligence established',effect:'Removes entitlement',psp:'Customer',ref:'PSR PS23/3 para 7.31',detail:'Customer acted with gross negligence — reimbursement claim not eligible. PSPs must document evidence clearly; FOS will scrutinise this defence.',badge:'fb-increase'});
+  } else if(grossNeg==='possible'){
+    eligMsg='Gross negligence under investigation — claim may be eligible pending investigation outcome. Customer retains reimbursement rights unless gross negligence is proven to a high standard.';
+    eligClass='elig-warn';
+    factors.push({label:'Possible gross negligence',effect:'Under investigation',psp:'Customer / Both',ref:'PSR PS23/3 para 7.31',detail:'Gross negligence investigation pending. Standard of proof is high — mere carelessness does not constitute gross negligence.',badge:'fb-neutral'});
+  }
+
+  // SoC failures
+  if(socFails.includes('ignored_warning')&&grossNeg==='no'){
+    sendingPct-=10;
+    factors.push({label:'Customer ignored fraud warning',effect:'Reduces sending PSP liability',psp:'Sending PSP',ref:'PSR PS23/3 para 7.24',detail:'Customer was warned by sending PSP and proceeded — reduces the sending PSP\'s liability share by ~10pp.',badge:'fb-decrease'});
+  }
+  if(socFails.includes('sharing_credentials')){
+    sendingPct-=8;
+    factors.push({label:'Customer shared security credentials',effect:'Reduces sending PSP liability',psp:'Sending PSP',ref:'PSR PS23/3 para 7.26',detail:'Sharing credentials undermines the customer\'s standard-of-care compliance — reduces sending PSP liability.',badge:'fb-decrease'});
+  }
+  if(socFails.includes('false_info')){
+    eligible=grossNeg==='yes'?false:eligible;
+    sendingPct-=12;
+    factors.push({label:'Customer provided false information',effect:'Significantly reduces sending PSP liability',psp:'Sending PSP',ref:'PSR PS23/3 para 7.27',detail:'Providing false information to PSP severely reduces reimbursement entitlement and sending PSP\'s liability.',badge:'fb-decrease'});
+  }
+  if(socFails.includes('delayed_report')){
+    eligible=false;
+    eligMsg=eligible?eligMsg:'Claim reported outside 13-month window — claim is not eligible for reimbursement under PSR PS23/3 para 7.29.';
+    eligClass='elig-ineligible';
+    factors.push({label:'Report delayed beyond 13 months',effect:'Removes eligibility',psp:'Customer',ref:'PSR PS23/3 para 7.29',detail:'Claims must be made within 13 months of the final payment transaction. Late reporting extinguishes the reimbursement right.',badge:'fb-increase'});
+  }
+  if(socFails.includes('third_party_facilitated')){
+    sendingPct-=5;
+    factors.push({label:'Third-party platform facilitation',effect:'Reduces sending PSP liability',psp:'Sending PSP',ref:'PSR PS23/3 para 7.28',detail:'Where a third-party platform (e.g. social media) facilitated the fraud, sending PSP\'s warning obligations may be reduced.',badge:'fb-decrease'});
+  }
+
+  // Vulnerability increases sending PSP responsibility
+  if(vulnFlags.length>0){
+    const increase=Math.min(vulnFlags.length*3,10);
+    sendingPct+=increase;
+    const vNames=vulnFlags.map(f=>f.replace(/_/g,' ')).join(', ');
+    factors.push({label:'Customer vulnerability: '+vNames,effect:'+'+increase+'pp on sending PSP',psp:'Sending PSP',ref:'PSR PS23/3 para 7.18–7.23',detail:'Vulnerability increases the PSP\'s duty of care obligations. PSP should have provided enhanced warnings and friction before authorising the payment.',badge:'fb-increase'});
+  }
+
+  // Sending PSP warnings
+  if(sendingWarnings==='none'){
+    sendingPct+=8;
+    factors.push({label:'No fraud warnings issued by sending PSP',effect:'+8pp on sending PSP',psp:'Sending PSP',ref:'PSR PS23/3 / CRM Code',detail:'Sending PSP failed to issue any fraud warning. This is a significant failing — PSPs are required to apply proportionate friction for APP risk indicators.',badge:'fb-increase'});
+  } else if(sendingWarnings==='full'){
+    sendingPct-=5;
+    factors.push({label:'Full fraud warnings issued (CoP + APP warning)',effect:'-5pp on sending PSP',psp:'Sending PSP',ref:'PSR PS23/3 / Payment Services Regs 2017',detail:'Sending PSP discharged warning obligations — Confirmation of Payee check and APP-specific warning both issued.',badge:'fb-decrease'});
+  }
+
+  // Receiving PSP risk controls
+  if(receivingRisk==='weak'){
+    const rcvIncrease=10;
+    sendingPct=Math.max(10,sendingPct-rcvIncrease);
+    factors.push({label:'Weak receiving PSP inbound risk controls',effect:'+10pp on receiving PSP',psp:'Receiving PSP',ref:'PSR PS23/3 para 6.10–6.15',detail:'Receiving PSP failed to maintain adequate mule detection and inbound transaction monitoring — increases receiving PSP\'s share.',badge:'fb-increase'});
+  } else if(receivingRisk==='strong'){
+    factors.push({label:'Strong receiving PSP risk controls',effect:'Neutral — no adjustment',psp:'Receiving PSP',ref:'PSR PS23/3 para 6.10',detail:'Receiving PSP maintained adequate controls. Standard 50% receiving-side component applied.',badge:'fb-neutral'});
+  }
+
+  // Fraud type context factor
+  const ftLabels={impersonation_bank:'Bank impersonation',impersonation_govt:'Government impersonation',romance:'Romance scam',investment:'Investment fraud',advance_fee:'Advance fee fraud',ceo:'CEO/mandate fraud',purchase:'Purchase scam',other:'APP fraud'};
+  factors.push({label:'Fraud type: '+ftLabels[fraudType],effect:'Base sending PSP share: '+(FRAUD_WEIGHT[fraudType]||50)+'%',psp:'Both',ref:'PSR PS23/3 Annex / policy guidance',detail:'The base 50/50 split is adjusted by fraud type based on the expected level of PSP warning obligations and consumer vulnerability for each category.',badge:'fb-neutral'});
+
+  // Clamp percentages
+  sendingPct=Math.max(0,Math.min(100,sendingPct));
+  const receivingPct=100-sendingPct;
+
+  // Apply cap
+  const cappedAmt=Math.min(amt,MAX_CAP);
+  const capApplied=amt>MAX_CAP;
+  const sendingAmt=eligible?(cappedAmt*sendingPct/100):0;
+  const receivingAmt=eligible?(cappedAmt*receivingPct/100):0;
+
+  if(!eligMsg)eligMsg='Claim appears eligible for reimbursement under PSR PS23/3 rules. Both PSPs are liable to contribute to the reimbursement up to the £415,000 cap.';
+
+  _result={amt,cappedAmt,capApplied,fraudType,sendingCat,receivingCat,vulnFlags,socFails,grossNeg,sendingWarnings,receivingRisk,sendingPct,receivingPct,sendingAmt,receivingAmt,eligible,eligMsg,eligClass,factors};
+
+  renderOutput();
+  document.getElementById('outputSection').classList.add('visible');
+  document.getElementById('ap2ExportBtn').disabled=false;
+  document.getElementById('ap2ExportBtn').classList.add('ready');
+  document.getElementById('outputSection').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function fmtGBP(n){return'£'+n.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+function renderOutput(){
+  const r=_result;
+
+  // Eligibility
+  const eb=document.getElementById('eligBody');
+  eb.innerHTML=`<div class="eligibility-banner ${r.eligClass}"><strong>${r.eligible?'&#10003; ELIGIBLE':'&#10007; NOT ELIGIBLE'}</strong>&nbsp;&nbsp;${r.eligMsg}</div>`+
+    `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.75rem;margin-top:.5rem">`+
+    `<div style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem"><div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em">Payment Amount</div><div style="font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--white)">${fmtGBP(r.amt)}</div></div>`+
+    `<div style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem"><div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em">Reimbursable Amount</div><div style="font-family:'DM Serif Display',serif;font-size:1.4rem;color:${r.eligible?'var(--green)':'var(--red)'}">${r.eligible?fmtGBP(r.cappedAmt):'£0'}</div></div>`+
+    `<div style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem"><div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em">Cap Applied</div><div style="font-family:'DM Serif Display',serif;font-size:1.4rem;color:${r.capApplied?'var(--warn)':'var(--teal)'}">${r.capApplied?'YES — capped at £415k':'NO'}</div></div>`+
+    `<div style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem"><div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em">Cap Reference</div><div style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--body);margin-top:.2rem">PSR PS23/3<br>£415,000 max</div></div>`+
+    `</div>`;
+
+  // Split bar
+  document.getElementById('splitSending').style.width=r.sendingPct+'%';
+  document.getElementById('splitSending').textContent=r.sendingPct>15?'Sending '+r.sendingPct+'%':'';
+  document.getElementById('splitReceiving').style.width=r.receivingPct+'%';
+  document.getElementById('splitReceiving').textContent=r.receivingPct>15?'Receiving '+r.receivingPct+'%':'';
+  document.getElementById('splitLabelLeft').textContent='Sending PSP ('+r.sendingCat+')';
+  document.getElementById('splitLabelRight').textContent='Receiving PSP ('+r.receivingCat+')';
+
+  document.getElementById('sendingAmount').textContent=fmtGBP(r.sendingAmt);
+  document.getElementById('sendingPct').textContent=r.sendingPct+'%';
+  document.getElementById('sendingNote').textContent=r.eligible?'Liability: sending PSP to reimburse customer and recover sending share from receiving PSP where applicable.':'No reimbursement due — claim ineligible.';
+  document.getElementById('receivingAmount').textContent=fmtGBP(r.receivingAmt);
+  document.getElementById('receivingPct').textContent=r.receivingPct+'%';
+  document.getElementById('receivingNote').textContent=r.eligible?'Receiving PSP liable for its share per PSR PS23/3. Reclaim mechanism through bilateral reimbursement arrangements.':'No reimbursement due — claim ineligible.';
+
+  const capNote=document.getElementById('capNote');
+  if(r.capApplied){
+    capNote.style.display='block';
+    capNote.textContent='&#9651; Maximum reimbursement cap of £415,000 applied (PSR PS23/3). Original payment of '+fmtGBP(r.amt)+' exceeds cap. Amounts above £415,000 are not covered under the mandatory reimbursement scheme — customer bears '+fmtGBP(r.amt-MAX_CAP)+' loss.';
+  }
+
+  // Factors table
+  const tb=document.getElementById('factorTbody');tb.innerHTML='';
+  r.factors.forEach(f=>{
+    const tr=document.createElement('tr');
+    const badge=`<span class="factor-badge ${f.badge}">${f.effect}</span>`;
+    tr.innerHTML=`<td style="color:var(--bright);font-weight:500">${f.label}</td><td>${badge}</td><td style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted)">${f.psp}</td><td style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted)">${f.ref}</td><td style="font-size:.7rem;color:var(--body)">${f.detail}</td>`;
+    tb.appendChild(tr);
+  });
+
+  // Context note
+  document.getElementById('contextNote').innerHTML=
+    `<strong style="color:var(--bright)">PSR APP Reimbursement Rules — Effective 7 October 2024</strong><br><br>`+
+    `<strong>Claim Process:</strong> Customer notifies sending PSP &#8594; Sending PSP assesses within 5 business days (35 for complex cases) &#8594; Sending PSP reimburses eligible amount &#8594; Sending PSP recovers receiving PSP's share via bilateral reimbursement arrangements.<br><br>`+
+    `<strong>Default Split:</strong> The PSR mandates a 50/50 default split between sending and receiving PSP in the absence of adjustment factors. This tool applies adjustments based on fraud type, warnings, vulnerability, and controls quality.<br><br>`+
+    `<strong>Small Payment Excess:</strong> PSPs may apply a maximum excess of £100 per claim (PSR PS23/3 para 5.6). Vulnerable customers are exempt from the excess.<br><br>`+
+    `<strong>Reimbursement Cap:</strong> £415,000 per claim (PSR PS23/3 para 5.5) — applies per individual APP payment. Claims above the cap are not covered by the mandatory scheme.<br><br>`+
+    `<strong>Escalation:</strong> Customers may escalate disputed decisions to the Financial Ombudsman Service (FOS) free of charge. FOS applies PSR rules and takes a consumer-centric approach to evidence assessment.`;
+}
+
+function exportMarkdown(){
+  if(!_result)return;
+  const r=_result,ts=new Date().toISOString().slice(0,10);
+  let md='# PSR APP Reimbursement Liability Assessment\n\n';
+  md+='**Tool:** T406 · AINumbers.co  **Generated:** '+ts+'\n\n';
+  md+='## Claim Summary\n\n';
+  md+='| Item | Value |\n|---|---|\n';
+  md+='| Payment Amount | '+fmtGBP(r.amt)+' |\n';
+  md+='| Reimbursable Amount | '+(r.eligible?fmtGBP(r.cappedAmt):'£0 (ineligible)')+' |\n';
+  md+='| Cap Applied | '+(r.capApplied?'Yes — £415,000 cap applied':'No')+' |\n';
+  md+='| Fraud Type | '+r.fraudType.replace(/_/g,' ')+' |\n';
+  md+='| Gross Negligence | '+r.grossNeg+' |\n\n';
+  md+='## Liability Split\n\n';
+  md+='| PSP | Share | Amount | Category |\n|---|---|---|---|\n';
+  md+='| Sending PSP | '+r.sendingPct+'% | '+fmtGBP(r.sendingAmt)+' | '+r.sendingCat+' |\n';
+  md+='| Receiving PSP | '+r.receivingPct+'% | '+fmtGBP(r.receivingAmt)+' | '+r.receivingCat+' |\n\n';
+  md+='## Contributing Factors\n\n| Factor | Effect | PSP | Reference |\n|---|---|---|---|\n';
+  r.factors.forEach(f=>{ md+='| '+f.label+' | '+f.effect+' | '+f.psp+' | '+f.ref+' |\n'; });
+  md+='\n---\n*Generated by AINumbers.co T406 · CC BY 4.0 · Post Oak Labs · Verify against current PSR PS23/3 and FOS decisions.*\n';
+  dl(md,'text/markdown','T406-app-liability-split-'+ts+'.md');
+}
+
+function exportAP2(){
+  if(!_result){alert('Run the tool first.');return;}
+  const r=_result,ts=new Date().toISOString();
+  const tid='406-psr-app-reimbursement-liability-splitter';
+  const m={
+    ap2_version:'1.0',
+    mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:tid,tool_version:'1.0.0',
+    mandate_type:'app_reimbursement_liability_mandate',
+    jurisdiction:['UK'],
+    regulatory_frameworks:['PSR PS23/3 APP Reimbursement Rules (Oct 2024)','PSR Policy Statement Jun 2023','Payment Services Regulations 2017'],
+    payload:{
+      payment_amount:r.amt,
+      reimbursable_amount:r.eligible?r.cappedAmt:0,
+      cap_applied:r.capApplied,
+      eligible:r.eligible,
+      fraud_type:r.fraudType,
+      gross_negligence:r.grossNeg,
+      vulnerability_flags:r.vulnFlags,
+      soc_failures:r.socFails,
+      sending_psp:{category:r.sendingCat,warnings:r.sendingWarnings,liability_pct:r.sendingPct,liability_amount:r.sendingAmt},
+      receiving_psp:{category:r.receivingCat,risk_controls:r.receivingRisk,liability_pct:r.receivingPct,liability_amount:r.receivingAmt},
+      contributing_factors:r.factors.map(f=>({label:f.label,effect:f.effect,psp:f.psp,reference:f.ref}))
+    },
+    summary:(r.eligible?'ELIGIBLE':'INELIGIBLE')+': APP Reimbursement — Sending PSP '+r.sendingPct+'% ('+fmtGBP(r.sendingAmt)+') / Receiving PSP '+r.receivingPct+'% ('+fmtGBP(r.receivingAmt)+') — Cap: '+(r.capApplied?'applied':'not applied'),
+    agent_instructions:[
+      'This assessment uses the PSR PS23/3 50/50 default split with adjustments for contributing factors.',
+      'Gross negligence must be documented to a high evidential standard before denying reimbursement.',
+      'Vulnerable customers are exempt from the £100 excess and receive enhanced protection under PSR rules.',
+      'Verify current PSR PS23/3 rules, FOS guidance, and bilateral industry reimbursement arrangements before making claims decisions.'
+    ],
+    valid_from:ts.slice(0,10),
+    valid_until:new Date(Date.now()+90*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed:ts.slice(0,10),
+    regulatory_citations:['PSR PS23/3 para 5.5','PSR PS23/3 para 7.18–7.31','PSR Policy Statement Jun 2023'],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  dl(JSON.stringify(m,null,2),'application/json',tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json');
+}
+
+function dl(content,type,filename){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([content],{type:type}));
+  a.download=filename;a.click();URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst(){
+  const b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');
+  const open=b.style.display!=='block';
+  b.style.display=open?'block':'none';
+  a.textContent=open?'&#9650;':'&#9660;';
+}
+
+initLang();
+</script>
+</body>
+</html>

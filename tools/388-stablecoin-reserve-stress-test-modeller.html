@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Stablecoin Reserve Stress Test Modeller · AINumbers.co</title>
+<meta name="description" content="Models reserve adequacy under redemption surge and market shock scenarios per GENIUS Act §4. Outputs days-to-zero, stressed coverage ratio, §4 compliance flag, and scenario comparison table. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/388-stablecoin-reserve-stress-test-modeller.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Stablecoin Reserve Stress Test Modeller","url":"https://ainumbers.co/tools/388-stablecoin-reserve-stress-test-modeller.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(212,168,71,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(212,168,71,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--gold);color:var(--gold)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--gold)}
+.nav-bc-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--gold);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{opacity:.85}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--gold)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.25rem;color:#9aa7b8}
+.input-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;display:flex;align-items:center;gap:.5rem}
+.panel-title::before{content:'';display:block;width:3px;height:14px;background:var(--gold);border-radius:2px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:640px){.form-grid{grid-template-columns:1fr}}
+.form-group{display:flex;flex-direction:column;gap:.35rem}
+.form-group.full{grid-column:1/-1}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.form-hint{font-size:.65rem;color:var(--body);line-height:1.4}
+input[type="number"],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .65rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s;-webkit-appearance:none}
+input[type="number"]:focus,select:focus{border-color:var(--gold)}
+select option{background:var(--bg-3)}
+.reserve-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem}
+@media(max-width:700px){.reserve-grid{grid-template-columns:repeat(2,1fr)}}
+.reserve-cell{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem}
+.reserve-cell-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.reserve-badge{font-size:.6rem;margin-top:.2rem}
+.reserve-total{font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:.4rem .65rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);margin-top:.75rem}
+.reserve-total.ok{border-color:rgba(34,197,94,.4);color:var(--green)}
+.reserve-total.bad{border-color:rgba(239,68,68,.4);color:var(--red)}
+.run-btn{background:var(--gold);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:opacity .2s;margin-top:1rem}
+.run-btn:hover{opacity:.85}
+.results-panel{display:none;flex-direction:column;gap:1.25rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.out-body{padding:1.25rem}
+/* KPI strip */
+.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem}
+@media(max-width:640px){.kpi-strip{grid-template-columns:repeat(2,1fr)}}
+.kpi-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center}
+.kpi-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.kpi-val{font-family:'DM Serif Display',serif;font-size:1.5rem;line-height:1}
+.kpi-val.good{color:var(--green)}
+.kpi-val.warn{color:var(--warn)}
+.kpi-val.bad{color:var(--red)}
+.kpi-sub{font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--muted);margin-top:.2rem}
+/* Scenario table */
+.scenario-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.scenario-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.scenario-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle;font-family:'JetBrains Mono',monospace;font-size:.68rem}
+.scenario-table tr:last-child td{border-bottom:none}
+.scenario-table tr:hover td{background:var(--bg-3)}
+.scenario-table tr.base-row td{background:rgba(212,168,71,.04)}
+.verdict-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.12rem .45rem;border-radius:3px}
+.vb-pass{background:var(--green-dim);color:var(--green)}
+.vb-warn{background:rgba(245,158,11,.1);color:var(--warn)}
+.vb-fail{background:var(--red-dim);color:var(--red)}
+/* Day-by-day rundown */
+.rundown-list{display:flex;flex-direction:column;gap:.35rem}
+.rundown-row{display:grid;grid-template-columns:60px 1fr 100px 100px;gap:.5rem;align-items:center;padding:.35rem .65rem;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:.64rem}
+.rundown-row:nth-child(odd){background:var(--bg-3)}
+.rundown-row .day{color:var(--muted)}
+.rundown-row .coverage{font-weight:500}
+/* Reserve bar */
+.res-bar-outer{height:6px;background:var(--bg-4);border-radius:3px;overflow:hidden;flex:1}
+.res-bar-inner{height:100%;border-radius:3px;transition:width .3s}
+.compliance-flag{display:flex;align-items:flex-start;gap:.75rem;padding:.75rem 1rem;border-radius:var(--radius);margin-bottom:1rem}
+.compliance-flag.pass{background:var(--green-dim);border:1px solid rgba(34,197,94,.3)}
+.compliance-flag.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25)}
+.compliance-flag.fail{background:var(--red-dim);border:1px solid rgba(239,68,68,.3)}
+.compliance-flag .flag-text{font-size:.75rem;line-height:1.55}
+.compliance-flag .flag-title{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.25rem}
+.export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;padding:.75rem 0;border-top:1px solid var(--border);margin-top:1rem}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);transition:all .2s}
+.btn-export:hover{border-color:var(--gold);color:var(--bright)}
+.btn-export.primary{border-color:var(--gold);color:var(--gold)}
+.btn-export.primary:hover{background:var(--gold-dim)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem}
+.footer-links-ai a{color:var(--muted);transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="../guides/genius-act-stablecoin-hub.html">GENIUS Act Hub</a><span class="nav-bc-sep">/</span>
+    <span>T388</span>
+  </div>
+  <div style="display:flex;gap:.4rem"><a href="../guides/genius-act-stablecoin-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-23 · T388 · GENIUS Act &amp; US Stablecoin</div>
+  <span class="badge badge-muted" style="margin-bottom:.5rem;display:inline-block">v1.0</span>
+  <h1>Stablecoin Reserve <em>Stress Test Modeller</em></h1>
+  <p class="hero-desc">Models reserve adequacy under redemption surge and market shock scenarios per GENIUS Act §4 reserve requirements. Input your reserve composition, redemption velocity, and asset haircuts. Outputs days-to-zero reserve, stressed coverage ratio, §4 compliance flag, and a scenario comparison table across four stress levels.</p>
+  <div class="hero-badges">
+    <span class="badge badge-gold">GENIUS Act §4</span>
+    <span class="badge badge-warn">Stress Testing</span>
+    <span class="badge badge-teal">Coverage Ratio</span>
+    <span class="badge badge-purple">4 Scenarios</span>
+    <span class="badge badge-green">Markdown Export</span>
+    <span class="badge badge-muted">Zero PII</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+  <div class="scope-note"><strong style="color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance —</strong> <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span> This model uses simplified deterministic stress assumptions for illustrative regulatory planning. It is not a substitute for a full liquidity stress test under supervisory standards. Verify against GENIUS Act §4, Fed/OCC guidance, and your treasury risk framework. CC BY 4.0.</div>
+
+  <div class="input-panel">
+    <div class="panel-title">Reserve &amp; Stress Parameters</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Total Outstanding Issuance (USD)</label>
+        <input type="number" id="totalIssuance" value="1000000000" min="1" step="1000000">
+        <span class="form-hint">Total stablecoin supply outstanding = required reserve base.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Baseline Redemption Rate (% per day, normal)</label>
+        <input type="number" id="baseRedemption" value="0.5" min="0.01" max="100" step="0.1">
+        <span class="form-hint">Typical daily outflow as % of outstanding supply under normal conditions.</span>
+      </div>
+    </div>
+
+    <div style="margin-top:1rem">
+      <div class="panel-title" style="margin-bottom:.75rem">Reserve Composition</div>
+      <div class="reserve-grid">
+        <div class="reserve-cell">
+          <div class="reserve-cell-label">US T-Bills (≤93 day)</div>
+          <input type="number" id="resTbills" value="60" min="0" max="100" step="1" oninput="updateTotal()">
+          <div class="reserve-badge" style="color:var(--teal)">§4(a)(1) · Liquidity: High</div>
+        </div>
+        <div class="reserve-cell">
+          <div class="reserve-cell-label">Overnight Repo (UST)</div>
+          <input type="number" id="resRepo" value="20" min="0" max="100" step="1" oninput="updateTotal()">
+          <div class="reserve-badge" style="color:var(--teal)">§4(a)(2) · Liquidity: High</div>
+        </div>
+        <div class="reserve-cell">
+          <div class="reserve-cell-label">FDIC-Insured Deposits</div>
+          <input type="number" id="resInsured" value="15" min="0" max="100" step="1" oninput="updateTotal()">
+          <div class="reserve-badge" style="color:var(--teal)">§4(a)(3) · Liquidity: Med</div>
+        </div>
+        <div class="reserve-cell">
+          <div class="reserve-cell-label">Other Assets</div>
+          <input type="number" id="resOther" value="5" min="0" max="100" step="1" oninput="updateTotal()">
+          <div class="reserve-badge" style="color:var(--warn)">Non-eligible risk</div>
+        </div>
+      </div>
+      <div class="reserve-total" id="reserveTotal">Total: 100%</div>
+    </div>
+
+    <div style="margin-top:1.25rem">
+      <div class="panel-title" style="margin-bottom:.75rem">Stress Parameters</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Stress Redemption Velocity (% per day)</label>
+          <input type="number" id="stressRedemption" value="5" min="0.1" max="100" step="0.5">
+          <span class="form-hint">% of outstanding supply redeemed per day in a stress event. Historical depegging events have seen 5–30% per day.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Asset Liquidation Haircut (% of book value)</label>
+          <input type="number" id="haircut" value="2" min="0" max="50" step="0.5">
+          <span class="form-hint">Expected discount on forced liquidation of reserve assets. T-bills typically 0.1–0.5%; deposits may face bank stress scenarios.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Operational Friction (% of daily outflow)</label>
+          <input type="number" id="opsFriction" value="5" min="0" max="50" step="1">
+          <span class="form-hint">Additional operational drag: settlement delays, redemption queue management, etc.</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Reserve Buffer Above 100% (%)</label>
+          <input type="number" id="reserveBuffer" value="0" min="0" max="20" step="0.5">
+          <span class="form-hint">Extra reserve held above 100% of outstanding. Some regulators recommend 3–5% buffer.</span>
+        </div>
+      </div>
+    </div>
+
+    <button class="run-btn" onclick="runStressTest()">&#9654; Run Stress Test</button>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+
+    <!-- §4 Compliance Flag -->
+    <div class="out-card">
+      <div class="out-header"><span class="out-title">GENIUS Act §4 Compliance Assessment</span></div>
+      <div class="out-body" id="complianceBody"></div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="out-card">
+      <div class="out-header"><span class="out-title">Key Stress Metrics</span></div>
+      <div class="out-body" id="kpiBody"></div>
+    </div>
+
+    <!-- Scenario Comparison -->
+    <div class="out-card">
+      <div class="out-header"><span class="out-title">Scenario Comparison Table</span></div>
+      <div class="out-body" style="padding:0;overflow-x:auto" id="scenarioBody"></div>
+    </div>
+
+    <!-- Day-by-Day -->
+    <div class="out-card">
+      <div class="out-header"><span class="out-title">Day-by-Day Reserve Rundown (Stress Scenario)</span></div>
+      <div class="out-body" id="rundownBody"></div>
+    </div>
+
+    <div class="export-row">
+      <button class="btn-export primary" id="ap2ExportBtn" onclick="exportMarkdown()">&#8595; Markdown Report</button>
+    </div>
+  </div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+    <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+  </div></div>
+</section>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html" data-i18n="footer.alltools">All Tools</a>
+      <a href="../guides/genius-act-stablecoin-hub.html">GENIUS Act Hub</a>
+      <a href="../sitemap.html" data-i18n="footer.sitemap">Sitemap</a>
+      <a href="../contact.html" data-i18n="footer.contact">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span>
+      <span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+const TRANSLATIONS={
+  en:{'pii.banner':'🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.','footer.alltools':'All Tools','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Sitemap','footer.privacy':'🔒 Zero PII    📡 No server calls    💻 Client-side'},
+  es:{'pii.banner':'🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos.','footer.alltools':'Todas las Herramientas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contacto','footer.sitemap':'Mapa del Sitio','footer.privacy':'🔒 Sin PII'},
+  fr:{'pii.banner':'🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n\'est transmise.','footer.alltools':'Tous les Outils','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Plan du Site','footer.privacy':'🔒 Aucune PII'},
+  ar:{'pii.banner':'🔒 جميع المدخلات تُعالج محلياً في متصفحك. لا تُنقل أي بيانات.','footer.alltools':'جميع الأدوات','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'اتصل','footer.sitemap':'خريطة الموقع','footer.privacy':'🔒 لا بيانات'},
+  pt:{'pii.banner':'🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido.','footer.alltools':'Todas as Ferramentas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contato','footer.sitemap':'Mapa do Site','footer.privacy':'🔒 Sem PII'},
+  zh:{'pii.banner':'🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。','footer.alltools':'所有工具','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'联系','footer.sitemap':'网站地图','footer.privacy':'🔒 零个人数据'}
+};
+function setLang(lang){const t=TRANSLATIONS[lang];if(!t)return;document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n');if(t[k])el.textContent=t[k];});document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===lang));document.documentElement.setAttribute('dir',lang==='ar'?'rtl':'ltr');document.documentElement.setAttribute('lang',lang);try{sessionStorage.setItem('ain_lang',lang);}catch(e){}}
+function initLang(){try{const s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}}
+
+function updateTotal(){
+  const v=[+document.getElementById('resTbills').value||0,+document.getElementById('resRepo').value||0,+document.getElementById('resInsured').value||0,+document.getElementById('resOther').value||0];
+  const total=v.reduce((a,b)=>a+b,0);
+  const el=document.getElementById('reserveTotal');
+  el.textContent='Total: '+total.toFixed(1)+'%'+(total===100?' ✓':' ✗ (must equal 100%)');
+  el.className='reserve-total '+(Math.abs(total-100)<0.01?'ok':'bad');
+}
+
+/* ── STRESS MODEL ── */
+function runStressScenario(totalIssuance, tbillsPct, repoPct, insuredPct, otherPct, redemptionPctPerDay, haircutPct, opsFriction, bufferPct){
+  // Net reserve value after haircut
+  const eligibleFraction=(tbillsPct+repoPct)/100;
+  const insuredFraction=insuredPct/100;
+  const otherFraction=otherPct/100;
+  // Apply haircut primarily to other, then insured (deposits may be slower), then eligible
+  const haircutFactor=1-(haircutPct/100);
+  const netReservePct=(tbillsPct+repoPct)*haircutFactor+(insuredPct*(haircutFactor*0.95))+(otherPct*(haircutFactor*0.7));
+  const netReserveUSD=(netReservePct/100)*(1+bufferPct/100)*totalIssuance;
+
+  // Effective daily drain including ops friction
+  const effectiveDailyDrainPct=redemptionPctPerDay*(1+opsFriction/100);
+  const dailyDrainUSD=(effectiveDailyDrainPct/100)*totalIssuance;
+
+  // Days to zero
+  const daysToZero=dailyDrainUSD>0?Math.max(0,netReserveUSD/dailyDrainUSD):Infinity;
+
+  // 30-day coverage
+  const thirtyDayDrain=Math.min(dailyDrainUSD*30,totalIssuance);
+  const coverageRatio30=thirtyDayDrain>0?netReserveUSD/thirtyDayDrain:Infinity;
+
+  // GENIUS Act §4 compliance: requires 1:1 at all times
+  // Pass if coverage never drops below 1.0 within 30 days
+  const sec4Pass=daysToZero>=30;
+
+  return{netReserveUSD,dailyDrainUSD,daysToZero,coverageRatio30,sec4Pass,netReservePct:netReservePct*(1+bufferPct/100)};
+}
+
+let _lastResult=null;
+
+function runStressTest(){
+  const totalIssuance=+document.getElementById('totalIssuance').value||1e9;
+  const baseRed=+document.getElementById('baseRedemption').value||0.5;
+  const tbills=+document.getElementById('resTbills').value||0;
+  const repo=+document.getElementById('resRepo').value||0;
+  const insured=+document.getElementById('resInsured').value||0;
+  const other=+document.getElementById('resOther').value||0;
+  const stressRed=+document.getElementById('stressRedemption').value||5;
+  const haircut=+document.getElementById('haircut').value||2;
+  const opsFriction=+document.getElementById('opsFriction').value||5;
+  const buffer=+document.getElementById('reserveBuffer').value||0;
+  const totalPct=tbills+repo+insured+other;
+
+  // Define 4 scenarios
+  const SCENARIOS=[
+    {name:'Base Case',label:'Normal operations',redemptionMult:1,haircutMult:0.25,color:'var(--teal)'},
+    {name:'Moderate Stress',label:'2× redemption, 50% haircut',redemptionMult:2,haircutMult:0.5,color:'var(--gold)'},
+    {name:'Severe Stress',label:'Entered redemption velocity',redemptionMult:1,haircutMult:1,color:'var(--warn)'},
+    {name:'Extreme / Run',label:'5× redemption, full haircut',redemptionMult:5,haircutMult:1,color:'var(--red)'}
+  ];
+
+  const results=SCENARIOS.map(s=>{
+    const effRed=s.name==='Base Case'?baseRed:stressRed*s.redemptionMult;
+    const effHaircut=haircut*s.haircutMult;
+    return{...s,...runStressScenario(totalIssuance,tbills,repo,insured,other,effRed,effHaircut,opsFriction,buffer),redemptionPct:effRed,haircutPct:effHaircut};
+  });
+
+  // Main stress scenario = severe
+  const stressResult=results[2];
+
+  // §4 compliance check
+  const ineligiblePct=other;
+  const reserveTotalOk=Math.abs(totalPct-100)<0.01;
+  const sec4Eligible=reserveTotalOk&&ineligiblePct<=10;
+  const sec4Pass=stressResult.sec4Pass&&sec4Eligible&&(stressResult.netReservePct>=100);
+
+  // Day-by-day for stress scenario (30 days)
+  const rundown=[];
+  let balance=(tbills+repo+insured+other)*(1+buffer/100)/100*totalIssuance;
+  const haircutFactor=1-(haircut/100);
+  balance*=haircutFactor;
+  for(let d=1;d<=Math.min(30,Math.ceil(stressResult.daysToZero)+2);d++){
+    const drain=stressResult.dailyDrainUSD;
+    balance=Math.max(0,balance-drain);
+    const remaining=Math.max(0,totalIssuance-stressResult.dailyDrainUSD*(d));
+    const coverage=remaining>0?balance/remaining:0;
+    rundown.push({day:d,balance,remaining,coverage});
+    if(balance===0)break;
+  }
+
+  _lastResult={totalIssuance,baseRed,tbills,repo,insured,other,stressRed,haircut,opsFriction,buffer,scenarios:results,stressResult,sec4Pass,ineligiblePct,reserveTotalOk,rundown,timestamp:new Date().toISOString()};
+  renderResults(_lastResult);
+}
+
+function fmt(n){
+  if(n>=1e9)return'$'+(n/1e9).toFixed(2)+'B';
+  if(n>=1e6)return'$'+(n/1e6).toFixed(1)+'M';
+  return'$'+n.toFixed(0);
+}
+
+function renderResults(r){
+  const panel=document.getElementById('resultsPanel');
+  panel.style.display='flex';
+
+  // §4 Compliance
+  const flagClass=r.sec4Pass?'pass':r.stressResult.daysToZero>=7?'warn':'fail';
+  document.getElementById('complianceBody').innerHTML=`
+    <div class="compliance-flag ${flagClass}">
+      <div>
+        <div class="flag-title" style="color:${r.sec4Pass?'var(--green)':r.stressResult.daysToZero>=7?'var(--warn)':'var(--red)'}">${r.sec4Pass?'§4 COMPLIANT':'§4 NON-COMPLIANT'} — Reserve Adequacy under Stress</div>
+        <div class="flag-text">
+          ${r.sec4Pass
+            ?'Reserve composition and buffer appear sufficient to maintain 1:1 backing through a 30-day stress event at the entered parameters. GENIUS Act §4 requires reserves to fully back all outstanding supply at all times.'
+            :`Reserve adequacy is compromised under the severe stress scenario. Reserves would be exhausted in approximately <strong>${r.stressResult.daysToZero.toFixed(1)} days</strong>, breaching the GENIUS Act §4 requirement to maintain 1:1 reserve backing at all times.`}
+          ${!r.reserveTotalOk?'<br><strong>Error: Reserve inputs do not total 100%.</strong>':''}
+          ${r.ineligiblePct>10?`<br><strong>Non-eligible assets (${r.ineligiblePct}%)</strong> exceed the 10% threshold — this alone may constitute a §4 violation regardless of coverage ratio.`:''}
+        </div>
+      </div>
+    </div>
+    <div style="font-size:.7rem;color:var(--muted);line-height:1.5">§4 compliance requires: (1) 1:1 reserve at all times; (2) reserves in enumerated eligible assets; (3) monthly attestation; (4) segregated custody. This model tests items (1) and (2) only.</div>`;
+
+  // KPIs
+  const s=r.stressResult;
+  const kpi_dtZ=s.daysToZero>=999?'>30d':s.daysToZero.toFixed(1)+'d';
+  const kpi_class_dtZ=s.daysToZero>=30?'good':s.daysToZero>=7?'warn':'bad';
+  const kpi_class_cov=s.coverageRatio30>=2?'good':s.coverageRatio30>=1?'warn':'bad';
+  document.getElementById('kpiBody').innerHTML=`
+    <div class="kpi-strip">
+      <div class="kpi-card">
+        <div class="kpi-label">Days to Reserve Zero</div>
+        <div class="kpi-val ${kpi_class_dtZ}">${kpi_dtZ}</div>
+        <div class="kpi-sub">Severe stress scenario</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">30-Day Coverage Ratio</div>
+        <div class="kpi-val ${kpi_class_cov}">${s.coverageRatio30>=999?'>10×':s.coverageRatio30.toFixed(2)+'×'}</div>
+        <div class="kpi-sub">Net reserves / 30-day drain</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Net Reserve Value</div>
+        <div class="kpi-val" style="font-size:1.1rem;color:var(--bright)">${fmt(s.netReserveUSD)}</div>
+        <div class="kpi-sub">Post-haircut · ${s.netReservePct.toFixed(1)}% of issuance</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Daily Drain (Stress)</div>
+        <div class="kpi-val" style="font-size:1.1rem;color:var(--warn)">${fmt(s.dailyDrainUSD)}</div>
+        <div class="kpi-sub">${r.stressRed}%/day × ops friction</div>
+      </div>
+    </div>`;
+
+  // Scenario table
+  const scenRows=r.scenarios.map((s,i)=>{
+    const vClass=s.daysToZero>=30?'vb-pass':s.daysToZero>=7?'vb-warn':'vb-fail';
+    const vText=s.daysToZero>=30?'§4 PASS':s.daysToZero>=7?'AT RISK':'§4 BREACH';
+    return`<tr class="${i===0?'base-row':''}">
+      <td style="color:${s.color};font-weight:500">${s.name}</td>
+      <td style="color:var(--muted)">${s.label}</td>
+      <td>${s.redemptionPct.toFixed(1)}%/day</td>
+      <td>${s.haircutPct.toFixed(1)}%</td>
+      <td>${fmt(s.netReserveUSD)}</td>
+      <td>${fmt(s.dailyDrainUSD)}</td>
+      <td style="color:${s.daysToZero>=30?'var(--green)':s.daysToZero>=7?'var(--warn)':'var(--red)'}">${s.daysToZero>=999?'>30d':s.daysToZero.toFixed(1)+'d'}</td>
+      <td>${s.coverageRatio30>=999?'>10×':s.coverageRatio30.toFixed(2)+'×'}</td>
+      <td><span class="verdict-badge ${vClass}">${vText}</span></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('scenarioBody').innerHTML=`
+    <table class="scenario-table">
+      <thead><tr>
+        <th>Scenario</th><th>Description</th><th>Redemption</th><th>Haircut</th>
+        <th>Net Reserve</th><th>Daily Drain</th><th>Days to Zero</th><th>30d Coverage</th><th>§4 Status</th>
+      </tr></thead>
+      <tbody>${scenRows}</tbody>
+    </table>`;
+
+  // Rundown
+  const rundownRows=r.rundown.map(d=>{
+    const pct=Math.min(100,d.coverage*100);
+    const barColor=pct>=100?'var(--green)':pct>=50?'var(--warn)':'var(--red)';
+    return`<div class="rundown-row">
+      <span class="day">Day ${d.day}</span>
+      <div style="display:flex;align-items:center;gap:.5rem;flex:1">
+        <div class="res-bar-outer"><div class="res-bar-inner" style="width:${pct.toFixed(0)}%;background:${barColor}"></div></div>
+        <span class="coverage" style="color:${barColor}">${(d.coverage*100).toFixed(0)}%</span>
+      </div>
+      <span style="color:var(--body)">${fmt(d.balance)}</span>
+      <span style="color:var(--muted)">${fmt(d.remaining)} out</span>
+    </div>`;
+  }).join('');
+  document.getElementById('rundownBody').innerHTML=`
+    <p style="font-size:.72rem;color:var(--body);margin-bottom:.75rem">Severe stress scenario: ${r.stressRed}%/day redemption velocity, ${r.haircut}% haircut, ${r.opsFriction}% ops friction.</p>
+    <div class="rundown-list">${rundownRows}</div>`;
+}
+
+function exportMarkdown(){
+  if(!_lastResult)return;
+  const r=_lastResult;
+  const lines=[
+    `# Stablecoin Reserve Stress Test Report`,
+    `Generated: ${new Date(r.timestamp).toLocaleString()}`,
+    `Tool: T388 · Stablecoin Reserve Stress Test Modeller · AINumbers.co`,
+    ``,
+    `## Parameters`,
+    `- Total issuance: ${fmt(r.totalIssuance)}`,
+    `- Reserve: ${r.tbills}% T-bills | ${r.repo}% repo | ${r.insured}% insured deposits | ${r.other}% other`,
+    `- Stress redemption: ${r.stressRed}%/day | Haircut: ${r.haircut}% | Ops friction: ${r.opsFriction}% | Buffer: ${r.buffer}%`,
+    ``,
+    `## GENIUS Act §4 Assessment`,
+    `**Status: ${r.sec4Pass?'COMPLIANT':'NON-COMPLIANT'}**`,
+    `- Days to reserve zero (severe stress): ${r.stressResult.daysToZero>=999?'>30':r.stressResult.daysToZero.toFixed(1)} days`,
+    `- 30-day coverage ratio: ${r.stressResult.coverageRatio30>=999?'>10':r.stressResult.coverageRatio30.toFixed(2)}×`,
+    `- Non-eligible reserves: ${r.ineligiblePct}%`,
+    ``,
+    `## Scenario Comparison`,
+    `| Scenario | Redemption | Haircut | Days to Zero | Coverage | §4 Status |`,
+    `|---|---|---|---|---|---|`,
+    ...r.scenarios.map(s=>`| ${s.name} | ${s.redemptionPct.toFixed(1)}%/day | ${s.haircutPct.toFixed(1)}% | ${s.daysToZero>=999?'>30d':s.daysToZero.toFixed(1)+'d'} | ${s.coverageRatio30>=999?'>10×':s.coverageRatio30.toFixed(2)+'×'} | ${s.daysToZero>=30?'PASS':s.daysToZero>=7?'AT RISK':'BREACH'} |`),
+    ``,
+    `---`,
+    `*Simplified deterministic stress model for regulatory planning only. Not a substitute for supervisory stress testing.*`,
+    `*CC BY 4.0 · Post Oak Labs · AINumbers.co*`
+  ];
+  const blob=new Blob([lines.join('\n')],{type:'text/markdown'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`T388_reserve_stress_${Date.now()}.md`;a.click();
+}
+
+const MANIFEST={tool_id:'stablecoin-reserve-stress-test-modeller',version:'1.0.0',title:'Stablecoin Reserve Stress Test Modeller',description:'Models reserve adequacy under redemption surge and market shock scenarios per GENIUS Act §4.',category:'cat-23',mcp_tool_definition:{name:'model_stablecoin_reserve_stress',description:'Models stablecoin reserve adequacy under stress scenarios per GENIUS Act §4 reserve requirements.',inputSchema:{type:'object',properties:{total_issuance_usd:{type:'number'},reserve_pct_tbills:{type:'number'},reserve_pct_repo:{type:'number'},reserve_pct_insured:{type:'number'},reserve_pct_other:{type:'number'},stress_redemption_pct_per_day:{type:'number'},haircut_pct:{type:'number'},ops_friction_pct:{type:'number'},reserve_buffer_pct:{type:'number'}},required:['total_issuance_usd']}},ap2_export:false};
+function toggleMfst(){const b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||!b.style.display){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+
+initLang();
+updateTotal();
+</script>
+</body>
+</html>
