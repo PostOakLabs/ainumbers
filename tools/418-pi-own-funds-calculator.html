@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Payment Institution Own Funds Calculator (PSD2 Art.9) · AINumbers.co</title>
+<meta name="description" content="Computes own-funds requirement for Payment Institutions under PSD2 Article 9 / UK PSRs 2017. Methods A, B, and C comparison with capital adequacy check and Policy Mandate JSON. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/418-pi-own-funds-calculator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Payment Institution Own Funds Calculator","url":"https://ainumbers.co/tools/418-pi-own-funds-calculator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "418-pi-own-funds-calculator",
+  "version": "1.0.0",
+  "title": "Payment Institution Own Funds Calculator (PSD2 Article 9)",
+  "description": "Computes own-funds requirement for Payment Institutions under PSD2 Article 9 (EU) / PSRs 2017 (UK). Methods A, B, and C with comparison table and capital adequacy check.",
+  "category": "cat-25",
+  "tags": ["PSD2","PSRs 2017","Payment Institution","own funds","capital requirements","Method A","Method B","Method C","Art.9","FCA","EBA"],
+  "audience": ["compliance","finance","treasury","legal"],
+  "mcp_tool_definition": {
+    "name": "calculate_pi_own_funds",
+    "description": "Computes own-funds requirement for Payment Institutions under PSD2 Article 9 / UK PSRs 2017 using Methods A, B, and C.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "method": {"type":"string","enum":["A","B","C","ALL"]},
+        "fixed_overheads": {"type":"number"},
+        "annual_volume": {"type":"number"},
+        "volume_y1": {"type":"number"},
+        "volume_y2": {"type":"number"},
+        "risk_factor_k": {"type":"number","enum":[0.5,0.8,1.0,1.5]},
+        "service_type": {"type":"string","enum":["money_remittance","payment_initiation","account_information","other"]},
+        "regime": {"type":"string","enum":["EU","UK"]},
+        "existing_own_funds": {"type":"number"}
+      },
+      "required": ["method"]
+    }
+  },
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-purple{color:var(--purple-lt);border-color:rgba(155,114,245,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8}
+.companion-note{background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);border-left:3px solid var(--teal);border-radius:6px;padding:.55rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.25rem;color:var(--text)}
+.companion-note a{color:var(--teal-lt);text-decoration:underline;text-decoration-color:rgba(45,212,191,.3)}
+.companion-note a:hover{color:var(--bright)}
+.input-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.5rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:1.25rem;display:flex;align-items:center;gap:.5rem}
+.panel-title::before{content:'';display:block;width:16px;height:1px;background:var(--teal)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:640px){.form-grid{grid-template-columns:1fr}}
+.form-group{display:flex;flex-direction:column;gap:.35rem}
+.form-group.full{grid-column:1/-1}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.form-hint{font-size:.65rem;color:var(--muted);line-height:1.4;margin-top:.15rem}
+.form-input,.form-select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.5rem .75rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s;-webkit-appearance:none;appearance:none}
+.form-input:focus,.form-select:focus{border-color:var(--teal)}
+.form-select option{background:var(--bg-3)}
+.method-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-top:.5rem}
+@media(max-width:720px){.method-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:400px){.method-grid{grid-template-columns:1fr}}
+.method-card{border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;cursor:pointer;transition:all .2s;background:var(--bg-3)}
+.method-card:hover{border-color:rgba(20,184,166,.4)}
+.method-card.selected{border-color:var(--teal);background:var(--teal-dim)}
+.method-card input[type=radio]{display:none}
+.method-title{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.3rem}
+.method-desc{font-size:.68rem;color:var(--body);line-height:1.5}
+.k-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-top:.5rem}
+@media(max-width:640px){.k-grid{grid-template-columns:1fr 1fr}}
+.k-card{border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .75rem;cursor:pointer;transition:all .2s;background:var(--bg-3)}
+.k-card:hover{border-color:rgba(212,168,71,.4)}
+.k-card.selected{border-color:var(--gold);background:var(--gold-dim)}
+.k-card input[type=radio]{display:none}
+.k-label{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--gold);margin-bottom:.2rem}
+.k-desc{font-size:.64rem;color:var(--body);line-height:1.4}
+.formula-box{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem 1rem;margin-top:.75rem}
+.formula-text{font-family:'JetBrains Mono',monospace;font-size:.63rem;color:var(--teal);line-height:1.7}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:1rem}
+.run-btn:hover{background:var(--teal-lt)}
+.error-msg{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.65rem;margin-top:.5rem;display:none}
+.error-msg.show{display:block}
+.output-section{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.output-section.visible{display:flex}
+.out-block{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.result-hero{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;padding:.5rem 0}
+.result-amount{font-family:'DM Serif Display',serif;font-size:2.5rem;color:var(--white);line-height:1}
+.result-sub{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:.2rem}
+.result-detail{flex:1;display:flex;flex-direction:column;gap:.4rem}
+.result-row{display:flex;align-items:center;gap:.75rem;font-size:.78rem}
+.result-key{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);width:190px;flex-shrink:0}
+.result-val{color:var(--bright)}
+.comp-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.comp-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;background:var(--bg-3)}
+.comp-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);vertical-align:middle}
+.comp-table tr:last-child td{border-bottom:none}
+.comp-table .row-lowest td{background:rgba(20,184,166,.05)}
+.comp-table .row-selected td{background:rgba(20,184,166,.09)}
+.amount-cell{font-family:'JetBrains Mono',monospace;color:var(--bright)}
+.tag-lowest{display:inline-flex;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.12rem .4rem;background:var(--green-dim);color:var(--green);border-radius:3px;border:1px solid rgba(34,197,94,.3)}
+.tag-highest{display:inline-flex;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.12rem .4rem;background:rgba(239,68,68,.1);color:var(--red);border-radius:3px;border:1px solid rgba(239,68,68,.3)}
+.tag-selected{display:inline-flex;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.12rem .4rem;background:var(--teal-dim);color:var(--teal);border-radius:3px;border:1px solid rgba(20,184,166,.3)}
+.buffer-card{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:1rem 1.25rem}
+.buffer-row{display:flex;justify-content:space-between;align-items:center;padding:.3rem 0;border-bottom:1px solid var(--border);font-size:.75rem}
+.buffer-row:last-child{border-bottom:none;padding-top:.6rem}
+.buffer-row .lbl{color:var(--body)}
+.buffer-row .val{font-family:'JetBrains Mono',monospace;color:var(--bright)}
+.surplus-ok{color:var(--green)}
+.surplus-bad{color:var(--red)}
+.formula-breakdown{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.63rem;color:var(--text);line-height:1.8}
+.formula-breakdown .step{color:var(--muted)}
+.formula-breakdown .result{color:var(--teal);font-size:.7rem}
+.reg-basis{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1.1rem;font-size:.74rem;line-height:1.7;color:var(--text)}
+.reg-basis strong{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase}
+.export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.75rem 0;border-top:1px solid var(--border);margin-top:.5rem}
+.export-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);transition:all .2s}
+.export-btn:hover{border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn{cursor:not-allowed;opacity:.55}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);cursor:pointer;transition:background .15s}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+.section-divider{height:1px;background:var(--border);margin:1.5rem 0}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;position:relative;z-index:1}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}}
+</style>
+</head>
+<body>
+
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">&#20013;&#25991;</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a>
+    <span class="nav-bc-sep">/</span>
+    <a href="../guides/psp-payment-safeguarding-hub.html">PSP &amp; Payment Hub</a>
+    <span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">T-418</span>
+  </div>
+  <div class="nav-right">
+    <a href="../guides/psp-payment-safeguarding-hub.html" class="nav-cta">Hub &#8594;</a>
+  </div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">T418 &middot; PSP &amp; Payment Compliance &middot; Cat-25</div>
+  <span class="hero-badge badge-muted" style="margin-bottom:.75rem;display:inline-flex"><span>v1.0 &middot; May 2026</span></span>
+  <h1>PI Own Funds <em>Calculator</em></h1>
+  <p class="hero-desc">Computes the own-funds requirement for Payment Institutions under PSD2 Article 9 (EU) and UK PSRs 2017. Calculates Methods A, B, and C, generates a full comparison table, and checks capital adequacy against your current holding.</p>
+  <div class="hero-meta">
+    <span class="hero-badge badge-teal">PSD2 Art.9</span>
+    <span class="hero-badge badge-gold">UK PSRs 2017</span>
+    <span class="hero-badge badge-purple">EBA Guidelines</span>
+    <span class="hero-badge badge-muted">Zero PII &middot; Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="companion-note">
+    <strong style="color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Companion Tool &mdash; </strong>
+    For E-Money Institutions, see <a href="405-emi-capital-requirements-calculator.html">T405 &mdash; EMI Capital Requirements Calculator (EMD2 Article 5)</a>.
+  </div>
+
+  <div class="scope-note">
+    <strong style="color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Disclaimer &mdash; </strong>
+    This tool applies published PSD2 / PSRs 2017 methodology. Actual requirements may be adjusted by your NCA or FCA. Always confirm with qualified legal counsel. All inputs are processed locally in your browser &mdash; no data is transmitted. Zero PII &middot; deterministic logic &middot; no inference &middot; CC BY 4.0.
+  </div>
+
+  <div class="input-panel">
+    <div class="panel-title">Method Selection &amp; Inputs</div>
+
+    <div class="form-group full" style="margin-bottom:1.5rem">
+      <label class="form-label">Calculation Method</label>
+      <div class="method-grid">
+        <label class="method-card" id="cardA" onclick="selectMethod('A')">
+          <input type="radio" name="method" value="A">
+          <div class="method-title">Method A</div>
+          <div class="method-desc">10% of preceding year fixed overheads. Simple and conservative.</div>
+        </label>
+        <label class="method-card" id="cardB" onclick="selectMethod('B')">
+          <input type="radio" name="method" value="B">
+          <div class="method-title">Method B</div>
+          <div class="method-desc">Tiered % of current year payment volume &times; risk factor k.</div>
+        </label>
+        <label class="method-card" id="cardC" onclick="selectMethod('C')">
+          <input type="radio" name="method" value="C">
+          <div class="method-title">Method C</div>
+          <div class="method-desc">Tiered % of 3-year rolling average payment volume &times; k.</div>
+        </label>
+        <label class="method-card selected" id="cardALL" onclick="selectMethod('ALL')">
+          <input type="radio" name="method" value="ALL" checked>
+          <div class="method-title">All Three</div>
+          <div class="method-desc">Compare all methods and identify most favourable result.</div>
+        </label>
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label" for="regime">Regulatory Regime</label>
+        <select class="form-select" id="regime">
+          <option value="EU">EU (PSD2 2015/2366)</option>
+          <option value="UK">UK (PSRs 2017 &mdash; retained EU rules)</option>
+        </select>
+        <span class="form-hint">UK retained PSD2 Art.9 rules post-Brexit via PSRs 2017 Reg.8. Thresholds unchanged.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="serviceType">Payment Service Type</label>
+        <select class="form-select" id="serviceType">
+          <option value="other">Authorised PI (other payment services) &mdash; &#8364;125K floor</option>
+          <option value="money_remittance">Money Remittance &mdash; &#8364;125K floor</option>
+          <option value="payment_initiation">Payment Initiation Services (PIS) &mdash; &#8364;125K floor</option>
+          <option value="account_information">Account Information Services only (AIS) &mdash; &#8364;50K floor</option>
+        </select>
+        <span class="form-hint">Determines initial capital floor. AIS-only PIs: &#8364;50,000. All other authorised PIs: &#8364;125,000.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="fixedOverheads">Fixed Overheads &mdash; Preceding Year (&#8364;/&#163;)</label>
+        <input type="number" class="form-input" id="fixedOverheads" placeholder="e.g. 3000000" min="0" step="10000">
+        <span class="form-hint">Method A only. Total fixed costs from prior year P&amp;L per PSD2 Art.9(1)(a).</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="volCurrent">Annual Payment Volume &mdash; Current Year (&#8364;/&#163;)</label>
+        <input type="number" class="form-input" id="volCurrent" placeholder="e.g. 150000000" min="0" step="1000000">
+        <span class="form-hint">Methods B &amp; C. Total value of payment transactions in the most recent 12 months.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="volY1">Annual Payment Volume &mdash; Year &minus;1 (&#8364;/&#163;)</label>
+        <input type="number" class="form-input" id="volY1" placeholder="e.g. 120000000" min="0" step="1000000">
+        <span class="form-hint">Method C only. Volume from the year prior to the current year. Leave blank to use current year as proxy.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="volY2">Annual Payment Volume &mdash; Year &minus;2 (&#8364;/&#163;)</label>
+        <input type="number" class="form-input" id="volY2" placeholder="e.g. 90000000" min="0" step="1000000">
+        <span class="form-hint">Method C only. Volume from two years prior. Leave blank to use current year as proxy.</span>
+      </div>
+      <div class="form-group full">
+        <label class="form-label" for="existingFunds">Current Own Funds Held (&#8364;/&#163;) &mdash; Optional</label>
+        <input type="number" class="form-input" id="existingFunds" placeholder="e.g. 500000" min="0" step="10000">
+        <span class="form-hint">If provided, the tool will calculate surplus or deficit against the requirement.</span>
+      </div>
+    </div>
+
+    <div class="form-group full" style="margin-top:1rem">
+      <label class="form-label">Risk Scaling Factor k &mdash; Methods B &amp; C (PSD2 Art.9(3))</label>
+      <div class="k-grid">
+        <label class="k-card" id="k05" onclick="selectK(0.5)">
+          <input type="radio" name="kfactor" value="0.5">
+          <div class="k-label">k = 0.5</div>
+          <div class="k-desc">Low risk &mdash; NCA-approved low-risk profile</div>
+        </label>
+        <label class="k-card selected" id="k08" onclick="selectK(0.8)">
+          <input type="radio" name="kfactor" value="0.8" checked>
+          <div class="k-label">k = 0.8</div>
+          <div class="k-desc">Standard &mdash; default for most authorised PIs</div>
+        </label>
+        <label class="k-card" id="k10" onclick="selectK(1.0)">
+          <input type="radio" name="kfactor" value="1.0">
+          <div class="k-label">k = 1.0</div>
+          <div class="k-desc">High risk &mdash; elevated NCA risk assessment</div>
+        </label>
+        <label class="k-card" id="k15" onclick="selectK(1.5)">
+          <input type="radio" name="kfactor" value="1.5">
+          <div class="k-label">k = 1.5</div>
+          <div class="k-desc">Very high risk &mdash; NCA supervisory add-on</div>
+        </label>
+      </div>
+    </div>
+
+    <div class="formula-box" style="margin-top:1.25rem">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem">PSD2 Art.9 Formulas</div>
+      <div class="formula-text">Method A: own_funds = max(floor, 10% x fixed_overheads)
+Method B: own_funds = max(floor, tier(vol_current) x k)
+Method C: own_funds = max(floor, tier(avg_3yr) x k)
+  where avg_3yr = (vol_current + vol_y1 + vol_y2) / 3
+
+Tiers (PSD2 Art.9 / Annex I methodology):
+  4.00% on first EUR 5M  |  2.50% on EUR 5M-10M  |  1.00% on EUR 10M-100M
+  0.50% on EUR 100M-250M |  0.25% on above EUR 250M
+
+Floor: EUR 125,000 (AIS-only PIs: EUR 50,000)</div>
+    </div>
+
+    <div id="errorMsg" class="error-msg">Please provide the required input(s) for the selected method(s).</div>
+    <button class="run-btn" onclick="runCalc()">Calculate Own Funds Requirement</button>
+  </div>
+
+  <div class="output-section" id="outputSection">
+
+    <div class="out-block">
+      <div class="out-header">
+        <span class="out-title">Own Funds Requirement</span>
+        <span id="methodLabel" style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted)"></span>
+      </div>
+      <div class="out-body">
+        <div class="result-hero">
+          <div>
+            <div class="result-amount" id="resultAmount">&#8212;</div>
+            <div class="result-sub" id="resultSub"></div>
+          </div>
+          <div class="result-detail" id="resultDetail"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="out-block" id="compBlock">
+      <div class="out-header"><span class="out-title">All-Methods Comparison</span></div>
+      <div class="out-body">
+        <table class="comp-table">
+          <thead><tr>
+            <th>Method</th><th>Input Basis</th><th>Pre-Floor Amount</th><th>After k Scaling</th><th>Final (after floor)</th><th>Tag</th>
+          </tr></thead>
+          <tbody id="compTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="out-block">
+      <div class="out-header"><span class="out-title">Regulatory Basis</span></div>
+      <div class="out-body"><div class="reg-basis" id="regBasis"></div></div>
+    </div>
+
+    <div class="out-block">
+      <div class="out-header"><span class="out-title">Calculation Breakdown</span></div>
+      <div class="out-body"><div class="formula-breakdown" id="formulaBreakdown"></div></div>
+    </div>
+
+    <div class="out-block">
+      <div class="out-header"><span class="out-title">Capital Adequacy Check</span></div>
+      <div class="out-body">
+        <div class="buffer-card" id="bufferCard"></div>
+        <p style="font-size:.72rem;color:var(--muted);margin-top:.75rem;line-height:1.6">&#9432; The initial capital floor is a standing requirement independent of the calculated own-funds amount. For supervised PIs, the FCA/NCA may require a buffer above the minimum based on supervisory judgement.</p>
+      </div>
+    </div>
+
+    <div class="export-row">
+      <button class="export-btn" onclick="exportMarkdown()">&#8595; Export Markdown</button>
+      <button class="export-btn" id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run tool first">{} Export Policy Mandate <span style="margin-left:.4rem;color:var(--muted);font-size:.85em">AP2 &middot; audit trail</span></button>
+    </div>
+  </div>
+
+  <div class="section-divider"></div>
+
+  <div>
+    <button class="mfst-btn" onclick="toggleMfst()">
+      <span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; calculate_pi_own_funds</span>
+      <span id="mfstArr" style="color:var(--muted)">&#9660;</span>
+    </button>
+    <div class="mfst-body" id="mfstBody">
+      <pre class="mfst-code">{
+  "name": "calculate_pi_own_funds",
+  "description": "Computes own-funds requirement for Payment Institutions under PSD2 Art.9 / UK PSRs 2017. Methods A, B, C.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "method":             { "type": "string", "enum": ["A","B","C","ALL"] },
+      "fixed_overheads":    { "type": "number", "description": "Preceding year fixed overheads (EUR/GBP) - Method A" },
+      "annual_volume":      { "type": "number", "description": "Current year annual payment volume (EUR/GBP)" },
+      "volume_y1":          { "type": "number", "description": "Year -1 annual payment volume (EUR/GBP) - Method C" },
+      "volume_y2":          { "type": "number", "description": "Year -2 annual payment volume (EUR/GBP) - Method C" },
+      "risk_factor_k":      { "type": "number", "enum": [0.5, 0.8, 1.0, 1.5] },
+      "service_type":       { "type": "string", "enum": ["money_remittance","payment_initiation","account_information","other"] },
+      "regime":             { "type": "string", "enum": ["EU","UK"] },
+      "existing_own_funds": { "type": "number" }
+    },
+    "required": ["method"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "required_own_funds": { "type": "number" },
+      "method_used":        { "type": "string" },
+      "floor_applied":      { "type": "number" },
+      "all_methods":        { "type": "array", "items": { "type": "object" } },
+      "capital_surplus":    { "type": "number" }
+    }
+  }
+}</pre>
+    </div>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <div><div class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75rem">.co</span></div></div>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="../guides/psp-payment-safeguarding-hub.html">PSP Hub</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>Zero PII &nbsp;&middot;&nbsp; No server calls &nbsp;&middot;&nbsp; Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+const TRANSLATIONS={
+  en:{run:'Calculate Own Funds Requirement'},
+  es:{run:'Calcular Requisito de Fondos Propios'},
+  fr:{run:'Calculer les Fonds Propres Requis'},
+  ar:{run:'احسب متطلبات الأموال الخاصة'},
+  pt:{run:'Calcular Requisito de Fundos Próprios'},
+  zh:{run:'计算自有资金要求'}
+};
+function setLang(lang){
+  var t=TRANSLATIONS[lang];if(!t)return;
+  document.querySelectorAll('.lang-btn').forEach(function(b){b.classList.toggle('active',b.dataset.lang===lang);});
+  document.documentElement.lang=lang;
+  document.documentElement.dir=(lang==='ar')?'rtl':'ltr';
+  var rb=document.querySelector('.run-btn');if(rb)rb.textContent=t.run;
+  try{sessionStorage.setItem('ain_lang',lang);}catch(e){}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s&&TRANSLATIONS[s])setLang(s);}catch(e){}})();
+
+function selectMethod(m){
+  ['A','B','C','ALL'].forEach(function(x){
+    var c=document.getElementById('card'+x);
+    if(!c)return;
+    c.classList.toggle('selected',x===m);
+    c.querySelector('input').checked=(x===m);
+  });
+}
+function selectK(k){
+  var map={'0.5':'k05','0.8':'k08','1':'k10','1.5':'k15'};
+  Object.keys(map).forEach(function(v){
+    var c=document.getElementById(map[v]);
+    if(!c)return;
+    c.classList.toggle('selected',parseFloat(v)===k);
+    c.querySelector('input').checked=(parseFloat(v)===k);
+  });
+}
+
+function fmt(n){
+  if(n===null||n===undefined||isNaN(n))return '—';
+  return new Intl.NumberFormat('en-GB',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
+}
+
+var TIERS=[
+  {limit:5000000,rate:0.040},
+  {limit:10000000,rate:0.025},
+  {limit:100000000,rate:0.010},
+  {limit:250000000,rate:0.005},
+  {limit:Infinity,rate:0.0025}
+];
+function applyTiers(vol){
+  var remaining=vol,result=0,prev=0;
+  for(var i=0;i<TIERS.length;i++){
+    var b=TIERS[i];
+    var bw=b.limit===Infinity?remaining:Math.min(remaining,b.limit-prev);
+    if(bw<=0)break;
+    result+=bw*b.rate;
+    remaining-=bw;
+    prev=b.limit;
+    if(remaining<=0)break;
+  }
+  return result;
+}
+function tierLines(vol){
+  var labels=['first EUR 5M','EUR 5M-10M','EUR 10M-100M','EUR 100M-250M','above EUR 250M'];
+  var lines=[],remaining=vol,prev=0;
+  for(var i=0;i<TIERS.length;i++){
+    var b=TIERS[i];
+    var bw=b.limit===Infinity?remaining:Math.min(remaining,b.limit-prev);
+    if(bw<=0)break;
+    var contrib=bw*b.rate;
+    lines.push('  '+labels[i]+': '+fmt(bw)+' x '+(b.rate*100).toFixed(2)+'% = '+fmt(contrib));
+    remaining-=bw;
+    prev=b.limit;
+    if(remaining<=0)break;
+  }
+  return lines.join('\n');
+}
+function getFloor(st){return st==='account_information'?50000:125000;}
+
+var _result=null;
+
+function runCalc(){
+  var errEl=document.getElementById('errorMsg');
+  errEl.classList.remove('show');
+  var method=document.querySelector('input[name=method]:checked').value;
+  var regime=document.getElementById('regime').value;
+  var serviceType=document.getElementById('serviceType').value;
+  var overheads=parseFloat(document.getElementById('fixedOverheads').value)||0;
+  var volCurrent=parseFloat(document.getElementById('volCurrent').value)||0;
+  var volY1=parseFloat(document.getElementById('volY1').value)||0;
+  var volY2=parseFloat(document.getElementById('volY2').value)||0;
+  var k=parseFloat(document.querySelector('input[name=kfactor]:checked').value)||0.8;
+  var existing=parseFloat(document.getElementById('existingFunds').value)||0;
+  var floor=getFloor(serviceType);
+  var results=[];
+
+  // Method A
+  if(method==='A'||method==='ALL'){
+    if(overheads>0){
+      var rawA=overheads*0.10;
+      var finalA=Math.max(floor,rawA);
+      results.push({id:'A',label:'Method A',basisStr:'Fixed OH: '+fmt(overheads),raw:rawA,afterK:rawA,final:finalA,k:1});
+    }else if(method==='A'){errEl.classList.add('show');return;}
+  }
+  // Method B
+  if(method==='B'||method==='ALL'){
+    if(volCurrent>0){
+      var rawB=applyTiers(volCurrent);
+      var afterKB=rawB*k;
+      var finalB=Math.max(floor,afterKB);
+      results.push({id:'B',label:'Method B',basisStr:'Vol: '+fmt(volCurrent)+', k='+k,raw:rawB,afterK:afterKB,final:finalB,k:k});
+    }else if(method==='B'){errEl.classList.add('show');return;}
+  }
+  // Method C
+  if(method==='C'||method==='ALL'){
+    if(volCurrent>0){
+      var v1=volY1>0?volY1:volCurrent;
+      var v2=volY2>0?volY2:volCurrent;
+      var avg=(volCurrent+v1+v2)/3;
+      var rawC=applyTiers(avg);
+      var afterKC=rawC*k;
+      var finalC=Math.max(floor,afterKC);
+      results.push({id:'C',label:'Method C',basisStr:'3yr avg: '+fmt(avg)+', k='+k,raw:rawC,afterK:afterKC,final:finalC,k:k,avg:avg,v1:v1,v2:v2});
+    }else if(method==='C'){errEl.classList.add('show');return;}
+  }
+  if(results.length===0){errEl.classList.add('show');return;}
+
+  var sorted=results.slice().sort(function(a,b){return a.final-b.final;});
+  var lowest=sorted[0];
+  var highest=sorted[sorted.length-1];
+  var primary=(method==='ALL')?lowest:results[0];
+
+  _result={method,regime,serviceType,floor,overheads,volCurrent,volY1,volY2,k,existing,results,primary,lowest,highest};
+
+  // Render primary
+  document.getElementById('resultAmount').textContent=fmt(primary.final);
+  document.getElementById('resultSub').textContent='Required own funds \xb7 '+primary.label+(method==='ALL'?' (most favourable)':'');
+  document.getElementById('methodLabel').textContent='PSD2 Art.9 \xb7 '+(regime==='UK'?'UK PSRs 2017':'EU PSD2')+' \xb7 '+(serviceType==='account_information'?'AIS floor €50K':'Floor €125K');
+  var det=document.getElementById('resultDetail');
+  det.innerHTML='';
+  var detRows=[
+    {k:'Pre-floor amount',v:fmt(primary.raw)},
+    {k:'After k scaling',v:fmt(primary.afterK)},
+    {k:'Initial capital floor',v:fmt(floor)},
+    {k:'Final requirement',v:'<strong style="color:var(--white)">'+fmt(primary.final)+'</strong>'}
+  ];
+  if(method==='ALL'&&results.length>1)detRows.push({k:'Most favourable method',v:lowest.label+' ('+fmt(lowest.final)+')'});
+  detRows.forEach(function(r){det.innerHTML+='<div class="result-row"><span class="result-key">'+r.k+'</span><span class="result-val">'+r.v+'</span></div>';});
+
+  // Render comparison
+  var tbody=document.getElementById('compTbody');
+  tbody.innerHTML='';
+  var compBlock=document.getElementById('compBlock');
+  compBlock.style.display=(results.length>1||method==='ALL')?'':'none';
+  results.forEach(function(r){
+    var isLowest=r.id===lowest.id;
+    var isHighest=results.length>1&&r.id===highest.id&&r.id!==lowest.id;
+    var isPrimary=r.id===primary.id&&method==='ALL';
+    var tr=document.createElement('tr');
+    if(isPrimary)tr.className='row-selected';
+    else if(isLowest&&results.length>1)tr.className='row-lowest';
+    var tag='';
+    if(method==='ALL'&&isLowest)tag+='<span class="tag-lowest">Lowest</span> ';
+    if(method==='ALL'&&isHighest)tag+='<span class="tag-highest">Highest</span>';
+    if(results.length===1)tag='<span class="tag-selected">Selected</span>';
+    tr.innerHTML='<td><span style="font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--teal)">'+r.label+'</span></td>'
+      +'<td style="font-size:.72rem;color:var(--body)">'+r.basisStr+'</td>'
+      +'<td class="amount-cell">'+fmt(r.raw)+'</td>'
+      +'<td class="amount-cell">'+fmt(r.afterK)+'</td>'
+      +'<td class="amount-cell"><strong>'+fmt(r.final)+'</strong></td>'
+      +'<td>'+tag+'</td>';
+    tbody.appendChild(tr);
+  });
+
+  // Reg basis
+  var isUK=regime==='UK';
+  var isAIS=serviceType==='account_information';
+  document.getElementById('regBasis').innerHTML=
+    '<strong>'+(isUK?'UK PSRs 2017':'PSD2 2015/2366/EU')+' &mdash; Own Funds Requirement</strong><br><br>'
+    +'<strong>Applicable provision:</strong> '+(isUK?'Payment Services Regulations 2017, Schedule 2 (retained EU law)':'PSD2 Article 9 &mdash; Own funds requirements for payment institutions')+'<br>'
+    +'<strong>Method A:</strong> 10% of fixed overheads of the preceding year (PSD2 Art.9(1)(a))<br>'
+    +'<strong>Method B:</strong> Tiered % of current year payment volume &times; k (PSD2 Art.9(1)(b))<br>'
+    +'<strong>Method C:</strong> Same tiered formula on 3-year rolling average &times; k (PSD2 Art.9(1)(c))<br>'
+    +'<strong>Initial capital floor:</strong> '+(isAIS?'&euro;50,000 (AIS-only PIs &mdash; PSD2 Art.7(3))':'&euro;125,000 (money remittance, PIS and other authorised PIs &mdash; PSD2 Art.7(1)/(2))')+'<br>'
+    +'<strong>Risk factor k:</strong> NCA / FCA may increase or reduce calculated amount using factor k (PSD2 Art.9(3))<br>'
+    +'<strong>Note:</strong> '+(isUK?'The UK retained PSD2 Art.9 rules post-Brexit. PSRs 2017 Schedule 2 thresholds and percentages are unchanged.':'NCAs may not apply Method C where less than 3 years of data are available; Method B or projected data should be used.')+'<br><br>'
+    +'<span style="color:var(--muted);font-size:.69rem">This tool applies published PSD2/PSRs 2017 methodology. Always confirm requirements with your NCA or FCA and qualified legal counsel.</span>';
+
+  // Breakdown
+  var bkHtml='';
+  results.forEach(function(r){
+    bkHtml+='<div style="margin-bottom:1rem">';
+    bkHtml+='<div style="color:var(--teal-lt);margin-bottom:.4rem">-- '+r.label+' ------------------------------------------</div>';
+    if(r.id==='A'){
+      bkHtml+='<div class="step">  fixed_overheads x 10%</div>';
+      bkHtml+='<div class="step">  '+fmt(overheads)+' x 10% = '+fmt(overheads*0.10)+'</div>';
+      bkHtml+='<div class="step">  max('+fmt(overheads*0.10)+', floor '+fmt(floor)+') = <span class="result">'+fmt(r.final)+'</span></div>';
+    }else if(r.id==='B'){
+      bkHtml+='<div class="step">  Volume (current year): '+fmt(volCurrent)+'</div>';
+      bkHtml+='<div class="step">  Tier calculation:</div>';
+      bkHtml+='<div class="step">'+tierLines(volCurrent)+'</div>';
+      bkHtml+='<div class="step">  Pre-k subtotal: '+fmt(r.raw)+'</div>';
+      bkHtml+='<div class="step">  x k ('+k+'): '+fmt(r.afterK)+'</div>';
+      bkHtml+='<div class="step">  max('+fmt(r.afterK)+', floor '+fmt(floor)+') = <span class="result">'+fmt(r.final)+'</span></div>';
+    }else if(r.id==='C'){
+      var cv=volCurrent,v1r=r.v1||volCurrent,v2r=r.v2||volCurrent;
+      bkHtml+='<div class="step">  Year 0:  '+fmt(cv)+'</div>';
+      bkHtml+='<div class="step">  Year -1: '+fmt(v1r)+(volY1===0?' (current year as proxy)':'')+'</div>';
+      bkHtml+='<div class="step">  Year -2: '+fmt(v2r)+(volY2===0?' (current year as proxy)':'')+'</div>';
+      bkHtml+='<div class="step">  3yr average: ('+fmt(cv)+' + '+fmt(v1r)+' + '+fmt(v2r)+') / 3 = '+fmt(r.avg)+'</div>';
+      bkHtml+='<div class="step">  Tier calculation on average:</div>';
+      bkHtml+='<div class="step">'+tierLines(r.avg)+'</div>';
+      bkHtml+='<div class="step">  Pre-k subtotal: '+fmt(r.raw)+'</div>';
+      bkHtml+='<div class="step">  x k ('+k+'): '+fmt(r.afterK)+'</div>';
+      bkHtml+='<div class="step">  max('+fmt(r.afterK)+', floor '+fmt(floor)+') = <span class="result">'+fmt(r.final)+'</span></div>';
+    }
+    bkHtml+='</div>';
+  });
+  document.getElementById('formulaBreakdown').innerHTML=bkHtml;
+
+  // Buffer
+  var req=primary.final;
+  var bufHtml='<div class="buffer-row"><span class="lbl">Minimum own-funds requirement</span><span class="val">'+fmt(req)+'</span></div>'
+    +'<div class="buffer-row"><span class="lbl">Initial capital floor</span><span class="val">'+fmt(floor)+'</span></div>';
+  if(existing>0){
+    var surplus=existing-req;
+    var isOk=surplus>=0;
+    bufHtml+='<div class="buffer-row"><span class="lbl">Current own funds held</span><span class="val">'+fmt(existing)+'</span></div>';
+    bufHtml+='<div class="buffer-row"><span class="lbl">Surplus / (Deficit)</span><span class="val '+(isOk?'surplus-ok':'surplus-bad')+'">'+(isOk?'+':'')+fmt(surplus)+'</span></div>';
+    if(!isOk){
+      bufHtml+='<div style="margin-top:.75rem;padding:.6rem .75rem;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.25);border-radius:4px;font-size:.72rem;color:var(--red);line-height:1.5">'
+        +'Capital deficit of '+fmt(Math.abs(surplus))+' identified. The institution must take immediate steps to restore own funds. Notify your NCA/FCA without delay.</div>';
+    }
+  }else{
+    bufHtml+='<div style="font-size:.72rem;color:var(--muted);margin-top:.5rem">Enter current own funds above to see surplus/deficit analysis.</div>';
+  }
+  document.getElementById('bufferCard').innerHTML=bufHtml;
+
+  document.getElementById('outputSection').classList.add('visible');
+  var ap2=document.getElementById('ap2ExportBtn');
+  ap2.disabled=false;ap2.classList.add('ready');
+  document.getElementById('outputSection').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function toggleMfst(){
+  var body=document.getElementById('mfstBody');
+  var arr=document.getElementById('mfstArr');
+  var open=body.style.display==='block';
+  body.style.display=open?'none':'block';
+  arr.innerHTML=open?'&#9660;':'&#9650;';
+}
+
+function exportMarkdown(){
+  if(!_result)return;
+  var r=_result;
+  var ts=new Date().toISOString().slice(0,19).replace('T',' ');
+  var md='# PI Own Funds Requirement — T418\n\n';
+  md+='**Generated:** '+ts+'  \n';
+  md+='**Regime:** '+(r.regime==='UK'?'UK PSRs 2017':'EU PSD2 Art.9')+'  \n';
+  md+='**Service type:** '+r.serviceType+'  \n';
+  md+='**Initial capital floor:** '+fmt(r.floor)+'  \n\n';
+  md+='## Results\n\n| Method | Final Requirement |\n|--------|------------------|\n';
+  r.results.forEach(function(m){md+='| '+m.label+' | '+fmt(m.final)+' |\n';});
+  md+='\n**Most favourable:** '+r.lowest.label+' — '+fmt(r.lowest.final)+'\n\n';
+  if(r.existing>0)md+='**Capital surplus/(deficit):** '+fmt(r.existing-r.primary.final)+'\n\n';
+  md+='---\n*Generated by AINumbers.co T418 — CC BY 4.0 Post Oak Labs*\n';
+  var blob=new Blob([md],{type:'text/markdown'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pi-own-funds-T418.md';a.click();
+}
+
+function exportAP2(){
+  if(!_result)return;
+  var r=_result;
+  var payload={
+    tool_id:'418-pi-own-funds-calculator',tool_version:'1.0.0',
+    generated_at:new Date().toISOString(),
+    regulatory_regime:r.regime,
+    regulatory_basis:r.regime==='UK'?'UK PSRs 2017, Schedule 2':'PSD2 2015/2366/EU, Article 9',
+    service_type:r.serviceType,initial_capital_floor:r.floor,
+    inputs:{fixed_overheads:r.overheads||null,annual_volume_current:r.volCurrent||null,annual_volume_y1:r.volY1||null,annual_volume_y2:r.volY2||null,risk_factor_k:r.k,existing_own_funds:r.existing||null},
+    results:r.results.map(function(m){return{method:m.id,label:m.label,pre_floor:m.raw,after_k:m.afterK,final:m.final};}),
+    primary_result:{method:r.primary.id,required_own_funds:r.primary.final},
+    most_favourable:{method:r.lowest.id,required_own_funds:r.lowest.final},
+    capital_adequacy:r.existing>0?{existing_own_funds:r.existing,surplus_deficit:r.existing-r.primary.final,adequate:r.existing>=r.primary.final}:null,
+    disclaimer:'This output applies published PSD2/PSRs 2017 methodology. Verify against current legislative texts. Not legal advice.'
+  };
+  var blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pi-own-funds-T418-policy-mandate.json';a.click();
+}
+
+selectMethod('ALL');
+selectK(0.8);
+</script>
+</body>
+</html>

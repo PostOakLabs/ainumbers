@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Scheme Fee Analyzer · AINumbers.co</title>
+<meta name="description" content="Break down Visa and Mastercard scheme fees for acquirers and large merchants — assessment fees, FANF, cross-border fees, NABU/NAPF — to model and benchmark total scheme cost. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/415-scheme-fee-analyzer.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Scheme Fee Analyzer","url":"https://ainumbers.co/tools/415-scheme-fee-analyzer.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "scheme-fee-analyzer",
+  "version": "1.0.0",
+  "title": "Scheme Fee Analyzer",
+  "description": "Breaks down Visa and Mastercard scheme fees for acquirers and large merchants — assessment fees, FANF, cross-border fees, NABU/NAPF — to model and benchmark total scheme cost.",
+  "category": "cat-9",
+  "tags": ["scheme fees","Visa","Mastercard","FANF","assessment fee","NABU","NAPF","card economics","acquirer","interchange"],
+  "audience": ["acquirer","finance","treasury","payments-ops"],
+  "input_schema": {"type":"object","properties":{"monthly_volume":{"type":"number"},"visa_pct":{"type":"number"},"mc_pct":{"type":"number"},"credit_pct":{"type":"number"},"debit_pct":{"type":"number"},"commercial_pct":{"type":"number"},"domestic_pct":{"type":"number"},"intra_eu_pct":{"type":"number"},"international_pct":{"type":"number"},"geography":{"type":"string","enum":["US","EU","UK","Global"]},"acquirer_tier":{"type":"string","enum":["small","mid","large"]}},"required":["monthly_volume","visa_pct","mc_pct","geography","acquirer_tier"]},
+  "output_schema": {"type":"object","properties":{"total_monthly_fees":{"type":"number"},"total_bps":{"type":"number"},"annual_fees":{"type":"number"},"visa_total":{"type":"number"},"mc_total":{"type":"number"},"breakdown":{"type":"array"}}},
+  "mcp_tool_definition": {
+    "name": "analyze_scheme_fees",
+    "description": "Calculates Visa and Mastercard scheme fees for an acquirer or merchant based on volume, card mix, geography, and cross-border profile.",
+    "inputSchema": {"type":"object","properties":{"monthly_volume":{"type":"number"},"visa_pct":{"type":"number"},"mc_pct":{"type":"number"},"geography":{"type":"string","enum":["US","EU","UK","Global"]},"acquirer_tier":{"type":"string","enum":["small","mid","large"]}},"required":["monthly_volume","visa_pct","mc_pct","geography","acquirer_tier"]}
+  },
+  "execution": {"type":"browser-javascript","entry":"tools/415-scheme-fee-analyzer.html","function_name":"runAnalyzer","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1.5rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+.panel-title::before{content:'';display:block;width:16px;height:1px;background:var(--teal)}
+.panel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem}
+.panel-row{display:flex;flex-direction:column;gap:.35rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.panel-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.4rem .6rem;border-radius:3px;outline:none;width:100%;transition:border-color .2s}
+.panel-input:focus{border-color:var(--teal)}
+.panel-select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.4rem .6rem;border-radius:3px;outline:none;width:100%;transition:border-color .2s;-webkit-appearance:none;appearance:none}
+.panel-select:focus{border-color:var(--teal)}
+.slider-wrap{display:flex;align-items:center;gap:.65rem}
+.slider{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:2px;background:var(--bg-3);outline:none;cursor:pointer}
+.slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--teal);cursor:pointer;border:2px solid var(--bg)}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--teal);min-width:32px;text-align:right}
+.sum-badge{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .5rem;border-radius:3px;border:1px solid;transition:all .2s}
+.sum-ok{color:var(--green);border-color:rgba(34,197,94,.3);background:var(--green-dim)}
+.sum-err{color:var(--red);border-color:rgba(239,68,68,.3);background:var(--red-dim)}
+.run-wrap{display:flex;gap:1rem;align-items:center;margin:1.5rem 0 2rem}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.results-panel{display:none}
+.results-panel.visible{display:block}
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.25rem}
+@media(max-width:640px){.summary-grid{grid-template-columns:1fr}}
+.sum-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem}
+.sum-card-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+.sum-card-value{font-family:'DM Serif Display',serif;font-size:1.6rem;color:var(--bright);line-height:1.1}
+.sum-card-sub{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--body);margin-top:.2rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.25rem}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
+@media(max-width:700px){.chart-row{grid-template-columns:1fr}}
+.chart-box{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem}
+.chart-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.result-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.result-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.result-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.result-table tr:last-child td{border-bottom:none}
+.result-table tr:hover td{background:var(--bg-3)}
+.mono{font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.chip{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .45rem;border-radius:3px;border:1px solid}
+.chip-visa{color:#1A1F71;background:#EEF0FF;border-color:#9BA4E8}
+.chip-mc{color:#B91C1C;background:#FFF0F0;border-color:#F5A0A0}
+.chip-both{color:var(--body);background:var(--bg-3);border-color:var(--border)}
+.bench-bar-wrap{display:flex;align-items:center;gap:.75rem;margin:.5rem 0}
+.bench-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);min-width:80px}
+.bench-outer{flex:1;height:10px;background:var(--bg-3);border-radius:5px;overflow:hidden;position:relative}
+.bench-inner{height:100%;border-radius:5px;transition:width .4s ease}
+.bench-marker{position:absolute;top:-2px;height:14px;width:2px;background:var(--bright);border-radius:1px}
+.bench-val{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--body);min-width:40px;text-align:right}
+.results-export-row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;padding-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{color:var(--body);border-color:var(--border)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal)}
+.btn-sm{padding:.3rem .75rem;font-size:.48rem}
+#ap2ExportBtn{opacity:.28;cursor:not-allowed}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+.btn-subtitle{display:block;font-size:.42rem;color:var(--muted);letter-spacing:.06em;margin-top:.1rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--bright);display:none;max-width:340px}
+.toast.show{display:block}
+.toast.err{border-left:3px solid var(--red);color:var(--red)}
+.toast.ok{border-left:3px solid var(--green);color:var(--green)}
+@media(max-width:700px){.panel-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">&#20013;&#25991;</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a>
+    <span class="nav-bc-sep">/</span>
+    <span style="color:var(--text)">T-415 Scheme Fee Analyzer</span>
+  </div>
+  <div class="nav-right">
+    <a href="../index.html" class="nav-pill">All Tools</a>
+  </div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">T415 &middot; Card Economics &middot; Cat-09</div>
+  <span class="hero-badge badge-muted">v1.0 &middot; May 2026</span>
+  <h1>Scheme Fee <em>Analyzer</em></h1>
+  <p class="hero-desc">Break down Visa and Mastercard scheme fees for acquirers and large merchants &mdash; assessment fees, FANF (Fixed Acquirer Network Fee), cross-border fees, NABU/NAPF &mdash; so finance teams can model and benchmark their total scheme cost.</p>
+  <div class="disclaimer">Scheme fee schedules are based on published Visa/Mastercard US interchange and fee documentation (effective 2025&ndash;2026). Actual fees depend on your processor contract, programme type, and regulatory jurisdiction. Always verify with your scheme and acquirer.</div>
+  <div class="hero-meta">
+    <span class="hero-badge badge-teal">Card Economics</span>
+    <span class="hero-badge badge-gold">Visa &middot; Mastercard</span>
+    <span class="hero-badge badge-green">Zero PII</span>
+    <span class="hero-badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="panel">
+    <div class="panel-title">Volume &amp; Geography</div>
+    <div class="panel-grid">
+      <div class="panel-row">
+        <label class="panel-label" for="monthlyVolume">Monthly Card Volume (USD)</label>
+        <input class="panel-input" type="number" id="monthlyVolume" min="0" step="10000" value="5000000" placeholder="e.g. 5000000">
+      </div>
+      <div class="panel-row">
+        <label class="panel-label" for="geography">Geography / Regulatory Basis</label>
+        <select class="panel-select" id="geography">
+          <option value="US">US (Visa/MC US published rates)</option>
+          <option value="EU">EU (post-IFR adjustments)</option>
+          <option value="UK">UK</option>
+          <option value="Global">Global (US basis, blended)</option>
+        </select>
+      </div>
+      <div class="panel-row">
+        <label class="panel-label" for="acquirerTier">Acquirer Tier</label>
+        <select class="panel-select" id="acquirerTier">
+          <option value="small">Small (&lt;$1B annual)</option>
+          <option value="mid" selected>Mid ($1&ndash;10B annual)</option>
+          <option value="large">Large (&gt;$10B annual)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Card Network Mix <span id="netSumBadge" class="sum-badge sum-ok" style="margin-left:.5rem">= 100%</span></div>
+    <div class="panel-grid">
+      <div class="panel-row">
+        <label class="panel-label" for="visaPct">Visa %</label>
+        <div class="slider-wrap">
+          <input class="slider" type="range" id="visaPct" min="0" max="100" value="60" oninput="syncNetwork('visa',this.value)">
+          <span class="slider-val" id="visaPctVal">60%</span>
+        </div>
+      </div>
+      <div class="panel-row">
+        <label class="panel-label" for="mcPct">Mastercard %</label>
+        <div class="slider-wrap">
+          <input class="slider" type="range" id="mcPct" min="0" max="100" value="40" oninput="syncNetwork('mc',this.value)">
+          <span class="slider-val" id="mcPctVal">40%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Card Type Mix <span id="typeSumBadge" class="sum-badge sum-ok" style="margin-left:.5rem">= 100%</span></div>
+    <div class="panel-grid">
+      <div class="panel-row">
+        <label class="panel-label" for="creditPct">Credit %</label>
+        <div class="slider-wrap">
+          <input class="slider" type="range" id="creditPct" min="0" max="100" value="55" oninput="onSliderChange('creditPctVal',this.value);checkTypeSum()">
+          <span class="slider-val" id="creditPctVal">55%</span>
+        </div>
+      </div>
+      <div class="panel-row">
+        <label class="panel-label" for="debitPct">Debit %</label>
+        <div class="slider-wrap">
+          <input class="slider" type="range" id="debitPct" min="0" max="100" value="35" oninput="onSliderChange('debitPctVal',this.value);checkTypeSum()">
+          <span class="slider-val" id="debitPctVal">35%</span>
+        </div>
+      </div>
+      <div class="panel-row">
+        <label class="panel-label" for="commercialPct">Commercial / Corporate %</label>
+        <div class="slider-wrap">
+          <input class="slider" type="range" id="commercialPct" min="0" max="100" value="10" oninput="onSliderChange('commercialPctVal',this.value);checkTypeSum()">
+          <span class="slider-val" id="commercialPctVal">10%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Domestic vs Cross-border Mix <span id="geoSumBadge" class="sum-badge sum-ok" style="margin-left:.5rem">= 100%</span></div>
+    <div class="panel-grid">
+      <div class="panel-row">
+        <label class="panel-label" for="domesticPct">Domestic %</label>
+        <div class="slider-wrap">
+          <input class="slider" type="range" id="domesticPct" min="0" max="100" value="75" oninput="onSliderChange('domesticPctVal',this.value);checkGeoSum()">
+          <span class="slider-val" id="domesticPctVal">75%</span>
+        </div>
+      </div>
+      <div class="panel-row">
+        <label class="panel-label" for="intraPct">Intra-EU / Regional %</label>
+        <div class="slider-wrap">
+          <input class="slider" type="range" id="intraPct" min="0" max="100" value="10" oninput="onSliderChange('intraPctVal',this.value);checkGeoSum()">
+          <span class="slider-val" id="intraPctVal">10%</span>
+        </div>
+      </div>
+      <div class="panel-row">
+        <label class="panel-label" for="intlPct">International %</label>
+        <div class="slider-wrap">
+          <input class="slider" type="range" id="intlPct" min="0" max="100" value="15" oninput="onSliderChange('intlPctVal',this.value);checkGeoSum()">
+          <span class="slider-val" id="intlPctVal">15%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="run-wrap">
+    <button class="run-btn" onclick="runAnalyzer()" id="runBtn">&#9654; Run Analyzer</button>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+
+    <div class="summary-grid">
+      <div class="sum-card">
+        <div class="sum-card-label">Total Monthly Scheme Fees</div>
+        <div class="sum-card-value" id="outTotalFees">&mdash;</div>
+        <div class="sum-card-sub" id="outTotalBps">&mdash; bps of volume</div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-card-label">Annual Estimate</div>
+        <div class="sum-card-value" id="outAnnualFees">&mdash;</div>
+        <div class="sum-card-sub">&times;12 monthly run-rate</div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-card-label">% of Monthly Volume</div>
+        <div class="sum-card-value" id="outPctVol">&mdash;</div>
+        <div class="sum-card-sub" id="outBenchmark">Industry benchmark: 0.10&ndash;0.18%</div>
+      </div>
+    </div>
+
+    <div class="chart-row">
+      <div class="chart-box">
+        <div class="chart-title">Visa vs Mastercard &mdash; Total Monthly Fees ($)</div>
+        <svg id="barChart" width="100%" height="130" viewBox="0 0 320 130" style="overflow:visible"></svg>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Fee Category Breakdown</div>
+        <svg id="donutChart" width="180" height="180" viewBox="0 0 200 200" style="display:block;margin:0 auto"></svg>
+        <div id="donutLegend" style="margin-top:.75rem;display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center"></div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Fee Line-Item Breakdown</span></div>
+      <div style="overflow-x:auto">
+        <table class="result-table" id="breakdownTable">
+          <thead>
+            <tr>
+              <th>Fee Type</th>
+              <th>Network</th>
+              <th>$ / Month</th>
+              <th>Basis</th>
+              <th>Bps</th>
+            </tr>
+          </thead>
+          <tbody id="breakdownBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Industry Benchmarks</span></div>
+      <div class="out-body">
+        <p style="font-size:.72rem;color:var(--body);margin-bottom:.85rem">Typical scheme fee range for acquirers/large merchants (US basis, 2025&ndash;2026 published rates). Midpoint ~0.14%.</p>
+        <div class="bench-bar-wrap">
+          <span class="bench-label">Your rate</span>
+          <div class="bench-outer">
+            <div class="bench-inner" id="benchBar" style="background:var(--teal);width:0%"></div>
+            <div class="bench-marker" id="benchMarker" style="left:56%"></div>
+          </div>
+          <span class="bench-val" id="benchValLabel">&mdash;</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.45rem;color:var(--muted);padding-top:.35rem">
+          <span>0.00%</span><span>Low 0.10%</span><span>Mid 0.14%</span><span>High 0.18%</span><span>0.25%</span>
+        </div>
+        <p style="font-size:.65rem;color:var(--muted);margin-top:.85rem;line-height:1.6">Sources: Visa 2025 US Fee Guide; Mastercard 2025 US Acquiring Fee Schedule. Benchmark range from published industry analysis (2025). Actual fees vary by programme, processor contract, and volume tier.</p>
+      </div>
+    </div>
+
+    <div class="results-export-row">
+      <button class="btn btn-ghost btn-sm" id="ap2ExportBtn" disabled onclick="exportAP2()" title="Run the analysis above to generate a Policy Mandate">
+        {} Export Policy Mandate
+        <span class="btn-subtitle">API &middot; audit trail</span>
+      </button>
+      <button class="btn btn-ghost btn-sm" onclick="exportCSV()">&#8595; Export CSV</button>
+    </div>
+
+  </div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()">
+        <span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span>
+        <span id="mfstArr" style="color:var(--muted)">&#9660;</span>
+      </button>
+      <div class="mfst-body" id="mfstBody">
+        <div class="mfst-code" id="mfstCode"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="footer-inner-ai">
+      <a href="../index.html" class="footer-brand-link">
+        <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+        <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.75em">.co</span></span>
+      </a>
+      <div class="footer-links-ai">
+        <a href="../index.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../contact.html">Contact</a>
+      </div>
+      <div class="footer-badge-ai">
+        <span>T415 &middot; Cat-09 &middot; Card Economics</span>
+        <span>v1.0 &middot; May 2026 &middot; CC BY 4.0</span>
+        <span>Post Oak Labs &middot; ainumbers.co</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── i18n ─────────────────────────────────────────────────────────────────────
+var TRANSLATIONS = {
+  en:{ run:'▶ Run Analyzer', lang_dir:'ltr' },
+  es:{ run:'▶ Ejecutar Análisis', lang_dir:'ltr' },
+  fr:{ run:'▶ Lancer l\'Analyse', lang_dir:'ltr' },
+  ar:{ run:'▶ تشغيل التحليل', lang_dir:'rtl' },
+  pt:{ run:'▶ Executar Análise', lang_dir:'ltr' },
+  zh:{ run:'▶ 运行分析', lang_dir:'ltr' }
+};
+function setLang(lang) {
+  var t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  document.documentElement.lang = lang;
+  document.documentElement.dir = t.lang_dir || 'ltr';
+  document.querySelectorAll('.lang-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.lang === lang); });
+  var rb = document.getElementById('runBtn');
+  if (rb) rb.textContent = t.run;
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+(function initLang(){
+  var lang = 'en';
+  try { lang = sessionStorage.getItem('ain_lang') || 'en'; } catch(e) {}
+  if (TRANSLATIONS[lang]) setLang(lang);
+})();
+
+// ── Slider helpers ────────────────────────────────────────────────────────────
+function onSliderChange(valId, val) {
+  document.getElementById(valId).textContent = val + '%';
+}
+function updateSumBadge(id, sum) {
+  var el = document.getElementById(id);
+  el.textContent = '= ' + sum + '%';
+  el.className = 'sum-badge ' + (sum === 100 ? 'sum-ok' : 'sum-err');
+}
+function syncNetwork(changed, val) {
+  val = parseInt(val, 10);
+  var other = 100 - val;
+  if (changed === 'visa') {
+    document.getElementById('visaPct').value = val;
+    document.getElementById('visaPctVal').textContent = val + '%';
+    document.getElementById('mcPct').value = other;
+    document.getElementById('mcPctVal').textContent = other + '%';
+  } else {
+    document.getElementById('mcPct').value = val;
+    document.getElementById('mcPctVal').textContent = val + '%';
+    document.getElementById('visaPct').value = other;
+    document.getElementById('visaPctVal').textContent = other + '%';
+  }
+  updateSumBadge('netSumBadge', 100);
+}
+function checkTypeSum() {
+  var s = parseInt(document.getElementById('creditPct').value) +
+          parseInt(document.getElementById('debitPct').value) +
+          parseInt(document.getElementById('commercialPct').value);
+  updateSumBadge('typeSumBadge', s);
+}
+function checkGeoSum() {
+  var s = parseInt(document.getElementById('domesticPct').value) +
+          parseInt(document.getElementById('intraPct').value) +
+          parseInt(document.getElementById('intlPct').value);
+  updateSumBadge('geoSumBadge', s);
+}
+document.addEventListener('DOMContentLoaded', function() {
+  checkTypeSum(); checkGeoSum();
+  updateSumBadge('netSumBadge', parseInt(document.getElementById('visaPct').value) + parseInt(document.getElementById('mcPct').value));
+});
+
+// ── Calculation engine ────────────────────────────────────────────────────────
+// Visa FANF (Card-Present) tiered by monthly Visa volume per MID
+var VISA_FANF_CP = [
+  { max:40000,     fee:2.00 },
+  { max:400000,    fee:2.90 },
+  { max:4000000,   fee:5.00 },
+  { max:20000000,  fee:10.00 },
+  { max:100000000, fee:17.50 },
+  { max:Infinity,  fee:27.50 }
+];
+function getVisaFANF(vol) {
+  for (var i=0;i<VISA_FANF_CP.length;i++) { if (vol <= VISA_FANF_CP[i].max) return VISA_FANF_CP[i].fee; }
+  return 27.50;
+}
+
+var AVG_TICKET = 65; // assumed average ticket size USD
+var lastResult = null;
+
+function runAnalyzer() {
+  var vol        = parseFloat(document.getElementById('monthlyVolume').value) || 0;
+  var visaPct    = parseInt(document.getElementById('visaPct').value) / 100;
+  var mcPct      = parseInt(document.getElementById('mcPct').value) / 100;
+  var creditPct  = parseInt(document.getElementById('creditPct').value) / 100;
+  var debitPct   = parseInt(document.getElementById('debitPct').value) / 100;
+  var commPct    = parseInt(document.getElementById('commercialPct').value) / 100;
+  var domPct     = parseInt(document.getElementById('domesticPct').value) / 100;
+  var intraPct   = parseInt(document.getElementById('intraPct').value) / 100;
+  var intlPct    = parseInt(document.getElementById('intlPct').value) / 100;
+  var geo        = document.getElementById('geography').value;
+  var tier       = document.getElementById('acquirerTier').value;
+
+  if (vol <= 0) { showToast('Please enter a valid monthly volume.', 'err'); return; }
+
+  // Warn if mixes don't sum to 100
+  var typeSum = Math.round((creditPct + debitPct + commPct) * 100);
+  var geoSum  = Math.round((domPct + intraPct + intlPct) * 100);
+  if (typeSum !== 100) showToast('Card type mix does not sum to 100% — results may be approximate.', 'err');
+  if (geoSum  !== 100) showToast('Geo mix does not sum to 100% — results may be approximate.', 'err');
+
+  var visaVol = vol * visaPct;
+  var mcVol   = vol * mcPct;
+
+  // Cross-border rates: EU uses lower IFR-adjusted intra rate
+  var intraCBRate_visa = (geo === 'EU') ? 0.0020 : 0.0040;
+  var intraCBRate_mc   = (geo === 'EU') ? 0.0020 : 0.0060;
+
+  // Domestic assessment (Visa/MC both 0.13%)
+  var VISA_ASSESS = 0.0013;
+  var MC_ASSESS   = 0.0013;
+
+  // Per-transaction fees
+  var VISA_NAPF = 0.0155;  // Network Acquirer Processing Fee
+  var MC_NABU   = 0.0195;  // Network Access Brand Usage
+  var MC_APS    = 0.0005;  // Acquirer Program Support
+
+  var visaTxn = visaVol / AVG_TICKET;
+  var mcTxn   = mcVol   / AVG_TICKET;
+
+  // ── Visa lines ──
+  var visa_dom    = visaVol * domPct   * VISA_ASSESS;
+  var visa_intra  = visaVol * intraPct * intraCBRate_visa;
+  var visa_intl   = visaVol * intlPct  * 0.0040;
+  var visa_fanf   = getVisaFANF(visaVol);           // flat monthly per MID (CP)
+  var visa_cnp    = visaVol * 0.30 * 0.0006;        // CNP FANF: 0.06% × est. 30% CNP
+  var visa_napf   = visaTxn * VISA_NAPF;
+
+  var visaTotal = visa_dom + visa_intra + visa_intl + visa_fanf + visa_cnp + visa_napf;
+
+  // ── Mastercard lines ──
+  var mc_dom   = mcVol * domPct   * MC_ASSESS;
+  var mc_intra = mcVol * intraPct * intraCBRate_mc;
+  var mc_intl  = mcVol * intlPct  * 0.0060;
+  var mc_nabu  = mcTxn * MC_NABU;
+  var mc_aps   = mcTxn * MC_APS;
+
+  var mcTotal = mc_dom + mc_intra + mc_intl + mc_nabu + mc_aps;
+
+  var total    = visaTotal + mcTotal;
+  var totalBps = vol > 0 ? (total / vol) * 10000 : 0;
+  var pctOfVol = vol > 0 ? (total / vol) * 100   : 0;
+  var annual   = total * 12;
+
+  var breakdown = [
+    { type:'Domestic Assessment',            network:'Visa',       amount:visa_dom,   basis:'0.13% × domestic Visa vol',                       bps:(visa_dom/vol)*10000 },
+    { type:'Cross-Border Assess (Regional)', network:'Visa',       amount:visa_intra, basis:(geo==='EU'?'0.20%':'0.40%')+' × intra-regional Visa vol', bps:(visa_intra/vol)*10000 },
+    { type:'Cross-Border Assess (Intl)',     network:'Visa',       amount:visa_intl,  basis:'0.40% × international Visa vol',                   bps:(visa_intl/vol)*10000 },
+    { type:'FANF — Card-Present (monthly)', network:'Visa',   amount:visa_fanf,  basis:'Tiered flat fee per MID: $'+visa_fanf.toFixed(2),       bps:(visa_fanf/vol)*10000 },
+    { type:'FANF — Card-Not-Present (CNP)', network:'Visa',   amount:visa_cnp,   basis:'0.06% × CNP vol (est. 30% CNP)',                   bps:(visa_cnp/vol)*10000 },
+    { type:'NAPF (Network Acquirer Processing)', network:'Visa',   amount:visa_napf,  basis:'$0.0155/txn, avg ticket $'+AVG_TICKET,                  bps:(visa_napf/vol)*10000 },
+    { type:'Domestic Assessment',            network:'Mastercard', amount:mc_dom,     basis:'0.13% × domestic MC vol',                         bps:(mc_dom/vol)*10000 },
+    { type:'Cross-Border Assess (Regional)', network:'Mastercard', amount:mc_intra,   basis:(geo==='EU'?'0.20%':'0.60%')+' × intra-regional MC vol',   bps:(mc_intra/vol)*10000 },
+    { type:'Cross-Border Assess (Intl)',     network:'Mastercard', amount:mc_intl,    basis:'0.60% × international MC vol',                     bps:(mc_intl/vol)*10000 },
+    { type:'NABU (Network Access Brand Usage)', network:'Mastercard', amount:mc_nabu, basis:'$0.0195/txn, avg ticket $'+AVG_TICKET,                  bps:(mc_nabu/vol)*10000 },
+    { type:'APS (Acquirer Program Support)', network:'Mastercard', amount:mc_aps,     basis:'$0.0005/txn, avg ticket $'+AVG_TICKET,                  bps:(mc_aps/vol)*10000 }
+  ];
+
+  lastResult = {
+    inputs:{ monthly_volume:vol, visa_pct:visaPct*100, mc_pct:mcPct*100, credit_pct:creditPct*100, debit_pct:debitPct*100, commercial_pct:commPct*100, domestic_pct:domPct*100, intra_eu_pct:intraPct*100, international_pct:intlPct*100, geography:geo, acquirer_tier:tier },
+    outputs:{ total_monthly_fees:total, total_bps:totalBps, pct_of_volume:pctOfVol, annual_fees:annual, visa_total:visaTotal, mc_total:mcTotal, breakdown:breakdown }
+  };
+
+  renderResults(total, totalBps, pctOfVol, annual, visaTotal, mcTotal, breakdown, vol);
+}
+
+// ── Format helpers ────────────────────────────────────────────────────────────
+function fmtFull(n) {
+  if (n >= 1000000) return '$' + (n/1000000).toFixed(2) + 'M';
+  if (n >= 1000)    return '$' + (n/1000).toFixed(1) + 'K';
+  return '$' + n.toFixed(2);
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderResults(total, totalBps, pctOfVol, annual, visaTotal, mcTotal, breakdown, vol) {
+  document.getElementById('outTotalFees').textContent = fmtFull(total);
+  document.getElementById('outTotalBps').textContent  = totalBps.toFixed(1) + ' bps of volume';
+  document.getElementById('outAnnualFees').textContent = fmtFull(annual);
+  document.getElementById('outPctVol').textContent    = pctOfVol.toFixed(3) + '%';
+
+  var status = pctOfVol < 0.10 ? 'Below low benchmark' : pctOfVol <= 0.18 ? 'Within typical range (0.10–0.18%)' : 'Above high benchmark (>0.18%)';
+  document.getElementById('outBenchmark').textContent = status;
+
+  // Benchmark bar (0–0.25% = 0–100% width)
+  var benchMax = 0.25;
+  var barPct   = Math.min((pctOfVol / benchMax) * 100, 100);
+  var bBar     = document.getElementById('benchBar');
+  bBar.style.width      = barPct + '%';
+  bBar.style.background = pctOfVol <= 0.18 ? '#14B8A6' : '#F59E0B';
+  // Midpoint marker at 0.14% = 56% of bar
+  document.getElementById('benchMarker').style.left = ((0.14/benchMax)*100) + '%';
+  document.getElementById('benchValLabel').textContent = pctOfVol.toFixed(3) + '%';
+
+  // Breakdown table
+  var tbody = document.getElementById('breakdownBody');
+  tbody.innerHTML = '';
+  breakdown.forEach(function(row) {
+    var tr = document.createElement('tr');
+    var cls = row.network === 'Visa' ? 'chip-visa' : 'chip-mc';
+    tr.innerHTML = '<td>' + row.type + '</td>' +
+      '<td><span class="chip ' + cls + '">' + row.network + '</span></td>' +
+      '<td class="mono">' + fmtFull(row.amount) + '</td>' +
+      '<td style="font-size:.66rem;color:var(--muted)">' + row.basis + '</td>' +
+      '<td class="mono">' + row.bps.toFixed(2) + '</td>';
+    tbody.appendChild(tr);
+  });
+  var totRow = document.createElement('tr');
+  totRow.style.borderTop = '2px solid var(--border-2)';
+  totRow.innerHTML = '<td style="color:var(--bright);font-weight:600">Total</td>' +
+    '<td><span class="chip chip-both">All</span></td>' +
+    '<td class="mono" style="color:var(--bright)">' + fmtFull(total) + '</td>' +
+    '<td></td>' +
+    '<td class="mono" style="color:var(--bright)">' + totalBps.toFixed(2) + '</td>';
+  tbody.appendChild(totRow);
+
+  renderBarChart(visaTotal, mcTotal);
+  renderDonut(breakdown, total);
+
+  document.getElementById('resultsPanel').classList.add('visible');
+  var ap2 = document.getElementById('ap2ExportBtn');
+  ap2.disabled = false; ap2.classList.add('ready');
+}
+
+function renderBarChart(visaTotal, mcTotal) {
+  var svg = document.getElementById('barChart');
+  svg.innerHTML = '';
+  var W=320,H=130,padT=16,padB=30,padL=12,padR=12;
+  var chartH = H - padT - padB;
+  var maxVal = Math.max(visaTotal, mcTotal, 1);
+  var barW=90;
+  var bars = [
+    { label:'Visa',       value:visaTotal, fill:'#1A1F71', text:'#9BA4E8' },
+    { label:'Mastercard', value:mcTotal,   fill:'#991B1B', text:'#F5A0A0' }
+  ];
+  var spacing = (W - padL - padR - bars.length*barW) / (bars.length + 1);
+  bars.forEach(function(bar, i) {
+    var x  = padL + spacing + i*(barW + spacing);
+    var bH = Math.max((bar.value / maxVal) * chartH, 2);
+    var y  = padT + chartH - bH;
+    var ns = 'http://www.w3.org/2000/svg';
+    var rect = document.createElementNS(ns,'rect');
+    rect.setAttribute('x',x); rect.setAttribute('y',y);
+    rect.setAttribute('width',barW); rect.setAttribute('height',bH);
+    rect.setAttribute('rx',3); rect.setAttribute('fill',bar.fill); rect.setAttribute('opacity','0.75');
+    svg.appendChild(rect);
+    var vt = document.createElementNS(ns,'text');
+    vt.setAttribute('x',x+barW/2); vt.setAttribute('y',y-4);
+    vt.setAttribute('text-anchor','middle'); vt.setAttribute('fill',bar.text);
+    vt.setAttribute('font-family','JetBrains Mono,monospace'); vt.setAttribute('font-size','9');
+    vt.textContent = fmtFull(bar.value);
+    svg.appendChild(vt);
+    var lt = document.createElementNS(ns,'text');
+    lt.setAttribute('x',x+barW/2); lt.setAttribute('y',H-8);
+    lt.setAttribute('text-anchor','middle'); lt.setAttribute('fill','#6888A8');
+    lt.setAttribute('font-family','JetBrains Mono,monospace'); lt.setAttribute('font-size','9');
+    lt.textContent = bar.label;
+    svg.appendChild(lt);
+  });
+}
+
+function renderDonut(breakdown, total) {
+  var svg = document.getElementById('donutChart');
+  svg.innerHTML = '';
+  var cx=100,cy=100,r=70,ir=44;
+  var cats = [
+    { label:'Domestic Assess',  color:'#14B8A6', value:0 },
+    { label:'Cross-Border',     color:'#D4A847', value:0 },
+    { label:'FANF',             color:'#9B72F5', value:0 },
+    { label:'Per-Txn Fees',     color:'#F59E0B', value:0 }
+  ];
+  breakdown.forEach(function(row) {
+    if (row.type.indexOf('Domestic') >= 0) cats[0].value += row.amount;
+    else if (row.type.indexOf('Cross-Border') >= 0) cats[1].value += row.amount;
+    else if (row.type.indexOf('FANF') >= 0) cats[2].value += row.amount;
+    else cats[3].value += row.amount;
+  });
+  var ns = 'http://www.w3.org/2000/svg';
+  var startAngle = -Math.PI/2;
+  cats.forEach(function(cat) {
+    if (cat.value <= 0 || total <= 0) return;
+    var frac = cat.value / total;
+    var angle = frac * 2 * Math.PI;
+    var endAngle = startAngle + angle;
+    var x1=cx+r*Math.cos(startAngle), y1=cy+r*Math.sin(startAngle);
+    var x2=cx+r*Math.cos(endAngle),   y2=cy+r*Math.sin(endAngle);
+    var ix1=cx+ir*Math.cos(endAngle), iy1=cy+ir*Math.sin(endAngle);
+    var ix2=cx+ir*Math.cos(startAngle), iy2=cy+ir*Math.sin(startAngle);
+    var la = angle > Math.PI ? 1 : 0;
+    var path = document.createElementNS(ns,'path');
+    path.setAttribute('d','M '+x1+' '+y1+' A '+r+' '+r+' 0 '+la+' 1 '+x2+' '+y2+' L '+ix1+' '+iy1+' A '+ir+' '+ir+' 0 '+la+' 0 '+ix2+' '+iy2+' Z');
+    path.setAttribute('fill',cat.color); path.setAttribute('opacity','0.85');
+    svg.appendChild(path);
+    startAngle = endAngle;
+  });
+  // Center label
+  var cL = document.createElementNS(ns,'text');
+  cL.setAttribute('x',cx); cL.setAttribute('y',cy-5);
+  cL.setAttribute('text-anchor','middle'); cL.setAttribute('fill','#6888A8');
+  cL.setAttribute('font-family','JetBrains Mono,monospace'); cL.setAttribute('font-size','8');
+  cL.textContent = 'Total /mo'; svg.appendChild(cL);
+  var cV = document.createElementNS(ns,'text');
+  cV.setAttribute('x',cx); cV.setAttribute('y',cy+12);
+  cV.setAttribute('text-anchor','middle'); cV.setAttribute('fill','#D4E8F8');
+  cV.setAttribute('font-family','DM Serif Display,serif'); cV.setAttribute('font-size','14');
+  cV.textContent = fmtFull(total); svg.appendChild(cV);
+  // Legend
+  var leg = document.getElementById('donutLegend');
+  leg.innerHTML = '';
+  cats.forEach(function(cat) {
+    if (cat.value <= 0) return;
+    var item = document.createElement('div');
+    item.style.cssText = 'display:flex;align-items:center;gap:.3rem;font-family:JetBrains Mono,monospace;font-size:.44rem;color:#6888A8';
+    var sw = document.createElement('span');
+    sw.style.cssText = 'display:inline-block;width:8px;height:8px;border-radius:2px;background:'+cat.color+';flex-shrink:0';
+    item.appendChild(sw); item.appendChild(document.createTextNode(cat.label));
+    leg.appendChild(item);
+  });
+}
+
+// ── AP2 / Policy Mandate Export ───────────────────────────────────────────────
+function exportAP2() {
+  if (!lastResult) { showToast('Run the analysis first.', 'err'); return; }
+  var now = new Date();
+  var mandate = {
+    ap2_version: '1.0',
+    mandate_id: 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c){ var r=Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16); }),
+    issued_at: now.toISOString(),
+    issued_by: 'ainumbers.co',
+    tool_id: 'scheme-fee-analyzer',
+    tool_version: '1.0.0',
+    mandate_type: 'fee_schedule_mandate',
+    jurisdiction: [lastResult.inputs.geography === 'EU' ? 'EU' : lastResult.inputs.geography === 'UK' ? 'GB' : 'US'],
+    regulatory_frameworks: [
+      'Visa 2025 US Fee Schedule',
+      'Mastercard 2025 US Acquiring Fee Schedule',
+      'EU Regulation 2015/751 (IFR) — if EU geography selected'
+    ],
+    payload: {
+      monthly_volume_usd:         lastResult.inputs.monthly_volume,
+      visa_pct:                   lastResult.inputs.visa_pct,
+      mc_pct:                     lastResult.inputs.mc_pct,
+      credit_pct:                 lastResult.inputs.credit_pct,
+      debit_pct:                  lastResult.inputs.debit_pct,
+      commercial_pct:             lastResult.inputs.commercial_pct,
+      domestic_pct:               lastResult.inputs.domestic_pct,
+      intra_eu_pct:               lastResult.inputs.intra_eu_pct,
+      international_pct:          lastResult.inputs.international_pct,
+      geography:                  lastResult.inputs.geography,
+      acquirer_tier:              lastResult.inputs.acquirer_tier,
+      total_monthly_scheme_fees:  Math.round(lastResult.outputs.total_monthly_fees * 100) / 100,
+      total_bps:                  Math.round(lastResult.outputs.total_bps * 100) / 100,
+      pct_of_volume:              Math.round(lastResult.outputs.pct_of_volume * 10000) / 10000,
+      annual_estimate_usd:        Math.round(lastResult.outputs.annual_fees * 100) / 100,
+      visa_total_usd:             Math.round(lastResult.outputs.visa_total * 100) / 100,
+      mc_total_usd:               Math.round(lastResult.outputs.mc_total * 100) / 100,
+      fee_breakdown:              lastResult.outputs.breakdown.map(function(r){ return { fee_type:r.type, network:r.network, amount_usd:Math.round(r.amount*100)/100, bps:Math.round(r.bps*100)/100 }; })
+    },
+    summary: 'Scheme fee analysis for ' + lastResult.inputs.geography + ' geography (' + lastResult.inputs.acquirer_tier + ' acquirer tier). Monthly volume $' + lastResult.inputs.monthly_volume.toLocaleString() + '. Total estimated scheme fees: $' + Math.round(lastResult.outputs.total_monthly_fees).toLocaleString() + '/mo (' + lastResult.outputs.total_bps.toFixed(1) + ' bps). Visa: $' + Math.round(lastResult.outputs.visa_total).toLocaleString() + ', Mastercard: $' + Math.round(lastResult.outputs.mc_total).toLocaleString() + '.',
+    agent_instructions: [
+      'Verify fee schedules against current Visa/MC fee guides before relying on outputs.',
+      'Confirm FANF tier with acquirer processor — multi-MID programmes have separate per-MID fees.',
+      'Cross-border rates depend on issuing country vs acquiring country — validate with scheme.',
+      'EU IFR intra-EU cross-border rate set to 0.20%; selected only when EU geography is chosen.'
+    ],
+    valid_from: '2025-01-01',
+    valid_until: '2026-12-31',
+    last_reviewed: '2026-05-01',
+    source_tool_inputs: lastResult.inputs,
+    regulatory_citations: [
+      'Visa Inc. — U.S. Acquiring and Processing Fees, effective April 2025',
+      'Mastercard — U.S. Acquirer Fee Schedule, effective April 2025',
+      'EU Regulation 2015/751 on interchange fees for card-based payment transactions'
+    ],
+    audit_metadata: { execution_hash:null, client_side_executed:true, zero_pii_verified:true, deterministic_run:true }
+  };
+  // Validate
+  var required = ['ap2_version','mandate_id','issued_at','tool_id','mandate_type','payload','summary'];
+  var missing = required.filter(function(k){ return !mandate[k]; });
+  if (missing.length > 0) { showToast('Validation failed: missing ' + missing.join(', '), 'err'); return; }
+  var ts = now.toISOString().replace(/[-:T]/g,'').slice(0,14);
+  var blob = new Blob([JSON.stringify(mandate, null, 2)], { type:'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'scheme-fee-analyzer_' + ts + '.policy.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 5000);
+  showToast('Policy Mandate exported.', 'ok');
+}
+
+// ── CSV Export ────────────────────────────────────────────────────────────────
+function exportCSV() {
+  if (!lastResult) { showToast('Run the analysis first.', 'err'); return; }
+  var rows = [['Fee Type','Network','Amount USD','Basis','Bps']];
+  lastResult.outputs.breakdown.forEach(function(r) {
+    rows.push([r.type, r.network, r.amount.toFixed(2), r.basis, r.bps.toFixed(4)]);
+  });
+  rows.push(['TOTAL','All', lastResult.outputs.total_monthly_fees.toFixed(2), '', lastResult.outputs.total_bps.toFixed(4)]);
+  var csv = rows.map(function(r){ return r.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(','); }).join('\r\n');
+  var blob = new Blob([csv], { type:'text/csv' });
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href   = url; a.download = 'scheme-fee-analyzer.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 5000);
+  showToast('CSV exported.', 'ok');
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function showToast(msg, type) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (type || '');
+  clearTimeout(t._tid);
+  t._tid = setTimeout(function(){ t.classList.remove('show'); }, 3500);
+}
+
+// ── MCP Manifest Toggle ───────────────────────────────────────────────────────
+var MANIFEST_JSON = {
+  tool_id: 'scheme-fee-analyzer',
+  version: '1.0.0',
+  title: 'Scheme Fee Analyzer',
+  description: 'Breaks down Visa and Mastercard scheme fees for acquirers and large merchants — assessment fees, FANF, cross-border fees, NABU/NAPF — to model and benchmark total scheme cost.',
+  category: 'cat-9',
+  tags: ['scheme fees','Visa','Mastercard','FANF','assessment fee','NABU','NAPF','card economics','acquirer','interchange'],
+  audience: ['acquirer','finance','treasury','payments-ops'],
+  mcp_tool_definition: {
+    name: 'analyze_scheme_fees',
+    description: 'Calculates Visa and Mastercard scheme fees for an acquirer or merchant based on volume, card mix, geography, and cross-border profile.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        monthly_volume: { type:'number', description:'Monthly card processing volume in USD' },
+        visa_pct:       { type:'number', description:'Percentage of volume on Visa (0-100)' },
+        mc_pct:         { type:'number', description:'Percentage of volume on Mastercard (0-100)' },
+        geography:      { type:'string', enum:['US','EU','UK','Global'] },
+        acquirer_tier:  { type:'string', enum:['small','mid','large'] }
+      },
+      required: ['monthly_volume','visa_pct','mc_pct','geography','acquirer_tier']
+    }
+  },
+  execution: { type:'browser-javascript', entry:'tools/415-scheme-fee-analyzer.html', function_name:'runAnalyzer', timeout_ms:3000 },
+  ap2_export: true
+};
+function toggleMfst() {
+  var body = document.getElementById('mfstBody');
+  var arr  = document.getElementById('mfstArr');
+  var code = document.getElementById('mfstCode');
+  var open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  arr.textContent = open ? '▼' : '▲';
+  if (!open && !code.textContent) code.textContent = JSON.stringify(MANIFEST_JSON, null, 2);
+}
+</script>
+</body>
+</html>

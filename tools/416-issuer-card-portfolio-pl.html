@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>T416 — Issuer Card Portfolio P&amp;L Model · AINumbers.co</title>
+<meta name="description" content="Model the full economics of a card issuer portfolio — net interest income, interchange revenue, annual fees, rewards cost, fraud losses, credit losses, and servicing cost — to produce per-account unit economics and portfolio ROA.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Issuer Card Portfolio P&L Model","url":"https://ainumbers.co/tools/416-issuer-card-portfolio-pl.html","description":"Model the full economics of a card issuer portfolio: NII, interchange, fees, rewards, fraud, credit losses, servicing.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.15}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1200px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* LANG BAR */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:0 2rem;height:34px;display:flex;align-items:center}
+.lang-inner{max-width:1200px;margin:0 auto;width:100%;display:flex;gap:.5rem;justify-content:flex-end}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid transparent;padding:.2rem .5rem;cursor:pointer;line-height:1;transition:color .15s}
+.lang-btn.active{color:var(--teal-lt);border-bottom:1px solid var(--teal)}
+/* NAV */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1200px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+/* HERO */
+.hero{padding:3.5rem 0 3rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal-lt);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.7rem,3vw,2.6rem);color:var(--white);max-width:720px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.88rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.2rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+/* PII NOTICE */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1.5rem}
+/* TOOL SECTION */
+.tool-section{padding:2.5rem 0 4rem;position:relative;z-index:1}
+/* GRID LAYOUT */
+.tool-grid{display:grid;grid-template-columns:340px 1fr;gap:2px;background:var(--border);border:1px solid var(--border)}
+@media(max-width:900px){.tool-grid{grid-template-columns:1fr}}
+.left-col{background:var(--bg-2);padding:1.75rem}
+.right-col{background:var(--bg-3);padding:1.75rem}
+/* PANEL */
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
+.sec-head{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-lt);margin:1.2rem 0 .7rem;display:flex;align-items:center;gap:.6rem}
+.sec-head::after{content:'';flex:1;height:1px;background:var(--border)}
+.flbl{font-size:.74rem;color:var(--bright);display:block;margin-bottom:.3rem}
+.fhint{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);display:block;margin-top:.15rem;margin-bottom:.7rem;line-height:1.5}
+.frow{margin-bottom:.1rem}
+/* FORM CONTROLS */
+select,input[type=number]{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.74rem;padding:.42rem .65rem;outline:none;transition:border-color .2s;-webkit-appearance:none;margin-bottom:.9rem}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a6a8a'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .7rem center;padding-right:2rem;cursor:pointer}
+select:focus,input:focus{border-color:var(--teal)}
+/* BUTTONS */
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.55rem 1rem;cursor:pointer;transition:all .2s;border:1px solid;white-space:nowrap}
+.btn-primary{background:var(--teal);border-color:var(--teal);color:var(--bg)}
+.btn-primary:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--muted);color:var(--text)}
+.btn-gold{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+.btn-gold:hover{background:rgba(212,168,71,.22)}
+.btn-sm{padding:.32rem .7rem;font-size:.46rem}
+.arow{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+/* KPI BAR */
+.kpi-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:1px;background:var(--border);margin-bottom:1.5rem}
+.kc{background:var(--bg-2);padding:.85rem 1rem}
+.kl{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.28rem}
+.kv{font-family:'DM Serif Display',serif;font-size:1.15rem;color:var(--bright);line-height:1}
+.kv.g{color:var(--green)}.kv.r{color:var(--red)}.kv.w{color:var(--warn)}.kv.t{color:var(--teal)}.kv.gold{color:var(--gold)}
+/* TABLE */
+table{width:100%;border-collapse:collapse;font-size:.74rem;margin-bottom:1.5rem}
+th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.6rem .85rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg-2);white-space:nowrap}
+th.r{text-align:right}
+td{padding:.58rem .85rem;border-bottom:1px solid rgba(30,47,74,.4);vertical-align:middle;font-size:.75rem}
+td.mono{font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:right}
+td.g{color:var(--green)}.td-r{color:var(--red)}.td-t{color:var(--teal-lt)}.td-gold{color:var(--gold)}
+tr:hover td{background:rgba(20,184,166,.02)}
+tr.subtotal td{background:var(--bg-2);border-top:1px solid var(--border-2);font-weight:500}
+tr.net-row td{background:var(--teal-dim);border-top:2px solid var(--teal)}
+tr.net-row td:first-child{border-left:2px solid var(--teal)}
+/* CHART */
+.chart-wrap{background:var(--bg-2);border:1px solid var(--border);padding:1.25rem;margin-bottom:1.5rem}
+.chart-title{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem}
+svg.bar-chart{width:100%;overflow:visible}
+/* SCENARIO */
+.scenario-wrap{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:1.5rem}
+@media(max-width:600px){.scenario-wrap{grid-template-columns:1fr}}
+.scenario-col{background:var(--bg-2);padding:1.1rem 1.25rem}
+.scenario-head{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.15em;text-transform:uppercase;margin-bottom:.75rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.s-base .scenario-head{color:var(--teal-lt)}
+.s-delta .scenario-head{color:var(--gold)}
+.sc-row{display:flex;justify-content:space-between;align-items:center;padding:.28rem 0;border-bottom:1px solid rgba(30,47,74,.3);font-size:.74rem}
+.sc-row:last-child{border-bottom:none}
+.sc-label{color:var(--body)}
+.sc-val{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text)}
+.sc-val.pos{color:var(--green)}.sc-val.neg{color:var(--red)}.sc-val.neu{color:var(--muted)}
+/* BENCHMARK */
+.bench-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.6rem;margin-bottom:1.5rem}
+.bench-card{background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1rem}
+.bench-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.bench-range{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--bright);margin-bottom:.2rem}
+.bench-note{font-size:.68rem;color:var(--body);line-height:1.4}
+.bench-status{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.12rem .45rem;border-radius:2px;margin-top:.35rem}
+.bench-above{background:rgba(34,197,94,.12);color:var(--green)}
+.bench-below{background:rgba(239,68,68,.12);color:var(--red)}
+.bench-within{background:var(--teal-dim);color:var(--teal-lt)}
+/* ALERT */
+.alert{padding:.85rem 1.1rem;margin-bottom:1.25rem;font-size:.76rem;line-height:1.65;border:1px solid}
+.alert-teal{background:var(--teal-dim);border-color:rgba(20,184,166,.3);color:var(--teal-lt)}
+.alert strong{display:block;font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.3rem}
+/* MCP PANEL */
+.mcp-toggle{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid var(--border);padding:.35rem .8rem;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:.5rem}
+.mcp-toggle:hover{border-color:var(--purple-lt);color:var(--purple-lt)}
+.mcp-panel{display:none;background:var(--bg-2);border:1px solid var(--border);border-top:none;padding:1.25rem}
+.mcp-panel.open{display:block}
+.mcp-pre{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--text);line-height:1.7;white-space:pre-wrap;overflow-x:auto}
+/* FOOTER */
+footer{padding:2.5rem 0;border-top:1px solid var(--border);margin-top:2rem}
+.footer-inner{max-width:1200px;margin:0 auto;padding:0 2rem;display:flex;flex-wrap:wrap;gap:1.5rem;justify-content:space-between;align-items:flex-start}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);line-height:1.8}
+.footer-brand strong{color:var(--body);display:block;margin-bottom:.25rem}
+.footer-links{display:flex;gap:1.25rem;flex-wrap:wrap}
+.footer-links a{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);transition:color .15s}
+.footer-links a:hover{color:var(--teal)}
+.disclaimer{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);line-height:1.7;background:var(--bg-2);border:1px solid var(--border);border-left:3px solid var(--gold);padding:.75rem 1rem;margin-top:1.5rem}
+/* MISC */
+#results{display:none}
+.divider{border:none;border-top:1px solid var(--border);margin:1.25rem 0}
+.sec-title{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin:1.5rem 0 .75rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+.credit-only{transition:opacity .2s}
+.credit-only.hidden{opacity:.35;pointer-events:none}
+</style>
+</head>
+<body>
+
+<!-- LANG BAR -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a class="logo" href="../index.html">
+      <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#080E1A"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-family="Sora,sans-serif" font-weight="600" font-size="13" fill="#14B8A6">AI</text></svg>
+      </div>
+      <div class="logo-text">
+        <span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span>
+      </div>
+    </a>
+    <div class="nav-bc">
+      <a href="../index.html" data-i="nav_home">Home</a>
+      <span class="nav-bc-sep">/</span>
+      <a href="../index.html#cat-9" data-i="nav_cat">Card Economics</a>
+      <span class="nav-bc-sep">/</span>
+      <span class="nav-bc-current">T416</span>
+    </div>
+    <div class="nav-right">
+      <a class="nav-pill" href="../index.html#cat-9" data-i="nav_all">All Tools</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">T416 · Card Economics · Cat-09</div>
+    <h1>Issuer Card Portfolio <em>P&amp;L Model</em></h1>
+    <p class="hero-desc" data-i="hero_desc">Model the full economics of a card issuer portfolio — net interest income, interchange revenue, annual fees vs. rewards cost, fraud losses, credit losses, and servicing cost — to produce per-account unit economics and portfolio ROA.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-privacy" data-i="badge_local">Runs locally · Zero PII</span>
+      <span class="hero-badge badge-teal">v1.0 · May 2026</span>
+      <span class="hero-badge badge-gold">Cat-09 Card Economics</span>
+    </div>
+  </div>
+</div>
+
+<!-- TOOL BODY -->
+<div class="tool-section">
+  <div class="container">
+
+    <div class="pii-notice" data-i="pii_notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+    <div class="tool-grid">
+      <!-- LEFT: INPUTS -->
+      <div class="left-col">
+
+        <div class="panel-label" data-i="panel_portfolio">Portfolio Parameters</div>
+
+        <div class="frow">
+          <label class="flbl" for="activeAccounts" data-i="lbl_accounts">Active Accounts</label>
+          <input type="number" id="activeAccounts" value="500000" min="1" step="1000">
+        </div>
+
+        <div class="frow">
+          <label class="flbl" for="productType" data-i="lbl_product">Product Type</label>
+          <select id="productType" onchange="onProductChange()">
+            <option value="consumer_credit">Consumer Credit</option>
+            <option value="consumer_debit">Consumer Debit</option>
+            <option value="commercial_credit">Commercial Credit</option>
+          </select>
+        </div>
+
+        <div class="frow credit-only" id="balanceRow">
+          <label class="flbl" for="avgBalance" data-i="lbl_balance">Avg Outstanding Balance / Account ($)</label>
+          <input type="number" id="avgBalance" value="2500" min="0" step="100">
+          <span class="fhint" data-i="hint_balance">Credit products only — average revolving balance per account</span>
+        </div>
+
+        <div class="frow">
+          <label class="flbl" for="avgMonthlySpend" data-i="lbl_spend">Avg Monthly Spend / Account ($)</label>
+          <input type="number" id="avgMonthlySpend" value="800" min="0" step="50">
+        </div>
+
+        <div class="frow credit-only" id="revolveRow">
+          <label class="flbl" for="revolveRate" data-i="lbl_revolve">Revolve Rate (%)</label>
+          <input type="number" id="revolveRate" value="35" min="0" max="100" step="0.1">
+          <span class="fhint" data-i="hint_revolve">% of balances that revolve month-to-month</span>
+        </div>
+
+        <div class="divider"></div>
+        <div class="panel-label" data-i="panel_econ">Economics Parameters</div>
+
+        <div class="frow credit-only" id="aprRow">
+          <label class="flbl" for="apr" data-i="lbl_apr">APR / Interest Rate (%)</label>
+          <input type="number" id="apr" value="19.99" min="0" max="100" step="0.01">
+        </div>
+
+        <div class="frow">
+          <label class="flbl" for="interchangeRate" data-i="lbl_interchange">Interchange Rate (% of spend)</label>
+          <input type="number" id="interchangeRate" value="1.80" min="0" max="10" step="0.01">
+          <span class="fhint" data-i="hint_interchange">Blended: ~1.8% credit, ~0.5% debit</span>
+        </div>
+
+        <div class="frow">
+          <label class="flbl" for="rewardsRate" data-i="lbl_rewards">Rewards Cost (% of spend)</label>
+          <input type="number" id="rewardsRate" value="1.20" min="0" max="10" step="0.01">
+        </div>
+
+        <div class="frow">
+          <label class="flbl" for="annualFee" data-i="lbl_annualfee">Annual Fee / Account ($)</label>
+          <input type="number" id="annualFee" value="0" min="0" step="5">
+        </div>
+
+        <div class="frow">
+          <label class="flbl" for="fraudRate" data-i="lbl_fraud">Fraud Rate (% of spend)</label>
+          <input type="number" id="fraudRate" value="0.08" min="0" max="10" step="0.01">
+        </div>
+
+        <div class="frow credit-only" id="creditLossRow">
+          <label class="flbl" for="creditLossRate" data-i="lbl_loss">Credit Loss / Charge-off Rate (% of balance)</label>
+          <input type="number" id="creditLossRate" value="3.50" min="0" max="50" step="0.1">
+        </div>
+
+        <div class="frow">
+          <label class="flbl" for="servicingCost" data-i="lbl_servicing">Servicing Cost / Account / Year ($)</label>
+          <input type="number" id="servicingCost" value="45" min="0" step="1">
+        </div>
+
+        <div class="frow credit-only" id="cofRow">
+          <label class="flbl" for="cof" data-i="lbl_cof">Cost of Funds Rate (%)</label>
+          <input type="number" id="cof" value="4.50" min="0" max="20" step="0.1">
+        </div>
+
+        <div style="margin-top:1.25rem;display:flex;gap:.5rem;flex-wrap:wrap">
+          <button class="btn btn-primary" id="runBtn" onclick="runModel(false)" data-i="btn_run">Run Base Model</button>
+          <button class="btn btn-ghost btn-sm" onclick="saveScenario()" id="btnSave" style="display:none" data-i="btn_save">Save as Base</button>
+        </div>
+
+        <div style="margin-top:.75rem;display:none" id="scenarioControls">
+          <div class="sec-head" data-i="sec_scenario">Scenario Delta</div>
+          <p style="font-size:.72rem;color:var(--body);margin-bottom:.75rem" data-i="hint_scenario">Tweak any input above then click Compare Delta.</p>
+          <button class="btn btn-gold btn-sm" onclick="runModel(true)" data-i="btn_compare">Compare Delta</button>
+        </div>
+
+      </div>
+
+      <!-- RIGHT: RESULTS -->
+      <div class="right-col">
+        <div id="placeholder" style="display:flex;align-items:center;justify-content:center;height:300px;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;text-align:center;flex-direction:column;gap:.75rem">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none"><rect x="4" y="20" width="6" height="16" rx="1" fill="#1E2F4A"/><rect x="13" y="13" width="6" height="23" rx="1" fill="#263855"/><rect x="22" y="7" width="6" height="29" rx="1" fill="#3A5270"/><rect x="31" y="16" width="6" height="20" rx="1" fill="#1E2F4A"/></svg>
+          <span data-i="placeholder">Configure inputs and run the model</span>
+        </div>
+
+        <div id="results">
+
+          <div class="sec-title" data-i="sec_kpi">Unit Economics</div>
+          <div class="kpi-bar" id="kpiBar"></div>
+
+          <div class="sec-title" data-i="sec_pl">P&amp;L Waterfall</div>
+          <table id="plTable">
+            <thead>
+              <tr>
+                <th data-i="th_line">Line Item</th>
+                <th class="r" data-i="th_peracct">Per Account / Year</th>
+                <th class="r" data-i="th_portfolio">Portfolio Total</th>
+              </tr>
+            </thead>
+            <tbody id="plBody"></tbody>
+          </table>
+
+          <div class="sec-title" data-i="sec_chart">Revenue vs. Cost Breakdown</div>
+          <div class="chart-wrap">
+            <div class="chart-title" data-i="chart_title">Per-Account Annual ($)</div>
+            <svg class="bar-chart" id="barChart" height="180"></svg>
+          </div>
+
+          <div id="scenarioSection" style="display:none">
+            <div class="sec-title" data-i="sec_scen">Scenario Comparison</div>
+            <div class="scenario-wrap">
+              <div class="scenario-col s-base">
+                <div class="scenario-head" data-i="scen_base">Base Case</div>
+                <div id="baseScenario"></div>
+              </div>
+              <div class="scenario-col s-delta">
+                <div class="scenario-head" data-i="scen_delta">Current vs. Base Delta</div>
+                <div id="deltaScenario"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sec-title" data-i="sec_bench">Industry Benchmarks</div>
+          <div class="bench-grid" id="benchGrid"></div>
+          <div class="alert alert-teal" style="font-size:.72rem">
+            <strong data-i="bench_note_head">Benchmark Context</strong>
+            <span data-i="bench_note">Credit card portfolio ROA typically 2.5–4.5%; rewards cost 1.0–2.0% of spend; charge-off rates 2–5% in normal cycles. Debit portfolios are interchange-thin — ROA driven primarily by float and cross-sell.</span>
+          </div>
+
+          <div class="arow" id="exportRow">
+            <button class="btn btn-ghost btn-sm" onclick="exportAP2()" data-i="btn_export">Export AP2 JSON</button>
+            <button class="btn btn-ghost btn-sm" onclick="copyResults()" data-i="btn_copy">Copy Summary</button>
+          </div>
+
+          <div id="ap2Out" style="display:none;margin-top:.75rem">
+            <div class="sec-title">AP2 Policy Mandate JSON</div>
+            <pre id="ap2Pre" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--text);background:var(--bg-2);border:1px solid var(--border);padding:1rem;overflow-x:auto;line-height:1.7;white-space:pre-wrap;max-height:400px;overflow-y:auto"></pre>
+            <div class="arow"><button class="btn btn-ghost btn-sm" onclick="copyAP2()" data-i="btn_copyap2">Copy JSON</button></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- MCP MANIFEST PANEL -->
+    <div style="margin-top:1.5rem">
+      <button class="mcp-toggle" onclick="toggleMcp()">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="#9B72F5" stroke-width="1.2"/><path d="M6 3v3.5l2 1.5" stroke="#9B72F5" stroke-width="1.2" stroke-linecap="round"/></svg>
+        <span data-i="mcp_toggle">MCP Manifest</span>
+      </button>
+      <div class="mcp-panel" id="mcpPanel">
+        <pre class="mcp-pre" id="mcpPre"></pre>
+      </div>
+    </div>
+
+    <div class="disclaimer" style="margin-top:1.5rem" data-i="disclaimer">Model uses simplified assumptions. Actual portfolio economics depend on credit quality, regulatory environment, funding structure, and contract terms. For illustrative and planning purposes only.</div>
+
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <strong>AINumbers.co</strong>
+      <span data-i="footer_suite">268 browser-based financial tools · Zero PII · Client-side only</span><br>
+      <span data-i="footer_built">Built by Post Oak Labs · v1.0 · May 2026</span>
+    </div>
+    <div class="footer-links">
+      <a href="../index.html" data-i="footer_home">Home</a>
+      <a href="../index.html#cat-9" data-i="footer_cat">Card Economics</a>
+      <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ─── I18N ──────────────────────────────────────────────────────────────────
+const STRINGS = {
+  en:{
+    nav_home:'Home',nav_cat:'Card Economics',nav_all:'All Tools',
+    hero_desc:'Model the full economics of a card issuer portfolio — net interest income, interchange revenue, annual fees vs. rewards cost, fraud losses, credit losses, and servicing cost — to produce per-account unit economics and portfolio ROA.',
+    badge_local:'Runs locally · Zero PII',
+    pii_notice:'🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.',
+    panel_portfolio:'Portfolio Parameters',panel_econ:'Economics Parameters',
+    lbl_accounts:'Active Accounts',lbl_product:'Product Type',
+    lbl_balance:'Avg Outstanding Balance / Account ($)',
+    lbl_spend:'Avg Monthly Spend / Account ($)',lbl_revolve:'Revolve Rate (%)',
+    lbl_apr:'APR / Interest Rate (%)',lbl_interchange:'Interchange Rate (% of spend)',
+    lbl_rewards:'Rewards Cost (% of spend)',lbl_annualfee:'Annual Fee / Account ($)',
+    lbl_fraud:'Fraud Rate (% of spend)',lbl_loss:'Credit Loss / Charge-off Rate (% of balance)',
+    lbl_servicing:'Servicing Cost / Account / Year ($)',lbl_cof:'Cost of Funds Rate (%)',
+    hint_balance:'Credit products only — average revolving balance per account',
+    hint_revolve:'% of balances that revolve month-to-month',
+    hint_interchange:'Blended: ~1.8% credit, ~0.5% debit',
+    hint_scenario:'Tweak any input above then click Compare Delta.',
+    btn_run:'Run Base Model',btn_save:'Save as Base',btn_compare:'Compare Delta',
+    placeholder:'Configure inputs and run the model',
+    sec_kpi:'Unit Economics',sec_pl:'P&L Waterfall',sec_chart:'Revenue vs. Cost Breakdown',
+    chart_title:'Per-Account Annual ($)',sec_scen:'Scenario Comparison',sec_scenario:'Scenario Delta',
+    sec_bench:'Industry Benchmarks',
+    bench_note_head:'Benchmark Context',
+    bench_note:'Credit card portfolio ROA typically 2.5–4.5%; rewards cost 1.0–2.0% of spend; charge-off rates 2–5% in normal cycles. Debit portfolios are interchange-thin — ROA driven primarily by float and cross-sell.',
+    btn_export:'Export AP2 JSON',btn_copy:'Copy Summary',btn_copyap2:'Copy JSON',
+    mcp_toggle:'MCP Manifest',
+    th_line:'Line Item',th_peracct:'Per Account / Year',th_portfolio:'Portfolio Total',
+    scen_base:'Base Case',scen_delta:'Current vs. Base Delta',
+    footer_suite:'268 browser-based financial tools · Zero PII · Client-side only',
+    footer_built:'Built by Post Oak Labs · v1.0 · May 2026',
+    footer_home:'Home',footer_cat:'Card Economics',
+    disclaimer:'Model uses simplified assumptions. Actual portfolio economics depend on credit quality, regulatory environment, funding structure, and contract terms. For illustrative and planning purposes only.'
+  },
+  es:{
+    nav_home:'Inicio',nav_cat:'Economía de Tarjetas',nav_all:'Todas las Herramientas',
+    hero_desc:'Modele la economía completa de una cartera de tarjetas emisora — ingresos por intereses netos, interchange, comisiones anuales, costes de recompensas, pérdidas por fraude y crédito, y coste de servicio.',
+    badge_local:'Ejecuta localmente · Sin datos personales',
+    pii_notice:'🔒 Todos los datos se procesan localmente. No se transmite información. No introduzca datos reales.',
+    panel_portfolio:'Parámetros de Cartera',panel_econ:'Parámetros Económicos',
+    lbl_accounts:'Cuentas Activas',lbl_product:'Tipo de Producto',
+    lbl_balance:'Saldo Promedio por Cuenta ($)',lbl_spend:'Gasto Mensual Promedio por Cuenta ($)',
+    lbl_revolve:'Tasa de Revolving (%)',lbl_apr:'TAE / Tipo de Interés (%)',
+    lbl_interchange:'Tasa de Intercambio (% del gasto)',lbl_rewards:'Coste de Recompensas (% del gasto)',
+    lbl_annualfee:'Comisión Anual por Cuenta ($)',lbl_fraud:'Tasa de Fraude (% del gasto)',
+    lbl_loss:'Tasa de Pérdida Crediticia (% del saldo)',lbl_servicing:'Coste de Servicio / Cuenta / Año ($)',
+    lbl_cof:'Coste de Financiación (%)',hint_balance:'Solo productos de crédito',
+    hint_revolve:'% de saldos que se renuevan mensualmente',hint_interchange:'~1,8% crédito, ~0,5% débito',
+    hint_scenario:'Ajuste cualquier parámetro y haga clic en Comparar Delta.',
+    btn_run:'Ejecutar Modelo Base',btn_save:'Guardar como Base',btn_compare:'Comparar Delta',
+    placeholder:'Configure los parámetros y ejecute el modelo',
+    sec_kpi:'Economía Unitaria',sec_pl:'Cascada P&G',sec_chart:'Ingresos vs. Costes',
+    chart_title:'Por Cuenta / Año ($)',sec_scen:'Comparación de Escenarios',sec_scenario:'Delta de Escenario',
+    sec_bench:'Benchmarks del Sector',bench_note_head:'Contexto de Referencia',
+    bench_note:'ROA típico de cartera de crédito: 2,5%–4,5%; coste de recompensas: 1,0%–2,0% del gasto; fallidos: 2–5% en ciclos normales.',
+    btn_export:'Exportar AP2 JSON',btn_copy:'Copiar Resumen',btn_copyap2:'Copiar JSON',
+    mcp_toggle:'Manifiesto MCP',th_line:'Partida',th_peracct:'Por Cuenta / Año',th_portfolio:'Total Cartera',
+    scen_base:'Caso Base',scen_delta:'Actual vs. Base',
+    footer_suite:'268 herramientas financieras · Sin PII · Solo cliente',footer_built:'Post Oak Labs · v1.0 · Mayo 2026',
+    footer_home:'Inicio',footer_cat:'Economía de Tarjetas',
+    disclaimer:'El modelo usa supuestos simplificados. La economía real depende de la calidad crediticia, el entorno regulatorio y la estructura de financiación. Solo para fines ilustrativos.'
+  },
+  fr:{
+    nav_home:'Accueil',nav_cat:'Économie des Cartes',nav_all:'Tous les Outils',
+    hero_desc:'Modélisez l\'économie complète d\'un portefeuille émetteur de cartes — revenu net d\'intérêts, interchange, frais annuels, coûts des récompenses, pertes fraude et crédit, coût de service.',
+    badge_local:'Exécution locale · Sans données personnelles',
+    pii_notice:'🔒 Toutes les données sont traitées localement. Aucune transmission. N\'entrez pas de données réelles.',
+    panel_portfolio:'Paramètres du Portefeuille',panel_econ:'Paramètres Économiques',
+    btn_run:'Lancer le Modèle de Base',btn_save:'Enregistrer comme Base',btn_compare:'Comparer le Delta',
+    placeholder:'Configurez les paramètres et lancez le modèle',
+    sec_kpi:'Économie Unitaire',sec_pl:'Cascade P&L',sec_chart:'Revenus vs. Coûts',
+    chart_title:'Par Compte / An ($)',sec_scen:'Comparaison de Scénarios',sec_scenario:'Delta de Scénario',
+    sec_bench:'Benchmarks Sectoriels',bench_note_head:'Contexte de Référence',
+    bench_note:'ROA typique portefeuille crédit: 2,5%–4,5%; coût des récompenses: 1,0%–2,0% des dépenses; taux de perte: 2–5% en cycle normal.',
+    btn_export:'Exporter AP2 JSON',btn_copy:'Copier le Résumé',btn_copyap2:'Copier JSON',
+    mcp_toggle:'Manifeste MCP',th_line:'Poste',th_peracct:'Par Compte / An',th_portfolio:'Total Portefeuille',
+    scen_base:'Cas de Base',scen_delta:'Actuel vs. Base',
+    footer_suite:'268 outils financiers · Sans PII · Côté client',footer_built:'Post Oak Labs · v1.0 · Mai 2026',
+    footer_home:'Accueil',footer_cat:'Économie des Cartes',
+    disclaimer:'Le modèle utilise des hypothèses simplifiées. L\'économie réelle dépend de la qualité du crédit, du cadre réglementaire et de la structure de financement. À des fins illustratives uniquement.'
+  },
+  ar:{
+    nav_home:'الرئيسية',nav_cat:'اقتصادات البطاقات',nav_all:'جميع الأدوات',
+    hero_desc:'نمذجة الاقتصادات الكاملة لمحفظة مُصدر بطاقات — صافي دخل الفوائد، إيرادات التبادل، الرسوم السنوية، تكاليف المكافآت، خسائر الاحتيال والائتمان وتكاليف الخدمة.',
+    badge_local:'يعمل محلياً · بدون بيانات شخصية',
+    pii_notice:'🔒 تتم معالجة جميع البيانات محلياً في متصفحك. لا يتم إرسال أي بيانات. لا تُدخل بيانات حقيقية.',
+    panel_portfolio:'معاملات المحفظة',panel_econ:'المعاملات الاقتصادية',
+    btn_run:'تشغيل النموذج الأساسي',btn_save:'حفظ كنموذج أساسي',btn_compare:'مقارنة الفرق',
+    placeholder:'قم بإعداد المعاملات وتشغيل النموذج',
+    sec_kpi:'الاقتصادات الفردية',sec_pl:'جدول الأرباح والخسائر',sec_chart:'الإيرادات مقابل التكاليف',
+    chart_title:'لكل حساب سنوياً ($)',sec_scen:'مقارنة السيناريوهات',sec_scenario:'فرق السيناريو',
+    sec_bench:'المعايير الصناعية',bench_note_head:'السياق المرجعي',
+    bench_note:'العائد على الأصول لمحافظ بطاقات الائتمان عادةً 2.5%–4.5%؛ تكاليف المكافآت 1.0%–2.0% من الإنفاق.',
+    btn_export:'تصدير AP2 JSON',btn_copy:'نسخ الملخص',btn_copyap2:'نسخ JSON',
+    mcp_toggle:'بيان MCP',th_line:'البند',th_peracct:'لكل حساب / سنة',th_portfolio:'إجمالي المحفظة',
+    scen_base:'الحالة الأساسية',scen_delta:'الحالي مقابل الأساسي',
+    footer_suite:'268 أداة مالية · بدون بيانات شخصية · من جانب العميل',footer_built:'Post Oak Labs · v1.0 · مايو 2026',
+    footer_home:'الرئيسية',footer_cat:'اقتصادات البطاقات',
+    disclaimer:'يستخدم النموذج افتراضات مبسطة. تعتمد الاقتصادات الفعلية على جودة الائتمان والبيئة التنظيمية وهيكل التمويل. لأغراض توضيحية فقط.'
+  },
+  pt:{
+    nav_home:'Início',nav_cat:'Economia de Cartões',nav_all:'Todas as Ferramentas',
+    hero_desc:'Modele a economia completa de uma carteira emissora de cartões — receita líquida de juros, interchange, anuidades, custos de recompensas, perdas por fraude e crédito, e custo de serviço.',
+    badge_local:'Executa localmente · Sem dados pessoais',
+    pii_notice:'🔒 Todos os dados são processados localmente no seu navegador. Nenhum dado é transmitido. Não insira dados reais.',
+    panel_portfolio:'Parâmetros da Carteira',panel_econ:'Parâmetros Econômicos',
+    btn_run:'Executar Modelo Base',btn_save:'Salvar como Base',btn_compare:'Comparar Delta',
+    placeholder:'Configure os parâmetros e execute o modelo',
+    sec_kpi:'Economia Unitária',sec_pl:'Cascata P&L',sec_chart:'Receitas vs. Custos',
+    chart_title:'Por Conta / Ano ($)',sec_scen:'Comparação de Cenários',sec_scenario:'Delta de Cenário',
+    sec_bench:'Benchmarks do Setor',bench_note_head:'Contexto de Referência',
+    bench_note:'ROA típico de carteira de crédito: 2,5%–4,5%; custo de recompensas: 1,0%–2,0% dos gastos; inadimplência: 2–5% em ciclos normais.',
+    btn_export:'Exportar AP2 JSON',btn_copy:'Copiar Resumo',btn_copyap2:'Copiar JSON',
+    mcp_toggle:'Manifesto MCP',th_line:'Item',th_peracct:'Por Conta / Ano',th_portfolio:'Total da Carteira',
+    scen_base:'Caso Base',scen_delta:'Atual vs. Base',
+    footer_suite:'268 ferramentas financeiras · Sem PII · Lado do cliente',footer_built:'Post Oak Labs · v1.0 · Maio 2026',
+    footer_home:'Início',footer_cat:'Economia de Cartões',
+    disclaimer:'O modelo usa premissas simplificadas. A economia real depende da qualidade de crédito, ambiente regulatório e estrutura de financiamento. Apenas para fins ilustrativos.'
+  },
+  zh:{
+    nav_home:'首页',nav_cat:'卡片经济学',nav_all:'所有工具',
+    hero_desc:'建模发卡机构卡片组合的完整经济学——净利息收入、交换费收入、年费与奖励成本、欺诈损失、信用损失及服务成本，生成单账户经济指标和组合资产回报率。',
+    badge_local:'本地运行 · 无个人数据',
+    pii_notice:'🔒 所有数据在您的浏览器本地处理，不传输任何信息。请勿输入真实个人数据——请使用合成或匿名数据。',
+    panel_portfolio:'组合参数',panel_econ:'经济参数',
+    btn_run:'运行基准模型',btn_save:'保存为基准',btn_compare:'比较差异',
+    placeholder:'配置参数并运行模型',
+    sec_kpi:'单账户经济指标',sec_pl:'损益瀑布图',sec_chart:'收入与成本分解',
+    chart_title:'每账户年度金额（$）',sec_scen:'情景对比',sec_scenario:'情景差异',
+    sec_bench:'行业基准',bench_note_head:'基准背景',
+    bench_note:'信用卡组合ROA通常为2.5%–4.5%；奖励成本占消费额1.0%–2.0%；正常周期核销率2–5%。',
+    btn_export:'导出 AP2 JSON',btn_copy:'复制摘要',btn_copyap2:'复制 JSON',
+    mcp_toggle:'MCP 清单',th_line:'项目',th_peracct:'每账户/年',th_portfolio:'组合总计',
+    scen_base:'基准情景',scen_delta:'当前与基准对比',
+    footer_suite:'268个浏览器金融工具 · 无个人数据 · 纯客户端',footer_built:'Post Oak Labs · v1.0 · 2026年5月',
+    footer_home:'首页',footer_cat:'卡片经济学',
+    disclaimer:'模型使用简化假设。实际组合经济学取决于信用质量、监管环境、资金结构和合同条款。仅供说明和规划目的使用。'
+  }
+};
+
+let currentLang = 'en';
+function setLang(l) {
+  currentLang = l;
+  document.documentElement.lang = l;
+  document.documentElement.dir = l === 'ar' ? 'rtl' : 'ltr';
+  document.querySelectorAll('.lang-btn').forEach(b => {
+    const txt = b.textContent.trim();
+    b.classList.toggle('active', txt === l.toUpperCase() || (l === 'zh' && txt === '中文') || (l === 'ar' && txt === 'AR') || (l === 'pt' && txt === 'PT'));
+  });
+  const s = STRINGS[l] || STRINGS.en;
+  document.querySelectorAll('[data-i]').forEach(el => {
+    const k = el.getAttribute('data-i');
+    if (s[k] !== undefined) el.innerHTML = s[k];
+  });
+  try { sessionStorage.setItem('ain_lang', l); } catch(e) {}
+}
+(function() {
+  try { const saved = sessionStorage.getItem('ain_lang'); if (saved && STRINGS[saved]) setLang(saved); } catch(e) {}
+})();
+
+// ─── STATE ─────────────────────────────────────────────────────────────────
+let baseResult = null;
+window._lastResult = null;
+
+function isCredit() {
+  return document.getElementById('productType').value !== 'consumer_debit';
+}
+
+function onProductChange() {
+  const credit = isCredit();
+  ['balanceRow','revolveRow','aprRow','creditLossRow','cofRow'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('hidden', !credit);
+  });
+  if (!credit) {
+    document.getElementById('interchangeRate').value = '0.50';
+    document.getElementById('rewardsRate').value = '0.20';
+  } else {
+    document.getElementById('interchangeRate').value = '1.80';
+    document.getElementById('rewardsRate').value = '1.20';
+  }
+}
+
+function g(id) { return parseFloat(document.getElementById(id).value) || 0; }
+
+function getInputs() {
+  const credit = isCredit();
+  return {
+    accounts: Math.max(1, parseInt(document.getElementById('activeAccounts').value) || 1),
+    product: document.getElementById('productType').value,
+    credit,
+    balance: credit ? g('avgBalance') : 0,
+    monthlySpend: g('avgMonthlySpend'),
+    revolveRate: credit ? g('revolveRate') / 100 : 0,
+    apr: credit ? g('apr') / 100 : 0,
+    interchange: g('interchangeRate') / 100,
+    rewards: g('rewardsRate') / 100,
+    annualFee: g('annualFee'),
+    fraud: g('fraudRate') / 100,
+    creditLoss: credit ? g('creditLossRate') / 100 : 0,
+    servicing: g('servicingCost'),
+    cof: credit ? g('cof') / 100 : 0
+  };
+}
+
+function calcModel(inp) {
+  const annualSpend = inp.monthlySpend * 12;
+  const revolving = inp.balance * inp.revolveRate;
+
+  const nii = inp.credit ? revolving * (inp.apr - inp.cof) : 0;
+  const interchangeRev = annualSpend * inp.interchange;
+  const feeRev = inp.annualFee;
+  const totalRevPerAcct = nii + interchangeRev + feeRev;
+
+  const rewardsCost = annualSpend * inp.rewards;
+  const fraudLoss = annualSpend * inp.fraud;
+  const creditLoss = inp.credit ? inp.balance * inp.creditLoss : 0;
+  const servicing = inp.servicing;
+  const totalCostPerAcct = rewardsCost + fraudLoss + creditLoss + servicing;
+  const netPerAcct = totalRevPerAcct - totalCostPerAcct;
+
+  const n = inp.accounts;
+  const portfolioRev = totalRevPerAcct * n;
+  const portfolioCost = totalCostPerAcct * n;
+  const portfolioNet = netPerAcct * n;
+
+  const assetBase = inp.credit ? inp.balance * n : annualSpend * n * 0.1;
+  const roa = assetBase > 0 ? portfolioNet / assetBase : 0;
+  const breakEven = annualSpend > 0
+    ? (rewardsCost + fraudLoss + creditLoss + servicing - nii - feeRev) / annualSpend
+    : 0;
+
+  return {
+    inp, annualSpend, revolving,
+    nii, interchangeRev, feeRev, totalRevPerAcct,
+    rewardsCost, fraudLoss, creditLoss, servicing, totalCostPerAcct, netPerAcct,
+    portfolioNII: nii*n, portfolioInterchange: interchangeRev*n, portfolioFee: feeRev*n,
+    portfolioRewards: rewardsCost*n, portfolioFraud: fraudLoss*n,
+    portfolioCreditLoss: creditLoss*n, portfolioServicing: servicing*n,
+    portfolioRev, portfolioCost, portfolioNet,
+    assetBase, roa, breakEven
+  };
+}
+
+function fmt(v, dec=2) {
+  const abs = Math.abs(v);
+  const s = abs.toLocaleString('en-US', {minimumFractionDigits:dec, maximumFractionDigits:dec});
+  return (v < 0 ? '-$' : '$') + s;
+}
+function fmtM(v) {
+  if (Math.abs(v) >= 1e9) return (v<0?'-':'') + '$' + (Math.abs(v)/1e9).toFixed(2) + 'B';
+  if (Math.abs(v) >= 1e6) return (v<0?'-':'') + '$' + (Math.abs(v)/1e6).toFixed(2) + 'M';
+  if (Math.abs(v) >= 1e3) return (v<0?'-':'') + '$' + (Math.abs(v)/1e3).toFixed(1) + 'K';
+  return fmt(v);
+}
+function fmtPct(v) { return (v * 100).toFixed(2) + '%'; }
+
+function renderKPI(r) {
+  const items = [
+    {l:'Net Income / Acct', v:fmt(r.netPerAcct), c:r.netPerAcct>=0?'g':'r'},
+    {l:'Portfolio Net', v:fmtM(r.portfolioNet), c:r.portfolioNet>=0?'g':'r'},
+    {l:'ROA', v:fmtPct(r.roa), c:Math.abs(r.roa)>=0.025?'g':'w'},
+    {l:'Revenue / Acct', v:fmt(r.totalRevPerAcct), c:'t'},
+    {l:'Cost / Acct', v:fmt(r.totalCostPerAcct), c:'w'},
+    {l:'Break-even Interchange', v:fmtPct(Math.max(0, r.breakEven)), c:'gold'},
+  ];
+  document.getElementById('kpiBar').innerHTML = items.map(i =>
+    `<div class="kc"><div class="kl">${i.l}</div><div class="kv ${i.c}">${i.v}</div></div>`
+  ).join('');
+}
+
+function renderPL(r) {
+  const rows = [
+    {label:'Net Interest Income (NII)',    pa:r.nii,           port:r.portfolioNII,         type:'rev'},
+    {label:'Interchange Revenue',          pa:r.interchangeRev,port:r.portfolioInterchange,  type:'rev'},
+    {label:'Annual Fee Revenue',           pa:r.feeRev,        port:r.portfolioFee,          type:'rev'},
+    {label:'Total Revenue',                pa:r.totalRevPerAcct,port:r.portfolioRev,         type:'sub'},
+    {label:'Rewards Cost',                 pa:-r.rewardsCost,  port:-r.portfolioRewards,     type:'cost'},
+    {label:'Fraud Loss',                   pa:-r.fraudLoss,    port:-r.portfolioFraud,       type:'cost'},
+    {label:'Credit Loss / Charge-offs',    pa:-r.creditLoss,   port:-r.portfolioCreditLoss,  type:'cost'},
+    {label:'Servicing Cost',               pa:-r.servicing,    port:-r.portfolioServicing,   type:'cost'},
+    {label:'Total Costs',                  pa:-r.totalCostPerAcct,port:-r.portfolioCost,     type:'sub'},
+    {label:'Net Income',                   pa:r.netPerAcct,    port:r.portfolioNet,          type:'net'},
+  ];
+  document.getElementById('plBody').innerHTML = rows.map(row => {
+    const trCls = row.type === 'sub' ? 'subtotal' : row.type === 'net' ? 'net-row' : '';
+    const paColor = row.pa < 0 ? ' td-r' : row.pa > 0 ? ' g' : '';
+    const portColor = row.port < 0 ? ' td-r' : row.port > 0 ? ' g' : '';
+    return `<tr class="${trCls}"><td>${row.label}</td><td class="mono${paColor}">${fmt(row.pa)}</td><td class="mono${portColor}">${fmtM(row.port)}</td></tr>`;
+  }).join('');
+}
+
+function renderChart(r) {
+  const svg = document.getElementById('barChart');
+  const W = Math.max(300, (svg.parentElement.clientWidth || 500) - 40);
+  svg.setAttribute('viewBox', `0 0 ${W} 190`);
+
+  const items = [
+    {label:'NII',       val:r.nii,          color:'#14B8A6'},
+    {label:'Interchange',val:r.interchangeRev,color:'#2DD4BF'},
+    {label:'Ann. Fee',  val:r.feeRev,       color:'#D4A847'},
+    {label:'Rewards',   val:-r.rewardsCost, color:'#EF4444'},
+    {label:'Fraud',     val:-r.fraudLoss,   color:'#F59E0B'},
+    {label:'Cr. Loss',  val:-r.creditLoss,  color:'#9B72F5'},
+    {label:'Servicing', val:-r.servicing,   color:'#3A5270'},
+  ];
+
+  const maxAbs = Math.max(...items.map(i => Math.abs(i.val)), 1);
+  const maxH = 100;
+  const baseline = 130;
+  const bw = Math.min(50, Math.floor((W - 60) / items.length) - 6);
+  const gap = Math.floor((W - 30) / items.length);
+
+  let html = `<line x1="10" y1="${baseline}" x2="${W-10}" y2="${baseline}" stroke="#1E2F4A" stroke-width="1"/>`;
+
+  items.forEach((item, idx) => {
+    const x = 15 + idx * gap + (gap - bw) / 2;
+    const h = Math.max(2, (Math.abs(item.val) / maxAbs) * maxH);
+    const y = item.val >= 0 ? baseline - h : baseline;
+    const labelY = item.val >= 0 ? y - 5 : y + h + 12;
+    const absLabel = Math.abs(item.val) >= 1 ? Math.abs(item.val).toFixed(0) : item.val.toFixed(1);
+    html += `<rect x="${x}" y="${y}" width="${bw}" height="${h}" fill="${item.color}" rx="2" opacity="${item.val<0?'0.75':'0.9'}"/>`;
+    html += `<text x="${x+bw/2}" y="${labelY}" text-anchor="middle" fill="${item.color}" font-family="JetBrains Mono,monospace" font-size="9">${item.val>=0?'+':''}${absLabel}</text>`;
+    html += `<text x="${x+bw/2}" y="178" text-anchor="middle" fill="#3A5270" font-family="JetBrains Mono,monospace" font-size="8">${item.label}</text>`;
+  });
+  svg.innerHTML = html;
+}
+
+function renderBenchmarks(r) {
+  const credit = r.inp.credit;
+  const roa = r.roa * 100;
+  const rwPct = r.inp.rewards * 100;
+  const netMgn = r.totalRevPerAcct > 0 ? (r.netPerAcct / r.totalRevPerAcct) * 100 : 0;
+
+  function status(v, lo, hi, invert) {
+    if (invert) { if (v <= lo) return 'bench-above'; if (v <= hi) return 'bench-within'; return 'bench-below'; }
+    if (v < lo) return 'bench-below'; if (v > hi) return 'bench-above'; return 'bench-within';
+  }
+  function statusLabel(v, lo, hi, invert) {
+    if (invert) { if (v <= lo) return 'Below Range'; if (v <= hi) return 'Within Range'; return 'Above Range'; }
+    if (v < lo) return 'Below Range'; if (v > hi) return 'Above Range'; return 'Within Range';
+  }
+
+  const items = credit ? [
+    {label:'Portfolio ROA', range:'2.5% – 4.5%', val:roa.toFixed(2)+'%', note:'Net income / avg receivables', st:status(roa,2.5,4.5,false), stl:statusLabel(roa,2.5,4.5,false)},
+    {label:'Rewards Cost % Spend', range:'1.0% – 2.0%', val:rwPct.toFixed(2)+'%', note:'Premium cards 2%+', st:status(rwPct,1.0,2.0,true), stl:statusLabel(rwPct,1.0,2.0,true)},
+    {label:'Charge-off Rate', range:'2.0% – 5.0%', val:(r.inp.creditLoss*100).toFixed(2)+'%', note:'Cyclically 2–8%', st:status(r.inp.creditLoss*100,2.0,5.0,true), stl:statusLabel(r.inp.creditLoss*100,2.0,5.0,true)},
+    {label:'Net Margin', range:'20% – 40%', val:netMgn.toFixed(1)+'%', note:'Net income / gross revenue', st:status(netMgn,20,40,false), stl:statusLabel(netMgn,20,40,false)},
+  ] : [
+    {label:'Interchange / Acct', range:'$50 – $120', val:fmt(r.interchangeRev), note:'Thin for debit; varies by network', st:status(r.interchangeRev,50,120,false), stl:statusLabel(r.interchangeRev,50,120,false)},
+    {label:'Net Income / Acct', range:'-$10 – $30', val:fmt(r.netPerAcct), note:'Often cross-sell subsidized', st:status(r.netPerAcct,-10,30,false), stl:statusLabel(r.netPerAcct,-10,30,false)},
+    {label:'Rewards % Spend', range:'0.1% – 0.5%', val:rwPct.toFixed(2)+'%', note:'Debit rewards are rare', st:status(rwPct,0.1,0.5,true), stl:statusLabel(rwPct,0.1,0.5,true)},
+    {label:'Fraud Rate % Spend', range:'0.05% – 0.12%', val:(r.inp.fraud*100).toFixed(3)+'%', note:'Target < 0.10%', st:status(r.inp.fraud*100,0.05,0.12,true), stl:statusLabel(r.inp.fraud*100,0.05,0.12,true)},
+  ];
+
+  document.getElementById('benchGrid').innerHTML = items.map(b =>
+    `<div class="bench-card"><div class="bench-label">${b.label}</div><div class="bench-range">${b.val}</div><div class="bench-note">Typical: ${b.range} — ${b.note}</div><span class="bench-status ${b.st}">${b.stl}</span></div>`
+  ).join('');
+}
+
+function renderScenario(cur, base) {
+  const sec = document.getElementById('scenarioSection');
+  if (!base) { sec.style.display='none'; return; }
+  sec.style.display = '';
+
+  document.getElementById('baseScenario').innerHTML = [
+    scRow('Net Income / Acct', fmt(base.netPerAcct), ''),
+    scRow('Portfolio Net', fmtM(base.portfolioNet), ''),
+    scRow('ROA', fmtPct(base.roa), ''),
+    scRow('Revenue / Acct', fmt(base.totalRevPerAcct), ''),
+    scRow('Cost / Acct', fmt(base.totalCostPerAcct), ''),
+  ].join('');
+
+  document.getElementById('deltaScenario').innerHTML = [
+    deltaRow('Net Income / Acct', cur.netPerAcct, base.netPerAcct, fmt),
+    deltaRow('Portfolio Net', cur.portfolioNet, base.portfolioNet, fmtM),
+    roaDeltaRow(cur.roa, base.roa),
+    deltaRow('Revenue / Acct', cur.totalRevPerAcct, base.totalRevPerAcct, fmt),
+    deltaRow('Cost / Acct', -cur.totalCostPerAcct, -base.totalCostPerAcct, fmt),
+  ].join('');
+}
+
+function scRow(l, v, cls) {
+  return `<div class="sc-row"><span class="sc-label">${l}</span><span class="sc-val ${cls}">${v}</span></div>`;
+}
+function deltaRow(l, cur, base, fmtFn) {
+  const d = cur - base;
+  const cls = d > 0.005 ? 'pos' : d < -0.005 ? 'neg' : 'neu';
+  const prefix = d >= 0 ? '+' : '';
+  return `<div class="sc-row"><span class="sc-label">${l}</span><span class="sc-val ${cls}">${prefix}${fmtFn(d)}</span></div>`;
+}
+function roaDeltaRow(cur, base) {
+  const d = (cur - base) * 100;
+  const cls = d > 0.001 ? 'pos' : d < -0.001 ? 'neg' : 'neu';
+  const prefix = d >= 0 ? '+' : '';
+  return `<div class="sc-row"><span class="sc-label">ROA</span><span class="sc-val ${cls}">${prefix}${d.toFixed(2)} pp</span></div>`;
+}
+
+function runModel(isScenario) {
+  const inp = getInputs();
+  const r = calcModel(inp);
+  window._lastResult = r;
+
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('results').style.display = '';
+
+  renderKPI(r);
+  renderPL(r);
+  renderChart(r);
+  renderBenchmarks(r);
+  renderScenario(r, isScenario ? baseResult : null);
+
+  document.getElementById('btnSave').style.display = '';
+  document.getElementById('scenarioControls').style.display = '';
+}
+
+function saveScenario() {
+  baseResult = calcModel(getInputs());
+  const btn = document.getElementById('btnSave');
+  const orig = btn.textContent;
+  btn.textContent = 'Saved ✓';
+  setTimeout(() => { btn.textContent = orig; }, 2000);
+}
+
+function exportAP2() {
+  const r = window._lastResult;
+  if (!r) return;
+  const obj = {
+    policy_mandate: {
+      tool_id: "416-issuer-card-portfolio-pl",
+      version: "1.0",
+      generated: new Date().toISOString().split('T')[0],
+      product_type: r.inp.product,
+      active_accounts: r.inp.accounts,
+      inputs: {
+        avg_balance_usd: r.inp.balance,
+        avg_monthly_spend_usd: r.inp.monthlySpend,
+        revolve_rate_pct: +(r.inp.revolveRate*100).toFixed(2),
+        apr_pct: +(r.inp.apr*100).toFixed(2),
+        interchange_rate_pct: +(r.inp.interchange*100).toFixed(2),
+        rewards_rate_pct: +(r.inp.rewards*100).toFixed(2),
+        annual_fee_usd: r.inp.annualFee,
+        fraud_rate_pct: +(r.inp.fraud*100).toFixed(3),
+        credit_loss_rate_pct: +(r.inp.creditLoss*100).toFixed(2),
+        servicing_cost_usd: r.inp.servicing,
+        cost_of_funds_pct: +(r.inp.cof*100).toFixed(2)
+      },
+      unit_economics: {
+        nii: +r.nii.toFixed(2),
+        interchange_revenue: +r.interchangeRev.toFixed(2),
+        annual_fee_revenue: +r.feeRev.toFixed(2),
+        total_revenue: +r.totalRevPerAcct.toFixed(2),
+        rewards_cost: +r.rewardsCost.toFixed(2),
+        fraud_loss: +r.fraudLoss.toFixed(2),
+        credit_loss: +r.creditLoss.toFixed(2),
+        servicing_cost: +r.servicing.toFixed(2),
+        total_cost: +r.totalCostPerAcct.toFixed(2),
+        net_income: +r.netPerAcct.toFixed(2)
+      },
+      portfolio_totals: {
+        total_revenue: Math.round(r.portfolioRev),
+        total_cost: Math.round(r.portfolioCost),
+        net_income: Math.round(r.portfolioNet),
+        asset_base: Math.round(r.assetBase),
+        roa_pct: +(r.roa*100).toFixed(3),
+        break_even_interchange_pct: +(Math.max(0,r.breakEven)*100).toFixed(3)
+      },
+      mcp_tool: {
+        name: "model_card_portfolio_pl",
+        description: "Model issuer card portfolio P&L — returns per-account unit economics, portfolio totals, and ROA",
+        inputSchema: {
+          type: "object",
+          required: ["active_accounts","product_type","avg_monthly_spend","interchange_rate_pct"],
+          properties: {
+            active_accounts: {type:"integer"},
+            product_type: {type:"string", enum:["consumer_credit","consumer_debit","commercial_credit"]},
+            avg_monthly_spend: {type:"number"},
+            interchange_rate_pct: {type:"number"}
+          }
+        }
+      }
+    }
+  };
+  document.getElementById('ap2Pre').textContent = JSON.stringify(obj, null, 2);
+  document.getElementById('ap2Out').style.display = '';
+  document.getElementById('ap2Out').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function copyResults() {
+  const r = window._lastResult;
+  if (!r) return;
+  const txt = [
+    'T416 Issuer Card Portfolio P&L — ' + new Date().toLocaleDateString(),
+    'Product: ' + r.inp.product + ' | Accounts: ' + r.inp.accounts.toLocaleString(),
+    'Net Income/Acct: ' + fmt(r.netPerAcct) + ' | Portfolio Net: ' + fmtM(r.portfolioNet),
+    'ROA: ' + fmtPct(r.roa) + ' | Break-even Interchange: ' + fmtPct(Math.max(0, r.breakEven)),
+    'Revenue/Acct: ' + fmt(r.totalRevPerAcct) + ' | Costs/Acct: ' + fmt(r.totalCostPerAcct)
+  ].join('\n');
+  navigator.clipboard.writeText(txt).catch(() => {});
+}
+
+function copyAP2() {
+  navigator.clipboard.writeText(document.getElementById('ap2Pre').textContent).catch(() => {});
+}
+
+// ─── MCP MANIFEST ──────────────────────────────────────────────────────────
+const MCP_MANIFEST = {
+  tool_id: "416-issuer-card-portfolio-pl",
+  version: "1.0.0",
+  title: "Issuer Card Portfolio P&L Model",
+  description: "Models the full economics of a card issuer portfolio — NII, interchange, fees, rewards, fraud, credit losses, servicing — to produce per-account unit economics and portfolio ROA.",
+  category: "cat-9",
+  tags: ["card economics","issuer","P&L","net interest income","interchange","rewards","ROA","credit card","debit card","unit economics","portfolio"],
+  audience: ["card issuers","product managers","CFOs","card strategy teams","fintech analysts"],
+  input_schema: {
+    type: "object",
+    required: ["active_accounts","product_type","avg_monthly_spend"],
+    properties: {
+      active_accounts: {type:"integer", description:"Number of active accounts in portfolio"},
+      product_type: {type:"string", enum:["consumer_credit","consumer_debit","commercial_credit"]},
+      avg_balance: {type:"number", description:"Average outstanding balance per account ($) — credit only"},
+      avg_monthly_spend: {type:"number", description:"Average monthly spend per account ($)"},
+      revolve_rate_pct: {type:"number", description:"% of balances that revolve"},
+      apr_pct: {type:"number", description:"Annual percentage rate — credit products"},
+      interchange_rate_pct: {type:"number", description:"Blended interchange rate (% of spend)"},
+      rewards_rate_pct: {type:"number", description:"Rewards cost (% of spend)"},
+      annual_fee: {type:"number", description:"Annual fee per account ($)"},
+      fraud_rate_pct: {type:"number", description:"Fraud losses (% of spend)"},
+      credit_loss_rate_pct: {type:"number", description:"Charge-off rate (% of balance) — credit only"},
+      servicing_cost_per_year: {type:"number", description:"Servicing cost per account per year ($)"},
+      cost_of_funds_pct: {type:"number", description:"Cost of funds rate (%) — credit only"}
+    }
+  },
+  output_schema: {
+    type: "object",
+    properties: {
+      net_income_per_account: {type:"number"},
+      portfolio_net_income: {type:"number"},
+      roa_pct: {type:"number"},
+      break_even_interchange_pct: {type:"number"},
+      total_revenue_per_account: {type:"number"},
+      total_cost_per_account: {type:"number"}
+    }
+  },
+  mcp_tool_definition: {
+    name: "model_card_portfolio_pl",
+    description: "Model issuer card portfolio P&L — provide product type, account count, monthly spend, and economics parameters; returns per-account unit economics, portfolio totals, and ROA.",
+    inputSchema: {
+      type: "object",
+      required: ["active_accounts","product_type","avg_monthly_spend","interchange_rate_pct"],
+      properties: {
+        active_accounts: {type:"integer"},
+        product_type: {type:"string", enum:["consumer_credit","consumer_debit","commercial_credit"]},
+        avg_monthly_spend: {type:"number"},
+        interchange_rate_pct: {type:"number"}
+      }
+    }
+  },
+  execution: {
+    type: "browser-javascript",
+    entry: "tools/416-issuer-card-portfolio-pl.html",
+    function_name: "runModel",
+    timeout_ms: 3000
+  },
+  ui: {
+    hero_eyebrow: "T416 · Card Economics · Cat-09",
+    version_stamp: "v1.0 · May 2026",
+    lang_support: ["en","es","fr","ar","pt","zh"],
+    pii_level: "zero",
+    storage: "sessionStorage:ain_lang only"
+  }
+};
+
+function toggleMcp() {
+  const panel = document.getElementById('mcpPanel');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open') && !document.getElementById('mcpPre').textContent) {
+    document.getElementById('mcpPre').textContent = JSON.stringify(MCP_MANIFEST, null, 2);
+  }
+}
+</script>
+</body>
+</html>
