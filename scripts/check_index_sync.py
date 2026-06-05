@@ -36,6 +36,8 @@ INTENTIONAL_OMISSIONS = {
     "tool-04-agent-policy-guardrail.html",   # duplicate of rbe-04
     "tool-05-regulatory-doc-intelligence.html",  # duplicate of rbe-05
     "tool-06-agentic-mandate-sandbox.html",  # duplicate of rbe-06
+    "380-physical-climate-risk-exposure-assessor.html",  # duplicate of 380-physical-climate-risk-assessor.html
+    "381-eu-green-bond-standard-eligibility-screener.html",  # duplicate of 381-eu-green-bond-standard-screener.html
 }
 
 ANSI_RED    = "\033[91m"
