@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>Durbin Amendment Interchange Analyzer &middot; AINumbers.co</title>
+<meta name="description" content="Determine debit card interchange fee caps under the Durbin Amendment (Regulation II, 12 CFR Part 235). Calculates issuer coverage, applicable interchange cap, and routing compliance requirements.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/443-durbin-amendment-interchange-analyzer.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Durbin Amendment Interchange Analyzer","url":"https://ainumbers.co/tools/443-durbin-amendment-interchange-analyzer.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "durbin-amendment-interchange-analyzer",
+  "version": "1.0.0",
+  "title": "Durbin Amendment Interchange Analyzer",
+  "description": "Determine debit card interchange fee caps under the Durbin Amendment (Regulation II, 12 CFR Part 235). Calculates issuer coverage, interchange cap, routing compliance, and merchant savings.",
+  "category": "cat-29",
+  "tags": ["Durbin Amendment","Regulation II","interchange","debit card","routing","12 CFR Part 235"],
+  "audience": ["compliance","payments","treasury","fintech"],
+  "input_schema": {"type":"object","properties":{"assets":{"type":"number"},"network":{"type":"string"},"txn_type":{"type":"string"},"amount":{"type":"number"},"gov_benefit":{"type":"string"},"prepaid_exempt":{"type":"string"},"network_restrict":{"type":"string"},"merchant_cat":{"type":"string"}},"required":["assets","network","txn_type","amount"]},
+  "output_schema": {"type":"object","properties":{"coverage_status":{"type":"string"},"interchange_cap":{"type":"number"},"routing_compliant":{"type":"boolean"},"merchant_savings":{"type":"array"}}},
+  "mcp_tool_definition": {"name":"analyze_durbin_interchange","description":"Analyze debit card interchange under Durbin Amendment (Regulation II, 12 CFR Part 235). Returns coverage determination, interchange cap, routing compliance status, and merchant savings.","inputSchema":{"type":"object","properties":{"assets":{"type":"number","description":"Issuer consolidated assets prior year in billions USD"},"network":{"type":"string","description":"Card network: visa, mastercard, amex, discover, proprietary"},"txn_type":{"type":"string","description":"Transaction type: pin_debit, sig_debit, prepaid, gov_prepaid, reload_prepaid"},"amount":{"type":"number","description":"Transaction amount in USD"},"gov_benefit":{"type":"string","description":"Government benefit/EBT card: yes or no"},"prepaid_exempt":{"type":"string","description":"Qualifying reloadable prepaid exempt: yes, no, unsure"},"network_restrict":{"type":"string","description":"Issuer restricts to single network: yes or no"},"merchant_cat":{"type":"string","description":"Merchant category"}},"required":["assets","network","txn_type","amount"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/443-durbin-amendment-interchange-analyzer.html","function_name":"runTool","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);border-left:3px solid var(--teal);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.25rem;color:var(--body)}
+.input-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.25rem}
+.panel-header{background:var(--bg-3);border-bottom:1px solid var(--border);padding:.65rem 1.1rem;display:flex;align-items:center;gap:.6rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+.panel-body{padding:1.1rem;display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}
+@media(max-width:640px){.panel-body{grid-template-columns:1fr}}
+.form-group{display:flex;flex-direction:column;gap:.3rem}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.form-label span{color:var(--red);margin-left:.2rem}
+.form-input,.form-select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.4rem .65rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+.form-input:focus,.form-select:focus{border-color:var(--teal)}
+.form-select option{background:var(--bg-3);color:var(--bright)}
+.form-hint{font-size:.58rem;color:var(--muted);line-height:1.4}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2.25rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.results-section{margin-top:1.75rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem}
+.out-header{padding:.65rem 1.1rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.1rem}
+.det-badge{display:inline-flex;align-items:center;gap:.5rem;padding:.4rem 1rem;border-radius:20px;font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:600;letter-spacing:.06em}
+.det-covered{background:var(--teal-dim);color:var(--teal);border:1px solid var(--teal)}
+.det-exempt{background:var(--green-dim);color:var(--green);border:1px solid var(--green)}
+.det-compliant{background:var(--green-dim);color:var(--green);border:1px solid var(--green)}
+.det-noncompliant{background:var(--red-dim);color:var(--red);border:1px solid var(--red)}
+.check-list{list-style:none;padding:0;margin:.75rem 0}
+.check-list li{display:flex;align-items:flex-start;gap:.5rem;padding:.3rem 0;font-size:.8rem;color:var(--text);border-bottom:1px solid var(--border)}
+.check-list li:last-child{border-bottom:none}
+.check-pass::before{content:'checkmark';color:var(--green);font-weight:700;flex-shrink:0;font-style:normal}
+.check-fail::before{content:'cross';color:var(--red);font-weight:700;flex-shrink:0;font-style:normal}
+.check-warn::before{content:'warn';color:var(--warn);flex-shrink:0;font-style:normal}
+.check-info::before{content:'info';color:var(--teal);flex-shrink:0;font-style:normal}
+.data-table{width:100%;border-collapse:collapse;font-size:.78rem;margin:.75rem 0}
+.data-table th{background:var(--bg-3);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;padding:.5rem .75rem;text-align:left;border-bottom:1px solid var(--border)}
+.data-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text)}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:rgba(20,184,166,.03)}
+.num-cell{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--bright);text-align:right}
+.highlight-cell{color:var(--teal);font-weight:600;font-family:'JetBrains Mono',monospace}
+.savings-cell{color:var(--green);font-family:'JetBrains Mono',monospace;font-size:.72rem}
+.cap-breakdown{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;margin:.75rem 0}
+.cap-row{display:flex;justify-content:space-between;align-items:center;padding:.25rem 0;border-bottom:1px solid var(--border);font-size:.78rem}
+.cap-row:last-child{border-bottom:none;padding-top:.4rem;margin-top:.2rem}
+.cap-label{color:var(--body);font-size:.75rem}
+.cap-value{font-family:'JetBrains Mono',monospace;color:var(--bright);font-size:.75rem}
+.cap-total-value{font-family:'JetBrains Mono',monospace;color:var(--teal);font-size:.82rem;font-weight:600}
+.flag-row{display:flex;flex-wrap:wrap;gap:.4rem;margin:.5rem 0}
+.flag-pill{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.06em;padding:.25rem .65rem;border-radius:12px;border:1px solid}
+.flag-ok{background:var(--green-dim);color:var(--green);border-color:var(--green)}
+.flag-warn{background:var(--warn-dim);color:var(--warn);border-color:var(--warn)}
+.flag-bad{background:var(--red-dim);color:var(--red);border-color:var(--red)}
+.flag-info{background:var(--teal-dim);color:var(--teal);border-color:var(--teal)}
+.source-notes{margin-top:2rem;padding:1rem;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg)}
+.source-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem}
+.source-list{list-style:none;padding:0;margin:0}
+.source-list li{font-size:.68rem;color:var(--muted);padding:.2rem 0;border-bottom:1px solid var(--border);line-height:1.5}
+.source-list li:last-child{border-bottom:none}
+.results-export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border);margin-top:.5rem}
+.export-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.export-btn:hover{border-color:var(--teal);color:var(--teal)}
+#ap2ExportBtn{opacity:.55;cursor:not-allowed}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">&#20013;&#25991;</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><span>T-443</span></div>
+  <div class="nav-right"><a href="../index.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">US PAYMENT REGULATION &middot; T443</div>
+  <span class="badge badge-muted" style="margin-bottom:.5rem;display:inline-block">v1.0</span>
+  <h1>Durbin Amendment <em>Interchange Analyzer</em></h1>
+  <p class="hero-desc">Determine debit card interchange fee caps under the Durbin Amendment (Regulation II, 12 CFR Part 235). Calculates whether an issuer is covered or exempt, the applicable interchange cap, routing compliance requirements, and merchant savings projections.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">Reg II</span>
+    <span class="badge badge-gold">12 CFR 235</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note"><strong style="color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &#8212; </strong><span data-i18n="pii.banner">All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data.</span> Interchange caps, asset thresholds, and exemption criteria reflect static regulatory reference values as of the 2024 regulatory year. Verify against current Federal Reserve Board guidance before relying on any output for compliance decisions. Deterministic logic &middot; no inference &middot; zero PII &middot; CC BY 4.0.</div>
+
+  <div class="input-panel">
+    <div class="panel-header"><span class="panel-label">Step 1 &middot; Issuer Profile</span></div>
+    <div class="panel-body">
+      <div class="form-group">
+        <label class="form-label" for="f_assets">Issuer consolidated assets &#8212; prior calendar year ($B)<span>*</span></label>
+        <input class="form-input" type="number" id="f_assets" min="0.01" max="9999" step="0.01" placeholder="e.g. 12.5">
+        <span class="form-hint">Total consolidated assets as reported for the prior calendar year. The $10B threshold (12 CFR 235.5(c)) determines Durbin coverage.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f_network">Card network affiliation<span>*</span></label>
+        <select class="form-select" id="f_network">
+          <option value="">&#8212; Select &#8212;</option>
+          <option value="visa">Visa</option>
+          <option value="mastercard">Mastercard</option>
+          <option value="amex">American Express</option>
+          <option value="discover">Discover</option>
+          <option value="proprietary">Proprietary network</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f_txn_type">Transaction type<span>*</span></label>
+        <select class="form-select" id="f_txn_type">
+          <option value="">&#8212; Select &#8212;</option>
+          <option value="pin_debit">PIN debit</option>
+          <option value="sig_debit">Signature debit</option>
+          <option value="prepaid">Prepaid debit (general)</option>
+          <option value="gov_prepaid">Government benefit prepaid</option>
+          <option value="reload_prepaid">Reloadable prepaid</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f_amount">Transaction amount ($)<span>*</span></label>
+        <input class="form-input" type="number" id="f_amount" min="0.01" max="999999" step="0.01" placeholder="e.g. 45.00">
+        <span class="form-hint">Used to calculate the 0.05% ad valorem component of the interchange cap (12 CFR 235.3(a)(2)).</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="input-panel">
+    <div class="panel-header"><span class="panel-label">Step 2 &middot; Exemption Screening</span></div>
+    <div class="panel-body">
+      <div class="form-group">
+        <label class="form-label" for="f_gov_benefit">Is this card a government benefit / EBT card?<span>*</span></label>
+        <select class="form-select" id="f_gov_benefit">
+          <option value="">&#8212; Select &#8212;</option>
+          <option value="no">No</option>
+          <option value="yes">Yes</option>
+        </select>
+        <span class="form-hint">Government benefit programs (EBT, SNAP, Medicaid disbursements) are exempt from Durbin caps under 12 CFR 235.5(b).</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f_prepaid_exempt">Is card a qualifying exempt reloadable prepaid?<span>*</span></label>
+        <select class="form-select" id="f_prepaid_exempt">
+          <option value="">&#8212; Select &#8212;</option>
+          <option value="no">No</option>
+          <option value="yes">Yes &#8212; meets all exemption criteria</option>
+          <option value="unsure">Unsure</option>
+        </select>
+        <span class="form-hint">Reloadable prepaid cards meeting 12 CFR 235.5(a) criteria (not marketed as a substitute for a checking account, no overdraft, etc.) may be exempt.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f_network_restrict">Does issuer operate a network exclusivity arrangement?<span>*</span></label>
+        <select class="form-select" id="f_network_restrict">
+          <option value="">&#8212; Select &#8212;</option>
+          <option value="no">No &#8212; two unaffiliated networks available</option>
+          <option value="yes">Yes &#8212; issuer restricts to single network</option>
+        </select>
+        <span class="form-hint">Covered issuers must enable at least two unaffiliated networks per 12 CFR 235.7. Network exclusivity arrangements are prohibited.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f_merchant_cat">Merchant category</label>
+        <select class="form-select" id="f_merchant_cat">
+          <option value="retail_general">Retail &#8212; general</option>
+          <option value="grocery">Grocery / Supermarket</option>
+          <option value="gas">Gas station</option>
+          <option value="restaurant">Restaurant</option>
+          <option value="healthcare">Healthcare</option>
+          <option value="education">Education</option>
+          <option value="government">Government</option>
+          <option value="other">Other</option>
+        </select>
+        <span class="form-hint">Context for savings projection. MCCs do not directly affect interchange caps but influence routing economics.</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:2rem">
+    <button class="run-btn" onclick="runTool()">&#9654; Analyze Interchange</button>
+  </div>
+
+  <div class="results-section" id="resultsSection" style="display:none">
+
+    <div class="out-section">
+      <div class="out-header">
+        <span class="out-title">Coverage Determination &middot; 12 CFR 235.5</span>
+        <span id="coverageBadge" class="det-badge"></span>
+      </div>
+      <div class="out-body">
+        <ul class="check-list" id="coverageChecklist"></ul>
+        <div id="coverageExemptNote" style="display:none;margin-top:.5rem;font-size:.75rem;color:var(--warn);background:var(--warn-dim);border:1px solid rgba(245,158,11,.3);border-radius:var(--radius);padding:.5rem .75rem"></div>
+      </div>
+    </div>
+
+    <div class="out-section" id="capSection">
+      <div class="out-header"><span class="out-title">Interchange Cap Calculation &middot; 12 CFR 235.3</span></div>
+      <div class="out-body" id="capBody"></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header">
+        <span class="out-title">Network Routing Compliance &middot; 12 CFR 235.7</span>
+        <span id="routingBadge" class="det-badge"></span>
+      </div>
+      <div class="out-body" id="routingBody"></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Interchange Amount &#8212; Regulated vs. Unregulated</span></div>
+      <div class="out-body" id="comparisonBody"></div>
+    </div>
+
+    <div class="out-section" id="savingsSection" style="display:none">
+      <div class="out-header"><span class="out-title">Merchant Savings Projection (Covered Issuer)</span></div>
+      <div class="out-body" id="savingsBody"></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Compliance Flags</span></div>
+      <div class="out-body" id="flagsBody"></div>
+    </div>
+
+    <div class="results-export-row">
+      <button class="export-btn" onclick="exportMarkdown()">&#8595; Export Markdown</button>
+      <button class="export-btn" id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run analysis first">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API &middot; audit trail</span></button>
+    </div>
+
+  </div>
+
+  <div class="source-notes" style="margin-top:1.5rem">
+    <div class="source-title">Regulatory Citations</div>
+    <ul class="source-list">
+      <li>1. Electronic Fund Transfer Act (EFTA), 15 U.S.C. &sect; 1693o-2 &#8212; Durbin Amendment, added by Dodd-Frank Act &sect; 1075 (2010). Authorizes Federal Reserve Board to prescribe interchange fee standards for covered issuers.</li>
+      <li>2. Regulation II &#8212; Debit Card Interchange Fees and Routing, 12 CFR Part 235 &#8212; Federal Reserve Board implementing rule. Establishes $0.21 + 0.05% base cap and routing requirements for covered issuers.</li>
+      <li>3. Federal Reserve Board Final Rule, 12 CFR Part 235, 76 Fed. Reg. 43394 (July 20, 2011) &#8212; Original interchange cap rule establishing covered issuer standards and exemption framework.</li>
+      <li>4. Federal Reserve Board Final Rule, 12 CFR Part 235 (Oct 2022 amendment) &#8212; Extended routing requirements to card-not-present (online/e-commerce) debit transactions; compliance required by July 1, 2023.</li>
+      <li>5. Federal Reserve Board Regulation II FAQs (2022) &#8212; Guidance on exemptions, fraud adjustment certification, and routing compliance obligations under 12 CFR 235.4 and 235.5.</li>
+    </ul>
+  </div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+    <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+    <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+  </div>
+  <div class="footer-badge-ai">
+    <span><span data-i18n="footer.cc">CC BY 4.0 &middot; Post Oak Labs</span></span>
+    <span><span data-i18n="footer.privacy">&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span></span>
+  </div>
+</div></div></footer>
+
+<script>
+var _lastResult = null;
+
+var MANIFEST = {
+  "tool_id": "durbin-amendment-interchange-analyzer",
+  "version": "1.0.0",
+  "title": "Durbin Amendment Interchange Analyzer",
+  "description": "Determine debit card interchange fee caps under the Durbin Amendment (Regulation II, 12 CFR Part 235). Calculates issuer coverage, interchange cap, routing compliance, and merchant savings.",
+  "category": "cat-29",
+  "tags": ["Durbin Amendment","Regulation II","interchange","debit card","routing","12 CFR Part 235"],
+  "audience": ["compliance","payments","treasury","fintech"],
+  "execution": {"type":"browser-javascript","entry":"tools/443-durbin-amendment-interchange-analyzer.html","function_name":"runTool","timeout_ms":3000},
+  "ap2_export": true
+};
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  var a = document.getElementById('mfstArr');
+  if (b.style.display === 'none' || b.style.display === '') {
+    b.style.display = 'block';
+    if (a) a.textContent = '▲';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else {
+    b.style.display = 'none';
+    if (a) a.textContent = '▼';
+  }
+}
+
+function fmtD(v, places) {
+  if (places === undefined) places = 4;
+  return '$' + v.toFixed(places);
+}
+
+function runTool() {
+  var assets = parseFloat(document.getElementById('f_assets').value);
+  var network = document.getElementById('f_network').value;
+  var txn_type = document.getElementById('f_txn_type').value;
+  var amount = parseFloat(document.getElementById('f_amount').value);
+  var gov_benefit = document.getElementById('f_gov_benefit').value;
+  var prepaid_exempt = document.getElementById('f_prepaid_exempt').value;
+  var network_restrict = document.getElementById('f_network_restrict').value;
+  var merchant_cat = document.getElementById('f_merchant_cat').value;
+
+  if (isNaN(assets) || assets <= 0) { alert('Please enter issuer consolidated assets.'); return; }
+  if (!network) { alert('Please select a card network.'); return; }
+  if (!txn_type) { alert('Please select a transaction type.'); return; }
+  if (isNaN(amount) || amount <= 0) { alert('Please enter a transaction amount.'); return; }
+  if (!gov_benefit) { alert('Please answer the government benefit card question.'); return; }
+  if (!prepaid_exempt) { alert('Please answer the reloadable prepaid exemption question.'); return; }
+  if (!network_restrict) { alert('Please answer the network restriction question.'); return; }
+
+  var isGovBenefit = (gov_benefit === 'yes' || txn_type === 'gov_prepaid');
+  var isPrepaidExempt = (prepaid_exempt === 'yes' || txn_type === 'reload_prepaid');
+  var isSizeCovered = (assets >= 10);
+
+  var coverageStatus = 'covered';
+  var exemptReason = '';
+
+  if (isGovBenefit) {
+    coverageStatus = 'exempt';
+    exemptReason = 'Government benefit / EBT card — exempt under 12 CFR 235.5(b). Durbin interchange caps do not apply.';
+  } else if (isPrepaidExempt) {
+    coverageStatus = 'exempt';
+    exemptReason = 'Qualifying reloadable prepaid card — exempt under 12 CFR 235.5(a). Caps do not apply if all exemption criteria are fully met.';
+  } else if (!isSizeCovered) {
+    coverageStatus = 'exempt';
+    exemptReason = 'Issuer consolidated assets below $10B threshold — small issuer exempt under 12 CFR 235.5(c). Interchange caps do not apply.';
+  }
+
+  var isCovered = (coverageStatus === 'covered');
+
+  var baseFlatCap = 0.21;
+  var baseAdValorem = 0.0005;
+  var baseAdValoremAmt = amount * baseAdValorem;
+  var baseCap = baseFlatCap + baseAdValoremAmt;
+  var fraudAdj = 0.01;
+  var capWithFraud = baseCap + fraudAdj;
+
+  var routingCompliant = (network_restrict !== 'yes');
+  var networkNote = '';
+  if (network === 'amex') {
+    networkNote = 'American Express operates a closed-loop network. Standard Regulation II open-loop debit routing requirements apply to Amex-branded prepaid debit products; verify applicable network rules.';
+  } else if (network === 'proprietary') {
+    networkNote = 'Proprietary network cards: covered issuers must still ensure two unaffiliated network options for consumer debit transactions when a second network is technically feasible.';
+  }
+
+  var uncappedRates = {
+    visa:        { pct: 0.0080, flat: 0.15, label: 'Visa Consumer Debit (representative)' },
+    mastercard:  { pct: 0.0080, flat: 0.15, label: 'Mastercard Consumer Debit (representative)' },
+    amex:        { pct: 0.0185, flat: 0.10, label: 'Amex Debit (representative)' },
+    discover:    { pct: 0.0080, flat: 0.155, label: 'Discover Consumer Debit (representative)' },
+    proprietary: { pct: 0.0065, flat: 0.13, label: 'Proprietary Network (representative estimate)' }
+  };
+
+  var rate = uncappedRates[network] || uncappedRates.visa;
+  var uncappedAmt = amount * rate.pct + rate.flat;
+  var savingsPerTxn = isCovered ? Math.max(0, uncappedAmt - baseCap) : 0;
+  var savingsPerTxnFraud = isCovered ? Math.max(0, uncappedAmt - capWithFraud) : 0;
+
+  document.getElementById('resultsSection').style.display = 'block';
+
+  var covBadge = document.getElementById('coverageBadge');
+  covBadge.className = 'det-badge ' + (isCovered ? 'det-covered' : 'det-exempt');
+  covBadge.textContent = isCovered ? 'COVERED ISSUER' : 'EXEMPT';
+
+  var cl = document.getElementById('coverageChecklist');
+  cl.innerHTML = '';
+  var checks = [
+    {
+      pass: isSizeCovered,
+      text: 'Assets ≥ $10B threshold (12 CFR 235.5(c)) — Issuer reported $' + assets.toFixed(2) + 'B'
+    },
+    {
+      pass: !isGovBenefit,
+      text: 'Card is not a government benefit / EBT card (12 CFR 235.5(b)) — ' + (isGovBenefit ? 'EXEMPT: government benefit card identified' : 'Not a government benefit card')
+    },
+    {
+      pass: !isPrepaidExempt,
+      text: 'Card is not a qualifying reloadable prepaid exempt under 12 CFR 235.5(a) — ' + (isPrepaidExempt ? 'EXEMPT: qualifying reloadable prepaid' : 'Not a qualifying exempt prepaid')
+    }
+  ];
+  var checkSymbols = { 'check-pass': '✓', 'check-fail': '✗', 'check-warn': '⚠', 'check-info': 'ℹ' };
+  for (var i = 0; i < checks.length; i++) {
+    var li = document.createElement('li');
+    var cls = checks[i].pass ? 'check-pass' : (isCovered ? 'check-fail' : 'check-warn');
+    li.style.cssText = 'display:flex;align-items:flex-start;gap:.5rem;padding:.3rem 0;font-size:.8rem;color:var(--text);border-bottom:1px solid var(--border)';
+    var sym = document.createElement('span');
+    sym.style.cssText = 'flex-shrink:0;font-weight:700;color:' + (checks[i].pass ? 'var(--green)' : (isCovered ? 'var(--red)' : 'var(--warn)'));
+    sym.textContent = checks[i].pass ? '✓' : '✗';
+    li.appendChild(sym);
+    var txt = document.createElement('span');
+    txt.textContent = checks[i].text;
+    li.appendChild(txt);
+    cl.appendChild(li);
+  }
+  if (i === checks.length) {
+    var lastLi = cl.lastChild;
+    if (lastLi) lastLi.style.borderBottom = 'none';
+  }
+
+  var exemptNote = document.getElementById('coverageExemptNote');
+  if (!isCovered) {
+    exemptNote.style.display = 'block';
+    exemptNote.textContent = exemptReason;
+  } else {
+    exemptNote.style.display = 'none';
+  }
+
+  var capBody = document.getElementById('capBody');
+  if (isCovered) {
+    capBody.innerHTML = '<p style="font-size:.78rem;color:var(--body);margin-bottom:.75rem">Under 12 CFR 235.3, covered issuers may not receive interchange fees exceeding the following cap per debit transaction:</p>' +
+      '<div class="cap-breakdown">' +
+        '<div class="cap-row"><span class="cap-label">Base flat component — 12 CFR 235.3(a)(1)</span><span class="cap-value">$0.2100</span></div>' +
+        '<div class="cap-row"><span class="cap-label">Ad valorem component: 0.05% × ' + fmtD(amount,2) + ' — 12 CFR 235.3(a)(2)</span><span class="cap-value">' + fmtD(baseAdValoremAmt) + '</span></div>' +
+        '<div class="cap-row" style="border-top:1px solid var(--border);margin-top:.25rem"><span class="cap-label"><strong>Maximum cap (base, no fraud adjustment)</strong></span><span class="cap-total-value">' + fmtD(baseCap) + '</span></div>' +
+        '<div class="cap-row" style="margin-top:.5rem"><span class="cap-label">Fraud adjustment — 12 CFR 235.4 (if issuer certified fraud prevention standards)</span><span class="cap-value">+ $0.0100</span></div>' +
+        '<div class="cap-row"><span class="cap-label"><strong>Maximum cap with fraud adjustment</strong></span><span class="cap-total-value">' + fmtD(capWithFraud) + '</span></div>' +
+      '</div>' +
+      '<p style="font-size:.7rem;color:var(--muted);margin-top:.5rem">The $0.01 fraud adjustment is available to issuers that have implemented the fraud-prevention standards under 12 CFR 235.4 and annually certify compliance to their network. Issuers not certified receive only the base $0.21 + 0.05% cap.</p>';
+  } else {
+    capBody.innerHTML = '<div style="background:var(--green-dim);border:1px solid var(--green);border-radius:var(--radius);padding:.75rem 1rem;font-size:.8rem;color:var(--green)"><strong>EXEMPT ISSUER</strong> — Regulation II interchange caps do not apply. Interchange is negotiated bilaterally between the issuer and network and is not subject to the 12 CFR 235.3 ceiling.</div>';
+  }
+
+  var routingBadge = document.getElementById('routingBadge');
+  routingBadge.className = 'det-badge ' + (routingCompliant ? 'det-compliant' : 'det-noncompliant');
+  routingBadge.textContent = routingCompliant ? 'ROUTING COMPLIANT' : 'NON-COMPLIANT';
+
+  var routingItems = [];
+  if (isCovered) {
+    routingItems.push({ good: routingCompliant, text: '12 CFR 235.7(a): Covered issuer must enable at least two unaffiliated networks for all debit transactions — ' + (routingCompliant ? 'Two unaffiliated networks available' : 'VIOLATION: Issuer restricts to a single network') });
+    routingItems.push({ good: routingCompliant, text: '12 CFR 235.7(b): Issuer may not inhibit a merchant\'s ability to route to any enabled network — ' + (routingCompliant ? 'No prohibited routing restrictions identified from inputs' : 'Review all routing agreement terms and issuer-side controls') });
+    routingItems.push({ info: true, text: '12 CFR 235.7 (Oct 2022 amendment): Routing requirements now extend to card-not-present (CNP/e-commerce) debit transactions, not only card-present; compliance required from July 1, 2023.' });
+    if (networkNote) {
+      routingItems.push({ warn: true, text: networkNote });
+    }
+  } else {
+    routingItems.push({ info: true, text: 'Exempt issuer — Regulation II routing requirements (12 CFR 235.7) do not apply. However, network operating rules may still impose routing obligations independently of Regulation II.' });
+  }
+
+  var rHtml = '<ul style="list-style:none;padding:0;margin:.75rem 0">';
+  for (var j = 0; j < routingItems.length; j++) {
+    var ri = routingItems[j];
+    var symColor = ri.info ? 'var(--teal)' : (ri.warn ? 'var(--warn)' : (ri.good ? 'var(--green)' : 'var(--red)'));
+    var symChar = ri.info ? 'ℹ' : (ri.warn ? '⚠' : (ri.good ? '✓' : '✗'));
+    var borderBot = j < routingItems.length - 1 ? 'border-bottom:1px solid var(--border);' : '';
+    rHtml += '<li style="display:flex;align-items:flex-start;gap:.5rem;padding:.3rem 0;font-size:.8rem;color:var(--text);' + borderBot + '">' +
+      '<span style="flex-shrink:0;font-weight:700;color:' + symColor + '">' + symChar + '</span>' +
+      '<span>' + ri.text + '</span></li>';
+  }
+  rHtml += '</ul>';
+  document.getElementById('routingBody').innerHTML = rHtml;
+
+  var cHtml = '<table class="data-table"><thead><tr>' +
+    '<th>Scenario</th><th>Rate / Basis</th>' +
+    '<th style="text-align:right">Amount on ' + fmtD(amount,2) + ' txn</th>' +
+    '<th>Notes</th></tr></thead><tbody>';
+  cHtml += '<tr><td>' + rate.label + ' (uncapped)</td>' +
+    '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.72rem">' + (rate.pct * 100).toFixed(2) + '% + ' + fmtD(rate.flat,3) + '</td>' +
+    '<td class="num-cell">' + fmtD(uncappedAmt) + '</td>' +
+    '<td style="font-size:.7rem;color:var(--muted)">Representative market rate — not a regulatory figure</td></tr>';
+  if (isCovered) {
+    cHtml += '<tr style="background:rgba(20,184,166,.04)"><td><strong style="color:var(--teal)">Durbin cap (base, no fraud adj.)</strong></td>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.72rem">$0.21 + 0.05%</td>' +
+      '<td class="num-cell highlight-cell">' + fmtD(baseCap) + '</td>' +
+      '<td style="font-size:.7rem;color:var(--muted)">12 CFR 235.3</td></tr>';
+    cHtml += '<tr style="background:rgba(20,184,166,.04)"><td><strong style="color:var(--teal)">Durbin cap (with fraud adj.)</strong></td>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.72rem">$0.22 + 0.05%</td>' +
+      '<td class="num-cell highlight-cell">' + fmtD(capWithFraud) + '</td>' +
+      '<td style="font-size:.7rem;color:var(--muted)">12 CFR 235.3 + 235.4</td></tr>';
+    cHtml += '<tr><td>Merchant savings per transaction (base cap vs. uncapped)</td>' +
+      '<td>—</td><td class="num-cell savings-cell">' + fmtD(savingsPerTxn) + '</td>' +
+      '<td style="font-size:.7rem;color:var(--green)">Cap benefit accrues to merchant via reduced interchange</td></tr>';
+  } else {
+    cHtml += '<tr><td>Exempt issuer — no cap applied</td>' +
+      '<td>—</td><td class="num-cell">' + fmtD(uncappedAmt) + '</td>' +
+      '<td style="font-size:.7rem;color:var(--muted)">Interchange equals market rate; Reg II cap inapplicable</td></tr>';
+  }
+  cHtml += '</tbody></table>';
+  document.getElementById('comparisonBody').innerHTML = cHtml;
+
+  var savSection = document.getElementById('savingsSection');
+  var savBody = document.getElementById('savingsBody');
+  if (isCovered && savingsPerTxn > 0) {
+    savSection.style.display = 'block';
+    var sHtml = '<p style="font-size:.75rem;color:var(--body);margin-bottom:.75rem">Annual savings for a merchant processing similar transactions at this covered issuer. Based on representative uncapped interchange rate for the selected network vs. the Durbin cap.</p>' +
+      '<table class="data-table"><thead><tr>' +
+      '<th>Annual Volume</th>' +
+      '<th style="text-align:right">Savings — base cap</th>' +
+      '<th style="text-align:right">Savings — cap + fraud adj.</th>' +
+      '<th style="text-align:right">Gross uncapped interchange</th>' +
+      '</tr></thead><tbody>';
+    var vols = [1000, 5000, 10000];
+    for (var k = 0; k < vols.length; k++) {
+      var v = vols[k];
+      sHtml += '<tr>' +
+        '<td style="font-family:\'JetBrains Mono\',monospace">' + v.toLocaleString() + ' txns</td>' +
+        '<td class="num-cell savings-cell">' + fmtD(savingsPerTxn * v, 2) + '</td>' +
+        '<td class="num-cell savings-cell">' + fmtD(savingsPerTxnFraud * v, 2) + '</td>' +
+        '<td class="num-cell">' + fmtD(uncappedAmt * v, 2) + '</td>' +
+        '</tr>';
+    }
+    sHtml += '</tbody></table><p style="font-size:.68rem;color:var(--muted);margin-top:.4rem">Projections assume consistent transaction size of ' + fmtD(amount,2) + ' and the same issuer/network combination. Actual interchange reflects card type, MCC, transaction method, and negotiated rates not modeled here.</p>';
+    savBody.innerHTML = sHtml;
+  } else if (isCovered) {
+    savSection.style.display = 'block';
+    savBody.innerHTML = '<p style="font-size:.78rem;color:var(--muted)">No net savings calculated at this transaction size — the regulated cap equals or approaches the representative uncapped rate. This occurs on very small transactions where the ad valorem component is minimal and the flat cap of $0.21 may approach uncapped rates.</p>';
+  } else {
+    savSection.style.display = 'none';
+  }
+
+  var flags = [];
+  if (isCovered) {
+    flags.push({ cls: 'flag-info', text: 'COVERED ISSUER — Reg II caps apply' });
+    if (!routingCompliant) {
+      flags.push({ cls: 'flag-bad', text: 'ROUTING VIOLATION — Single-network exclusivity prohibited (12 CFR 235.7)' });
+    } else {
+      flags.push({ cls: 'flag-ok', text: 'Routing compliant — two unaffiliated networks enabled' });
+    }
+    flags.push({ cls: 'flag-info', text: 'CNP routing requirements apply (Oct 2022 amendment)' });
+    if (txn_type === 'sig_debit') {
+      flags.push({ cls: 'flag-warn', text: 'Signature debit — verify both signature and PIN pathway network options are enabled per 12 CFR 235.7' });
+    }
+    if (assets < 12 && assets >= 10) {
+      flags.push({ cls: 'flag-warn', text: 'Assets near $10B threshold — monitor annually; a dip below $10B creates small-issuer exemption for the following calendar year' });
+    }
+    if (prepaid_exempt === 'unsure') {
+      flags.push({ cls: 'flag-warn', text: 'Prepaid exemption status UNSURE — confirm all 12 CFR 235.5(a) criteria before relying on any exemption claim' });
+    }
+  } else {
+    flags.push({ cls: 'flag-ok', text: 'EXEMPT — Regulation II interchange caps and routing requirements do not apply' });
+    if (!isSizeCovered) {
+      flags.push({ cls: 'flag-warn', text: 'Small issuer exemption — if assets grow above $10B, caps apply beginning the following calendar year (12 CFR 235.5(c))' });
+    }
+    if (prepaid_exempt === 'unsure') {
+      flags.push({ cls: 'flag-warn', text: 'Prepaid exemption UNSURE — verify all 12 CFR 235.5(a) conditions; misclassification exposes issuer to enforcement risk' });
+    }
+    if (isGovBenefit) {
+      flags.push({ cls: 'flag-info', text: 'Government benefit exemption — confirm card program is administered under a federal, state, or local government benefit program (12 CFR 235.5(b))' });
+    }
+  }
+
+  var fHtml = '<div class="flag-row">';
+  for (var f = 0; f < flags.length; f++) {
+    fHtml += '<span class="flag-pill ' + flags[f].cls + '">' + flags[f].text + '</span>';
+  }
+  fHtml += '</div>';
+  document.getElementById('flagsBody').innerHTML = fHtml;
+
+  _lastResult = {
+    inputs: { assets: assets, network: network, txn_type: txn_type, amount: amount, gov_benefit: gov_benefit, prepaid_exempt: prepaid_exempt, network_restrict: network_restrict, merchant_cat: merchant_cat },
+    coverage_status: coverageStatus,
+    is_covered: isCovered,
+    base_cap: baseCap,
+    cap_with_fraud: capWithFraud,
+    uncapped_amount: uncappedAmt,
+    savings_per_txn: savingsPerTxn,
+    routing_compliant: routingCompliant,
+    flags: flags.map(function(x) { return x.text; })
+  };
+
+  var ap2Btn = document.getElementById('ap2ExportBtn');
+  ap2Btn.removeAttribute('disabled');
+  ap2Btn.classList.add('ready');
+
+  document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function exportMarkdown() {
+  if (!_lastResult) { alert('Run the analysis first.'); return; }
+  var r = _lastResult;
+  var ts = new Date().toISOString();
+  var md = '# Durbin Amendment Interchange Analysis\n\n';
+  md += '**Tool:** T443 — Durbin Amendment Interchange Analyzer \xb7 AINumbers.co  \n';
+  md += '**Generated:** ' + ts + '  \n\n';
+  md += '## Inputs\n\n';
+  md += '| Parameter | Value |\n|---|---|\n';
+  md += '| Issuer assets (prior year) | $' + r.inputs.assets.toFixed(2) + 'B |\n';
+  md += '| Card network | ' + r.inputs.network + ' |\n';
+  md += '| Transaction type | ' + r.inputs.txn_type + ' |\n';
+  md += '| Transaction amount | $' + r.inputs.amount.toFixed(2) + ' |\n';
+  md += '| Government benefit card | ' + r.inputs.gov_benefit + ' |\n';
+  md += '| Reloadable prepaid exempt | ' + r.inputs.prepaid_exempt + ' |\n';
+  md += '| Network restriction | ' + r.inputs.network_restrict + ' |\n\n';
+  md += '## Coverage Determination\n\n';
+  md += '**Status:** ' + r.coverage_status.toUpperCase() + '\n\n';
+  if (r.is_covered) {
+    md += '## Interchange Cap (12 CFR 235.3)\n\n';
+    md += '| Component | Amount |\n|---|---|\n';
+    md += '| Base flat cap | $0.2100 |\n';
+    md += '| Ad valorem (0.05% of $' + r.inputs.amount.toFixed(2) + ') | $' + (r.inputs.amount * 0.0005).toFixed(4) + ' |\n';
+    md += '| **Base cap (no fraud adj.)** | **$' + r.base_cap.toFixed(4) + '** |\n';
+    md += '| Cap with fraud adjustment | $' + r.cap_with_fraud.toFixed(4) + ' |\n';
+    md += '| Representative uncapped interchange | $' + r.uncapped_amount.toFixed(4) + ' |\n';
+    md += '| **Merchant savings per transaction** | **$' + r.savings_per_txn.toFixed(4) + '** |\n\n';
+  } else {
+    md += '**EXEMPT** — Regulation II interchange caps do not apply.\n\n';
+  }
+  md += '## Network Routing Compliance\n\n';
+  md += '**Status:** ' + (r.routing_compliant ? 'COMPLIANT' : 'NON-COMPLIANT — VIOLATION') + '\n\n';
+  md += '## Compliance Flags\n\n';
+  for (var i = 0; i < r.flags.length; i++) {
+    md += '- ' + r.flags[i] + '\n';
+  }
+  md += '\n---\n*Generated by AINumbers.co T443. Static reference values — verify against current Federal Reserve Board Regulation II guidance before relying on any output for compliance decisions.*\n';
+  var blob = new Blob([md], { type: 'text/markdown' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = '443-durbin-interchange-' + new Date().toISOString().slice(0,10) + '.md';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportAP2() {
+  if (!_lastResult) { alert('Run the analysis first.'); return; }
+  var r = _lastResult;
+  var payload = {
+    tool_id: 'durbin-amendment-interchange-analyzer',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    schema_version: 'ap2/1.0',
+    inputs: r.inputs,
+    outputs: {
+      coverage_status: r.coverage_status,
+      is_covered: r.is_covered,
+      base_cap: r.base_cap,
+      cap_with_fraud: r.cap_with_fraud,
+      uncapped_amount: r.uncapped_amount,
+      savings_per_txn: r.savings_per_txn,
+      routing_compliant: r.routing_compliant,
+      flags: r.flags
+    },
+    regulatory_basis: [
+      '15 U.S.C. 1693o-2 (EFTA Durbin Amendment)',
+      '12 CFR Part 235 (Regulation II)',
+      '76 Fed. Reg. 43394 (July 20, 2011)',
+      '12 CFR 235.3 (interchange cap)',
+      '12 CFR 235.4 (fraud adjustment)',
+      '12 CFR 235.5 (exemptions)',
+      '12 CFR 235.7 (routing)'
+    ]
+  };
+  var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = '443-durbin-interchange-ap2-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+var LANGS = {
+  en: {
+    'pii.banner': 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data.',
+    'footer.alltools': 'All Tools', 'footer.sitemap': 'Sitemap', 'footer.contact': 'Contact',
+    'footer.cc': 'CC BY 4.0 \xb7 Post Oak Labs',
+    'footer.privacy': '🔒 Zero PII   📡 No server calls   💻 Client-side'
+  },
+  es: {
+    'pii.banner': 'Todas las entradas se procesan localmente en su navegador. No se transmiten datos.',
+    'footer.alltools': 'Todas las Herramientas', 'footer.sitemap': 'Mapa del Sitio', 'footer.contact': 'Contacto',
+    'footer.cc': 'CC BY 4.0 \xb7 Post Oak Labs',
+    'footer.privacy': '🔒 Sin PII   📡 Sin llamadas al servidor   💻 Cliente'
+  },
+  fr: {
+    'pii.banner': 'Toutes les entr\xe9es sont trait\xe9es localement dans votre navigateur. Aucune donn\xe9e n\'est transmise.',
+    'footer.alltools': 'Tous les Outils', 'footer.sitemap': 'Plan du Site', 'footer.contact': 'Contact',
+    'footer.cc': 'CC BY 4.0 \xb7 Post Oak Labs',
+    'footer.privacy': '🔒 Aucune PII   📡 Aucun appel serveur   💻 C\xf4t\xe9 client'
+  },
+  ar: {
+    'pii.banner': 'جميع المدخلات تعالج محلياً في متصفحك. لا يتم إرسال أي بيانات.',
+    'footer.alltools': 'جميع الأدوات', 'footer.sitemap': 'خريطة الموقع', 'footer.contact': 'اتصل',
+    'footer.cc': 'CC BY 4.0 \xb7 Post Oak Labs',
+    'footer.privacy': '🔒 لا بيانات شخصية   📡 لا استدعاءات للخادم   💻 على المتصفح'
+  },
+  pt: {
+    'pii.banner': 'Todas as entradas s\xe3o processadas localmente no seu navegador. Nenhum dado \xe9 transmitido.',
+    'footer.alltools': 'Todas as Ferramentas', 'footer.sitemap': 'Mapa do Site', 'footer.contact': 'Contato',
+    'footer.cc': 'CC BY 4.0 \xb7 Post Oak Labs',
+    'footer.privacy': '🔒 Sem PII   📡 Sem chamadas ao servidor   💻 Client-side'
+  },
+  zh: {
+    'pii.banner': '所有输入均在您的浏览器本地处理。不传输任何数据。',
+    'footer.alltools': '所有工具', 'footer.sitemap': '网站地图', 'footer.contact': '联系',
+    'footer.cc': 'CC BY 4.0 \xb7 Post Oak Labs',
+    'footer.privacy': '🔒 零个人数据   📡 无服务器调用   💻 纯客户端'
+  }
+};
+
+function setLang(lang) {
+  if (!LANGS[lang]) return;
+  var d = LANGS[lang];
+  var els = document.querySelectorAll('[data-i18n]');
+  for (var i = 0; i < els.length; i++) {
+    var key = els[i].getAttribute('data-i18n');
+    if (d[key] !== undefined) els[i].textContent = d[key];
+  }
+  var btns = document.querySelectorAll('.lang-btn');
+  for (var j = 0; j < btns.length; j++) {
+    btns[j].classList.toggle('active', btns[j].getAttribute('data-lang') === lang);
+  }
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function() { try { var s = sessionStorage.getItem('ain_lang'); if (s) setLang(s); } catch(e) {} })();
+</script>
+</body>
+</html>

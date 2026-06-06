@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>HMDA Reportability Checker &middot; AINumbers.co</title>
+<meta name="description" content="Determine whether a loan application or action is reportable under the Home Mortgage Disclosure Act (HMDA, Regulation C, 12 CFR Part 1003). Checks institutional coverage, transaction coverage, and data collection requirements.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/444-hmda-reportability-checker.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"HMDA Reportability Checker","url":"https://ainumbers.co/tools/444-hmda-reportability-checker.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "hmda-reportability-checker",
+  "version": "1.0.0",
+  "title": "HMDA Reportability Checker",
+  "description": "Determine whether a loan application or action is reportable under the Home Mortgage Disclosure Act (HMDA, Regulation C, 12 CFR Part 1003). Checks institutional coverage, transaction coverage, and data collection requirements.",
+  "category": "cat-29",
+  "tags": ["HMDA","Regulation C","fair lending","mortgage","LAR","12 CFR 1003","CFPB"],
+  "audience": ["compliance","mortgage","fair lending","community reinvestment"],
+  "input_schema": {"type":"object","properties":{"inst_type":{"type":"string"},"assets":{"type":"number"},"has_msa":{"type":"string"},"orig_first_lien":{"type":"string"},"loan_type":{"type":"string"},"property_type":{"type":"string"},"occupancy":{"type":"string"},"lien_status":{"type":"string"},"loan_amount":{"type":"number"},"manufactured":{"type":"string"},"action_taken":{"type":"string"},"is_heloc":{"type":"string"}},"required":["inst_type","assets","has_msa","orig_first_lien","loan_type","property_type","action_taken","is_heloc"]},
+  "output_schema": {"type":"object","properties":{"institutional_covered":{"type":"boolean"},"transaction_reportable":{"type":"string"},"lar_action_code":{"type":"integer"},"data_fields_required":{"type":"array"},"exemption_flags":{"type":"array"}}},
+  "mcp_tool_definition": {"name":"check_hmda_reportability","description":"Check whether a mortgage application or action is reportable under HMDA (Regulation C, 12 CFR Part 1003). Returns institutional coverage determination, transaction reportability, LAR action code, required data fields, and exemption flags.","inputSchema":{"type":"object","properties":{"inst_type":{"type":"string","description":"Institution type: bank, credit_union, savings_assoc, mortgage_co, other"},"assets":{"type":"number","description":"Institution total assets prior year end in millions USD"},"has_msa":{"type":"string","description":"Home/branch office in MSA: yes or no"},"orig_first_lien":{"type":"string","description":"Originated at least one first-lien covered loan in prior year: yes or no"},"loan_type":{"type":"string","description":"Loan purpose: home_purchase, home_improvement, refinance, cash_out_refi, other"},"property_type":{"type":"string","description":"Property type: 1_4_unit, multifamily, manufactured, mixed_use, commercial, land_only"},"occupancy":{"type":"string","description":"Occupancy: owner_occupied, second_home, investment, na"},"lien_status":{"type":"string","description":"Lien status: first_lien, subordinate_lien"},"loan_amount":{"type":"number","description":"Loan amount in USD"},"manufactured":{"type":"string","description":"Is property manufactured home: yes or no"},"action_taken":{"type":"string","description":"Action taken: originated, approved_not_accepted, denied, withdrawn, incomplete, purchased, preapproval_approved, preapproval_denied"},"is_heloc":{"type":"string","description":"Open-end line of credit (HELOC): yes or no"}},"required":["inst_type","assets","has_msa","orig_first_lien","loan_type","property_type","action_taken","is_heloc"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/444-hmda-reportability-checker.html","function_name":"runTool","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(212,168,71,.008) 1px,transparent 1px),linear-gradient(90deg,rgba(212,168,71,.008) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--gold);color:var(--gold)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--gold)}
+.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--gold);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{opacity:.85}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--gold)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.06);border:1px solid rgba(212,168,71,.2);border-left:3px solid var(--gold);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.25rem;color:var(--body)}
+.input-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.25rem}
+.panel-header{background:var(--bg-3);border-bottom:1px solid var(--border);padding:.65rem 1.1rem;display:flex;align-items:center;gap:.6rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+.panel-body{padding:1.1rem;display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}
+@media(max-width:640px){.panel-body{grid-template-columns:1fr}}
+.form-group{display:flex;flex-direction:column;gap:.3rem}
+.form-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.form-label span{color:var(--red);margin-left:.2rem}
+.form-input,.form-select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.4rem .65rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+.form-input:focus,.form-select:focus{border-color:var(--gold)}
+.form-select option{background:var(--bg-3);color:var(--bright)}
+.form-hint{font-size:.58rem;color:var(--muted);line-height:1.4}
+.run-btn{background:var(--gold);color:var(--bg);border:none;padding:.65rem 2.25rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:opacity .2s}
+.run-btn:hover{opacity:.85}
+.results-section{margin-top:1.75rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem}
+.out-header{padding:.65rem 1.1rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.out-body{padding:1.1rem}
+.det-badge{display:inline-flex;align-items:center;gap:.5rem;padding:.4rem 1rem;border-radius:20px;font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:600;letter-spacing:.06em}
+.det-reportable{background:var(--teal-dim);color:var(--teal);border:1px solid var(--teal)}
+.det-not-reportable{background:var(--green-dim);color:var(--green);border:1px solid var(--green)}
+.det-conditional{background:var(--warn-dim);color:var(--warn);border:1px solid var(--warn)}
+.det-covered{background:var(--teal-dim);color:var(--teal);border:1px solid var(--teal)}
+.det-not-covered{background:var(--warn-dim);color:var(--warn);border:1px solid var(--warn)}
+.data-table{width:100%;border-collapse:collapse;font-size:.78rem;margin:.75rem 0}
+.data-table th{background:var(--bg-3);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;padding:.5rem .75rem;text-align:left;border-bottom:1px solid var(--border)}
+.data-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text)}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:rgba(212,168,71,.03)}
+.req-yes{color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:600}
+.req-no{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.72rem}
+.lar-code-box{background:var(--bg-3);border:1px solid var(--gold);border-radius:var(--radius);padding:.85rem 1.1rem;margin:.75rem 0;display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap}
+.lar-num{font-family:'DM Serif Display',serif;font-size:2.5rem;color:var(--gold);line-height:1}
+.lar-detail{display:flex;flex-direction:column;gap:.15rem}
+.lar-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.lar-desc{font-size:.82rem;color:var(--bright)}
+.lar-cite{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted)}
+.flag-row{display:flex;flex-wrap:wrap;gap:.4rem;margin:.5rem 0}
+.flag-pill{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.06em;padding:.25rem .65rem;border-radius:12px;border:1px solid}
+.flag-ok{background:var(--green-dim);color:var(--green);border-color:var(--green)}
+.flag-warn{background:var(--warn-dim);color:var(--warn);border-color:var(--warn)}
+.flag-bad{background:var(--red-dim);color:var(--red);border-color:var(--red)}
+.flag-info{background:var(--gold-dim);color:var(--gold);border-color:var(--gold)}
+.checklist-wrap{margin:.75rem 0}
+.coverage-item{display:flex;align-items:flex-start;gap:.6rem;padding:.35rem 0;border-bottom:1px solid var(--border);font-size:.78rem}
+.coverage-item:last-child{border-bottom:none}
+.cv-sym{font-size:.9rem;flex-shrink:0;line-height:1.4}
+.cv-text{color:var(--text);line-height:1.5}
+.cv-cite{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);display:block;margin-top:.1rem}
+.not-covered-box{background:var(--warn-dim);border:1px solid rgba(245,158,11,.35);border-left:3px solid var(--warn);border-radius:var(--radius);padding:.65rem .9rem;margin-top:.75rem;font-size:.78rem;color:var(--warn)}
+.exempt-box{background:var(--green-dim);border:1px solid rgba(34,197,94,.35);border-left:3px solid var(--green);border-radius:var(--radius);padding:.65rem .9rem;margin-top:.75rem;font-size:.78rem;color:var(--green)}
+.source-notes{margin-top:2rem;padding:1rem;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg)}
+.source-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem}
+.source-list{list-style:none;padding:0;margin:0}
+.source-list li{font-size:.68rem;color:var(--muted);padding:.2rem 0;border-bottom:1px solid var(--border);line-height:1.5}
+.source-list li:last-child{border-bottom:none}
+.results-export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border);margin-top:.5rem}
+.export-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.export-btn:hover{border-color:var(--gold);color:var(--gold)}
+#ap2ExportBtn{opacity:.55;cursor:not-allowed}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--gold);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">&#20013;&#25991;</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><span>T-444</span></div>
+  <div class="nav-right"><a href="../index.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">US FAIR LENDING &middot; T444</div>
+  <span class="badge badge-muted" style="margin-bottom:.5rem;display:inline-block">v1.0</span>
+  <h1>HMDA <em>Reportability Checker</em></h1>
+  <p class="hero-desc">Determine whether a loan application, origination, or other action is reportable under the Home Mortgage Disclosure Act (HMDA, Regulation C, 12 CFR Part 1003). Checks institutional coverage, transaction coverage, LAR action codes, and required data collection fields.</p>
+  <div class="hero-meta">
+    <span class="badge badge-gold">Regulation C</span>
+    <span class="badge badge-teal">12 CFR 1003</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="scope-note"><strong style="color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &#8212; </strong><span data-i18n="pii.banner">All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data.</span> Asset thresholds reflect the 2024 HMDA reporting year ($56M depository threshold). CFPB adjusts the threshold annually via Federal Register. Verify against current CFPB guidance before relying on this output for compliance decisions. Deterministic logic &middot; no inference &middot; zero PII &middot; CC BY 4.0.</div>
+
+  <!-- STEP 1: Institution -->
+  <div class="input-panel">
+    <div class="panel-header"><span class="panel-label">Step 1 &middot; Institution Coverage Test</span></div>
+    <div class="panel-body">
+      <div class="form-group">
+        <label class="form-label" for="f_inst_type">Institution type<span>*</span></label>
+        <select class="form-select" id="f_inst_type">
+          <option value="">&#8212; Select &#8212;</option>
+          <option value="bank">Bank</option>
+          <option value="credit_union">Credit union</option>
+          <option value="savings_assoc">Savings association</option>
+          <option value="mortgage_co">Mortgage company (nondepository)</option>
+          <option value="other">Other</option>
+        </select>
+        <span class="form-hint">Depository institutions (bank, credit union, savings assoc.) use asset-size threshold. Nondepository mortgage companies use loan volume threshold.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f_assets">Institution total assets &#8212; prior year end ($M)<span>*</span></label>
+        <input class="form-input" type="number" id="f_assets" min="0" max="9999999" step="0.1" placeholder="e.g. 850">
+        <span class="form-hint">For depository institutions: must exceed $56M (2024 threshold, 12 CFR 1003.2(e)). Nondepository: enter total assets; loan volume thresholds apply instead.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f_has_msa">Institution has home or branch office in an MSA?<span>*</span></label>
+        <select class="form-select" id="f_has_msa">
+          <option value="">&#8212; Select &#8212;</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+        <span class="form-hint">Institutions operating exclusively outside Metropolitan Statistical Areas (MSAs) are not required to report HMDA data (12 CFR 1003.2(e)).</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f_orig_first_lien">Originated at least one first-lien covered loan in prior calendar year?<span>*</span></label>
+        <select class="form-select" id="f_orig_first_lien">
+          <option value="">&#8212; Select &#8212;</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+        <span class="form-hint">Required condition for institutional coverage (12 CFR 1003.2(e)). A single qualifying first-lien origination in the prior year satisfies this test.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2: Transaction -->
+  <div class="input-panel">
+    <div class="panel-header"><span class="panel-label">Step 2 &middot; Transaction Coverage Test</span></div>
+    <div class="panel-body">
+      <div class="form-group">
+        <label class="form-label" for="f_loan_type">Loan / application purpose<span>*</span></label>
+        <select class="form-select" id="f_loan_type">
+          <option value="">&#8212; Select &#8212;</option>
+          <option value="home_purchase">Home purchase</option>
+          <option value="home_improvement">Home improvement</option>
+          <option value="refinance">Refinance</option>
+          <option value="cash_out_refi">Cash-out refinance</option>
+          <option value="other">Other purpose</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f_property_type">Property type<span>*</span></label>
+        <select class="form-select" id="f_property_type">
+          <option value="">&#8212; Select &#8212;</option>
+          <option value="1_4_unit">1&#8211;4 unit residential</option>
+          <option value="multifamily">Multifamily 5+ units</option>
+          <option value="manufactured">Manufactured housing</option>
+          <option value="mixed_use">Mixed-use property</option>
+          <option value="commercial">Commercial (non-dwelling)</option>
+          <option value="land_only">Land only (unimproved)</option>
+        </select>
+        <span class="form-hint">Only loans secured by a dwelling are covered. Commercial non-dwelling and unimproved land are not covered transactions.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f_occupancy">Occupancy type</label>
+        <select class="form-select" id="f_occupancy">
+          <option value="owner_occupied">Owner-occupied</option>
+          <option value="second_home">Second / vacation home</option>
+          <option value="investment">Investment property</option>
+          <option value="na">Not applicable</option>
+        </select>
+        <span class="form-hint">Demographic data collection (race/ethnicity/sex) is required for applications secured by 1&#8211;4 unit owner-occupied dwellings.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f_lien_status">Lien status</label>
+        <select class="form-select" id="f_lien_status">
+          <option value="first_lien">First lien</option>
+          <option value="subordinate_lien">Subordinate lien</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f_loan_amount">Loan amount ($)</label>
+        <input class="form-input" type="number" id="f_loan_amount" min="1" max="99999999" step="1" placeholder="e.g. 350000">
+        <span class="form-hint">Used for LAR reporting; does not affect reportability determination for most transactions.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f_manufactured">Is property a manufactured home?<span>*</span></label>
+        <select class="form-select" id="f_manufactured">
+          <option value="">&#8212; Select &#8212;</option>
+          <option value="no">No</option>
+          <option value="yes">Yes</option>
+        </select>
+        <span class="form-hint">Manufactured homes are covered dwellings under Regulation C whether titled as real or personal property (1003.2(f)).</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: Action -->
+  <div class="input-panel">
+    <div class="panel-header"><span class="panel-label">Step 3 &middot; Action Taken &amp; Product Type</span></div>
+    <div class="panel-body">
+      <div class="form-group">
+        <label class="form-label" for="f_action_taken">Action taken<span>*</span></label>
+        <select class="form-select" id="f_action_taken">
+          <option value="">&#8212; Select &#8212;</option>
+          <option value="originated">Loan originated</option>
+          <option value="approved_not_accepted">Application approved, not accepted</option>
+          <option value="denied">Application denied</option>
+          <option value="withdrawn">Application withdrawn by applicant</option>
+          <option value="incomplete">File closed for incompleteness</option>
+          <option value="purchased">Loan purchased by institution</option>
+          <option value="preapproval_approved">Preapproval request approved but not accepted</option>
+          <option value="preapproval_denied">Preapproval request denied</option>
+        </select>
+        <span class="form-hint">Maps directly to HMDA LAR Action Taken field (12 CFR 1003.4(a)(8)). All covered actions must be reported.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f_is_heloc">Is this an open-end line of credit (HELOC)?<span>*</span></label>
+        <select class="form-select" id="f_is_heloc">
+          <option value="">&#8212; Select &#8212;</option>
+          <option value="no">No &#8212; closed-end mortgage loan</option>
+          <option value="yes">Yes &#8212; open-end line of credit</option>
+        </select>
+        <span class="form-hint">HELOCs are covered open-end lines of credit secured by a dwelling. Nondepository institutions must originate ≥100 open-end lines in either of prior 2 calendar years to be covered for this product type.</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:2rem">
+    <button class="run-btn" onclick="runTool()">&#9654; Check Reportability</button>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-section" id="resultsSection" style="display:none">
+
+    <!-- Institutional Coverage -->
+    <div class="out-section">
+      <div class="out-header">
+        <span class="out-title">Institutional Coverage &middot; 12 CFR 1003.2(e)</span>
+        <span id="instCoverageBadge" class="det-badge"></span>
+      </div>
+      <div class="out-body" id="instCoverageBody"></div>
+    </div>
+
+    <!-- Transaction Coverage -->
+    <div class="out-section">
+      <div class="out-header">
+        <span class="out-title">Transaction Coverage &middot; 12 CFR 1003.2(e), 1003.3</span>
+        <span id="txnCoverageBadge" class="det-badge"></span>
+      </div>
+      <div class="out-body" id="txnCoverageBody"></div>
+    </div>
+
+    <!-- LAR Action Code -->
+    <div class="out-section" id="larSection" style="display:none">
+      <div class="out-header"><span class="out-title">LAR Action Taken Code &middot; 12 CFR 1003.4(a)(8)</span></div>
+      <div class="out-body" id="larBody"></div>
+    </div>
+
+    <!-- Required Data Fields -->
+    <div class="out-section" id="dataFieldsSection" style="display:none">
+      <div class="out-header"><span class="out-title">Required LAR Data Fields &middot; 12 CFR 1003.4</span></div>
+      <div class="out-body" id="dataFieldsBody"></div>
+    </div>
+
+    <!-- Exemption Flags -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Compliance Flags &amp; Exemption Notes</span></div>
+      <div class="out-body" id="flagsBody"></div>
+    </div>
+
+    <!-- Export Row -->
+    <div class="results-export-row">
+      <button class="export-btn" onclick="exportMarkdown()">&#8595; Export Markdown</button>
+      <button class="export-btn" id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run tool first">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API &middot; audit trail</span></button>
+    </div>
+
+  </div>
+
+  <div class="source-notes" style="margin-top:1.5rem">
+    <div class="source-title">Regulatory Citations</div>
+    <ul class="source-list">
+      <li>1. Home Mortgage Disclosure Act (HMDA), 12 U.S.C. &sect; 2801 et seq. &#8212; Foundational statutory authority. Requires covered financial institutions to collect and report data on mortgage loan applications and originations.</li>
+      <li>2. Regulation C, 12 CFR Part 1003 &#8212; CFPB implementing regulation (2018 HMDA Rule, effective Jan 1, 2018 for most provisions). Defines covered institutions, covered transactions, and required data fields.</li>
+      <li>3. CFPB HMDA Small Entity Compliance Guide (2018) &#8212; Plain-language institutional and transaction coverage tests; exemption criteria for depository and nondepository institutions.</li>
+      <li>4. CFPB HMDA Reportable Transactions FAQs &#8212; Guidance on coverage edge cases including manufactured housing, HELOCs, purchased loans, and commercial-purpose transactions.</li>
+      <li>5. Annual HMDA Asset-Size Exemption Threshold, Federal Register &#8212; $56M threshold for 2024 reporting year (depository institutions). Adjusted annually; CFPB publishes in Federal Register each December.</li>
+    </ul>
+  </div>
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+    <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+    <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+  </div>
+  <div class="footer-badge-ai">
+    <span><span data-i18n="footer.cc">CC BY 4.0 &middot; Post Oak Labs</span></span>
+    <span><span data-i18n="footer.privacy">&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span></span>
+  </div>
+</div></div></footer>
+
+<script>
+var _lastResult = null;
+
+var MANIFEST = {
+  "tool_id": "hmda-reportability-checker",
+  "version": "1.0.0",
+  "title": "HMDA Reportability Checker",
+  "description": "Determine whether a loan application or action is reportable under HMDA (Regulation C, 12 CFR Part 1003). Checks institutional coverage, transaction coverage, LAR action codes, and required data collection fields.",
+  "category": "cat-29",
+  "tags": ["HMDA","Regulation C","fair lending","mortgage","LAR","12 CFR 1003","CFPB"],
+  "audience": ["compliance","mortgage","fair lending","community reinvestment"],
+  "execution": {"type":"browser-javascript","entry":"tools/444-hmda-reportability-checker.html","function_name":"runTool","timeout_ms":3000},
+  "ap2_export": true
+};
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  var a = document.getElementById('mfstArr');
+  if (b.style.display === 'none' || b.style.display === '') {
+    b.style.display = 'block';
+    if (a) a.textContent = '▲';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else {
+    b.style.display = 'none';
+    if (a) a.textContent = '▼';
+  }
+}
+
+function makeCheckItem(pass, warn, text, cite) {
+  var html = '<div class="coverage-item">';
+  if (pass === null) {
+    html += '<span class="cv-sym" style="color:var(--teal)">ℹ</span>';
+  } else if (pass) {
+    html += '<span class="cv-sym" style="color:var(--green)">&#10003;</span>';
+  } else if (warn) {
+    html += '<span class="cv-sym" style="color:var(--warn)">&#9888;</span>';
+  } else {
+    html += '<span class="cv-sym" style="color:var(--red)">&#10007;</span>';
+  }
+  html += '<div class="cv-text">' + text;
+  if (cite) html += '<span class="cv-cite">' + cite + '</span>';
+  html += '</div></div>';
+  return html;
+}
+
+function runTool() {
+  var inst_type = document.getElementById('f_inst_type').value;
+  var assets = parseFloat(document.getElementById('f_assets').value);
+  var has_msa = document.getElementById('f_has_msa').value;
+  var orig_first_lien = document.getElementById('f_orig_first_lien').value;
+  var loan_type = document.getElementById('f_loan_type').value;
+  var property_type = document.getElementById('f_property_type').value;
+  var occupancy = document.getElementById('f_occupancy').value;
+  var lien_status = document.getElementById('f_lien_status').value;
+  var loan_amount = parseFloat(document.getElementById('f_loan_amount').value) || 0;
+  var manufactured = document.getElementById('f_manufactured').value;
+  var action_taken = document.getElementById('f_action_taken').value;
+  var is_heloc = document.getElementById('f_is_heloc').value;
+
+  if (!inst_type) { alert('Please select institution type.'); return; }
+  if (isNaN(assets) || assets < 0) { alert('Please enter institution total assets.'); return; }
+  if (!has_msa) { alert('Please answer the MSA question.'); return; }
+  if (!orig_first_lien) { alert('Please answer the first-lien origination question.'); return; }
+  if (!loan_type) { alert('Please select a loan purpose.'); return; }
+  if (!property_type) { alert('Please select a property type.'); return; }
+  if (!manufactured) { alert('Please answer the manufactured home question.'); return; }
+  if (!action_taken) { alert('Please select action taken.'); return; }
+  if (!is_heloc) { alert('Please answer the HELOC question.'); return; }
+
+  var DEPOSITORY_THRESHOLD = 56; // $56M for 2024 reporting year
+
+  var isDepository = (inst_type === 'bank' || inst_type === 'credit_union' || inst_type === 'savings_assoc');
+  var isMortgageCo = (inst_type === 'mortgage_co');
+
+  // Institutional coverage tests
+  var assetsPass = false;
+  var assetsNote = '';
+  if (isDepository) {
+    assetsPass = (assets > DEPOSITORY_THRESHOLD);
+    assetsNote = 'Depository institution: total assets must exceed $' + DEPOSITORY_THRESHOLD + 'M (2024 threshold). Reported: $' + assets.toFixed(1) + 'M.';
+  } else if (isMortgageCo) {
+    // Nondepository: origination volume test (user can't fully self-report here — we flag as conditional)
+    assetsPass = true; // Can't calculate without loan volume; mark as needs-verification
+    assetsNote = 'Nondepository mortgage company: must have originated ≥25 closed-end covered loans OR ≥100 open-end lines in either of the prior 2 calendar years (12 CFR 1003.2(e)(2)). Asset size alone does not determine coverage — verify origination volume.';
+  } else {
+    assetsPass = false;
+    assetsNote = 'Institution type "Other" — HMDA coverage depends on whether institution is a bank, credit union, savings association, or mortgage company. Not covered if none of these.';
+  }
+
+  var msaPass = (has_msa === 'yes');
+  var firstLienPass = (orig_first_lien === 'yes');
+
+  var instCoveredAll = assetsPass && msaPass && firstLienPass && (inst_type !== 'other');
+  var instConditional = isMortgageCo && msaPass && firstLienPass;
+
+  // Transaction coverage
+  var isDwelling = (property_type === '1_4_unit' || property_type === 'multifamily' || property_type === 'manufactured' || property_type === 'mixed_use');
+  var isManufacturedHome = (manufactured === 'yes' || property_type === 'manufactured');
+  var isLandOnly = (property_type === 'land_only');
+  var isCommercial = (property_type === 'commercial');
+  var isHeloc = (is_heloc === 'yes');
+
+  // Exempt transactions
+  var txnExempt = false;
+  var txnExemptReason = '';
+  if (isLandOnly) {
+    txnExempt = true;
+    txnExemptReason = 'Loan on unimproved land (land only) — not secured by a dwelling; not a covered transaction under 12 CFR 1003.2(e).';
+  } else if (isCommercial) {
+    txnExempt = true;
+    txnExemptReason = 'Commercial non-dwelling property — loans not secured by a dwelling are not covered transactions under 12 CFR 1003.2(d).';
+  } else if (loan_type === 'other') {
+    txnExempt = false; // "Other purpose" may still be reportable if secured by dwelling — flag for review
+  }
+
+  var txnReportable = !txnExempt && isDwelling;
+  var txnStatus = txnExempt ? 'not-reportable' : (txnReportable ? 'reportable' : 'not-reportable');
+  if (!isDwelling && !txnExempt) {
+    txnStatus = 'not-reportable';
+  }
+
+  // LAR Action Taken codes
+  var larCodes = {
+    originated:            { code: 1, label: 'Loan Originated', desc: 'The covered loan was originated by the financial institution in the calendar year.' },
+    approved_not_accepted: { code: 2, label: 'Application Approved, Not Accepted', desc: 'The application was approved by the financial institution but not accepted by the applicant.' },
+    denied:                { code: 3, label: 'Application Denied', desc: 'The application was denied by the financial institution.' },
+    withdrawn:             { code: 4, label: 'Application Withdrawn', desc: 'The application was withdrawn by the applicant before a credit decision was made.' },
+    incomplete:            { code: 5, label: 'File Closed for Incompleteness', desc: 'The file was closed for incompleteness — the applicant did not respond to requests for information.' },
+    purchased:             { code: 6, label: 'Loan Purchased', desc: 'A covered loan was purchased by the financial institution in the calendar year.' },
+    preapproval_approved:  { code: 7, label: 'Preapproval Request Approved but Not Accepted', desc: 'A preapproval request was approved but the applicant did not proceed (if the institution has a preapproval program).' },
+    preapproval_denied:    { code: 8, label: 'Preapproval Request Denied', desc: 'A preapproval request was denied by the financial institution.' }
+  };
+  var larEntry = larCodes[action_taken] || null;
+
+  // Required data fields
+  var isDwelling1_4 = (property_type === '1_4_unit');
+  var isOwnerOcc = (occupancy === 'owner_occupied');
+  var isOrigination = (action_taken === 'originated' || action_taken === 'purchased');
+
+  var dataFields = [
+    { field: 'Universal Application Data', desc: 'Loan/application number, action taken date, property location, loan type, loan purpose, preapproval, construction method', required: true, cite: '12 CFR 1003.4(a)(1)-(7)' },
+    { field: 'Applicant Demographic Info', desc: 'Race, ethnicity, and sex of applicant and co-applicant', required: (isDwelling1_4 && isOwnerOcc), cite: '12 CFR 1003.4(a)(10); required for applications secured by 1-4 unit owner-occupied dwellings' },
+    { field: 'Lien Status', desc: 'First lien or subordinate lien', required: true, cite: '12 CFR 1003.4(a)(14)' },
+    { field: 'Loan Amount', desc: 'Amount of covered loan or application', required: true, cite: '12 CFR 1003.4(a)(7)' },
+    { field: 'Rate Spread', desc: 'Difference between the APR and the average prime offer rate (APOR)', required: true, cite: '12 CFR 1003.4(a)(12); report NA if not applicable' },
+    { field: 'HOEPA Status', desc: 'Whether the covered loan is a high-cost mortgage under HOEPA', required: true, cite: '12 CFR 1003.4(a)(13)' },
+    { field: 'Property Value', desc: 'Value of the property securing the loan', required: isOrigination, cite: '12 CFR 1003.4(a)(28); required for originations and purchased loans' },
+    { field: 'Automated Underwriting System (AUS)', desc: 'AUS system used and AUS result', required: isOrigination, cite: '12 CFR 1003.4(a)(35); required for originations' },
+    { field: 'Credit Score', desc: 'Credit score(s) relied on in making the credit decision', required: true, cite: '12 CFR 1003.4(a)(15); required for applications and originations' },
+    { field: 'Reason for Denial', desc: 'Principal reason(s) the application was denied (up to 4)', required: (action_taken === 'denied'), cite: '12 CFR 1003.4(a)(16); required for denials' },
+    { field: 'Total Loan Costs or Total Points and Fees', desc: 'Closing costs and points/fees', required: isOrigination, cite: '12 CFR 1003.4(a)(17)-(18); required for originations' },
+    { field: 'Debt-to-Income Ratio (DTI)', desc: 'Applicant total monthly debt payments divided by gross monthly income', required: (action_taken !== 'purchased'), cite: '12 CFR 1003.4(a)(23); report NA if not calculated' },
+    { field: 'Combined Loan-to-Value (CLTV)', desc: 'Ratio of all loan amounts secured by property to property value', required: (action_taken !== 'purchased'), cite: '12 CFR 1003.4(a)(24); report NA if not calculated' },
+    { field: 'Manufactured Home Land Prop. Interest', desc: 'Whether applicant owns or leases land on which manufactured home is/will be located', required: isManufacturedHome, cite: '12 CFR 1003.4(a)(36); required for manufactured home transactions' },
+  ];
+
+  // Compliance flags
+  var flags = [];
+  if (txnReportable && instCoveredAll) {
+    flags.push({ cls: 'flag-info', text: 'REPORTABLE — Must be included in LAR submission' });
+  }
+  if (!msaPass) {
+    flags.push({ cls: 'flag-warn', text: 'No MSA presence — institution may not be covered regardless of asset size (12 CFR 1003.2(e))' });
+  }
+  if (isLandOnly) {
+    flags.push({ cls: 'flag-ok', text: 'Land only — not a dwelling; transaction exempt from HMDA reporting' });
+  }
+  if (isCommercial) {
+    flags.push({ cls: 'flag-ok', text: 'Commercial non-dwelling property — not covered transaction under 12 CFR 1003.2(d)' });
+  }
+  if (isManufacturedHome) {
+    flags.push({ cls: 'flag-info', text: 'Manufactured home — covered dwelling under 12 CFR 1003.2(f) regardless of whether titled as real or personal property; additional data fields required' });
+  }
+  if (isHeloc) {
+    flags.push({ cls: 'flag-warn', text: 'HELOC (open-end line) — nondepository institutions have separate origination-volume threshold for open-end coverage (100 open-end lines in either prior 2 years)' });
+  }
+  if (inst_type === 'other') {
+    flags.push({ cls: 'flag-bad', text: 'Institution type "Other" — HMDA coverage is limited to banks, credit unions, savings associations, and mortgage companies. Review institutional eligibility.' });
+  }
+  if (isMortgageCo) {
+    flags.push({ cls: 'flag-warn', text: 'Nondepository mortgage company — coverage requires origination volume verification: ≥25 closed-end covered loans OR ≥100 open-end lines in either of prior 2 calendar years' });
+  }
+  if (loan_type === 'home_improvement' && !isDwelling) {
+    flags.push({ cls: 'flag-warn', text: 'Home improvement loan: must be secured by a dwelling to be a covered transaction. Unsecured home improvement loans are not reportable.' });
+  }
+  if (action_taken === 'purchased' && lien_status === 'subordinate_lien') {
+    flags.push({ cls: 'flag-warn', text: 'Purchased subordinate-lien loan — verify this is a covered loan as defined in 12 CFR 1003.2(e); not all purchased loans are reportable' });
+  }
+  if (!isDepository && !isMortgageCo) {
+    flags.push({ cls: 'flag-bad', text: 'Institution type may not be a covered entity under 12 CFR 1003.2(e) — consult CFPB guidance on institutional eligibility' });
+  }
+  if (loan_type === 'other') {
+    flags.push({ cls: 'flag-warn', text: '"Other purpose" loan — verify purpose does not qualify as home purchase, home improvement, or refinance; all three purposes are reportable when secured by a dwelling' });
+  }
+
+  // Render
+  document.getElementById('resultsSection').style.display = 'block';
+
+  // Institutional coverage badge
+  var icBadge = document.getElementById('instCoverageBadge');
+  if (instCoveredAll) {
+    icBadge.className = 'det-badge det-covered';
+    icBadge.textContent = 'INSTITUTION COVERED';
+  } else if (instConditional && isMortgageCo) {
+    icBadge.className = 'det-badge det-conditional';
+    icBadge.textContent = 'VERIFY VOLUME THRESHOLD';
+  } else {
+    icBadge.className = 'det-badge det-not-covered';
+    icBadge.textContent = 'NOT COVERED';
+  }
+
+  var icBody = document.getElementById('instCoverageBody');
+  var icHtml = '<div class="checklist-wrap">';
+
+  var instTypePass = (inst_type !== 'other');
+  icHtml += makeCheckItem(instTypePass, false,
+    'Institution is a bank, credit union, savings association, or mortgage company — ' + (instTypePass ? 'Yes: ' + inst_type : 'Unconfirmed for "Other" type'),
+    '12 CFR 1003.2(e)(1)');
+
+  icHtml += makeCheckItem(assetsPass, isMortgageCo,
+    assetsNote,
+    isDepository ? '12 CFR 1003.2(e)(1) — $56M threshold (2024 reporting year; adjusted annually)' : '12 CFR 1003.2(e)(2) — origination volume test for nondepository institutions');
+
+  icHtml += makeCheckItem(msaPass, false,
+    'Institution has home or branch office in an MSA — ' + (msaPass ? 'Yes' : 'No: institution does not meet MSA presence requirement'),
+    '12 CFR 1003.2(e)(1)(iii) / 1003.2(e)(2)(iii)');
+
+  icHtml += makeCheckItem(firstLienPass, false,
+    'Originated at least one first-lien covered loan in prior calendar year — ' + (firstLienPass ? 'Yes' : 'No: institution does not meet first-lien origination condition'),
+    '12 CFR 1003.2(e)(1)(iv) / 1003.2(e)(2)(iv)');
+
+  icHtml += '</div>';
+  if (!instCoveredAll && !instConditional) {
+    var failReasons = [];
+    if (!instTypePass) failReasons.push('institution type not a covered entity type');
+    if (!assetsPass && isDepository) failReasons.push('assets ≤ $56M threshold');
+    if (!msaPass) failReasons.push('no MSA office');
+    if (!firstLienPass) failReasons.push('no first-lien origination in prior year');
+    icHtml += '<div class="not-covered-box"><strong>Institution Not Covered</strong> — HMDA reporting not required. Failing condition(s): ' + failReasons.join('; ') + '. No HMDA LAR filing is required for this institution.</div>';
+  } else if (instConditional) {
+    icHtml += '<div style="background:var(--warn-dim);border:1px solid rgba(245,158,11,.3);border-left:3px solid var(--warn);border-radius:var(--radius);padding:.65rem .9rem;margin-top:.75rem;font-size:.78rem;color:var(--warn)"><strong>Coverage Conditional</strong> — Nondepository mortgage companies must verify origination volume. If the institution originated ≥25 closed-end covered loans OR ≥100 open-end lines in either of the prior 2 calendar years, it is covered.</div>';
+  }
+  icBody.innerHTML = icHtml;
+
+  // Transaction coverage badge
+  var tcBadge = document.getElementById('txnCoverageBadge');
+  tcBadge.className = 'det-badge ' + (txnReportable ? 'det-reportable' : 'det-not-reportable');
+  tcBadge.textContent = txnReportable ? 'REPORTABLE TRANSACTION' : 'NOT REPORTABLE';
+
+  var tcBody = document.getElementById('txnCoverageBody');
+  var tcHtml = '<div class="checklist-wrap">';
+
+  tcHtml += makeCheckItem(isDwelling || isManufacturedHome, false,
+    'Transaction is secured by a dwelling (1-4 unit residential, multifamily, manufactured home, or mixed-use) — ' + ((isDwelling || isManufacturedHome) ? 'Yes: property type is a dwelling' : 'No: ' + property_type + ' is not a covered dwelling type'),
+    '12 CFR 1003.2(d) — definition of dwelling; 1003.2(f) — manufactured housing coverage');
+
+  tcHtml += makeCheckItem(!isLandOnly, false,
+    'Not an unimproved land-only transaction — ' + (isLandOnly ? 'FAIL: land-only transactions are not covered' : 'Pass'),
+    '12 CFR 1003.3(c) — exclusion for transactions on unimproved land');
+
+  tcHtml += makeCheckItem(!isCommercial, false,
+    'Not a commercial (non-dwelling) property transaction — ' + (isCommercial ? 'FAIL: non-dwelling commercial property not covered' : 'Pass'),
+    '12 CFR 1003.2(d) — covered loan must be secured by a dwelling');
+
+  tcHtml += makeCheckItem(true, false,
+    'Transaction type: ' + (isHeloc ? 'Open-end line of credit (HELOC) — covered if institution meets open-end volume threshold' : 'Closed-end mortgage loan'),
+    isHeloc ? '12 CFR 1003.2(b) — open-end line of credit; volume threshold for nondepository institutions' : '12 CFR 1003.2(d) — closed-end mortgage loan');
+
+  if (loan_type === 'other') {
+    tcHtml += makeCheckItem(null, true,
+      '"Other purpose" loan — review whether purpose qualifies as home purchase, home improvement, or refinance; if none applies and transaction is secured by dwelling, it may still be a covered transaction as a "covered loan" under 12 CFR 1003.2(e)',
+      '12 CFR 1003.2(d) — definition of covered loan');
+  }
+
+  tcHtml += '</div>';
+
+  if (txnExempt) {
+    tcHtml += '<div class="exempt-box"><strong>Not a Covered Transaction</strong> — ' + txnExemptReason + ' No HMDA reporting required for this transaction.</div>';
+  } else if (!isDwelling) {
+    tcHtml += '<div class="not-covered-box"><strong>Not Reportable</strong> — The property type (' + property_type + ') does not constitute a dwelling under 12 CFR 1003.2(f). Transaction is not covered.</div>';
+  }
+  tcBody.innerHTML = tcHtml;
+
+  // LAR Section
+  var larSection = document.getElementById('larSection');
+  var larBody = document.getElementById('larBody');
+  if (txnReportable && larEntry) {
+    larSection.style.display = 'block';
+    larBody.innerHTML = '<div class="lar-code-box">' +
+      '<div class="lar-num">' + larEntry.code + '</div>' +
+      '<div class="lar-detail">' +
+        '<span class="lar-label">LAR Action Taken Code</span>' +
+        '<span class="lar-desc">' + larEntry.label + '</span>' +
+        '<span class="lar-cite">12 CFR 1003.4(a)(8) &middot; ' + larEntry.desc + '</span>' +
+      '</div></div>' +
+      '<p style="font-size:.75rem;color:var(--body);margin-top:.5rem">This is the value to enter in the Action Taken field (Data Field #7) of the HMDA Loan Application Register (LAR). Enter the action taken date as the date the institution took the action (date of origination, date of denial notice, etc.).</p>';
+  } else {
+    larSection.style.display = 'none';
+  }
+
+  // Data fields
+  var dfSection = document.getElementById('dataFieldsSection');
+  var dfBody = document.getElementById('dataFieldsBody');
+  if (txnReportable) {
+    dfSection.style.display = 'block';
+    var dfHtml = '<p style="font-size:.75rem;color:var(--body);margin-bottom:.75rem">Required LAR data fields for this covered transaction based on transaction characteristics. All covered institutions must collect and report these fields.</p>';
+    dfHtml += '<table class="data-table"><thead><tr><th>Data Field</th><th>Description</th><th>Required?</th><th>Regulatory Basis</th></tr></thead><tbody>';
+    for (var i = 0; i < dataFields.length; i++) {
+      var df = dataFields[i];
+      dfHtml += '<tr>' +
+        '<td style="font-weight:500;color:var(--bright);font-size:.75rem">' + df.field + '</td>' +
+        '<td style="font-size:.72rem;color:var(--body)">' + df.desc + '</td>' +
+        '<td class="' + (df.required ? 'req-yes' : 'req-no') + '">' + (df.required ? 'YES' : 'Conditional') + '</td>' +
+        '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.58rem;color:var(--muted)">' + df.cite + '</td>' +
+        '</tr>';
+    }
+    dfHtml += '</tbody></table>';
+    dfBody.innerHTML = dfHtml;
+  } else {
+    dfSection.style.display = 'none';
+  }
+
+  // Flags
+  var fHtml = '<div class="flag-row">';
+  for (var f = 0; f < flags.length; f++) {
+    fHtml += '<span class="flag-pill ' + flags[f].cls + '">' + flags[f].text + '</span>';
+  }
+  fHtml += '</div>';
+  document.getElementById('flagsBody').innerHTML = fHtml;
+
+  _lastResult = {
+    inputs: { inst_type: inst_type, assets: assets, has_msa: has_msa, orig_first_lien: orig_first_lien, loan_type: loan_type, property_type: property_type, occupancy: occupancy, lien_status: lien_status, loan_amount: loan_amount, manufactured: manufactured, action_taken: action_taken, is_heloc: is_heloc },
+    institutional_covered: instCoveredAll,
+    inst_conditional: instConditional,
+    transaction_reportable: txnStatus,
+    lar_action_code: larEntry ? larEntry.code : null,
+    lar_action_label: larEntry ? larEntry.label : null,
+    data_fields_required: dataFields.filter(function(d) { return d.required; }).map(function(d) { return d.field; }),
+    exemption_flags: flags.map(function(x) { return x.text; })
+  };
+
+  var ap2Btn = document.getElementById('ap2ExportBtn');
+  ap2Btn.removeAttribute('disabled');
+  ap2Btn.classList.add('ready');
+
+  document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function exportMarkdown() {
+  if (!_lastResult) { alert('Run the analysis first.'); return; }
+  var r = _lastResult;
+  var ts = new Date().toISOString();
+  var md = '# HMDA Reportability Analysis\n\n';
+  md += '**Tool:** T444 — HMDA Reportability Checker \xb7 AINumbers.co  \n';
+  md += '**Generated:** ' + ts + '  \n\n';
+  md += '## Inputs\n\n';
+  md += '| Parameter | Value |\n|---|---|\n';
+  md += '| Institution type | ' + r.inputs.inst_type + ' |\n';
+  md += '| Total assets | $' + r.inputs.assets.toFixed(1) + 'M |\n';
+  md += '| MSA office | ' + r.inputs.has_msa + ' |\n';
+  md += '| First-lien origination in prior year | ' + r.inputs.orig_first_lien + ' |\n';
+  md += '| Loan purpose | ' + r.inputs.loan_type + ' |\n';
+  md += '| Property type | ' + r.inputs.property_type + ' |\n';
+  md += '| Occupancy | ' + r.inputs.occupancy + ' |\n';
+  md += '| Lien status | ' + r.inputs.lien_status + ' |\n';
+  if (r.inputs.loan_amount > 0) md += '| Loan amount | $' + r.inputs.loan_amount.toLocaleString() + ' |\n';
+  md += '| Manufactured home | ' + r.inputs.manufactured + ' |\n';
+  md += '| Action taken | ' + r.inputs.action_taken + ' |\n';
+  md += '| HELOC | ' + r.inputs.is_heloc + ' |\n\n';
+  md += '## Coverage Determinations\n\n';
+  md += '**Institutional coverage:** ' + (r.institutional_covered ? 'COVERED' : (r.inst_conditional ? 'CONDITIONAL — verify origination volume' : 'NOT COVERED')) + '\n\n';
+  md += '**Transaction reportability:** ' + r.transaction_reportable.toUpperCase() + '\n\n';
+  if (r.lar_action_code) {
+    md += '## LAR Action Taken\n\n';
+    md += '**Code:** ' + r.lar_action_code + ' — ' + r.lar_action_label + '\n\n';
+  }
+  if (r.data_fields_required.length > 0) {
+    md += '## Required Data Fields\n\n';
+    for (var i = 0; i < r.data_fields_required.length; i++) {
+      md += '- ' + r.data_fields_required[i] + '\n';
+    }
+    md += '\n';
+  }
+  md += '## Flags\n\n';
+  for (var j = 0; j < r.exemption_flags.length; j++) {
+    md += '- ' + r.exemption_flags[j] + '\n';
+  }
+  md += '\n---\n*Generated by AINumbers.co T444. Static reference values — verify against current CFPB Regulation C guidance before relying on this output for compliance decisions. $56M threshold applies to 2024 reporting year; adjust for current year.*\n';
+  var blob = new Blob([md], { type: 'text/markdown' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = '444-hmda-reportability-' + new Date().toISOString().slice(0,10) + '.md';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportAP2() {
+  if (!_lastResult) { alert('Run the analysis first.'); return; }
+  var r = _lastResult;
+  var payload = {
+    tool_id: 'hmda-reportability-checker',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    schema_version: 'ap2/1.0',
+    inputs: r.inputs,
+    outputs: {
+      institutional_covered: r.institutional_covered,
+      inst_conditional: r.inst_conditional,
+      transaction_reportable: r.transaction_reportable,
+      lar_action_code: r.lar_action_code,
+      lar_action_label: r.lar_action_label,
+      data_fields_required: r.data_fields_required,
+      exemption_flags: r.exemption_flags
+    },
+    regulatory_basis: [
+      '12 U.S.C. 2801 et seq. (HMDA)',
+      '12 CFR Part 1003 (Regulation C)',
+      '12 CFR 1003.2(e) - covered institution definition',
+      '12 CFR 1003.2(d) - covered loan definition',
+      '12 CFR 1003.3 - excluded and exempt transactions',
+      '12 CFR 1003.4 - data collection and reporting requirements',
+      '$56M asset threshold (2024 reporting year)'
+    ]
+  };
+  var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = '444-hmda-reportability-ap2-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+var LANGS = {
+  en: {
+    'pii.banner': 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data.',
+    'footer.alltools': 'All Tools', 'footer.sitemap': 'Sitemap', 'footer.contact': 'Contact',
+    'footer.cc': 'CC BY 4.0 \xb7 Post Oak Labs',
+    'footer.privacy': '🔒 Zero PII   📡 No server calls   💻 Client-side'
+  },
+  es: {
+    'pii.banner': 'Todas las entradas se procesan localmente en su navegador. No se transmiten datos.',
+    'footer.alltools': 'Todas las Herramientas', 'footer.sitemap': 'Mapa del Sitio', 'footer.contact': 'Contacto',
+    'footer.cc': 'CC BY 4.0 \xb7 Post Oak Labs',
+    'footer.privacy': '🔒 Sin PII   📡 Sin llamadas al servidor   💻 Cliente'
+  },
+  fr: {
+    'pii.banner': 'Toutes les entr\xe9es sont trait\xe9es localement dans votre navigateur. Aucune donn\xe9e n\'est transmise.',
+    'footer.alltools': 'Tous les Outils', 'footer.sitemap': 'Plan du Site', 'footer.contact': 'Contact',
+    'footer.cc': 'CC BY 4.0 \xb7 Post Oak Labs',
+    'footer.privacy': '🔒 Aucune PII   📡 Aucun appel serveur   💻 C\xf4t\xe9 client'
+  },
+  ar: {
+    'pii.banner': 'جميع المدخلات تعالج محلياً في متصفحك. لا يتم إرسال أي بيانات.',
+    'footer.alltools': 'جميع الأدوات', 'footer.sitemap': 'خريطة الموقع', 'footer.contact': 'اتصل',
+    'footer.cc': 'CC BY 4.0 \xb7 Post Oak Labs',
+    'footer.privacy': '🔒 لا بيانات شخصية   📡 لا استدعاءات للخادم   💻 على المتصفح'
+  },
+  pt: {
+    'pii.banner': 'Todas as entradas s\xe3o processadas localmente no seu navegador. Nenhum dado \xe9 transmitido.',
+    'footer.alltools': 'Todas as Ferramentas', 'footer.sitemap': 'Mapa do Site', 'footer.contact': 'Contato',
+    'footer.cc': 'CC BY 4.0 \xb7 Post Oak Labs',
+    'footer.privacy': '🔒 Sem PII   📡 Sem chamadas ao servidor   💻 Client-side'
+  },
+  zh: {
+    'pii.banner': '所有输入均在您的浏览器本地处理。不传输任何数据。',
+    'footer.alltools': '所有工具', 'footer.sitemap': '网站地图', 'footer.contact': '联系',
+    'footer.cc': 'CC BY 4.0 \xb7 Post Oak Labs',
+    'footer.privacy': '🔒 零个人数据   📡 无服务器调用   💻 纯客户端'
+  }
+};
+
+function setLang(lang) {
+  if (!LANGS[lang]) return;
+  var d = LANGS[lang];
+  var els = document.querySelectorAll('[data-i18n]');
+  for (var i = 0; i < els.length; i++) {
+    var key = els[i].getAttribute('data-i18n');
+    if (d[key] !== undefined) els[i].textContent = d[key];
+  }
+  var btns = document.querySelectorAll('.lang-btn');
+  for (var j = 0; j < btns.length; j++) {
+    btns[j].classList.toggle('active', btns[j].getAttribute('data-lang') === lang);
+  }
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function() { try { var s = sessionStorage.getItem('ain_lang'); if (s) setLang(s); } catch(e) {} })();
+</script>
+</body>
+</html>

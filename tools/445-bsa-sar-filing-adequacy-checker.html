@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>BSA/SAR Filing Adequacy Checker · AINumbers.co</title>
+<meta name="description" content="Evaluate whether a Suspicious Activity Report (SAR) meets FinCEN's BSA filing thresholds and content adequacy requirements under 31 CFR Part 1020. Checks mandatory filing triggers, content completeness, and filing timeliness.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/445-bsa-sar-filing-adequacy-checker.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"BSA/SAR Filing Adequacy Checker","url":"https://ainumbers.co/tools/445-bsa-sar-filing-adequacy-checker.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "bsa-sar-filing-adequacy-checker",
+  "version": "1.0.0",
+  "title": "BSA/SAR Filing Adequacy Checker",
+  "description": "Evaluates whether a Suspicious Activity Report (SAR) meets FinCEN BSA filing thresholds and content adequacy requirements under 31 CFR Part 1020. Checks mandatory filing triggers, content completeness, and filing timeliness.",
+  "category": "cat-29",
+  "tags": ["BSA","SAR","FinCEN","AML","suspicious activity","anti-money laundering","Bank Secrecy Act","31 CFR 1020","compliance","fintech"],
+  "audience": ["compliance","BSA officers","AML analysts","legal"],
+  "mcp_tool_definition": {"name":"check_sar_filing_adequacy","description":"Evaluates SAR filing requirements and content adequacy under 31 CFR Part 1020. Returns filing requirement determination, deadline, narrative content score (0-100), and tipping-off risk flag.","inputSchema":{"type":"object","properties":{"institution_type":{"type":"string","enum":["bank","credit_union","msb","broker_dealer","insurance","casino","other"]},"activity_type":{"type":"string","enum":["structuring","money_laundering","fraud","terrorist_financing","identity_theft","counterfeit","mortgage_fraud","embezzlement","computer_intrusion","kiting","other"]},"transaction_amount":{"type":"number"},"subject_known":{"type":"string","enum":["known","unknown","partial"]},"narrative_elements":{"type":"array","items":{"type":"string"}}},"required":["institution_type","activity_type","transaction_amount","subject_known","narrative_elements"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/445-bsa-sar-filing-adequacy-checker.html","function_name":"runTool","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--green-lt:#4ADE80;--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(239,68,68,.006) 1px,transparent 1px),linear-gradient(90deg,rgba(239,68,68,.006) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--red);color:var(--red)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--red),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--red);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--red)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--red)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.pii-notice{background:rgba(20,184,166,.07);border:1px solid rgba(20,184,166,.25);border-left:3px solid var(--teal);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.scope-note{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.22);border-left:3px solid var(--red);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--red);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.panel-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:.75rem}
+.field-group{display:flex;flex-direction:column;gap:.3rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+select,input[type=number],input[type=text]{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.35rem .5rem;border-radius:3px;outline:none;width:100%;transition:border-color .2s;-webkit-appearance:none}
+select:focus,input:focus{border-color:var(--red)}
+option{background:var(--bg-3);color:var(--bright)}
+.checkbox-group{display:flex;flex-direction:column;gap:.4rem;margin-top:.25rem}
+.checkbox-label{display:flex;align-items:center;gap:.45rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);cursor:pointer;padding:.35rem .55rem;border-radius:3px;border:1px solid transparent;transition:background .15s,border-color .15s;line-height:1.5}
+.checkbox-label:hover{background:var(--bg-3);border-color:var(--border)}
+.checkbox-label input[type=checkbox]{width:auto;accent-color:var(--red);flex-shrink:0}
+.checkbox-label.checked{color:var(--bright);background:rgba(239,68,68,.06);border-color:rgba(239,68,68,.2)}
+.run-btn{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;padding:.7rem 2rem;background:var(--red);color:var(--white);border:none;border-radius:var(--radius);cursor:pointer;font-weight:600;transition:opacity .2s;margin-top:1rem}
+.run-btn:hover{opacity:.85}.run-btn:disabled{opacity:.5;cursor:not-allowed}
+.results-section{margin-top:2rem}
+.result-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1rem;margin-bottom:1.5rem}
+.result-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem}
+.result-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.result-value{font-family:'DM Serif Display',serif;font-size:1.6rem;line-height:1.2;margin-bottom:.3rem}
+.result-sub{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--body);margin-top:.3rem;line-height:1.5}
+.score-bar-wrap{background:var(--bg-3);border-radius:4px;height:6px;overflow:hidden;margin:.5rem 0}
+.score-bar-fill{height:100%;border-radius:4px;transition:width .6s}
+.req-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;padding:.3rem .9rem;border-radius:3px;border:1px solid;margin-bottom:1rem}
+.req-required{color:var(--red);border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.08)}
+.req-voluntary{color:var(--gold);border-color:rgba(212,168,71,.35);background:rgba(212,168,71,.08)}
+.req-not-required{color:var(--green);border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.08)}
+.adequacy-strong{color:var(--green)}.adequacy-adequate{color:var(--teal)}.adequacy-needs-work{color:var(--gold)}.adequacy-inadequate{color:var(--red)}
+.col-required{color:var(--red)}.col-voluntary{color:var(--gold)}.col-not-required{color:var(--green)}
+.tip-alert{background:rgba(239,68,68,.09);border:1px solid rgba(239,68,68,.35);border-left:4px solid var(--red);border-radius:6px;padding:.75rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--red);line-height:1.6;margin-bottom:1.25rem;display:none}
+.tip-warn{background:rgba(245,158,11,.09);border:1px solid rgba(245,158,11,.35);border-left:4px solid var(--warn);border-radius:6px;padding:.75rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--warn);line-height:1.6;margin-bottom:1.25rem;display:none}
+.tip-clear{background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.3);border-left:4px solid var(--green);border-radius:6px;padding:.75rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--green);line-height:1.6;margin-bottom:1.25rem;display:none}
+.narrative-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.55rem;margin-bottom:1.25rem}
+.narrative-item{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.55rem .75rem;display:flex;align-items:center;gap:.5rem}
+.narrative-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.nd-present{background:var(--green)}.nd-missing{background:var(--red)}.nd-na{background:var(--muted)}
+.narrative-name{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--text);flex:1;line-height:1.4}
+.narrative-pts{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--body);white-space:nowrap}
+.actions-list{list-style:none;display:flex;flex-direction:column;gap:.45rem;margin-bottom:1.25rem}
+.actions-list li{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);padding:.5rem .75rem;background:var(--bg-3);border-radius:4px;border-left:3px solid var(--border-2);line-height:1.55}
+.act-required{border-left-color:var(--red) !important}
+.act-warn{border-left-color:var(--warn) !important}
+.act-ok{border-left-color:var(--green) !important}
+.section-heading{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.15em;text-transform:uppercase;color:var(--red);margin-bottom:.75rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+.results-export-row{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border)}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;padding:.5rem 1.1rem;border:1px solid var(--border);color:var(--body);background:var(--bg-2);border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-export:hover{border-color:var(--teal);color:var(--teal)}
+#ap2ExportBtn{opacity:.28;cursor:not-allowed}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--teal)}
+.source-notes{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.25rem;margin-top:2rem;font-size:.72rem;color:var(--body);line-height:1.7}
+.source-notes ol{padding-left:1.2rem}
+.source-notes li{margin-bottom:.35rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);color:var(--body);padding:.65rem 1rem;text-align:left;display:flex;justify-content:space-between;align-items:center;font-size:.72rem;border-radius:var(--radius);cursor:pointer;margin-top:1rem}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text);white-space:pre;line-height:1.6}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+@media(max-width:700px){.panel-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">&#20013;&#25991;</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a>
+    <span class="nav-bc-sep">/</span>
+    <a href="../index.html#cat-29">US Banking Hub</a>
+    <span class="nav-bc-sep">/</span>
+    <span>T-445</span>
+  </div>
+  <div class="nav-right"><a href="../index.html#cat-29" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">US AML/BSA COMPLIANCE &middot; T445</div>
+  <div class="hero-meta">
+    <span class="hero-badge badge-muted">v1.0</span>
+    <span class="hero-badge badge-red">SAR / BSA</span>
+    <span class="hero-badge badge-green">Zero PII</span>
+    <span class="hero-badge badge-teal">Client-Side</span>
+  </div>
+  <h1>BSA/SAR Filing <em>Adequacy Checker</em></h1>
+  <p class="hero-desc" data-i18n="hero.desc">Evaluate whether a Suspicious Activity Report (SAR) meets FinCEN&rsquo;s BSA filing thresholds and content adequacy requirements under 31 CFR Part 1020. Checks mandatory filing triggers, content completeness, and filing timeliness.</p>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+  <div class="scope-note"><strong style="color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash;</strong> Threshold and filing rules reflect FinCEN regulations and guidance current as of mid-2025. This tool does not constitute legal advice and does not replace a qualified BSA Officer review. SAR filing determinations must be made by appropriately trained and designated compliance personnel. Verify thresholds and guidance citations against current primary sources before relying on outputs for regulatory submissions or enforcement defense.</div>
+
+  <!-- PANEL 1: Institution & Activity -->
+  <div class="panel">
+    <div class="panel-label">Institution &amp; Activity Profile</div>
+    <div class="panel-row">
+      <div class="field-group">
+        <label class="field-label" for="instType">Institution Type</label>
+        <select id="instType">
+          <option value="bank">Bank</option>
+          <option value="credit_union">Credit Union</option>
+          <option value="msb">Money Services Business (MSB)</option>
+          <option value="broker_dealer">Securities Broker-Dealer</option>
+          <option value="insurance">Insurance Company</option>
+          <option value="casino">Casino</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="actType">Activity Type</label>
+        <select id="actType">
+          <option value="structuring">Structuring / Smurfing</option>
+          <option value="money_laundering">Potential Money Laundering</option>
+          <option value="fraud">Fraud</option>
+          <option value="terrorist_financing">Terrorist Financing</option>
+          <option value="identity_theft">Identity Theft</option>
+          <option value="counterfeit">Counterfeit</option>
+          <option value="mortgage_fraud">Mortgage Fraud</option>
+          <option value="embezzlement">Embezzlement</option>
+          <option value="computer_intrusion">Computer Intrusion</option>
+          <option value="kiting">Kiting</option>
+          <option value="other">Other Suspicious Activity</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="txnAmount">Transaction Amount Involved ($)</label>
+        <input type="number" id="txnAmount" min="0" value="5500" placeholder="e.g. 5500">
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="txnCount">Number of Transactions in Pattern</label>
+        <input type="number" id="txnCount" min="1" value="1" placeholder="1">
+      </div>
+    </div>
+    <div class="panel-row">
+      <div class="field-group">
+        <label class="field-label" for="subjectKnown">Subject Known</label>
+        <select id="subjectKnown">
+          <option value="known">Known Customer</option>
+          <option value="unknown">Unknown</option>
+          <option value="partial">Partially Identified</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="lawEnf">Was Law Enforcement Notified?</label>
+        <select id="lawEnf">
+          <option value="no">No</option>
+          <option value="yes_prior">Yes &mdash; Prior to SAR</option>
+          <option value="yes_after">Yes &mdash; After SAR Filing</option>
+          <option value="not_required">Not Required</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="activityDates">Activity Date Range</label>
+        <select id="activityDates">
+          <option value="single">Single Transaction</option>
+          <option value="pattern_lt30">Pattern Over &lt; 30 Days</option>
+          <option value="pattern_30_90">Pattern Over 30&ndash;90 Days</option>
+          <option value="pattern_gt90">Pattern Over &gt; 90 Days</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="priorSars">Prior SARs Filed on Same Subject</label>
+        <select id="priorSars">
+          <option value="none">None</option>
+          <option value="one">1 Prior SAR</option>
+          <option value="two_five">2&ndash;5 Prior SARs</option>
+          <option value="six_plus">6+ Prior SARs</option>
+        </select>
+      </div>
+    </div>
+    <div class="panel-row" style="grid-template-columns:1fr 3fr">
+      <div class="field-group">
+        <label class="field-label" for="tippingOff">Has the Subject Been Tipped Off?</label>
+        <select id="tippingOff">
+          <option value="no">No</option>
+          <option value="inadvertent">Yes &mdash; Inadvertently</option>
+          <option value="intentional">Yes &mdash; Intentionally</option>
+          <option value="unknown">Unknown</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL 2: Narrative Content Checklist -->
+  <div class="panel">
+    <div class="panel-label">SAR Narrative Content Checklist</div>
+    <p style="font-size:.73rem;color:var(--body);margin-bottom:.9rem;line-height:1.6">Check each element that is <strong style="color:var(--text)">present and adequately described</strong> in your SAR narrative. FinCEN guidance requires the &ldquo;5 Ws + How&rdquo; framework for a complete, usable narrative (31 CFR &sect;1020.320(b)(2)).</p>
+    <div class="checkbox-group">
+      <label class="checkbox-label" id="lbl-who"><input type="checkbox" id="chk-who" onchange="toggleChk(this,'lbl-who')"> <span><strong style="color:var(--bright)">Who</strong> &mdash; Subject name, address, date of birth, identification number(s), and relationship to institution</span><span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);flex-shrink:0;padding-left:.5rem">20 pts</span></label>
+      <label class="checkbox-label" id="lbl-what"><input type="checkbox" id="chk-what" onchange="toggleChk(this,'lbl-what')"> <span><strong style="color:var(--bright)">What</strong> &mdash; Specific suspicious activity described clearly, accurately, and with sufficient detail</span><span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);flex-shrink:0;padding-left:.5rem">20 pts</span></label>
+      <label class="checkbox-label" id="lbl-when"><input type="checkbox" id="chk-when" onchange="toggleChk(this,'lbl-when')"> <span><strong style="color:var(--bright)">When</strong> &mdash; Dates and times of suspicious transactions or activity included</span><span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);flex-shrink:0;padding-left:.5rem">15 pts</span></label>
+      <label class="checkbox-label" id="lbl-where"><input type="checkbox" id="chk-where" onchange="toggleChk(this,'lbl-where')"> <span><strong style="color:var(--bright)">Where</strong> &mdash; Location, branch, account number, product, or delivery channel involved</span><span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);flex-shrink:0;padding-left:.5rem">10 pts</span></label>
+      <label class="checkbox-label" id="lbl-why"><input type="checkbox" id="chk-why" onchange="toggleChk(this,'lbl-why')"> <span><strong style="color:var(--bright)">Why</strong> &mdash; Explanation of why the activity is suspicious relative to the known customer profile and expected behaviour</span><span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);flex-shrink:0;padding-left:.5rem">20 pts</span></label>
+      <label class="checkbox-label" id="lbl-how"><input type="checkbox" id="chk-how" onchange="toggleChk(this,'lbl-how')"> <span><strong style="color:var(--bright)">How</strong> &mdash; Method of transaction: cash, wire transfer, ACH, check, cryptocurrency, money order, etc.</span><span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);flex-shrink:0;padding-left:.5rem">10 pts</span></label>
+      <label class="checkbox-label" id="lbl-prior"><input type="checkbox" id="chk-prior" onchange="toggleChk(this,'lbl-prior')"> <span><strong style="color:var(--bright)">Prior Activity</strong> &mdash; Reference to prior SARs or related filings on same subject, including BSA ID numbers and dates (if applicable)</span><span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);flex-shrink:0;padding-left:.5rem">5 pts</span></label>
+      <label class="checkbox-label" id="lbl-le"><input type="checkbox" id="chk-le" onchange="toggleChk(this,'lbl-le')"> <span><strong style="color:var(--bright)">Law Enforcement Contact</strong> &mdash; Reference to any prior law enforcement notification, subpoena, or coordination (if applicable)</span><span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);flex-shrink:0;padding-left:.5rem">noted</span></label>
+    </div>
+  </div>
+
+  <button class="run-btn" onclick="runTool()" id="runBtn">Check SAR Adequacy</button>
+
+  <!-- RESULTS -->
+  <div class="results-section" id="resultsSection" style="display:none">
+
+    <div id="tipAlert" class="tip-alert"></div>
+    <div id="tipWarn" class="tip-warn"></div>
+    <div id="tipClear" class="tip-clear"></div>
+
+    <div class="result-grid">
+      <div class="result-card">
+        <div class="result-label">Filing Requirement</div>
+        <div class="result-value" id="reqValue" style="font-size:1.1rem;line-height:1.35">&mdash;</div>
+        <div class="result-sub" id="reqSub"></div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Applicable Threshold</div>
+        <div class="result-value" id="threshValue" style="font-size:1.1rem;line-height:1.35">&mdash;</div>
+        <div class="result-sub" id="threshSub"></div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Filing Deadline</div>
+        <div class="result-value" id="deadlineValue" style="font-size:1.1rem;line-height:1.35">&mdash;</div>
+        <div class="result-sub" id="deadlineSub"></div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Content Adequacy Score</div>
+        <div class="result-value" id="contentScore">&mdash;</div>
+        <div class="score-bar-wrap"><div class="score-bar-fill" id="scoreBarFill" style="width:0%"></div></div>
+        <div class="result-sub" id="adequacyLevel"></div>
+      </div>
+    </div>
+
+    <div id="reqBadgeWrap" style="margin-bottom:1.25rem"></div>
+
+    <div class="section-heading">Narrative Element Breakdown</div>
+    <div class="narrative-grid" id="narrativeGrid"></div>
+
+    <div class="section-heading">Recommended Actions</div>
+    <ul class="actions-list" id="actionsList"></ul>
+
+    <div class="results-export-row">
+      <button class="btn-export" onclick="exportMarkdown()">&#8595; Export Markdown</button>
+      <button class="btn-export" id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the checker first">&#8595; Policy Mandate (AP2)</button>
+    </div>
+  </div>
+
+  <!-- Source notes -->
+  <div class="source-notes">
+    <strong style="font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--red)">Regulatory Sources</strong>
+    <ol style="margin-top:.65rem">
+      <li>Bank Secrecy Act (BSA), 31 U.S.C. &sect;&sect; 5311&ndash;5336 &mdash; foundational anti-money laundering framework authorising FinCEN SAR requirements and defining covered institutions.</li>
+      <li>31 CFR Part 1020 (Banks) and 31 CFR Parts 1021&ndash;1025 &mdash; FinCEN SAR filing requirements by institution type, including transaction thresholds, narrative content standards, and 30/60-day timeliness rules.</li>
+      <li>FinCEN SAR Activity Review &mdash; Trends, Tips &amp; Issues &mdash; periodic guidance on SAR narrative quality, filing best practices, and law enforcement utility of SAR content.</li>
+      <li>FinCEN Advisory FIN-2007-A003 &mdash; guidance on structuring detection, transaction pattern analysis, and SAR narrative requirements for structured transactions under 31 U.S.C. &sect;5324.</li>
+      <li>31 U.S.C. &sect; 5318(g) &mdash; SAR confidentiality provision and anti-tipping-off requirements; criminal penalties apply for unauthorised disclosure of SAR existence or content to the subject of a SAR.</li>
+    </ol>
+  </div>
+
+</div></div>
+
+<section id="mfstSec" style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem">
+  <div class="container">
+    <button class="mfst-btn" onclick="toggleMfst()">
+      <span><span style="font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">MCP Manifest</span>&nbsp;&nbsp;<span style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--body)">bsa-sar-filing-adequacy-checker v1.0.0</span></span>
+      <span id="mfstArr" style="font-size:.7rem;color:var(--muted)">&#9660;</span>
+    </button>
+    <div class="mfst-body" id="mfstBody">
+      <pre class="mfst-code" id="mfstCode"></pre>
+    </div>
+  </div>
+</section>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html">All Tools</a>
+    <a href="../index.html#cat-29">US Banking Hub</a>
+    <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs</a>
+  </div>
+  <div class="footer-badge-ai">
+    <span>CC BY 4.0 &middot; Post Oak Labs</span>
+    <span>T445 &middot; cat-29 &middot; v1.0</span>
+    <span>Not legal advice &middot; Zero PII</span>
+  </div>
+</div></div></footer>
+
+<script>
+/* ── i18n ────────────────────────────────────────────────── */
+var LANGS = {
+  en: { 'hero.desc': 'Evaluate whether a Suspicious Activity Report (SAR) meets FinCEN’s BSA filing thresholds and content adequacy requirements under 31 CFR Part 1020. Checks mandatory filing triggers, content completeness, and filing timeliness.' },
+  es: { 'hero.desc': 'Evalúe si un Informe de Actividad Sospechosa (SAR) cumple los umbrales de presentación y requisitos de contenido de FinCEN bajo 31 CFR Parte 1020.' },
+  fr: { 'hero.desc': 'Évaluez si un Rapport d’Activité Suspecte (SAR) satisfait aux seuils de dépôt FinCEN et aux exigences de contenu en vertu du 31 CFR Partie 1020.' },
+  ar: { 'hero.desc': 'تقييم ما إذا كان تقرير النشاط المشبوه يستوفي متطلبات FinCEN.' },
+  pt: { 'hero.desc': 'Avalie se um Relatório de Atividade Suspeita (SAR) atende aos limites de apresentação do FinCEN e requisitos de conteúdo adequado nos termos do 31 CFR Parte 1020.' },
+  zh: { 'hero.desc': '评估可疑活动报告（SAR）是否符合FinCEN在　31 CFR第1020部分」下的申报门槛和内容充分性要求。' }
+};
+
+function setLang(l) {
+  try { sessionStorage.setItem('ain_lang', l); } catch(e) {}
+  document.querySelectorAll('.lang-btn').forEach(function(b) {
+    b.classList.toggle('active', b.getAttribute('data-lang') === l);
+  });
+  var t = LANGS[l] || LANGS['en'];
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    var key = el.getAttribute('data-i18n');
+    if (t[key]) el.textContent = t[key];
+  });
+}
+
+function toggleChk(chk, lblId) {
+  var lbl = document.getElementById(lblId);
+  if (lbl) lbl.classList.toggle('checked', chk.checked);
+}
+
+/* ── Threshold table ─────────────────────────────────────── */
+function getThreshold(instType, actType, subjectKnown) {
+  if (actType === 'terrorist_financing') {
+    return { amount: 0, label: 'None — file regardless of amount', note: 'Terrorist financing: no minimum threshold (31 U.S.C. §5318(g) and FinCEN guidance)' };
+  }
+  var rows = {
+    bank:          { known: 5000,  unknown: 25000, lk: '$5,000 (known/identifiable subject)',  lu: '$25,000 (unknown subject)' },
+    credit_union:  { known: 5000,  unknown: 25000, lk: '$5,000 (known/identifiable subject)',  lu: '$25,000 (unknown subject)' },
+    msb:           { known: 2000,  unknown: 2000,  lk: '$2,000',                               lu: '$2,000' },
+    broker_dealer: { known: 5000,  unknown: 5000,  lk: '$5,000',                               lu: '$5,000' },
+    insurance:     { known: 5000,  unknown: 5000,  lk: '$5,000',                               lu: '$5,000' },
+    casino:        { known: 5000,  unknown: 5000,  lk: '$5,000 (table/slot/cage transactions)', lu: '$5,000' },
+    other:         { known: 5000,  unknown: 5000,  lk: '$5,000',                               lu: '$5,000' }
+  };
+  var r = rows[instType] || rows['other'];
+  var isUnknown = (subjectKnown === 'unknown');
+  return {
+    amount: isUnknown ? r.unknown : r.known,
+    label:  isUnknown ? r.lu : r.lk,
+    note:   isUnknown
+      ? '31 CFR §1020.320: higher $25,000 threshold applies when subject cannot be identified'
+      : '31 CFR §1020.320: $5,000 threshold applies when subject is known or identifiable'
+  };
+}
+
+/* ── Deadline logic ──────────────────────────────────────── */
+function getDeadline(lawEnf, actDates) {
+  if (actDates === 'pattern_gt90') {
+    return { days: 90, label: 'Every 90 days (continuing activity)', note: 'Continuing activity SAR: file every 90 calendar days or upon cessation of activity (31 CFR §1020.320(b)(3))' };
+  }
+  if (lawEnf === 'yes_prior' || lawEnf === 'yes_after') {
+    return { days: 60, label: '60 calendar days from detection', note: 'Extended deadline applies when coordinating with law enforcement prior to or at time of filing (31 CFR §1020.320(b)(3))' };
+  }
+  return { days: 30, label: '30 calendar days from detection', note: 'Standard deadline from date institution first becomes aware of facts giving rise to SAR filing obligation (31 CFR §1020.320(b)(3))' };
+}
+
+/* ── Filing requirement ──────────────────────────────────── */
+function getFilingReq(instType, actType, txnAmount, subjectKnown) {
+  var thresh = getThreshold(instType, actType, subjectKnown);
+  if (actType === 'terrorist_financing') {
+    return { status: 'required', badge: 'req-required', colorCls: 'col-required', label: 'MANDATORY — No Threshold', sub: 'Terrorist financing requires SAR filing regardless of transaction amount per FinCEN guidance and 31 U.S.C. §5318(g).' };
+  }
+  if (txnAmount >= thresh.amount) {
+    return { status: 'required', badge: 'req-required', colorCls: 'col-required', label: 'MANDATORY FILING REQUIRED', sub: 'Transaction amount meets or exceeds the applicable threshold. Filing is mandatory under 31 CFR §1020.320.' };
+  }
+  if (txnAmount > 0 && txnAmount < thresh.amount && txnAmount >= (thresh.amount * 0.5)) {
+    return { status: 'voluntary', badge: 'req-voluntary', colorCls: 'col-voluntary', label: 'VOLUNTARY FILING POSSIBLE', sub: 'Amount is below mandatory threshold but institution may file voluntarily if there is a reasonable basis to suspect illegal activity. Document the no-file decision in writing.' };
+  }
+  return { status: 'not-required', badge: 'req-not-required', colorCls: 'col-not-required', label: 'NOT REQUIRED (threshold not met)', sub: 'Amount does not reach the applicable filing threshold. A voluntary SAR may still be appropriate if other indicators of suspicious activity are present.' };
+}
+
+/* ── Narrative scoring ───────────────────────────────────── */
+var ELEMENTS = [
+  { key: 'who',   id: 'chk-who',   label: 'Who (subject identification)', pts: 20 },
+  { key: 'what',  id: 'chk-what',  label: 'What (activity described)',    pts: 20 },
+  { key: 'when',  id: 'chk-when',  label: 'When (dates and times)',       pts: 15 },
+  { key: 'where', id: 'chk-where', label: 'Where (location/account)',     pts: 10 },
+  { key: 'why',   id: 'chk-why',   label: 'Why (suspicion articulated)',  pts: 20 },
+  { key: 'how',   id: 'chk-how',   label: 'How (transaction method)',     pts: 10 },
+  { key: 'prior', id: 'chk-prior', label: 'Prior SARs referenced',        pts:  5 },
+  { key: 'le',    id: 'chk-le',    label: 'Law enforcement contact noted',pts:  0 }
+];
+
+var MAX_SCOREABLE = 100; /* Who+What+When+Where+Why+How+Prior = 20+20+15+10+20+10+5 = 100 */
+
+function getAdequacy(score) {
+  if (score >= 80) return { label: 'Strong (80–100)', cls: 'adequacy-strong' };
+  if (score >= 60) return { label: 'Adequate (60–79)', cls: 'adequacy-adequate' };
+  if (score >= 40) return { label: 'Needs Work (40–59)', cls: 'adequacy-needs-work' };
+  return { label: 'Inadequate (<40)', cls: 'adequacy-inadequate' };
+}
+
+function scoreColor(s) {
+  if (s >= 80) return 'var(--green)';
+  if (s >= 60) return 'var(--teal)';
+  if (s >= 40) return 'var(--gold)';
+  return 'var(--red)';
+}
+
+/* ── Build actions list ──────────────────────────────────── */
+function buildActions(filingReq, deadline, contentScore, tipping, priorSars, actType, txnAmount) {
+  var acts = [];
+
+  /* Filing determination */
+  if (filingReq.status === 'required') {
+    acts.push({ cls: 'act-required', text: '&#9888; FILE REQUIRED — Submit SAR to FinCEN via BSA E-Filing System (bsaefiling.fincen.treas.gov) within ' + deadline.days + ' calendar days of initial detection of facts giving rise to the obligation.' });
+  } else if (filingReq.status === 'voluntary') {
+    acts.push({ cls: 'act-warn', text: '&#9432; VOLUNTARY FILING — Consider filing a voluntary SAR. Document the decision (file or no-file) in writing in the BSA/AML file with rationale, reviewer name, and date. Retain for 5 years.' });
+  } else {
+    acts.push({ cls: 'act-ok', text: '&#10003; THRESHOLD NOT MET — Mandatory SAR not required at this amount. Continue to monitor and re-evaluate if the pattern continues or additional suspicious indicators emerge.' });
+  }
+
+  /* Tipping-off */
+  if (tipping === 'inadvertent' || tipping === 'intentional') {
+    acts.push({ cls: 'act-required', text: '&#128308; TIPPING-OFF RISK — Consult BSA/AML counsel immediately. Tipping off a SAR subject is a federal crime under 31 U.S.C. §5318(g)(2) carrying criminal penalties. Assess the scope of any disclosure and preserve all relevant records.' });
+  }
+
+  /* Content adequacy */
+  var missing = [];
+  ELEMENTS.forEach(function(el) {
+    if (el.pts > 0) {
+      var chk = document.getElementById(el.id);
+      if (chk && !chk.checked) missing.push(el.key);
+    }
+  });
+
+  if (contentScore < 40) {
+    acts.push({ cls: 'act-required', text: '&#9888; NARRATIVE CRITICALLY INADEQUATE — SAR narrative is missing core elements. Law enforcement utility will be severely limited. Missing: ' + (missing.length ? missing.join(', ') : 'none identified') + '. Revise before filing.' });
+  } else if (contentScore < 60) {
+    acts.push({ cls: 'act-warn', text: '&#9888; NARRATIVE NEEDS IMPROVEMENT — Strengthen the narrative to address missing elements (' + (missing.length ? missing.join(', ') : 'review checklist') + ') before submission. FinCEN examiners and law enforcement rely on complete narratives.' });
+  } else if (contentScore < 80) {
+    acts.push({ cls: 'act-warn', text: '&#9432; NARRATIVE ADEQUATE — Core elements present. Consider adding depth to missing elements (' + (missing.length ? missing.join(', ') : 'none') + ') to maximise law enforcement utility.' });
+  } else {
+    acts.push({ cls: 'act-ok', text: '&#10003; NARRATIVE STRONG — All key narrative elements present. Verify factual accuracy and ensure consistency with underlying transaction records and CDD/EDD file before filing.' });
+  }
+
+  /* Activity-specific guidance */
+  if (actType === 'structuring') {
+    acts.push({ cls: 'act-warn', text: '&#9432; STRUCTURING NOTE — Explicitly identify in the narrative the pattern of transactions designed to evade BSA reporting (31 U.S.C. §5324). Include each transaction date, amount, and account, and the aggregate total. Note any use of multiple branches, agents, or accounts.' });
+  }
+  if (actType === 'terrorist_financing') {
+    acts.push({ cls: 'act-required', text: '&#9888; TERRORIST FINANCING — No threshold applies. Separately assess whether OFAC screening, FinCEN 314(a) queries, or immediate law enforcement notification is required. Notify senior BSA officer and legal counsel before filing.' });
+  }
+  if (actType === 'computer_intrusion') {
+    acts.push({ cls: 'act-warn', text: '&#9432; CYBER EVENT NOTE — For cyber-enabled crimes, attach or reference supporting technical indicators (IP addresses, malware signatures, affected systems) to the BSA E-Filing. Coordinate with information security team.' });
+  }
+
+  /* Continuing activity */
+  if (priorSars === 'two_five' || priorSars === 'six_plus') {
+    acts.push({ cls: 'act-warn', text: '&#9432; CONTINUING ACTIVITY SAR — Multiple prior SARs indicate a continuing activity pattern. File a continuing activity SAR every 90 days and document any changes in activity type, amounts, accounts, or methods since the prior filing. Reference all prior SAR BSA IDs.' });
+  }
+
+  /* Prior SARs not referenced */
+  if (priorSars !== 'none') {
+    var chkPrior = document.getElementById('chk-prior');
+    if (chkPrior && !chkPrior.checked) {
+      acts.push({ cls: 'act-warn', text: '&#9432; PRIOR SAR REFERENCE MISSING — Prior SARs on this subject exist but are not referenced in the narrative. Add prior SAR filing dates and BSA ID numbers to the narrative per FinCEN guidance.' });
+    }
+  }
+
+  /* Confidentiality and recordkeeping */
+  acts.push({ cls: 'act-ok', text: '&#9432; CONFIDENTIALITY — SAR existence and content must remain strictly confidential under 31 U.S.C. §5318(g)(2). Do not reference the SAR in customer correspondence. Review any subpoena or court order with legal counsel before responding.' });
+  acts.push({ cls: 'act-ok', text: '&#9432; RECORDKEEPING — Retain a copy of the filed SAR and all supporting documentation (transaction records, CDD file, internal investigation notes) for a minimum of five years from the date of filing per 31 CFR §1010.430.' });
+
+  return acts;
+}
+
+/* ── Main run ────────────────────────────────────────────── */
+var _lastResult = null;
+
+function runTool() {
+  var btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+
+  var instType  = document.getElementById('instType').value;
+  var actType   = document.getElementById('actType').value;
+  var txnAmount = parseFloat(document.getElementById('txnAmount').value) || 0;
+  var txnCount  = parseInt(document.getElementById('txnCount').value) || 1;
+  var subjectKnown = document.getElementById('subjectKnown').value;
+  var lawEnf    = document.getElementById('lawEnf').value;
+  var actDates  = document.getElementById('activityDates').value;
+  var priorSars = document.getElementById('priorSars').value;
+  var tipping   = document.getElementById('tippingOff').value;
+
+  var thresh    = getThreshold(instType, actType, subjectKnown);
+  var deadline  = getDeadline(lawEnf, actDates);
+  var filingReq = getFilingReq(instType, actType, txnAmount, subjectKnown);
+
+  /* Score content */
+  var earned = 0;
+  ELEMENTS.forEach(function(el) {
+    var chk = document.getElementById(el.id);
+    if (chk && chk.checked) earned += el.pts;
+  });
+  var contentScore = Math.min(100, Math.round((earned / MAX_SCOREABLE) * 100));
+  var adequacy = getAdequacy(contentScore);
+
+  /* Update cards */
+  var rv = document.getElementById('reqValue');
+  rv.textContent = filingReq.label;
+  rv.className = 'result-value ' + filingReq.colorCls;
+  document.getElementById('reqSub').textContent = filingReq.sub;
+
+  var tv = document.getElementById('threshValue');
+  tv.textContent = thresh.label;
+  tv.className = 'result-value';
+  document.getElementById('threshSub').textContent = thresh.note;
+
+  var dv = document.getElementById('deadlineValue');
+  dv.textContent = deadline.label;
+  dv.className = 'result-value';
+  document.getElementById('deadlineSub').textContent = deadline.note;
+
+  var cs = document.getElementById('contentScore');
+  cs.innerHTML = contentScore + '<span style="font-size:.9rem;font-family:\'Sora\',sans-serif;color:var(--muted)">/100</span>';
+  cs.className = 'result-value ' + adequacy.cls;
+  document.getElementById('scoreBarFill').style.width = contentScore + '%';
+  document.getElementById('scoreBarFill').style.background = scoreColor(contentScore);
+  var al = document.getElementById('adequacyLevel');
+  al.textContent = adequacy.label;
+  al.className = 'result-sub ' + adequacy.cls;
+
+  /* Badge */
+  document.getElementById('reqBadgeWrap').innerHTML = '<span class="req-badge ' + filingReq.badge + '">' + filingReq.label + '</span>';
+
+  /* Narrative grid */
+  var gHTML = '';
+  ELEMENTS.forEach(function(el) {
+    var chk = document.getElementById(el.id);
+    var present = (chk && chk.checked);
+    var dotCls = el.pts === 0 ? 'nd-na' : (present ? 'nd-present' : 'nd-missing');
+    var ptsStr = el.pts === 0 ? (present ? 'noted' : 'n/a') : (present ? '+' + el.pts + ' pts' : '0 / ' + el.pts + ' pts');
+    gHTML += '<div class="narrative-item"><div class="narrative-dot ' + dotCls + '"></div><div class="narrative-name">' + el.label + '</div><div class="narrative-pts">' + ptsStr + '</div></div>';
+  });
+  document.getElementById('narrativeGrid').innerHTML = gHTML;
+
+  /* Tipping-off banners */
+  var ta = document.getElementById('tipAlert');
+  var tw = document.getElementById('tipWarn');
+  var tc = document.getElementById('tipClear');
+  ta.style.display = 'none'; tw.style.display = 'none'; tc.style.display = 'none';
+  if (tipping === 'intentional') {
+    ta.style.display = 'block';
+    ta.innerHTML = '&#128308; <strong>TIPPING-OFF RISK — CRITICAL</strong><br>An intentional disclosure of SAR existence to the subject has been indicated. This is a federal crime under 31 U.S.C. §5318(g)(2). Escalate immediately to BSA Officer, senior management, and legal counsel. Preserve all records and communications.';
+  } else if (tipping === 'inadvertent') {
+    ta.style.display = 'block';
+    ta.innerHTML = '&#9888; <strong>TIPPING-OFF RISK — HIGH</strong><br>An inadvertent disclosure has been indicated. Assess the scope of any information shared with the subject, document findings in the BSA file, and consult BSA/AML counsel. Tipping off a SAR subject is a federal crime under 31 U.S.C. §5318(g)(2) regardless of intent.';
+  } else if (tipping === 'unknown') {
+    tw.style.display = 'block';
+    tw.innerHTML = '&#9432; <strong>TIPPING-OFF STATUS UNKNOWN</strong><br>Verify whether any communications with the subject referenced or implied a SAR filing, law enforcement referral, or unusual account review. Document findings in the BSA file.';
+  } else {
+    tc.style.display = 'block';
+    tc.textContent = '✓ No tipping-off risk identified. Maintain strict SAR confidentiality going forward under 31 U.S.C. §5318(g)(2).';
+  }
+
+  /* Actions */
+  var acts = buildActions(filingReq, deadline, contentScore, tipping, priorSars, actType, txnAmount);
+  var aHTML = '';
+  acts.forEach(function(a) { aHTML += '<li class="' + a.cls + '">' + a.text + '</li>'; });
+  document.getElementById('actionsList').innerHTML = aHTML;
+
+  /* Store result */
+  _lastResult = {
+    institution_type: instType,
+    activity_type: actType,
+    transaction_amount: txnAmount,
+    transaction_count: txnCount,
+    subject_known: subjectKnown,
+    law_enforcement_notified: lawEnf,
+    activity_dates: actDates,
+    prior_sars: priorSars,
+    tipping_off: tipping,
+    threshold_amount: thresh.amount,
+    threshold_label: thresh.label,
+    filing_requirement: filingReq.status,
+    filing_requirement_label: filingReq.label,
+    filing_deadline: deadline.label,
+    filing_deadline_days: deadline.days,
+    content_score: contentScore,
+    adequacy_level: adequacy.label,
+    narrative_elements: ELEMENTS.map(function(el) {
+      var chk = document.getElementById(el.id);
+      var present = (chk && chk.checked);
+      return { element: el.key, label: el.label, present: present, points_possible: el.pts, points_earned: present ? el.pts : 0 };
+    }),
+    tipping_off_risk: (tipping === 'intentional') ? 'CRITICAL' : (tipping === 'inadvertent') ? 'HIGH' : (tipping === 'unknown') ? 'UNKNOWN' : 'NONE',
+    recommended_actions: acts.map(function(a) { return a.text.replace(/<[^>]+>/g, ''); })
+  };
+
+  document.getElementById('resultsSection').style.display = 'block';
+  btn.disabled = false;
+  btn.textContent = 'Check Again';
+  document.getElementById('ap2ExportBtn').disabled = false;
+  document.getElementById('ap2ExportBtn').classList.add('ready');
+  document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ── Exports ────────────────────────────────────────────── */
+function exportMarkdown() {
+  if (!_lastResult) { alert('Run the checker first.'); return; }
+  var r = _lastResult;
+  var ts = new Date().toISOString().slice(0, 10);
+  var md = '# BSA/SAR Filing Adequacy Report\n\n';
+  md += '**Generated:** ' + ts + '  \n**Tool:** AINumbers.co T445 — BSA/SAR Filing Adequacy Checker  \n\n';
+  md += '## Filing Profile\n\n| Field | Value |\n|---|---|\n';
+  md += '| Institution Type | ' + r.institution_type + ' |\n';
+  md += '| Activity Type | ' + r.activity_type + ' |\n';
+  md += '| Transaction Amount | $' + r.transaction_amount.toLocaleString() + ' |\n';
+  md += '| Subject Known | ' + r.subject_known + ' |\n';
+  md += '| Law Enforcement Notified | ' + r.law_enforcement_notified + ' |\n';
+  md += '| Activity Date Range | ' + r.activity_dates + ' |\n';
+  md += '| Prior SARs | ' + r.prior_sars + ' |\n';
+  md += '| Tipping-Off Status | ' + r.tipping_off + ' |\n\n';
+  md += '## Filing Determination\n\n';
+  md += '**Requirement:** ' + r.filing_requirement_label + '  \n';
+  md += '**Applicable Threshold:** ' + r.threshold_label + '  \n';
+  md += '**Filing Deadline:** ' + r.filing_deadline + '  \n';
+  md += '**Tipping-Off Risk:** ' + r.tipping_off_risk + '\n\n';
+  md += '## Content Adequacy: ' + r.content_score + '/100 — ' + r.adequacy_level + '\n\n';
+  md += '| Element | Present | Points Earned | Points Possible |\n|---|---|---|---|\n';
+  r.narrative_elements.forEach(function(el) {
+    md += '| ' + el.label + ' | ' + (el.present ? '✓' : '✗') + ' | ' + el.points_earned + ' | ' + el.points_possible + ' |\n';
+  });
+  md += '\n## Recommended Actions\n\n';
+  r.recommended_actions.forEach(function(a) { md += '- ' + a + '\n'; });
+  md += '\n---\n*Source: AINumbers.co T445 · CC BY 4.0 · Post Oak Labs · Not legal advice*\n';
+  var a = document.createElement('a');
+  a.href = 'data:text/markdown;charset=utf-8,' + encodeURIComponent(md);
+  a.download = 'sar-adequacy-' + ts + '.md';
+  a.click();
+}
+
+function exportAP2() {
+  if (!_lastResult) { alert('Run the checker first.'); return; }
+  var ts = new Date().toISOString();
+  var mandate = {
+    ap2_version: '1.0',
+    mandate_id: 'bsa-sar-filing-adequacy-checker-' + ts.replace(/[:.]/g, '-').slice(0, 19),
+    issued_at: ts,
+    issued_by: 'ainumbers.co',
+    tool_id: 'bsa-sar-filing-adequacy-checker',
+    tool_version: '1.0.0',
+    mandate_type: 'bsa_sar_filing_adequacy_assessment',
+    jurisdiction: ['US'],
+    regulatory_frameworks: ['31 U.S.C. §§5311-5336 (BSA)', '31 CFR Part 1020', 'FinCEN SAR Activity Review', '31 U.S.C. §5318(g)'],
+    payload: _lastResult,
+    summary: 'SAR Filing Adequacy — ' + _lastResult.filing_requirement_label + ' — Content Score ' + _lastResult.content_score + '/100 — ' + _lastResult.adequacy_level,
+    agent_instructions: [
+      'Confirm filing requirement determination against current 31 CFR thresholds before relying on this output.',
+      'File SAR via FinCEN BSA E-Filing System within the indicated deadline from initial detection.',
+      'Address all missing narrative elements before SAR submission to maximise law enforcement utility.',
+      'Maintain SAR confidentiality under 31 U.S.C. §5318(g)(2) at all times.',
+      'Retain SAR and supporting documentation for five years per 31 CFR §1010.430.'
+    ],
+    valid_from: ts.slice(0, 10),
+    valid_until: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().slice(0, 10),
+    last_reviewed: ts.slice(0, 10),
+    regulatory_citations: [
+      'Bank Secrecy Act (BSA), 31 U.S.C. §§5311–5336',
+      '31 CFR Part 1020 — Rules for Banks; 31 CFR Parts 1021–1025',
+      'FinCEN SAR Activity Review — Trends, Tips & Issues',
+      '31 U.S.C. §5318(g) — SAR confidentiality and anti-tipping-off'
+    ],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  var json = JSON.stringify(mandate, null, 2);
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  a.download = 'bsa-sar-adequacy_' + ts.replace(/[:.TZ]/g, '').replace(/-/g, '').slice(0, 14) + '.policy.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ── Manifest ───────────────────────────────────────────── */
+var MANIFEST = {
+  "tool_id": "bsa-sar-filing-adequacy-checker",
+  "version": "1.0.0",
+  "title": "BSA/SAR Filing Adequacy Checker",
+  "description": "Evaluates whether a Suspicious Activity Report (SAR) meets FinCEN BSA filing thresholds and content adequacy requirements under 31 CFR Part 1020. Returns filing requirement determination, deadline, narrative content score (0-100), and tipping-off risk flag.",
+  "category": "cat-29",
+  "tags": ["BSA","SAR","FinCEN","AML","suspicious activity","anti-money laundering","Bank Secrecy Act","31 CFR 1020","compliance","fintech"],
+  "audience": ["compliance","BSA officers","AML analysts","legal"],
+  "mcp_tool_definition": {
+    "name": "check_sar_filing_adequacy",
+    "description": "Evaluates SAR filing requirements and content adequacy under 31 CFR Part 1020. Returns filing requirement determination, deadline, narrative content score, and tipping-off risk assessment.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "institution_type": {"type":"string","enum":["bank","credit_union","msb","broker_dealer","insurance","casino","other"],"description":"Type of covered financial institution"},
+        "activity_type": {"type":"string","enum":["structuring","money_laundering","fraud","terrorist_financing","identity_theft","counterfeit","mortgage_fraud","embezzlement","computer_intrusion","kiting","other"],"description":"Category of suspicious activity"},
+        "transaction_amount": {"type":"number","description":"Dollar amount of suspicious transaction(s)","minimum":0},
+        "subject_known": {"type":"string","enum":["known","unknown","partial"],"description":"Whether the subject is a known customer"},
+        "law_enforcement_notified": {"type":"string","enum":["yes_prior","yes_after","no","not_required"]},
+        "activity_dates": {"type":"string","enum":["single","pattern_lt30","pattern_30_90","pattern_gt90"]},
+        "prior_sars": {"type":"string","enum":["none","one","two_five","six_plus"]},
+        "tipping_off": {"type":"string","enum":["no","inadvertent","intentional","unknown"]},
+        "narrative_elements": {"type":"array","items":{"type":"string","enum":["who","what","when","where","why","how","prior_sars","law_enforcement_contact"]},"description":"Narrative elements present in the SAR"}
+      },
+      "required": ["institution_type","activity_type","transaction_amount","subject_known","narrative_elements"]
+    }
+  },
+  "execution": {"type":"browser-javascript","entry":"tools/445-bsa-sar-filing-adequacy-checker.html","function_name":"runTool","timeout_ms":3000},
+  "ap2_export": true
+};
+
+function toggleMfst() {
+  var body = document.getElementById('mfstBody');
+  var arr  = document.getElementById('mfstArr');
+  var open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  arr.textContent = open ? '▼' : '▲';
+  if (!open) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+(function() { try { var s = sessionStorage.getItem('ain_lang'); if (s) setLang(s); } catch(e) {} })();
+</script>
+</body>
+</html>

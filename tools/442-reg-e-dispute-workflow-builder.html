@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Reg E Dispute Workflow Builder · AINumbers.co</title>
+<meta name="description" content="Generate a compliant Reg E error resolution workflow for Electronic Funds Transfer disputes. Investigation timelines, provisional credit rules, consumer notification requirements per 12 CFR Part 1005. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/442-reg-e-dispute-workflow-builder.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Reg E Dispute Workflow Builder","url":"https://ainumbers.co/tools/442-reg-e-dispute-workflow-builder.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "reg-e-dispute-workflow-builder",
+  "version": "1.0.0",
+  "title": "Reg E Dispute Workflow Builder",
+  "description": "Generates a compliant Reg E error resolution workflow for Electronic Funds Transfer disputes. Produces required investigation timelines, provisional credit rules, consumer notification requirements, and investigation steps per 12 CFR Part 1005.",
+  "category": "cat-29",
+  "tags": ["Reg E","EFTA","dispute","error resolution","provisional credit","EFT","CFPB","consumer banking","ACH"],
+  "audience": ["compliance","operations","consumer banking","fintech","dispute resolution"],
+  "input_schema": {"type":"object","properties":{"account_type":{"type":"string"},"transfer_type":{"type":"string"},"dispute_type":{"type":"string"},"transaction_amount":{"type":"number"},"days_since_transaction":{"type":"integer"},"device_used":{"type":"string"},"written_statement":{"type":"string"},"fi_assets":{"type":"string"}},"required":["account_type","transfer_type","dispute_type","transaction_amount","days_since_transaction"]},
+  "output_schema": {"type":"object","properties":{"investigation_deadline_days":{"type":"integer"},"provisional_credit_required":{"type":"boolean"},"provisional_credit_deadline_days":{"type":"integer"},"consumer_liability":{"type":"number"},"notification_deadline_days":{"type":"integer"},"workflow_steps":{"type":"array"},"special_notes":{"type":"array"}}},
+  "mcp_tool_definition": {"name":"build_reg_e_workflow","description":"Generates a compliant Reg E error resolution workflow including investigation timelines, provisional credit requirements, consumer liability determination, and notification deadlines per 12 CFR Part 1005.","inputSchema":{"type":"object","properties":{"account_type":{"type":"string","enum":["consumer_checking","consumer_savings","prepaid","payroll_card"]},"transfer_type":{"type":"string","enum":["atm_withdrawal","pos_debit","ach_transfer","telephone_initiated","preauthorized_recurring","online_banking"]},"dispute_type":{"type":"string","enum":["unauthorized_transfer","incorrect_amount","missing_transfer","wrong_account","failure_to_stop"]},"transaction_amount":{"type":"number"},"days_since_transaction":{"type":"integer"},"device_used":{"type":"string","enum":["yes","no","unknown"]},"written_statement":{"type":"string","enum":["yes","no","in_progress"]},"fi_assets":{"type":"string","enum":["under_1b","1b_to_10b","over_10b"]}},"required":["account_type","transfer_type","dispute_type","transaction_amount","days_since_transaction"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/442-reg-e-dispute-workflow-builder.html","function_name":"runTool","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--green-lt:#4ADE80;--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.008) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.008) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.pii-notice{background:rgba(20,184,166,.07);border:1px solid rgba(20,184,166,.25);border-left:3px solid var(--teal);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.panel-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:.75rem}
+.field-group{display:flex;flex-direction:column;gap:.3rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+select,input[type=number],input[type=text]{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.35rem .5rem;border-radius:3px;outline:none;width:100%;transition:border-color .2s;-webkit-appearance:none}
+select:focus,input:focus{border-color:var(--teal)}
+option{background:var(--bg-3);color:var(--bright)}
+.run-btn{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;padding:.7rem 2rem;background:var(--teal);color:var(--bg);border:none;border-radius:var(--radius);cursor:pointer;font-weight:600;transition:opacity .2s;margin-top:1rem}
+.run-btn:hover{opacity:.85}.run-btn:disabled{opacity:.5;cursor:not-allowed}
+/* Results */
+.results-section{margin-top:2rem}
+.result-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1rem;margin-bottom:1.5rem}
+.result-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem}
+.result-card.card-alert{border-color:rgba(245,158,11,.3)}
+.result-card.card-ok{border-color:rgba(34,197,94,.3)}
+.result-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.result-value{font-family:'DM Serif Display',serif;font-size:1.8rem;line-height:1.1;color:var(--white)}
+.result-sub{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--body);margin-top:.25rem}
+.section-heading{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.15em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+/* Timeline table */
+.timeline-table{width:100%;border-collapse:collapse;font-size:.7rem;margin-bottom:1.5rem}
+.timeline-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;background:var(--bg-3)}
+.timeline-table td{padding:.55rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top;line-height:1.5}
+.timeline-table tr:last-child td{border-bottom:none}
+.timeline-table tr:hover td{background:rgba(20,184,166,.03)}
+.step-num{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--teal);font-weight:600;white-space:nowrap}
+.deadline-cell{font-family:'JetBrains Mono',monospace;font-size:.6rem;white-space:nowrap}
+.deadline-urgent{color:var(--red)}.deadline-warn{color:var(--warn)}.deadline-ok{color:var(--teal)}
+/* Notices checklist */
+.notices-list{list-style:none;display:flex;flex-direction:column;gap:.4rem;margin-bottom:1.5rem}
+.notices-list li{display:flex;align-items:flex-start;gap:.6rem;font-size:.72rem;color:var(--text);padding:.4rem .7rem;background:var(--bg-3);border-radius:4px;line-height:1.5}
+.notice-check{color:var(--teal);flex-shrink:0;font-size:.9rem}
+/* Special notes */
+.special-note{background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;color:var(--body);margin-bottom:.6rem;line-height:1.5}
+.special-note strong{color:var(--teal-lt)}
+/* Liability box */
+.liability-box{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.25rem;margin-bottom:1.5rem}
+.liability-row{display:flex;justify-content:space-between;align-items:center;padding:.3rem 0;border-bottom:1px solid var(--border);font-size:.72rem}
+.liability-row:last-child{border-bottom:none}
+.liability-key{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.05em}
+.liability-val{color:var(--bright);font-family:'DM Serif Display',serif;font-size:1.1rem}
+.liability-val.warn{color:var(--warn)}.liability-val.red{color:var(--red)}.liability-val.green{color:var(--green)}
+.results-export-row{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border)}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;padding:.5rem 1.1rem;border:1px solid var(--border);color:var(--body);background:var(--bg-2);border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-export:hover{border-color:var(--teal);color:var(--teal)}
+#ap2ExportBtn{opacity:.28;cursor:not-allowed}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--teal)}
+.source-notes{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.25rem;margin-top:2rem;font-size:.72rem;color:var(--body);line-height:1.7}
+.source-notes ol{padding-left:1.2rem}
+.source-notes li{margin-bottom:.35rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);color:var(--body);padding:.65rem 1rem;text-align:left;display:flex;justify-content:space-between;align-items:center;font-size:.72rem;border-radius:var(--radius);cursor:pointer;margin-top:1rem}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text);white-space:pre;line-height:1.6}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+@media(max-width:700px){.panel-row{grid-template-columns:1fr}.result-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">&#20013;&#25991;</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a>
+    <span class="nav-bc-sep">/</span>
+    <a href="../index.html#cat-29">US Banking Hub</a>
+    <span class="nav-bc-sep">/</span>
+    <span>T-442</span>
+  </div>
+  <div class="nav-right"><a href="../index.html#cat-29" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">US ELECTRONIC FUNDS TRANSFER &middot; T442</div>
+  <div class="hero-meta">
+    <span class="hero-badge badge-muted">v1.0</span>
+    <span class="hero-badge badge-teal">Reg E</span>
+    <span class="hero-badge badge-green">Zero PII</span>
+    <span class="hero-badge badge-gold">12 CFR Part 1005</span>
+  </div>
+  <h1 class="tool-title">Reg E Dispute <em>Workflow Builder</em></h1>
+  <p class="hero-desc" data-i18n="hero.desc">Generate a compliant Reg E error resolution workflow for Electronic Funds Transfer disputes. Produces required investigation timelines, provisional credit rules, consumer notification requirements, and investigation steps per 12 CFR Part 1005.</p>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted or stored. Use anonymised or synthetic inputs only. This tool generates reference workflows — verify against current regulation text and consult legal counsel before deploying in production dispute operations.</div>
+
+  <div class="scope-note"><strong style="color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash;</strong> Timelines are calculated in business days per 12 CFR Part 1005 and CFPB Official Interpretations (Supplement I). &ldquo;Business days&rdquo; for most Reg E purposes excludes Sundays and federal public holidays (but not Saturdays). The provisional credit and extended investigation rules for new accounts (opened within 30 days) and foreign-initiated or POS transactions apply automatically where indicated. Always apply institution-specific procedures and state law overlays.</div>
+
+  <!-- PANEL 1: Transaction details -->
+  <div class="panel">
+    <div class="panel-label">Transaction &amp; Account Details</div>
+    <div class="panel-row">
+      <div class="field-group">
+        <label class="field-label" for="accountType">Account Type</label>
+        <select id="accountType">
+          <option value="consumer_checking">Consumer Checking</option>
+          <option value="consumer_savings">Consumer Savings</option>
+          <option value="prepaid">Prepaid Account</option>
+          <option value="payroll_card">Payroll Card</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="transferType">Transfer Type</label>
+        <select id="transferType">
+          <option value="atm_withdrawal">ATM Withdrawal</option>
+          <option value="pos_debit">POS Debit</option>
+          <option value="ach_transfer">ACH Transfer</option>
+          <option value="telephone_initiated">Telephone-Initiated Transfer</option>
+          <option value="preauthorized_recurring">Preauthorized Recurring Transfer</option>
+          <option value="online_banking">Online Banking Transfer</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="disputeType">Dispute / Error Type</label>
+        <select id="disputeType">
+          <option value="unauthorized_transfer">Unauthorized Transfer</option>
+          <option value="incorrect_amount">Incorrect Amount Transferred</option>
+          <option value="missing_transfer">Missing / Omitted Transfer</option>
+          <option value="wrong_account">Transfer to Wrong Account</option>
+          <option value="failure_to_stop">Failure to Stop Preauthorized Transfer</option>
+        </select>
+      </div>
+    </div>
+    <div class="panel-row">
+      <div class="field-group">
+        <label class="field-label" for="txnAmount">Transaction Amount ($)</label>
+        <input type="number" id="txnAmount" value="250" min="0.01" step="0.01" placeholder="250.00">
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="daysSinceTxn">Days Since Transaction</label>
+        <input type="number" id="daysSinceTxn" value="15" min="0" max="730" placeholder="15">
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="fiAssets">Financial Institution Assets</label>
+        <select id="fiAssets">
+          <option value="under_1b">Under $1 Billion</option>
+          <option value="1b_to_10b">$1B &ndash; $10B</option>
+          <option value="over_10b">Over $10 Billion</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL 2: Investigation context -->
+  <div class="panel">
+    <div class="panel-label">Investigation Context</div>
+    <div class="panel-row">
+      <div class="field-group">
+        <label class="field-label" for="deviceUsed">Access Device (card/PIN) Used in Transaction?</label>
+        <select id="deviceUsed">
+          <option value="yes">Yes &mdash; device was used</option>
+          <option value="no">No &mdash; no device involved</option>
+          <option value="unknown">Unknown</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="writtenStatement">Consumer Written Statement Available?</label>
+        <select id="writtenStatement">
+          <option value="yes">Yes &mdash; received</option>
+          <option value="no">No &mdash; not yet provided</option>
+          <option value="in_progress">In Progress / Pending</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="accountAge">Account Opened Within Last 30 Days?</label>
+        <select id="accountAge">
+          <option value="no">No &mdash; established account</option>
+          <option value="yes">Yes &mdash; new account (&le;30 days)</option>
+        </select>
+      </div>
+    </div>
+    <p style="font-size:.68rem;color:var(--muted);margin-top:.5rem;line-height:1.5">Note: &ldquo;Business days&rdquo; for purposes of the 10-day investigation limit and all Reg E timelines excludes Sundays and federal public holidays per 12 CFR 1005.11(c). For the consumer notice of account terms (§1005.7), business days includes all calendar days except Sundays and legal public holidays.</p>
+  </div>
+
+  <button class="run-btn" id="runBtn" onclick="runTool()">&#9654; Build Dispute Workflow</button>
+
+  <!-- RESULTS -->
+  <div id="resultsSection" style="display:none" class="results-section">
+
+    <div class="result-grid" id="summaryCards"></div>
+
+    <div class="section-heading">Consumer Liability Determination</div>
+    <div class="liability-box" id="liabilityBox"></div>
+
+    <div class="section-heading">Step-by-Step Investigation Workflow</div>
+    <div style="overflow-x:auto">
+      <table class="timeline-table">
+        <thead><tr>
+          <th>Step</th>
+          <th>Action Required</th>
+          <th>Responsible Party</th>
+          <th>Deadline (Business Days from Report)</th>
+          <th>Reg E Citation</th>
+        </tr></thead>
+        <tbody id="workflowBody"></tbody>
+      </table>
+    </div>
+
+    <div class="section-heading">Required Consumer Notices</div>
+    <ul class="notices-list" id="noticesList"></ul>
+
+    <div class="section-heading" id="specialNotesHeading" style="display:none">Special Handling Notes</div>
+    <div id="specialNotesList"></div>
+
+    <div class="results-export-row">
+      <button class="btn-export" onclick="exportMarkdown()">&#8659; Markdown Workflow</button>
+      <button class="btn-export" id="ap2ExportBtn" onclick="exportAP2()" disabled>&#123;&#125; Export Policy Mandate <span style="font-size:.85em;color:var(--muted)">API &middot; audit trail</span></button>
+    </div>
+  </div>
+
+  <!-- SOURCE NOTES -->
+  <div class="source-notes">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem">Regulatory Citations</div>
+    <ol>
+      <li>Electronic Fund Transfer Act (EFTA), 15 U.S.C. &sect; 1693 et seq. &mdash; foundational statutory authority for consumer electronic funds transfer rights and error resolution.</li>
+      <li>Regulation E, 12 CFR Part 1005 &mdash; CFPB implementing regulation; specifically &sect;1005.11 (error resolution procedures), &sect;1005.6 (liability of consumer), and &sect;1005.7 (initial disclosures).</li>
+      <li>CFPB Official Interpretations to 12 CFR Part 1005, Supplement I &mdash; authoritative commentary on provisional credit requirements, investigation timelines, new account extensions, and consumer liability rules.</li>
+      <li>CFPB Prepaid Accounts Rule, 12 CFR Part 1005.18 &mdash; extended full Reg E error resolution protections to prepaid accounts (effective April 1, 2019); payroll cards covered under &sect;1005.18(e).</li>
+      <li>NACHA Operating Rules &mdash; ACH network error resolution procedures, return codes (R05, R07, R10, R29), and ODFI/RDFI obligations in parallel with Reg E requirements.</li>
+    </ol>
+  </div>
+
+</div></div>
+
+<section id="mfstSec" style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span><span id="mfstArr">&#9660;</span></button>
+      <div class="mfst-body" id="mfstBody"><pre class="mfst-code" id="mfstCode"></pre></div>
+    </div>
+  </div>
+</section>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html">All Tools</a>
+    <a href="../index.html#cat-29">US Banking Hub</a>
+    <a href="../sitemap.html">Sitemap</a>
+    <a href="../contact.html">Contact</a>
+  </div>
+  <div class="footer-badge-ai">
+    <span>CC BY 4.0 &middot; Post Oak Labs</span>
+    <span>&#128274; Zero PII &nbsp;&#128225; No server calls &nbsp;&#128187; Client-side</span>
+  </div>
+</div></div></footer>
+
+<script>
+var LANGS = {
+  en:{title:'Reg E Dispute Workflow Builder',run:'Build Dispute Workflow',checking:'Building...',again:'Rebuild Workflow','hero.desc':'Generate a compliant Reg E error resolution workflow for EFT disputes per 12 CFR Part 1005.'},
+  es:{title:'Constructor de Flujo de Disputas Reg E',run:'Construir Flujo de Disputas',checking:'Construyendo...',again:'Reconstruir Flujo','hero.desc':'Genere un flujo de resolución de errores Reg E para disputas de transferencias electrónicas.'},
+  fr:{title:'Constructeur de Workflow Reg E',run:'Construire le Workflow',checking:'Construction...',again:'Reconstruire le Workflow','hero.desc':'Générez un workflow conforme Reg E pour la résolution des erreurs EFT selon 12 CFR Part 1005.'},
+  ar:{title:'منشئ سير عمل نزاعات Reg E',run:'إنشاء سير عمل النزاعات',checking:'جارٍ الإنشاء...',again:'إعادة الإنشاء','hero.desc':'أنشئ سير عمل متوافق لحل أخطاء التحويل الإلكتروني وفق 12 CFR Part 1005.'},
+  pt:{title:'Construtor de Workflow Reg E',run:'Construir Workflow de Disputas',checking:'Construindo...',again:'Reconstruir Workflow','hero.desc':'Gere um workflow Reg E conforme para resolução de erros em disputas EFT por 12 CFR Part 1005.'},
+  zh:{title:'Reg E 争议流程构建器',run:'构建争议流程',checking:'构建中...',again:'重建流程','hero.desc':'根据 12 CFR Part 1005 生成合规的 Reg E 差错解决工作流程。'}
+};
+var currentLang = 'en';
+
+function setLang(l) {
+  if (!LANGS[l]) return;
+  currentLang = l;
+  try { sessionStorage.setItem('ain_lang', l); } catch(e) {}
+  document.querySelectorAll('.lang-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.lang === l); });
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var k = el.dataset.i18n;
+    if (LANGS[l][k]) el.textContent = LANGS[l][k];
+  });
+  document.documentElement.lang = l;
+  document.documentElement.dir = (l === 'ar') ? 'rtl' : 'ltr';
+}
+(function(){ try { var s = sessionStorage.getItem('ain_lang'); if (s) setLang(s); } catch(e){} })();
+
+/* ── Reg E logic ────────────────────────────────────────── */
+
+function fmtDol(n) {
+  if (n === Infinity || n === null) return 'Unlimited';
+  return '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function calcLiability(days, amount, deviceUsed, disputeType) {
+  /* §1005.6 — liability rules (days = days from discovery to report) */
+  /* For simplicity the tool treats days_since_transaction as proxy for report timing */
+  /* In practice FI must assess when consumer KNEW of the transaction */
+  var maxLiability;
+  var liabilityRule;
+  var note = '';
+
+  if (disputeType === 'failure_to_stop') {
+    /* Failure to stop preauthorized: liability = full amount if stop payment order not given timely */
+    return {
+      max: amount,
+      rule: 'Failure to stop preauthorized transfer — consumer may be liable for full amount if stop payment order was not provided at least 3 business days before scheduled transfer (§1005.10(c))',
+      color: 'warn',
+      note: 'Verify whether consumer provided timely stop payment order. FI that fails to stop after receiving timely order is liable for the consumer\'s losses (§1005.10(c)).'
+    };
+  }
+
+  if (days <= 2) {
+    maxLiability = Math.min(50, amount);
+    liabilityRule = 'Reported within 2 business days of learning of loss — maximum consumer liability $50 (§1005.6(b)(1))';
+    note = 'Prompt reporting. Consumer receives maximum protection.';
+  } else if (days <= 60) {
+    /* Device used determines tier */
+    if (deviceUsed === 'yes') {
+      maxLiability = Math.min(500, amount);
+      liabilityRule = 'Reported 3–60 days after learning of loss with device involved — maximum consumer liability $500 (§1005.6(b)(2))';
+    } else {
+      maxLiability = Math.min(50, amount);
+      liabilityRule = 'Reported 3–60 days after learning of loss, no device involved — maximum consumer liability $50 (§1005.6(b)(1) applies; device requirement not met)';
+    }
+    note = 'Verify exact report date and discovery date for precise liability calculation.';
+  } else {
+    maxLiability = amount; /* unlimited */
+    liabilityRule = 'Reported more than 60 days after statement sent — consumer may bear unlimited liability for transfers occurring after 60-day period (§1005.6(b)(3))';
+    note = 'Exception: consumer not liable for unauthorized transfers occurring before the loss was reasonably discoverable. Apply extenuating circumstances analysis.';
+  }
+
+  var color = maxLiability === 0 ? 'green' : maxLiability <= 50 ? 'green' : maxLiability <= 500 ? 'warn' : 'red';
+  return {max: maxLiability, rule: liabilityRule, color: color, note: note};
+}
+
+function calcTimelines(transferType, accountAge, txnAmount) {
+  /*
+    §1005.11(c)(1) — Standard: FI must complete investigation within 10 business days
+    §1005.11(c)(2) — Extended: 45 business days (90 for new accounts, POS, or foreign)
+      but must provide provisional credit within 10 business days if extension taken
+    New account = opened within 30 days per Official Interpretations
+    POS debit = 90 days extended period applies
+    Foreign-initiated = 90 days extended period applies
+  */
+  var standardDays = 10;
+  var isNewAccount = document.getElementById('accountAge').value === 'yes';
+  var isPOS = (transferType === 'pos_debit');
+  var isATM = (transferType === 'atm_withdrawal');
+  var provisionalCreditDays = 10; /* must provide within 10 biz days of receiving notice if extension taken */
+  var provisionalCreditNewAcct = 20; /* new accounts: 20 business days for provisional credit */
+  var extendedDays = 45;
+  var notificationDays = 3; /* must notify within 3 business days of completing investigation */
+
+  /* New accounts AND POS both trigger 90-day limit; new accounts alone or POS alone also 90 */
+  if (isNewAccount || isPOS) {
+    extendedDays = 90;
+    if (isNewAccount) provisionalCreditDays = 20;
+  }
+
+  var provisionalRequired = txnAmount > 50;
+  /* Official Interpretation: provisional credit not required for amounts ≤ $50 */
+  /* Actually §1005.11(c)(2)(ii) — must provide provisional credit if investigation extended beyond 10 biz days */
+  /* Amount threshold for provisional credit: none specified in EFTA; $50 threshold is for liability, not provisional credit */
+  /* We conservatively note it's required when extension taken */
+
+  return {
+    standardDays: standardDays,
+    extendedDays: extendedDays,
+    provisionalCreditDays: provisionalCreditDays,
+    provisionalRequired: true, /* always required when extension taken */
+    notificationDays: notificationDays,
+    isNewAccount: isNewAccount,
+    isPOS: isPOS
+  };
+}
+
+function buildWorkflowSteps(tl, disputeType, txnAmount, writtenStatement, liab) {
+  var steps = [];
+  steps.push({
+    step: '1',
+    action: 'Receive and log consumer dispute report. Capture: date received, consumer identity verification, description of error, amount disputed. Acknowledge receipt if written report received.',
+    party: 'FI — Customer Service / Disputes Ops',
+    deadline: 'Day 0 (date of report)',
+    deadlineCls: 'deadline-ok',
+    citation: '§1005.11(b)(1)'
+  });
+
+  if (disputeType === 'unauthorized_transfer') {
+    steps.push({
+      step: '2',
+      action: 'Obtain consumer\'s written statement of unauthorized transfer if not already provided. Statement must include: consumer\'s name and account number, belief that transfer was unauthorized, and (if known) amount and date.',
+      party: 'FI — Disputes Ops / Consumer',
+      deadline: 'Request promptly; do not delay provisional credit or investigation pending receipt',
+      deadlineCls: 'deadline-warn',
+      citation: '§1005.11(b)(2); Official Interp ¶11(b)(2)-1'
+    });
+  }
+
+  steps.push({
+    step: String(steps.length + 1),
+    action: 'Begin investigation. Review transaction records, authorization logs, access device usage, IP address / location data, and consumer account history. Document all evidence gathered.',
+    party: 'FI — Fraud / Disputes Investigation Team',
+    deadline: 'Day 1 (same business day or next)',
+    deadlineCls: 'deadline-ok',
+    citation: '§1005.11(c)(1)'
+  });
+
+  steps.push({
+    step: String(steps.length + 1),
+    action: 'Decision point: Can investigation be completed within ' + tl.standardDays + ' business days? If YES — complete and notify consumer within 3 business days. If NO — issue provisional credit and proceed with extended investigation.',
+    party: 'FI — Disputes Supervisor',
+    deadline: 'By Day ' + tl.standardDays,
+    deadlineCls: 'deadline-warn',
+    citation: '§1005.11(c)(1)–(c)(2)'
+  });
+
+  steps.push({
+    step: String(steps.length + 1),
+    action: 'If extending investigation: Issue provisional credit to consumer\'s account. Amount must equal the disputed amount. Provide written notice of provisional credit and consumer\'s right to use funds immediately.',
+    party: 'FI — Disputes Ops / Accounting',
+    deadline: 'By Day ' + tl.provisionalCreditDays + ' (business days from report)',
+    deadlineCls: 'deadline-warn',
+    citation: '§1005.11(c)(2)(ii); Official Interp ¶11(c)(2)(ii)-1'
+  });
+
+  steps.push({
+    step: String(steps.length + 1),
+    action: 'Continue extended investigation. Review network records (Visa/MC/NACHA dispute data), merchant records, law enforcement reports if applicable, and any additional consumer-provided documentation.',
+    party: 'FI — Fraud / Disputes Investigation Team',
+    deadline: 'Ongoing through Day ' + tl.extendedDays,
+    deadlineCls: 'deadline-ok',
+    citation: '§1005.11(c)(2)(i)'
+  });
+
+  steps.push({
+    step: String(steps.length + 1),
+    action: 'Complete investigation. Determine whether error occurred as claimed. Document findings and basis for determination with specificity.',
+    party: 'FI — Disputes Supervisor / Compliance',
+    deadline: 'By Day ' + tl.extendedDays + ' (business days from report)',
+    deadlineCls: 'deadline-urgent',
+    citation: '§1005.11(c)(1)–(c)(2)'
+  });
+
+  steps.push({
+    step: String(steps.length + 1),
+    action: 'If error confirmed: Correct the error within 1 business day. Ensure provisional credit becomes permanent (or issue new credit). Notify consumer within 3 business days of completing investigation.',
+    party: 'FI — Disputes Ops / Accounting',
+    deadline: 'Correction within 1 biz day of determination; notice within ' + tl.notificationDays + ' biz days',
+    deadlineCls: 'deadline-ok',
+    citation: '§1005.11(c)(1); §1005.11(d)(1)'
+  });
+
+  steps.push({
+    step: String(steps.length + 1),
+    action: 'If no error found: Notify consumer within 3 business days. Notify consumer of right to request documentation used in investigation. If provisional credit was issued, notify of intent to reverse within 5 business days to allow consumer to provide written statement.',
+    party: 'FI — Disputes Ops / Compliance',
+    deadline: 'Notice within ' + tl.notificationDays + ' biz days of determination; 5 biz day window before reversal',
+    deadlineCls: 'deadline-warn',
+    citation: '§1005.11(d)(2); Official Interp ¶11(d)(2)-1'
+  });
+
+  steps.push({
+    step: String(steps.length + 1),
+    action: 'Document complete investigation file. Retain records for not less than 2 years. Include: initial report, all evidence gathered, investigation timeline log, determination letter, and any consumer correspondence.',
+    party: 'FI — Compliance / Records Management',
+    deadline: 'Retain 2 years from date of dispute',
+    deadlineCls: 'deadline-ok',
+    citation: '§1005.13(b); EFTA §915'
+  });
+
+  return steps;
+}
+
+function buildNotices(tl, disputeType, txnAmount) {
+  var notices = [];
+  notices.push('Acknowledgment of Dispute — optional but strongly recommended; confirm receipt, reference number, and next steps within 1 business day of receiving oral or written notice (§1005.11(b)).');
+  notices.push('Provisional Credit Notice (if extension taken) — must state amount credited, that credit is provisional, and consumer\'s right to use the funds immediately. Required by Day ' + tl.provisionalCreditDays + ' (§1005.11(c)(2)(ii)).');
+  notices.push('Investigation Completion Notice — required within 3 business days of completing investigation, regardless of outcome. Must include: determination, correction made (if any), or explanation of why no error found (§1005.11(d)).');
+  if (disputeType === 'unauthorized_transfer') {
+    notices.push('Written Statement Request (if needed) — request consumer\'s written statement for unauthorized transfer claims; cannot require as precondition to provisional credit or commencement of investigation (Official Interp ¶11(b)(2)-3).');
+  }
+  notices.push('No-Error Determination Notice — if no error found: must advise consumer of right to request copies of documents relied upon in investigation; provide within a reasonable time if requested (§1005.11(d)(2)).');
+  notices.push('Provisional Credit Reversal Notice (if applicable) — before reversing provisional credit after no-error determination, provide 5 business day notice to allow consumer to submit written statement; notify consumer of right to have account recredited (§1005.11(d)(2)(ii)).');
+  return notices;
+}
+
+function buildSpecialNotes(tl, transferType, disputeType, accountType) {
+  var notes = [];
+  if (tl.isNewAccount) {
+    notes.push({title:'New Account Extension', text:'Account was opened within 30 days. Under Official Interpretations ¶11(c)(2)(i)-4, the provisional credit deadline extends to 20 business days (instead of 10). The investigation period extends to 90 business days for new accounts where a POS or foreign transaction is involved.'});
+  }
+  if (tl.isPOS) {
+    notes.push({title:'POS Transaction — 90-Day Extended Investigation', text:'Point-of-sale debit transactions trigger the 90-day (rather than 45-day) extended investigation period under §1005.11(c)(2)(i)(A). Provisional credit remains required within 10 business days (or 20 for new accounts).'});
+  }
+  if (accountType === 'prepaid' || accountType === 'payroll_card') {
+    notes.push({title:'Prepaid / Payroll Card — 12 CFR §1005.18', text:'Prepaid accounts (including payroll cards) are subject to full Reg E error resolution protections under 12 CFR §1005.18(e), effective April 1, 2019. Error resolution procedures, provisional credit, and consumer liability rules all apply on the same terms as deposit accounts.'});
+  }
+  if (transferType === 'ach_transfer') {
+    notes.push({title:'ACH Transfer — NACHA Parallel Requirements', text:'ACH disputes are subject to both Reg E error resolution timelines and NACHA Operating Rules. For unauthorized consumer ACH debits, NACHA return window (R05, R07, R10, R29) provides additional remedies; however, Reg E statutory rights cannot be waived by network rules. Verify applicable NACHA return code and deadline.'});
+  }
+  if (transferType === 'preauthorized_recurring') {
+    notes.push({title:'Preauthorized Transfers — Stop Payment Rights', text:'For preauthorized recurring transfers, consumers have the right to stop payment by oral or written order at least 3 business days before the scheduled transfer date (§1005.10(c)). If the FI fails to stop a transfer after timely notice, the FI is liable for all damages resulting from the failure.'});
+  }
+  return notes;
+}
+
+/* ── Main runTool ───────────────────────────────────────── */
+var _lastResult = null;
+
+function runTool() {
+  var btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.textContent = 'Building...';
+
+  var accountType = document.getElementById('accountType').value;
+  var transferType = document.getElementById('transferType').value;
+  var disputeType = document.getElementById('disputeType').value;
+  var txnAmount = parseFloat(document.getElementById('txnAmount').value) || 0;
+  var daysSince = parseInt(document.getElementById('daysSinceTxn').value) || 0;
+  var deviceUsed = document.getElementById('deviceUsed').value;
+  var writtenStatement = document.getElementById('writtenStatement').value;
+
+  var tl = calcTimelines(transferType, document.getElementById('accountAge').value, txnAmount);
+  var liab = calcLiability(daysSince, txnAmount, deviceUsed, disputeType);
+  var steps = buildWorkflowSteps(tl, disputeType, txnAmount, writtenStatement, liab);
+  var notices = buildNotices(tl, disputeType, txnAmount);
+  var specialNotes = buildSpecialNotes(tl, transferType, disputeType, accountType);
+
+  /* Summary cards */
+  var cards = [
+    {label:'Standard Inv. Deadline', value: tl.standardDays + ' biz days', sub:'10 business days from report', alertCls:''},
+    {label:'Extended Inv. Deadline', value: tl.extendedDays + ' biz days', sub:'With provisional credit issued', alertCls:''},
+    {label:'Provisional Credit Deadline', value: tl.provisionalCreditDays + ' biz days', sub:'If investigation extended beyond 10 days', alertCls:'card-alert'},
+    {label:'Consumer Notice Deadline', value: tl.notificationDays + ' biz days', sub:'After completing investigation', alertCls:''},
+    {label:'Consumer Max Liability', value: fmtDol(liab.max), sub: daysSince <= 2 ? 'Reported within 2 days' : daysSince <= 60 ? 'Reported within 60 days' : 'Reported after 60 days', alertCls: liab.max >= txnAmount && txnAmount > 0 ? 'card-alert' : 'card-ok'},
+    {label:'Transaction Amount', value: fmtDol(txnAmount), sub: transferType.replace(/_/g,' '), alertCls:''}
+  ];
+
+  var cardsHTML = '';
+  cards.forEach(function(c) {
+    cardsHTML += '<div class="result-card ' + c.alertCls + '">' +
+      '<div class="result-label">' + c.label + '</div>' +
+      '<div class="result-value">' + c.value + '</div>' +
+      '<div class="result-sub">' + c.sub + '</div>' +
+      '</div>';
+  });
+  document.getElementById('summaryCards').innerHTML = cardsHTML;
+
+  /* Liability box */
+  var liabHTML = '<div class="liability-row"><span class="liability-key">Maximum Consumer Liability</span><span class="liability-val ' + liab.color + '">' + fmtDol(liab.max) + '</span></div>';
+  liabHTML += '<div class="liability-row" style="font-size:.7rem;color:var(--body);padding:.5rem 0;border-bottom:1px solid var(--border)">' + liab.rule + '</div>';
+  if (liab.note) liabHTML += '<div class="liability-row" style="font-size:.68rem;color:var(--muted);padding:.5rem 0;border-bottom:none;font-style:italic">' + liab.note + '</div>';
+  document.getElementById('liabilityBox').innerHTML = liabHTML;
+
+  /* Workflow steps */
+  var stepsHTML = '';
+  steps.forEach(function(s) {
+    stepsHTML += '<tr>' +
+      '<td><span class="step-num">Step ' + s.step + '</span></td>' +
+      '<td>' + s.action + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.6rem;color:var(--body);white-space:nowrap">' + s.party + '</td>' +
+      '<td class="deadline-cell ' + s.deadlineCls + '">' + s.deadline + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.6rem;color:var(--muted);white-space:nowrap">' + s.citation + '</td>' +
+      '</tr>';
+  });
+  document.getElementById('workflowBody').innerHTML = stepsHTML;
+
+  /* Notices */
+  var noticesHTML = '';
+  notices.forEach(function(n) {
+    noticesHTML += '<li><span class="notice-check">&#10003;</span>' + n + '</li>';
+  });
+  document.getElementById('noticesList').innerHTML = noticesHTML;
+
+  /* Special notes */
+  if (specialNotes.length > 0) {
+    document.getElementById('specialNotesHeading').style.display = '';
+    var notesHTML = '';
+    specialNotes.forEach(function(sn) {
+      notesHTML += '<div class="special-note"><strong>' + sn.title + '</strong><br>' + sn.text + '</div>';
+    });
+    document.getElementById('specialNotesList').innerHTML = notesHTML;
+  } else {
+    document.getElementById('specialNotesHeading').style.display = 'none';
+    document.getElementById('specialNotesList').innerHTML = '';
+  }
+
+  _lastResult = {
+    account_type: accountType,
+    transfer_type: transferType,
+    dispute_type: disputeType,
+    transaction_amount: txnAmount,
+    days_since_transaction: daysSince,
+    device_used: deviceUsed,
+    written_statement: writtenStatement,
+    timelines: tl,
+    consumer_liability: liab,
+    workflow_steps: steps,
+    notices: notices,
+    special_notes: specialNotes
+  };
+
+  document.getElementById('resultsSection').style.display = 'block';
+  btn.disabled = false;
+  btn.textContent = 'Rebuild Workflow';
+  enableAP2Btn();
+  document.getElementById('resultsSection').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function enableAP2Btn() {
+  var btn = document.getElementById('ap2ExportBtn');
+  if (btn) { btn.disabled = false; btn.classList.add('ready'); btn.title = 'For API integration · audit trail'; }
+}
+
+/* ── Exports ────────────────────────────────────────────── */
+function exportMarkdown() {
+  if (!_lastResult) { alert('Build the workflow first.'); return; }
+  var r = _lastResult;
+  var ts = new Date().toISOString().slice(0,10);
+  var md = '# Reg E Dispute Workflow\n\n';
+  md += '**Generated:** ' + ts + '  \n**Tool:** AINumbers.co T442 — Reg E Dispute Workflow Builder  \n\n';
+  md += '## Dispute Parameters\n\n';
+  md += '| Parameter | Value |\n|---|---|\n';
+  md += '| Account Type | ' + r.account_type.replace(/_/g,' ') + ' |\n';
+  md += '| Transfer Type | ' + r.transfer_type.replace(/_/g,' ') + ' |\n';
+  md += '| Dispute Type | ' + r.dispute_type.replace(/_/g,' ') + ' |\n';
+  md += '| Transaction Amount | $' + r.transaction_amount.toFixed(2) + ' |\n';
+  md += '| Days Since Transaction | ' + r.days_since_transaction + ' |\n\n';
+  md += '## Key Timelines\n\n';
+  md += '| Milestone | Deadline |\n|---|---|\n';
+  md += '| Standard Investigation | ' + r.timelines.standardDays + ' business days |\n';
+  md += '| Extended Investigation | ' + r.timelines.extendedDays + ' business days |\n';
+  md += '| Provisional Credit (if extended) | ' + r.timelines.provisionalCreditDays + ' business days |\n';
+  md += '| Consumer Notification | 3 business days after determination |\n\n';
+  md += '## Consumer Liability\n\n';
+  md += r.consumer_liability.rule + '\n\n**Maximum liability: ' + fmtDol(r.consumer_liability.max) + '**\n\n';
+  if (r.consumer_liability.note) md += '*' + r.consumer_liability.note + '*\n\n';
+  md += '## Workflow Steps\n\n';
+  r.workflow_steps.forEach(function(s){
+    md += '### Step ' + s.step + '\n\n**' + s.action + '**  \nResponsible: ' + s.party + '  \nDeadline: ' + s.deadline + '  \nCitation: ' + s.citation + '\n\n';
+  });
+  md += '## Required Consumer Notices\n\n';
+  r.notices.forEach(function(n){ md += '- ' + n + '\n'; });
+  if (r.special_notes.length > 0) {
+    md += '\n## Special Handling Notes\n\n';
+    r.special_notes.forEach(function(sn){ md += '**' + sn.title + ':** ' + sn.text + '\n\n'; });
+  }
+  md += '---\n*Source: AINumbers.co T442 · CC BY 4.0 · Post Oak Labs · Reference only — not legal advice*\n';
+  var a = document.createElement('a');
+  a.href = 'data:text/markdown;charset=utf-8,' + encodeURIComponent(md);
+  a.download = 'reg-e-dispute-workflow-' + ts + '.md';
+  a.click();
+}
+
+function exportAP2() {
+  if (!_lastResult) { alert('Build the workflow first.'); return; }
+  var ts = new Date().toISOString();
+  var mandate = {
+    ap2_version: '1.0',
+    mandate_id: 'reg-e-dispute-workflow-builder-' + ts.replace(/[:.]/g,'-').slice(0,19),
+    issued_at: ts, issued_by: 'ainumbers.co',
+    tool_id: 'reg-e-dispute-workflow-builder', tool_version: '1.0.0',
+    mandate_type: 'dispute_resolution_workflow',
+    jurisdiction: ['US'],
+    regulatory_frameworks: ['Regulation E 12 CFR Part 1005','EFTA 15 U.S.C. 1693','CFPB Official Interpretations Supplement I'],
+    payload: _lastResult,
+    summary: 'Reg E Dispute Workflow — ' + _lastResult.dispute_type.replace(/_/g,' ') + ' — $' + _lastResult.transaction_amount.toFixed(2) + ' — ' + ts.slice(0,10),
+    agent_instructions: [
+      'Execute investigation workflow steps in sequence within stated business-day deadlines.',
+      'Issue provisional credit by Day ' + _lastResult.timelines.provisionalCreditDays + ' if investigation cannot be completed within 10 business days.',
+      'Provide consumer notification within 3 business days of completing investigation.',
+      'Retain complete investigation file for minimum 2 years.'
+    ],
+    valid_from: ts.slice(0,10),
+    valid_until: new Date(Date.now() + 365*24*3600*1000).toISOString().slice(0,10),
+    last_reviewed: ts.slice(0,10),
+    regulatory_citations: [
+      'Electronic Fund Transfer Act (EFTA), 15 U.S.C. § 1693 et seq.',
+      'Regulation E, 12 CFR Part 1005 — §1005.6 (consumer liability), §1005.11 (error resolution)',
+      'CFPB Official Interpretations to 12 CFR Part 1005, Supplement I',
+      'CFPB Prepaid Accounts Rule, 12 CFR Part 1005.18',
+      'NACHA Operating Rules — ACH error resolution and return code requirements'
+    ],
+    audit_metadata: {client_side_executed:true, zero_pii_verified:true, deterministic_run:true}
+  };
+  var json = JSON.stringify(mandate, null, 2);
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'reg-e-dispute-workflow_' + ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14) + '.policy.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ── Manifest ───────────────────────────────────────────── */
+var MANIFEST = {
+  "tool_id": "reg-e-dispute-workflow-builder",
+  "version": "1.0.0",
+  "title": "Reg E Dispute Workflow Builder",
+  "description": "Generates a compliant Reg E error resolution workflow for Electronic Funds Transfer disputes. Produces investigation timelines, provisional credit rules, consumer notification requirements, and workflow steps per 12 CFR Part 1005.",
+  "category": "cat-29",
+  "tags": ["Reg E","EFTA","dispute","error resolution","provisional credit","EFT","CFPB","consumer banking","ACH","prepaid"],
+  "audience": ["compliance","operations","consumer banking","fintech","dispute resolution"],
+  "mcp_tool_definition": {
+    "name": "build_reg_e_workflow",
+    "description": "Generates a compliant Reg E error resolution workflow including investigation timelines, provisional credit requirements, consumer liability determination, and notification deadlines per 12 CFR Part 1005.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "account_type": {"type":"string","enum":["consumer_checking","consumer_savings","prepaid","payroll_card"],"description":"Type of consumer account subject to the dispute"},
+        "transfer_type": {"type":"string","enum":["atm_withdrawal","pos_debit","ach_transfer","telephone_initiated","preauthorized_recurring","online_banking"],"description":"Type of electronic funds transfer involved"},
+        "dispute_type": {"type":"string","enum":["unauthorized_transfer","incorrect_amount","missing_transfer","wrong_account","failure_to_stop"],"description":"Nature of the error as reported by consumer"},
+        "transaction_amount": {"type":"number","description":"Dollar amount of the disputed transaction","minimum":0.01},
+        "days_since_transaction": {"type":"integer","description":"Number of days elapsed since the transaction / since consumer learned of loss","minimum":0},
+        "device_used": {"type":"string","enum":["yes","no","unknown"],"description":"Whether an access device (card/PIN) was used in the transaction"},
+        "written_statement": {"type":"string","enum":["yes","no","in_progress"],"description":"Whether consumer has provided a written statement of unauthorized transfer"},
+        "fi_assets": {"type":"string","enum":["under_1b","1b_to_10b","over_10b"],"description":"Total assets of the financial institution"},
+        "account_age": {"type":"string","enum":["yes","no"],"description":"Whether account was opened within the last 30 days"}
+      },
+      "required": ["account_type","transfer_type","dispute_type","transaction_amount","days_since_transaction"]
+    }
+  },
+  "execution": {"type":"browser-javascript","entry":"tools/442-reg-e-dispute-workflow-builder.html","function_name":"runTool","timeout_ms":3000},
+  "ap2_export": true
+};
+
+function toggleMfst() {
+  var body = document.getElementById('mfstBody');
+  var arr = document.getElementById('mfstArr');
+  var open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  arr.textContent = open ? '▼' : '▲';
+  if (!open) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+</script>
+</body>
+</html>
