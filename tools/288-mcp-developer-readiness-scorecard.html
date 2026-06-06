@@ -346,12 +346,19 @@ AP2Schema.validate=function(m){
 window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
 window._ap2Result=window._ap2Result||null;
 window._captureAP2=function(){ var el=document.querySelector('#outputSection'); if(el&&el.textContent.trim().length>10){ window._ap2Result={output:(window._memo||el.textContent.trim()).slice(0,3000),inputs:{}}; } };
-window.exportAP2=function(){
+window.AIN_BUILD_MANDATE=function(){
   window._captureAP2();
-  if(!window._ap2Result){alert('Compute the scorecard first.');return;}
+  if(!window._ap2Result)return null;
   var ts=new Date().toISOString();
   var tid=(typeof MANIFEST!=='undefined'&&MANIFEST.tool_id)?MANIFEST.tool_id:'mcp-developer-readiness-scorecard';
   var mandate={ap2_version:'1.0',mandate_id:tid+'-'+ts.replace(/[:.]/g,'-').slice(0,19),issued_at:ts,issued_by:'ainumbers.co',tool_id:tid,tool_version:(typeof MANIFEST!=='undefined'&&MANIFEST.version)?MANIFEST.version:'1.0.0',mandate_type:'compliance_control',jurisdiction:['ZZ'],regulatory_frameworks:['MCP 2025-11-25','OAuth 2.1','OWASP ASI01'],payload:window._ap2Result,summary:(typeof MANIFEST!=='undefined'&&MANIFEST.title?MANIFEST.title:document.title)+' — '+ts.slice(0,10),agent_instructions:['Resolve the prioritized gaps; validate each weak section with its deep-dive tool before shipping.'],valid_from:ts.slice(0,10),valid_until:new Date(Date.now()+365*24*3600*1000).toISOString().slice(0,10),last_reviewed:ts.slice(0,10),source_tool_inputs:{},regulatory_citations:['modelcontextprotocol.io'],audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};window._lastMandate=mandate;
+  return mandate;
+};
+window.exportAP2=function(){
+  var mandate=window.AIN_BUILD_MANDATE();
+  if(!mandate){alert('Compute the scorecard first.');return;}
+  var ts=mandate.issued_at;
+  var tid=mandate.tool_id;
   AP2Schema.validate(mandate);
   var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(mandate,null,2)],{type:'application/json'}));a.download=tid+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';a.click();URL.revokeObjectURL(a.href);
 };
@@ -454,7 +461,7 @@ window.AINBridge={
   apply:applyFields,
   run:runTool,
   intake:intakeApply,
-  getMandate:function(){return window._lastMandate||window._currentMandate||null;},
+  getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},
   makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
 };
 window.addEventListener('message',function(e){
