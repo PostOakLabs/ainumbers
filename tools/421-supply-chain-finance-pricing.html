@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Supply Chain Finance Programme Pricing Model · T421 · AINumbers.co</title>
+<meta name="description" content="Model the economics of SCF programmes — reverse factoring, receivables discounting, and dynamic discounting — from buyer and supplier perspectives. Compare cost vs. WACC, yield to funder, and NPV of early payment.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/421-supply-chain-finance-pricing.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Supply Chain Finance Programme Pricing Model","url":"https://ainumbers.co/tools/421-supply-chain-finance-pricing.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "supply-chain-finance-pricing",
+  "version": "1.0.0",
+  "title": "Supply Chain Finance Programme Pricing Model",
+  "description": "Model the economics of SCF programmes — reverse factoring, receivables discounting, and dynamic discounting — from buyer and supplier perspectives.",
+  "category": "cat-26",
+  "tags": ["supply chain finance","reverse factoring","payables finance","receivables discounting","dynamic discounting","SCF","trade finance","working capital"],
+  "audience": ["treasury","trade-finance","corporate"],
+  "input_schema": {"type":"object","properties":{"programme_type":{"type":"string"},"invoice_value":{"type":"number"},"original_terms":{"type":"number"},"discount_rate":{"type":"number"}},"required":["programme_type","invoice_value","original_terms","discount_rate"]},
+  "output_schema": {"type":"object","properties":{"supplier_proceeds":{"type":"number"},"supplier_benefit":{"type":"number"},"funder_yield":{"type":"number"},"break_even_rate":{"type":"number"}}},
+  "mcp_tool_definition": {"name":"model_scf_pricing","description":"Model SCF programme economics for reverse factoring, receivables discounting, and dynamic discounting.","inputSchema":{"type":"object","properties":{"programme_type":{"type":"string","enum":["reverse_factoring","receivables_discounting","dynamic_discounting"]},"invoice_value":{"type":"number","description":"Invoice face value in USD"},"original_terms":{"type":"number","description":"Original payment terms in days"},"discount_rate":{"type":"number","description":"Annual discount rate as percentage"}},"required":["programme_type","invoice_value","original_terms","discount_rate"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/421-supply-chain-finance-pricing.html","function_name":"runModel","timeout_ms":3000},
+  "ap2_export": true,
+  "version_stamp": "v1.0 · May 2026",
+  "policy_mandate": "AP2"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner{flex-direction:row-reverse}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.stamp{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);padding:.22rem .55rem;border:1px solid var(--border);border-radius:3px;display:inline-block;margin-bottom:.75rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.scope-note strong{color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem}
+.radio-group{display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem}
+.radio-card{flex:1;min-width:160px;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;cursor:pointer;transition:all .2s}
+.radio-card:hover{border-color:var(--teal-dim)}
+.radio-card input{display:none}
+.radio-card.selected{border-color:var(--teal);background:var(--teal-dim)}
+.radio-card-label{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;color:var(--teal);display:block;margin-bottom:.25rem}
+.radio-card-desc{font-size:.68rem;color:var(--muted);line-height:1.4}
+.field-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.85rem}
+@media(max-width:800px){.field-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:540px){.field-grid{grid-template-columns:1fr}}
+.field-group{display:flex;flex-direction:column;gap:.3rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal)}
+.field-sub{font-size:.62rem;color:var(--muted)}
+.field-input{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none;transition:border-color .2s}
+.field-input:focus{border-color:var(--teal)}
+.field-select{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none}
+.btn-row{display:flex;gap:.65rem;flex-wrap:wrap;margin:1.25rem 0 .5rem}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.ghost-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.5rem 1rem;border-radius:var(--radius);transition:all .2s}
+.ghost-btn:hover{border-color:var(--teal);color:var(--teal)}
+#results{display:none}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem}
+@media(max-width:800px){.kpi-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.kpi-grid{grid-template-columns:1fr}}
+.kpi{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem}
+.kpi-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.kpi-value{font-family:'DM Serif Display',serif;font-size:1.6rem;color:var(--white)}
+.kpi-sub{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);margin-top:.2rem}
+.out-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:1rem;overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.results-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.results-table th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left}
+.results-table td{padding:.55rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.015)}
+.num{font-family:'JetBrains Mono',monospace;font-size:.68rem}
+.positive{color:var(--green)}.negative{color:var(--red)}.neutral{color:var(--text)}
+.bmark{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;font-size:.72rem;line-height:1.7;color:var(--body)}
+.bmark strong{color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.06em;text-transform:uppercase}
+svg.chart{width:100%;height:220px}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links a{color:var(--muted);transition:color .2s}.footer-links a:hover{color:var(--teal-lt)}
+.footer-badge{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:640px){.footer-inner{flex-direction:column;text-align:center}}
+#ap2ExportBtn{opacity:.4;cursor:default;pointer-events:none}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright);pointer-events:auto}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+</style>
+</head>
+<body>
+
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <span>T-421</span>
+  </div>
+  <div class="nav-right">
+    <a href="../index.html" class="nav-cta">All Tools &#8594;</a>
+  </div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">T421 · TradeTech &amp; Trade Finance · Cat-26</div>
+  <div class="stamp">v1.0 · May 2026</div>
+  <h1>Supply Chain Finance <em>Programme</em> Pricing Model</h1>
+  <p class="hero-desc">Model the economics of SCF programmes — reverse factoring/payables finance, receivables discounting, and dynamic discounting — from both buyer and supplier perspectives. Compare cost vs. WACC, yield to funder, and NPV of early payment.</p>
+  <div class="hero-badges">
+    <span class="badge badge-teal">Reverse Factoring</span>
+    <span class="badge badge-teal">Receivables Discounting</span>
+    <span class="badge badge-gold">Dynamic Discounting</span>
+    <span class="badge badge-green">Client-Side · Zero PII</span>
+    <span class="badge badge-muted">Cat-26</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+<div class="scope-note"><strong>Scope &amp; reliance —</strong> Illustrative financial model using standard SCF pricing formulae. Not financial advice. Rates, spreads, and benchmarks are indicative only — verify against live market pricing. All calculations performed locally in your browser. Zero PII transmitted. CC BY 4.0.</div>
+
+<!-- INPUTS -->
+<div class="panel">
+  <div class="panel-title">▸ Programme Type</div>
+  <div class="radio-group">
+    <label class="radio-card selected" id="card_rf" onclick="selectProg('rf')">
+      <input type="radio" name="prog" value="rf" checked>
+      <span class="radio-card-label">Reverse Factoring</span>
+      <span class="radio-card-desc">Payables finance — funder pays supplier early; buyer settles at original terms</span>
+    </label>
+    <label class="radio-card" id="card_rd" onclick="selectProg('rd')">
+      <input type="radio" name="prog" value="rd">
+      <span class="radio-card-label">Receivables Discounting</span>
+      <span class="radio-card-desc">Seller advances against unpaid invoices at a discount; reserve released on collection</span>
+    </label>
+    <label class="radio-card" id="card_dd" onclick="selectProg('dd')">
+      <input type="radio" name="prog" value="dd">
+      <span class="radio-card-label">Dynamic Discounting</span>
+      <span class="radio-card-desc">Buyer uses own cash to pay early; earns a yield on surplus liquidity</span>
+    </label>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-title">▸ Programme Parameters</div>
+  <div class="field-grid">
+
+    <div class="field-group">
+      <label class="field-label" for="fInvVal">Invoice Face Value ($)</label>
+      <input class="field-input" id="fInvVal" type="number" min="1000" placeholder="500000" value="500000">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="fOrigTerms">Original Payment Terms (days)</label>
+      <div class="field-sub">e.g. 90 DPO</div>
+      <input class="field-input" id="fOrigTerms" type="number" min="1" max="365" placeholder="90" value="90">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="fEarlyTerms">Early Payment Terms (days)</label>
+      <div class="field-sub">Days after invoice date supplier is paid early</div>
+      <input class="field-input" id="fEarlyTerms" type="number" min="0" max="365" placeholder="10" value="10">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="fDiscRate">Annual Discount / Financing Rate (%)</label>
+      <div class="field-sub">Rate offered by buyer or funder</div>
+      <input class="field-input" id="fDiscRate" type="number" min="0.01" max="50" step="0.01" placeholder="3.50" value="3.50">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="fBuyerRating">Buyer Credit Rating (RF only)</label>
+      <div class="field-sub">Drives funder's cost of funds</div>
+      <select class="field-select" id="fBuyerRating">
+        <option value="AAA">AAA — ~4.00%</option>
+        <option value="AA">AA — ~4.25%</option>
+        <option value="A" selected>A — ~4.60%</option>
+        <option value="BBB">BBB — ~5.20%</option>
+        <option value="BB">BB — ~6.50%</option>
+      </select>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="fSupplierRate">Supplier's Own Borrowing Rate (%)</label>
+      <div class="field-sub">For savings comparison</div>
+      <input class="field-input" id="fSupplierRate" type="number" min="0.01" max="50" step="0.01" placeholder="7.00" value="7.00">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="fVolume">Monthly Programme Volume ($M)</label>
+      <div class="field-sub">Total invoices per month across programme</div>
+      <input class="field-input" id="fVolume" type="number" min="0.1" step="0.1" placeholder="10" value="10">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="fFunderSpread">Funder Spread Over Buyer Cost (bps) — RF</label>
+      <div class="field-sub">Typical: 50–150 bps</div>
+      <input class="field-input" id="fFunderSpread" type="number" min="0" max="500" step="1" placeholder="75" value="75">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="fAdvanceRate">Advance Rate % — Receivables Discounting</label>
+      <div class="field-sub">Typically 80–90% of invoice value</div>
+      <input class="field-input" id="fAdvanceRate" type="number" min="50" max="100" step="1" placeholder="85" value="85">
+    </div>
+
+  </div>
+  <div class="btn-row">
+    <button class="run-btn" onclick="runModel()">▶ Model Programme Economics</button>
+    <button class="ghost-btn" id="ap2ExportBtn" onclick="exportAP2()">↓ Export AP2 JSON</button>
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div id="results">
+
+  <div class="kpi-grid" id="kpiGrid"></div>
+
+  <div class="out-panel">
+    <div class="out-header"><span class="out-title">Per-Invoice Economics</span></div>
+    <div class="out-body" style="overflow-x:auto">
+      <table class="results-table" id="invoiceTable">
+        <thead><tr><th>Item</th><th>Amount ($)</th><th>Notes</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="out-panel">
+    <div class="out-header"><span class="out-title">Annual Programme P&amp;L</span></div>
+    <div class="out-body" style="overflow-x:auto">
+      <table class="results-table" id="annualTable">
+        <thead><tr><th>Item</th><th>Annual ($)</th><th>Notes</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="out-panel">
+    <div class="out-header"><span class="out-title">Break-Even Analysis</span></div>
+    <div class="out-body">
+      <div id="breakEvenText" style="font-size:.76rem;line-height:1.8;color:var(--text)"></div>
+    </div>
+  </div>
+
+  <div class="out-panel">
+    <div class="out-header"><span class="out-title">Mode Comparison — Cost to Supplier (Annual, % of Invoice)</span></div>
+    <div class="out-body">
+      <svg class="chart" id="compChart" viewBox="0 0 700 220" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+  </div>
+
+  <div class="out-panel">
+    <div class="out-header"><span class="out-title">Market Benchmarks</span></div>
+    <div class="out-body">
+      <div class="bmark">
+        <strong>Typical RF Spreads:</strong> 50–150 bps over buyer's credit cost. Investment-grade buyers (A/BBB) typically achieve all-in supplier rates of 3–5%.<br>
+        <strong>Receivables Discounting:</strong> Typically 0.5–2% above buyer's credit spread; advance rates 80–90%.<br>
+        <strong>Dynamic Discounting:</strong> Buyer earns 1–3% annualised yield on cash deployed early. Competitive for buyers with excess liquidity above WACC.<br>
+        <strong>Supplier Benefit:</strong> SME suppliers with high borrowing costs (7–12%) typically save 3–8% vs. their own facilities through RF programmes.
+      </div>
+    </div>
+  </div>
+
+</div><!-- /results -->
+
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()">
+        <span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span>
+        <span id="mfstArr" style="color:var(--muted)">▼</span>
+      </button>
+      <div class="mfst-body" id="mfstBody">
+        <div class="mfst-code" id="mfstCode"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container"><div class="footer-inner">
+    <div class="footer-links">
+      <a href="../index.html">All Tools</a>
+      <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs</a>
+    </div>
+    <div class="footer-badge">CC BY 4.0 · postoaklabs.com · T421 · v1.0 · May 2026</div>
+  </div></div>
+</footer>
+
+<script>
+// ── Lang ──────────────────────────────────────────────────────────────────────
+const LANGS={en:{dir:'ltr'},es:{dir:'ltr'},fr:{dir:'ltr'},ar:{dir:'rtl'},pt:{dir:'ltr'},zh:{dir:'ltr'}};
+function setLang(l){
+  document.documentElement.lang=l;
+  document.documentElement.dir=(LANGS[l]||LANGS.en).dir;
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===l));
+  sessionStorage.setItem('ain_lang',l);
+}
+(function(){const l=sessionStorage.getItem('ain_lang');if(l&&LANGS[l])setLang(l);})();
+
+// ── Programme selection ───────────────────────────────────────────────────────
+let currentProg='rf';
+function selectProg(p){
+  currentProg=p;
+  ['rf','rd','dd'].forEach(k=>document.getElementById('card_'+k).classList.toggle('selected',k===p));
+}
+
+// ── Credit rating cost of funds map ──────────────────────────────────────────
+const RATING_COF={AAA:4.00,AA:4.25,A:4.60,BBB:5.20,BB:6.50};
+
+// ── Formatting ────────────────────────────────────────────────────────────────
+function fmt(n,dec=2){return n.toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec});}
+function fmtM(n){return '$'+fmt(n/1e6,3)+'M';}
+function fmtD(n){return '$'+fmt(n);}
+function fmtPct(n){return fmt(n,3)+'%';}
+
+let lastResult=null;
+
+// ── Main model ────────────────────────────────────────────────────────────────
+function runModel(){
+  const invVal=parseFloat(document.getElementById('fInvVal').value)||500000;
+  const origTerms=parseFloat(document.getElementById('fOrigTerms').value)||90;
+  const earlyTerms=parseFloat(document.getElementById('fEarlyTerms').value)||10;
+  const discRate=parseFloat(document.getElementById('fDiscRate').value)||3.5;
+  const buyerRating=document.getElementById('fBuyerRating').value||'A';
+  const supplierRate=parseFloat(document.getElementById('fSupplierRate').value)||7.0;
+  const volumeM=parseFloat(document.getElementById('fVolume').value)||10;
+  const funderSpreadBps=parseFloat(document.getElementById('fFunderSpread').value)||75;
+  const advanceRatePct=parseFloat(document.getElementById('fAdvanceRate').value)||85;
+
+  const daysEarly=origTerms-earlyTerms;
+  const volumeAnn=volumeM*12*1e6;
+  const cof=RATING_COF[buyerRating]||4.60;
+  const funderRate=(cof+funderSpreadBps/100)/100; // all-in funder rate decimal
+
+  let invoiceRows=[], annualRows=[], kpis=[], breakEvenText='', chartData=[];
+  let r={};
+
+  if(currentProg==='rf'){
+    // Reverse Factoring / Payables Finance
+    const discDecimal=discRate/100;
+    const supplierProceeds=invVal*(1-(discDecimal*daysEarly/360));
+    const costToSupplier=invVal-supplierProceeds;
+    const annualisedCostPct=(costToSupplier/invVal)*(360/daysEarly)*100;
+    const supplierSavingVsOwn=((supplierRate-discRate)/100)*daysEarly/360*invVal;
+    const annualSupplierSaving=((supplierRate-discRate)/100)*(daysEarly/360)*volumeAnn;
+    const funderYieldPerInv=invVal*funderRate*(daysEarly/360);
+    const annualFunderYield=funderYieldPerInv*(volumeAnn/invVal);
+    const costToBuyer=(cof+funderSpreadBps/100);
+    const breakEvenRate=supplierRate; // supplier breaks even at their own rate
+    const beDisc=supplierRate*0.9; // 10% saving = breakeven threshold
+
+    invoiceRows=[
+      ['Invoice Face Value',fmtD(invVal),'Gross obligation'],
+      ['Days Early Payment',daysEarly+' days','Original '+origTerms+'d → early '+earlyTerms+'d'],
+      ['Discount Amount',fmtD(costToSupplier),'Disc rate '+fmtPct(discRate)+' × '+daysEarly+'/360'],
+      ['Supplier Proceeds',fmtD(supplierProceeds),'Net received by supplier','positive'],
+      ['Supplier Cost (annualised)',fmtPct(annualisedCostPct),'Effective annual cost to supplier','neutral'],
+      ['Supplier Saving vs Own Facility',fmtD(supplierSavingVsOwn),'vs '+fmtPct(supplierRate)+' own rate per invoice','positive'],
+      ['Funder Yield (per invoice)',fmtD(funderYieldPerInv),'Rate '+fmtPct((funderRate)*100)+' × '+daysEarly+'/360','neutral'],
+      ['Cost to Buyer (all-in rate)',fmtPct(costToBuyer),'CoF '+fmtPct(cof)+' + '+funderSpreadBps+'bps spread','neutral']
+    ];
+    annualRows=[
+      ['Programme Volume (annual)',fmtM(volumeAnn),'$'+fmt(volumeM,1)+'M/month × 12'],
+      ['Total Supplier Savings',fmtM(annualSupplierSaving),'vs own borrowing rate','positive'],
+      ['Total Funder Yield',fmtM(annualFunderYield),'On deployed capital','positive'],
+      ['Buyer Cost vs Own WACC','See break-even','Buyer maintains DPO; cost = spread','neutral']
+    ];
+    breakEvenText=`<strong style="color:var(--teal)">Break-Even Rate for Supplier:</strong> The SCF programme rate (${fmtPct(discRate)}) is below the supplier's own borrowing rate (${fmtPct(supplierRate)}) by ${fmtPct(supplierRate-discRate)}. The supplier benefits on every invoice drawn. Break-even occurs if the programme rate exceeds ${fmtPct(supplierRate)} — i.e. the SCF becomes more expensive than the supplier's own facility.<br><br><strong style="color:var(--teal)">Funder Economics:</strong> All-in yield ${fmtPct((funderRate)*100)} on ${daysEarly}-day paper. ${funderSpreadBps}bps spread over ${buyerRating}-rated buyer cost of funds. Benchmark: 50–150bps is typical for investment-grade anchors.<br><br><strong style="color:var(--teal)">Buyer Economics:</strong> Buyer pays ${fmtPct(costToBuyer)} to fund early payment while maintaining ${origTerms}-day DPO. If buyer's WACC < ${fmtPct(costToBuyer)}, the programme is accretive to supplier relationships at zero net cost to buyer.`;
+
+    chartData=[
+      {label:'Reverse Factoring',pct:annualisedCostPct,color:'#14B8A6'},
+      {label:'Receivables Disc.',pct:discRate*0.85*(daysEarly/360)*100*360/daysEarly,color:'#D4A847'},
+      {label:'Dynamic Disc.',pct:discRate,color:'#9B72F5'}
+    ];
+    r={supplierProceeds,costToSupplier,annualisedCostPct,supplierSavingVsOwn,annualSupplierSaving,funderYieldPerInv,annualFunderYield,costToBuyer,programme:'Reverse Factoring'};
+    kpis=[
+      {label:'Supplier Proceeds',value:fmtD(supplierProceeds),sub:'Per invoice'},
+      {label:'Supplier Annual Saving',value:fmtM(annualSupplierSaving),sub:'vs own borrowing'},
+      {label:'Funder Annual Yield',value:fmtM(annualFunderYield),sub:'On programme volume'},
+      {label:'Effective Cost to Supplier',value:fmtPct(annualisedCostPct),sub:'Annualised'}
+    ];
+
+  } else if(currentProg==='rd'){
+    // Receivables Discounting
+    const advRate=advanceRatePct/100;
+    const advanceAmt=invVal*advRate;
+    const reserve=invVal-advanceAmt;
+    const discDecimal=discRate/100;
+    const financeCost=advanceAmt*discDecimal*(origTerms/360);
+    const netToSeller=advanceAmt-financeCost;
+    const annualisedCostPct=(financeCost/advanceAmt)*(360/origTerms)*100;
+    const annualSaving=((supplierRate-discRate)/100)*(origTerms/360)*volumeAnn*advRate;
+    const effectiveYieldFunder=discRate;
+
+    invoiceRows=[
+      ['Invoice Face Value',fmtD(invVal),'100% of receivable'],
+      ['Advance Rate',fmtPct(advanceRatePct),'Funder advances this % immediately'],
+      ['Advance Amount',fmtD(advanceAmt),'Cash received now'],
+      ['Reserve (held back)',fmtD(reserve),'Released on collection at '+origTerms+'d','neutral'],
+      ['Finance Cost (on advance)',fmtD(financeCost),'Rate '+fmtPct(discRate)+' × advance × '+origTerms+'/360','neutral'],
+      ['Net Seller Proceeds (advance)',fmtD(netToSeller),'After finance cost deducted','positive'],
+      ['Annualised Cost to Seller',fmtPct(annualisedCostPct),'On advanced amount','neutral'],
+      ['Saving vs Own Overdraft',fmtD(((supplierRate-discRate)/100)*(origTerms/360)*advanceAmt),'per invoice vs '+fmtPct(supplierRate),'positive']
+    ];
+    annualRows=[
+      ['Programme Volume (annual)',fmtM(volumeAnn),''],
+      ['Annual Advanced Amount',fmtM(volumeAnn*advRate),'At '+fmtPct(advanceRatePct)+' advance rate'],
+      ['Annual Finance Cost (seller)',fmtM(volumeAnn*advRate*discDecimal*(origTerms/360)),'Cost of early liquidity'],
+      ['Annual Saving vs Own Facility',fmtM(annualSaving),'vs '+fmtPct(supplierRate)+' overdraft','positive'],
+      ['Funder Annual Yield',fmtM(volumeAnn*advRate*discDecimal*(origTerms/360)),'On deployed capital','positive']
+    ];
+    breakEvenText=`<strong style="color:var(--teal)">Break-Even Analysis:</strong> Seller's effective cost is ${fmtPct(annualisedCostPct)} annualised vs own borrowing rate of ${fmtPct(supplierRate)}. Net benefit: ${fmtPct(supplierRate-annualisedCostPct)} per annum on the advanced amount. Break-even (programme = own facility) occurs if the discount rate rises to ${fmtPct(supplierRate)}.<br><br><strong style="color:var(--teal)">Reserve Mechanics:</strong> The ${fmtPct(100-advanceRatePct)} reserve ($${fmt(reserve)}) is held by the funder and released when the buyer pays at day ${origTerms}. The seller's total receipt = advance ($${fmt(netToSeller)}) + reserve ($${fmt(reserve)}) = $${fmt(netToSeller+reserve)} — a slight discount vs. face value from financing charges.<br><br><strong style="color:var(--teal)">Comparison vs Factoring:</strong> Receivables discounting is typically confidential (buyer not notified) and recourse-based, making it cheaper than full factoring. Typical premium over overdraft: 0.5–1.5% for investment-grade buyers.`;
+
+    chartData=[
+      {label:'Reverse Factoring',pct:discRate*(daysEarly/360)*100*(360/daysEarly),color:'#14B8A6'},
+      {label:'Receivables Disc.',pct:annualisedCostPct,color:'#D4A847'},
+      {label:'Dynamic Disc.',pct:discRate,color:'#9B72F5'}
+    ];
+    r={advanceAmt,reserve,financeCost,netToSeller,annualisedCostPct,annualSaving,effectiveYieldFunder,programme:'Receivables Discounting'};
+    kpis=[
+      {label:'Advance Amount',value:fmtD(advanceAmt),sub:fmtPct(advanceRatePct)+' of invoice'},
+      {label:'Net Seller Proceeds',value:fmtD(netToSeller),sub:'After finance cost'},
+      {label:'Annual Seller Saving',value:fmtM(annualSaving),sub:'vs own facility'},
+      {label:'Annualised Cost',value:fmtPct(annualisedCostPct),sub:'On advanced amount'}
+    ];
+
+  } else {
+    // Dynamic Discounting
+    const discDecimal=discRate/100;
+    const costToSeller=invVal*discDecimal*(daysEarly/360);
+    const sellerProceeds=invVal-costToSeller;
+    const annualisedCostPct=(costToSeller/invVal)*(360/daysEarly)*100;
+    const buyerYieldPerInv=costToSeller; // buyer earns the discount
+    const buyerAnnualYield=volumeAnn*discDecimal*(daysEarly/360);
+    const supplierSaving=((supplierRate-discRate)/100)*daysEarly/360*invVal;
+    const annualSupplierSaving=((supplierRate-discRate)/100)*(daysEarly/360)*volumeAnn;
+
+    invoiceRows=[
+      ['Invoice Face Value',fmtD(invVal),''],
+      ['Days Early Payment',daysEarly+' days','Original '+origTerms+'d → early '+earlyTerms+'d'],
+      ['Early Payment Discount',fmtD(costToSeller),'Rate '+fmtPct(discRate)+' × '+daysEarly+'/360'],
+      ['Supplier Proceeds',fmtD(sellerProceeds),'Cash received early','positive'],
+      ['Annualised Cost to Supplier',fmtPct(annualisedCostPct),'Effective rate for supplier','neutral'],
+      ['Buyer Yield (per invoice)',fmtD(buyerYieldPerInv),'Buyer earns the discount','positive'],
+      ['Supplier Saving vs Own Facility',fmtD(supplierSaving),'vs '+fmtPct(supplierRate)+' borrowing','positive']
+    ];
+    annualRows=[
+      ['Programme Volume (annual)',fmtM(volumeAnn),''],
+      ['Buyer Annual Yield',fmtM(buyerAnnualYield),'Return on cash deployed early','positive'],
+      ['Supplier Annual Savings',fmtM(annualSupplierSaving),'vs own borrowing facility','positive'],
+      ['No Funder Required','—','Buyer uses own balance sheet cash']
+    ];
+    breakEvenText=`<strong style="color:var(--teal)">Buyer Break-Even vs WACC:</strong> The buyer earns ${fmtPct(discRate)} annualised return on cash used for early payment. If buyer's WACC > ${fmtPct(discRate)}, the programme earns less than the cost of that capital — buyer should compare to money market / short-term investment alternatives.<br><br><strong style="color:var(--teal)">Supplier Break-Even:</strong> Programme rate (${fmtPct(discRate)}) vs supplier's own borrowing (${fmtPct(supplierRate)}). Supplier saves ${fmtPct(supplierRate-discRate)} on each early payment — annual saving: $${fmt(annualSupplierSaving)} across the programme.<br><br><strong style="color:var(--teal)">Dynamic Discounting Limits:</strong> No external funder involved; buyer must have surplus cash. Typically limited to buyers with strong liquidity ratios. Dynamic discount rates (1–3%) are lower than RF rates, making this attractive for low-risk suppliers of cash-rich buyers.`;
+
+    chartData=[
+      {label:'Reverse Factoring',pct:(discRate+0.75)*(daysEarly/360)*100*(360/daysEarly),color:'#14B8A6'},
+      {label:'Receivables Disc.',pct:(discRate+0.5)*(daysEarly/360)*100*(360/daysEarly),color:'#D4A847'},
+      {label:'Dynamic Disc.',pct:annualisedCostPct,color:'#9B72F5'}
+    ];
+    r={sellerProceeds,costToSeller,annualisedCostPct,buyerYieldPerInv,buyerAnnualYield,annualSupplierSaving,programme:'Dynamic Discounting'};
+    kpis=[
+      {label:'Supplier Proceeds',value:fmtD(sellerProceeds),sub:'Per invoice'},
+      {label:'Buyer Annual Yield',value:fmtM(buyerAnnualYield),sub:'Return on early cash'},
+      {label:'Supplier Annual Saving',value:fmtM(annualSupplierSaving),sub:'vs own borrowing'},
+      {label:'Annualised Cost to Supplier',value:fmtPct(annualisedCostPct),sub:'Effective rate'}
+    ];
+  }
+
+  lastResult={inputs:{programme:currentProg,invVal,origTerms,earlyTerms,discRate,buyerRating,supplierRate,volumeM,funderSpreadBps,advanceRatePct},result:r,kpis,invoiceRows,annualRows};
+
+  // Render KPIs
+  const kpiGrid=document.getElementById('kpiGrid');
+  kpiGrid.innerHTML='';
+  kpis.forEach(k=>{
+    kpiGrid.innerHTML+=`<div class="kpi"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.value}</div><div class="kpi-sub">${k.sub}</div></div>`;
+  });
+
+  // Invoice table
+  renderTable('invoiceTable',invoiceRows);
+  renderTable('annualTable',annualRows);
+
+  // Break-even
+  document.getElementById('breakEvenText').innerHTML=breakEvenText;
+
+  // Chart
+  renderChart(chartData);
+
+  document.getElementById('results').style.display='block';
+  document.getElementById('ap2ExportBtn').classList.add('ready');
+}
+
+function renderTable(id,rows){
+  const tbl=document.getElementById(id).querySelector('tbody');
+  tbl.innerHTML='';
+  rows.forEach(r=>{
+    const cls=r[3]==='positive'?'positive':r[3]==='neutral'?'neutral':'';
+    tbl.innerHTML+=`<tr><td>${r[0]}</td><td class="num ${cls}">${r[1]}</td><td style="font-size:.65rem;color:var(--muted)">${r[2]||''}</td></tr>`;
+  });
+}
+
+function renderChart(data){
+  const svg=document.getElementById('compChart');
+  const maxPct=Math.max(...data.map(d=>d.pct),0.01);
+  const w=700,h=180,pad=60,barW=80,gap=50;
+  let html='';
+  const totalW=data.length*(barW+gap);
+  const startX=(w-totalW)/2+gap/2;
+  data.forEach((d,i)=>{
+    const x=startX+i*(barW+gap);
+    const barH=Math.max(4,(d.pct/maxPct)*(h-40));
+    const y=h-barH-20;
+    html+=`<rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="4" fill="${d.color}" opacity="0.8"/>`;
+    html+=`<text x="${x+barW/2}" y="${y-6}" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="10" fill="${d.color}">${d.pct.toFixed(2)}%</text>`;
+    html+=`<text x="${x+barW/2}" y="${h+12}" text-anchor="middle" font-family="'Sora',sans-serif" font-size="9" fill="#6888A8">${d.label}</text>`;
+  });
+  html+=`<text x="${w/2}" y="${h+30}" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" fill="#3A5270">Annualised cost to supplier (%)</text>`;
+  svg.innerHTML=html;
+}
+
+function exportAP2(){
+  if(!lastResult)return;
+  const blob=new Blob([JSON.stringify({
+    tool:'T421-supply-chain-finance-pricing',
+    version:'1.0',
+    generated:new Date().toISOString(),
+    policy_mandate:'AP2',
+    ...lastResult
+  },null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='T421-scf-pricing-ap2.json';
+  a.click();
+}
+
+// ── Manifest ──────────────────────────────────────────────────────────────────
+function toggleMfst(){
+  const b=document.getElementById('mfstBody');
+  const a=document.getElementById('mfstArr');
+  const open=b.style.display==='block';
+  b.style.display=open?'none':'block';
+  a.textContent=open?'▼':'▲';
+  if(!open&&!document.getElementById('mfstCode').textContent){
+    document.getElementById('mfstCode').textContent=JSON.stringify({
+      tool_id:'supply-chain-finance-pricing',
+      version:'1.0.0',
+      title:'Supply Chain Finance Programme Pricing Model',
+      description:'Model the economics of SCF programmes — reverse factoring, receivables discounting, and dynamic discounting.',
+      category:'cat-26',
+      tags:['supply chain finance','reverse factoring','receivables discounting','dynamic discounting','SCF','trade finance'],
+      execution:{type:'browser-javascript',entry:'tools/421-supply-chain-finance-pricing.html',function_name:'runModel',timeout_ms:3000},
+      mcp_tool_definition:{name:'model_scf_pricing',description:'Model SCF programme economics.',inputSchema:{type:'object',properties:{programme_type:{type:'string',enum:['reverse_factoring','receivables_discounting','dynamic_discounting']},invoice_value:{type:'number'},original_terms:{type:'number'},discount_rate:{type:'number'}},required:['programme_type','invoice_value','original_terms','discount_rate']}},
+      policy_mandate:'AP2',
+      ap2_export:true,
+      version_stamp:'v1.0 · May 2026'
+    },null,2);
+  }
+}
+</script>
+</body>
+</html>

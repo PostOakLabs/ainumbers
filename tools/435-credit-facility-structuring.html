@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Credit Facility Structuring Calculator · AINumbers.co</title>
+<meta name="description" content="Model the economics of corporate credit facilities — term loans, revolving credit, and capex facilities. Calculate all-in cost of funds, lender yield, amortisation schedules, and sensitivity analysis. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/435-credit-facility-structuring.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Credit Facility Structuring Calculator","url":"https://ainumbers.co/tools/435-credit-facility-structuring.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "credit-facility-structuring",
+  "version": "1.0.0",
+  "title": "Credit Facility Structuring Calculator",
+  "description": "Model the economics of corporate credit facilities — term loans, revolving credit, and capex facilities. Calculate borrower all-in cost of funds, lender yield, amortisation schedules, fee breakdowns, and rate sensitivity.",
+  "category": "cat-28",
+  "tags": ["credit facility","term loan","revolving credit","capex","arrangement fee","commitment fee","lender yield","SOFR","EURIBOR"],
+  "audience": ["credit analyst","loan officer","CFO","treasurer","lender"],
+  "input_schema": {"type":"object","properties":{"facilityType":{"type":"string"},"facilityAmount":{"type":"number"},"tenor":{"type":"number"},"margin":{"type":"number"},"benchmarkRate":{"type":"number"},"arrangementFee":{"type":"number"},"commitmentFee":{"type":"number"},"utilization":{"type":"number"}},"required":["facilityType","facilityAmount","tenor","margin","benchmarkRate"]},
+  "output_schema": {"type":"object","properties":{"allInCost":{"type":"number"},"lenderYield":{"type":"number"},"returnOnAssets":{"type":"number"},"amortisationSchedule":{"type":"array"},"feeBreakdown":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"calculate_credit_facility_economics","description":"Calculate all-in cost of funds and lender yield for corporate credit facilities including term loans, revolving credit facilities, and capex facilities.","inputSchema":{"type":"object","properties":{"facilityType":{"type":"string","enum":["TLA","TLB","RCF","CAPEX"]},"facilityAmount":{"type":"number"},"tenor":{"type":"number"},"margin":{"type":"number"},"benchmarkRate":{"type":"number"},"arrangementFee":{"type":"number"},"commitmentFee":{"type":"number"},"utilization":{"type":"number"}},"required":["facilityType","facilityAmount","tenor","margin","benchmarkRate"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/435-credit-facility-structuring.html","function_name":"calculate","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.010) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.010) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+.panel-title::before{content:'';display:block;width:16px;height:1px;background:var(--teal)}
+.panel-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
+.panel-grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}
+@media(max-width:700px){.panel-grid,.panel-grid-2{grid-template-columns:1fr}}
+.panel-row{display:flex;flex-direction:column;gap:.3rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.panel-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.4rem .65rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s;-webkit-appearance:none}
+.panel-input:focus{border-color:var(--teal)}
+select.panel-input{cursor:pointer}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.7rem 2.2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.5rem}
+.run-btn:hover{background:var(--teal-lt)}
+.results-area{display:none;margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.results-area.active{display:flex}
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-hdr{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-hdr-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:.5rem}
+@media(max-width:700px){.kpi-row{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;display:flex;flex-direction:column;gap:.3rem}
+.kpi-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.kpi-value{font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:500;color:var(--bright)}
+.kpi-sub{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--body)}
+.kpi.green .kpi-value{color:var(--green)}
+.kpi.warn .kpi-value{color:var(--warn)}
+.kpi.red .kpi-value{color:var(--red)}
+.data-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.data-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.data-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle;font-family:'JetBrains Mono',monospace;font-size:.68rem}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:rgba(255,255,255,.02)}
+.data-table td.num{text-align:right;color:var(--bright)}
+.data-table td.green{color:var(--green)}
+.data-table td.red{color:var(--red)}
+.data-table td.warn{color:var(--warn)}
+.bench-row{display:flex;gap:.5rem;flex-wrap:wrap}
+.bench-chip{font-family:'JetBrains Mono',monospace;font-size:.52rem;padding:.3rem .65rem;border:1px solid var(--border);border-radius:3px;color:var(--body);background:var(--bg-3)}
+.bench-chip strong{color:var(--bright)}
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:rgba(20,184,166,.08)}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span><span class="nav-bc-current">T435 · Credit Facility Structuring</span></div>
+  <div class="nav-right"><a href="../index.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">T435 · LendTech &amp; Credit Operations · Cat-28</div>
+  <div class="hero-meta">
+    <span class="hero-badge badge-teal">v1.0 · May 2026</span>
+    <span class="hero-badge badge-muted">Cat-28</span>
+  </div>
+  <h1>Credit Facility <em>Structuring Calculator</em></h1>
+  <p class="hero-desc">Model the economics of corporate credit facilities — term loans, revolving credit facilities (RCF), and capex/acquisition facilities. Calculate all-in cost of funds for the borrower and return on assets for the lender, including arrangement fees, commitment fees, and utilization dynamics.</p>
+  <div class="pii-notice" data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+  <div class="scope-note"><strong style="color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance — </strong>All calculations use simplified deterministic models for illustrative purposes. Actual facility economics depend on credit agreement terms, accounting treatment, and lender-specific credit pricing. Verify against your facility documentation and adviser before making decisions. Deterministic · no inference · zero PII · CC BY 4.0.</div>
+
+  <!-- INPUT PANEL -->
+  <div class="panel">
+    <div class="panel-title">Facility Parameters</div>
+    <div class="panel-grid">
+      <div class="panel-row">
+        <label class="panel-label" for="facilityType">Facility Type</label>
+        <select class="panel-input" id="facilityType" onchange="onTypeChange()">
+          <option value="TLA">Term Loan A (Amortising)</option>
+          <option value="TLB">Term Loan B (Bullet)</option>
+          <option value="RCF">Revolving Credit Facility</option>
+          <option value="CAPEX">Capex Facility</option>
+        </select>
+      </div>
+      <div class="panel-row">
+        <label class="panel-label" for="facilityAmt">Facility Amount ($M)</label>
+        <input class="panel-input" id="facilityAmt" type="number" min="1" step="5" value="100">
+      </div>
+      <div class="panel-row">
+        <label class="panel-label" for="currency">Currency</label>
+        <select class="panel-input" id="currency">
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+        </select>
+      </div>
+      <div class="panel-row">
+        <label class="panel-label" for="tenor">Tenor (years)</label>
+        <select class="panel-input" id="tenor">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="5" selected>5</option>
+          <option value="7">7</option>
+        </select>
+      </div>
+      <div class="panel-row">
+        <label class="panel-label" for="margin">Margin over Benchmark (bps)</label>
+        <input class="panel-input" id="margin" type="number" min="0" step="5" value="225">
+      </div>
+      <div class="panel-row">
+        <label class="panel-label" for="benchmarkRate">Benchmark Rate (% pa)</label>
+        <input class="panel-input" id="benchmarkRate" type="number" min="0" step="0.25" value="4.50">
+      </div>
+      <div class="panel-row">
+        <label class="panel-label" for="arrangementFee">Arrangement Fee (bps of facility)</label>
+        <input class="panel-input" id="arrangementFee" type="number" min="0" step="5" value="100">
+      </div>
+      <div class="panel-row">
+        <label class="panel-label" for="commitmentFee">Commitment Fee on Undrawn (bps pa)</label>
+        <input class="panel-input" id="commitmentFee" type="number" min="0" step="5" value="75">
+      </div>
+      <div class="panel-row">
+        <label class="panel-label" for="costOfFunds">Lender Cost of Funds (% pa)</label>
+        <input class="panel-input" id="costOfFunds" type="number" min="0" step="0.1" value="3.50">
+      </div>
+    </div>
+  </div>
+
+  <!-- RCF-specific panel -->
+  <div class="panel" id="rcfPanel" style="display:none">
+    <div class="panel-title">RCF Utilization Parameters</div>
+    <div class="panel-grid">
+      <div class="panel-row">
+        <label class="panel-label" for="rcfUtil">Expected Average Utilization (%)</label>
+        <input class="panel-input" id="rcfUtil" type="number" min="0" max="100" step="5" value="55">
+      </div>
+      <div class="panel-row">
+        <label class="panel-label" for="utilFee">Utilization Fee (bps, triggered &gt;66.67% drawn)</label>
+        <input class="panel-input" id="utilFee" type="number" min="0" step="5" value="15">
+      </div>
+      <div class="panel-row">
+        <label class="panel-label" for="drawCycles">Draw/Repayment Cycles per Year</label>
+        <input class="panel-input" id="drawCycles" type="number" min="1" max="52" step="1" value="4">
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+    <button class="run-btn" onclick="calculate()">Calculate Facility Economics</button>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-area" id="resultsArea">
+
+    <!-- Summary card -->
+    <div class="out-card">
+      <div class="out-hdr"><span class="out-hdr-title">Facility Summary</span><span id="facilitySummaryTag" style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)"></span></div>
+      <div class="out-body">
+        <div class="kpi-row" id="summaryKpis"></div>
+      </div>
+    </div>
+
+    <!-- Economics -->
+    <div class="out-card">
+      <div class="out-hdr"><span class="out-hdr-title">Borrower &amp; Lender Economics</span></div>
+      <div class="out-body">
+        <div class="kpi-row" id="economicsKpis"></div>
+      </div>
+    </div>
+
+    <!-- Fee Breakdown -->
+    <div class="out-card">
+      <div class="out-hdr"><span class="out-hdr-title">Fee &amp; Cost Breakdown (pa, $M)</span></div>
+      <div class="out-body" style="overflow-x:auto">
+        <table class="data-table" id="feeTable">
+          <thead><tr><th>Component</th><th>Rate / Basis</th><th>Annual Cost ($M)</th><th>% of Facility</th></tr></thead>
+          <tbody id="feeTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Amortisation / Utilization scenarios -->
+    <div class="out-card" id="scheduleCard">
+      <div class="out-hdr"><span class="out-hdr-title" id="scheduleTitle">Payment Schedule</span></div>
+      <div class="out-body" style="overflow-x:auto">
+        <table class="data-table" id="scheduleTable">
+          <thead id="scheduleHead"></thead>
+          <tbody id="scheduleTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Sensitivity -->
+    <div class="out-card">
+      <div class="out-hdr"><span class="out-hdr-title">Rate Sensitivity — All-In Cost at ±50bps Benchmark Movement</span></div>
+      <div class="out-body" style="overflow-x:auto">
+        <table class="data-table" id="sensiTable">
+          <thead><tr><th>Benchmark Scenario</th><th>Benchmark Rate</th><th>All-In Rate (Borrower)</th><th>Delta vs Base</th></tr></thead>
+          <tbody id="sensiTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Benchmarks -->
+    <div class="out-card">
+      <div class="out-hdr"><span class="out-hdr-title">Market Benchmark Reference</span></div>
+      <div class="out-body">
+        <div class="bench-row">
+          <div class="bench-chip"><strong>IG Corporate</strong> · Margin 80–200 bps</div>
+          <div class="bench-chip"><strong>Leveraged / Sub-IG</strong> · Margin 250–600 bps</div>
+          <div class="bench-chip"><strong>SOFR (Jun 2026 est.)</strong> · ~4.25–4.50%</div>
+          <div class="bench-chip"><strong>EURIBOR (Jun 2026 est.)</strong> · ~3.25–3.50%</div>
+          <div class="bench-chip"><strong>SONIA (Jun 2026 est.)</strong> · ~4.75–5.00%</div>
+          <div class="bench-chip"><strong>Arrangement Fee</strong> · Typical 50–150 bps</div>
+          <div class="bench-chip"><strong>Commitment Fee</strong> · Typical 30–50% of margin</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /results-area -->
+
+</div></div><!-- /tool-body -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec"><div class="container"><div style="padding-top:1.5rem"><button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button><div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div></div></div></section>
+
+<!-- AP2 Export -->
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the tool above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+var lastResult = null;
+
+function onTypeChange(){
+  var t = document.getElementById('facilityType').value;
+  document.getElementById('rcfPanel').style.display = (t === 'RCF') ? '' : 'none';
+}
+onTypeChange();
+
+function fmtPct(v,d){ return (typeof d==='undefined'?d=2:d, v.toFixed(d)+'%'); }
+function fmtM(v){ return '$'+v.toFixed(3)+'M'; }
+function fmtBps(v){ return v.toFixed(0)+' bps'; }
+
+function calculate(){
+  var type = document.getElementById('facilityType').value;
+  var amt = parseFloat(document.getElementById('facilityAmt').value)||100;
+  var tenor = parseInt(document.getElementById('tenor').value)||5;
+  var margin = parseFloat(document.getElementById('margin').value)||225; // bps
+  var bench = parseFloat(document.getElementById('benchmarkRate').value)||4.5; // %
+  var arrFee = parseFloat(document.getElementById('arrangementFee').value)||100; // bps
+  var commFee = parseFloat(document.getElementById('commitmentFee').value)||75; // bps
+  var cof = parseFloat(document.getElementById('costOfFunds').value)||3.5; // %
+  var currency = document.getElementById('currency').value;
+
+  var rcfUtil = parseFloat(document.getElementById('rcfUtil').value)||55;
+  var utilFee = parseFloat(document.getElementById('utilFee').value)||15;
+
+  // Derived
+  var allInRate = bench + margin/100; // % pa
+  var arrFeeAmt = amt * arrFee / 10000; // $M total
+  var arrFeeAmortised = arrFeeAmt / tenor; // $M pa
+
+  var drawn, undrawn, avgDrawn;
+  if(type==='RCF'){
+    avgDrawn = amt * rcfUtil/100;
+    undrawn = amt - avgDrawn;
+  } else {
+    drawn = amt;
+    avgDrawn = amt;
+    undrawn = 0;
+  }
+
+  var interestCostPa = avgDrawn * allInRate / 100;
+  var commitCostPa = undrawn * commFee / 10000;
+  var utilFeePa = (type==='RCF' && rcfUtil>66.67) ? avgDrawn * utilFee/10000 : 0;
+  var totalCostPa = interestCostPa + commitCostPa + utilFeePa + arrFeeAmortised;
+
+  var allInBorrower = (avgDrawn > 0) ? totalCostPa / avgDrawn * 100 : 0;
+  var totalRevenuePa = interestCostPa + commitCostPa + utilFeePa + arrFeeAmortised;
+  var lenderYield = totalRevenuePa / amt * 100;
+  var roa = lenderYield - cof;
+
+  // Summary KPIs
+  var typeLabels = {TLA:'Term Loan A',TLB:'Term Loan B',RCF:'Revolving Credit Facility',CAPEX:'Capex Facility'};
+  document.getElementById('facilitySummaryTag').textContent = typeLabels[type];
+  document.getElementById('summaryKpis').innerHTML =
+    kpiCard('Facility',currency+' '+amt.toFixed(0)+'M','Commitment','') +
+    kpiCard('Tenor',tenor+' years','','') +
+    kpiCard('All-In Rate',fmtPct(allInRate),margin+' bps margin','') +
+    kpiCard('Avg Drawn',currency+' '+avgDrawn.toFixed(0)+'M',(type==='RCF'?rcfUtil.toFixed(0)+'% util':'Fully drawn'),'');
+
+  // Economics KPIs
+  var roaClass = roa>=1?'green':roa>=0?'warn':'red';
+  document.getElementById('economicsKpis').innerHTML =
+    kpiCard('Borrower AIC',fmtPct(allInBorrower),'All-in cost of funds','') +
+    kpiCard('Lender Yield',fmtPct(lenderYield),'Total revenue / facility','') +
+    kpiCard('Return on Assets',fmtPct(roa),'Yield minus cost of funds',roaClass) +
+    (type==='RCF' ? kpiCard('Break-even Util',fmtPct(commitCostPa/(arr_calc(amt,arrFee,tenor,margin,bench,commFee))*100,1),'Min util to cover commitment','') : '');
+
+  // Fee table
+  var rows = [
+    ['Margin Interest', margin+' bps over '+bench.toFixed(2)+'%', interestCostPa, interestCostPa/amt*100],
+    ['Commitment Fee', commFee+' bps on undrawn', commitCostPa, commitCostPa/amt*100],
+    ['Arrangement Fee (amortised)', arrFee+' bps / '+tenor+'yr', arrFeeAmortised, arrFeeAmortised/amt*100],
+  ];
+  if(utilFeePa>0) rows.push(['Utilization Fee', utilFee+' bps (>66.67% drawn)', utilFeePa, utilFeePa/amt*100]);
+  rows.push(['TOTAL', '—', totalCostPa, totalCostPa/amt*100]);
+
+  var feeTbody = document.getElementById('feeTbody');
+  feeTbody.innerHTML = rows.map(function(r,i){
+    var isTotal = i===rows.length-1;
+    return '<tr style="'+(isTotal?'border-top:1px solid var(--border-2);background:rgba(255,255,255,.02)':'')+'">'
+      +'<td style="'+(isTotal?'color:var(--bright);font-weight:500':'')+'">'+(isTotal?'<strong>'+r[0]+'</strong>':r[0])+'</td>'
+      +'<td>'+r[1]+'</td>'
+      +'<td class="num">'+(isTotal?'<strong>':'')+fmtM(r[2])+(isTotal?'</strong>':'')+'</td>'
+      +'<td class="num">'+r[3].toFixed(3)+'%</td>'
+      +'</tr>';
+  }).join('');
+
+  // Schedule
+  if(type==='TLA'){
+    buildAmortSchedule(amt, tenor, allInRate, currency);
+  } else if(type==='RCF'){
+    buildRcfScenarios(amt, bench, margin, commFee, utilFee, arrFeeAmortised, tenor, currency);
+  } else {
+    buildBulletSchedule(amt, tenor, allInRate, currency, type);
+  }
+
+  // Sensitivity
+  var sensiTbody = document.getElementById('sensiTbody');
+  var scenarios = [
+    {label:'-50bps', delta:-0.5},
+    {label:'Base', delta:0},
+    {label:'+50bps', delta:0.5},
+  ];
+  sensiTbody.innerHTML = scenarios.map(function(s){
+    var bAdj = bench + s.delta;
+    var rateAdj = bAdj + margin/100;
+    var intAdj = avgDrawn * rateAdj/100;
+    var totalAdj = intAdj + commitCostPa + utilFeePa + arrFeeAmortised;
+    var aicAdj = (avgDrawn>0)?totalAdj/avgDrawn*100:0;
+    var deltaAic = aicAdj - allInBorrower;
+    var cls = s.delta===0?'':s.delta<0?'green':'red';
+    return '<tr>'
+      +'<td>'+(s.delta===0?'<strong>'+s.label+' (current)</strong>':s.label)+'</td>'
+      +'<td class="num">'+bAdj.toFixed(2)+'%</td>'
+      +'<td class="num '+(s.delta===0?'':cls)+'">'+(s.delta===0?'<strong>':'')+fmtPct(aicAdj)+(s.delta===0?'</strong>':'')+'</td>'
+      +'<td class="num '+(s.delta===0?'':cls)+'">'+(s.delta===0?'—':(deltaAic>0?'+':'')+fmtPct(deltaAic))+'</td>'
+      +'</tr>';
+  }).join('');
+
+  lastResult = {type,amt,currency,tenor,margin,bench,arrFee,commFee,utilFee,rcfUtil,allInBorrower,lenderYield,roa,totalCostPa,interestCostPa,commitCostPa,arrFeeAmortised,utilFeePa};
+
+  document.getElementById('resultsArea').classList.add('active');
+  var btn = document.getElementById('ap2ExportBtn');
+  btn.disabled = false; btn.classList.add('ready');
+}
+
+function arr_calc(amt,arrFee,tenor,margin,bench,commFee){
+  // returns total cost pa at 0% utilization (only commitment + arr fee)
+  return amt*commFee/10000 + amt*arrFee/10000/tenor;
+}
+
+function kpiCard(label,val,sub,cls){
+  return '<div class="kpi'+(cls?' '+cls:'')+'">'
+    +'<div class="kpi-label">'+label+'</div>'
+    +'<div class="kpi-value">'+val+'</div>'
+    +(sub?'<div class="kpi-sub">'+sub+'</div>':'')
+    +'</div>';
+}
+
+function buildAmortSchedule(amt,tenor,allInRate,currency){
+  document.getElementById('scheduleTitle').textContent = 'Amortisation Schedule (Equal Instalments)';
+  var principal = amt/tenor;
+  var headHtml = '<tr><th>Year</th><th>Opening Balance ($M)</th><th>Principal ($M)</th><th>Interest ($M)</th><th>Total Payment ($M)</th><th>Closing Balance ($M)</th></tr>';
+  document.getElementById('scheduleHead').innerHTML = headHtml;
+  var tbody = '';
+  var bal = amt;
+  for(var y=1;y<=tenor;y++){
+    var interest = bal * allInRate/100;
+    var totalPmt = principal + interest;
+    tbody += '<tr><td>'+y+'</td><td class="num">'+bal.toFixed(2)+'</td><td class="num">'+principal.toFixed(2)+'</td><td class="num">'+interest.toFixed(3)+'</td><td class="num"><strong>'+totalPmt.toFixed(3)+'</strong></td><td class="num">'+(bal-principal).toFixed(2)+'</td></tr>';
+    bal -= principal;
+  }
+  document.getElementById('scheduleTbody').innerHTML = tbody;
+}
+
+function buildBulletSchedule(amt,tenor,allInRate,currency,type){
+  document.getElementById('scheduleTitle').textContent = 'Payment Schedule (Bullet Repayment)';
+  document.getElementById('scheduleHead').innerHTML = '<tr><th>Year</th><th>Interest ($M)</th><th>Principal ($M)</th><th>Total ($M)</th></tr>';
+  var tbody = '';
+  var interestPa = amt * allInRate/100;
+  for(var y=1;y<=tenor;y++){
+    var princ = y===tenor?amt:0;
+    tbody += '<tr><td>'+y+'</td><td class="num">'+interestPa.toFixed(3)+'</td><td class="num">'+princ.toFixed(2)+'</td><td class="num"><strong>'+(interestPa+princ).toFixed(3)+'</strong></td></tr>';
+  }
+  document.getElementById('scheduleTbody').innerHTML = tbody;
+}
+
+function buildRcfScenarios(amt,bench,margin,commFee,utilFee,arrFeeAm,tenor,currency){
+  document.getElementById('scheduleTitle').textContent = 'RCF Utilization Scenarios (Annual Economics)';
+  document.getElementById('scheduleHead').innerHTML = '<tr><th>Scenario</th><th>Utilization</th><th>Avg Drawn ($M)</th><th>Interest ($M)</th><th>Commitment ($M)</th><th>Util Fee ($M)</th><th>Total Cost pa ($M)</th><th>Borrower AIC</th></tr>';
+  var scenarios = [{label:'Low',pct:25},{label:'Base',pct:55},{label:'High',pct:90}];
+  var tbody = scenarios.map(function(s){
+    var drawn = amt*s.pct/100;
+    var undrawn = amt - drawn;
+    var allIn = bench + margin/100;
+    var interest = drawn*allIn/100;
+    var commit = undrawn*commFee/10000;
+    var uf = s.pct>66.67 ? drawn*utilFee/10000 : 0;
+    var total = interest+commit+uf+arrFeeAm;
+    var aic = drawn>0?total/drawn*100:0;
+    var isBase = s.label==='Base';
+    return '<tr style="'+(isBase?'background:rgba(20,184,166,.04)':'')+'">'
+      +'<td>'+(isBase?'<strong>'+s.label+'</strong>':s.label)+'</td>'
+      +'<td class="num">'+s.pct+'%</td>'
+      +'<td class="num">'+drawn.toFixed(1)+'</td>'
+      +'<td class="num">'+interest.toFixed(3)+'</td>'
+      +'<td class="num">'+commit.toFixed(3)+'</td>'
+      +'<td class="num">'+uf.toFixed(3)+'</td>'
+      +'<td class="num"><strong>'+total.toFixed(3)+'</strong></td>'
+      +'<td class="num">'+aic.toFixed(2)+'%</td>'
+      +'</tr>';
+  }).join('');
+  document.getElementById('scheduleTbody').innerHTML = tbody;
+}
+
+function exportAP2(){
+  if(!lastResult) return;
+  var r = lastResult;
+  var ap2 = {
+    schema: "ain:ap2:v1",
+    tool_id: "credit-facility-structuring",
+    tool_version: "1.0.0",
+    generated_at: new Date().toISOString(),
+    inputs: {facility_type:r.type,facility_amount_m:r.amt,currency:r.currency,tenor_years:r.tenor,margin_bps:r.margin,benchmark_rate_pct:r.bench,arrangement_fee_bps:r.arrFee,commitment_fee_bps:r.commFee},
+    outputs: {all_in_borrower_pct:r.allInBorrower.toFixed(4),lender_yield_pct:r.lenderYield.toFixed(4),return_on_assets_pct:r.roa.toFixed(4),total_cost_pa_m:r.totalCostPa.toFixed(4)},
+    policy_mandate: {instrument:"credit-facility",version:"v1.0",cat:"cat-28",compliance_note:"Output is indicative only. Verify against facility agreement and qualified adviser."}
+  };
+  var blob = new Blob([JSON.stringify(ap2,null,2)],{type:'application/json'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ap2-credit-facility-'+Date.now()+'.json';
+  a.click();
+}
+
+var MANIFEST = {
+  "tool_id":"credit-facility-structuring","version":"1.0.0",
+  "title":"Credit Facility Structuring Calculator",
+  "description":"Model economics of corporate credit facilities — term loans, revolving credit, and capex facilities. Calculate all-in cost of funds, lender yield, amortisation schedules, fee breakdowns, and rate sensitivity. Client-side. Zero PII.",
+  "category":"cat-28",
+  "tags":["credit facility","term loan","RCF","revolving credit","capex","arrangement fee","commitment fee","SOFR","EURIBOR","lender yield"],
+  "audience":["credit analyst","loan officer","CFO","treasurer","lender"],
+  "input_schema":{"type":"object","properties":{"facilityType":{"type":"string","enum":["TLA","TLB","RCF","CAPEX"]},"facilityAmount":{"type":"number"},"tenor":{"type":"number"},"margin":{"type":"number"},"benchmarkRate":{"type":"number"},"arrangementFee":{"type":"number"},"commitmentFee":{"type":"number"},"utilization":{"type":"number"}},"required":["facilityType","facilityAmount","tenor","margin","benchmarkRate"]},
+  "output_schema":{"type":"object","properties":{"allInCost":{"type":"number"},"lenderYield":{"type":"number"},"returnOnAssets":{"type":"number"},"amortisationSchedule":{"type":"array"},"feeBreakdown":{"type":"object"}}},
+  "mcp_tool_definition":{"name":"calculate_credit_facility_economics","description":"Calculate all-in cost of funds and lender yield for corporate credit facilities.","inputSchema":{"type":"object","properties":{"facilityType":{"type":"string"},"facilityAmount":{"type":"number"},"tenor":{"type":"number"},"margin":{"type":"number"},"benchmarkRate":{"type":"number"}},"required":["facilityType","facilityAmount","tenor","margin","benchmarkRate"]}},
+  "execution":{"type":"browser-javascript","entry":"tools/435-credit-facility-structuring.html","function_name":"calculate","timeout_ms":3000},
+  "ap2_export":true
+};
+
+function toggleMfst(){
+  var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');
+  if(b.style.display==='none'||b.style.display===''){
+    b.style.display='block';if(a)a.textContent='▲';
+    document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+  } else {b.style.display='none';if(a)a.textContent='▼';}
+}
+
+var TRANSLATIONS = {
+  en:{'pii.banner':'🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.','footer.alltools':'All Tools','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Sitemap','footer.privacy':'🔒 Zero PII   📡 No server calls   💻 Client-side'},
+  es:{'pii.banner':'🔒 Todas las entradas se procesan localmente. No se transmiten datos. No introduzca datos personales reales.','footer.alltools':'Todas las Herramientas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contacto','footer.sitemap':'Mapa del Sitio','footer.privacy':'🔒 Sin PII   📡 Sin llamadas   💻 Cliente'},
+  fr:{'pii.banner':'🔒 Toutes les entrées sont traitées localement. Aucune donnée n\'est transmise. N\'entrez pas de données personnelles réelles.','footer.alltools':'Tous les Outils','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Plan du Site','footer.privacy':'🔒 Aucune PII   📡 Aucun appel   💻 Côté client'},
+  ar:{'pii.banner':'🔒 جميع المدخلات تُعالج محلياً. لا تُنقل أي بيانات. لا تدخل بيانات شخصية حقيقية.','footer.alltools':'جميع الأدوات','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'اتصل','footer.sitemap':'خريطة الموقع','footer.privacy':'🔒 لا PII   📡 لا استدعاءات   💻 على المتصفح'},
+  pt:{'pii.banner':'🔒 Todas as entradas são processadas localmente. Nenhum dado é transmitido. Não insira dados pessoais reais.','footer.alltools':'Todas as Ferramentas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contacto','footer.sitemap':'Mapa do Site','footer.privacy':'🔒 Zero PII   📡 Sem chamadas   💻 Cliente'},
+  zh:{'pii.banner':'🔒 所有输入均在浏览器本地处理。不传输任何数据。请勿输入真实个人数据。','footer.alltools':'所有工具','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'联系','footer.sitemap':'网站地图','footer.privacy':'🔒 零PII   📡 无服务器调用   💻 客户端'}
+};
+function setLang(lang){
+  if(!TRANSLATIONS[lang])return;
+  var dict=TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){var k=el.getAttribute('data-i18n');if(dict[k])el.textContent=dict[k];});
+  document.querySelectorAll('.lang-btn').forEach(function(b){b.classList.remove('active');});
+  var active=document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if(active)active.classList.add('active');
+  document.documentElement.setAttribute('dir',lang==='ar'?'rtl':'ltr');
+  document.documentElement.setAttribute('lang',lang);
+  try{sessionStorage.setItem('ain_lang',lang);}catch(e){}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+</script>
+</body>
+</html>

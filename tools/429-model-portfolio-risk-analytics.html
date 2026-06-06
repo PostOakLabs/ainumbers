@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>Model Portfolio Risk Analytics · T429 · AINumbers.co</title>
+<meta name="description" content="Calculate key risk and return metrics for a model portfolio of up to 8 asset classes. Outputs expected return, volatility, Sharpe ratio, max drawdown estimate, VaR 95%, tracking error vs benchmark, and efficient frontier. Client-side. Zero PII.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Model Portfolio Risk Analytics · T429","url":"https://ainumbers.co/tools/429-model-portfolio-risk-analytics.html","description":"Calculate key risk and return metrics for a model portfolio of up to 8 asset classes. Outputs expected return, volatility, Sharpe ratio, max drawdown estimate, VaR 95%, and efficient frontier.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:14px;line-height:1.6;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.03) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+body>*{position:relative;z-index:1}
+.container{max-width:1200px;margin:0 auto;padding:0 24px}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:6px 0}
+.lang-inner{max-width:1200px;margin:0 auto;padding:0 24px;display:flex;gap:4px;justify-content:flex-end}
+.lang-btn{background:transparent;border:1px solid transparent;color:var(--body);font-family:'Sora',sans-serif;font-size:11px;font-weight:500;letter-spacing:.06em;padding:3px 10px;border-radius:var(--radius);cursor:pointer;transition:all .15s}
+.lang-btn:hover{color:var(--text);border-color:var(--border-2)}
+.lang-btn.active{background:var(--purple-dim);color:var(--purple);border-color:rgba(155,114,245,.3)}
+nav{background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.nav-inner{max-width:1200px;margin:0 auto;padding:0 24px;height:56px;display:grid;grid-template-columns:1fr auto 1fr}
+.nav-brand{font-family:'DM Serif Display',serif;font-size:18px;color:var(--white);text-decoration:none;display:flex;align-items:center;gap:10px;justify-self:center}
+.nav-brand-dot{width:8px;height:8px;border-radius:50%;background:var(--purple);box-shadow:0 0 8px var(--purple)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body);text-decoration:none}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem;margin-left:auto}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.hero{padding:52px 24px 40px;max-width:1200px;margin:0 auto}
+.hero-eyebrow{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.tool-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);letter-spacing:.1em;text-transform:uppercase}
+.hero-badge{background:var(--purple-dim);color:var(--purple);font-size:10px;font-weight:600;padding:3px 10px;border-radius:20px;border:1px solid rgba(155,114,245,.25)}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(26px,4vw,40px);color:var(--white);line-height:1.2;margin-bottom:14px;max-width:820px}
+.hero-desc{color:var(--body);font-size:14px;max-width:720px;line-height:1.7}
+.hero-meta{display:flex;gap:16px;margin-top:20px;flex-wrap:wrap}
+.hero-meta-pill{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--body);background:var(--bg-3);border:1px solid var(--border);padding:4px 12px;border-radius:20px}
+.hero-meta-pill span:first-child{color:var(--purple)}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+.tag{font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;letter-spacing:.04em;border:1px solid}
+.tag-teal{background:var(--teal-dim);color:var(--teal);border-color:rgba(20,184,166,.25)}
+.tag-gold{background:var(--gold-dim);color:var(--gold);border-color:rgba(212,168,71,.25)}
+.tag-green{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.25)}
+.tag-purple{background:var(--purple-dim);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.tool-body{max-width:1200px;margin:0 auto;padding:0 24px 60px;display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
+@media(max-width:900px){.tool-body{grid-template-columns:1fr}}
+.main-col,.side-col{display:flex;flex-direction:column;gap:20px}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);letter-spacing:.08em;text-transform:uppercase;font-weight:500}
+.panel-body{padding:20px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:11px;color:var(--body);font-weight:500;letter-spacing:.04em}
+.field input,.field select{background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);font-family:'Sora',sans-serif;font-size:13px;padding:8px 10px;border-radius:var(--radius);outline:none;transition:border-color .15s;width:100%}
+.field input:focus,.field select:focus{border-color:var(--purple)}
+.field select option{background:var(--bg-3)}
+.field-hint{font-size:10px;color:var(--muted);margin-top:2px}
+.panel-row-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.panel-row-2:last-child{margin-bottom:0}
+
+/* Asset row table */
+.asset-table{width:100%;border-collapse:collapse}
+.asset-table th{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--body);text-transform:uppercase;letter-spacing:.05em;padding:6px 8px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+.asset-table td{padding:5px 6px;border-bottom:1px solid var(--border)}
+.asset-table tr:last-child td{border-bottom:none}
+.asset-table input[type=text]{background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);font-family:'Sora',sans-serif;font-size:12px;padding:5px 7px;border-radius:var(--radius);outline:none;width:100%;min-width:100px}
+.asset-table input[type=number]{background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:12px;padding:5px 7px;border-radius:var(--radius);outline:none;width:70px}
+.asset-table input[type=number]:focus,.asset-table input[type=text]:focus{border-color:var(--purple)}
+.asset-table input[type=range]{width:70px;-webkit-appearance:none;height:3px;background:var(--border-2);border-radius:2px;outline:none;cursor:pointer}
+.asset-table input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--purple);cursor:pointer}
+.weight-display{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--bright);min-width:36px;text-align:right}
+.weight-sum{font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 8px;border-radius:var(--radius);margin-top:8px;display:inline-block}
+.weight-sum.ok{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.weight-sum.warn{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.row-color{width:10px;height:10px;border-radius:2px;display:inline-block;vertical-align:middle;margin-right:4px;flex-shrink:0}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;font-family:'Sora',sans-serif;font-size:12px;font-weight:500;padding:7px 16px;border-radius:var(--radius);cursor:pointer;border:1px solid transparent;transition:all .15s;white-space:nowrap}
+.btn-purple{background:var(--purple);color:#080E1A;border-color:var(--purple)}
+.btn-purple:hover{background:var(--purple-lt)}
+.btn-ghost{background:transparent;color:var(--text);border-color:var(--border-2)}
+.btn-ghost:hover{background:var(--bg-3);border-color:var(--teal);color:var(--teal)}
+.btn-sm{font-size:11px;padding:5px 12px}
+.run-btn{width:100%;background:var(--purple);color:#080E1A;border:none;font-family:'Sora',sans-serif;font-size:14px;font-weight:600;padding:14px 24px;border-radius:var(--radius-lg);cursor:pointer;transition:all .2s;letter-spacing:.02em;box-shadow:0 0 20px rgba(155,114,245,.2)}
+.run-btn:hover{background:var(--purple-lt);box-shadow:0 0 30px rgba(155,114,245,.35)}
+.run-btn:active{transform:scale(.99)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:640px){.kpi-grid{grid-template-columns:1fr 1fr}}
+.kpi-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px}
+.kpi-label{font-size:10px;color:var(--body);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.kpi-value{font-family:'DM Serif Display',serif;font-size:24px;color:var(--purple)}
+.kpi-sub{font-size:10px;color:var(--muted);margin-top:2px}
+.kpi-teal .kpi-value{color:var(--teal)}
+.kpi-gold .kpi-value{color:var(--gold)}
+.kpi-red .kpi-value{color:var(--red)}
+.kpi-green .kpi-value{color:var(--green)}
+.kpi-warn .kpi-value{color:var(--warn)}
+
+/* Results */
+.results-panel{display:none}
+.results-panel.visible{display:flex;flex-direction:column;gap:14px}
+.results-export-row{display:flex;gap:8px;flex-wrap:wrap;padding:16px 20px;background:var(--bg-3);border-top:1px solid var(--border)}
+
+/* Data table */
+.data-table{width:100%;border-collapse:collapse;font-size:12px}
+.data-table th{background:var(--bg-3);color:var(--body);padding:8px 12px;border:1px solid var(--border);text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.data-table td{padding:8px 12px;border:1px solid var(--border);vertical-align:middle}
+.data-table tr:hover td{background:rgba(155,114,245,.03)}
+.data-table .total-row td{background:var(--bg-3);color:var(--bright);font-weight:600;border-top:2px solid var(--border-2)}
+
+/* PII / edu */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.edu-disclaimer{border:1px solid var(--warn);border-left:3px solid var(--warn);background:rgba(245,158,11,.06);padding:1rem 1.25rem;margin-bottom:2rem;font-size:.76rem;color:var(--body);line-height:1.7;border-radius:var(--radius)}
+.edu-disclaimer-label{display:block;color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem}
+
+/* Tracking error callout */
+.te-callout{background:var(--gold-dim);border:1px solid rgba(212,168,71,.2);border-radius:var(--radius);padding:12px 16px;font-size:12px}
+.te-callout-title{color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.te-callout-val{font-family:'DM Serif Display',serif;font-size:28px;color:var(--gold)}
+
+/* About */
+.about-item{padding:10px 0;border-bottom:1px solid var(--border);font-size:12px}
+.about-item:last-child{border-bottom:none}
+.about-item strong{color:var(--text);display:block;margin-bottom:3px}
+.about-item .cite{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple)}
+
+/* Manifest */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+
+/* Footer */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg-3);border:1px solid var(--border);color:var(--text);font-size:13px;padding:10px 18px;border-radius:var(--radius-lg);z-index:9999;transform:translateY(60px);opacity:0;transition:all .3s}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{border-color:var(--teal);color:var(--teal)}
+.toast.error{border-color:var(--red);color:var(--red)}
+
+#ap2ExportBtn{opacity:.4;cursor:not-allowed}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+</style>
+</head>
+<body>
+
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<nav>
+  <div class="nav-inner">
+    <div class="nav-bc">
+      <a href="../index.html"><span data-i18n="nav.alltools">All Tools</span></a>
+      <span class="nav-bc-sep">›</span>
+      <a href="../guides/wealthtech-hub.html">WealthTech</a>
+      <span class="nav-bc-sep">›</span>
+      <span class="nav-bc-current">T429</span>
+    </div>
+    <a href="../index.html" class="nav-brand">
+      <span class="nav-brand-dot"></span>
+      <span><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="nav-right">
+      <a href="../sitemap.html" class="nav-pill"><span data-i18n="nav.alltools">All Tools</span></a>
+    </div>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-eyebrow">
+    <span class="tool-eyebrow">T429 · WealthTech · Cat-27</span>
+    <span class="hero-badge">v1.0 · May 2026</span>
+  </div>
+  <h1>Model Portfolio Risk Analytics</h1>
+  <p class="hero-desc">Calculate key risk and return metrics for a model portfolio of up to 8 asset classes. Outputs expected return, portfolio volatility, Sharpe ratio, maximum drawdown estimate, tracking error vs benchmark, and a simplified efficient frontier visualisation. Client-side. Zero PII.</p>
+  <div class="hero-meta">
+    <div class="hero-meta-pill"><span>📊</span><span>Markowitz (simplified)</span></div>
+    <div class="hero-meta-pill"><span>🎯</span><span>Sharpe · VaR · RIY</span></div>
+    <div class="hero-meta-pill"><span>📈</span><span>Efficient Frontier</span></div>
+    <div class="hero-meta-pill"><span>🔒</span><span>Zero PII</span></div>
+  </div>
+  <div class="tag-row">
+    <span class="tag tag-purple">Portfolio Analytics</span>
+    <span class="tag tag-teal">Sharpe Ratio</span>
+    <span class="tag tag-gold">VaR 95%</span>
+    <span class="tag tag-green">WealthTech</span>
+    <span class="tag tag-teal">Cat-27</span>
+  </div>
+</div>
+
+<div class="tool-body">
+  <div class="main-col">
+
+    <div class="edu-disclaimer">
+      <span class="edu-disclaimer-label">Educational / Planning Tool</span>
+      This tool uses user-entered return and volatility assumptions with a simplified Markowitz model (zero inter-asset correlation). Actual portfolio returns, volatility, and drawdowns will differ materially from estimates. Correlation between asset classes is assumed to be zero — this is conservative and will overestimate portfolio volatility vs. a diversified multi-asset portfolio. This is a planning and educational tool only. Not investment advice.
+    </div>
+
+    <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+    <!-- Panel A — Portfolio Builder -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label">A — Portfolio Builder (up to 8 asset classes)</span>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)">Weights must sum to 100%</div>
+      </div>
+      <div class="panel-body">
+        <div style="overflow-x:auto">
+          <table class="asset-table" id="portfolioTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th style="min-width:140px">Asset Class</th>
+                <th>Weight %</th>
+                <th style="min-width:70px">Slider</th>
+                <th>Ret % pa</th>
+                <th>Vol % pa</th>
+              </tr>
+            </thead>
+            <tbody id="portfolioBody"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap">
+          <div class="weight-sum ok" id="weightSum">Weights: 100.0%</div>
+          <button class="btn btn-ghost btn-sm" onclick="resetDefaults()">Reset Defaults</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel B — Benchmark (optional) -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label">B — Benchmark Allocation (Optional)</span>
+        <label style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--body);cursor:pointer">
+          <input type="checkbox" id="useBenchmark" onchange="toggleBenchmark(this.checked)" style="cursor:pointer">
+          Enable benchmark comparison
+        </label>
+      </div>
+      <div class="panel-body" id="benchmarkPanel" style="display:none">
+        <div style="overflow-x:auto">
+          <table class="asset-table" id="benchmarkTable">
+            <thead>
+              <tr><th>#</th><th style="min-width:140px">Asset Class</th><th>Weight %</th><th style="min-width:70px">Slider</th><th>Ret % pa</th><th>Vol % pa</th></tr>
+            </thead>
+            <tbody id="benchmarkBody"></tbody>
+          </table>
+        </div>
+        <div class="weight-sum ok" id="benchWeightSum" style="margin-top:10px">Benchmark Weights: 100.0%</div>
+      </div>
+    </div>
+
+    <!-- Panel C — Parameters -->
+    <div class="panel">
+      <div class="panel-header"><span class="panel-label">C — Parameters</span></div>
+      <div class="panel-body">
+        <div class="panel-row-2">
+          <div class="field">
+            <label>Risk-Free Rate (% pa)</label>
+            <input type="number" id="riskFree" value="4.5" min="0" step="0.1">
+            <div class="field-hint">UK/EU short-term rate default</div>
+          </div>
+          <div class="field">
+            <label>Investment Horizon (years)</label>
+            <input type="number" id="investHorizon" value="5" min="1" max="30" step="1">
+            <div class="field-hint">Used for max drawdown &amp; VaR</div>
+          </div>
+        </div>
+        <div class="field" style="margin-top:14px">
+          <label>Portfolio Value (£/€ — for VaR amount)</label>
+          <input type="number" id="portfolioValue" value="100000" min="1" step="1000">
+        </div>
+      </div>
+    </div>
+
+    <button class="run-btn" onclick="runAnalysis()">Run Risk Analytics →</button>
+
+    <!-- Results -->
+    <div class="results-panel" id="resultsPanel">
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-label">Portfolio Risk &amp; Return Summary</span></div>
+        <div class="panel-body">
+          <div class="kpi-grid" id="kpiGrid"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-label">Asset Allocation — Donut Chart</span></div>
+        <div class="panel-body" style="display:flex;justify-content:center">
+          <div id="donutWrap"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-label">Risk Contribution by Asset Class</span></div>
+        <div class="panel-body" style="padding:0"><div id="riskContribWrap"></div></div>
+      </div>
+
+      <div id="teSection" style="display:none">
+        <div class="panel">
+          <div class="panel-header"><span class="panel-label">Benchmark Comparison</span></div>
+          <div class="panel-body">
+            <div class="te-callout" id="teCallout"></div>
+            <div style="margin-top:16px;padding:0" id="activeWeightsWrap"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-label">Efficient Frontier (Simplified 2-Asset Illustration)</span></div>
+        <div class="panel-body"><div id="frontierWrap"></div></div>
+      </div>
+
+      <div class="panel">
+        <div class="results-export-row">
+          <button class="btn btn-ghost btn-sm" id="ap2ExportBtn" disabled onclick="exportAP2()">
+            📤 Policy Mandate
+            <span style="display:block;font-size:10px;opacity:.65;margin-top:1px">AP2 / JSON</span>
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="exportMarkdown()">📄 Export Markdown</button>
+        </div>
+      </div>
+
+    </div><!-- /results-panel -->
+
+  </div><!-- /main-col -->
+
+  <div class="side-col">
+
+    <div class="panel">
+      <div class="panel-header"><span class="panel-label">Methodology</span></div>
+      <div class="panel-body">
+        <div class="about-item">
+          <strong>Expected Return</strong>
+          <span class="cite">Σ(weight_i × return_i) — weighted average of user inputs.</span>
+        </div>
+        <div class="about-item">
+          <strong>Portfolio Volatility</strong>
+          <span class="cite">√Σ(weight_i² × vol_i²) — zero-correlation Markowitz. Conservative; overstates risk vs diversified portfolio.</span>
+        </div>
+        <div class="about-item">
+          <strong>Sharpe Ratio</strong>
+          <span class="cite">(Portfolio Return − Risk-Free Rate) / Portfolio Volatility.</span>
+        </div>
+        <div class="about-item">
+          <strong>Max Drawdown (parametric)</strong>
+          <span class="cite">2 × vol × √horizon — rough 95% confidence approximation for planning only.</span>
+        </div>
+        <div class="about-item">
+          <strong>VaR 1-year 95%</strong>
+          <span class="cite">Portfolio Value × (return − 1.645 × vol). Parametric normal distribution assumption.</span>
+        </div>
+        <div class="about-item">
+          <strong>Tracking Error</strong>
+          <span class="cite">√Σ(Δweight_i² × vol_i²) vs benchmark allocation.</span>
+        </div>
+        <div class="about-item">
+          <strong>Efficient Frontier</strong>
+          <span class="cite">Simplified 2-asset (highest-return vs lowest-vol asset). Illustrative only — full multi-asset frontier requires covariance matrix.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><span class="panel-label">Sharpe Interpretation</span></div>
+      <div class="panel-body">
+        <div class="about-item"><strong style="color:var(--red)">Below 0</strong><span class="cite">Worse than risk-free rate.</span></div>
+        <div class="about-item"><strong style="color:var(--warn)">0.0 – 0.5</strong><span class="cite">Poor risk-adjusted return.</span></div>
+        <div class="about-item"><strong style="color:var(--gold)">0.5 – 1.0</strong><span class="cite">Adequate — typical multi-asset.</span></div>
+        <div class="about-item"><strong style="color:var(--green)">1.0 – 2.0</strong><span class="cite">Good risk-adjusted return.</span></div>
+        <div class="about-item"><strong style="color:var(--teal)">Above 2.0</strong><span class="cite">Excellent — verify assumptions.</span></div>
+        <div style="margin-top:10px;font-size:10px;color:var(--muted)">v1.0 · May 2026 · Cat-27 · WealthTech</div>
+      </div>
+    </div>
+
+  </div><!-- /side-col -->
+</div><!-- /tool-body -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec"><div class="container"><div style="padding-top:1.5rem"><button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button><div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div></div></div></section>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   T429 — Model Portfolio Risk Analytics
+   Version: 1.0 | Category: Cat-27 | WealthTech
+   Client-side. Zero PII. Deterministic.
+   Methodology: Simplified Markowitz (zero correlation), parametric VaR
+═══════════════════════════════════════════════════════════ */
+
+/* AP2Schema */
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+if(typeof AP2Schema.validate!=='function'){
+  AP2Schema.validate=function(m){
+    var RE_VER=/^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+    function _fail(msg){throw new Error('AP2Schema: '+msg);}
+    function _warn(msg){try{console.warn('[AP2Schema]',msg);}catch(e){}}
+    if(!m||typeof m!=='object'||Array.isArray(m))_fail('mandate must be a plain object');
+    if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_fail('missing identity field');
+    if(typeof m.mandate_type!=='string'||!m.mandate_type)_fail('missing mandate_type');
+    if('jurisdiction'in m&&!Array.isArray(m.jurisdiction))_fail('"jurisdiction" must be array');
+    if('regulatory_frameworks'in m&&!Array.isArray(m.regulatory_frameworks))_fail('"regulatory_frameworks" must be array');
+    if('regulatory_citations'in m&&!Array.isArray(m.regulatory_citations))_fail('"regulatory_citations" must be array');
+    if('agent_instructions'in m&&!Array.isArray(m.agent_instructions))_fail('"agent_instructions" must be array');
+    if('policy_parameters'in m&&(typeof m.policy_parameters!=='object'||Array.isArray(m.policy_parameters)||m.policy_parameters===null))_fail('"policy_parameters" must be object');
+    if('ap2_version'in m&&(typeof m.ap2_version!=='string'||!RE_VER.test(m.ap2_version)))_fail('"ap2_version" must be semver');
+    if(!('ap2_version'in m))_warn('missing ap2_version');
+    return true;
+  };
+}
+
+/* i18n */
+const TRANSLATIONS={
+  en:{eyebrow:'T429 · WealthTech · Cat-27',hero_title:'Model Portfolio Risk Analytics',hero_desc:'Calculate key risk and return metrics for a model portfolio of up to 8 asset classes. Outputs expected return, volatility, Sharpe ratio, max drawdown, VaR 95%, and efficient frontier.',lang_dir:'ltr','nav.alltools':'All Tools','footer.alltools':'All Tools','footer.sitemap':'Sitemap','footer.contact':'Contact','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Zero PII   📡 No server calls   💻 Client-side'},
+  es:{eyebrow:'T429 · WealthTech · Cat-27',hero_title:'Analítica de Riesgo de Cartera Modelo',hero_desc:'Calcule métricas clave de riesgo y rentabilidad para una cartera modelo de hasta 8 clases de activos.',lang_dir:'ltr','nav.alltools':'Todas las Herramientas','footer.alltools':'Todas las Herramientas','footer.sitemap':'Mapa del sitio','footer.contact':'Contacto','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Zero PII   📡 Sin servidor   💻 Cliente'},
+  fr:{eyebrow:'T429 · WealthTech · Cat-27',hero_title:'Analytique de Risque du Portefeuille Modèle',hero_desc:"Calculez les métriques clés de risque et de rendement pour un portefeuille modèle jusqu'à 8 classes d'actifs.",lang_dir:'ltr','nav.alltools':'Tous les outils','footer.alltools':'Tous les outils','footer.sitemap':'Plan du site','footer.contact':'Contact','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Zero PII   📡 Sans serveur   💻 Côté client'},
+  ar:{eyebrow:'T429 · WealthTech · Cat-27',hero_title:'تحليلات مخاطر محفظة النموذج',hero_desc:'احسب مقاييس المخاطر والعائد الرئيسية لمحفظة نموذجية تضم ما يصل إلى 8 فئات أصول.',lang_dir:'rtl','nav.alltools':'جميع الأدوات','footer.alltools':'جميع الأدوات','footer.sitemap':'خريطة الموقع','footer.contact':'اتصل بنا','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 بدون بيانات شخصية   📡 بدون خادم   💻 عميل'},
+  pt:{eyebrow:'T429 · WealthTech · Cat-27',hero_title:'Análise de Risco de Carteira Modelo',hero_desc:'Calcule métricas-chave de risco e retorno para uma carteira modelo de até 8 classes de ativos.',lang_dir:'ltr','nav.alltools':'Todas as Ferramentas','footer.alltools':'Todas as Ferramentas','footer.sitemap':'Mapa do site','footer.contact':'Contacto','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 Zero PII   📡 Sem servidor   💻 Cliente'},
+  zh:{eyebrow:'T429 · WealthTech · Cat-27',hero_title:'模型投资组合风险分析',hero_desc:'计算最多8个资产类别的模型投资组合的关键风险和回报指标。',lang_dir:'ltr','nav.alltools':'所有工具','footer.alltools':'所有工具','footer.sitemap':'网站地图','footer.contact':'联系我们','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.privacy':'🔒 零PII   📡 无服务器   💻 客户端'},
+};
+
+function setLang(lang){
+  const t=TRANSLATIONS[lang]||TRANSLATIONS.en;
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`);
+  if(btn)btn.classList.add('active');
+  document.documentElement.lang=lang==='zh'?'zh-Hans':lang;
+  document.documentElement.dir=t.lang_dir||'ltr';
+  document.body.dir=t.lang_dir||'ltr';
+  const apply=(sel,k)=>{const el=document.querySelector(sel);if(el&&t[k]!==undefined)el.textContent=t[k];};
+  apply('.tool-eyebrow','eyebrow');apply('.hero h1','hero_title');apply('.hero-desc','hero_desc');
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n');if(t[k]!==undefined)el.textContent=t[k];});
+  try{sessionStorage.setItem('ain_lang',lang);}catch(e){}
+}
+(function(){try{const s=sessionStorage.getItem('ain_lang');if(s&&TRANSLATIONS[s])setLang(s);}catch(e){}})();
+
+/* Utilities */
+function showToast(msg,type='success'){const t=document.getElementById('toast');t.textContent=msg;t.className=`toast ${type} show`;setTimeout(()=>t.classList.remove('show'),3200);}
+function fmt(v,dp=2){return v.toLocaleString('en-GB',{minimumFractionDigits:dp,maximumFractionDigits:dp});}
+function fmtC(v){return '£/€ '+fmt(v);}
+
+/* Palette for up to 8 asset classes */
+const PALETTE=['#14B8A6','#9B72F5','#D4A847','#22C55E','#EF4444','#F59E0B','#60A5FA','#F472B6'];
+
+/* Default asset classes */
+const DEFAULTS=[
+  {name:'Global Equities',   weight:30, ret:7.0, vol:16.0},
+  {name:'UK Equities',       weight:10, ret:6.5, vol:15.0},
+  {name:'EM Equities',       weight:10, ret:8.5, vol:20.0},
+  {name:'IG Bonds',          weight:20, ret:3.5, vol:5.0},
+  {name:'High Yield Bonds',  weight:10, ret:5.5, vol:9.0},
+  {name:'Property (REITs)',  weight:10, ret:6.0, vol:12.0},
+  {name:'Gold',              weight:5,  ret:4.0, vol:14.0},
+  {name:'Cash',              weight:5,  ret:4.0, vol:0.5},
+];
+
+const BENCH_DEFAULTS=[
+  {name:'Global Equities',   weight:60, ret:7.0, vol:16.0},
+  {name:'IG Bonds',          weight:40, ret:3.5, vol:5.0},
+];
+
+/* State */
+let lastAP2=null,lastMD=null,lastResult=null;
+let portfolioRows=[];
+let benchmarkRows=[];
+
+/* Build rows */
+function buildRows(data,tbodyId,prefix,onUpdate){
+  const tbody=document.getElementById(tbodyId);
+  tbody.innerHTML='';
+  const rows=[];
+  data.forEach((d,i)=>{
+    const tr=document.createElement('tr');
+    const id=`${prefix}_${i}`;
+    tr.innerHTML=`
+      <td><span style="color:${PALETTE[i%PALETTE.length]};font-family:'JetBrains Mono',monospace;font-size:10px">${i+1}</span></td>
+      <td><input type="text" id="${id}_name" value="${d.name}"></td>
+      <td><input type="number" id="${id}_wt" value="${d.weight}" min="0" max="100" step="0.1" oninput="syncSlider('${id}');${onUpdate}"></td>
+      <td><input type="range" id="${id}_sl" value="${d.weight}" min="0" max="100" step="0.1" oninput="syncNum('${id}');${onUpdate}"><span class="weight-display" id="${id}_wd">${d.weight}%</span></td>
+      <td><input type="number" id="${id}_ret" value="${d.ret}" min="-50" max="100" step="0.1"></td>
+      <td><input type="number" id="${id}_vol" value="${d.vol}" min="0" max="200" step="0.1"></td>
+    `;
+    tbody.appendChild(tr);
+    rows.push(id);
+  });
+  return rows;
+}
+
+function syncSlider(id){
+  const v=document.getElementById(id+'_wt').value;
+  document.getElementById(id+'_sl').value=v;
+  document.getElementById(id+'_wd').textContent=parseFloat(v||0).toFixed(1)+'%';
+}
+function syncNum(id){
+  const v=document.getElementById(id+'_sl').value;
+  document.getElementById(id+'_wt').value=v;
+  document.getElementById(id+'_wd').textContent=parseFloat(v||0).toFixed(1)+'%';
+}
+
+function getWeightSum(rows){
+  return rows.reduce((s,id)=>{return s+(parseFloat(document.getElementById(id+'_wt').value)||0);},0);
+}
+function updateWeightSum(){
+  const s=getWeightSum(portfolioRows);
+  const el=document.getElementById('weightSum');
+  el.textContent=`Weights: ${s.toFixed(1)}%`;
+  el.className='weight-sum '+(Math.abs(s-100)<0.05?'ok':'warn');
+}
+function updateBenchWeightSum(){
+  const s=getWeightSum(benchmarkRows);
+  const el=document.getElementById('benchWeightSum');
+  el.textContent=`Benchmark Weights: ${s.toFixed(1)}%`;
+  el.className='weight-sum '+(Math.abs(s-100)<0.05?'ok':'warn');
+}
+
+function resetDefaults(){
+  portfolioRows=buildRows(DEFAULTS,'portfolioBody','p','updateWeightSum()');
+  updateWeightSum();
+}
+
+function toggleBenchmark(on){
+  document.getElementById('benchmarkPanel').style.display=on?'block':'none';
+  if(on&&benchmarkRows.length===0){
+    benchmarkRows=buildRows(BENCH_DEFAULTS,'benchmarkBody','b','updateBenchWeightSum()');
+    updateBenchWeightSum();
+  }
+}
+
+/* Read rows */
+function readRows(rows){
+  return rows.map(id=>{
+    const w=(parseFloat(document.getElementById(id+'_wt').value)||0)/100;
+    const ret=(parseFloat(document.getElementById(id+'_ret').value)||0)/100;
+    const vol=(parseFloat(document.getElementById(id+'_vol').value)||0)/100;
+    const name=document.getElementById(id+'_name').value||'Asset';
+    return {name,w,ret,vol};
+  }).filter(r=>r.w>0);
+}
+
+/* ── Main Analysis ── */
+function runAnalysis(){
+  const riskFree=(parseFloat(document.getElementById('riskFree').value)||4.5)/100;
+  const horizon=parseInt(document.getElementById('investHorizon').value)||5;
+  const portVal=parseFloat(document.getElementById('portfolioValue').value)||100000;
+  const useBench=document.getElementById('useBenchmark').checked;
+
+  const assets=readRows(portfolioRows);
+  if(assets.length===0){showToast('Add at least one asset with weight > 0','error');return;}
+  const sumW=assets.reduce((s,a)=>s+a.w,0);
+  if(Math.abs(sumW-1)>0.01){showToast(`Weights sum to ${(sumW*100).toFixed(1)}% — must be 100%`,'error');return;}
+
+  // Normalise weights just in case
+  assets.forEach(a=>a.w=a.w/sumW);
+
+  /* Calculations */
+  const portRet=assets.reduce((s,a)=>s+a.w*a.ret,0);
+  const portVar=assets.reduce((s,a)=>s+a.w*a.w*a.vol*a.vol,0);
+  const portVol=Math.sqrt(portVar);
+  const sharpe=portVol>0?(portRet-riskFree)/portVol:0;
+
+  // Parametric max drawdown 95%: 2 × vol × √horizon
+  const maxDD=2*portVol*Math.sqrt(horizon);
+
+  // VaR 1yr 95% parametric
+  const varAmt=portVal*(portRet-1.645*portVol);
+  const varLoss=portVal-portVal*(1+portRet-1.645*portVol);
+  const varPct=(portRet-1.645*portVol)*100;
+
+  // Risk contributions
+  assets.forEach(a=>{
+    a.riskContrib=portVar>0?(a.w*a.w*a.vol*a.vol/portVar)*100:0;
+  });
+
+  let te=null,activeWeights=null;
+  if(useBench&&benchmarkRows.length>0){
+    const bench=readRows(benchmarkRows);
+    const sumBW=bench.reduce((s,a)=>s+a.w,0);
+    if(Math.abs(sumBW-1)>0.01){showToast('Benchmark weights do not sum to 100%','error');return;}
+    bench.forEach(a=>a.w=a.w/sumBW);
+    // Tracking error: match by name, compute active weights
+    const allNames=[...new Set([...assets.map(a=>a.name),...bench.map(a=>a.name)])];
+    let teVar=0;
+    const aw=[];
+    allNames.forEach(nm=>{
+      const pa=assets.find(a=>a.name===nm)||{w:0,vol:0};
+      const ba=bench.find(a=>a.name===nm)||{w:0,vol:0};
+      const delta=pa.w-ba.w;
+      const vol=pa.vol||ba.vol||0;
+      teVar+=delta*delta*vol*vol;
+      aw.push({name:nm,portW:pa.w,benchW:ba.w,active:delta,vol});
+    });
+    te=Math.sqrt(teVar)*100;
+    activeWeights=aw;
+  }
+
+  // Efficient frontier — 2 asset (highest ret vs lowest vol)
+  const sortedRet=[...assets].sort((a,b)=>b.ret-a.ret);
+  const sortedVol=[...assets].sort((a,b)=>a.vol-b.vol);
+  const aHR=sortedRet[0];
+  const aLV=sortedVol[0];
+  const frontierPts=[];
+  for(let i=0;i<=20;i++){
+    const wHR=i/20;
+    const wLV=1-wHR;
+    const fr=wHR*aHR.ret+wLV*aLV.ret;
+    const fv=Math.sqrt(wHR*wHR*aHR.vol*aHR.vol+wLV*wLV*aLV.vol*aLV.vol);
+    frontierPts.push({ret:fr*100,vol:fv*100,wHR});
+  }
+
+  lastResult={assets,portRet,portVol,sharpe,maxDD,varLoss,varPct,riskFree,horizon,portVal,te,activeWeights,frontierPts,aHR,aLV};
+
+  renderKPIs(lastResult);
+  renderDonut(lastResult);
+  renderRiskContrib(lastResult);
+  renderTE(lastResult);
+  renderFrontier(lastResult);
+  buildManifest(lastResult);
+
+  document.getElementById('resultsPanel').classList.add('visible');
+  const eb=document.getElementById('ap2ExportBtn');
+  eb.disabled=false;eb.classList.add('ready');
+  document.getElementById('resultsPanel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function renderKPIs(r){
+  const g=document.getElementById('kpiGrid');
+  const sharpeClass=r.sharpe>=1?'kpi-green':r.sharpe>=0.5?'kpi-gold':'kpi-warn';
+  const ddClass=r.maxDD*100>30?'kpi-red':'kpi-warn';
+  g.innerHTML=`
+    <div class="kpi-card kpi-purple"><div class="kpi-label">Expected Return</div><div class="kpi-value">${fmt(r.portRet*100)}%</div><div class="kpi-sub">pa (user assumptions)</div></div>
+    <div class="kpi-card kpi-teal"><div class="kpi-label">Portfolio Volatility</div><div class="kpi-value">${fmt(r.portVol*100)}%</div><div class="kpi-sub">pa (zero-correlation)</div></div>
+    <div class="kpi-card ${sharpeClass}"><div class="kpi-label">Sharpe Ratio</div><div class="kpi-value">${fmt(r.sharpe,2)}</div><div class="kpi-sub">Risk-free: ${fmt(r.riskFree*100)}%</div></div>
+    <div class="kpi-card ${ddClass}"><div class="kpi-label">Max Drawdown Est.</div><div class="kpi-value">${fmt(r.maxDD*100)}%</div><div class="kpi-sub">2×vol×√horizon (95%)</div></div>
+    <div class="kpi-card kpi-gold"><div class="kpi-label">VaR 1yr 95%</div><div class="kpi-value">${fmtC(r.varLoss)}</div><div class="kpi-sub">${fmt(Math.abs(r.varPct))}% of portfolio</div></div>
+    <div class="kpi-card"><div class="kpi-label">Horizon</div><div class="kpi-value" style="color:var(--text);font-size:20px">${r.horizon}yr</div><div class="kpi-sub">Portfolio value: ${fmtC(r.portVal)}</div></div>
+  `;
+}
+
+function renderDonut(r){
+  const wrap=document.getElementById('donutWrap');
+  const CX=140,CY=140,R=100,r2=55;
+  let total=0;
+  let paths='',labels='';
+  const slices=r.assets.map((a,i)=>({...a,color:PALETTE[i%PALETTE.length]}));
+  slices.forEach(a=>total+=a.w);
+  let angle=-Math.PI/2;
+  slices.forEach((a,i)=>{
+    const sweep=(a.w/total)*2*Math.PI;
+    const x1=CX+R*Math.cos(angle);
+    const y1=CY+R*Math.sin(angle);
+    const x2=CX+R*Math.cos(angle+sweep);
+    const y2=CY+R*Math.sin(angle+sweep);
+    const xi1=CX+r2*Math.cos(angle);
+    const yi1=CY+r2*Math.sin(angle);
+    const xi2=CX+r2*Math.cos(angle+sweep);
+    const yi2=CY+r2*Math.sin(angle+sweep);
+    const lg=sweep>Math.PI?1:0;
+    paths+=`<path d="M ${xi1} ${yi1} L ${x1} ${y1} A ${R} ${R} 0 ${lg} 1 ${x2} ${y2} L ${xi2} ${yi2} A ${r2} ${r2} 0 ${lg} 0 ${xi1} ${yi1}" fill="${a.color}" opacity=".85"/>`;
+    // label if slice large enough
+    if(sweep>0.2){
+      const midA=angle+sweep/2;
+      const lx=CX+(R+20)*Math.cos(midA);
+      const ly=CY+(R+20)*Math.sin(midA);
+      labels+=`<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" fill="var(--text)" font-size="9" font-family="Sora,sans-serif">${(a.w*100).toFixed(0)}%</text>`;
+    }
+    angle+=sweep;
+  });
+  // Legend
+  let legend='';
+  slices.forEach((a,i)=>{
+    const lx=300,ly=40+i*22;
+    legend+=`<rect x="${lx}" y="${ly}" width="10" height="10" rx="2" fill="${a.color}" opacity=".85"/>`;
+    legend+=`<text x="${lx+16}" y="${ly+9}" fill="var(--text)" font-size="11" font-family="Sora,sans-serif">${a.name} (${(a.w*100).toFixed(1)}%)</text>`;
+  });
+  wrap.innerHTML=`<svg viewBox="0 0 560 300" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:560px">
+    ${paths}
+    <text x="${CX}" y="${CY+4}" text-anchor="middle" fill="var(--body)" font-size="12" font-family="Sora,sans-serif">Portfolio</text>
+    ${labels}
+    ${legend}
+  </svg>`;
+}
+
+function renderRiskContrib(r){
+  const wrap=document.getElementById('riskContribWrap');
+  const rows=r.assets.map((a,i)=>{
+    const margVar=(a.w*a.w*a.vol*a.vol);
+    const portVar=r.assets.reduce((s,x)=>s+x.w*x.w*x.vol*x.vol,0);
+    const rc=portVar>0?(margVar/portVar)*100:0;
+    return `<tr>
+      <td><span style="display:inline-block;width:10px;height:10px;background:${PALETTE[i%PALETTE.length]};border-radius:2px;margin-right:6px;vertical-align:middle"></span>${a.name}</td>
+      <td style="font-family:'JetBrains Mono',monospace">${(a.w*100).toFixed(1)}%</td>
+      <td style="font-family:'JetBrains Mono',monospace">${(a.ret*100).toFixed(1)}%</td>
+      <td style="font-family:'JetBrains Mono',monospace">${(a.vol*100).toFixed(1)}%</td>
+      <td style="font-family:'JetBrains Mono',monospace;color:${rc>30?'var(--warn)':'var(--teal)'}">${rc.toFixed(1)}%</td>
+    </tr>`;
+  }).join('');
+  wrap.innerHTML=`<table class="data-table">
+    <thead><tr><th>Asset Class</th><th>Weight</th><th>Ret pa</th><th>Vol pa</th><th>Risk Contribution</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function renderTE(r){
+  const sec=document.getElementById('teSection');
+  if(!r.te){sec.style.display='none';return;}
+  sec.style.display='block';
+  document.getElementById('teCallout').innerHTML=`
+    <div class="te-callout-title">Tracking Error vs Benchmark</div>
+    <div class="te-callout-val">${fmt(r.te,2)}% pa</div>
+    <div style="font-size:11px;color:var(--body);margin-top:4px">Based on active weight deviations. Zero correlation assumption.</div>
+  `;
+  if(r.activeWeights){
+    const rows=r.activeWeights.map(a=>`<tr>
+      <td>${a.name}</td>
+      <td style="font-family:'JetBrains Mono',monospace">${(a.portW*100).toFixed(1)}%</td>
+      <td style="font-family:'JetBrains Mono',monospace">${(a.benchW*100).toFixed(1)}%</td>
+      <td style="font-family:'JetBrains Mono',monospace;color:${a.active>0?'var(--green)':a.active<0?'var(--red)':'var(--muted)'}">${a.active>=0?'+':''}${(a.active*100).toFixed(1)}%</td>
+      <td style="font-family:'JetBrains Mono',monospace">${(a.vol*100).toFixed(1)}%</td>
+    </tr>`).join('');
+    document.getElementById('activeWeightsWrap').innerHTML=`<table class="data-table">
+      <thead><tr><th>Asset Class</th><th>Portfolio</th><th>Benchmark</th><th>Active Weight</th><th>Vol pa</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }
+}
+
+function renderFrontier(r){
+  const wrap=document.getElementById('frontierWrap');
+  const pts=r.frontierPts;
+  const allVol=pts.map(p=>p.vol);
+  const allRet=pts.map(p=>p.ret);
+  const minV=Math.min(...allVol)*0.9,maxV=Math.max(...allVol)*1.05;
+  const minR=Math.min(...allRet)*0.95,maxR=Math.max(...allRet)*1.05;
+  const W=560,H=240,PL=60,PR=20,PT=20,PB=40;
+  const cx=v=>PL+(v-minV)/(maxV-minV)*(W-PL-PR);
+  const cy=r=>PT+(H-PT-PB)*(1-(r-minR)/(maxR-minR));
+  const path='M '+pts.map(p=>`${cx(p.vol).toFixed(1)},${cy(p.ret).toFixed(1)}`).join(' L ');
+  const dots=pts.filter((_,i)=>i%4===0).map(p=>`<circle cx="${cx(p.vol).toFixed(1)}" cy="${cy(p.ret).toFixed(1)}" r="4" fill="var(--purple)" opacity=".7"/>`).join('');
+  // current portfolio point
+  const cpv=r.portVol*100,cpr=r.portRet*100;
+  const cpx=cx(cpv),cpy=cy(cpr);
+  // axis
+  let axX='',axY='';
+  const vStep=(maxV-minV)/4;
+  for(let i=0;i<=4;i++){const v=minV+i*vStep;axX+=`<text x="${cx(v).toFixed(1)}" y="${H-PB+15}" text-anchor="middle" fill="var(--muted)" font-size="9">${v.toFixed(1)}%</text>`;}
+  const rStep=(maxR-minR)/4;
+  for(let i=0;i<=4;i++){const rv=minR+i*rStep;axY+=`<text x="${PL-5}" y="${cy(rv)+3}" text-anchor="end" fill="var(--muted)" font-size="9">${rv.toFixed(1)}%</text>`;}
+  wrap.innerHTML=`<div style="font-size:11px;color:var(--body);margin-bottom:8px">2-asset frontier: <span style="color:var(--teal)">${r.aHR.name}</span> (highest return) vs <span style="color:var(--purple)">${r.aLV.name}</span> (lowest volatility) · Illustrative only</div>
+  <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px">
+    <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${H-PB}" stroke="var(--border)" stroke-width="1"/>
+    <line x1="${PL}" y1="${H-PB}" x2="${W-PR}" y2="${H-PB}" stroke="var(--border)" stroke-width="1"/>
+    <path d="${path}" fill="none" stroke="var(--teal)" stroke-width="2"/>
+    ${dots}
+    <circle cx="${cpx.toFixed(1)}" cy="${cpy.toFixed(1)}" r="6" fill="var(--gold)" stroke="var(--bg)" stroke-width="2"/>
+    <text x="${cpx+10}" y="${cpy+4}" fill="var(--gold)" font-size="10" font-family="Sora,sans-serif">Portfolio</text>
+    <text x="${PL+(W-PL-PR)/2}" y="${H-5}" text-anchor="middle" fill="var(--muted)" font-size="9">Volatility % pa</text>
+    ${axX}${axY}
+  </svg>`;
+}
+
+function buildManifest(r){
+  const manifest={
+    tool_id:"429-model-portfolio-risk-analytics",
+    version:"1.0.0",
+    title:"Model Portfolio Risk Analytics",
+    description:"Calculate key risk and return metrics for a model portfolio of up to 8 asset classes. Outputs expected return, portfolio volatility, Sharpe ratio, max drawdown estimate, VaR 95%, tracking error vs benchmark, and simplified efficient frontier.",
+    category:"cat-27",
+    tags:["portfolio-analytics","sharpe-ratio","var","volatility","markowitz","wealthtech","efficient-frontier","risk-management"],
+    audience:["wealth-managers","dfm","portfolio-managers","risk-analysts","compliance"],
+    input_schema:{type:"object",properties:{
+      assets:{type:"array",items:{type:"object",properties:{name:{type:"string"},weight_pct:{type:"number"},expected_return_pct_pa:{type:"number"},volatility_pct_pa:{type:"number"}},required:["weight_pct","expected_return_pct_pa","volatility_pct_pa"]}},
+      risk_free_rate_pct:{type:"number"},
+      horizon_years:{type:"number"},
+      portfolio_value:{type:"number"}
+    },required:["assets"]},
+    output_schema:{type:"object",properties:{
+      expected_return_pct:{type:"number"},
+      volatility_pct:{type:"number"},
+      sharpe_ratio:{type:"number"},
+      max_drawdown_pct:{type:"number"},
+      var_95_1yr_amount:{type:"number"},
+      tracking_error_pct:{type:"number"}
+    }},
+    mcp_tool_definition:{
+      name:"calculate_portfolio_risk_analytics",
+      description:"Calculate portfolio risk and return metrics: expected return, volatility, Sharpe ratio, max drawdown, 1yr 95% VaR, tracking error vs benchmark, and generate efficient frontier data. Uses simplified Markowitz with zero correlation assumption.",
+      inputSchema:{type:"object",properties:{
+        assets:{type:"array",description:"Array of asset class objects with weight_pct, expected_return_pct_pa, volatility_pct_pa"},
+        risk_free_rate_pct:{type:"number",description:"Risk-free rate % pa (default 4.5)"},
+        horizon_years:{type:"number",description:"Investment horizon in years"},
+        portfolio_value:{type:"number",description:"Portfolio value for VaR amount calculation"}
+      },required:["assets"]}
+    },
+    execution:{type:"browser-javascript",entry:"tools/429-model-portfolio-risk-analytics.html",function_name:"runAnalysis",timeout_ms:3000},
+    ap2_version:"1.0",
+    mandate_type:"risk-analytics",
+    jurisdiction:["EU","GB","Global"],
+    regulatory_frameworks:["MiFID II KIID","UCITS SRRI","SVAR"],
+    regulatory_citations:["MiFID II Delegated Regulation Art.25","UCITS IV Art.41","ESMA SRRI Methodology 2010/ESMA/673"],
+    agent_instructions:["Tool assumes zero inter-asset correlation — conservative overestimate of portfolio volatility.","For production use, supply a covariance matrix or use historical correlation data.","Parametric max drawdown and VaR assume normal distribution of returns."],
+    policy_parameters:{
+      correlation_assumption:"zero",
+      var_confidence_level:0.95,
+      var_horizon_years:1,
+      var_z_score:1.645,
+      max_drawdown_formula:"2 × vol × sqrt(horizon)",
+      max_assets:8
+    },
+    output_payload:{
+      expected_return_pct:parseFloat((r.portRet*100).toFixed(4)),
+      volatility_pct:parseFloat((r.portVol*100).toFixed(4)),
+      sharpe_ratio:parseFloat(r.sharpe.toFixed(4)),
+      max_drawdown_pct:parseFloat((r.maxDD*100).toFixed(4)),
+      var_95_1yr_loss_amount:parseFloat(r.varLoss.toFixed(2)),
+      var_95_1yr_pct:parseFloat(Math.abs(r.varPct).toFixed(4)),
+      tracking_error_pct:r.te?parseFloat(r.te.toFixed(4)):null,
+      asset_count:r.assets.length
+    },
+    summary:`Model portfolio: ${r.assets.length} assets · Return: ${fmt(r.portRet*100)}% · Vol: ${fmt(r.portVol*100)}% · Sharpe: ${fmt(r.sharpe,2)} · VaR 95% 1yr: ${fmtC(r.varLoss)}`,
+    generated_at:new Date().toISOString(),
+    ap2_export:true
+  };
+
+  lastAP2=manifest;
+  document.getElementById('mfstCode').textContent=JSON.stringify(manifest,null,2);
+
+  lastMD=`# Model Portfolio Risk Analytics — T429\n\n## Portfolio Summary\n| Metric | Value |\n|---|---|\n| Expected Return | ${fmt(r.portRet*100)}% pa |\n| Portfolio Volatility | ${fmt(r.portVol*100)}% pa |\n| Sharpe Ratio | ${fmt(r.sharpe,2)} |\n| Max Drawdown Est. | ${fmt(r.maxDD*100)}% |\n| VaR 1yr 95% | ${fmtC(r.varLoss)} |\n${r.te?`| Tracking Error | ${fmt(r.te,2)}% |\n`:''}\n## Asset Allocation\n| Asset | Weight | Return pa | Vol pa | Risk Contrib |\n|---|---|---|---|---|\n${r.assets.map(a=>{const rc=(a.w*a.w*a.vol*a.vol/(r.assets.reduce((s,x)=>s+x.w*x.w*x.vol*x.vol,0)||1))*100;return `| ${a.name} | ${(a.w*100).toFixed(1)}% | ${(a.ret*100).toFixed(1)}% | ${(a.vol*100).toFixed(1)}% | ${rc.toFixed(1)}% |`;}).join('\n')}\n\n> **Disclaimer:** This model uses user-entered assumptions and simplified Markowitz theory (zero correlation). Actual portfolio returns, volatility, and drawdowns will differ. Planning and educational tool only.\n\n_Generated by AINumbers.co T429 · v1.0 · ${new Date().toISOString().slice(0,10)}_`;
+}
+
+function toggleMfst(){
+  const b=document.getElementById('mfstBody');
+  const a=document.getElementById('mfstArr');
+  const open=b.style.display==='block';
+  b.style.display=open?'none':'block';
+  a.textContent=open?'▼':'▲';
+}
+
+function exportAP2(){
+  if(!lastAP2){showToast('Run analysis first','error');return;}
+  try{AP2Schema.validate(lastAP2);}catch(e){showToast('AP2 validation: '+e.message,'error');return;}
+  const blob=new Blob([JSON.stringify(lastAP2,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='t429-portfolio-risk-mandate.json';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  showToast('Policy Mandate exported');
+}
+
+function exportMarkdown(){
+  if(!lastMD){showToast('Run analysis first','error');return;}
+  const blob=new Blob([lastMD],{type:'text/markdown'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='t429-portfolio-risk-report.md';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  showToast('Markdown exported');
+}
+
+/* Init */
+portfolioRows=buildRows(DEFAULTS,'portfolioBody','p','updateWeightSum()');
+updateWeightSum();
+
+/* Init manifest placeholder */
+(function(){
+  const def={tool_id:"429-model-portfolio-risk-analytics",version:"1.0.0",title:"Model Portfolio Risk Analytics",category:"cat-27",tags:["portfolio-analytics","sharpe-ratio","var","volatility","wealthtech"],mcp_tool_definition:{name:"calculate_portfolio_risk_analytics",description:"Calculate portfolio risk analytics: return, vol, Sharpe, VaR 95%, drawdown, tracking error."},ap2_version:"1.0",mandate_type:"risk-analytics",jurisdiction:["EU","GB","Global"],regulatory_frameworks:["MiFID II KIID","UCITS SRRI"],regulatory_citations:["MiFID II Delegated Regulation Art.25","UCITS IV Art.41"],ap2_export:true};
+  document.getElementById('mfstCode').textContent=JSON.stringify(def,null,2);
+})();
+</script>
+</body>
+</html>

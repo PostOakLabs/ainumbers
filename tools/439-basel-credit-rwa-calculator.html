@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Basel III/IV Credit RWA Calculator · AINumbers.co</title>
+<meta name="description" content="Calculate credit Risk-Weighted Assets under Basel III/IV Standardised Approach (CRR3). Input counterparty type, rating, exposure, collateral. Outputs RWA, Pillar 1 capital, SA comparison. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/439-basel-credit-rwa-calculator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Basel III/IV Credit RWA Calculator","url":"https://ainumbers.co/tools/439-basel-credit-rwa-calculator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "439-basel-credit-rwa-calculator",
+  "version": "1.0.0",
+  "title": "Basel III/IV Credit RWA Calculator",
+  "description": "Calculates credit Risk-Weighted Assets and minimum capital requirements under the Basel IV / CRR3 Standardised Approach. Supports sovereign, bank, corporate, SME, retail, mortgage, CRE, and equity exposures with collateral adjustments.",
+  "category": "cat-28",
+  "tags": ["Basel IV","CRR3","RWA","credit risk","capital adequacy","Pillar 1","standardised approach","regulatory capital"],
+  "audience": ["risk","compliance","treasury","CFO"],
+  "input_schema": {"type":"object","properties":{"exposures":{"type":"array"},"jurisdiction":{"type":"string"},"cet1_ratio":{"type":"number"},"ccyb":{"type":"number"}},"required":["exposures"]},
+  "output_schema": {"type":"object","properties":{"total_rwa":{"type":"number"},"total_capital":{"type":"number"},"rows":{"type":"array"},"surplus_deficit":{"type":"number"}}},
+  "mcp_tool_definition": {"name":"calculate_credit_rwa","description":"Calculates Basel IV/CRR3 Standardised Approach credit RWA and minimum Pillar 1 capital for a portfolio of exposures.","inputSchema":{"type":"object","properties":{"exposures":{"type":"array","description":"Array of exposure objects with counterparty_type, rating, amount, collateral_type, collateral_value"},"jurisdiction":{"type":"string","description":"EU_CRR3 | UK_PRA | US_Basel3 | CH_FINMA"},"cet1_ratio":{"type":"number"},"ccyb":{"type":"number"}},"required":["exposures"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/439-basel-credit-rwa-calculator.html","function_name":"runRWA","timeout_ms":3000},
+  "policy_mandate": {"standard":"Basel IV / CRR3 (Regulation EU 2024/1623)","applies_to":"Credit RWA — Standardised Approach","output_floor_note":"Art.465: 72.5% floor phased 2025-2028","version":"1.0"},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--purple);color:var(--purple)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--purple-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--purple);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.15em;text-transform:uppercase;color:var(--purple);margin-bottom:1rem}
+.panel-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.75rem;margin-bottom:.75rem}
+.field-group{display:flex;flex-direction:column;gap:.3rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+select,input[type=number],input[type=text]{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.35rem .5rem;border-radius:3px;outline:none;width:100%;transition:border-color .2s;-webkit-appearance:none}
+select:focus,input:focus{border-color:var(--purple)}
+option{background:var(--bg-3);color:var(--bright)}
+.exposure-card{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:1rem;margin-bottom:.75rem;position:relative}
+.exp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.85rem}
+.exp-num{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--purple);background:var(--purple-dim);padding:.2rem .55rem;border-radius:3px}
+.del-btn{background:transparent;border:none;color:var(--muted);font-size:.9rem;padding:.1rem .3rem;transition:color .2s;cursor:pointer}
+.del-btn:hover{color:var(--red)}
+.add-exp-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px dashed var(--border-2);color:var(--muted);padding:.45rem 1rem;border-radius:var(--radius);width:100%;transition:all .2s;margin-top:.5rem}
+.add-exp-btn:hover{border-color:var(--purple);color:var(--purple)}
+.run-btn{background:var(--purple);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--purple-lt)}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.out-body{padding:1.25rem}
+.result-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.result-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.result-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.result-table tr:last-child td{border-bottom:none}
+.result-table tr:hover td{background:var(--bg-3)}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:.75rem}
+.stat-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem}
+.stat-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:1.05rem;color:var(--bright);font-weight:500}
+.stat-sub{font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--body);margin-top:.2rem;line-height:1.4}
+.surplus{color:var(--green)}.deficit{color:var(--red)}
+.floor-note{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-left:3px solid var(--warn);border-radius:4px;padding:.55rem .85rem;font-size:.7rem;color:#9aa7b8;line-height:1.6;margin-bottom:1rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-3)}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a>
+    <span class="nav-bc-sep">/</span>
+    <span>T-439</span>
+  </div>
+  <div class="nav-right"><a href="../index.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">T439 &middot; LendTech &amp; Credit Operations &middot; Cat-28</div>
+  <div class="hero-meta">
+    <span class="hero-badge badge-muted">v1.0 &middot; May 2026</span>
+    <span class="hero-badge badge-purple">Basel IV / CRR3</span>
+  </div>
+  <h1>Basel III/IV Credit <em>RWA Calculator</em></h1>
+  <p class="hero-desc">Calculate credit Risk-Weighted Assets (RWA) under the Basel III/IV Standardised Approach (CRR3 / Basel IV output floor effective 2025&ndash;2028). Input counterparty type, exposure, external rating, and collateral. Outputs RWA, minimum capital requirement (Pillar 1), and comparison across Basel approaches.</p>
+  <div class="disclaimer">&#9888; This tool applies Basel IV/CRR3 Standardised Approach risk weights as published. Internal model (IRB) results and jurisdiction-specific deviations may differ. Always verify with your regulatory capital team. Static reference data only &mdash; not regulatory advice.</div>
+  <div class="hero-meta">
+    <span class="hero-badge badge-purple">Credit Risk</span>
+    <span class="hero-badge badge-gold">Pillar 1</span>
+    <span class="hero-badge badge-green">Zero PII</span>
+    <span class="hero-badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+<div class="scope-note"><strong style="color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash; </strong>&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only. Risk weights are static reference values per CRR3/Basel IV SA as of May 2026. Verify against current primary sources before relying on any output for regulatory reporting or capital planning. Deterministic logic &middot; no inference &middot; zero PII &middot; CC BY 4.0.</div>
+
+<!-- Global Settings -->
+<div class="panel">
+  <div class="panel-label">&#9881; Global Settings</div>
+  <div class="panel-row">
+    <div class="field-group">
+      <label class="field-label" for="jurisdiction">Jurisdiction</label>
+      <select id="jurisdiction">
+        <option value="EU_CRR3">EU CRR3 (Regulation EU 2024/1623)</option>
+        <option value="UK_PRA">UK PRA (CRR as retained)</option>
+        <option value="US_Basel3">US Basel III (US Reg Capital)</option>
+        <option value="CH_FINMA">Switzerland FINMA</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="minCet1">Minimum CET1 Ratio</label>
+      <select id="minCet1">
+        <option value="4.5">4.5% (regulatory minimum)</option>
+        <option value="6">6.0% (Tier 1 minimum)</option>
+        <option value="8" selected>8.0% (total capital minimum)</option>
+        <option value="10">10.0% (firm target)</option>
+        <option value="12">12.0% (firm target)</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="ccb">Capital Conservation Buffer</label>
+      <select id="ccb">
+        <option value="2.5" selected>2.5% (standard)</option>
+        <option value="0">0% (waived / transitional)</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="ccyb">Countercyclical Buffer (CCyB)</label>
+      <select id="ccyb">
+        <option value="0" selected>0.0%</option>
+        <option value="0.5">0.5%</option>
+        <option value="1.0">1.0%</option>
+        <option value="2.0">2.0%</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="currentCet1">Current Firm CET1 Ratio (%)</label>
+      <input type="number" id="currentCet1" value="13.5" min="0" max="50" step="0.1">
+    </div>
+  </div>
+</div>
+
+<!-- Exposures -->
+<div class="panel">
+  <div class="panel-label">&#128203; Exposure Portfolio (up to 5 rows)</div>
+  <div id="exposureContainer"></div>
+  <button class="add-exp-btn" onclick="addExposure()">+ Add Exposure</button>
+</div>
+
+<div style="display:flex;gap:1rem;margin-bottom:2rem;margin-top:1rem">
+  <button class="run-btn" onclick="runRWA()">&#9654; Calculate RWA &amp; Capital</button>
+</div>
+
+<div id="outputSection"></div>
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec"><div class="container"><div style="padding-top:1.5rem"><button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button><div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div></div></div></section>
+
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the calculator above to enable export" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">AP2 &middot; audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+// i18n
+function setLang(l){
+  sessionStorage.setItem('ain_lang',l);
+  document.documentElement.lang=l;
+  document.documentElement.dir=l==='ar'?'rtl':'ltr';
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===l));
+}
+setLang(sessionStorage.getItem('ain_lang')||'en');
+
+// Risk weight table (Basel IV SA / CRR3)
+// Keys: AAA_AA, A, BBB, BB_B, BELOW_B, UNRATED
+const RW_TABLE = {
+  SOVEREIGN:        {AAA_AA:0,   A:0.20, BBB:0.50, BB_B:1.00, BELOW_B:1.50, UNRATED:1.00},
+  CENTRAL_BANK:     {AAA_AA:0,   A:0.20, BBB:0.50, BB_B:1.00, BELOW_B:1.50, UNRATED:1.00},
+  MDB:              {AAA_AA:0,   A:0.20, BBB:0.50, BB_B:1.00, BELOW_B:1.50, UNRATED:0.50},
+  BANK_PSE:         {AAA_AA:0.20,A:0.30, BBB:0.50, BB_B:1.00, BELOW_B:1.50, UNRATED:0.50},
+  CORP_RATED:       {AAA_AA:0.20,A:0.50, BBB:0.75, BB_B:1.00, BELOW_B:1.50, UNRATED:1.00},
+  CORP_UNRATED:     null, // flat 100%
+  SME_RETAIL:       null, // flat 75%
+  SME_CORP:         null, // flat 85% (CRR3 Art.501)
+  RETAIL:           null, // flat 75%
+  RESI_MORTGAGE:    null, // LTV-based
+  CRE:              null, // LTV-based
+  EQUITY_LISTED:    null, // flat 100%
+  EQUITY_UNLISTED:  null, // flat 250%
+  EQUITY_SPEC:      null, // flat 400%
+  OTHER:            null, // flat 100%
+};
+const FLAT_RW = {
+  CORP_UNRATED:1.00, SME_RETAIL:0.75, SME_CORP:0.85,
+  RETAIL:0.75, EQUITY_LISTED:1.00, EQUITY_UNLISTED:2.50,
+  EQUITY_SPEC:4.00, OTHER:1.00
+};
+
+function getRW(type, rating, ltv){
+  if(type==='RESI_MORTGAGE'){
+    if(ltv<=50)return 0.20; if(ltv<=60)return 0.25;
+    if(ltv<=80)return 0.30; if(ltv<=90)return 0.40;
+    if(ltv<=100)return 0.50; return 0.70;
+  }
+  if(type==='CRE') return ltv<=60?0.60:0.80;
+  if(FLAT_RW[type]!==undefined) return FLAT_RW[type];
+  const tbl=RW_TABLE[type];
+  if(!tbl) return 1.00;
+  return tbl[rating]!==undefined?tbl[rating]:(tbl.UNRATED||1.00);
+}
+
+// Counterparty options
+const CPTY=[
+  {v:'SOVEREIGN',l:'Sovereign'},
+  {v:'CENTRAL_BANK',l:'Central Bank'},
+  {v:'MDB',l:'Multilateral Development Bank'},
+  {v:'BANK_PSE',l:'Bank / PSE (rated)'},
+  {v:'CORP_RATED',l:'Corporate (rated)'},
+  {v:'CORP_UNRATED',l:'Corporate (unrated)'},
+  {v:'SME_RETAIL',l:'SME (retail / regulatory retail)'},
+  {v:'SME_CORP',l:'SME (corporate — CRR3 Art.501)'},
+  {v:'RETAIL',l:'Retail (revolving)'},
+  {v:'RESI_MORTGAGE',l:'Residential Mortgage'},
+  {v:'CRE',l:'Commercial Real Estate'},
+  {v:'EQUITY_LISTED',l:'Equity (listed)'},
+  {v:'EQUITY_UNLISTED',l:'Equity (unlisted)'},
+  {v:'EQUITY_SPEC',l:'Equity (speculative)'},
+  {v:'OTHER',l:'Other'},
+];
+const RATINGS=[
+  {v:'AAA_AA',l:'AAA – AA'},{v:'A',l:'A'},
+  {v:'BBB',l:'BBB'},{v:'BB_B',l:'BB – B'},
+  {v:'BELOW_B',l:'Below B'},{v:'UNRATED',l:'Unrated'},
+];
+const COLL=[
+  {v:'NONE',l:'None'},
+  {v:'FIN',l:'Financial collateral (cash / govts)'},
+  {v:'RE',l:'Real estate'},
+  {v:'OTHER',l:'Other physical collateral'},
+];
+const RATED_TYPES=['SOVEREIGN','CENTRAL_BANK','MDB','BANK_PSE','CORP_RATED'];
+const LTV_TYPES=['RESI_MORTGAGE','CRE'];
+const DEFAULTS=[
+  {type:'CORP_RATED',   rating:'BBB',     amt:10, coll:'NONE',cv:0, ltv:0,  mat:5},
+  {type:'SOVEREIGN',    rating:'A',       amt:25, coll:'NONE',cv:0, ltv:0,  mat:3},
+  {type:'RESI_MORTGAGE',rating:'UNRATED', amt:8,  coll:'RE',  cv:6, ltv:75, mat:25},
+  {type:'SME_CORP',     rating:'UNRATED', amt:3,  coll:'OTHER',cv:1,ltv:0,  mat:4},
+  {type:'BANK_PSE',     rating:'AAA_AA',  amt:15, coll:'FIN', cv:12,ltv:0,  mat:2},
+];
+
+let expSeq=0;
+
+function buildCard(d,label){
+  expSeq++;
+  const cid='exp'+expSeq;
+  const co=CPTY.map(o=>`<option value="${o.v}"${d.type===o.v?' selected':''}>${o.l}</option>`).join('');
+  const ro=RATINGS.map(o=>`<option value="${o.v}"${d.rating===o.v?' selected':''}>${o.l}</option>`).join('');
+  const cl=COLL.map(o=>`<option value="${o.v}"${d.coll===o.v?' selected':''}>${o.l}</option>`).join('');
+  const showRating=RATED_TYPES.includes(d.type);
+  const showLtv=LTV_TYPES.includes(d.type);
+  const el=document.createElement('div');
+  el.className='exposure-card';el.id=cid;
+  el.innerHTML=`
+    <div class="exp-header">
+      <span class="exp-num">${label}</span>
+      <button class="del-btn" onclick="removeCard('${cid}')">&#10005; Remove</button>
+    </div>
+    <div class="panel-row">
+      <div class="field-group" style="grid-column:span 2">
+        <label class="field-label">Counterparty Type</label>
+        <select id="${cid}_t" onchange="onTypeChange('${cid}')">
+          ${co}
+        </select>
+      </div>
+      <div class="field-group" id="${cid}_rg" style="${showRating?'':'display:none'}">
+        <label class="field-label">External Rating</label>
+        <select id="${cid}_r">${ro}</select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Exposure ($M)</label>
+        <input type="number" id="${cid}_a" value="${d.amt}" min="0" step="0.1">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Collateral Type</label>
+        <select id="${cid}_cl">${cl}</select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Collateral Value ($M)</label>
+        <input type="number" id="${cid}_cv" value="${d.cv}" min="0" step="0.1">
+      </div>
+      <div class="field-group" id="${cid}_lg" style="${showLtv?'':'display:none'}">
+        <label class="field-label">LTV (%)</label>
+        <input type="number" id="${cid}_ltv" value="${d.ltv||0}" min="0" max="200" step="1">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Maturity (years)</label>
+        <input type="number" id="${cid}_m" value="${d.mat}" min="0" step="0.5">
+      </div>
+    </div>`;
+  document.getElementById('exposureContainer').appendChild(el);
+}
+
+function onTypeChange(cid){
+  const t=document.getElementById(cid+'_t').value;
+  const showRating=RATED_TYPES.includes(t);
+  const showLtv=LTV_TYPES.includes(t);
+  const rg=document.getElementById(cid+'_rg');
+  const lg=document.getElementById(cid+'_lg');
+  if(rg)rg.style.display=showRating?'':'none';
+  if(lg)lg.style.display=showLtv?'':'none';
+}
+
+function removeCard(cid){
+  const el=document.getElementById(cid);
+  if(el)el.remove();
+  relabelCards();
+}
+
+function relabelCards(){
+  document.querySelectorAll('#exposureContainer .exposure-card').forEach((c,i)=>{
+    const lbl=c.querySelector('.exp-num');
+    if(lbl)lbl.textContent='Exposure '+(i+1);
+  });
+}
+
+function addExposure(){
+  const n=document.getElementById('exposureContainer').children.length;
+  if(n>=5){alert('Maximum 5 exposure rows.');return;}
+  buildCard({type:'CORP_RATED',rating:'BBB',amt:5,coll:'NONE',cv:0,ltv:0,mat:3},'Exposure '+(n+1));
+}
+
+// init
+DEFAULTS.forEach((d,i)=>buildCard(d,'Exposure '+(i+1)));
+
+let lastResult=null;
+
+function fmt(v){return v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function pct(v){return (v*100).toFixed(1)+'%';}
+
+function runRWA(){
+  const jur=document.getElementById('jurisdiction').value;
+  const minC=parseFloat(document.getElementById('minCet1').value);
+  const ccb=parseFloat(document.getElementById('ccb').value);
+  const ccyb=parseFloat(document.getElementById('ccyb').value);
+  const curC=parseFloat(document.getElementById('currentCet1').value);
+  const totalReqPct=minC+ccb+ccyb;
+
+  const rows=[];
+  document.querySelectorAll('#exposureContainer .exposure-card').forEach((card,i)=>{
+    const id=card.id;
+    const type=document.getElementById(id+'_t').value;
+    const ratingEl=document.getElementById(id+'_r');
+    const rating=ratingEl?ratingEl.value:'UNRATED';
+    const amt=parseFloat(document.getElementById(id+'_a').value)||0;
+    const coll=document.getElementById(id+'_cl').value;
+    const cv=parseFloat(document.getElementById(id+'_cv').value)||0;
+    const ltvEl=document.getElementById(id+'_ltv');
+    const ltv=ltvEl?parseFloat(ltvEl.value)||0:0;
+    const mat=parseFloat(document.getElementById(id+'_m').value)||0;
+    const rw=getRW(type,rating,ltv);
+    // Financial collateral simple method: 0% RW on collateralised portion
+    const collAdj=coll==='FIN'?Math.min(cv,amt):0;
+    const netExp=Math.max(0,amt-collAdj);
+    const rwa=netExp*rw;
+    const cap8=rwa*0.08;
+    const cptyLabel=CPTY.find(o=>o.v===type)?.l||type;
+    rows.push({idx:i+1,label:cptyLabel,type,rating,rw,amt,collAdj,netExp,rwa,cap8,mat});
+  });
+
+  const totalRWA=rows.reduce((s,r)=>s+r.rwa,0);
+  const totalCap8=totalRWA*0.08;
+  const totalCapReq=totalRWA*(totalReqPct/100);
+  const curCap=totalRWA*(curC/100);
+  const surplus=curCap-totalCapReq;
+
+  lastResult={rows,totalRWA,totalCap8,totalCapReq,curCap,surplus,totalReqPct,minC,ccb,ccyb,curC,jur};
+  renderResults(lastResult);
+
+  const btn=document.getElementById('ap2ExportBtn');
+  btn.disabled=false;btn.classList.add('ready');
+  btn.style.opacity='1';btn.style.cursor='pointer';
+}
+
+function renderResults(r){
+  const sc=r.surplus>=0?'surplus':'deficit';
+  const ss=r.surplus>=0?'+':'';
+
+  const tRows=r.rows.map(row=>{
+    const ratingDisp=RATED_TYPES.includes(row.type)?(row.rating.replace('_','–')):'&#8212;';
+    return `<tr>
+      <td>${row.idx}</td>
+      <td>${row.label}</td>
+      <td>${ratingDisp}</td>
+      <td style="color:var(--bright)">${pct(row.rw)}</td>
+      <td>$${fmt(row.amt)}M</td>
+      <td style="font-size:.65rem;color:var(--body)">${row.collAdj>0?'-$'+fmt(row.collAdj)+'M':'&#8212;'}</td>
+      <td>$${fmt(row.netExp)}M</td>
+      <td style="color:var(--gold)">$${fmt(row.rwa)}M</td>
+      <td style="color:var(--teal)">$${fmt(row.cap8)}M</td>
+    </tr>`;
+  }).join('');
+
+  // SME supporting factor comparison for Corp Unrated
+  const smeRows=r.rows.filter(row=>row.type==='CORP_UNRATED').map(row=>`
+    <tr>
+      <td>${row.label}</td>
+      <td style="color:var(--gold)">$${fmt(row.rwa)}M <span style="color:var(--muted);font-size:.65rem">(100% standard)</span></td>
+      <td style="color:var(--green)">$${fmt(row.rwa*0.85)}M <span style="color:var(--muted);font-size:.65rem">(85% SME factor)</span></td>
+      <td style="color:var(--teal)">$${fmt(row.rwa*0.15)}M saved</td>
+    </tr>`).join('');
+  const hasSME=smeRows.length>0;
+
+  document.getElementById('outputSection').innerHTML=`
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Portfolio Summary</span></div>
+      <div class="out-body">
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-label">Total RWA (SA)</div><div class="stat-val">$${fmt(r.totalRWA)}M</div><div class="stat-sub">Risk-weighted assets</div></div>
+          <div class="stat-card"><div class="stat-label">Pillar 1 Capital (8%)</div><div class="stat-val">$${fmt(r.totalCap8)}M</div><div class="stat-sub">Minimum 8% of RWA</div></div>
+          <div class="stat-card"><div class="stat-label">Total Required Capital</div><div class="stat-val">$${fmt(r.totalCapReq)}M</div><div class="stat-sub">${r.minC}% CET1 + ${r.ccb}% CCB + ${r.ccyb}% CCyB = ${r.totalReqPct}%</div></div>
+          <div class="stat-card"><div class="stat-label">Capital at Current CET1</div><div class="stat-val">$${fmt(r.curCap)}M</div><div class="stat-sub">Based on ${r.curC}% CET1 ratio</div></div>
+          <div class="stat-card"><div class="stat-label">Surplus / (Deficit)</div><div class="stat-val ${sc}">${ss}$${fmt(Math.abs(r.surplus))}M</div><div class="stat-sub">vs. total required (${r.totalReqPct}%)</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Per-Exposure Breakdown</span></div>
+      <div class="out-body" style="overflow-x:auto">
+        <table class="result-table">
+          <thead><tr>
+            <th>#</th><th>Counterparty</th><th>Rating</th><th>Risk Weight</th>
+            <th>Exposure</th><th>Coll. Adj.</th><th>Net Exposure</th>
+            <th>RWA</th><th>Capital (8%)</th>
+          </tr></thead>
+          <tbody>${tRows}</tbody>
+          <tfoot>
+            <tr style="background:var(--bg-3)">
+              <td colspan="7" style="font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Portfolio Total</td>
+              <td style="color:var(--gold);font-weight:600">$${fmt(r.totalRWA)}M</td>
+              <td style="color:var(--teal);font-weight:600">$${fmt(r.totalCap8)}M</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Capital Requirement Breakdown</span></div>
+      <div class="out-body">
+        <table class="result-table" style="max-width:520px">
+          <thead><tr><th>Component</th><th>Rate (%)</th><th>Capital ($M)</th></tr></thead>
+          <tbody>
+            <tr><td>Minimum CET1</td><td>${r.minC.toFixed(1)}%</td><td>$${fmt(r.totalRWA*r.minC/100)}M</td></tr>
+            <tr><td>Capital Conservation Buffer</td><td>${r.ccb.toFixed(1)}%</td><td>$${fmt(r.totalRWA*r.ccb/100)}M</td></tr>
+            <tr><td>Countercyclical Buffer (CCyB)</td><td>${r.ccyb.toFixed(1)}%</td><td>$${fmt(r.totalRWA*r.ccyb/100)}M</td></tr>
+            <tr style="background:var(--bg-3)"><td style="font-weight:600;color:var(--bright)">Total Required</td><td style="color:var(--gold)">${r.totalReqPct.toFixed(1)}%</td><td style="color:var(--gold);font-weight:600">$${fmt(r.totalCapReq)}M</td></tr>
+            <tr><td>Available (at ${r.curC}% CET1)</td><td>${r.curC.toFixed(1)}%</td><td style="color:${r.surplus>=0?'var(--green)':'var(--red)'}">$${fmt(r.curCap)}M</td></tr>
+            <tr><td>Surplus / (Deficit)</td><td>&#8212;</td><td class="${sc}">${ss}$${fmt(Math.abs(r.surplus))}M</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    ${hasSME?`
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">SME Supporting Factor Comparison (CRR3 Art.501)</span></div>
+      <div class="out-body" style="overflow-x:auto">
+        <table class="result-table">
+          <thead><tr><th>Exposure</th><th>Standard RWA (100%)</th><th>With SME Factor (85%)</th><th>RWA Relief</th></tr></thead>
+          <tbody>${smeRows}</tbody>
+        </table>
+      </div>
+    </div>`:''}
+
+    <div class="floor-note">
+      <strong style="color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase">CRR3 Output Floor (Art.465) &#8212; </strong>
+      From 1 January 2025, CRR3 Art.465 introduces an output floor phasing from 50% (2025) to 72.5% (2028) of SA-derived RWA as a minimum floor on internal model (IRB) RWA. This tool calculates SA RWA only. If your institution uses IRB models, ensure IRB RWA &ge; 72.5% of this SA figure by 2028. Phase-in: 50% (2025) &rarr; 55% (2026) &rarr; 60% (2027) &rarr; 65% (mid-2027) &rarr; 72.5% (2028+).
+    </div>`;
+}
+
+// Manifest
+const MANIFEST_OBJ={
+  tool_id:"439-basel-credit-rwa-calculator",version:"1.0.0",
+  title:"Basel III/IV Credit RWA Calculator",category:"cat-28",
+  tags:["Basel IV","CRR3","RWA","credit risk","capital adequacy","Pillar 1"],
+  mcp_tool_definition:{name:"calculate_credit_rwa",description:"Calculates Basel IV/CRR3 SA credit RWA and Pillar 1 capital for an exposure portfolio.",inputSchema:{type:"object",properties:{exposures:{type:"array"},jurisdiction:{type:"string"},cet1_ratio:{type:"number"},ccyb:{type:"number"}},required:["exposures"]}},
+  policy_mandate:{standard:"Basel IV / CRR3 (Regulation EU 2024/1623)",output_floor:"Art.465 72.5% phased 2025-2028",version:"1.0"}
+};
+
+function toggleMfst(){
+  const body=document.getElementById('mfstBody');
+  const arr=document.getElementById('mfstArr');
+  const open=body.style.display==='block';
+  body.style.display=open?'none':'block';
+  arr.textContent=open?'▼':'▲';
+  if(!open)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST_OBJ,null,2);
+}
+
+function exportAP2(){
+  if(!lastResult)return;
+  const pl={
+    schema:"AP2-v1.0",tool_id:"439-basel-credit-rwa-calculator",
+    generated:new Date().toISOString(),jurisdiction:lastResult.jur,
+    summary:{total_rwa_m:+lastResult.totalRWA.toFixed(4),pillar1_capital_8pct_m:+lastResult.totalCap8.toFixed(4),total_required_capital_m:+lastResult.totalCapReq.toFixed(4),current_capital_m:+lastResult.curCap.toFixed(4),surplus_deficit_m:+lastResult.surplus.toFixed(4),total_capital_req_pct:lastResult.totalReqPct,current_cet1_pct:lastResult.curC},
+    exposures:lastResult.rows.map(r=>({counterparty:r.label,rating:r.rating,risk_weight_pct:+(r.rw*100).toFixed(1),exposure_m:+r.amt.toFixed(4),collateral_adj_m:+r.collAdj.toFixed(4),net_exposure_m:+r.netExp.toFixed(4),rwa_m:+r.rwa.toFixed(4),capital_8pct_m:+r.cap8.toFixed(4)})),
+    policy_mandate:MANIFEST_OBJ.policy_mandate
+  };
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(pl,null,2)],{type:'application/json'}));
+  a.download='ap2-439-rwa-'+new Date().toISOString().split('T')[0]+'.json';
+  a.click();
+}
+</script>
+</body>
+</html>

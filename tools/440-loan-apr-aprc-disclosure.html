@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Loan APR &amp; APRC Disclosure Builder · AINumbers.co</title>
+<meta name="description" content="Calculate APR and APRC for consumer and mortgage loans under EU CCD2, UK FCA CONC/MCOB, and US TILA/Reg Z. Newton-Raphson solver, amortisation schedule, compliant disclosure text. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/440-loan-apr-aprc-disclosure.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Loan APR & APRC Disclosure Builder","url":"https://ainumbers.co/tools/440-loan-apr-aprc-disclosure.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "440-loan-apr-aprc-disclosure",
+  "version": "1.0.0",
+  "title": "Loan APR & APRC Disclosure Builder",
+  "description": "Calculates APR and APRC for consumer and mortgage loans under EU CCD2, UK FCA CONC/MCOB, and US TILA/Regulation Z. Uses Newton-Raphson iterative solver. Produces amortisation schedule and jurisdiction-compliant disclosure text.",
+  "category": "cat-28",
+  "tags": ["APR","APRC","CCD2","MCOB","CONC","TILA","Regulation Z","mortgage","consumer credit","disclosure","amortisation"],
+  "audience": ["compliance","product","lender","mortgage broker"],
+  "input_schema": {"type":"object","properties":{"loan_amount":{"type":"number"},"term_months":{"type":"integer"},"annual_rate":{"type":"number"},"loan_type":{"type":"string"},"jurisdiction":{"type":"string"},"fees":{"type":"array"}},"required":["loan_amount","term_months","annual_rate","jurisdiction"]},
+  "output_schema": {"type":"object","properties":{"apr_pct":{"type":"number"},"total_repayable":{"type":"number"},"total_interest":{"type":"number"},"monthly_payment":{"type":"number"},"disclosure_text":{"type":"string"},"amortisation":{"type":"array"}}},
+  "mcp_tool_definition": {"name":"calculate_loan_apr_aprc","description":"Calculates APR/APRC and generates compliant disclosure text for consumer and mortgage loans under EU CCD2, UK FCA, or US TILA.","inputSchema":{"type":"object","properties":{"loan_amount":{"type":"number"},"term_months":{"type":"integer"},"annual_rate":{"type":"number"},"jurisdiction":{"type":"string","enum":["EU_CCD2","UK_FCA","US_TILA"]},"fees":{"type":"array"}},"required":["loan_amount","term_months","annual_rate","jurisdiction"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/440-loan-apr-aprc-disclosure.html","function_name":"runAPR","timeout_ms":3000},
+  "policy_mandate": {"standard_eu":"EU Consumer Credit Directive 2 (2023/2225)","standard_uk":"FCA CONC / MCOB","standard_us":"US TILA / Regulation Z","version":"1.0"},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.15em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem}
+.panel-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.75rem;margin-bottom:.75rem}
+.field-group{display:flex;flex-direction:column;gap:.3rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+select,input[type=number],input[type=text]{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.35rem .5rem;border-radius:3px;outline:none;width:100%;transition:border-color .2s;-webkit-appearance:none}
+select:focus,input:focus{border-color:var(--teal)}
+option{background:var(--bg-3);color:var(--bright)}
+.fee-row{display:grid;grid-template-columns:1fr auto auto;gap:.5rem;align-items:center;margin-bottom:.5rem}
+.fee-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--text);padding:.35rem .5rem;background:var(--bg-3);border:1px solid var(--border);border-radius:3px}
+.del-btn{background:transparent;border:none;color:var(--muted);font-size:.9rem;padding:.1rem .3rem;transition:color .2s;cursor:pointer}
+.del-btn:hover{color:var(--red)}
+.add-fee-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px dashed var(--border-2);color:var(--muted);padding:.35rem .75rem;border-radius:var(--radius);transition:all .2s;margin-top:.5rem}
+.add-fee-btn:hover{border-color:var(--teal);color:var(--teal)}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.result-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.result-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.result-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.result-table tr:last-child td{border-bottom:none}
+.result-table tr:hover td{background:var(--bg-3)}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:.75rem}
+.stat-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem}
+.stat-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:1.05rem;color:var(--bright);font-weight:500}
+.stat-sub{font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--body);margin-top:.2rem;line-height:1.4}
+.disclosure-block{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.78rem;color:var(--bright);line-height:1.8;white-space:pre-wrap;font-family:'JetBrains Mono',monospace}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s;cursor:pointer}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-3)}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a>
+    <span class="nav-bc-sep">/</span>
+    <span>T-440</span>
+  </div>
+  <div class="nav-right"><a href="../index.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">T440 &middot; LendTech &amp; Credit Operations &middot; Cat-28</div>
+  <div class="hero-meta">
+    <span class="hero-badge badge-muted">v1.0 &middot; May 2026</span>
+    <span class="hero-badge badge-teal">APR / APRC</span>
+  </div>
+  <h1>Loan APR &amp; APRC <em>Disclosure Builder</em></h1>
+  <p class="hero-desc">Calculate and generate compliant Annual Percentage Rate (APR) and Annual Percentage Rate of Charge (APRC) disclosures for consumer and mortgage loans under EU Consumer Credit Directive 2 (CCD2), UK FCA MCOB/CONC, and US TILA/Regulation Z. Produces standardised disclosure text and amortisation schedule.</p>
+  <div class="disclaimer">&#9888; This tool calculates APR/APRC using standard actuarial and Newton-Raphson methods. Disclosure text is illustrative reference wording. Always review with your legal and compliance team before using in customer-facing documents. Rates and formulations may vary by jurisdiction and product type.</div>
+  <div class="hero-meta">
+    <span class="hero-badge badge-teal">EU CCD2</span>
+    <span class="hero-badge badge-teal">UK FCA</span>
+    <span class="hero-badge badge-teal">US TILA</span>
+    <span class="hero-badge badge-green">Zero PII</span>
+    <span class="hero-badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+<div class="scope-note"><strong style="color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance &mdash; </strong>&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only. APR/APRC calculations use standard actuarial methods. Disclosure text is illustrative reference wording based on regulatory frameworks as of May 2026. Verify against current primary sources before use. Deterministic logic &middot; no inference &middot; zero PII &middot; CC BY 4.0.</div>
+
+<!-- Loan Details -->
+<div class="panel">
+  <div class="panel-label">&#128196; Loan Details</div>
+  <div class="panel-row">
+    <div class="field-group">
+      <label class="field-label" for="loanType">Loan Type</label>
+      <select id="loanType">
+        <option value="personal">Personal / Consumer Loan</option>
+        <option value="mortgage">Mortgage</option>
+        <option value="car">Car Finance</option>
+        <option value="business">Business Loan</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="jurisdiction">Jurisdiction</label>
+      <select id="jurisdiction" onchange="onJurisdictionChange()">
+        <option value="EU_CCD2">EU CCD2 (Directive 2023/2225)</option>
+        <option value="UK_FCA">UK FCA (CONC / MCOB)</option>
+        <option value="US_TILA">US TILA (Regulation Z)</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="currency">Currency</label>
+      <select id="currency">
+        <option value="EUR">EUR (&#8364;)</option>
+        <option value="GBP">GBP (&#163;)</option>
+        <option value="USD">USD ($)</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="loanAmt">Loan Amount</label>
+      <input type="number" id="loanAmt" value="25000" min="100" step="100">
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="termMonths">Term (months)</label>
+      <input type="number" id="termMonths" value="60" min="1" step="1">
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="rateType">Interest Rate Type</label>
+      <select id="rateType">
+        <option value="fixed">Fixed</option>
+        <option value="variable">Variable</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="annualRate">Annual Interest Rate (% pa)</label>
+      <input type="number" id="annualRate" value="6.5" min="0" max="100" step="0.01">
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="repayType">Repayment Type</label>
+      <select id="repayType">
+        <option value="annuity">Equal instalments (annuity)</option>
+        <option value="interest_only">Interest only + bullet</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- Fees -->
+<div class="panel">
+  <div class="panel-label">&#128181; Fees &amp; Charges</div>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);margin-bottom:.75rem">Fees included in APR/APRC calculation per regulation (compulsory fees only). Mark fee as 0 to exclude.</div>
+  <div id="feeContainer"></div>
+  <button class="add-fee-btn" onclick="addFee()">+ Add Fee</button>
+</div>
+
+<div style="display:flex;gap:1rem;margin-bottom:2rem;margin-top:1rem">
+  <button class="run-btn" onclick="runAPR()">&#9654; Calculate APR / APRC</button>
+</div>
+
+<div id="outputSection"></div>
+</div></div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec"><div class="container"><div style="padding-top:1.5rem"><button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json &middot; MCP tool definition &middot; Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button><div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div></div></div></section>
+
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the calculator above to enable export" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">AP2 &middot; audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 &middot; Post Oak Labs</span>
+      <span>&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+// i18n
+function setLang(l){
+  sessionStorage.setItem('ain_lang',l);
+  document.documentElement.lang=l;
+  document.documentElement.dir=l==='ar'?'rtl':'ltr';
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===l));
+}
+setLang(sessionStorage.getItem('ain_lang')||'en');
+
+// Currency symbol helper
+function currSym(){
+  const c=document.getElementById('currency').value;
+  return c==='EUR'?'€':c==='GBP'?'£':'$';
+}
+function currCode(){return document.getElementById('currency').value;}
+
+// Jurisdiction change
+function onJurisdictionChange(){
+  const j=document.getElementById('jurisdiction').value;
+  const c=document.getElementById('currency');
+  if(j==='EU_CCD2')c.value='EUR';
+  else if(j==='UK_FCA')c.value='GBP';
+  else if(j==='US_TILA')c.value='USD';
+}
+
+// Fee management
+const FEE_TYPES=[
+  {id:'arrangement',label:'Arrangement / Origination Fee'},
+  {id:'valuation',label:'Valuation Fee (mortgages)'},
+  {id:'broker',label:'Broker Fee'},
+  {id:'annual',label:'Annual Fee (pa)'},
+  {id:'insurance',label:'Compulsory Insurance Premium (pa)'},
+  {id:'erc',label:'Early Repayment Charge'},
+];
+let feeSeq=0;
+const defaultFees=[
+  {type:'arrangement',amt:500,pct:false},
+  {type:'valuation',amt:0,pct:false},
+];
+
+function addFee(def){
+  feeSeq++;
+  const fid='fee'+feeSeq;
+  const typeOpts=FEE_TYPES.map(f=>`<option value="${f.id}"${def&&def.type===f.id?' selected':''}>${f.label}</option>`).join('');
+  const el=document.createElement('div');
+  el.className='fee-row';el.id=fid;
+  el.innerHTML=`
+    <select id="${fid}_t" style="font-size:.62rem">${typeOpts}</select>
+    <input type="number" id="${fid}_v" value="${def?def.amt:0}" min="0" step="1" style="max-width:110px">
+    <button class="del-btn" onclick="document.getElementById('${fid}').remove()">&#10005;</button>`;
+  document.getElementById('feeContainer').appendChild(el);
+}
+
+defaultFees.forEach(f=>addFee(f));
+
+function readFees(){
+  const fees=[];
+  document.querySelectorAll('#feeContainer .fee-row').forEach(row=>{
+    const id=row.id;
+    const type=document.getElementById(id+'_t').value;
+    const amt=parseFloat(document.getElementById(id+'_v').value)||0;
+    if(amt>0)fees.push({type,amt});
+  });
+  return fees;
+}
+
+// Monthly payment (annuity)
+function monthlyPayment(P,rMonthly,n){
+  if(rMonthly===0)return P/n;
+  return P*rMonthly*Math.pow(1+rMonthly,n)/(Math.pow(1+rMonthly,n)-1);
+}
+
+// Newton-Raphson APR/APRC solver
+// Finds rate i such that: P = sum(CF_t / (1+i)^(t/365))
+// cashflows: array of {day:number, amount:number} (payments are positive; upfront fees negative on day 0 reduce loan)
+function solveAPRC(loanAmt,cashflows,guess){
+  // cashflows = [{day, pmt}] — loan is negative cashflow at day 0 (lender pays out)
+  // We solve: sum( pmt_t / (1+i)^(t/365) ) = 0
+  // where day-0 entry = -loanAmt and subsequent entries = payments
+  let i=guess||0.06;
+  for(let iter=0;iter<200;iter++){
+    let f=0,df=0;
+    for(const cf of cashflows){
+      const t=cf.day/365;
+      const disc=Math.pow(1+i,t);
+      f+=cf.pmt/disc;
+      df-=t*cf.pmt/((1+i)*disc);
+    }
+    const di=f/df;
+    i-=di;
+    if(Math.abs(di)<1e-10)break;
+    if(i<-0.999)i=0.001;
+  }
+  return i;
+}
+
+function buildCashflows(loanAmt,totalFeeUpfront,monthlyPmt,repayType,annualRate,termMonths){
+  // Day 0: net disbursement (loan - upfront fees collected on day 0)
+  const cfs=[{day:0,pmt:-(loanAmt-totalFeeUpfront)}];
+  const n=termMonths;
+  const rMonthly=annualRate/100/12;
+  for(let m=1;m<=n;m++){
+    const day=Math.round(m*365/12);
+    let pmt=monthlyPmt;
+    if(repayType==='interest_only'){
+      pmt=loanAmt*rMonthly;
+      if(m===n)pmt+=loanAmt; // bullet
+    }
+    cfs.push({day,pmt});
+  }
+  return cfs;
+}
+
+function buildAmortisation(loanAmt,rMonthly,monthlyPmt,repayType,termMonths){
+  const rows=[];
+  let balance=loanAmt;
+  for(let m=1;m<=termMonths;m++){
+    const interest=balance*rMonthly;
+    let payment=monthlyPmt;
+    if(repayType==='interest_only'){
+      payment=interest;
+      if(m===termMonths)payment+=balance;
+    }
+    const principal=Math.min(payment-interest,balance);
+    balance=Math.max(0,balance-principal);
+    rows.push({m,openBal:balance+principal,interest,principal,payment,closeBal:balance});
+  }
+  return rows;
+}
+
+let lastResult=null;
+
+function fmt2(v){return v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+function runAPR(){
+  const loanAmt=parseFloat(document.getElementById('loanAmt').value)||0;
+  const termMonths=parseInt(document.getElementById('termMonths').value)||12;
+  const annualRate=parseFloat(document.getElementById('annualRate').value)||0;
+  const repayType=document.getElementById('repayType').value;
+  const loanType=document.getElementById('loanType').value;
+  const jur=document.getElementById('jurisdiction').value;
+  const rMonthly=annualRate/100/12;
+  const fees=readFees();
+  const ccy=currSym();
+  const ccyCode=currCode();
+
+  // Separate upfront fees vs annual fees
+  const annualFeeTypes=['annual','insurance'];
+  const upfrontFees=fees.filter(f=>!annualFeeTypes.includes(f.type));
+  const annualFees=fees.filter(f=>annualFeeTypes.includes(f.type));
+  const totalUpfrontFee=upfrontFees.reduce((s,f)=>s+f.amt,0);
+  const totalAnnualFee=annualFees.reduce((s,f)=>s+f.amt,0);
+  const totalFees=fees.reduce((s,f)=>s+f.amt*(annualFeeTypes.includes(f.type)?termMonths/12:1),0);
+
+  // Monthly payment (annuity)
+  const mp=monthlyPmt_=repayType==='interest_only'
+    ?loanAmt*rMonthly
+    :monthlyPayment(loanAmt,rMonthly,termMonths);
+
+  const totalRepayable=repayType==='interest_only'
+    ?(mp*termMonths+loanAmt)
+    :(mp*termMonths);
+  const totalInterest=totalRepayable-loanAmt;
+  const totalCostOfCredit=totalInterest+totalFees;
+
+  // Build cashflows for APRC solver
+  // Upfront fees reduce the net amount received (increase effective cost)
+  // Annual fees added as extra payments each year
+  const cfs=[{day:0,pmt:-(loanAmt-totalUpfrontFee)}];
+  for(let m=1;m<=termMonths;m++){
+    const day=Math.round(m*365/12);
+    let pmt=repayType==='interest_only'
+      ?loanAmt*rMonthly+(m===termMonths?loanAmt:0)
+      :mp;
+    // Add pro-rated annual fees monthly
+    pmt+=totalAnnualFee/12;
+    cfs.push({day,pmt});
+  }
+  const nominalGuess=annualRate/100;
+  const aprcRate=solveAPRC(loanAmt,cfs,nominalGuess);
+  const aprcPct=aprcRate*100;
+
+  // Amortisation
+  const amortRows=buildAmortisation(loanAmt,rMonthly,mp,repayType,termMonths);
+
+  // Disclosure text
+  const aprcLabel=jur==='US_TILA'?'APR':'APRC';
+  const loanFmt=ccy+fmt2(loanAmt);
+  const repayFmt=ccy+fmt2(totalRepayable+totalFees);
+  const mpFmt=ccy+fmt2(mp+totalAnnualFee/12);
+  let disclosure='';
+  if(jur==='EU_CCD2'){
+    disclosure=`The annual percentage rate of charge (APRC) is ${aprcPct.toFixed(2)}%.
+The total amount payable is ${ccy}${fmt2(totalRepayable+totalFees)} consisting of ${loanFmt} borrowed plus ${ccy}${fmt2(totalCostOfCredit)} in interest and charges.
+Loan amount: ${loanFmt} | Term: ${termMonths} months | Nominal rate: ${annualRate.toFixed(2)}% per annum (${document.getElementById('rateType').value})
+Monthly repayment: ${mpFmt} (including charges)
+Total interest: ${ccy}${fmt2(totalInterest)} | Total fees: ${ccy}${fmt2(totalFees)}
+Warning: Borrowing costs money. Ensure you can afford the repayments.`;
+  } else if(jur==='UK_FCA'){
+    disclosure=`Representative APR ${aprcPct.toFixed(1)}% (fixed).
+Based on an assumed loan of ${loanFmt} repayable over ${termMonths} months at ${annualRate.toFixed(2)}% per annum (${document.getElementById('rateType').value}).
+Monthly repayment: ${mpFmt}
+Total amount repayable: ${repayFmt}
+Total charge for credit: ${ccy}${fmt2(totalCostOfCredit)}
+Representative example based on assumed borrowing of ${loanFmt}.`;
+  } else if(jur==='US_TILA'){
+    disclosure=`ANNUAL PERCENTAGE RATE (APR): ${aprcPct.toFixed(2)}%
+FINANCE CHARGE: ${ccy}${fmt2(totalCostOfCredit)}
+AMOUNT FINANCED: ${loanFmt}
+TOTAL OF PAYMENTS: ${repayFmt}
+Number of payments: ${termMonths} | Amount of each payment: ${mpFmt}
+Payment schedule: ${termMonths} monthly payments of ${mpFmt} beginning [date of first payment].
+This is a [${document.getElementById('rateType').value}]-rate loan.`;
+  }
+
+  lastResult={loanAmt,termMonths,annualRate,aprcPct,aprcLabel,mp,totalRepayable,totalInterest,totalFees,totalCostOfCredit,disclosure,amortRows,jur,loanType,ccy,ccyCode,repayType,fees};
+  renderResults(lastResult);
+
+  const btn=document.getElementById('ap2ExportBtn');
+  btn.disabled=false;btn.classList.add('ready');
+  btn.style.opacity='1';btn.style.cursor='pointer';
+}
+
+function renderResults(r){
+  const ccy=r.ccy;
+  const mpWithFees=r.mp+r.fees.filter(f=>['annual','insurance'].includes(f.type)).reduce((s,f)=>s+f.amt,0)/12;
+  const rateImpact=r.aprcPct-r.annualRate;
+
+  // Amortisation: first 12 months detailed + annual summary
+  const detailRows=r.amortRows.slice(0,12).map(row=>`
+    <tr>
+      <td>Month ${row.m}</td>
+      <td>${ccy}${fmt2(row.openBal)}</td>
+      <td style="color:var(--warn)">${ccy}${fmt2(row.interest)}</td>
+      <td style="color:var(--teal)">${ccy}${fmt2(row.principal)}</td>
+      <td>${ccy}${fmt2(row.payment)}</td>
+      <td>${ccy}${fmt2(row.closeBal)}</td>
+    </tr>`).join('');
+
+  // Annual summary
+  const annualMap={};
+  r.amortRows.forEach(row=>{
+    const yr=Math.ceil(row.m/12);
+    if(!annualMap[yr])annualMap[yr]={yr,interest:0,principal:0,payment:0,closeBal:0};
+    annualMap[yr].interest+=row.interest;
+    annualMap[yr].principal+=row.principal;
+    annualMap[yr].payment+=row.payment;
+    annualMap[yr].closeBal=row.closeBal;
+  });
+  const annualRows=Object.values(annualMap).map(a=>`
+    <tr>
+      <td>Year ${a.yr}</td>
+      <td>&#8212;</td>
+      <td style="color:var(--warn)">${ccy}${fmt2(a.interest)}</td>
+      <td style="color:var(--teal)">${ccy}${fmt2(a.principal)}</td>
+      <td>${ccy}${fmt2(a.payment)}</td>
+      <td>${ccy}${fmt2(a.closeBal)}</td>
+    </tr>`).join('');
+
+  // SVG chart: principal vs interest proportion over years
+  const yrs=Object.values(annualMap);
+  const chartW=480,chartH=160,pad=40;
+  const maxPmt=Math.max(...yrs.map(y=>y.payment));
+  const barW=(chartW-pad*2)/Math.max(yrs.length,1);
+  const bars=yrs.map((y,i)=>{
+    const x=pad+i*barW+barW*0.1;
+    const bw=barW*0.8;
+    const totalH=chartH-pad;
+    const intH=(y.interest/maxPmt)*totalH;
+    const prinH=(y.principal/maxPmt)*totalH;
+    const intY=pad+(totalH-intH-prinH);
+    const prinY=intY+intH;
+    return `<rect x="${x.toFixed(1)}" y="${intY.toFixed(1)}" width="${bw.toFixed(1)}" height="${intH.toFixed(1)}" fill="var(--warn)" opacity=".7"/>
+            <rect x="${x.toFixed(1)}" y="${prinY.toFixed(1)}" width="${bw.toFixed(1)}" height="${prinH.toFixed(1)}" fill="var(--teal)" opacity=".7"/>
+            <text x="${(x+bw/2).toFixed(1)}" y="${(chartH-2).toFixed(1)}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="var(--muted)">Y${y.yr}</text>`;
+  }).join('');
+  const svg=`<svg viewBox="0 0 ${chartW} ${chartH}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${chartW}px;height:${chartH}px">
+    <text x="8" y="16" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--warn)">■ Interest</text>
+    <text x="80" y="16" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--teal)">■ Principal</text>
+    ${bars}
+  </svg>`;
+
+  document.getElementById('outputSection').innerHTML=`
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">APR / APRC Result</span></div>
+      <div class="out-body">
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-label">${r.aprcLabel}</div><div class="stat-val" style="color:var(--teal)">${r.aprcPct.toFixed(2)}%</div><div class="stat-sub">Effective annual rate incl. all charges</div></div>
+          <div class="stat-card"><div class="stat-label">Nominal Rate</div><div class="stat-val">${r.annualRate.toFixed(2)}%</div><div class="stat-sub">Annual interest rate</div></div>
+          <div class="stat-card"><div class="stat-label">Fee Impact</div><div class="stat-val" style="color:var(--warn)">+${rateImpact.toFixed(2)}%</div><div class="stat-sub">${r.aprcLabel} vs nominal rate</div></div>
+          <div class="stat-card"><div class="stat-label">Monthly Payment</div><div class="stat-val">${ccy}${fmt2(mpWithFees)}</div><div class="stat-sub">Incl. all charges</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Total Cost of Credit</span></div>
+      <div class="out-body">
+        <table class="result-table" style="max-width:480px">
+          <thead><tr><th>Component</th><th>Amount</th></tr></thead>
+          <tbody>
+            <tr><td>Principal (amount borrowed)</td><td style="color:var(--bright)">${ccy}${fmt2(r.loanAmt)}</td></tr>
+            <tr><td>Total interest</td><td style="color:var(--warn)">${ccy}${fmt2(r.totalInterest)}</td></tr>
+            <tr><td>Total fees &amp; charges</td><td style="color:var(--gold)">${ccy}${fmt2(r.totalFees)}</td></tr>
+            <tr style="background:var(--bg-3)"><td style="font-weight:600;color:var(--bright)">Total Repayable</td><td style="color:var(--teal);font-weight:600">${ccy}${fmt2(r.totalRepayable+r.totalFees)}</td></tr>
+            <tr><td>Total charge for credit</td><td style="color:var(--red)">${ccy}${fmt2(r.totalCostOfCredit)}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Regulatory Disclosure Text (${r.jur.replace('_',' ')})</span><button class="copy-btn" onclick="copyDisclosure()">Copy</button></div>
+      <div class="out-body">
+        <div class="disclosure-block" id="disclosureBlock">${r.disclosure}</div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Principal vs. Interest Over Loan Term</span></div>
+      <div class="out-body">${svg}</div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Amortisation Schedule — First 12 Months (Detailed) + Annual Summary</span></div>
+      <div class="out-body" style="overflow-x:auto">
+        <table class="result-table">
+          <thead><tr><th>Period</th><th>Opening Balance</th><th>Interest</th><th>Principal</th><th>Payment</th><th>Closing Balance</th></tr></thead>
+          <tbody>${detailRows}
+            <tr style="background:var(--bg-3)"><td colspan="6" style="font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase">Annual Summary (all years)</td></tr>
+            ${annualRows}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function copyDisclosure(){
+  const el=document.getElementById('disclosureBlock');
+  if(el){
+    const txt=el.textContent;
+    if(navigator.clipboard){navigator.clipboard.writeText(txt).catch(()=>{});}
+  }
+}
+
+// Manifest
+const MANIFEST_OBJ={
+  tool_id:"440-loan-apr-aprc-disclosure",version:"1.0.0",
+  title:"Loan APR & APRC Disclosure Builder",category:"cat-28",
+  tags:["APR","APRC","CCD2","MCOB","TILA","consumer credit","mortgage","disclosure"],
+  mcp_tool_definition:{name:"calculate_loan_apr_aprc",description:"Calculates APR/APRC and generates compliant disclosure text for consumer and mortgage loans under EU CCD2, UK FCA, or US TILA.",inputSchema:{type:"object",properties:{loan_amount:{type:"number"},term_months:{type:"integer"},annual_rate:{type:"number"},jurisdiction:{type:"string",enum:["EU_CCD2","UK_FCA","US_TILA"]},fees:{type:"array"}},required:["loan_amount","term_months","annual_rate","jurisdiction"]}},
+  policy_mandate:{standard_eu:"EU Consumer Credit Directive 2 (2023/2225)",standard_uk:"FCA CONC / MCOB",standard_us:"US TILA / Regulation Z",version:"1.0"}
+};
+
+function toggleMfst(){
+  const body=document.getElementById('mfstBody');
+  const arr=document.getElementById('mfstArr');
+  const open=body.style.display==='block';
+  body.style.display=open?'none':'block';
+  arr.textContent=open?'▼':'▲';
+  if(!open)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST_OBJ,null,2);
+}
+
+function exportAP2(){
+  if(!lastResult)return;
+  const pl={
+    schema:"AP2-v1.0",tool_id:"440-loan-apr-aprc-disclosure",
+    generated:new Date().toISOString(),
+    jurisdiction:lastResult.jur,currency:lastResult.ccyCode,
+    inputs:{loan_amount:lastResult.loanAmt,term_months:lastResult.termMonths,annual_rate_pct:lastResult.annualRate,repayment_type:lastResult.repayType,loan_type:lastResult.loanType,fees:lastResult.fees},
+    results:{apr_aprc_label:lastResult.aprcLabel,apr_aprc_pct:+lastResult.aprcPct.toFixed(4),monthly_payment:+lastResult.mp.toFixed(2),total_repayable:+lastResult.totalRepayable.toFixed(2),total_interest:+lastResult.totalInterest.toFixed(2),total_fees:+lastResult.totalFees.toFixed(2),total_cost_of_credit:+lastResult.totalCostOfCredit.toFixed(2)},
+    disclosure_text:lastResult.disclosure,
+    policy_mandate:MANIFEST_OBJ.policy_mandate
+  };
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(pl,null,2)],{type:'application/json'}));
+  a.download='ap2-440-apr-'+new Date().toISOString().split('T')[0]+'.json';
+  a.click();
+}
+</script>
+</body>
+</html>

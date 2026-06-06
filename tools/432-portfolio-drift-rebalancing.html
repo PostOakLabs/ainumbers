@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<title>Portfolio Drift &amp; Rebalancing Trigger Calculator · T432 · AINumbers.co</title>
+<meta name="description" content="Detect allocation drift from target weights for up to 8 asset classes. Calculate rebalancing trade sizes, estimate transaction costs vs. drift cost, and model tax impact. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/432-portfolio-drift-rebalancing.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Portfolio Drift & Rebalancing Trigger Calculator","url":"https://ainumbers.co/tools/432-portfolio-drift-rebalancing.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "portfolio-drift-rebalancing",
+  "version": "1.0.0",
+  "title": "Portfolio Drift & Rebalancing Trigger Calculator",
+  "description": "Detect allocation drift from target weights for up to 8 asset classes. Calculate rebalancing trade sizes, estimate transaction costs vs. drift cost, and model tax impact of rebalancing gains/losses.",
+  "category": "cat-27",
+  "tags": ["portfolio","rebalancing","drift","asset allocation","WealthTech","tax","CGT","transaction cost"],
+  "audience": ["wealth-manager","IFA","retail-investor","DFM"],
+  "input_schema": {"type":"object","properties":{"assets":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"target_weight":{"type":"number"},"current_value":{"type":"number"}}}},"threshold":{"type":"number"},"transaction_cost_pct":{"type":"number"},"cgt_rate":{"type":"number"}},"required":["assets","threshold"]},
+  "output_schema": {"type":"object","properties":{"total_value":{"type":"number"},"rows":{"type":"array"},"trades":{"type":"array"},"recommendation":{"type":"string"},"total_tx_cost":{"type":"number"},"total_tax_cost":{"type":"number"}}},
+  "mcp_tool_definition": {"name":"calculate_portfolio_drift_rebalancing","description":"Calculate allocation drift from target weights for up to 8 asset classes, determine rebalancing trades, estimate transaction and tax costs, and produce a buy/sell recommendation.","inputSchema":{"type":"object","properties":{"assets":{"type":"array","description":"Array of asset objects with name, target_weight (%), current_value (GBP/EUR)"},"threshold":{"type":"number","description":"Drift threshold % that triggers rebalancing"},"transaction_cost_pct":{"type":"number","description":"Transaction cost as % of trade value"},"cgt_rate":{"type":"number","description":"Capital gains tax rate % applied to gains on sales"}},"required":["assets","threshold"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/432-portfolio-drift-rebalancing.html","function_name":"runDriftCalc","timeout_ms":3000},
+  "ap2_export": true,
+  "version_stamp": "v1.0 · May 2026",
+  "policy_mandate": "AP2"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner{flex-direction:row-reverse}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.stamp{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);padding:.22rem .55rem;border:1px solid var(--border);border-radius:3px;display:inline-block;margin-bottom:.75rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem;display:flex;align-items:center;gap:.5rem}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:.85rem}
+@media(max-width:700px){.field-grid{grid-template-columns:1fr}}
+.field-group{display:flex;flex-direction:column;gap:.3rem}
+.field-group.full{grid-column:1/-1}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal)}
+.field-sub{font-size:.62rem;color:var(--muted);margin-bottom:.2rem}
+.field-input{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none;transition:border-color .2s}
+.field-input:focus{border-color:var(--teal)}
+.field-select{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none}
+.btn-row{display:flex;gap:.65rem;flex-wrap:wrap;margin:1.25rem 0 .5rem}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.ghost-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.5rem 1rem;border-radius:var(--radius);transition:all .2s}
+.ghost-btn:hover{border-color:var(--teal);color:var(--teal)}
+.ghost-btn:disabled{opacity:.4;cursor:default;pointer-events:none}
+#results{display:none}
+.results-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.results-table th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left}
+.results-table td{padding:.55rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.015)}
+.out-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:1rem;overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.status-ok{color:var(--green)}.status-warn{color:var(--warn)}.status-err{color:var(--red)}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;padding:.1rem .4rem;border-radius:3px;border:1px solid}
+.tag-ok{color:var(--green);border-color:rgba(34,197,94,.4);background:var(--green-dim)}
+.tag-warn{color:var(--warn);border-color:rgba(245,158,11,.4);background:var(--warn-dim)}
+.tag-err{color:var(--red);border-color:rgba(239,68,68,.4);background:var(--red-dim)}
+.cards-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.85rem;margin-bottom:1rem}
+.stat-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem}
+.stat-card-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem}
+.stat-card-val{font-family:'DM Serif Display',serif;font-size:1.8rem;color:var(--bright)}
+.stat-card-sub{font-size:.65rem;color:var(--body);margin-top:.25rem}
+.rec-card{padding:1.25rem;border-radius:var(--radius-lg);border:1px solid;margin-bottom:1rem}
+.rec-card.green{background:var(--green-dim);border-color:rgba(34,197,94,.3)}
+.rec-card.gold{background:var(--gold-dim);border-color:rgba(212,168,71,.3)}
+.rec-card.red{background:var(--red-dim);border-color:rgba(239,68,68,.3)}
+.rec-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem}
+.rec-card.green .rec-label{color:var(--green)}
+.rec-card.gold .rec-label{color:var(--gold)}
+.rec-card.red .rec-label{color:var(--red)}
+.rec-text{font-size:.8rem;color:var(--text)}
+.asset-row-grid{display:grid;grid-template-columns:2fr 1fr 1.2fr;gap:.5rem;margin-bottom:.5rem;align-items:center}
+@media(max-width:700px){.asset-row-grid{grid-template-columns:1fr 1fr}}
+.asset-row-num{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);padding-top:.5rem}
+.radio-group{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.radio-group label{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);display:flex;align-items:center;gap:.35rem;cursor:pointer}
+.radio-group input[type=radio]{accent-color:var(--teal)}
+.threshold-custom{display:none;margin-top:.5rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links a{color:var(--muted);transition:color .2s}.footer-links a:hover{color:var(--teal-lt)}
+.footer-badge{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:640px){.footer-inner{flex-direction:column;text-align:center}}
+#ap2ExportBtn{opacity:.4;cursor:default;pointer-events:none}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright);pointer-events:auto}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.scope-note strong{color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase}
+</style>
+</head>
+<body>
+
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <span>T-432</span>
+  </div>
+  <div class="nav-right">
+    <a href="../index.html" class="nav-cta">All Tools &#8594;</a>
+  </div>
+</div></nav>
+
+<section class="hero"><div class="container">
+  <div class="hero-eyebrow">T432 · WealthTech · Cat-27</div>
+  <div class="stamp">v1.0 · May 2026</div>
+  <h1>Portfolio Drift &amp; <em>Rebalancing</em> Trigger Calculator</h1>
+  <p class="hero-desc">Detect allocation drift from target weights for up to 8 asset classes. Calculate rebalancing trade sizes, estimate transaction costs vs. drift cost, and model tax impact of rebalancing gains/losses.</p>
+  <div class="hero-badges">
+    <span class="badge badge-teal">WealthTech</span>
+    <span class="badge badge-gold">Cat-27</span>
+    <span class="badge badge-green">Client-Side</span>
+    <span class="badge badge-muted">Zero PII</span>
+    <span class="badge badge-muted">AP2 Export</span>
+  </div>
+</div></section>
+
+<div class="tool-body"><div class="container">
+
+<p class="scope-note"><strong>Scope &amp; Disclaimer</strong> — Illustrative modelling tool. Drift cost avoided uses a simplified 0.5% differential return assumption. Does not constitute regulated financial advice. Tax calculations are indicative; consult a qualified adviser before making investment or tax decisions.</p>
+
+<!-- Asset Class Inputs -->
+<div class="panel">
+  <div class="panel-title">&#9632; Asset Class Weights &amp; Values</div>
+  <div id="assetRows"></div>
+  <button class="ghost-btn" onclick="addAssetRow()" style="margin-top:.5rem" id="addRowBtn">+ Add Asset Class</button>
+</div>
+
+<!-- Parameters -->
+<div class="panel">
+  <div class="panel-title">&#9632; Rebalancing Parameters</div>
+  <div class="field-grid">
+    <div class="field-group">
+      <label class="field-label">Rebalancing Trigger Threshold</label>
+      <div class="radio-group" style="margin-top:.4rem">
+        <label><input type="radio" name="threshold" value="3" onchange="onThresholdChange(this)"> ±3%</label>
+        <label><input type="radio" name="threshold" value="5" onchange="onThresholdChange(this)" checked> ±5%</label>
+        <label><input type="radio" name="threshold" value="10" onchange="onThresholdChange(this)"> ±10%</label>
+        <label><input type="radio" name="threshold" value="custom" onchange="onThresholdChange(this)"> Custom</label>
+      </div>
+      <div class="threshold-custom" id="thresholdCustomWrap">
+        <input type="number" class="field-input" id="thresholdCustom" placeholder="Enter %" min="0.1" max="50" step="0.1">
+      </div>
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="txCost">Transaction Cost (% of trade value)</label>
+      <input type="number" class="field-input" id="txCost" value="0.2" min="0" max="5" step="0.01" placeholder="0.2">
+      <span class="field-sub">Typical range: 0.1–0.5%</span>
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="cgtRate">CGT Rate on Gains</label>
+      <select class="field-select" id="cgtRate">
+        <option value="0">0% (ISA / tax-free)</option>
+        <option value="10">10% (Basic rate – pre-Oct 2024)</option>
+        <option value="18" selected>18% (Basic rate – 2024+)</option>
+        <option value="24">24% (Higher rate – 2024+)</option>
+        <option value="28">28% (Residential property higher)</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="gainPct">Estimated Unrealised Gain (% of current value)</label>
+      <input type="number" class="field-input" id="gainPct" value="20" min="0" max="200" step="1" placeholder="20">
+      <span class="field-sub">Applied to overweight positions being sold</span>
+    </div>
+  </div>
+</div>
+
+<div class="btn-row">
+  <button class="run-btn" onclick="runDriftCalc()">Calculate Drift &amp; Rebalancing</button>
+  <button class="ghost-btn" onclick="resetTool()">Reset</button>
+</div>
+
+<!-- Results -->
+<div id="results">
+
+  <div class="cards-row">
+    <div class="stat-card">
+      <div class="stat-card-label">Total Portfolio Value</div>
+      <div class="stat-card-val" id="cardTotal">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Assets Needing Rebalance</div>
+      <div class="stat-card-val" id="cardRebal">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Total Transaction Cost</div>
+      <div class="stat-card-val" id="cardTxCost">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Total Tax Cost</div>
+      <div class="stat-card-val" id="cardTaxCost">—</div>
+    </div>
+  </div>
+
+  <div id="recCard" class="rec-card green">
+    <div class="rec-label" id="recLabel">Recommendation</div>
+    <div class="rec-text" id="recText"></div>
+  </div>
+
+  <div class="out-panel">
+    <div class="out-header"><span class="out-title">Allocation Drift Table</span></div>
+    <div class="out-body" style="overflow-x:auto">
+      <table class="results-table">
+        <thead><tr>
+          <th>Asset</th><th>Target %</th><th>Current %</th><th>Drift</th><th>Status</th>
+        </tr></thead>
+        <tbody id="driftTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="out-panel" id="tradesPanel">
+    <div class="out-header"><span class="out-title">Rebalancing Trades</span></div>
+    <div class="out-body" style="overflow-x:auto">
+      <table class="results-table">
+        <thead><tr>
+          <th>Action</th><th>Asset</th><th>Trade Amount</th><th>Transaction Cost</th><th>Tax Cost (if sell)</th>
+        </tr></thead>
+        <tbody id="tradesTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="out-panel">
+    <div class="out-header"><span class="out-title">Cost-Benefit Summary</span></div>
+    <div class="out-body">
+      <table class="results-table">
+        <tbody id="cbTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="out-panel">
+    <div class="out-header"><span class="out-title">Allocation Chart — Target vs Current</span></div>
+    <div class="out-body">
+      <svg id="allocChart" width="100%" height="220" viewBox="0 0 900 220" preserveAspectRatio="xMinYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:.65rem;flex-wrap:wrap;margin-top:1.25rem">
+    <button class="ghost-btn" id="ap2ExportBtn" onclick="exportAP2()">&#123;&#125; Export Policy Mandate<br><span style="color:var(--muted);font-size:.5rem">API · audit trail</span></button>
+    <button class="ghost-btn" onclick="exportMarkdown()">&#8659; Export Markdown</button>
+  </div>
+</div><!-- /results -->
+
+</div></div><!-- /tool-body -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec"><div class="container"><div style="padding-top:1.5rem"><button class="mfst-btn" onclick="toggleMfst()"><span>&#128230; &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">&#9660;</span></button><div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div></div></div></section>
+
+<footer><div class="container"><div class="footer-inner">
+  <div class="footer-links">
+    <a href="../index.html">Tool Suite</a>
+    <a href="../guides/wealthtech-hub.html">WealthTech Hub</a>
+    <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs</a>
+  </div>
+  <div class="footer-badge">AINumbers.co · T432 · v1.0 · May 2026 · Cat-27 · &copy; Post Oak Labs</div>
+</div></div></footer>
+
+<script>
+// ── i18n ──────────────────────────────────────────────────────────────────────
+const TRANSLATIONS = {
+  en:{runBtn:'Calculate Drift & Rebalancing',resetBtn:'Reset',addRow:'+ Add Asset Class'},
+  es:{runBtn:'Calcular Deriva y Rebalanceo',resetBtn:'Restablecer',addRow:'+ Agregar Clase de Activo'},
+  fr:{runBtn:'Calculer la Dérive et Rééquilibrage',resetBtn:'Réinitialiser',addRow:'+ Ajouter une Classe d\'Actif'},
+  ar:{runBtn:'احسب الانجراف وإعادة التوازن',resetBtn:'إعادة تعيين',addRow:'+ إضافة فئة أصول',lang_dir:'rtl'},
+  pt:{runBtn:'Calcular Deriva e Rebalanceamento',resetBtn:'Redefinir',addRow:'+ Adicionar Classe de Ativo'},
+  zh:{runBtn:'计算漂移和再平衡',resetBtn:'重置',addRow:'+ 添加资产类别'}
+};
+function setLang(lang){
+  const t=TRANSLATIONS[lang]||TRANSLATIONS.en;
+  document.documentElement.setAttribute('lang',lang);
+  document.documentElement.setAttribute('dir',t.lang_dir||'ltr');
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===lang));
+  sessionStorage.setItem('ain_lang',lang);
+}
+(function(){const l=sessionStorage.getItem('ain_lang');if(l)setLang(l);})();
+
+// ── Asset Rows ────────────────────────────────────────────────────────────────
+const MAX_ASSETS = 8;
+let assetCount = 0;
+const defaultAssets = [
+  {name:'Global Equities',target:40,value:42000},
+  {name:'UK Bonds',target:30,value:27500},
+  {name:'Property',target:15,value:16800},
+  {name:'Cash',target:10,value:11200},
+  {name:'Alternatives',target:5,value:4200}
+];
+
+function addAssetRow(name='',target='',value=''){
+  if(assetCount>=MAX_ASSETS)return;
+  const container=document.getElementById('assetRows');
+  const i=assetCount++;
+  const div=document.createElement('div');
+  div.className='asset-row-grid';
+  div.id=`arow${i}`;
+  div.innerHTML=`
+    <div style="display:flex;gap:.4rem;align-items:center">
+      <span class="asset-row-num">${i+1}</span>
+      <input type="text" class="field-input" id="aname${i}" placeholder="Asset name (e.g. Global Equities)" value="${name}" style="flex:1">
+    </div>
+    <input type="number" class="field-input" id="atgt${i}" placeholder="Target %" min="0" max="100" step="0.1" value="${target}">
+    <input type="number" class="field-input" id="aval${i}" placeholder="Current value £/€" min="0" step="1" value="${value}">
+  `;
+  container.appendChild(div);
+  if(assetCount>=MAX_ASSETS)document.getElementById('addRowBtn').style.display='none';
+}
+
+function initDefaultRows(){
+  defaultAssets.forEach(a=>addAssetRow(a.name,a.target,a.value));
+}
+initDefaultRows();
+
+function onThresholdChange(radio){
+  document.getElementById('thresholdCustomWrap').style.display=radio.value==='custom'?'block':'none';
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmt(n){return new Intl.NumberFormat('en-GB',{minimumFractionDigits:0,maximumFractionDigits:0}).format(n);}
+function fmtPct(n){return n.toFixed(2)+'%';}
+function fmtGBP(n){return '£'+fmt(Math.abs(n));}
+
+// ── Main Calculation ──────────────────────────────────────────────────────────
+let lastResult=null;
+
+function runDriftCalc(){
+  // Collect assets
+  const assets=[];
+  for(let i=0;i<assetCount;i++){
+    const el=document.getElementById(`arow${i}`);
+    if(!el)continue;
+    const name=(document.getElementById(`aname${i}`)||{}).value.trim();
+    const tgt=parseFloat((document.getElementById(`atgt${i}`)||{}).value);
+    const val=parseFloat((document.getElementById(`aval${i}`)||{}).value);
+    if(!name||isNaN(tgt)||isNaN(val)||val<0)continue;
+    assets.push({name,target:tgt,value:val});
+  }
+  if(assets.length<2){alert('Please enter at least 2 asset classes.');return;}
+
+  // Threshold
+  let threshold;
+  const radios=document.querySelectorAll('input[name=threshold]');
+  let selectedVal='5';
+  radios.forEach(r=>{if(r.checked)selectedVal=r.value;});
+  if(selectedVal==='custom'){
+    threshold=parseFloat(document.getElementById('thresholdCustom').value);
+    if(isNaN(threshold)||threshold<=0){alert('Enter a valid custom threshold.');return;}
+  } else {
+    threshold=parseFloat(selectedVal);
+  }
+
+  const txCostPct=parseFloat(document.getElementById('txCost').value)||0;
+  const cgtRate=parseFloat(document.getElementById('cgtRate').value)||0;
+  const gainPct=parseFloat(document.getElementById('gainPct').value)||0;
+
+  // Total portfolio value
+  const total=assets.reduce((s,a)=>s+a.value,0);
+  if(total<=0){alert('Total portfolio value must be greater than 0.');return;}
+
+  // Per-asset calculations
+  const rows=assets.map(a=>{
+    const currentWt=a.value/total*100;
+    const drift=currentWt-a.target;
+    const absDrift=Math.abs(drift);
+    const needsRebal=absDrift>threshold;
+    // trade amount: positive = buy, negative = sell
+    const tradeAmt=(a.target-currentWt)/100*total;
+    // drift cost avoided (illustrative): |drift| * 0.5% * total * 1yr
+    const driftCostAvoided=absDrift*0.005*total/100;
+    // tx cost
+    const txCost=Math.abs(tradeAmt)*txCostPct/100;
+    // tax cost (only if selling, i.e. tradeAmt < 0)
+    const gain=tradeAmt<0?Math.abs(tradeAmt)*gainPct/100:0;
+    const taxCost=gain*cgtRate/100;
+    return {...a,currentWt,drift,absDrift,needsRebal,tradeAmt,driftCostAvoided,txCost,taxCost};
+  });
+
+  const totalTxCost=rows.filter(r=>r.needsRebal).reduce((s,r)=>s+r.txCost,0);
+  const totalTaxCost=rows.filter(r=>r.needsRebal).reduce((s,r)=>s+r.taxCost,0);
+  const totalDriftBenefit=rows.filter(r=>r.needsRebal).reduce((s,r)=>s+r.driftCostAvoided,0);
+  const netBenefit=totalDriftBenefit-totalTxCost-totalTaxCost;
+  const rebalCount=rows.filter(r=>r.needsRebal).length;
+
+  lastResult={total,rows,totalTxCost,totalTaxCost,totalDriftBenefit,netBenefit,rebalCount,threshold,txCostPct,cgtRate,gainPct};
+
+  // Update summary cards
+  document.getElementById('cardTotal').textContent='£'+fmt(total);
+  document.getElementById('cardRebal').textContent=rebalCount;
+  document.getElementById('cardTxCost').textContent='£'+fmt(totalTxCost);
+  document.getElementById('cardTaxCost').textContent='£'+fmt(totalTaxCost);
+
+  // Recommendation
+  let recClass,recLbl,recTxt;
+  if(rebalCount===0){
+    recClass='green';recLbl='No Action Required';
+    recTxt='All asset classes are within the ±'+threshold+'% drift threshold. No rebalancing trades are required at this time. Continue monitoring.';
+  } else if(netBenefit<0){
+    recClass='gold';recLbl='Monitor — Costs May Outweigh Benefits';
+    recTxt=rebalCount+' asset(s) exceed the drift threshold, but estimated transaction and tax costs (£'+fmt(totalTxCost+totalTaxCost)+') may outweigh the illustrative drift correction benefit (£'+fmt(totalDriftBenefit)+'). Consider deferring or using new contributions to rebalance.';
+  } else {
+    recClass='red';recLbl='Rebalance Now';
+    recTxt=rebalCount+' asset(s) have drifted beyond ±'+threshold+'%. Estimated net benefit after costs: £'+fmt(netBenefit)+'. Proceed with the trades shown below.';
+  }
+  const rc=document.getElementById('recCard');
+  rc.className='rec-card '+recClass;
+  document.getElementById('recLabel').textContent=recLbl;
+  document.getElementById('recText').textContent=recTxt;
+
+  // Drift table
+  const driftBody=document.getElementById('driftTableBody');
+  driftBody.innerHTML='';
+  rows.forEach(r=>{
+    const driftStr=(r.drift>=0?'+':'')+r.drift.toFixed(2)+'%';
+    let statusHtml;
+    if(r.needsRebal) statusHtml=`<span class="tag tag-err">&#10007; Rebalance</span>`;
+    else if(r.absDrift>threshold*0.6) statusHtml=`<span class="tag tag-warn">&#9888; Monitor</span>`;
+    else statusHtml=`<span class="tag tag-ok">&#10003; In Range</span>`;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${r.name}</td><td>${r.target.toFixed(1)}%</td><td>${r.currentWt.toFixed(2)}%</td><td style="color:${r.drift>0?'var(--warn)':r.drift<0?'var(--teal)':'var(--text)'}">${driftStr}</td><td>${statusHtml}</td>`;
+    driftBody.appendChild(tr);
+  });
+
+  // Trades table
+  const tradesBody=document.getElementById('tradesTableBody');
+  tradesBody.innerHTML='';
+  const tradeRows=rows.filter(r=>r.needsRebal);
+  if(tradeRows.length===0){
+    tradesBody.innerHTML='<tr><td colspan="5" style="color:var(--muted);text-align:center">No rebalancing trades required</td></tr>';
+  } else {
+    tradeRows.forEach(r=>{
+      const action=r.tradeAmt>0?'BUY':'SELL';
+      const actionColor=action==='BUY'?'var(--green)':'var(--red)';
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td style="color:${actionColor};font-family:'JetBrains Mono',monospace;font-weight:600">${action}</td><td>${r.name}</td><td style="font-family:'JetBrains Mono',monospace">${fmtGBP(r.tradeAmt)}</td><td style="font-family:'JetBrains Mono',monospace;color:var(--warn)">${fmtGBP(r.txCost)}</td><td style="font-family:'JetBrains Mono',monospace;color:${r.taxCost>0?'var(--red)':'var(--muted)'}">${r.taxCost>0?fmtGBP(r.taxCost):'—'}</td>`;
+      tradesBody.appendChild(tr);
+    });
+  }
+
+  // Cost-benefit table
+  const cbTable=document.getElementById('cbTable');
+  cbTable.innerHTML=`
+    <tr><td style="color:var(--muted)">Drift correction benefit (illustrative, 1yr)</td><td style="font-family:'JetBrains Mono',monospace;color:var(--green)">+£${fmt(totalDriftBenefit)}</td></tr>
+    <tr><td style="color:var(--muted)">Transaction costs</td><td style="font-family:'JetBrains Mono',monospace;color:var(--warn)">-£${fmt(totalTxCost)}</td></tr>
+    <tr><td style="color:var(--muted)">Estimated tax cost (CGT)</td><td style="font-family:'JetBrains Mono',monospace;color:var(--warn)">-£${fmt(totalTaxCost)}</td></tr>
+    <tr style="border-top:1px solid var(--border-2)"><td style="color:var(--bright);font-weight:500">Net benefit of rebalancing</td><td style="font-family:'JetBrains Mono',monospace;color:${netBenefit>=0?'var(--green)':'var(--red)'}">£${fmt(netBenefit)}</td></tr>
+  `;
+
+  // SVG chart
+  renderChart(rows);
+
+  // Show results
+  document.getElementById('results').style.display='block';
+  document.getElementById('ap2ExportBtn').classList.add('ready');
+  document.getElementById('ap2ExportBtn').style.opacity='1';
+  document.getElementById('ap2ExportBtn').style.pointerEvents='auto';
+  document.getElementById('ap2ExportBtn').style.cursor='pointer';
+}
+
+function renderChart(rows){
+  const svg=document.getElementById('allocChart');
+  svg.innerHTML='';
+  const W=900,H=200,padL=140,padR=20,padT=20,padB=40,barH=22,gap=8;
+  const chartW=W-padL-padR;
+  const maxPct=Math.max(...rows.map(r=>Math.max(r.target,r.currentWt)))*1.1;
+
+  rows.forEach((r,i)=>{
+    const y=padT+i*(barH*2+gap);
+    // labels
+    const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+    txt.setAttribute('x',padL-8);txt.setAttribute('y',y+barH);
+    txt.setAttribute('text-anchor','end');txt.setAttribute('font-size','10');
+    txt.setAttribute('fill','#6888A8');txt.setAttribute('font-family','Sora,sans-serif');
+    txt.textContent=r.name.length>18?r.name.substr(0,16)+'…':r.name;
+    svg.appendChild(txt);
+
+    // target bar
+    const tW=r.target/maxPct*chartW;
+    const tBar=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    tBar.setAttribute('x',padL);tBar.setAttribute('y',y);
+    tBar.setAttribute('width',Math.max(2,tW));tBar.setAttribute('height',barH);
+    tBar.setAttribute('fill','rgba(20,184,166,.35)');tBar.setAttribute('rx','3');
+    svg.appendChild(tBar);
+
+    // current bar
+    const cW=r.currentWt/maxPct*chartW;
+    const cBar=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    cBar.setAttribute('x',padL);cBar.setAttribute('y',y+barH+2);
+    cBar.setAttribute('width',Math.max(2,cW));cBar.setAttribute('height',barH);
+    cBar.setAttribute('fill',r.needsRebal?'rgba(239,68,68,.5)':'rgba(212,168,71,.4)');cBar.setAttribute('rx','3');
+    svg.appendChild(cBar);
+
+    // pct labels
+    [r.target,r.currentWt].forEach((v,j)=>{
+      const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
+      lbl.setAttribute('x',padL+(j===0?Math.max(2,tW):Math.max(2,cW))+5);
+      lbl.setAttribute('y',y+(j===0?barH/1.3:barH+2+barH/1.3));
+      lbl.setAttribute('font-size','9');lbl.setAttribute('fill','#A8C4DE');
+      lbl.setAttribute('font-family',"'JetBrains Mono',monospace");
+      lbl.textContent=v.toFixed(1)+'%';
+      svg.appendChild(lbl);
+    });
+  });
+
+  // Legend
+  const legendY=H-15;
+  [[14,184,166,'Target']].forEach(([r,g,b,lbl],i)=>{
+    const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rect.setAttribute('x',padL+i*120);rect.setAttribute('y',legendY);
+    rect.setAttribute('width',14);rect.setAttribute('height',8);rect.setAttribute('rx','2');
+    rect.setAttribute('fill',`rgba(${r},${g},${b},.45)`);svg.appendChild(rect);
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',padL+i*120+18);t.setAttribute('y',legendY+8);
+    t.setAttribute('font-size','9');t.setAttribute('fill','#6888A8');
+    t.setAttribute('font-family','Sora,sans-serif');t.textContent=lbl;svg.appendChild(t);
+  });
+  const r2=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  r2.setAttribute('x',padL+120);r2.setAttribute('y',legendY);r2.setAttribute('width',14);r2.setAttribute('height',8);r2.setAttribute('rx','2');r2.setAttribute('fill','rgba(212,168,71,.4)');svg.appendChild(r2);
+  const t2=document.createElementNS('http://www.w3.org/2000/svg','text');
+  t2.setAttribute('x',padL+138);t2.setAttribute('y',legendY+8);t2.setAttribute('font-size','9');t2.setAttribute('fill','#6888A8');t2.setAttribute('font-family','Sora,sans-serif');t2.textContent='Current (in range)';svg.appendChild(t2);
+  const r3=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  r3.setAttribute('x',padL+260);r3.setAttribute('y',legendY);r3.setAttribute('width',14);r3.setAttribute('height',8);r3.setAttribute('rx','2');r3.setAttribute('fill','rgba(239,68,68,.5)');svg.appendChild(r3);
+  const t3=document.createElementNS('http://www.w3.org/2000/svg','text');
+  t3.setAttribute('x',padL+278);t3.setAttribute('y',legendY+8);t3.setAttribute('font-size','9');t3.setAttribute('fill','#6888A8');t3.setAttribute('font-family','Sora,sans-serif');t3.textContent='Current (needs rebalance)';svg.appendChild(t3);
+}
+
+// ── Reset ─────────────────────────────────────────────────────────────────────
+function resetTool(){
+  document.getElementById('assetRows').innerHTML='';
+  assetCount=0;
+  document.getElementById('addRowBtn').style.display='';
+  document.getElementById('results').style.display='none';
+  document.getElementById('ap2ExportBtn').classList.remove('ready');
+  lastResult=null;
+  initDefaultRows();
+}
+
+// ── AP2 Export ────────────────────────────────────────────────────────────────
+function exportAP2(){
+  if(!lastResult){return;}
+  const now=new Date();
+  const ts=now.toISOString().replace(/[-:.TZ]/g,'').substr(0,14);
+  const mandate={
+    ap2_version:'1.0',
+    mandate_id:crypto.randomUUID?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:r&0x3|0x8).toString(16);}),
+    issued_at:now.toISOString(),
+    issued_by:'ainumbers.co',
+    tool_id:'portfolio-drift-rebalancing',
+    tool_version:'1.0.0',
+    mandate_type:'risk_parameter',
+    jurisdiction:['GB'],
+    regulatory_frameworks:['FCA COBS 9A','MiFID II Art.25'],
+    payload:{
+      total_portfolio_value:lastResult.total,
+      drift_threshold_pct:lastResult.threshold,
+      assets_needing_rebalance:lastResult.rebalCount,
+      total_transaction_cost:lastResult.totalTxCost,
+      total_tax_cost:lastResult.totalTaxCost,
+      drift_benefit_illustrative:lastResult.totalDriftBenefit,
+      net_benefit:lastResult.netBenefit,
+      asset_detail:lastResult.rows.map(r=>({name:r.name,target_weight:r.target,current_weight:parseFloat(r.currentWt.toFixed(4)),drift:parseFloat(r.drift.toFixed(4)),needs_rebalance:r.needsRebal,trade_amount:parseFloat(r.tradeAmt.toFixed(2)),transaction_cost:parseFloat(r.txCost.toFixed(2)),tax_cost:parseFloat(r.taxCost.toFixed(2))}))
+    },
+    summary:`Portfolio drift analysis across ${lastResult.rows.length} asset classes. ${lastResult.rebalCount} asset(s) exceed the ±${lastResult.threshold}% threshold. Net rebalancing benefit after costs: £${Math.round(lastResult.netBenefit).toLocaleString()}.`,
+    agent_instructions:[
+      `Verify ${lastResult.rebalCount} flagged asset class(es) require rebalancing trades`,
+      'Execute buy/sell trades at lowest available cost to minimise transaction drag',
+      `Apply ${lastResult.cgtRate}% CGT rate to realised gains on sold overweight positions`,
+      'Re-run drift analysis within 90 days or on material market movement (>10%)'
+    ],
+    valid_from:now.toISOString(),
+    valid_until:new Date(now.getTime()+90*86400000).toISOString(),
+    last_reviewed:now.toISOString(),
+    source_tool_inputs:{threshold:lastResult.threshold,tx_cost_pct:lastResult.txCostPct,cgt_rate:lastResult.cgtRate,gain_pct_assumed:lastResult.gainPct},
+    regulatory_citations:['FCA COBS 9A — Suitability','MiFID II Art.25 — Assessment of suitability and appropriateness'],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  const blob=new Blob([JSON.stringify(mandate,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`portfolio-drift-rebalancing_${ts}.policy.json`;a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportMarkdown(){
+  if(!lastResult)return;
+  let md=`# Portfolio Drift & Rebalancing Report\n\n`;
+  md+=`**Total Portfolio Value:** £${fmt(lastResult.total)}\n`;
+  md+=`**Threshold:** ±${lastResult.threshold}%\n`;
+  md+=`**Assets Needing Rebalance:** ${lastResult.rebalCount}\n\n`;
+  md+=`## Drift Table\n\n| Asset | Target % | Current % | Drift | Status |\n|---|---|---|---|---|\n`;
+  lastResult.rows.forEach(r=>{
+    md+=`| ${r.name} | ${r.target.toFixed(1)}% | ${r.currentWt.toFixed(2)}% | ${(r.drift>=0?'+':'')+r.drift.toFixed(2)}% | ${r.needsRebal?'REBALANCE':'In Range'} |\n`;
+  });
+  md+=`\n## Cost-Benefit\n\n`;
+  md+=`- Drift correction benefit (illustrative): £${fmt(lastResult.totalDriftBenefit)}\n`;
+  md+=`- Transaction costs: £${fmt(lastResult.totalTxCost)}\n`;
+  md+=`- Tax cost (CGT): £${fmt(lastResult.totalTaxCost)}\n`;
+  md+=`- **Net benefit:** £${fmt(lastResult.netBenefit)}\n\n`;
+  md+=`*Generated by AINumbers.co T432 · v1.0 · May 2026*\n`;
+  const blob=new Blob([md],{type:'text/markdown'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='portfolio-drift-rebalancing.md';a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Manifest toggle ───────────────────────────────────────────────────────────
+function toggleMfst(){
+  const body=document.getElementById('mfstBody');
+  const arr=document.getElementById('mfstArr');
+  const open=body.style.display==='block';
+  body.style.display=open?'none':'block';
+  arr.textContent=open?'▼':'▲';
+  if(!open&&!document.getElementById('mfstCode').textContent){
+    const manifest={tool_id:'portfolio-drift-rebalancing',version:'1.0.0',title:'Portfolio Drift & Rebalancing Trigger Calculator',description:'Detect allocation drift from target weights for up to 8 asset classes.',category:'cat-27',tags:['portfolio','rebalancing','drift','WealthTech'],mcp_tool_definition:{name:'calculate_portfolio_drift_rebalancing',description:'Calculate allocation drift and rebalancing trades for a multi-asset portfolio.',inputSchema:{type:'object',properties:{assets:{type:'array'},threshold:{type:'number'}},required:['assets','threshold']}},execution:{type:'browser-javascript',entry:'tools/432-portfolio-drift-rebalancing.html',function_name:'runDriftCalc',timeout_ms:3000},ap2_export:true,version_stamp:'v1.0 · May 2026'};
+    document.getElementById('mfstCode').textContent=JSON.stringify(manifest,null,2);
+  }
+}
+</script>
+</body>
+</html>

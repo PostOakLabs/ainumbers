@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>MT700 LC Field Validator &amp; UCP 600 Compliance · T420 · AINumbers.co</title>
+<meta name="description" content="Validate SWIFT MT700 Documentary Credit fields against UCP 600 rules and ISBP 821. Flags missing mandatory fields, format errors, date logic, and common discrepancy risks. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/420-mt700-lc-field-validator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"MT700 LC Field Validator & UCP 600 Compliance Checker","url":"https://ainumbers.co/tools/420-mt700-lc-field-validator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "mt700-lc-field-validator",
+  "version": "1.0.0",
+  "title": "MT700 LC Field Validator & UCP 600 Compliance Checker",
+  "description": "Validate SWIFT MT700 Documentary Credit fields against UCP 600 rules and ISBP 821. Flags missing mandatory fields, format errors, date logic, and common discrepancy risks.",
+  "category": "cat-26",
+  "tags": ["MT700","UCP 600","ISBP 821","documentary credit","letter of credit","SWIFT","trade finance"],
+  "audience": ["trade-finance","compliance","operations"],
+  "input_schema": {"type":"object","properties":{"field_20":{"type":"string"},"field_31C":{"type":"string"},"field_32B":{"type":"string"}},"required":["field_20","field_31C","field_32B"]},
+  "output_schema": {"type":"object","properties":{"score":{"type":"number"},"errors":{"type":"array"},"warnings":{"type":"array"},"fields":{"type":"array"}}},
+  "mcp_tool_definition": {"name":"validate_mt700_lc","description":"Validate SWIFT MT700 Documentary Credit fields against UCP 600 rules and ISBP 821; returns compliance score, field-by-field findings, and article references.","inputSchema":{"type":"object","properties":{"field_20":{"type":"string","description":"Field 20: Documentary Credit Number"},"field_31C":{"type":"string","description":"Field 31C: Date of Issue (YYMMDD)"},"field_32B":{"type":"string","description":"Field 32B: Currency and Amount"}},"required":["field_20","field_31C","field_32B"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/420-mt700-lc-field-validator.html","function_name":"runValidator","timeout_ms":3000},
+  "ap2_export": true,
+  "version_stamp": "v1.0 · May 2026",
+  "policy_mandate": "AP2"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner{flex-direction:row-reverse}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.stamp{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);padding:.22rem .55rem;border:1px solid var(--border);border-radius:3px;display:inline-block;margin-bottom:.75rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.scope-note strong{color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.85rem;display:flex;align-items:center;gap:.5rem}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:.85rem}
+@media(max-width:700px){.field-grid{grid-template-columns:1fr}}
+.field-group{display:flex;flex-direction:column;gap:.3rem}
+.field-group.full{grid-column:1/-1}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal)}
+.field-sub{font-size:.62rem;color:var(--muted);margin-bottom:.2rem}
+.field-input{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none;transition:border-color .2s}
+.field-input:focus{border-color:var(--teal)}
+.field-textarea{width:100%;min-height:90px;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none;resize:vertical;transition:border-color .2s}
+.field-textarea:focus{border-color:var(--teal)}
+.field-select{width:100%;background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.45rem .7rem;border-radius:var(--radius);outline:none}
+.btn-row{display:flex;gap:.65rem;flex-wrap:wrap;margin:1.25rem 0 .5rem}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.ghost-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.5rem 1rem;border-radius:var(--radius);transition:all .2s}
+.ghost-btn:hover{border-color:var(--teal);color:var(--teal)}
+.ghost-btn:disabled{opacity:.4;cursor:default;pointer-events:none}
+#results{display:none}
+.score-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1rem;display:flex;align-items:center;gap:2rem;flex-wrap:wrap}
+.score-num{font-family:'DM Serif Display',serif;font-size:3rem;line-height:1}
+.score-meta{flex:1}
+.score-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem}
+.score-bar-outer{height:10px;background:var(--bg-3);border-radius:3px;overflow:hidden;margin-top:.5rem}
+.score-bar-inner{height:100%;border-radius:3px;transition:width .4s}
+.out-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:1rem;overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.results-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.results-table th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left}
+.results-table td{padding:.55rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.results-table tr:last-child td{border-bottom:none}
+.results-table tr:hover td{background:rgba(255,255,255,.015)}
+.status-ok{color:var(--green)}
+.status-err{color:var(--red)}
+.status-warn{color:var(--warn)}
+.status-skip{color:var(--muted)}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;padding:.1rem .4rem;border-radius:3px;border:1px solid}
+.tag-err{color:var(--red);border-color:rgba(239,68,68,.4);background:var(--red-dim)}
+.tag-warn{color:var(--warn);border-color:rgba(245,158,11,.4);background:var(--warn-dim)}
+.tag-ok{color:var(--green);border-color:rgba(34,197,94,.4);background:var(--green-dim)}
+.tag-skip{color:var(--muted);border-color:var(--border)}
+.issue-list{list-style:none;display:flex;flex-direction:column;gap:.5rem}
+.issue-item{display:flex;gap:.7rem;align-items:flex-start;font-size:.73rem;line-height:1.5;padding:.5rem;background:rgba(255,255,255,.015);border-radius:var(--radius)}
+.issue-item.error{border-left:2px solid var(--red)}
+.issue-item.warning{border-left:2px solid var(--warn)}
+.issue-icon{font-size:.9rem;line-height:1;flex-shrink:0}
+.issue-text{color:var(--text)}
+.issue-cite{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links a{color:var(--muted);transition:color .2s}.footer-links a:hover{color:var(--teal-lt)}
+.footer-badge{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:640px){.footer-inner{flex-direction:column;text-align:center}}
+#ap2ExportBtn{opacity:.4;cursor:default;pointer-events:none}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright);pointer-events:auto}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+</style>
+</head>
+<body>
+
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-sep">/</span>
+    <span>T-420</span>
+  </div>
+  <div class="nav-right">
+    <a href="../index.html" class="nav-cta">All Tools &#8594;</a>
+  </div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">T420 · TradeTech &amp; Trade Finance · Cat-26</div>
+  <div class="stamp">v1.0 · May 2026</div>
+  <h1>MT700 LC Field Validator &amp; <em>UCP 600</em> Compliance Checker</h1>
+  <p class="hero-desc">Validate SWIFT MT700 Documentary Credit fields against UCP 600 rules and ISBP 821. Flags missing mandatory fields, format errors, date logic, and common discrepancy risks. Client-side. Zero PII.</p>
+  <div class="hero-badges">
+    <span class="badge badge-teal">UCP 600</span>
+    <span class="badge badge-gold">ISBP 821</span>
+    <span class="badge badge-teal">SWIFT MT700</span>
+    <span class="badge badge-green">Client-Side · Zero PII</span>
+    <span class="badge badge-muted">Cat-26</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+<div class="scope-note"><strong>Scope &amp; reliance —</strong> Deterministic rule checks against static embedded UCP 600 / ISBP 821 references. Not a substitute for bank compliance review. Rules may age — verify against current ICC publications. All inputs processed locally in your browser. Zero PII transmitted. CC BY 4.0.</div>
+
+<!-- INPUTS -->
+<div class="panel">
+  <div class="panel-title">▸ MT700 Field Inputs</div>
+  <div class="field-grid">
+
+    <div class="field-group">
+      <label class="field-label" for="f20">Field 20 — Documentary Credit Number</label>
+      <div class="field-sub">Max 16 chars · A–Z 0–9 / -</div>
+      <input class="field-input" id="f20" type="text" placeholder="e.g. LC2024/001234" maxlength="20">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="f40a">Field 40A — Form of Documentary Credit</label>
+      <div class="field-sub">Must be one of the three ICC-recognised forms</div>
+      <select class="field-select" id="f40a">
+        <option value="">— select —</option>
+        <option>IRREVOCABLE</option>
+        <option>IRREVOCABLE TRANSFERABLE</option>
+        <option>IRREVOCABLE STANDBY</option>
+      </select>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="f31c">Field 31C — Date of Issue</label>
+      <div class="field-sub">Format: YYMMDD (e.g. 240315)</div>
+      <input class="field-input" id="f31c" type="text" placeholder="YYMMDD" maxlength="6">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="f31d_date">Field 31D — Date of Expiry</label>
+      <div class="field-sub">Format: YYMMDD — must be after issue date</div>
+      <input class="field-input" id="f31d_date" type="text" placeholder="YYMMDD" maxlength="6">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="f31d_place">Field 31D — Place of Expiry</label>
+      <div class="field-sub">Free text (country/city)</div>
+      <input class="field-input" id="f31d_place" type="text" placeholder="e.g. LONDON, UNITED KINGDOM">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="f32b">Field 32B — Currency / Amount</label>
+      <div class="field-sub">ISO 4217 code + amount (e.g. USD 500000.00)</div>
+      <input class="field-input" id="f32b" type="text" placeholder="USD 500000.00">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="f41_bank">Field 41A/D — Available With (Bank)</label>
+      <div class="field-sub">Bank name or ANY BANK</div>
+      <input class="field-input" id="f41_bank" type="text" placeholder="ANY BANK or bank name">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="f41_by">Field 41A/D — Available By</label>
+      <div class="field-sub">Payment method</div>
+      <select class="field-select" id="f41_by">
+        <option value="">— select —</option>
+        <option>BY PAYMENT</option>
+        <option>BY ACCEPTANCE</option>
+        <option>BY NEGOTIATION</option>
+        <option>BY DEF PAYMENT</option>
+      </select>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="f42">Field 42C/M/P — Drafts At</label>
+      <div class="field-sub">Required if Available By Acceptance or Def Payment</div>
+      <input class="field-input" id="f42" type="text" placeholder="e.g. SIGHT or 90 DAYS AFTER BILL OF LADING DATE">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="f43p">Field 43P — Partial Shipments</label>
+      <select class="field-select" id="f43p">
+        <option value="">— select —</option>
+        <option>ALLOWED</option>
+        <option>NOT ALLOWED</option>
+      </select>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="f43t">Field 43T — Transhipment</label>
+      <select class="field-select" id="f43t">
+        <option value="">— select —</option>
+        <option>ALLOWED</option>
+        <option>NOT ALLOWED</option>
+      </select>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="f44a">Field 44A — Port of Loading / Airport of Departure</label>
+      <input class="field-input" id="f44a" type="text" placeholder="e.g. SHANGHAI, CHINA">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="f44b">Field 44B — Port of Discharge / Airport of Destination</label>
+      <input class="field-input" id="f44b" type="text" placeholder="e.g. ROTTERDAM, NETHERLANDS">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="f44c">Field 44C/D — Latest Date of Shipment</label>
+      <div class="field-sub">YYMMDD — must be before expiry date and after issue date</div>
+      <input class="field-input" id="f44c" type="text" placeholder="YYMMDD" maxlength="6">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="f48">Field 48 — Period for Presentation (days)</label>
+      <div class="field-sub">Days after shipment (UCP 600 Art.14(c) default: 21)</div>
+      <input class="field-input" id="f48" type="number" min="1" max="365" placeholder="21" value="21">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="f49">Field 49 — Confirmation Instructions</label>
+      <select class="field-select" id="f49">
+        <option value="">— select —</option>
+        <option>CONFIRM</option>
+        <option>MAY ADD</option>
+        <option>WITHOUT</option>
+      </select>
+    </div>
+
+    <div class="field-group full">
+      <label class="field-label" for="f45a">Field 45A — Description of Goods</label>
+      <div class="field-sub">Required. Include Incoterm if applicable.</div>
+      <textarea class="field-textarea" id="f45a" placeholder="e.g. ELECTRONIC COMPONENTS AS PER PROFORMA INVOICE NO. PI-2024-001, CIF ROTTERDAM"></textarea>
+    </div>
+
+    <div class="field-group full">
+      <label class="field-label" for="f46a">Field 46A — Documents Required</label>
+      <div class="field-sub">Required. List each document type on a separate line.</div>
+      <textarea class="field-textarea" id="f46a" placeholder="+ SIGNED COMMERCIAL INVOICE IN TRIPLICATE&#10;+ FULL SET CLEAN ON BOARD BILLS OF LADING&#10;+ PACKING LIST IN TRIPLICATE&#10;+ CERTIFICATE OF ORIGIN"></textarea>
+    </div>
+
+    <div class="field-group full">
+      <label class="field-label" for="f47a">Field 47A — Additional Conditions</label>
+      <textarea class="field-textarea" id="f47a" placeholder="Optional additional conditions..."></textarea>
+    </div>
+
+    <div class="field-group full">
+      <label class="field-label" for="f50">Field 50 — Applicant</label>
+      <input class="field-input" id="f50" type="text" placeholder="Applicant name and address">
+    </div>
+
+    <div class="field-group full">
+      <label class="field-label" for="f59">Field 59 — Beneficiary</label>
+      <input class="field-input" id="f59" type="text" placeholder="Beneficiary name and address">
+    </div>
+
+    <div class="field-group full">
+      <label class="field-label" for="f72z">Field 72Z — Sender to Receiver Information</label>
+      <input class="field-input" id="f72z" type="text" placeholder="Optional sender/receiver info">
+    </div>
+
+  </div>
+  <div class="btn-row">
+    <button class="run-btn" onclick="runValidator()">▶ Run UCP 600 Validation</button>
+    <button class="ghost-btn" id="ap2ExportBtn" onclick="exportAP2()">↓ Export AP2 JSON</button>
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div id="results">
+
+  <div class="score-card" id="scoreCard">
+    <div>
+      <div class="score-label">Compliance Score</div>
+      <div class="score-num" id="scoreNum">—</div>
+    </div>
+    <div class="score-meta" style="flex:1">
+      <div id="scoreVerdict" style="font-size:.82rem;margin-bottom:.4rem"></div>
+      <div class="score-bar-outer">
+        <div class="score-bar-inner" id="scoreBar" style="width:0%"></div>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);margin-top:.4rem" id="scoreBreak"></div>
+    </div>
+  </div>
+
+  <div class="out-panel" id="errPanel">
+    <div class="out-header">
+      <span class="out-title">Critical Errors — Must Fix Before Issuance</span>
+      <span id="errCount" style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--red)"></span>
+    </div>
+    <div class="out-body"><ul class="issue-list" id="errList"></ul></div>
+  </div>
+
+  <div class="out-panel" id="warnPanel">
+    <div class="out-header">
+      <span class="out-title">Warnings — Review Recommended</span>
+      <span id="warnCount" style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--warn)"></span>
+    </div>
+    <div class="out-body"><ul class="issue-list" id="warnList"></ul></div>
+  </div>
+
+  <div class="out-panel">
+    <div class="out-header"><span class="out-title">Field-by-Field Results</span></div>
+    <div class="out-body" style="overflow-x:auto">
+      <table class="results-table">
+        <thead><tr><th>Field</th><th>Value</th><th>Status</th><th>Rule</th><th>Issue</th></tr></thead>
+        <tbody id="fieldTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /results -->
+
+</div></div><!-- /tool-body /container -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()">
+        <span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span>
+        <span id="mfstArr" style="color:var(--muted)">▼</span>
+      </button>
+      <div class="mfst-body" id="mfstBody">
+        <div class="mfst-code" id="mfstCode"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container"><div class="footer-inner">
+    <div class="footer-links">
+      <a href="../index.html">All Tools</a>
+      <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs</a>
+    </div>
+    <div class="footer-badge">CC BY 4.0 · postoaklabs.com · T420 · v1.0 · May 2026</div>
+  </div></div>
+</footer>
+
+<script>
+// ── Lang ──────────────────────────────────────────────────────────────────────
+const LANGS={en:{dir:'ltr'},es:{dir:'ltr'},fr:{dir:'ltr'},ar:{dir:'rtl'},pt:{dir:'ltr'},zh:{dir:'ltr'}};
+function setLang(l){
+  const s=LANGS[l]||LANGS.en;
+  document.documentElement.lang=l;
+  document.documentElement.dir=s.dir;
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===l));
+  sessionStorage.setItem('ain_lang',l);
+}
+(function(){const l=sessionStorage.getItem('ain_lang');if(l&&LANGS[l])setLang(l);})();
+
+// ── ISO 4217 subset ───────────────────────────────────────────────────────────
+const ISO_CCY=new Set(['AED','AFN','ALL','AMD','ANG','AOA','ARS','AUD','AWG','AZN','BAM','BBD','BDT','BGN','BHD','BMD','BND','BOB','BRL','BSD','BTN','BWP','BYN','BZD','CAD','CDF','CHF','CLP','CNY','COP','CRC','CUP','CVE','CZK','DJF','DKK','DOP','DZD','EGP','ERN','ETB','EUR','FJD','GBP','GEL','GHS','GMD','GTQ','GYD','HKD','HNL','HRK','HTG','HUF','IDR','ILS','INR','IQD','IRR','ISK','JMD','JOD','JPY','KES','KGS','KHR','KRW','KWD','KYD','KZT','LAK','LBP','LKR','LYD','MAD','MDL','MKD','MNT','MOP','MRU','MUR','MVR','MWK','MXN','MYR','MZN','NAD','NGN','NIO','NOK','NPR','NZD','OMR','PAB','PEN','PGK','PHP','PKR','PLN','PYG','QAR','RON','RSD','RUB','SAR','SBD','SCR','SDG','SEK','SGD','SHP','SLL','SOS','SRD','STN','SVC','SYP','SZL','THB','TJS','TMT','TND','TOP','TRY','TTD','TWD','TZS','UAH','UGX','USD','UYU','UZS','VES','VND','VUV','WST','XAF','XCD','XOF','XPF','YER','ZAR','ZMW']);
+
+// ── Date helpers ──────────────────────────────────────────────────────────────
+function parseYYMMDD(s){
+  if(!/^\d{6}$/.test(s))return null;
+  const yy=parseInt(s.slice(0,2),10),mm=parseInt(s.slice(2,4),10),dd=parseInt(s.slice(4,6),10);
+  const yr=yy>=0&&yy<=99?(yy>=50?1900+yy:2000+yy):null;
+  if(!yr||mm<1||mm>12||dd<1||dd>31)return null;
+  const d=new Date(yr,mm-1,dd);
+  if(d.getMonth()!==mm-1)return null;
+  return d;
+}
+function todayMidnight(){const d=new Date();d.setHours(0,0,0,0);return d;}
+
+// ── Validation ────────────────────────────────────────────────────────────────
+let lastResult=null;
+
+function runValidator(){
+  const v={
+    f20:document.getElementById('f20').value.trim(),
+    f31c:document.getElementById('f31c').value.trim(),
+    f31d_date:document.getElementById('f31d_date').value.trim(),
+    f31d_place:document.getElementById('f31d_place').value.trim(),
+    f32b:document.getElementById('f32b').value.trim(),
+    f40a:document.getElementById('f40a').value,
+    f41_bank:document.getElementById('f41_bank').value.trim(),
+    f41_by:document.getElementById('f41_by').value,
+    f42:document.getElementById('f42').value.trim(),
+    f43p:document.getElementById('f43p').value,
+    f43t:document.getElementById('f43t').value,
+    f44a:document.getElementById('f44a').value.trim(),
+    f44b:document.getElementById('f44b').value.trim(),
+    f44c:document.getElementById('f44c').value.trim(),
+    f48:document.getElementById('f48').value.trim(),
+    f49:document.getElementById('f49').value,
+    f45a:document.getElementById('f45a').value.trim(),
+    f46a:document.getElementById('f46a').value.trim(),
+    f47a:document.getElementById('f47a').value.trim(),
+    f50:document.getElementById('f50').value.trim(),
+    f59:document.getElementById('f59').value.trim(),
+    f72z:document.getElementById('f72z').value.trim()
+  };
+
+  const errors=[], warnings=[], rows=[];
+  let totalPoints=0, earnedPoints=0;
+
+  function check(field,label,value,weight,status,rule,issue){
+    totalPoints+=weight;
+    if(status==='ok')earnedPoints+=weight;
+    else if(status==='warn')earnedPoints+=weight*0.5;
+    rows.push({field,label,value:value||'(empty)',status,rule,issue});
+  }
+
+  // Field 20
+  const f20_ok=/^[A-Z0-9/\-]{1,16}$/.test(v.f20.toUpperCase());
+  if(!v.f20){
+    errors.push({text:'Field 20 (DC Number) is missing — mandatory field.',cite:'UCP 600 Art.1 / MT700 mandatory'});
+    check('20','DC Number','',10,'err','Max 16 chars, A–Z 0–9 / -','Missing mandatory field');
+  } else if(!f20_ok){
+    errors.push({text:`Field 20 contains invalid characters or exceeds 16 chars: "${v.f20}"`,cite:'SWIFT MT700 Field 20 spec'});
+    check('20','DC Number',v.f20,10,'err','Max 16 chars, A–Z 0–9 / -','Invalid format');
+  } else {
+    check('20','DC Number',v.f20,10,'ok','Max 16 chars, A–Z 0–9 / -','');
+  }
+
+  // Field 40A
+  if(!v.f40a){
+    errors.push({text:'Field 40A (Form of DC) is missing — mandatory.',cite:'UCP 600 Art.3 / MT700 mandatory'});
+    check('40A','Form of DC','',8,'err','IRREVOCABLE | IRREVOCABLE TRANSFERABLE | IRREVOCABLE STANDBY','Missing');
+  } else {
+    check('40A','Form of DC',v.f40a,8,'ok','ICC-recognised form','');
+  }
+
+  // Field 31C — Issue date
+  const issueDate=parseYYMMDD(v.f31c);
+  if(!v.f31c){
+    errors.push({text:'Field 31C (Date of Issue) is missing.',cite:'MT700 mandatory'});
+    check('31C','Date of Issue','',8,'err','YYMMDD format','Missing');
+  } else if(!issueDate){
+    errors.push({text:`Field 31C: "${v.f31c}" is not a valid YYMMDD date.`,cite:'MT700 date format'});
+    check('31C','Date of Issue',v.f31c,8,'err','YYMMDD format','Invalid date');
+  } else if(issueDate<todayMidnight()){
+    warnings.push({text:`Field 31C: Issue date ${v.f31c} appears to be in the past.`,cite:'Operational check'});
+    check('31C','Date of Issue',v.f31c,8,'warn','Date must be today or future','Date in past');
+  } else {
+    check('31C','Date of Issue',v.f31c,8,'ok','Valid YYMMDD','');
+  }
+
+  // Field 31D — Expiry date + place
+  const expiryDate=parseYYMMDD(v.f31d_date);
+  if(!v.f31d_date){
+    errors.push({text:'Field 31D (Date of Expiry) is missing — mandatory.',cite:'UCP 600 Art.6(a) / MT700 mandatory'});
+    check('31D Date','Date of Expiry','',9,'err','YYMMDD, after issue date','Missing');
+  } else if(!expiryDate){
+    errors.push({text:`Field 31D date "${v.f31d_date}" is not a valid YYMMDD date.`,cite:'UCP 600 Art.6'});
+    check('31D Date','Date of Expiry',v.f31d_date,9,'err','Valid YYMMDD','Invalid date');
+  } else if(issueDate && expiryDate<=issueDate){
+    errors.push({text:'Field 31D: Expiry date must be after the issue date (Field 31C).',cite:'UCP 600 Art.6(a)'});
+    check('31D Date','Date of Expiry',v.f31d_date,9,'err','Must be after Field 31C','Expiry ≤ Issue date');
+  } else {
+    check('31D Date','Date of Expiry',v.f31d_date,9,'ok','After issue date','');
+  }
+  if(!v.f31d_place){
+    errors.push({text:'Field 31D: Place of Expiry is required.',cite:'UCP 600 Art.6(a)(ii)'});
+    check('31D Place','Place of Expiry','',5,'err','Place text required','Missing');
+  } else {
+    check('31D Place','Place of Expiry',v.f31d_place,5,'ok','Place specified','');
+  }
+
+  // Field 32B — Currency / Amount
+  if(!v.f32b){
+    errors.push({text:'Field 32B (Currency/Amount) is missing — mandatory.',cite:'MT700 mandatory'});
+    check('32B','Currency/Amount','',8,'err','ISO 4217 + numeric amount','Missing');
+  } else {
+    const parts=v.f32b.trim().split(/\s+/);
+    const ccy=(parts[0]||'').toUpperCase();
+    const amt=parseFloat(parts[1]);
+    if(!ISO_CCY.has(ccy)){
+      errors.push({text:`Field 32B: "${ccy}" is not a recognised ISO 4217 currency code.`,cite:'ISO 4217'});
+      check('32B','Currency/Amount',v.f32b,8,'err','Valid ISO 4217 code','Unknown currency');
+    } else if(isNaN(amt)||amt<=0){
+      errors.push({text:'Field 32B: Amount is missing or non-positive.',cite:'MT700 spec'});
+      check('32B','Currency/Amount',v.f32b,8,'err','Positive numeric amount','Invalid amount');
+    } else {
+      check('32B','Currency/Amount',v.f32b,8,'ok','Valid CCY + amount','');
+    }
+  }
+
+  // Field 41 — Available With / By
+  if(!v.f41_bank){
+    errors.push({text:'Field 41: Available With (bank) is missing.',cite:'UCP 600 Art.6(b)'});
+    check('41 Bank','Available With','',6,'err','Bank name or ANY BANK','Missing');
+  } else {
+    check('41 Bank','Available With',v.f41_bank,6,'ok','Bank specified','');
+  }
+  if(!v.f41_by){
+    errors.push({text:'Field 41: Available By (payment method) is missing.',cite:'UCP 600 Art.6(b)'});
+    check('41 By','Available By','',6,'err','BY PAYMENT/ACCEPTANCE/NEGOTIATION/DEF PAYMENT','Missing');
+  } else {
+    // UCP 600 Art.6: if by negotiation, must say ANY BANK or named bank
+    if(v.f41_by==='BY NEGOTIATION'&&v.f41_bank&&v.f41_bank.toUpperCase()!=='ANY BANK'&&v.f41_bank.trim()===''){
+      warnings.push({text:'Field 41: Credit available by negotiation — typically available with ANY BANK or a named bank.',cite:'UCP 600 Art.6(b)'});
+      check('41 By','Available By',v.f41_by,6,'warn','By Negotiation — bank should be specified','Review');
+    } else {
+      check('41 By','Available By',v.f41_by,6,'ok','Valid payment method','');
+    }
+  }
+
+  // Field 42 — Drafts At
+  if((v.f41_by==='BY ACCEPTANCE'||v.f41_by==='BY DEF PAYMENT')&&!v.f42){
+    errors.push({text:'Field 42: Drafts At is required when Available By Acceptance or Def Payment.',cite:'UCP 600 Art.6 / MT700 conditional'});
+    check('42','Drafts At','',5,'err','Required for Acceptance/Def Payment','Missing tenor');
+  } else if(v.f42){
+    check('42','Drafts At',v.f42,5,'ok','Tenor specified','');
+  } else {
+    check('42','Drafts At','(not required)',5,'skip','N/A for Payment/Negotiation','');
+  }
+
+  // Field 43P
+  if(!v.f43p){
+    warnings.push({text:'Field 43P (Partial Shipments) not specified — defaults to ALLOWED under UCP 600.',cite:'UCP 600 Art.31(a)'});
+    check('43P','Partial Shipments','',4,'warn','ALLOWED | NOT ALLOWED','Not specified');
+  } else {
+    check('43P','Partial Shipments',v.f43p,4,'ok','Valid value','');
+  }
+
+  // Field 43T
+  if(!v.f43t){
+    warnings.push({text:'Field 43T (Transhipment) not specified — defaults to ALLOWED under UCP 600 Art.19–25.',cite:'UCP 600 Art.20(c)'});
+    check('43T','Transhipment','',4,'warn','ALLOWED | NOT ALLOWED','Not specified');
+  } else {
+    check('43T','Transhipment',v.f43t,4,'ok','Valid value','');
+  }
+
+  // Field 43P + multiple ports inconsistency
+  if(v.f43p==='NOT ALLOWED'&&v.f44a&&v.f44b){
+    const multiPortA=v.f44a.includes(',')&&v.f44a.split(',').length>2;
+    const multiPortB=v.f44b.includes(',')&&v.f44b.split(',').length>2;
+    if(multiPortA||multiPortB){
+      warnings.push({text:'Partial Shipments is NOT ALLOWED but multiple ports appear specified — potential inconsistency.',cite:'UCP 600 Art.31'});
+    }
+  }
+
+  // Field 44A / 44B
+  if(!v.f44a){
+    warnings.push({text:'Field 44A (Port of Loading) not specified.',cite:'ISBP 821 / operational best practice'});
+    check('44A','Port of Loading','',3,'warn','Recommended','Not specified');
+  } else {
+    check('44A','Port of Loading',v.f44a,3,'ok','Specified','');
+  }
+  if(!v.f44b){
+    warnings.push({text:'Field 44B (Port of Discharge) not specified.',cite:'ISBP 821 / operational best practice'});
+    check('44B','Port of Discharge','',3,'warn','Recommended','Not specified');
+  } else {
+    check('44B','Port of Discharge',v.f44b,3,'ok','Specified','');
+  }
+
+  // Field 44C — Latest Shipment Date
+  if(v.f44c){
+    const shipDate=parseYYMMDD(v.f44c);
+    if(!shipDate){
+      errors.push({text:`Field 44C: "${v.f44c}" is not a valid YYMMDD date.`,cite:'MT700 spec'});
+      check('44C','Latest Shipment','',5,'err','Valid YYMMDD','Invalid date');
+    } else if(expiryDate&&shipDate>expiryDate){
+      errors.push({text:'Field 44C: Latest Shipment date is after the Expiry date — impossible.',cite:'UCP 600 Art.6 / operational'});
+      check('44C','Latest Shipment',v.f44c,5,'err','Must be before expiry (31D)','After expiry');
+    } else if(issueDate&&shipDate<issueDate){
+      errors.push({text:'Field 44C: Latest Shipment date is before the Issue date.',cite:'Operational check'});
+      check('44C','Latest Shipment',v.f44c,5,'err','Must be after issue (31C)','Before issue date');
+    } else {
+      check('44C','Latest Shipment',v.f44c,5,'ok','Valid date sequence','');
+    }
+  } else {
+    check('44C','Latest Shipment','(not specified)',5,'skip','Optional — may use 44D period instead','');
+  }
+
+  // Field 45A
+  if(!v.f45a){
+    errors.push({text:'Field 45A (Description of Goods) is missing — mandatory.',cite:'UCP 600 Art.18(a)(iii) / MT700 mandatory'});
+    check('45A','Description of Goods','',7,'err','Required — describe goods clearly','Missing');
+  } else {
+    // Check for Incoterm without trade term context
+    const incoRx=/\b(EXW|FCA|CPT|CIP|DAP|DPU|DDP|FAS|FOB|CFR|CIF)\b/i;
+    if(!incoRx.test(v.f45a)){
+      warnings.push({text:'Field 45A: No Incoterm detected. Consider specifying trade terms (e.g. CIF, FOB) for clarity.',cite:'ISBP 821 / ICC guidance'});
+      check('45A','Description of Goods',v.f45a.slice(0,40)+'…',7,'warn','Incoterm recommended','No Incoterm detected');
+    } else {
+      check('45A','Description of Goods',v.f45a.slice(0,40)+'…',7,'ok','Goods described with Incoterm','');
+    }
+  }
+
+  // Field 46A — Documents Required
+  if(!v.f46a){
+    errors.push({text:'Field 46A (Documents Required) is missing — mandatory.',cite:'UCP 600 Art.18 / MT700 mandatory'});
+    check('46A','Documents Required','',8,'err','Required','Missing');
+  } else {
+    const docText=v.f46a.toUpperCase();
+    const hasInvoice=/INVOICE/.test(docText);
+    const hasTransport=/BILL OF LADING|AIRWAY BILL|AWB|SEA WAYBILL|TRANSPORT DOCUMENT|MULTIMODAL/.test(docText);
+    const hasPacking=/PACKING/.test(docText);
+    if(!hasInvoice){warnings.push({text:'Field 46A: Commercial Invoice not detected — typically required under UCP 600.',cite:'UCP 600 Art.18'});}
+    if(!hasTransport){warnings.push({text:'Field 46A: Transport document (B/L, AWB) not detected — typically required.',cite:'UCP 600 Art.19–25'});}
+    if(!hasPacking){warnings.push({text:'Field 46A: Packing List not detected — commonly required.',cite:'ISBP 821 best practice'});}
+    const missingDocs=(!hasInvoice?1:0)+(!hasTransport?1:0)+(!hasPacking?1:0);
+    check('46A','Documents Required',v.f46a.slice(0,50)+'…',8,missingDocs>1?'warn':'ok','Invoice + transport doc + packing list expected',missingDocs>0?`${missingDocs} common doc(s) not detected`:'');
+  }
+
+  // Field 48 — Presentation Period
+  const presDay=parseInt(v.f48,10);
+  if(isNaN(presDay)||presDay<1){
+    errors.push({text:'Field 48: Presentation period must be a positive number of days.',cite:'UCP 600 Art.14(c)'});
+    check('48','Presentation Period',v.f48,5,'err','Positive integer','Invalid value');
+  } else if(presDay>21){
+    warnings.push({text:`Field 48: Presentation period is ${presDay} days — UCP 600 Art.14(c) sets a maximum of 21 days. Presentation after 21 days may be rejected.`,cite:'UCP 600 Art.14(c)'});
+    check('48','Presentation Period',String(presDay)+' days',5,'warn','UCP 600 max is 21 days','Exceeds 21-day rule');
+  } else {
+    check('48','Presentation Period',String(presDay)+' days',5,'ok','Within UCP 600 Art.14(c) limit','');
+  }
+
+  // Field 49
+  if(!v.f49){
+    errors.push({text:'Field 49 (Confirmation Instructions) is missing — mandatory.',cite:'MT700 mandatory / UCP 600 Art.8'});
+    check('49','Confirmation','',5,'err','CONFIRM | MAY ADD | WITHOUT','Missing');
+  } else {
+    check('49','Confirmation',v.f49,5,'ok','Valid instruction','');
+  }
+
+  // Field 50 / 59
+  if(!v.f50){
+    errors.push({text:'Field 50 (Applicant) is missing — mandatory.',cite:'MT700 mandatory'});
+    check('50','Applicant','',5,'err','Required','Missing');
+  } else {
+    check('50','Applicant',v.f50,5,'ok','Specified','');
+  }
+  if(!v.f59){
+    errors.push({text:'Field 59 (Beneficiary) is missing — mandatory.',cite:'MT700 mandatory'});
+    check('59','Beneficiary','',5,'err','Required','Missing');
+  } else {
+    check('59','Beneficiary',v.f59,5,'ok','Specified','');
+  }
+
+  // Score
+  const score=totalPoints>0?Math.round((earnedPoints/totalPoints)*100):0;
+  lastResult={score,errors,warnings,rows,inputs:v};
+
+  // Render
+  renderResults(score,errors,warnings,rows);
+  document.getElementById('ap2ExportBtn').classList.add('ready');
+}
+
+function renderResults(score,errors,warnings,rows){
+  document.getElementById('results').style.display='block';
+
+  const scoreEl=document.getElementById('scoreNum');
+  const barEl=document.getElementById('scoreBar');
+  const verdictEl=document.getElementById('scoreVerdict');
+  const breakEl=document.getElementById('scoreBreak');
+
+  let color,verdict;
+  if(score>=80){color='var(--green)';verdict='Compliant — suitable for issuance review';}
+  else if(score>=60){color='var(--warn)';verdict='Marginal — address warnings before issuance';}
+  else{color='var(--red)';verdict='Non-compliant — critical errors must be resolved';}
+
+  scoreEl.textContent=score+'/100';
+  scoreEl.style.color=color;
+  barEl.style.width=score+'%';
+  barEl.style.background=color;
+  verdictEl.textContent=verdict;
+  verdictEl.style.color=color;
+  breakEl.textContent=`${errors.length} error(s) · ${warnings.length} warning(s)`;
+
+  // Errors
+  const errList=document.getElementById('errList');
+  const errCount=document.getElementById('errCount');
+  errList.innerHTML='';
+  errCount.textContent=errors.length+' error(s)';
+  if(errors.length===0){
+    errList.innerHTML='<li style="font-size:.73rem;color:var(--green);padding:.4rem">No critical errors found.</li>';
+  } else {
+    errors.forEach(e=>{
+      errList.innerHTML+=`<li class="issue-item error"><span class="issue-icon">✕</span><div><div class="issue-text">${e.text}</div><div class="issue-cite">${e.cite}</div></div></li>`;
+    });
+  }
+
+  // Warnings
+  const warnList=document.getElementById('warnList');
+  const warnCount=document.getElementById('warnCount');
+  warnList.innerHTML='';
+  warnCount.textContent=warnings.length+' warning(s)';
+  if(warnings.length===0){
+    warnList.innerHTML='<li style="font-size:.73rem;color:var(--green);padding:.4rem">No warnings.</li>';
+  } else {
+    warnings.forEach(w=>{
+      warnList.innerHTML+=`<li class="issue-item warning"><span class="issue-icon">△</span><div><div class="issue-text">${w.text}</div><div class="issue-cite">${w.cite}</div></div></li>`;
+    });
+  }
+
+  // Field table
+  const tbl=document.getElementById('fieldTable');
+  tbl.innerHTML='';
+  rows.forEach(r=>{
+    const cls=r.status==='ok'?'tag-ok':r.status==='err'?'tag-err':r.status==='warn'?'tag-warn':'tag-skip';
+    const lbl=r.status==='ok'?'PASS':r.status==='err'?'ERROR':r.status==='warn'?'WARN':'N/A';
+    const val=(r.value||'').length>45?r.value.slice(0,45)+'…':r.value;
+    tbl.innerHTML+=`<tr><td style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal)">${r.field}</td><td style="font-family:'JetBrains Mono',monospace;font-size:.6rem">${val}</td><td><span class="tag ${cls}">${lbl}</span></td><td style="font-size:.65rem;color:var(--muted)">${r.rule}</td><td style="font-size:.65rem;color:var(--body)">${r.issue||'—'}</td></tr>`;
+  });
+}
+
+function exportAP2(){
+  if(!lastResult)return;
+  const blob=new Blob([JSON.stringify({
+    tool:'T420-mt700-lc-field-validator',
+    version:'1.0',
+    generated:new Date().toISOString(),
+    policy_mandate:'AP2',
+    score:lastResult.score,
+    errors:lastResult.errors.map(e=>e.text),
+    warnings:lastResult.warnings.map(w=>w.text),
+    field_results:lastResult.rows,
+    inputs:lastResult.inputs
+  },null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='T420-mt700-validation-ap2.json';
+  a.click();
+}
+
+// ── Manifest ──────────────────────────────────────────────────────────────────
+function toggleMfst(){
+  const b=document.getElementById('mfstBody');
+  const a=document.getElementById('mfstArr');
+  const open=b.style.display==='block';
+  b.style.display=open?'none':'block';
+  a.textContent=open?'▼':'▲';
+  if(!open&&!document.getElementById('mfstCode').textContent){
+    document.getElementById('mfstCode').textContent=JSON.stringify({
+      tool_id:'mt700-lc-field-validator',
+      version:'1.0.0',
+      title:'MT700 LC Field Validator & UCP 600 Compliance Checker',
+      description:'Validate SWIFT MT700 Documentary Credit fields against UCP 600 rules and ISBP 821.',
+      category:'cat-26',
+      tags:['MT700','UCP 600','ISBP 821','documentary credit','letter of credit','SWIFT','trade finance'],
+      audience:['trade-finance','compliance','operations'],
+      execution:{type:'browser-javascript',entry:'tools/420-mt700-lc-field-validator.html',function_name:'runValidator',timeout_ms:3000},
+      mcp_tool_definition:{name:'validate_mt700_lc',description:'Validate SWIFT MT700 Documentary Credit fields against UCP 600 rules and ISBP 821.',inputSchema:{type:'object',properties:{field_20:{type:'string',description:'Field 20: DC Number'},field_31C:{type:'string',description:'Field 31C: Issue date YYMMDD'},field_32B:{type:'string',description:'Field 32B: Currency and amount'}},required:['field_20','field_31C','field_32B']}},
+      policy_mandate:'AP2',
+      ap2_export:true,
+      version_stamp:'v1.0 · May 2026'
+    },null,2);
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Loan Covenant Compliance Monitor · AINumbers.co</title>
+<meta name="description" content="Test financial covenant compliance for up to 6 covenants simultaneously. Input actual financial figures, compare against thresholds, calculate headroom, and model forward compliance under stress scenarios. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/436-loan-covenant-compliance-monitor.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Loan Covenant Compliance Monitor","url":"https://ainumbers.co/tools/436-loan-covenant-compliance-monitor.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "loan-covenant-compliance-monitor",
+  "version": "1.0.0",
+  "title": "Loan Covenant Compliance Monitor",
+  "description": "Test financial covenant compliance for up to 6 covenants simultaneously. Input actual figures, compare against thresholds, calculate headroom, stress test with EBITDA haircuts and rate shocks, and project forward breach dates.",
+  "category": "cat-28",
+  "tags": ["covenant","compliance","net leverage","DSCR","ICR","interest cover","credit agreement","stress test"],
+  "audience": ["CFO","credit analyst","lender","loan officer","treasury","compliance"],
+  "input_schema": {"type":"object","properties":{"covenants":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"type":{"type":"string"},"threshold":{"type":"number"},"actual":{"type":"number"}}}}},"required":["covenants"]},
+  "output_schema": {"type":"object","properties":{"dashboard":{"type":"array"},"stressResults":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"monitor_loan_covenant_compliance","description":"Test and stress-test financial covenant compliance against thresholds, calculate headroom, and project breach dates under deterioration scenarios.","inputSchema":{"type":"object","properties":{"covenants":{"type":"array","description":"Array of covenant objects with name, type, threshold, and actual value"}},"required":["covenants"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/436-loan-covenant-compliance-monitor.html","function_name":"runCompliance","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.010) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.010) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid var(--gold);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1.5rem;color:#9aa7b8}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+.panel-title::before{content:'';display:block;width:16px;height:1px;background:var(--teal)}
+.cov-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr auto;gap:.5rem;align-items:end;margin-bottom:.65rem;padding:.75rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius)}
+@media(max-width:900px){.cov-row{grid-template-columns:1fr 1fr;}.cov-row .cov-del{grid-column:span 2;text-align:right}}
+.cov-field{display:flex;flex-direction:column;gap:.3rem}
+.cov-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.cov-input{background:var(--bg-2);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.75rem;padding:.38rem .55rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s}
+.cov-input:focus{border-color:var(--teal)}
+select.cov-input{cursor:pointer}
+.type-toggle{display:flex;gap:2px}
+.type-btn{flex:1;font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;padding:.3rem .4rem;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:3px;transition:all .2s}
+.type-btn.active-max{background:rgba(239,68,68,.1);border-color:var(--red);color:var(--red)}
+.type-btn.active-min{background:rgba(34,197,94,.1);border-color:var(--green);color:var(--green)}
+.cov-del{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:3px;padding:.3rem .6rem;transition:all .2s;font-size:.85rem}
+.cov-del:hover{border-color:var(--red);color:var(--red)}
+.add-cov-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.4rem .9rem;border-radius:3px;transition:all .2s;margin-top:.5rem}
+.add-cov-btn:hover{border-color:var(--teal);color:var(--teal)}
+.panel-grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}
+@media(max-width:700px){.panel-grid-2{grid-template-columns:1fr}}
+.panel-row{display:flex;flex-direction:column;gap:.3rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.panel-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.4rem .65rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s}
+.panel-input:focus{border-color:var(--teal)}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.7rem 2.2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:.5rem}
+.run-btn:hover{background:var(--teal-lt)}
+.results-area{display:none;margin-top:1.5rem;flex-direction:column;gap:1rem}
+.results-area.active{display:flex}
+.out-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-hdr{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-hdr-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.data-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.data-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.data-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle;font-family:'JetBrains Mono',monospace;font-size:.68rem}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:rgba(255,255,255,.02)}
+.data-table td.num{text-align:right}
+.status-pass{display:inline-flex;align-items:center;gap:.3rem;color:var(--green);font-family:'JetBrains Mono',monospace;font-size:.6rem;font-weight:500}
+.status-warn{display:inline-flex;align-items:center;gap:.3rem;color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.6rem;font-weight:500}
+.status-breach{display:inline-flex;align-items:center;gap:.3rem;color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.6rem;font-weight:500}
+.breach-alert{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-left:3px solid var(--red);border-radius:var(--radius);padding:.7rem 1rem;margin-bottom:.75rem;font-size:.72rem;line-height:1.6}
+.breach-alert-title{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;color:var(--red);margin-bottom:.3rem}
+.cure-list{color:var(--body);list-style:none;padding:0}
+.cure-list li::before{content:'→ ';color:var(--muted)}
+/* SVG bar chart */
+.bar-chart-wrap{overflow-x:auto}
+/* forward projection */
+.proj-cell-safe{color:var(--green)}
+.proj-cell-breach{color:var(--red)}
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:rgba(20,184,166,.08)}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span><span class="nav-bc-current">T436 · Covenant Compliance Monitor</span></div>
+  <div class="nav-right"><a href="../index.html" class="nav-cta">All Tools &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">T436 · LendTech &amp; Credit Operations · Cat-28</div>
+  <div class="hero-meta">
+    <span class="hero-badge badge-teal">v1.0 · May 2026</span>
+    <span class="hero-badge badge-muted">Cat-28</span>
+  </div>
+  <h1>Loan Covenant <em>Compliance Monitor</em></h1>
+  <p class="hero-desc">Test financial covenant compliance for up to 6 covenants simultaneously. Input actual financial figures, compare against covenant thresholds, calculate headroom, and model forward compliance under EBITDA stress and rate shock scenarios.</p>
+  <p class="pii-notice" data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</p>
+</div></div>
+
+<div class="tool-body"><div class="container">
+  <div class="scope-note"><strong style="color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase">Scope &amp; reliance — </strong>Covenant definitions vary by credit agreement. Always verify thresholds, definitions, and cure mechanisms against your facility agreement's defined terms and qualified legal and financial advisers before relying on any output for compliance or enforcement decisions. Deterministic · no inference · zero PII · CC BY 4.0.</div>
+
+  <!-- COVENANT INPUT PANEL -->
+  <div class="panel">
+    <div class="panel-title">Covenant Definitions (up to 6)</div>
+    <div id="covenantRows"></div>
+    <button class="add-cov-btn" onclick="addCovenant()" id="addCovBtn">+ Add Covenant</button>
+  </div>
+
+  <!-- STRESS PANEL -->
+  <div class="panel">
+    <div class="panel-title">Stress Test Parameters</div>
+    <div class="panel-grid-2">
+      <div class="panel-row">
+        <label class="panel-label">EBITDA Haircuts to Apply</label>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin-top:.3rem">−10%, −20%, −30% applied to EBITDA-based covenants (Net Leverage, DSCR, ICR)</div>
+      </div>
+      <div class="panel-row">
+        <label class="panel-label">Rate Shocks to Apply</label>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);margin-top:.3rem">+100bps and +200bps applied to DSCR and ICR (higher debt service / interest expense)</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+    <button class="run-btn" onclick="runCompliance()">Run Compliance Check</button>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-area" id="resultsArea">
+
+    <!-- Dashboard summary -->
+    <div class="out-card">
+      <div class="out-hdr"><span class="out-hdr-title">Covenant Dashboard</span><span id="dashSummary" style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)"></span></div>
+      <div class="out-body" style="overflow-x:auto">
+        <table class="data-table" id="dashTable">
+          <thead><tr><th>Covenant</th><th>Type</th><th>Threshold</th><th>Actual</th><th>Headroom</th><th>Status</th></tr></thead>
+          <tbody id="dashTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Breach alerts -->
+    <div id="breachAlerts"></div>
+
+    <!-- SVG headroom chart -->
+    <div class="out-card">
+      <div class="out-hdr"><span class="out-hdr-title">Headroom Visualisation</span></div>
+      <div class="out-body bar-chart-wrap">
+        <svg id="headroomSvg" width="100%" style="min-width:400px;display:block"></svg>
+      </div>
+    </div>
+
+    <!-- Stress test table -->
+    <div class="out-card">
+      <div class="out-hdr"><span class="out-hdr-title">Stress Test Results</span></div>
+      <div class="out-body" style="overflow-x:auto">
+        <table class="data-table" id="stressTable">
+          <thead id="stressHead"></thead>
+          <tbody id="stressTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Forward projection -->
+    <div class="out-card">
+      <div class="out-hdr"><span class="out-hdr-title">Forward Projection — -5% pa EBITDA Deterioration</span></div>
+      <div class="out-body" style="overflow-x:auto">
+        <table class="data-table" id="projTable">
+          <thead id="projHead"></thead>
+          <tbody id="projTbody"></tbody>
+        </table>
+        <p style="font-size:.62rem;color:var(--muted);margin-top:.75rem;font-family:'JetBrains Mono',monospace">Projection applies -5% pa to EBITDA-driven ratios only. Non-EBITDA covenants show current actual across all years. Linear approximation only.</p>
+      </div>
+    </div>
+
+    <!-- Disclaimer -->
+    <div class="out-card">
+      <div class="out-hdr"><span class="out-hdr-title">Important Disclaimer</span></div>
+      <div class="out-body">
+        <p style="font-size:.75rem;color:var(--body);line-height:1.8">Covenant definitions vary by credit agreement. Always verify against your facility agreement's defined terms. Key variables such as EBITDA add-backs, net debt composition, restricted and unrestricted subsidiaries, and cure mechanics are credit-agreement-specific and may differ materially from the simplified models used here. This tool is for indicative modelling only and does not constitute legal, financial, or compliance advice.</p>
+      </div>
+    </div>
+
+  </div><!-- /results-area -->
+
+</div></div><!-- /tool-body -->
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec"><div class="container"><div style="padding-top:1.5rem"><button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button><div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div></div></div></section>
+
+<!-- AP2 Export -->
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the tool above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html"><span data-i18n="footer.alltools">All Tools</span></a>
+      <a href="../sitemap.html"><span data-i18n="footer.sitemap">Sitemap</span></a>
+      <a href="../contact.html"><span data-i18n="footer.contact">Contact</span></a>
+    </div>
+    <div class="footer-badge-ai">
+      <span><span data-i18n="footer.cc">CC BY 4.0 · Post Oak Labs</span></span>
+      <span><span data-i18n="footer.privacy">🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span></span>
+    </div>
+  </div>
+</div></footer>
+
+<script>
+// ── Covenant row management ───────────────────────────
+var covCount = 0;
+var lastResult = null;
+
+var COV_DEFS = {
+  'Net Leverage': {label:'Net Leverage = Net Debt / EBITDA',ebitdaBased:true,higherIsBad:true,unit:'x'},
+  'Gross Leverage': {label:'Gross Leverage = Gross Debt / EBITDA',ebitdaBased:true,higherIsBad:true,unit:'x'},
+  'DSCR': {label:'DSCR = Net Operating Income / Annual Debt Service',ebitdaBased:true,higherIsBad:false,unit:'x'},
+  'ICR': {label:'ICR = EBITDA / Net Interest Expense',ebitdaBased:true,higherIsBad:false,unit:'x'},
+  'Current Ratio': {label:'Current Ratio = Current Assets / Current Liabilities',ebitdaBased:false,higherIsBad:false,unit:'x'},
+  'Capex': {label:'Capex = Annual Capex vs. Limit ($M)',ebitdaBased:false,higherIsBad:true,unit:'$M'},
+  'Minimum Cash': {label:'Minimum Cash = Cash & Equivalents ($M)',ebitdaBased:false,higherIsBad:false,unit:'$M'},
+  'Custom': {label:'Custom — enter actual value directly',ebitdaBased:false,higherIsBad:null,unit:''}
+};
+
+var defaultCovenants = [
+  {name:'Net Leverage Ratio',def:'Net Leverage',type:'max',threshold:4.0,actual:3.2,cushion:15},
+  {name:'Interest Cover',def:'ICR',type:'min',threshold:2.5,actual:3.1,cushion:15},
+  {name:'DSCR',def:'DSCR',type:'min',threshold:1.20,actual:1.35,cushion:15},
+];
+
+function addCovenant(preset){
+  if(covCount >= 6){ alert('Maximum 6 covenants supported.'); return; }
+  covCount++;
+  var id = covCount;
+  var p = preset || {};
+  var container = document.getElementById('covenantRows');
+  var div = document.createElement('div');
+  div.id = 'covRow'+id;
+  div.className = 'cov-row';
+  div.innerHTML =
+    '<div class="cov-field" style="min-width:160px">'
+    +'<div class="cov-label">Covenant Name</div>'
+    +'<input class="cov-input" id="covName'+id+'" type="text" value="'+(p.name||'Covenant '+id)+'" placeholder="e.g. Net Leverage">'
+    +'</div>'
+    +'<div class="cov-field">'
+    +'<div class="cov-label">Definition</div>'
+    +'<select class="cov-input" id="covDef'+id+'" onchange="onDefChange('+id+')">'
+    +Object.keys(COV_DEFS).map(function(k){return '<option value="'+k+'"'+(p.def===k?' selected':'')+'>'+k+'</option>';}).join('')
+    +'</select>'
+    +'</div>'
+    +'<div class="cov-field">'
+    +'<div class="cov-label">Type</div>'
+    +'<div class="type-toggle">'
+    +'<button class="type-btn'+((!p.type||p.type==='max')?' active-max':'')+'" id="typeMax'+id+'" onclick="setType('+id+',\'max\')">MAX</button>'
+    +'<button class="type-btn'+(p.type==='min'?' active-min':'')+'" id="typeMin'+id+'" onclick="setType('+id+',\'min\')">MIN</button>'
+    +'</div>'
+    +'<input type="hidden" id="covType'+id+'" value="'+(p.type||'max')+'">'
+    +'</div>'
+    +'<div class="cov-field">'
+    +'<div class="cov-label">Threshold</div>'
+    +'<input class="cov-input" id="covThresh'+id+'" type="number" step="0.01" value="'+(p.threshold||4.0)+'">'
+    +'</div>'
+    +'<div class="cov-field">'
+    +'<div class="cov-label">Actual Value</div>'
+    +'<input class="cov-input" id="covActual'+id+'" type="number" step="0.01" value="'+(p.actual||3.2)+'">'
+    +'</div>'
+    +'<div class="cov-field">'
+    +'<div class="cov-label">Cushion Warn %</div>'
+    +'<input class="cov-input" id="covCushion'+id+'" type="number" step="1" min="0" max="50" value="'+(p.cushion||15)+'">'
+    +'</div>'
+    +'<div class="cov-field cov-del">'
+    +'<div class="cov-label">&nbsp;</div>'
+    +'<button class="cov-del" onclick="removeCovenant('+id+')" title="Remove">✕</button>'
+    +'</div>';
+  container.appendChild(div);
+  checkAddBtn();
+}
+
+function setType(id,type){
+  document.getElementById('covType'+id).value = type;
+  var mb = document.getElementById('typeMax'+id);
+  var mn = document.getElementById('typeMin'+id);
+  mb.className = 'type-btn'+(type==='max'?' active-max':'');
+  mn.className = 'type-btn'+(type==='min'?' active-min':'');
+}
+
+function onDefChange(id){
+  var def = document.getElementById('covDef'+id).value;
+  var info = COV_DEFS[def];
+  if(info && info.higherIsBad !== null){
+    setType(id, info.higherIsBad ? 'max' : 'min');
+  }
+}
+
+function removeCovenant(id){
+  var el = document.getElementById('covRow'+id);
+  if(el) el.remove();
+  checkAddBtn();
+}
+
+function checkAddBtn(){
+  var rows = document.querySelectorAll('.cov-row');
+  document.getElementById('addCovBtn').style.display = rows.length >= 6 ? 'none' : '';
+}
+
+// Init with defaults
+defaultCovenants.forEach(function(c){ addCovenant(c); });
+
+// ── Compliance calculation ────────────────────────────
+function readCovenants(){
+  var rows = document.querySelectorAll('.cov-row');
+  var covs = [];
+  rows.forEach(function(row){
+    var id = row.id.replace('covRow','');
+    covs.push({
+      id: id,
+      name: document.getElementById('covName'+id).value || 'Covenant '+id,
+      def: document.getElementById('covDef'+id).value,
+      type: document.getElementById('covType'+id).value,
+      threshold: parseFloat(document.getElementById('covThresh'+id).value)||0,
+      actual: parseFloat(document.getElementById('covActual'+id).value)||0,
+      cushion: parseFloat(document.getElementById('covCushion'+id).value)||15
+    });
+  });
+  return covs;
+}
+
+function getCovStatus(cov){
+  var t = cov.threshold, a = cov.actual, type = cov.type;
+  // headroom: for max, headroom = (threshold - actual); for min, headroom = (actual - threshold)
+  var headroomAbs = type === 'max' ? (t - a) : (a - t);
+  var headroomPct = t !== 0 ? Math.abs(headroomAbs / t) * 100 : 0;
+  var breach = type === 'max' ? a > t : a < t;
+  var warn = !breach && headroomPct < cov.cushion;
+  var status = breach ? 'BREACH' : warn ? 'WARN' : 'PASS';
+  return {headroomAbs, headroomPct, breach, warn, status};
+}
+
+function adjustedActual(cov, ebitdaHaircut, rateBps){
+  // ebitdaHaircut: 0, -0.1, -0.2, -0.3
+  // rateBps: 0, 100, 200
+  var info = COV_DEFS[cov.def];
+  if(!info) return cov.actual;
+  var a = cov.actual;
+  if(info.ebitdaBased){
+    var eAdj = 1 + ebitdaHaircut;
+    if(cov.def === 'Net Leverage' || cov.def === 'Gross Leverage'){
+      // leverage = debt / EBITDA; EBITDA goes down => ratio goes up
+      if(eAdj > 0) a = a / eAdj;
+    } else if(cov.def === 'ICR'){
+      // ICR = EBITDA / interest; EBITDA down => ICR down; rate shock: interest up
+      var rateAdj = 1 + rateBps/10000; // approximate interest increase
+      a = (a * eAdj) / rateAdj;
+    } else if(cov.def === 'DSCR'){
+      var rateAdj2 = 1 + rateBps/10000;
+      a = (a * eAdj) / rateAdj2;
+    }
+  }
+  return a;
+}
+
+function runCompliance(){
+  var covs = readCovenants();
+  if(!covs.length){ alert('Add at least one covenant.'); return; }
+
+  // Dashboard
+  var passes=0, warns=0, breaches=0;
+  var dashRows = covs.map(function(cov){
+    var s = getCovStatus(cov);
+    if(s.status==='PASS') passes++;
+    else if(s.status==='WARN') warns++;
+    else breaches++;
+    var headStr = (s.headroomAbs>=0?'+':'')+s.headroomAbs.toFixed(2)+'x / '+s.headroomPct.toFixed(1)+'%';
+    var statusEl = s.status==='PASS'
+      ? '<span class="status-pass">● PASS</span>'
+      : s.status==='WARN'
+      ? '<span class="status-warn">▲ WARN</span>'
+      : '<span class="status-breach">✕ BREACH</span>';
+    return '<tr style="'+(s.status==='BREACH'?'background:rgba(239,68,68,.04)':s.status==='WARN'?'background:rgba(245,158,11,.04)':'')+'">'
+      +'<td><strong>'+cov.name+'</strong></td>'
+      +'<td>'+cov.def+'</td>'
+      +'<td class="num">'+(cov.type==='max'?'≤ ':'>= ')+cov.threshold.toFixed(2)+'x</td>'
+      +'<td class="num">'+cov.actual.toFixed(2)+'x</td>'
+      +'<td class="num" style="color:'+(s.headroomAbs>=0?'var(--green)':'var(--red)')+'">'+headStr+'</td>'
+      +'<td>'+statusEl+'</td>'
+      +'</tr>';
+  });
+  document.getElementById('dashTbody').innerHTML = dashRows.join('');
+  document.getElementById('dashSummary').textContent = passes+' Pass · '+warns+' Warn · '+breaches+' Breach';
+
+  // Breach alerts
+  var alertsHtml = '';
+  covs.forEach(function(cov){
+    var s = getCovStatus(cov);
+    if(s.status==='BREACH'){
+      alertsHtml += '<div class="breach-alert">'
+        +'<div class="breach-alert-title">Breach: '+cov.name+'</div>'
+        +'<p style="color:var(--body);font-size:.72rem;margin-bottom:.4rem">Actual ('+cov.actual.toFixed(2)+'x) '+(cov.type==='max'?'exceeds':'is below')+' threshold ('+cov.threshold.toFixed(2)+'x) by '+Math.abs(s.headroomAbs).toFixed(2)+'x</p>'
+        +'<p style="color:var(--muted);font-size:.62rem;font-family:\'JetBrains Mono\',monospace;margin-bottom:.35rem">Potential cure options:</p>'
+        +'<ul class="cure-list"><li>Equity cure — inject equity to reduce net debt or increase equity base</li>'
+        +'<li>EBITDA add-backs — negotiate permitted add-backs per credit agreement</li>'
+        +'<li>Waiver request — seek formal waiver from lender syndicate</li>'
+        +'<li>Debt prepayment — reduce absolute debt quantum</li></ul>'
+        +'</div>';
+    }
+  });
+  document.getElementById('breachAlerts').innerHTML = alertsHtml;
+
+  // SVG headroom chart
+  buildHeadroomChart(covs);
+
+  // Stress test
+  buildStressTable(covs);
+
+  // Forward projection
+  buildProjection(covs);
+
+  lastResult = {covs: covs, passes, warns, breaches};
+  document.getElementById('resultsArea').classList.add('active');
+  var btn = document.getElementById('ap2ExportBtn');
+  btn.disabled = false; btn.classList.add('ready');
+}
+
+function buildHeadroomChart(covs){
+  var barH = 28, gap = 12, padLeft = 180, padRight = 40, padTop = 20, padBottom = 20;
+  var svgW = 800;
+  var totalH = padTop + covs.length*(barH+gap) + padBottom;
+  var maxPct = 100;
+  var usableW = svgW - padLeft - padRight;
+
+  var rects = covs.map(function(cov,i){
+    var s = getCovStatus(cov);
+    var pct = Math.min(Math.max(s.headroomPct, 0), maxPct);
+    var fillW = usableW * pct/maxPct;
+    var y = padTop + i*(barH+gap);
+    var color = s.status==='BREACH'?'var(--red)':s.status==='WARN'?'var(--warn)':'var(--green)';
+    var warnX = padLeft + usableW * (covs.reduce(function(acc,c){return acc;},0) || 15)/maxPct;
+    return '<text x="'+(padLeft-8)+'" y="'+(y+barH/2+5)+'" text-anchor="end" font-family="\'JetBrains Mono\',monospace" font-size="11" fill="var(--text)">'+cov.name+'</text>'
+      +'<rect x="'+padLeft+'" y="'+y+'" width="'+usableW+'" height="'+barH+'" rx="3" fill="var(--bg-3)" stroke="var(--border)" stroke-width="1"/>'
+      +(fillW>0?'<rect x="'+padLeft+'" y="'+y+'" width="'+fillW.toFixed(1)+'" height="'+barH+'" rx="3" fill="'+color+'" opacity="0.75"/>':'')
+      +'<line x1="'+(padLeft + usableW*cov.cushion/maxPct)+'" y1="'+y+'" x2="'+(padLeft + usableW*cov.cushion/maxPct)+'" y2="'+(y+barH)+'" stroke="var(--warn)" stroke-width="1" stroke-dasharray="3,2"/>'
+      +'<text x="'+(padLeft+fillW+6)+'" y="'+(y+barH/2+5)+'" font-family="\'JetBrains Mono\',monospace" font-size="10" fill="'+color+'">'+s.headroomPct.toFixed(1)+'%</text>';
+  }).join('');
+
+  var svg = '<svg viewBox="0 0 '+svgW+' '+totalH+'" xmlns="http://www.w3.org/2000/svg" height="'+totalH+'">'
+    +'<text x="'+padLeft+'" y="14" font-family="\'JetBrains Mono\',monospace" font-size="9" fill="var(--muted)">0%</text>'
+    +'<text x="'+(padLeft+usableW-20)+'" y="14" font-family="\'JetBrains Mono\',monospace" font-size="9" fill="var(--muted)">100%</text>'
+    +rects
+    +'<text x="'+(padLeft+30)+'" y="'+(totalH-5)+'" font-family="\'JetBrains Mono\',monospace" font-size="9" fill="var(--warn)">--- Cushion threshold</text>'
+    +'</svg>';
+  document.getElementById('headroomSvg').outerHTML = svg.replace('<svg ','<svg id="headroomSvg" ');
+}
+
+function buildStressTable(covs){
+  var scenarios = [
+    {label:'Base',ebitda:0,rateBps:0},
+    {label:'EBITDA -10%',ebitda:-0.10,rateBps:0},
+    {label:'EBITDA -20%',ebitda:-0.20,rateBps:0},
+    {label:'EBITDA -30%',ebitda:-0.30,rateBps:0},
+    {label:'+100bps',ebitda:0,rateBps:100},
+    {label:'+200bps',ebitda:0,rateBps:200},
+  ];
+  document.getElementById('stressHead').innerHTML = '<tr><th>Scenario</th>'+covs.map(function(c){return '<th>'+c.name+'</th>';}).join('')+'</tr>';
+  var tbody = scenarios.map(function(sc){
+    var isBase = sc.label === 'Base';
+    var cells = covs.map(function(cov){
+      var adj = adjustedActual(cov, sc.ebitda, sc.rateBps);
+      var status = cov.type==='max' ? (adj>cov.threshold?'BREACH':adj>cov.threshold*(1-cov.cushion/100)?'WARN':'PASS') : (adj<cov.threshold?'BREACH':adj<cov.threshold*(1+cov.cushion/100)?'WARN':'PASS');
+      var color = status==='BREACH'?'var(--red)':status==='WARN'?'var(--warn)':'var(--green)';
+      return '<td class="num" style="color:'+color+'">'+(isBase?'<strong>':'')+adj.toFixed(2)+'x'+(isBase?'</strong>':'')+'</td>';
+    }).join('');
+    return '<tr style="'+(isBase?'background:rgba(20,184,166,.04)':'')+'">'
+      +'<td>'+(isBase?'<strong>'+sc.label+'</strong>':sc.label)+'</td>'+cells+'</tr>';
+  }).join('');
+  document.getElementById('stressTbody').innerHTML = tbody;
+}
+
+function buildProjection(covs){
+  var years = [1,2,3,4,5];
+  document.getElementById('projHead').innerHTML = '<tr><th>Covenant</th>'+years.map(function(y){return '<th>Year '+y+'</th>';}).join('')+'</tr>';
+  var tbody = covs.map(function(cov){
+    var cells = years.map(function(y){
+      var info = COV_DEFS[cov.def];
+      var adj = cov.actual;
+      if(info && info.ebitdaBased){
+        var factor = Math.pow(0.95,y); // -5% pa
+        if(cov.def==='Net Leverage'||cov.def==='Gross Leverage'){
+          adj = cov.actual / factor;
+        } else {
+          adj = cov.actual * factor;
+        }
+      }
+      var breach = cov.type==='max' ? adj>cov.threshold : adj<cov.threshold;
+      return '<td class="num '+(breach?'proj-cell-breach':'proj-cell-safe')+'">'+adj.toFixed(2)+'x'+(breach?' ✕':'')+'</td>';
+    }).join('');
+    return '<tr><td><strong>'+cov.name+'</strong></td>'+cells+'</tr>';
+  }).join('');
+  document.getElementById('projTbody').innerHTML = tbody;
+}
+
+function exportAP2(){
+  if(!lastResult) return;
+  var r = lastResult;
+  var ap2 = {
+    schema: "ain:ap2:v1",
+    tool_id: "loan-covenant-compliance-monitor",
+    tool_version: "1.0.0",
+    generated_at: new Date().toISOString(),
+    inputs: {covenant_count: r.covs.length, covenants: r.covs.map(function(c){return {name:c.name,def:c.def,type:c.type,threshold:c.threshold,actual:c.actual};})},
+    outputs: {pass:r.passes, warn:r.warns, breach:r.breaches},
+    policy_mandate: {instrument:"loan-covenant-compliance",version:"v1.0",cat:"cat-28",compliance_note:"Covenant definitions vary by credit agreement. Verify against facility agreement's defined terms."}
+  };
+  var blob = new Blob([JSON.stringify(ap2,null,2)],{type:'application/json'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ap2-covenant-compliance-'+Date.now()+'.json';
+  a.click();
+}
+
+var MANIFEST = {
+  "tool_id":"loan-covenant-compliance-monitor","version":"1.0.0",
+  "title":"Loan Covenant Compliance Monitor",
+  "description":"Test financial covenant compliance for up to 6 covenants simultaneously. Compare actuals against thresholds, calculate headroom, stress test with EBITDA haircuts and rate shocks, project forward breach dates. Client-side. Zero PII.",
+  "category":"cat-28",
+  "tags":["covenant","compliance","net leverage","DSCR","ICR","interest cover","credit agreement","stress test","breach","headroom"],
+  "audience":["CFO","credit analyst","lender","loan officer","treasury","compliance"],
+  "input_schema":{"type":"object","properties":{"covenants":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"def":{"type":"string"},"type":{"type":"string"},"threshold":{"type":"number"},"actual":{"type":"number"},"cushion":{"type":"number"}}}}},"required":["covenants"]},
+  "output_schema":{"type":"object","properties":{"dashboard":{"type":"array"},"stressResults":{"type":"object"},"projection":{"type":"object"}}},
+  "mcp_tool_definition":{"name":"monitor_loan_covenant_compliance","description":"Test financial covenant compliance, calculate headroom, stress test with EBITDA haircuts and rate shocks.","inputSchema":{"type":"object","properties":{"covenants":{"type":"array"}},"required":["covenants"]}},
+  "execution":{"type":"browser-javascript","entry":"tools/436-loan-covenant-compliance-monitor.html","function_name":"runCompliance","timeout_ms":3000},
+  "ap2_export":true
+};
+
+function toggleMfst(){
+  var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');
+  if(b.style.display==='none'||b.style.display===''){
+    b.style.display='block';if(a)a.textContent='▲';
+    document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+  } else {b.style.display='none';if(a)a.textContent='▼';}
+}
+
+var TRANSLATIONS = {
+  en:{'pii.banner':'🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.','footer.alltools':'All Tools','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Sitemap','footer.privacy':'🔒 Zero PII   📡 No server calls   💻 Client-side'},
+  es:{'pii.banner':'🔒 Todas las entradas se procesan localmente. No se transmiten datos.','footer.alltools':'Todas las Herramientas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contacto','footer.sitemap':'Mapa del Sitio','footer.privacy':'🔒 Sin PII   📡 Sin llamadas   💻 Cliente'},
+  fr:{'pii.banner':'🔒 Toutes les entrées sont traitées localement. Aucune donnée n\'est transmise.','footer.alltools':'Tous les Outils','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Plan du Site','footer.privacy':'🔒 Aucune PII   📡 Aucun appel   💻 Côté client'},
+  ar:{'pii.banner':'🔒 جميع المدخلات تُعالج محلياً. لا تُنقل أي بيانات.','footer.alltools':'جميع الأدوات','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'اتصل','footer.sitemap':'خريطة الموقع','footer.privacy':'🔒 لا PII   📡 لا استدعاءات   💻 على المتصفح'},
+  pt:{'pii.banner':'🔒 Todas as entradas são processadas localmente. Nenhum dado é transmitido.','footer.alltools':'Todas as Ferramentas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contacto','footer.sitemap':'Mapa do Site','footer.privacy':'🔒 Zero PII   📡 Sem chamadas   💻 Cliente'},
+  zh:{'pii.banner':'🔒 所有输入均在浏览器本地处理。不传输任何数据。','footer.alltools':'所有工具','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'联系','footer.sitemap':'网站地图','footer.privacy':'🔒 零PII   📡 无服务器调用   💻 客户端'}
+};
+function setLang(lang){
+  if(!TRANSLATIONS[lang])return;
+  var dict=TRANSLATIONS[lang];
+  document.querySelectorAll('[data-i18n]').forEach(function(el){var k=el.getAttribute('data-i18n');if(dict[k])el.textContent=dict[k];});
+  document.querySelectorAll('.lang-btn').forEach(function(b){b.classList.remove('active');});
+  var active=document.querySelector('.lang-btn[data-lang="'+lang+'"]');
+  if(active)active.classList.add('active');
+  document.documentElement.setAttribute('dir',lang==='ar'?'rtl':'ltr');
+  document.documentElement.setAttribute('lang',lang);
+  try{sessionStorage.setItem('ain_lang',lang);}catch(e){}
+}
+(function(){try{var s=sessionStorage.getItem('ain_lang');if(s)setLang(s);}catch(e){}})();
+</script>
+</body>
+</html>
