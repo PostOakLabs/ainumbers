@@ -7830,4 +7830,73 @@ function setPersona(persona) {
   document.querySelectorAll('.persona-btn').forEach(b => b.classList.toggle('active', b.id === 'p-' + persona));
   const cats = PERSONA_CATS[persona] || [];
   cards.forEach(card => {
-    const cat = card.dataset
+    const cat = card.dataset.cat || '';
+    var visible = cats.length === 0 || cats.includes(cat);
+    card.style.display = visible ? '' : 'none';
+  });
+  catHeadings.forEach(function(h) {
+    var catId = h.id;
+    var grid = h.nextElementSibling;
+    var hasVisible = grid && Array.from(grid.querySelectorAll('.tool-card')).some(function(c) { return c.style.display !== 'none'; });
+    h.style.display = hasVisible ? '' : 'none';
+    if (grid) grid.style.display = hasVisible ? '' : 'none';
+  });
+  featuredCallouts.forEach(function(fc) {
+    var catId = fc.dataset.cat;
+    if (!catId) return;
+    var hasVisible = cards.filter(function(c) { return c.dataset.cat === catId; }).some(function(c) { return c.style.display !== 'none'; });
+    fc.style.display = hasVisible ? '' : 'none';
+  });
+  var ai = document.getElementById('ai-suite-section'); if (ai) ai.style.display = '';
+  applyFilters();
+}
+
+function scrollToCat(id) {
+  var el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function clearAll() {
+  activeFilter = 'all';
+  activeTags.clear();
+  searchQuery = '';
+  searchInput.value = '';
+  document.querySelectorAll('.filter-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.filter === 'all'); });
+  document.querySelectorAll('.persona-btn').forEach(function(b) { b.classList.remove('active'); });
+  activePersona = null;
+  applyFilters();
+}
+
+function setSort(s) {
+  document.querySelectorAll('.sort-btn').forEach(function(b) { b.classList.remove('active'); });
+  var btn = document.getElementById('sort-' + s);
+  if (btn) btn.classList.add('active');
+  if (s === 'alpha') {
+    document.querySelectorAll('.tool-grid').forEach(function(grid) {
+      var cs = Array.from(grid.querySelectorAll('.tool-card'));
+      cs.sort(function(a, b) { return (a.dataset.name || '').localeCompare(b.dataset.name || ''); });
+      cs.forEach(function(c) { grid.appendChild(c); });
+    });
+  }
+}
+
+function toggleTag(tag) {
+  if (activeTags.has(tag)) { activeTags.delete(tag); } else { activeTags.add(tag); }
+  document.querySelectorAll('.tag-chip').forEach(function(c) { c.classList.toggle('active', activeTags.has(c.dataset.tag)); });
+  applyFilters();
+}
+
+function setLang(l) {
+  try { sessionStorage.setItem('ain_lang', l); } catch(e) {}
+  document.querySelectorAll('.lang-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.lang === l); });
+}
+
+searchInput.addEventListener('input', function() {
+  searchQuery = this.value.trim().toLowerCase();
+  applyFilters();
+});
+
+applyFilters();
+</script>
+</body>
+</html>
