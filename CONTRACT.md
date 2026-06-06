@@ -1,5 +1,5 @@
-# 📜 AINumbers.co — Unified Build Contract v1.0
-**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026  
+# 📜 AINumbers.co — Unified Build Contract v1.1
+**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.1 (Amendment A1 folded):** June 2026  
 **License:** CC BY 4.0 · **Scope:** All browser-based financial tools, hubs, and MCP integrations  
 **Target Audience:** AI Build Instances (Claude/LLMs), Frontend Engineers, Compliance QA  
 
@@ -102,6 +102,16 @@ This is the **Single Source of Truth (SSOT)** for all AINumbers.co builds. It su
 }
 ```
 
+### 2.4 Prefill Deep-Links (AIN Bridge v1.0) — Amendment A1.1
+Bridge-enabled tools (manifest flags `"prefill": true`, `"bridge_version": "1.0"`) MUST accept:
+```
+tools/{slug}.html#in=<base64url(JSON of {element_id: value})>[&run=1]
+```
+- JSON maps input element IDs → values; a `{"fields":{...}}` wrapper is also accepted.
+- Default is **fill-only** with a visible notice bar; `&run=1` opts into auto-executing the manifest-declared `execution.function_name`.
+- Inputs travel in the URL hash fragment — never transmitted to a server. Zero-PII rules apply (synthetic values only).
+- Values are assigned via `.value`/`.checked` only (never innerHTML); run functions are limited to the per-tool CFG whitelist.
+
 ---
 
 ## 📦 3. AINumbers Policy Mandate Schema & UI Contract
@@ -148,6 +158,9 @@ Adopted for human-readable audit + machine-agent ingestion. `execution_hash` add
 - **Validation:** MUST call `AP2Schema.validate()` before `URL.createObjectURL()`. Block download on failure; show red toast with validation errors.
 - **File Naming:** `{tool_id}_{YYYYMMDDHHMMSS}.policy.json`
 
+### 3.3 Policy Mandate Intake — Amendment A1.2
+Tools MAY accept a `.policy.json` mandate as **input** via drop/choose/paste (FileReader — local only; CFG flag `intake: true`). Mapping: `payload` and `source_tool_inputs` keys → matching element IDs; validator tools additionally receive the full mandate in their input textarea (`intakeTarget`). The Policy Mandate is the suite's interchange format between tools.
+
 ---
 
 ## 📤 4. Export Tier System
@@ -180,6 +193,14 @@ Prevents client-side bloat & enforces deterministic guarantees.
 | Cat-22 DORA | T260–T269 | DEFERRED | |
 | **Cat-2 Upgrade** | T311–T318 | 8 live | Follows DORA; T269–T299 unassigned |
 | **RBE Suite** | RBE·01–RBE·13 | 13 live | Lives under `ai` category |
+
+### 5.3 Orchestrated Workflow Runner pages (page architecture #4) — Amendment A1.4
+A fourth valid page architecture (rubric-scored with its own profile): a guide-level **Runner** (`guides/*-composer.html`) that loads bridge-enabled tools in **same-origin iframes** and orchestrates them via the bridge messaging API (`ain:prefill` / `ain:run` / `ain:getMandate`). Permitted deviations, valid ONLY for this class:
+- CSP `frame-src 'self'` (standard guides remain `frame-src 'none'`).
+- Same-origin iframes count as page-load resources, not post-load network calls.
+- Emits a **composite Policy Mandate** whose payload carries the ordered stage mandates; MUST validate against the §3.1 required-field set before download. Tier 1 export (Policy JSON + Markdown transcript).
+- `mandate_id` MAY use `crypto.getRandomValues` UUIDv4 (exception to determinism for ID generation only; stage payloads remain deterministic).
+- Required: 6-language chrome i18n, JSON-LD HowTo block, PII banner text per §1.3.
 
 **Rules:**
 - Never reset, never reuse RESERVED numbers.
@@ -233,6 +254,9 @@ npm run test:ui-ap2-placement
 - [ ] `execution.function_name` corresponds to callable global JS function
 - [ ] Stage 2 i18n: full `TRANSLATIONS` object, `setLang()` implementation, RTL flip
 - [ ] Deterministic output verified across 3 identical runs
+
+### 6.4 AIN Bridge Snippet — Amendment A1.3
+Master copy: `scripts/ain-bridge-v1.snippet.html`. Per-tool copies are inserted verbatim before `</body>` with a one-line `window.AIN_BRIDGE_CFG={runFn,intake,intakeTarget,intakeAnchor}`. The bridge provides prefill (§2.4), intake (§3.3), and same-origin parent messaging for Runners (§5.3); its UI strings carry their own 6-language dict. Tools with a non-downloading mandate builder SHOULD expose it as `window.AIN_BUILD_MANDATE()` so Runner capture works without an export click. Constraints honored: zero network, zero storage writes (reads `ain_lang` only). Manifest signals: `prefill`, `bridge_version`; `mcp/catalog.json` carries `metadata.prefill` (regenerated via `scripts/regen_catalog.py` — never hand-edit).
 
 ---
 
