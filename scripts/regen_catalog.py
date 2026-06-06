@@ -81,6 +81,9 @@ def main():
                 "ap2_export": bool(man.get('ap2_export', False)),
                 "execution_type": "browser-reference",
                 "version": man.get('version', '1.0.0'),
+                # AIN Bridge v1.0 (2026-06-06): prefill deep-link capability signal.
+                # Prefill tools accept {url}#in=<base64url(JSON of {element_id: value})>[&run=1]
+                "prefill": bool(man.get('prefill', False)),
             }
         })
 
@@ -136,15 +139,16 @@ def main():
 
     # ── llms.txt (text — targeted replacements) ──
     llms = open('llms.txt', encoding='utf-8').read()
-    repl = [
-        ("suite of 285 browser-based fintech tools", f"suite of {n_tools} browser-based fintech tools"),
-        ("tool grid (285 tools)", f"tool grid ({n_tools} tools)"),
-        ("25 integration hubs", f"{n_hubs} integration hubs"),
-        ("→ 285 individual standalone fintech utilities", f"→ {n_tools} individual standalone fintech utilities"),
-        ("Tool count as of 2026-05-31: 285 tools in `/tools/`, 25 hubs in `/guides/`.",
-         f"Tool count as of {TODAY}: {n_tools} tools in `/tools/`, {n_hubs} hubs in `/guides/` "
-         f"({n} with MCP manifests in `/mcp/catalog.json`)."),
-    ]
+    # regex-based so the script works regardless of the previous counts
+    llms = re.sub(r"suite of \d+ browser-based fintech tools", f"suite of {n_tools} browser-based fintech tools", llms)
+    llms = re.sub(r"tool grid \(\d+ tools\)", f"tool grid ({n_tools} tools)", llms)
+    llms = re.sub(r"→ \d+ integration hubs", f"→ {n_hubs} integration hubs", llms)
+    llms = re.sub(r"`/guides/\*` → \d+ integration hubs", f"`/guides/*` → {n_hubs} integration hubs", llms)
+    llms = re.sub(r"→ \d+ individual standalone fintech utilities", f"→ {n_tools} individual standalone fintech utilities", llms)
+    llms = re.sub(r"Tool count as of [0-9-]+: \d+ tools in `/tools/`, \d+ hubs in `/guides/`[^\n]*",
+                  f"Tool count as of {TODAY}: {n_tools} tools in `/tools/`, {n_hubs} hubs in `/guides/` "
+                  f"({n} with MCP manifests in `/mcp/catalog.json`).", llms)
+    repl = []
     for a, b in repl:
         llms = llms.replace(a, b)
     open('llms.txt', 'w', encoding='utf-8').write(llms)
