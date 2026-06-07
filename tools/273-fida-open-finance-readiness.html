@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>EU FIDA / Open Finance Readiness Scorer · T273 · AINumbers.co</title>
+<meta name="description" content="Horizon-readiness scorer for the draft EU Financial Data Access Regulation (FIDA): scope classification by entity type and data category, FDSS membership readiness, permission-dashboard obligations, and a US CFPB §1033 comparison. Based on the draft texts — FIDA is not yet adopted. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/273-fida-open-finance-readiness.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"EU FIDA / Open Finance Readiness Scorer","url":"https://ainumbers.co/tools/273-fida-open-finance-readiness.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "fida-open-finance-readiness",
+  "version": "1.0.0",
+  "title": "EU FIDA / Open Finance Readiness Scorer",
+  "description": "Horizon-readiness scorer for the draft EU Financial Data Access Regulation (FIDA): classifies entity and data-category scope under the Commission proposal and Council General Approach, scores FDSS membership and permission-dashboard readiness, and compares against US CFPB 1033. Draft-law tool — FIDA is not yet adopted.",
+  "category": "open-banking",
+  "tags": ["FIDA","open finance","financial data access","FDSS","permission dashboard","open banking","EU","CFPB 1033","data holder","data user"],
+  "audience": ["compliance","product","data office","strategy"],
+  "input_schema": {"type":"object","properties":{"entity_type":{"type":"string"},"role":{"type":"string"},"data_categories":{"type":"array"}},"required":["entity_type","role"]},
+  "output_schema": {"type":"object","properties":{"in_scope":{"type":"boolean"},"readiness_score":{"type":"number"},"rag_status":{"type":"string"},"gaps":{"type":"array"}}},
+  "mcp_tool_definition": {"name":"score_fida_open_finance_readiness","description":"Scores readiness for the draft EU FIDA regulation: entity/data-category scope classification, FDSS membership readiness, and permission-dashboard obligations. Draft-law horizon tool.","inputSchema":{"type":"object","properties":{"entity_type":{"type":"string"},"role":{"type":"string"},"data_categories":{"type":"array"}},"required":["entity_type","role"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/273-fida-open-finance-readiness.html","function_name":"runFidaAssessment","timeout_ms":3000},
+  "ap2_export": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-sep{color:var(--border-2)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.35)}
+.hero-badge{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid;color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.disclaimer{background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.25);border-left:3px solid var(--teal);border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8}
+.disclaimer strong{color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase}
+.draft-warning{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-left:3px solid var(--warn);border-radius:6px;padding:.7rem .9rem;font-size:.74rem;line-height:1.65;margin:0 0 1.5rem;color:#b8a78a}
+.draft-warning strong{color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.panel-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:.75rem}
+label{font-size:.72rem;color:var(--body);display:block;margin-bottom:.35rem}
+select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.4rem .65rem;border-radius:var(--radius);outline:none;width:100%;transition:border-color .2s}
+select:focus{border-color:var(--teal)}
+.check-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:.65rem;margin-bottom:.75rem}
+.check-item{display:flex;align-items:flex-start;gap:.6rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .85rem;cursor:pointer;transition:border-color .2s}
+.check-item:hover{border-color:var(--teal)}
+.check-item input[type="checkbox"]{width:14px;height:14px;margin-top:.15rem;flex-shrink:0;accent-color:var(--teal)}
+.check-item span{font-size:.72rem;color:var(--text);cursor:pointer;margin:0;line-height:1.5}
+.check-sub{font-size:.62rem;color:var(--muted);display:block;margin-top:.15rem}
+.cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:.65rem;margin-bottom:.75rem}
+.cat-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;display:flex;align-items:flex-start;gap:.6rem;cursor:pointer}
+.cat-card:hover{border-color:var(--teal)}
+.cat-card input[type="checkbox"]{width:14px;height:14px;margin-top:.2rem;flex-shrink:0;accent-color:var(--teal)}
+.cat-card-body{flex:1}
+.cat-name{font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:500;color:var(--bright);margin-bottom:.15rem}
+.cat-desc{font-size:.62rem;color:var(--muted);line-height:1.4}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;margin-top:1rem;margin-bottom:1.5rem}
+.run-btn:hover{background:var(--teal-lt)}
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1rem}
+.metric-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem}
+.metric-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.metric-value{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--bright);line-height:1.1}
+.metric-sub{font-size:.62rem;color:var(--body);margin-top:.2rem}
+.gap-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.gap-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400}
+.gap-table td{padding:.55rem .75rem;border-bottom:1px solid var(--border);vertical-align:top}
+.gap-table tr:last-child td{border-bottom:none}
+.btn-export{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border:1px solid var(--border);background:var(--bg-3);color:var(--text);border-radius:var(--radius);cursor:pointer;transition:all .2s}
+.btn-export:hover{border-color:var(--teal);color:var(--teal)}
+.results-export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;padding:.75rem 0;border-top:1px solid var(--border);margin-top:1rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+#ap2ExportBtn.ready{opacity:1!important;cursor:pointer!important;border-color:var(--teal)!important;color:var(--bright)!important}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)!important}
+.cmp-table{width:100%;border-collapse:collapse;font-size:.7rem;margin-top:.5rem}
+.cmp-table th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);padding:.5rem .7rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400}
+.cmp-table td{padding:.5rem .7rem;border-bottom:1px solid var(--border);vertical-align:top;color:var(--body)}
+.cmp-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);white-space:nowrap}
+.cmp-table tr:last-child td{border-bottom:none}
+</style>
+</head>
+<body>
+<div class="lang-bar"><div class="lang-inner">
+  <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+  <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+  <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+  <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+  <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+  <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+</div></div>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/open-banking-integration-hub.html">Open Banking Hub</a><span class="nav-sep">/</span><span>T-273</span></div>
+  <div class="nav-right"><a href="../guides/open-banking-integration-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-5 · T273 · Open Banking &amp; Open Finance</div>
+  <span class="hero-badge badge-muted">v1.0</span>
+  <h1>EU FIDA / Open Finance <em>Readiness Scorer</em></h1>
+  <p class="hero-desc">Horizon-readiness tool for the draft EU Financial Data Access Regulation (FIDA) — the proposal that extends data-sharing obligations beyond payment accounts to mortgages, savings, investments, insurance, pensions, and crypto. Classify whether your entity and data categories fall in scope under the current draft texts, score your Financial Data Sharing Scheme (FDSS) and permission-dashboard readiness, and compare the draft against the US CFPB §1033 framework. For field-level data-category mapping, pair this scorer with <a href="360-fida-open-finance-data-scope-mapper.html" style="color:var(--teal)">T360 — FiDA Data Access Scope Mapper</a>.</p>
+  <div class="hero-meta">
+    <span class="badge badge-warn">Draft Law — Not Adopted</span>
+    <span class="badge badge-teal">Open Finance</span>
+    <span class="badge badge-teal">FDSS · Dashboards</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+<div class="tool-body"><div class="container">
+<div class="draft-warning"><strong>⚠ Draft legislation — status as of 6 June 2026: </strong>FIDA is <u>not law</u>. This tool scores readiness against the European Commission proposal COM(2023) 360 (28 June 2023) and the Council General Approach (4 December 2024). Trilogue negotiations began April 2025 and were reported paused in early 2026; adoption timing, final scope, and all obligations below may change materially. If adopted, application is expected in phases starting roughly 24+ months after entry into force. Treat every determination as horizon planning, not a compliance conclusion — re-verify against the current legislative state before relying on any output.</div>
+<div class="disclaimer"><strong>Scope &amp; reliance — </strong>🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only. Deterministic logic · no inference · zero PII · CC BY 4.0. Not a substitute for legal advice.</div>
+
+<!-- ENTITY PROFILE -->
+<div class="panel">
+  <div class="panel-label">1 · Entity Profile &amp; Role (draft Art. 2 — scope)</div>
+  <div class="panel-row">
+    <div>
+      <label for="entity_type">Entity type</label>
+      <select id="entity_type">
+        <option value="credit_institution">Credit institution (bank)</option>
+        <option value="payment_institution">Payment institution</option>
+        <option value="emi">E-money institution</option>
+        <option value="investment_firm">Investment firm</option>
+        <option value="casp">Crypto-asset service provider (MiCA CASP)</option>
+        <option value="insurance_undertaking">Insurance / reinsurance undertaking</option>
+        <option value="insurance_intermediary">Insurance intermediary</option>
+        <option value="aifm_ucits">AIFM / UCITS management company</option>
+        <option value="iorp">Institution for occupational retirement provision (IORP)</option>
+        <option value="credit_intermediary">Mortgage credit intermediary / creditor</option>
+        <option value="fisp_candidate">Prospective financial information service provider (FISP)</option>
+        <option value="other">Other / none of the above</option>
+      </select>
+    </div>
+    <div>
+      <label for="role">Intended role under FIDA</label>
+      <select id="role">
+        <option value="holder">Data holder (I hold in-scope customer data)</option>
+        <option value="user">Data user (I want to access customer data)</option>
+        <option value="both">Both data holder and data user</option>
+      </select>
+    </div>
+    <div>
+      <label for="eu_presence">EU establishment / EU customers</label>
+      <select id="eu_presence">
+        <option value="yes">Yes — EU-established or serving EU customers</option>
+        <option value="no">No EU nexus</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- DATA CATEGORIES -->
+<div class="panel">
+  <div class="panel-label">2 · Customer Data Categories Held or Sought (draft Art. 2(1))</div>
+  <div class="cat-grid">
+    <label class="cat-card"><input type="checkbox" id="cat_mortgage" checked><div class="cat-card-body"><div class="cat-name">Mortgages, loans &amp; credit</div><div class="cat-desc">Credit agreements, balances, conditions — incl. data collected for creditworthiness assessment of firms.</div></div></label>
+    <label class="cat-card"><input type="checkbox" id="cat_savings"><div class="cat-card-body"><div class="cat-name">Savings &amp; non-payment accounts</div><div class="cat-desc">Savings balances and conditions. (Payment account data stays under PSD2/PSR — excluded from FIDA.)</div></div></label>
+    <label class="cat-card"><input type="checkbox" id="cat_investments"><div class="cat-card-body"><div class="cat-name">Investments in financial instruments</div><div class="cat-desc">MiFID instruments, holdings and transactions, incl. insurance-based investment products (IBIPs).</div></div></label>
+    <label class="cat-card"><input type="checkbox" id="cat_crypto"><div class="cat-card-body"><div class="cat-name">Crypto-assets</div><div class="cat-desc">Holdings/transactions in crypto-assets held via MiCA-regulated providers.</div></div></label>
+    <label class="cat-card"><input type="checkbox" id="cat_pensions"><div class="cat-card-body"><div class="cat-name">Pension rights</div><div class="cat-desc">Occupational pension rights (IORP II) and pan-European personal pension products (PEPP).</div></div></label>
+    <label class="cat-card"><input type="checkbox" id="cat_insurance"><div class="cat-card-body"><div class="cat-name">Non-life insurance products</div><div class="cat-desc">Non-life insurance data per the draft (life cover and consumer sickness/health data carved out).</div></div></label>
+    <label class="cat-card"><input type="checkbox" id="cat_creditworthiness"><div class="cat-card-body"><div class="cat-name">Creditworthiness data (consumers)</div><div class="cat-desc">Data collected as part of a consumer creditworthiness assessment — scope contested in trilogue; verify.</div></div></label>
+  </div>
+</div>
+
+<!-- FDSS READINESS -->
+<div class="panel">
+  <div class="panel-label">3 · Financial Data Sharing Scheme (FDSS) Readiness (draft Title IV / Art. 9–10)</div>
+  <div class="check-grid">
+    <label class="check-item"><input type="checkbox" id="fdss_plan"><span><strong>FDSS membership strategy defined</strong><span class="check-sub">Draft requires holders &amp; users to join a scheme governing data access — membership route identified</span></span></label>
+    <label class="check-item"><input type="checkbox" id="fdss_standards"><span><strong>Common data standards / dictionaries mapped</strong><span class="check-sub">In-scope data mappable to scheme-level standardised formats and API specifications</span></span></label>
+    <label class="check-item"><input type="checkbox" id="fdss_compensation"><span><strong>Compensation model assessed</strong><span class="check-sub">Unlike PSD2, the draft allows holders reasonable compensation for data access — pricing basis prepared</span></span></label>
+    <label class="check-item"><input type="checkbox" id="fdss_liability"><span><strong>Liability &amp; dispute-resolution framework reviewed</strong><span class="check-sub">Scheme-level contractual liability and dispute mechanism obligations understood</span></span></label>
+    <label class="check-item"><input type="checkbox" id="fdss_fisp"><span><strong>Data-user authorisation path confirmed</strong><span class="check-sub">Data users not otherwise authorised need FISP authorisation (draft Title VI) — status checked</span></span></label>
+  </div>
+</div>
+
+<!-- PERMISSION DASHBOARD -->
+<div class="panel">
+  <div class="panel-label">4 · Permission Dashboard Obligations (draft Art. 8)</div>
+  <div class="check-grid">
+    <label class="check-item"><input type="checkbox" id="pd_dashboard"><span><strong>Permission dashboard capability planned</strong><span class="check-sub">Holders must give customers a dashboard to monitor and manage data permissions</span></span></label>
+    <label class="check-item"><input type="checkbox" id="pd_overview"><span><strong>Real-time overview of granted permissions</strong><span class="check-sub">Dashboard shows each permission: data user, data categories, purpose, duration</span></span></label>
+    <label class="check-item"><input type="checkbox" id="pd_withdraw"><span><strong>Withdrawal as easy as granting</strong><span class="check-sub">One-step permission withdrawal wired through to data-user notification</span></span></label>
+    <label class="check-item"><input type="checkbox" id="pd_records"><span><strong>Permission records retained</strong><span class="check-sub">History of granted/withdrawn permissions kept for audit and customer review</span></span></label>
+  </div>
+</div>
+
+<!-- TECHNICAL -->
+<div class="panel">
+  <div class="panel-label">5 · Technical &amp; Data Access Readiness (draft Art. 5–6)</div>
+  <div class="check-grid">
+    <label class="check-item"><input type="checkbox" id="tech_api"><span><strong>Continuous real-time access interface feasible</strong><span class="check-sub">Draft requires making data available without undue delay, continuously, in real time</span></span></label>
+    <label class="check-item"><input type="checkbox" id="tech_format"><span><strong>Machine-readable, standardised formats</strong><span class="check-sub">In-scope data exportable in commonly used machine-readable formats</span></span></label>
+    <label class="check-item"><input type="checkbox" id="tech_quality"><span><strong>Data quality &amp; lineage controls</strong><span class="check-sub">Data made available matches what the holder uses internally — same quality obligation</span></span></label>
+    <label class="check-item"><input type="checkbox" id="tech_security"><span><strong>Customer authentication &amp; secure access design</strong><span class="check-sub">Access only with customer permission, securely authenticated</span></span></label>
+  </div>
+</div>
+
+<button class="run-btn" onclick="runFidaAssessment()">▶ Run FIDA Readiness Assessment</button>
+<div id="outputSection"></div>
+
+<!-- 1033 COMPARISON -->
+<div class="panel">
+  <div class="panel-label">US CFPB §1033 ↔ EU FIDA — Structural Comparison (informational)</div>
+  <table class="cmp-table">
+    <thead><tr><th>Dimension</th><th>US CFPB §1033</th><th>EU FIDA (draft)</th></tr></thead>
+    <tbody>
+      <tr><td>Legal status</td><td>Final rule issued Oct 2024; subject to ongoing litigation/reconsideration — see <a href="165-cfpb-1033-institution-classifier.html" style="color:var(--teal)">T165</a> for current treatment</td><td>Proposal in trilogue (paused early 2026); not adopted</td></tr>
+      <tr><td>Data scope</td><td>Payment accounts, credit cards, and related consumer financial data</td><td>Broad open finance: credit, savings, investments, insurance, pensions, crypto (payment accounts stay under PSD2/PSR)</td></tr>
+      <tr><td>Who must share</td><td>Data providers (banks, card issuers) tiered by size</td><td>"Data holders" across nearly the whole financial sector</td></tr>
+      <tr><td>Who may access</td><td>Authorized third parties acting on consumer request</td><td>"Data users" — regulated entities or authorised FISPs</td></tr>
+      <tr><td>Compensation</td><td>Fees to consumers/third parties for required access prohibited under the rule as issued</td><td>Reasonable compensation to data holders permitted via scheme</td></tr>
+      <tr><td>Scheme / standards body</td><td>Recognised standard-setting bodies (e.g. consensus standards)</td><td>Mandatory Financial Data Sharing Schemes (FDSS) with contractual frameworks</td></tr>
+      <tr><td>Consumer control</td><td>Authorization, revocation, 1-year reauthorization cadence (as issued)</td><td>Permission dashboards at every data holder</td></tr>
+      <tr><td>Related AINumbers tools</td><td><a href="165-cfpb-1033-institution-classifier.html" style="color:var(--teal)">T165</a> · <a href="166-cfpb-1033-data-rights-scoper.html" style="color:var(--teal)">T166</a> · <a href="167-cfpb-1033-tppp-mapper.html" style="color:var(--teal)">T167</a></td><td>This tool (T273 — readiness scoring) · <a href="360-fida-open-finance-data-scope-mapper.html" style="color:var(--teal)">T360</a> (field-level data-scope mapping)</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:.62rem;color:var(--muted);margin-top:.6rem">Sources: COM(2023) 360 final (28 Jun 2023); Council General Approach ST-16312/24 (4 Dec 2024); 12 CFR Part 1033 (Oct 2024). Both regimes are moving targets — re-verify before relying. Last reviewed: 2026-06-06.</p>
+</div>
+
+</div></div>
+
+<section id="mfstSec" style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem">
+  <div class="container"><div style="padding-top:1.5rem">
+    <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr">▼</span></button>
+    <div class="mfst-body" id="mfstBody"><pre class="mfst-code" id="mfstCode"></pre></div>
+  </div></div>
+</section>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" class="footer-brand-link">
+    <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+  </a>
+  <div class="footer-links-ai">
+    <a href="../index.html">All Tools</a>
+    <a href="../guides/open-banking-integration-hub.html">Open Banking Hub</a>
+    <a href="../sitemap.html">Sitemap</a>
+    <a href="../contact.html">Contact</a>
+  </div>
+  <div class="footer-badge-ai">
+    <span>CC BY 4.0 · Post Oak Labs</span>
+    <span>🔒 Zero PII &nbsp;📡 No server calls &nbsp;💻 Client-side</span>
+  </div>
+</div></div></footer>
+
+<script>
+/* ── Deterministic engine — all rules trace to the draft texts cited below.
+   [1] COM(2023) 360 final, 28 Jun 2023 (Commission FIDA proposal)
+   [2] Council General Approach ST-16312/24, 4 Dec 2024
+   [3] Trilogue status as of 2026-06-06: negotiations began Apr 2025, reported paused early 2026 — NOT ADOPTED.
+   Every obligation below is DRAFT and may change. ── */
+
+// Entity types in scope as data holders per draft Art. 2(2) [1][2] (simplified mapping)
+const HOLDER_TYPES=['credit_institution','payment_institution','emi','investment_firm','casp','insurance_undertaking','insurance_intermediary','aifm_ucits','iorp','credit_intermediary'];
+// Entity types that can act as data users (regulated entities + authorised FISPs) per draft Art. 2(2)/Title VI [1]
+const USER_TYPES=[...HOLDER_TYPES,'fisp_candidate'];
+
+const DATA_CATS=[
+  {id:'cat_mortgage',label:'Mortgages, loans & credit',ref:'Draft Art. 2(1)(a) [1][2]'},
+  {id:'cat_savings',label:'Savings & non-payment accounts',ref:'Draft Art. 2(1)(a) [1] — payment accounts excluded (PSD2/PSR)'},
+  {id:'cat_investments',label:'Investments incl. IBIPs',ref:'Draft Art. 2(1)(b)(c) [1]'},
+  {id:'cat_crypto',label:'Crypto-assets (MiCA providers)',ref:'Draft Art. 2(1)(b) [1]'},
+  {id:'cat_pensions',label:'Pension rights (IORP / PEPP)',ref:'Draft Art. 2(1)(d)(e) [1]'},
+  {id:'cat_insurance',label:'Non-life insurance',ref:'Draft Art. 2(1)(f) [1] — life & sickness data carved out'},
+  {id:'cat_creditworthiness',label:'Consumer creditworthiness data',ref:'Draft Art. 2(1) [1] — scope contested in trilogue [3]'},
+];
+
+const CHECKS=[
+  {id:'fdss_plan',          area:'FDSS',      weight:9, label:'FDSS membership strategy defined',              reg:'Draft Art. 9–10 [1][2]'},
+  {id:'fdss_standards',     area:'FDSS',      weight:8, label:'Common data standards / dictionaries mapped',   reg:'Draft Art. 10 (scheme standards) [1]'},
+  {id:'fdss_compensation',  area:'FDSS',      weight:7, label:'Compensation model assessed',                   reg:'Draft Art. 5(2)/Art. 10 (reasonable compensation) [1][2]'},
+  {id:'fdss_liability',     area:'FDSS',      weight:7, label:'Liability & dispute-resolution reviewed',       reg:'Draft Art. 10 (contractual liability) [1]'},
+  {id:'fdss_fisp',          area:'FDSS',      weight:8, label:'Data-user authorisation path confirmed (FISP)', reg:'Draft Title VI (FISP authorisation) [1]'},
+  {id:'pd_dashboard',       area:'Dashboard', weight:9, label:'Permission dashboard capability planned',       reg:'Draft Art. 8(1) [1][2]'},
+  {id:'pd_overview',        area:'Dashboard', weight:7, label:'Real-time overview of granted permissions',     reg:'Draft Art. 8(2) [1]'},
+  {id:'pd_withdraw',        area:'Dashboard', weight:8, label:'Withdrawal as easy as granting',                reg:'Draft Art. 8(2)(c) [1]'},
+  {id:'pd_records',         area:'Dashboard', weight:6, label:'Permission records retained',                   reg:'Draft Art. 8 (record-keeping) [1]'},
+  {id:'tech_api',           area:'Technical', weight:9, label:'Continuous real-time access interface feasible',reg:'Draft Art. 5(1) (without undue delay, real time) [1]'},
+  {id:'tech_format',        area:'Technical', weight:7, label:'Machine-readable standardised formats',         reg:'Draft Art. 5(1) [1]'},
+  {id:'tech_quality',       area:'Technical', weight:6, label:'Data quality & lineage controls',               reg:'Draft Art. 5 (same-quality obligation) [1]'},
+  {id:'tech_security',      area:'Technical', weight:8, label:'Customer authentication & secure access',       reg:'Draft Art. 5(3)/Art. 6 (permission-bound access) [1]'},
+];
+
+let lastResults=null;
+
+function runFidaAssessment(){
+  const entityType=document.getElementById('entity_type').value;
+  const role=document.getElementById('role').value;
+  const euPresence=document.getElementById('eu_presence').value;
+
+  const selectedCats=DATA_CATS.filter(c=>{const el=document.getElementById(c.id);return el&&el.checked;});
+
+  // ── Scope determination (deterministic, per draft Art. 2 [1][2]) ──
+  let inScope=false, scopeReason='';
+  if(euPresence==='no'){
+    scopeReason='No EU establishment or EU customers — outside the draft\'s territorial scope (verify cross-border nuances against the final text).';
+  }else if(role!=='user' && !HOLDER_TYPES.includes(entityType)){
+    scopeReason='Entity type is not in the draft Art. 2(2) data-holder list — likely out of scope as a holder under the current draft. Data-user route may still apply via FISP authorisation.';
+    inScope=(role==='both'&&USER_TYPES.includes(entityType));
+  }else if(role!=='user' && selectedCats.length===0){
+    scopeReason='Entity type is in scope, but no in-scope customer data categories selected — holder obligations only attach to in-scope data.';
+  }else if(role==='user'){
+    inScope=USER_TYPES.includes(entityType);
+    scopeReason=inScope?'In scope as a prospective data user — regulated entities qualify; non-regulated firms need FISP authorisation (draft Title VI).':'Entity type cannot act as a data user without FISP authorisation under the draft.';
+  }else{
+    inScope=true;
+    scopeReason='Entity type appears in the draft Art. 2(2) holder list and holds in-scope data categories — likely a DATA HOLDER under the current draft (and a data user too, if selected).';
+  }
+
+  // ── Readiness score over weighted checklist ──
+  const totalWeight=CHECKS.reduce((s,c)=>s+c.weight,0);
+  let earned=0;const gaps=[],passes=[];
+  CHECKS.forEach(c=>{
+    const el=document.getElementById(c.id);
+    if(el&&el.checked){earned+=c.weight;passes.push(c);}
+    else gaps.push({...c,priority:c.weight>=8?'HIGH':c.weight>=6?'MEDIUM':'LOW'});
+  });
+  const score=Math.round(earned/totalWeight*100);
+  const rag=score>=80?'GREEN':score>=60?'AMBER':'RED';
+  const ragColor=rag==='GREEN'?'var(--green)':rag==='AMBER'?'var(--warn)':'var(--red)';
+
+  lastResults={inScope,scopeReason,score,rag,gaps,passes,entityType,role,euPresence,
+    dataCategories:selectedCats.map(c=>c.id),timestamp:new Date().toISOString()};
+
+  let html='';
+  html+=`<div class="metric-grid">
+    <div class="metric-card"><div class="metric-label">Draft-Scope Determination</div><div class="metric-value" style="color:${inScope?'var(--teal)':'var(--muted)'};font-size:1.1rem">${inScope?'LIKELY IN SCOPE':'LIKELY OUT / PARTIAL'}</div><div class="metric-sub">${scopeReason}</div></div>
+    <div class="metric-card"><div class="metric-label">Readiness Score (draft basis)</div><div class="metric-value" style="color:${ragColor}">${score}%</div><div class="metric-sub">${rag} — ${passes.length}/${CHECKS.length} checks passed</div></div>
+    <div class="metric-card"><div class="metric-label">In-Scope Data Categories</div><div class="metric-value">${selectedCats.length}</div><div class="metric-sub">${selectedCats.map(c=>c.label).join(' · ')||'none selected'}</div></div>
+    <div class="metric-card"><div class="metric-label">Gaps Found</div><div class="metric-value" style="color:${gaps.filter(g=>g.priority==='HIGH').length>0?'var(--red)':'var(--warn)'}">${gaps.length}</div><div class="metric-sub">${gaps.filter(g=>g.priority==='HIGH').length} HIGH priority</div></div>
+  </div>`;
+
+  html+=`<div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.25);border-radius:6px;padding:.55rem .85rem;font-size:.66rem;color:#b8a78a;margin-bottom:1rem">⚠ All determinations are based on DRAFT texts (COM(2023) 360 + Council GA Dec 2024). FIDA is not adopted as of 2026-06-06; trilogue reported paused. Re-verify before acting.</div>`;
+
+  if(gaps.length>0){
+    html+=`<div style="background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem">
+      <div style="padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3)"><span style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--red)">Gap Registry — ${gaps.length} Items (draft obligations)</span></div>
+      <div style="padding:1.25rem;overflow-x:auto"><table class="gap-table">
+        <thead><tr><th>Area</th><th>Requirement</th><th>Priority</th><th>Draft Reference</th></tr></thead>
+        <tbody>${gaps.map(g=>`<tr>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted)">${g.area}</td>
+          <td>${g.label}</td>
+          <td><span style="font-family:'JetBrains Mono',monospace;font-size:.5rem;padding:.15rem .5rem;border-radius:3px;background:${g.priority==='HIGH'?'rgba(239,68,68,.15)':g.priority==='MEDIUM'?'rgba(245,158,11,.15)':'rgba(58,82,112,.25)'};color:${g.priority==='HIGH'?'var(--red)':g.priority==='MEDIUM'?'var(--warn)':'var(--muted)'}">${g.priority}</span></td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--body)">${g.reg}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
+  }
+
+  html+=`<div class="results-export-row">
+    <button class="btn-export" onclick="exportMarkdown()">↓ Export Markdown</button>
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run tool to generate Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);opacity:.55;cursor:not-allowed;transition:all .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>`;
+
+  document.getElementById('outputSection').innerHTML=html;
+  enableAP2Btn();
+}
+
+function exportMarkdown(){
+  if(!lastResults)return;
+  const{inScope,scopeReason,score,rag,gaps,entityType,role,dataCategories}=lastResults;
+  const date=new Date().toISOString().slice(0,10);
+  let md=`# EU FIDA / Open Finance Readiness Assessment\n**Generated:** ${date} | AINumbers.co T-273\n\n`;
+  md+=`> ⚠ **DRAFT LAW.** Based on COM(2023) 360 + Council General Approach (4 Dec 2024). FIDA is NOT adopted as of ${date}; trilogue reported paused early 2026. Horizon planning only.\n\n`;
+  md+=`## Scope (draft basis): ${inScope?'LIKELY IN SCOPE':'LIKELY OUT / PARTIAL'}\n${scopeReason}\n\n- Entity type: ${entityType}\n- Role: ${role}\n- Data categories: ${dataCategories.join(', ')||'none'}\n\n## Readiness Score: ${score}% — ${rag}\n\n`;
+  if(gaps.length>0){md+=`## Gaps (draft obligations)\n\n| Area | Requirement | Priority | Draft Ref |\n|---|---|---|---|\n`;gaps.forEach(g=>md+=`| ${g.area} | ${g.label} | ${g.priority} | ${g.reg} |\n`);}
+  md+=`\n---\n*Client-side · Zero PII · CC BY 4.0 · Post Oak Labs · Re-verify against the current legislative state.*\n`;
+  const blob=new Blob([md],{type:'text/markdown'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='fida-readiness_'+date+'.md';a.click();
+}
+
+function exportAP2(){
+  if(!lastResults)return;
+  const{inScope,score,rag,gaps,entityType,role,dataCategories}=lastResults;
+  const payload={
+    ap2_version:'1.0',mandate_id:crypto.randomUUID(),issued_at:new Date().toISOString(),issued_by:'ainumbers.co',
+    tool_id:'fida-open-finance-readiness',tool_version:'1.0.0',mandate_type:'compliance_control',
+    jurisdiction:['EU'],regulatory_frameworks:['EU FIDA — COM(2023) 360 (DRAFT, not adopted)','Council General Approach ST-16312/24 (2024-12-04)'],
+    payload:{draft_law:true,in_scope_draft_basis:inScope,readiness_score_pct:score,rag_status:rag,entity_type:entityType,role:role,data_categories:dataCategories,gaps_count:gaps.length,high_priority_gaps:gaps.filter(g=>g.priority==='HIGH').length},
+    summary:`⚠ BASED ON DRAFT — FIDA NOT ADOPTED (trilogue paused as of 2026-06). Draft-basis scope: ${inScope?'likely in scope':'likely out/partial'}. Readiness ${score}% (${rag}); ${gaps.filter(g=>g.priority==='HIGH').length} HIGH priority gaps. Horizon planning only — re-verify against current legislative state.`,
+    agent_instructions:[`FIDA is draft law — every obligation cited may change. Do not treat this mandate as a compliance conclusion.`,`Draft-basis readiness: ${score}% (${rag}).`,...gaps.filter(g=>g.priority==='HIGH').map(g=>`HIGH: ${g.label} — ${g.reg}.`),'Monitor trilogue resumption and re-run on any legislative movement.'],
+    valid_from:new Date().toISOString(),valid_until:new Date(Date.now()+90*86400000).toISOString(),last_reviewed:'2026-06-06',
+    source_tool_inputs:{entity_type:entityType,role:role,data_categories:dataCategories},
+    regulatory_citations:['COM(2023) 360 final (28 Jun 2023)','Council General Approach ST-16312/24 (4 Dec 2024)','Trilogue status: began Apr 2025, reported paused early 2026 — not adopted as of 2026-06-06'],
+    audit_metadata:{execution_hash:null,client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='fida-readiness_'+new Date().toISOString().slice(0,19).replace(/[T:]/g,'').slice(0,15)+'.policy.json';a.click();
+}
+
+function enableAP2Btn(){
+  const btn=document.getElementById('ap2ExportBtn');
+  if(btn){btn.disabled=false;btn.classList.add('ready');btn.style.opacity='1';btn.style.cursor='pointer';}
+}
+function toggleMfst(){
+  const b=document.getElementById('mfstBody');const open=b.style.display==='block';
+  b.style.display=open?'none':'block';document.getElementById('mfstArr').textContent=open?'▼':'▲';
+  if(!open&&!document.getElementById('mfstCode').textContent)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+const MANIFEST={"tool_id":"fida-open-finance-readiness","version":"1.0.0","title":"EU FIDA / Open Finance Readiness Scorer","description":"Horizon-readiness scorer for the draft EU Financial Data Access Regulation (FIDA). Draft-law tool — not adopted as of 2026-06-06.","category":"open-banking","tags":["FIDA","open finance","FDSS","permission dashboard","open banking","EU","CFPB 1033"],"audience":["compliance","product","data office","strategy"],"mcp_tool_definition":{"name":"score_fida_open_finance_readiness","description":"Scores readiness for the draft EU FIDA regulation: scope classification, FDSS membership readiness, and permission-dashboard obligations. Draft-law horizon tool.","inputSchema":{"type":"object","properties":{"entity_type":{"type":"string"},"role":{"type":"string"},"data_categories":{"type":"array"}},"required":["entity_type","role"]}},"execution":{"type":"browser-javascript","entry":"tools/273-fida-open-finance-readiness.html","function_name":"runFidaAssessment","timeout_ms":3000},"ap2_export":true};
+
+const TRANSLATIONS={en:{},es:{},fr:{},ar:{lang_dir:'rtl'},pt:{},zh:{}};
+function setLang(lang){
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===lang));
+  document.documentElement.lang=lang;document.documentElement.dir=(TRANSLATIONS[lang]||{}).lang_dir||'ltr';
+  sessionStorage.setItem('ain_lang',lang);
+}
+(function(){const l=sessionStorage.getItem('ain_lang');if(l&&TRANSLATIONS[l])setLang(l);})();
+</script>
+
+<!-- ═══ AIN Bridge v1.0 — prefill deep-links (#in=<base64url JSON>[&run=1]). Master: scripts/ain-bridge-v1.snippet.html · CONTRACT §2.4/§6.4 ═══ -->
+<script>window.AIN_BRIDGE_CFG={runFn:'runFidaAssessment',intake:false,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+var L={
+ en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled from link and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'},
+ es:{pf:'Campos precargados desde el enlace — revise y ejecute',ran:'Campos precargados desde el enlace y ejecutados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Suelte un .policy.json aquí, o',choose:'Elegir archivo',paste:'Pegar JSON',apply:'Aplicar',ok:'Policy Mandate importado desde',bad:'JSON de Policy Mandate no válido'},
+ fr:{pf:'Champs préremplis depuis le lien — vérifiez puis exécutez',ran:'Champs préremplis depuis le lien et exécutés',fields:'champs',it:'Importer un Policy Mandate (.policy.json)',drop:'Déposez un .policy.json ici, ou',choose:'Choisir un fichier',paste:'Coller le JSON',apply:'Appliquer',ok:'Policy Mandate importé depuis',bad:'JSON Policy Mandate non valide'},
+ ar:{pf:'تم ملء الحقول مسبقًا من الرابط — راجع ثم شغّل',ran:'تم ملء الحقول من الرابط وتنفيذها',fields:'حقول',it:'استيراد Policy Mandate (.policy.json)',drop:'أسقط ملف ‎.policy.json هنا، أو',choose:'اختر ملفًا',paste:'لصق JSON',apply:'تطبيق',ok:'تم استيراد Policy Mandate من',bad:'JSON غير صالح لـ Policy Mandate'},
+ pt:{pf:'Campos pré-preenchidos a partir do link — revise e execute',ran:'Campos pré-preenchidos a partir do link e executados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Solte um .policy.json aqui, ou',choose:'Escolher arquivo',paste:'Colar JSON',apply:'Aplicar',ok:'Policy Mandate importado de',bad:'JSON de Policy Mandate inválido'},
+ zh:{pf:'已从链接预填输入 — 请检查后运行',ran:'已从链接预填并自动执行',fields:'个字段',it:'导入 Policy Mandate (.policy.json)',drop:'将 .policy.json 拖放到此处，或',choose:'选择文件',paste:'粘贴 JSON',apply:'应用',ok:'已导入 Policy Mandate，来源：',bad:'无效的 AINumbers Policy Mandate JSON'}
+};
+function t(k){var lg='en';try{lg=sessionStorage.getItem('ain_lang')||'en';}catch(e){}return (L[lg]&&L[lg][k])||L.en[k];}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function anchorEl(){return (CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.querySelector('.pii-notice')||document.querySelector('.panel')||document.body.firstElementChild;}
+function notice(msg,kind){
+  var d=document.getElementById('ainBridgeNotice');
+  if(!d){d=document.createElement('div');d.id='ainBridgeNotice';
+    var a=document.getElementById('ainIntakeZone')||anchorEl();
+    if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}
+  d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));
+  d.textContent=msg;
+}
+function looksLikeMandate(o){return !!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}
+function intakeApply(text){
+  var o;try{o=JSON.parse(text);}catch(e){notice('⚠ '+t('bad'),'warn');return 0;}
+  if(!looksLikeMandate(o)){notice('⚠ '+t('bad'),'warn');return 0;}
+  var n=0;
+  if(CFG.intakeTarget){var ta=document.getElementById(CFG.intakeTarget);
+    if(ta){ta.value=JSON.stringify(o,null,2);try{ta.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}n++;}}
+  if(o.payload&&typeof o.payload==='object')n+=applyFields(o.payload);
+  if(o.source_tool_inputs&&typeof o.source_tool_inputs==='object')n+=applyFields(o.source_tool_inputs);
+  notice((n>0?'📥 ':'⚠ ')+t('ok')+' '+(o.tool_id||'?')+' · '+n+' '+t('fields'),n>0?'ok':'warn');
+  return n;
+}
+function buildIntakeUI(){
+  if(!CFG.intake)return;
+  var a=anchorEl();if(!a||!a.parentNode)return;
+  var z=document.createElement('div');z.id='ainIntakeZone';
+  z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8;letter-spacing:.04em');
+  var lbl=document.createElement('div');lbl.textContent='📥 '+t('it');lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');
+  var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');
+  var txt=document.createElement('span');txt.textContent=t('drop');
+  function mkBtn(label){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}
+  var bFile=mkBtn(t('choose')),bPaste=mkBtn(t('paste'));
+  var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';
+  fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});
+  bFile.addEventListener('click',function(){fi.click();});
+  var pasteRow=document.createElement('div');pasteRow.style.display='none';pasteRow.setAttribute('style','display:none;margin-top:.6rem');
+  var ta=document.createElement('textarea');ta.rows=5;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');
+  var bApply=mkBtn(t('apply'));bApply.style.marginTop='.4rem';
+  bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});
+  pasteRow.appendChild(ta);pasteRow.appendChild(bApply);
+  bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';if(pasteRow.style.display==='block')ta.focus();});
+  z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});
+  z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});
+  z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});
+  row.appendChild(txt);row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);
+  z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);
+  a.parentNode.insertBefore(z,a);
+}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  var n=applyFields(fields);
+  if(n>0){
+    if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');
+    else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');
+  }
+}
+window.AINBridge={
+  version:'1.0',
+  apply:applyFields,
+  run:runTool,
+  intake:intakeApply,
+  getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
+};
+window.addEventListener('message',function(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=(e.origin&&e.origin!=='null')?e.origin:'*';
+  var d=e.data||{};
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+  else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
+});
+function boot(){buildIntakeUI();initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>

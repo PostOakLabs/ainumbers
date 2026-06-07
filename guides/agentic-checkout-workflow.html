@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Agentic Checkout Workflow · AINumbers.co</title>
+<meta name="description" content="Five-tool guided workflow for standing up an agentic checkout: validate the A2A agent card, build the Google AP2 checkout/payment mandate, settle over x402, verify Visa TAP signatures (RFC 9421), and pick your protocol stack. All client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/guides/agentic-checkout-workflow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Agentic Checkout Workflow · AINumbers.co">
+<meta property="og:description" content="Run T283 → T285 → T277 → T286 → T276 in sequence: agent discovery, AP2 mandate, x402 settlement, RFC 9421 signature verification, and protocol stack selection. Browser-based. Zero PII.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"HowTo","name":"Agentic Checkout Workflow","url":"https://ainumbers.co/guides/agentic-checkout-workflow","description":"Five-step workflow for standing up an agentic checkout — agent card discovery, AP2 mandates, x402 settlement, Visa TAP signature verification, and protocol stack selection — using five free browser-based tools.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"step":[{"@type":"HowToStep","name":"A2A Agent Card Validation","url":"https://ainumbers.co/tools/283-a2a-agent-card-validator.html"},{"@type":"HowToStep","name":"Google AP2 Checkout/Payment Mandate Build","url":"https://ainumbers.co/tools/285-google-ap2-mandate-builder.html"},{"@type":"HowToStep","name":"x402 Settlement Flow Simulation","url":"https://ainumbers.co/tools/277-x402-payload-decoder-flow-simulator.html"},{"@type":"HowToStep","name":"Visa TAP Signature Verification","url":"https://ainumbers.co/tools/286-visa-trusted-agent-protocol-inspector.html"},{"@type":"HowToStep","name":"Protocol Stack Selection","url":"https://ainumbers.co/tools/276-agentic-payments-protocol-comparator.html"}]}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ── DESIGN TOKENS ── */
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--warn:#F59E0B;
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;
+  /* accent = teal for the agentic/MCP dev line */
+  --accent:var(--teal);--accent-dim:var(--teal-dim);--accent-lt:var(--teal-lt);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:960px;margin:0 auto;padding:0 2rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.013) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.013) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+
+/* ── LANG BAR ── */
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:.35rem 0;position:relative;z-index:101}
+.lang-inner{max-width:960px;margin:0 auto;padding:0 2rem;display:flex;justify-content:flex-end;gap:.25rem}
+.lang-btn{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:transparent;transition:all .2s;border-radius:var(--radius)}
+.lang-btn.active,.lang-btn:hover{border-color:var(--teal);color:var(--teal)}
+
+/* ── NAV ── */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:960px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.logo-tag{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);line-height:1}
+.nav-links{display:flex;align-items:center;gap:1rem}
+.nav-link{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--body);transition:color .2s}
+.nav-link:hover{color:var(--teal)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bg);background:var(--teal);border:1px solid var(--teal);padding:.3rem .85rem;border-radius:6px;transition:all .2s}
+.nav-cta:hover{opacity:.85}
+
+/* ── HERO ── */
+.hero{padding:3rem 0 2.5rem;border-bottom:1px solid var(--border);position:relative;overflow:hidden;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:380px;height:380px;background:radial-gradient(circle,rgba(20,184,166,.06) 0%,transparent 70%);pointer-events:none}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;text-transform:uppercase;color:var(--teal);margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.hero-eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.7rem,3.2vw,2.6rem);color:var(--white);max-width:700px;margin-bottom:.75rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.87rem;color:var(--body);max-width:640px;line-height:1.85;margin-bottom:1.5rem}
+.hero-meta{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1.25rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.3rem .7rem;border:1px solid}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.pii-notice{display:flex;align-items:flex-start;gap:.75rem;padding:.75rem 1rem;background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);border-radius:var(--radius);font-size:.72rem;color:var(--body);line-height:1.5}
+.pii-notice svg{flex-shrink:0;margin-top:.1rem;opacity:.7}
+
+/* ── FLOW BAR ── */
+.flow-bar{display:flex;align-items:flex-start;margin:2.5rem 0 3rem;overflow-x:auto;padding:.25rem 0 .75rem;gap:0;position:relative;z-index:1}
+.flow-item{flex:1;min-width:110px;display:flex;flex-direction:column;align-items:center;position:relative;text-align:center;gap:.35rem;padding:0 .5rem}
+.flow-item:not(:last-child)::after{content:'';position:absolute;top:14px;left:calc(50% + 17px);right:calc(-50% + 17px);height:1px;background:linear-gradient(90deg,var(--teal),rgba(20,184,166,.2));z-index:0}
+.flow-dot{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.55rem;font-weight:500;position:relative;z-index:1;flex-shrink:0;background:var(--teal);color:var(--bg)}
+.flow-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-top:.15rem}
+.flow-name{font-size:.7rem;color:var(--bright);font-weight:500;line-height:1.3}
+@media(max-width:680px){.flow-item:not(:last-child)::after{display:none}.flow-bar{gap:.75rem;flex-wrap:wrap}}
+
+/* ── STEPS ── */
+.steps{display:flex;flex-direction:column;gap:0;position:relative;z-index:1;padding-bottom:3rem}
+.step-block{display:flex;gap:2rem;padding:2.5rem 0;border-bottom:1px solid var(--border)}
+.step-block:last-child{border-bottom:none}
+.step-num-col{flex-shrink:0;width:56px;display:flex;flex-direction:column;align-items:center;gap:.5rem}
+.step-num{font-family:'DM Serif Display',serif;font-size:2.8rem;color:rgba(20,184,166,.18);line-height:1;letter-spacing:-.03em}
+.step-line{width:1px;flex:1;background:linear-gradient(180deg,rgba(20,184,166,.3),transparent);min-height:2rem}
+.step-body{flex:1;min-width:0}
+.step-head{display:flex;align-items:flex-start;gap:.75rem;flex-wrap:wrap;margin-bottom:.85rem}
+.step-tid{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid rgba(20,184,166,.3);color:var(--teal);border-radius:3px}
+.step-badges{display:flex;gap:.35rem;flex-wrap:wrap}
+.step-badge{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .45rem;border-radius:3px}
+.sb-teal{background:rgba(20,184,166,.1);color:var(--teal)}
+.sb-model{background:rgba(212,168,71,.1);color:var(--gold)}
+.sb-purple{background:rgba(155,114,245,.1);color:var(--purple)}
+.sb-output{background:rgba(34,197,94,.1);color:var(--green)}
+.step-body h3{font-family:'Sora',sans-serif;font-size:1.05rem;font-weight:500;color:var(--white);line-height:1.3;margin-bottom:.6rem}
+.step-desc{font-size:.83rem;color:var(--body);line-height:1.75;margin-bottom:1rem}
+.step-io{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1.25rem}
+@media(max-width:580px){.step-io{grid-template-columns:1fr}}
+.io-box{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .85rem}
+.io-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:.35rem}
+.io-label-in{color:var(--muted)}
+.io-label-out{color:var(--teal)}
+.io-text{font-size:.75rem;color:var(--body);line-height:1.55}
+.step-cta{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.45rem 1.1rem;border-radius:var(--radius);transition:opacity .2s}
+.step-cta:hover{opacity:.85}
+.step-cta svg{transition:transform .2s}
+.step-cta:hover svg{transform:translateX(3px)}
+
+/* ── RELATED ── */
+.related-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem 2rem;margin-bottom:3rem;position:relative;z-index:1}
+.related-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.6rem}
+.related-heading{font-size:1.1rem;color:var(--white);margin-bottom:.5rem}
+.related-desc{font-size:.8rem;color:var(--body);line-height:1.7;margin-bottom:1rem}
+.related-links{display:flex;gap:.75rem;flex-wrap:wrap}
+.related-link{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;padding:.3rem .8rem;border:1px solid var(--border);color:var(--body);border-radius:var(--radius);transition:all .2s}
+.related-link:hover{border-color:var(--teal);color:var(--teal)}
+.related-link.primary{border-color:rgba(20,184,166,.4);color:var(--teal)}
+.related-link.primary:hover{background:var(--teal-dim)}
+
+/* ── FOOTER ── */
+footer{border-top:1px solid var(--border);padding:1.75rem 2rem;position:relative;z-index:1}
+.footer-inner-ai{max-width:960px;margin:0 auto;display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);flex-wrap:wrap}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+</style>
+</head>
+<body>
+
+<!-- ── LANG BAR ── -->
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+
+<!-- ── NAV ── -->
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <div class="logo-text">
+        <span class="logo-name"><span class="logo-ai">AI</span><span class="logo-co">.co</span></span>
+        <span class="logo-tag">Numbers</span>
+      </div>
+    </a>
+    <div class="nav-links">
+      <a href="../index.html" class="nav-link" data-i18n="nav_home">Home</a>
+      <a href="agentic-commerce-mcp-hub.html" class="nav-link" data-i18n="nav_hub">Agentic &amp; MCP Hub</a>
+      <a href="https://postoaklabs.com/demos/agentic-mandate-sandbox.html" class="nav-cta" target="_blank" rel="noopener" data-i18n="nav_demo">POL Demo →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── HERO ── -->
+<div class="hero">
+  <div class="container">
+    <div class="hero-eyebrow" data-i18n="hero_eyebrow">Guided Workflow · Agentic Commerce</div>
+    <h1 data-i18n="hero_h1">Agent Discovery to <em>Signed Agentic Checkout</em></h1>
+    <p class="hero-desc" data-i18n="hero_desc">Run five tools in sequence to stand up an agentic checkout: validate the merchant or wallet A2A agent card and its declared payment extensions, build the Google AP2 checkout and payment mandates (verifiable digital credentials), simulate settlement over the x402 payment-required flow, verify the RFC 9421 request signatures that Visa's Trusted Agent Protocol relies on, and finish with a protocol-by-protocol field crosswalk to lock your stack — the complete pre-launch validation chain for agent-initiated payments.</p>
+    <div class="hero-meta">
+      <span class="hero-badge badge-teal" data-i18n="badge_steps">5 Tools · Ordered Sequence</span>
+      <span class="hero-badge badge-gold" data-i18n="badge_time">~60 min end-to-end</span>
+      <span class="hero-badge badge-green" data-i18n="badge_privacy">Client-side · Zero PII</span>
+    </div>
+    <div class="pii-notice">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <span>🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── FLOW BAR ── -->
+<div class="container">
+  <div class="flow-bar">
+    <div class="flow-item">
+      <div class="flow-dot">1</div>
+      <div class="flow-label">T283</div>
+      <div class="flow-name" data-i18n="flow1">Agent Card</div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-dot">2</div>
+      <div class="flow-label">T285</div>
+      <div class="flow-name" data-i18n="flow2">AP2 Mandate</div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-dot">3</div>
+      <div class="flow-label">T277</div>
+      <div class="flow-name" data-i18n="flow3">x402 Settlement</div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-dot">4</div>
+      <div class="flow-label">T286</div>
+      <div class="flow-name" data-i18n="flow4">TAP Signature</div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-dot">5</div>
+      <div class="flow-label">T276</div>
+      <div class="flow-name" data-i18n="flow5">Stack Selection</div>
+    </div>
+  </div>
+
+  <!-- ── STEPS ── -->
+  <div class="steps">
+
+    <!-- Step 1 -->
+    <div class="step-block">
+      <div class="step-num-col">
+        <div class="step-num">01</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-head">
+          <span class="step-tid">T283</span>
+          <div class="step-badges">
+            <span class="step-badge sb-teal" data-i18n="s1b1">A2A v1.0</span>
+            <span class="step-badge sb-purple" data-i18n="s1b2">Discovery</span>
+          </div>
+        </div>
+        <h3 data-i18n="s1_title">A2A Agent Card Validator &amp; Extension Checker</h3>
+        <p class="step-desc" data-i18n="s1_desc">Agentic checkout starts with discovery: the buyer's agent has to find and trust the counterparty agent before any money moves. The A2A agent card is that trust anchor — a JSON document declaring the agent's identity, capabilities, transport endpoints, signing keys, and payment-protocol extensions (AP2, x402). This validator checks your agent card against the A2A v1.0 shape, verifies signed-card signature structure, and confirms which payment extensions the card actually declares — because a checkout chain built against an extension the card never advertised fails at the first handshake.</p>
+        <div class="step-io">
+          <div class="io-box">
+            <div class="io-label io-label-in" data-i18n="input_label">↳ Inputs</div>
+            <div class="io-text" data-i18n="s1_in">Agent card JSON (yours or the counterparty's), declared transport endpoints, signing key references, AP2 / x402 extension blocks.</div>
+          </div>
+          <div class="io-box">
+            <div class="io-label io-label-out" data-i18n="output_label">→ Outputs to Step 2</div>
+            <div class="io-text" data-i18n="s1_out">Validated agent card, shape and signature findings, and the confirmed list of declared payment extensions — this determines which mandate format Step 2 builds.</div>
+          </div>
+        </div>
+        <a href="../tools/283-a2a-agent-card-validator.html" class="step-cta" data-i18n="open_tool">Open Tool <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="step-block">
+      <div class="step-num-col">
+        <div class="step-num">02</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-head">
+          <span class="step-tid">T285</span>
+          <div class="step-badges">
+            <span class="step-badge sb-model" data-i18n="s2b1">Google AP2</span>
+            <span class="step-badge sb-teal" data-i18n="s2b2">VDC Mandate</span>
+          </div>
+        </div>
+        <h3 data-i18n="s2_title">Google AP2 Checkout/Payment Mandate (VDC) Builder &amp; Validator</h3>
+        <p class="step-desc" data-i18n="s2_desc">With discovery confirmed, the agent needs authority to transact. In Google's Agent Payments Protocol (AP2), that authority is a mandate — a verifiable digital credential capturing what the user authorised: the checkout contents and the payment terms. This builder constructs both mandate types against the current AP2 structure (including the legacy Intent/Cart to Checkout/Payment mapping), validates field presence and consistency, and flags fields whose exact published schema is still evolving as illustrative. The result is the authorisation artifact the settlement leg in Step 3 executes against.</p>
+        <div class="step-io">
+          <div class="io-box">
+            <div class="io-label io-label-in" data-i18n="input_label">↳ Inputs from Step 1</div>
+            <div class="io-text" data-i18n="s2_in">Declared AP2 extension support from the validated agent card, checkout contents (items, amounts, currency), payment method constraints, user-presence mode, expiry windows.</div>
+          </div>
+          <div class="io-box">
+            <div class="io-label io-label-out" data-i18n="output_label">→ Outputs to Step 3</div>
+            <div class="io-text" data-i18n="s2_out">Structured AP2 checkout + payment mandate JSON with validation findings — the authorised amount, currency, and constraints carry into the x402 settlement simulation in Step 3.</div>
+          </div>
+        </div>
+        <a href="../tools/285-google-ap2-mandate-builder.html" class="step-cta" data-i18n="open_tool">Open Tool <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="step-block">
+      <div class="step-num-col">
+        <div class="step-num">03</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-head">
+          <span class="step-tid">T277</span>
+          <div class="step-badges">
+            <span class="step-badge sb-teal" data-i18n="s3b1">x402</span>
+            <span class="step-badge sb-purple" data-i18n="s3b2">402 Flow</span>
+          </div>
+        </div>
+        <h3 data-i18n="s3_title">x402 Header Decoder, Payload Linter &amp; 402 Flow Simulator</h3>
+        <p class="step-desc" data-i18n="s3_desc">Authorisation in hand, money has to move. x402 revives HTTP 402 Payment Required as a machine-native settlement leg: the resource server answers 402 with payment requirements, the agent constructs an X-PAYMENT header carrying the signed payment payload, and a facilitator verifies and settles. This tool decodes and lints X-PAYMENT headers field by field, validates the payment-requirements structure, and simulates the full request → 402 → retry-with-payment → settle sequence so you can see exactly where a malformed payload, an amount mismatch against the Step 2 mandate, or a missing scheme entry breaks the flow.</p>
+        <div class="step-io">
+          <div class="io-box">
+            <div class="io-label io-label-in" data-i18n="input_label">↳ Inputs from Step 2</div>
+            <div class="io-text" data-i18n="s3_in">Authorised amount, currency, and constraints from the AP2 mandate; X-PAYMENT header samples; payment-requirements JSON from the resource server; selected scheme/network pair.</div>
+          </div>
+          <div class="io-box">
+            <div class="io-label io-label-out" data-i18n="output_label">→ Outputs to Step 4</div>
+            <div class="io-text" data-i18n="s3_out">Decoded header findings, payload lint results, and a step-by-step 402 flow trace — the signed request leaving this flow is what Step 4 verifies cryptographically.</div>
+          </div>
+        </div>
+        <a href="../tools/277-x402-payload-decoder-flow-simulator.html" class="step-cta" data-i18n="open_tool">Open Tool <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="step-block">
+      <div class="step-num-col">
+        <div class="step-num">04</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-head">
+          <span class="step-tid">T286</span>
+          <div class="step-badges">
+            <span class="step-badge sb-model" data-i18n="s4b1">Visa TAP</span>
+            <span class="step-badge sb-teal" data-i18n="s4b2">RFC 9421</span>
+          </div>
+        </div>
+        <h3 data-i18n="s4_title">Visa Trusted Agent Protocol Signature Inspector &amp; Readiness</h3>
+        <p class="step-desc" data-i18n="s4_desc">Card networks need to distinguish a trusted agent's traffic from bot traffic — Visa's Trusted Agent Protocol does this by requiring agents to sign requests with HTTP Message Signatures (RFC 9421). This inspector parses Signature-Input and Signature headers, checks covered components, key identifiers, and expiry windows, lints the agent's JWKS (including the private-key-leak self-check), and scores overall TAP readiness. Every payment request your agent emitted in Step 3 should survive this verification — if it doesn't, the merchant's gateway will treat your agent as an untrusted bot.</p>
+        <div class="step-io">
+          <div class="io-box">
+            <div class="io-label io-label-in" data-i18n="input_label">↳ Inputs from Step 3</div>
+            <div class="io-text" data-i18n="s4_in">Signed request samples from the x402 flow (Signature-Input / Signature headers), the agent's JWKS, covered-component list, key rotation and expiry policy.</div>
+          </div>
+          <div class="io-box">
+            <div class="io-label io-label-out" data-i18n="output_label">→ Outputs to Step 5</div>
+            <div class="io-text" data-i18n="s4_out">Signature verification findings, JWKS lint results, TAP readiness score — surviving signature discipline is a stack-selection criterion carried into Step 5.</div>
+          </div>
+        </div>
+        <a href="../tools/286-visa-trusted-agent-protocol-inspector.html" class="step-cta" data-i18n="open_tool">Open Tool <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+      </div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="step-block">
+      <div class="step-num-col">
+        <div class="step-num">05</div>
+      </div>
+      <div class="step-body">
+        <div class="step-head">
+          <span class="step-tid">T276</span>
+          <div class="step-badges">
+            <span class="step-badge sb-teal" data-i18n="s5b1">5 Protocols</span>
+            <span class="step-badge sb-output" data-i18n="s5b2">Field Crosswalk</span>
+          </div>
+        </div>
+        <h3 data-i18n="s5_title">Agentic Payments Protocol Comparator &amp; Field Crosswalk</h3>
+        <p class="step-desc" data-i18n="s5_desc">You've now touched three protocol families in one checkout — A2A for discovery, AP2 for mandates, x402 for settlement, TAP for trust. The final step is the architecture decision: which combination ships to production? This comparator puts AP2, ACP, x402, Visa TAP, and Mastercard Agent Pay side by side — authorisation model, settlement leg, signature scheme, mandate semantics — and generates a field-level crosswalk so you can see exactly which fields map, which translate lossily, and which have no counterpart. The output is a routing-policy-shaped stack recommendation you can defend in an architecture review.</p>
+        <div class="step-io">
+          <div class="io-box">
+            <div class="io-label io-label-in" data-i18n="input_label">↳ Inputs from Steps 1–4</div>
+            <div class="io-text" data-i18n="s5_in">Declared extensions (Step 1), mandate structure (Step 2), settlement constraints (Step 3), signature readiness (Step 4), plus your merchant category and corridor requirements.</div>
+          </div>
+          <div class="io-box">
+            <div class="io-label io-label-out" data-i18n="output_label">→ Final Output</div>
+            <div class="io-text" data-i18n="s5_out">Protocol comparison matrix, field-level crosswalk table, and a stack recommendation with gap list — the launch-ready architecture decision record for your agentic checkout.</div>
+          </div>
+        </div>
+        <a href="../tools/276-agentic-payments-protocol-comparator.html" class="step-cta" data-i18n="open_tool">Open Tool <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+      </div>
+    </div>
+
+  </div><!-- /steps -->
+
+  <!-- ── RELATED ── -->
+  <div class="related-section">
+    <div class="related-label" data-i18n="related_label">See Also</div>
+    <h2 class="related-heading" data-i18n="related_heading">Related Hubs &amp; Demos</h2>
+    <p class="related-desc" data-i18n="related_desc">Explore all 15 agentic-commerce and MCP developer tools in the hub, ship your own MCP server with the companion workflow, or see agentic mandates in action in the Post Oak Labs interactive demos.</p>
+    <div class="related-links">
+      <a href="https://postoaklabs.com/demos/agentic-mandate-sandbox.html" class="related-link primary" target="_blank" rel="noopener" data-i18n="related_pol1">POL Demo: Agentic Mandate Sandbox ↗</a>
+      <a href="https://postoaklabs.com/demos/ap2-agentic-payment-policy-guardrail.html" class="related-link primary" target="_blank" rel="noopener" data-i18n="related_pol2">POL Demo: AP2 Policy Guardrail ↗</a>
+      <a href="agentic-commerce-mcp-hub.html" class="related-link" data-i18n="related_hub">Agentic Commerce &amp; MCP Developer Hub</a>
+      <a href="mcp-publish-workflow.html" class="related-link" data-i18n="related_wf">MCP Publish Workflow</a>
+      <a href="../index.html" class="related-link" data-i18n="related_all">All 400+ Tools →</a>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <div class="footer-badge-ai">
+        <span style="color:var(--teal);font-weight:500">AI<span style="color:var(--muted)">.co</span> Numbers</span>
+        <span>400+ free fintech tools · CC BY 4.0</span>
+      </div>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html" data-i18n="nav_home">Home</a>
+      <a href="agentic-commerce-mcp-hub.html">Agentic &amp; MCP Hub</a>
+      <a href="https://postoaklabs.com/demos/agentic-mandate-sandbox.html" target="_blank" rel="noopener">POL Showcase</a>
+      <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+const TRANSLATIONS = {
+  en:{
+    nav_home:'Home',nav_hub:'Agentic & MCP Hub',nav_demo:'POL Demo →',
+    hero_eyebrow:'Guided Workflow · Agentic Commerce',
+    hero_h1:'Agent Discovery to Signed Agentic Checkout',
+    hero_desc:'Run five tools in sequence to stand up an agentic checkout: validate the A2A agent card and its payment extensions, build the Google AP2 checkout and payment mandates, simulate settlement over the x402 flow, verify RFC 9421 request signatures for Visa\'s Trusted Agent Protocol, and finish with a protocol field crosswalk to lock your stack.',
+    badge_steps:'5 Tools · Ordered Sequence',badge_time:'~60 min end-to-end',badge_privacy:'Client-side · Zero PII',
+    flow1:'Agent Card',flow2:'AP2 Mandate',flow3:'x402 Settlement',flow4:'TAP Signature',flow5:'Stack Selection',
+    input_label:'↳ Inputs',output_label:'→ Outputs',open_tool:'Open Tool',
+    s1b1:'A2A v1.0',s1b2:'Discovery',
+    s1_title:'A2A Agent Card Validator & Extension Checker',
+    s1_desc:'Agentic checkout starts with discovery: the buyer\'s agent must find and trust the counterparty agent before any money moves. This validator checks your agent card against the A2A v1.0 shape, verifies signed-card signature structure, and confirms which payment extensions (AP2, x402) the card actually declares.',
+    s1_in:'Agent card JSON (yours or the counterparty\'s), declared transport endpoints, signing key references, AP2 / x402 extension blocks.',
+    s1_out:'Validated agent card, shape and signature findings, confirmed list of declared payment extensions — determines which mandate format Step 2 builds.',
+    s2b1:'Google AP2',s2b2:'VDC Mandate',
+    s2_title:'Google AP2 Checkout/Payment Mandate (VDC) Builder & Validator',
+    s2_desc:'In Google\'s Agent Payments Protocol, transaction authority is a mandate — a verifiable digital credential capturing what the user authorised. This builder constructs checkout and payment mandates against the current AP2 structure, validates field consistency, and flags evolving-schema fields as illustrative.',
+    s2_in:'Declared AP2 extension support from the validated agent card, checkout contents (items, amounts, currency), payment method constraints, user-presence mode, expiry windows.',
+    s2_out:'Structured AP2 checkout + payment mandate JSON with validation findings — authorised amount and constraints carry into the x402 settlement simulation.',
+    s3b1:'x402',s3b2:'402 Flow',
+    s3_title:'x402 Header Decoder, Payload Linter & 402 Flow Simulator',
+    s3_desc:'x402 revives HTTP 402 Payment Required as a machine-native settlement leg. This tool decodes and lints X-PAYMENT headers field by field, validates payment-requirements structure, and simulates the full request → 402 → retry-with-payment → settle sequence to expose where malformed payloads or amount mismatches break the flow.',
+    s3_in:'Authorised amount, currency, and constraints from the AP2 mandate; X-PAYMENT header samples; payment-requirements JSON; selected scheme/network pair.',
+    s3_out:'Decoded header findings, payload lint results, step-by-step 402 flow trace — the signed request leaving this flow is what Step 4 verifies.',
+    s4b1:'Visa TAP',s4b2:'RFC 9421',
+    s4_title:'Visa Trusted Agent Protocol Signature Inspector & Readiness',
+    s4_desc:'Visa\'s Trusted Agent Protocol distinguishes trusted-agent traffic from bot traffic via HTTP Message Signatures (RFC 9421). This inspector parses Signature-Input and Signature headers, checks covered components and expiry windows, lints the agent\'s JWKS (including private-key-leak self-check), and scores TAP readiness.',
+    s4_in:'Signed request samples from the x402 flow (Signature-Input / Signature headers), the agent\'s JWKS, covered-component list, key rotation and expiry policy.',
+    s4_out:'Signature verification findings, JWKS lint results, TAP readiness score — signature discipline is a stack-selection criterion for Step 5.',
+    s5b1:'5 Protocols',s5b2:'Field Crosswalk',
+    s5_title:'Agentic Payments Protocol Comparator & Field Crosswalk',
+    s5_desc:'The final step is the architecture decision. This comparator puts AP2, ACP, x402, Visa TAP, and Mastercard Agent Pay side by side — authorisation model, settlement leg, signature scheme, mandate semantics — and generates a field-level crosswalk showing which fields map, which translate lossily, and which have no counterpart.',
+    s5_in:'Declared extensions (Step 1), mandate structure (Step 2), settlement constraints (Step 3), signature readiness (Step 4), plus merchant category and corridor requirements.',
+    s5_out:'Protocol comparison matrix, field-level crosswalk table, stack recommendation with gap list — the launch-ready architecture decision record.',
+    related_label:'See Also',related_heading:'Related Hubs & Demos',
+    related_desc:'Explore all 15 agentic-commerce and MCP developer tools in the hub, ship your own MCP server with the companion workflow, or see agentic mandates in action in the Post Oak Labs interactive demos.',
+    related_pol1:'POL Demo: Agentic Mandate Sandbox ↗',related_pol2:'POL Demo: AP2 Policy Guardrail ↗',related_hub:'Agentic Commerce & MCP Developer Hub',related_wf:'MCP Publish Workflow',related_all:'All 400+ Tools →'
+  },
+  es:{
+    nav_home:'Inicio',nav_hub:'Hub Agéntico y MCP',nav_demo:'Demo POL →',
+    hero_eyebrow:'Flujo de Trabajo Guiado · Comercio Agéntico',
+    hero_h1:'Del Descubrimiento del Agente al Checkout Agéntico Firmado',
+    hero_desc:'Ejecuta cinco herramientas en secuencia para montar un checkout agéntico: valida la tarjeta de agente A2A y sus extensiones de pago, construye los mandatos de checkout y pago de Google AP2, simula la liquidación sobre el flujo x402, verifica las firmas RFC 9421 del Trusted Agent Protocol de Visa y termina con un crosswalk de campos para fijar tu stack.',
+    badge_steps:'5 Herramientas · Secuencia Ordenada',badge_time:'~60 min en total',badge_privacy:'Local · Sin PII',
+    flow1:'Tarjeta de Agente',flow2:'Mandato AP2',flow3:'Liquidación x402',flow4:'Firma TAP',flow5:'Selección de Stack',
+    input_label:'↳ Entradas',output_label:'→ Salidas',open_tool:'Abrir Herramienta',
+    s1b1:'A2A v1.0',s1b2:'Descubrimiento',
+    s1_title:'Validador de Tarjetas de Agente A2A y Verificador de Extensiones',
+    s1_desc:'El checkout agéntico comienza con el descubrimiento: el agente comprador debe encontrar y confiar en el agente contraparte antes de mover dinero. Este validador verifica la tarjeta de agente contra la forma A2A v1.0, la estructura de firma de tarjetas firmadas y qué extensiones de pago (AP2, x402) declara realmente la tarjeta.',
+    s1_in:'JSON de la tarjeta de agente (tuya o de la contraparte), endpoints de transporte declarados, referencias de claves de firma, bloques de extensión AP2 / x402.',
+    s1_out:'Tarjeta de agente validada, hallazgos de forma y firma, lista confirmada de extensiones de pago declaradas — determina qué formato de mandato construye el Paso 2.',
+    s2b1:'Google AP2',s2b2:'Mandato VDC',
+    s2_title:'Constructor y Validador de Mandatos Checkout/Pago de Google AP2 (VDC)',
+    s2_desc:'En el Agent Payments Protocol de Google, la autoridad de transacción es un mandato — una credencial digital verificable que captura lo que el usuario autorizó. Este constructor crea los mandatos de checkout y pago contra la estructura AP2 actual, valida la consistencia de campos y marca como ilustrativos los campos de esquema en evolución.',
+    s2_in:'Soporte de extensión AP2 declarado en la tarjeta validada, contenido del checkout (artículos, importes, moneda), restricciones de método de pago, modo de presencia del usuario, ventanas de expiración.',
+    s2_out:'JSON estructurado de mandatos AP2 de checkout y pago con hallazgos de validación — el importe autorizado y las restricciones pasan a la simulación x402.',
+    s3b1:'x402',s3b2:'Flujo 402',
+    s3_title:'Decodificador de Cabeceras x402, Linter de Payload y Simulador de Flujo 402',
+    s3_desc:'x402 revive HTTP 402 Payment Required como tramo de liquidación nativo para máquinas. Esta herramienta decodifica y revisa cabeceras X-PAYMENT campo por campo, valida la estructura de requisitos de pago y simula la secuencia completa solicitud → 402 → reintento con pago → liquidación.',
+    s3_in:'Importe autorizado, moneda y restricciones del mandato AP2; muestras de cabeceras X-PAYMENT; JSON de requisitos de pago; par esquema/red seleccionado.',
+    s3_out:'Hallazgos de cabeceras decodificadas, resultados del linter, traza paso a paso del flujo 402 — la solicitud firmada que sale de este flujo es lo que verifica el Paso 4.',
+    s4b1:'Visa TAP',s4b2:'RFC 9421',
+    s4_title:'Inspector de Firmas del Trusted Agent Protocol de Visa y Preparación',
+    s4_desc:'El Trusted Agent Protocol de Visa distingue el tráfico de agentes confiables del tráfico de bots mediante HTTP Message Signatures (RFC 9421). Este inspector analiza las cabeceras Signature-Input y Signature, verifica componentes cubiertos y ventanas de expiración, revisa el JWKS del agente y puntúa la preparación TAP.',
+    s4_in:'Muestras de solicitudes firmadas del flujo x402 (cabeceras Signature-Input / Signature), el JWKS del agente, lista de componentes cubiertos, política de rotación y expiración de claves.',
+    s4_out:'Hallazgos de verificación de firmas, resultados del linter JWKS, puntuación de preparación TAP — la disciplina de firmas es un criterio de selección de stack para el Paso 5.',
+    s5b1:'5 Protocolos',s5b2:'Crosswalk de Campos',
+    s5_title:'Comparador de Protocolos de Pagos Agénticos y Crosswalk de Campos',
+    s5_desc:'El paso final es la decisión de arquitectura. Este comparador pone AP2, ACP, x402, Visa TAP y Mastercard Agent Pay lado a lado — modelo de autorización, tramo de liquidación, esquema de firmas, semántica de mandatos — y genera un crosswalk a nivel de campo.',
+    s5_in:'Extensiones declaradas (Paso 1), estructura del mandato (Paso 2), restricciones de liquidación (Paso 3), preparación de firmas (Paso 4), más categoría de comercio y requisitos de corredor.',
+    s5_out:'Matriz de comparación de protocolos, tabla crosswalk a nivel de campo, recomendación de stack con lista de brechas — el registro de decisión de arquitectura listo para lanzamiento.',
+    related_label:'Ver También',related_heading:'Hubs y Demos Relacionados',
+    related_desc:'Explora las 15 herramientas de comercio agéntico y desarrollo MCP en el hub, publica tu propio servidor MCP con el flujo complementario, o ve los mandatos agénticos en acción en las demos de Post Oak Labs.',
+    related_pol1:'Demo POL: Sandbox de Mandatos Agénticos ↗',related_pol2:'Demo POL: Guardarraíl de Políticas AP2 ↗',related_hub:'Hub de Comercio Agéntico y Desarrollo MCP',related_wf:'Flujo de Publicación MCP',related_all:'Todas las 400+ Herramientas →'
+  },
+  fr:{
+    nav_home:'Accueil',nav_hub:'Hub Agentique et MCP',nav_demo:'Démo POL →',
+    hero_eyebrow:'Flux de Travail Guidé · Commerce Agentique',
+    hero_h1:'De la Découverte d\'Agent au Checkout Agentique Signé',
+    hero_desc:'Exécutez cinq outils en séquence pour monter un checkout agentique : validez la carte d\'agent A2A et ses extensions de paiement, construisez les mandats checkout et paiement Google AP2, simulez le règlement sur le flux x402, vérifiez les signatures RFC 9421 du Trusted Agent Protocol de Visa, et terminez par un crosswalk de champs pour verrouiller votre stack.',
+    badge_steps:'5 Outils · Séquence Ordonnée',badge_time:'~60 min au total',badge_privacy:'Local · Zéro PII',
+    flow1:'Carte d\'Agent',flow2:'Mandat AP2',flow3:'Règlement x402',flow4:'Signature TAP',flow5:'Choix du Stack',
+    input_label:'↳ Entrées',output_label:'→ Sorties',open_tool:'Ouvrir l\'Outil',
+    s1b1:'A2A v1.0',s1b2:'Découverte',
+    s1_title:'Validateur de Cartes d\'Agent A2A et Vérificateur d\'Extensions',
+    s1_desc:'Le checkout agentique commence par la découverte : l\'agent acheteur doit trouver et faire confiance à l\'agent contrepartie avant tout mouvement d\'argent. Ce validateur vérifie la carte d\'agent contre la forme A2A v1.0, la structure de signature des cartes signées, et les extensions de paiement (AP2, x402) réellement déclarées.',
+    s1_in:'JSON de la carte d\'agent (la vôtre ou celle de la contrepartie), endpoints de transport déclarés, références de clés de signature, blocs d\'extension AP2 / x402.',
+    s1_out:'Carte d\'agent validée, constats de forme et de signature, liste confirmée des extensions de paiement déclarées — détermine le format de mandat construit à l\'Étape 2.',
+    s2b1:'Google AP2',s2b2:'Mandat VDC',
+    s2_title:'Constructeur et Validateur de Mandats Checkout/Paiement Google AP2 (VDC)',
+    s2_desc:'Dans l\'Agent Payments Protocol de Google, l\'autorité de transaction est un mandat — un justificatif numérique vérifiable capturant ce que l\'utilisateur a autorisé. Ce constructeur crée les mandats checkout et paiement selon la structure AP2 actuelle, valide la cohérence des champs et marque comme illustratifs les champs au schéma évolutif.',
+    s2_in:'Support d\'extension AP2 déclaré dans la carte validée, contenu du checkout (articles, montants, devise), contraintes de méthode de paiement, mode de présence utilisateur, fenêtres d\'expiration.',
+    s2_out:'JSON structuré des mandats AP2 checkout + paiement avec constats de validation — le montant autorisé et les contraintes passent à la simulation x402.',
+    s3b1:'x402',s3b2:'Flux 402',
+    s3_title:'Décodeur d\'En-têtes x402, Linter de Payload et Simulateur de Flux 402',
+    s3_desc:'x402 fait revivre HTTP 402 Payment Required comme tramo de règlement natif machine. Cet outil décode et vérifie les en-têtes X-PAYMENT champ par champ, valide la structure des exigences de paiement et simule la séquence complète requête → 402 → nouvelle tentative avec paiement → règlement.',
+    s3_in:'Montant autorisé, devise et contraintes du mandat AP2 ; échantillons d\'en-têtes X-PAYMENT ; JSON des exigences de paiement ; paire schéma/réseau sélectionnée.',
+    s3_out:'Constats d\'en-têtes décodés, résultats du linter, trace pas à pas du flux 402 — la requête signée sortant de ce flux est ce que vérifie l\'Étape 4.',
+    s4b1:'Visa TAP',s4b2:'RFC 9421',
+    s4_title:'Inspecteur de Signatures du Trusted Agent Protocol de Visa et Préparation',
+    s4_desc:'Le Trusted Agent Protocol de Visa distingue le trafic d\'agents de confiance du trafic de bots via les HTTP Message Signatures (RFC 9421). Cet inspecteur analyse les en-têtes Signature-Input et Signature, vérifie les composants couverts et les fenêtres d\'expiration, vérifie le JWKS de l\'agent et note la préparation TAP.',
+    s4_in:'Échantillons de requêtes signées du flux x402 (en-têtes Signature-Input / Signature), le JWKS de l\'agent, liste des composants couverts, politique de rotation et d\'expiration des clés.',
+    s4_out:'Constats de vérification de signatures, résultats du linter JWKS, score de préparation TAP — la discipline de signature est un critère de choix de stack pour l\'Étape 5.',
+    s5b1:'5 Protocoles',s5b2:'Crosswalk de Champs',
+    s5_title:'Comparateur de Protocoles de Paiements Agentiques et Crosswalk de Champs',
+    s5_desc:'L\'étape finale est la décision d\'architecture. Ce comparateur met AP2, ACP, x402, Visa TAP et Mastercard Agent Pay côte à côte — modèle d\'autorisation, tramo de règlement, schéma de signature, sémantique des mandats — et génère un crosswalk au niveau des champs.',
+    s5_in:'Extensions déclarées (Étape 1), structure du mandat (Étape 2), contraintes de règlement (Étape 3), préparation des signatures (Étape 4), plus catégorie de commerçant et exigences de corridor.',
+    s5_out:'Matrice de comparaison des protocoles, table crosswalk au niveau des champs, recommandation de stack avec liste des lacunes — le dossier de décision d\'architecture prêt au lancement.',
+    related_label:'Voir Aussi',related_heading:'Hubs et Démos Connexes',
+    related_desc:'Explorez les 15 outils de commerce agentique et de développement MCP dans le hub, publiez votre propre serveur MCP avec le flux compagnon, ou voyez les mandats agentiques en action dans les démos Post Oak Labs.',
+    related_pol1:'Démo POL : Sandbox de Mandats Agentiques ↗',related_pol2:'Démo POL : Garde-fou de Politiques AP2 ↗',related_hub:'Hub Commerce Agentique et Développement MCP',related_wf:'Flux de Publication MCP',related_all:'Tous les 400+ Outils →'
+  },
+  ar:{
+    nav_home:'الرئيسية',nav_hub:'مركز الوكلاء وMCP',nav_demo:'عرض POL →',
+    hero_eyebrow:'سير عمل موجّه · التجارة الوكيلية',
+    hero_h1:'من اكتشاف الوكيل إلى الدفع الوكيلي الموقّع',
+    hero_desc:'قم بتشغيل خمس أدوات بالتسلسل لإعداد دفع وكيلي: تحقق من بطاقة وكيل A2A وامتداداتها، وأنشئ تفويضات الدفع Google AP2، وحاكِ التسوية عبر تدفق x402، وتحقق من توقيعات RFC 9421 لبروتوكول Visa TAP، وأنهِ بجدول مقارنة الحقول لاختيار حزمتك.',
+    badge_steps:'5 أدوات · تسلسل منظم',badge_time:'~60 دقيقة إجمالاً',badge_privacy:'محلي · لا PII',
+    flow1:'بطاقة الوكيل',flow2:'تفويض AP2',flow3:'تسوية x402',flow4:'توقيع TAP',flow5:'اختيار الحزمة',
+    input_label:'↳ المدخلات',output_label:'→ المخرجات',open_tool:'فتح الأداة',
+    s1b1:'A2A v1.0',s1b2:'الاكتشاف',
+    s1_title:'مدقق بطاقات وكيل A2A وفاحص الامتدادات',
+    s1_desc:'يبدأ الدفع الوكيلي بالاكتشاف: يجب أن يجد وكيل المشتري وكيل الطرف المقابل ويثق به قبل تحريك أي أموال. يتحقق هذا المدقق من بطاقة الوكيل مقابل شكل A2A v1.0 وبنية توقيع البطاقات الموقّعة وامتدادات الدفع (AP2، x402) المعلنة فعلياً.',
+    s1_in:'JSON بطاقة الوكيل (بطاقتك أو بطاقة الطرف المقابل)، نقاط النقل المعلنة، مراجع مفاتيح التوقيع، كتل امتداد AP2 / x402.',
+    s1_out:'بطاقة وكيل مدققة، نتائج الشكل والتوقيع، قائمة مؤكدة بامتدادات الدفع المعلنة — تحدد تنسيق التفويض الذي تبنيه الخطوة 2.',
+    s2b1:'Google AP2',s2b2:'تفويض VDC',
+    s2_title:'منشئ ومدقق تفويضات الدفع/الشراء Google AP2 (VDC)',
+    s2_desc:'في بروتوكول مدفوعات الوكلاء من Google، سلطة المعاملة هي تفويض — اعتماد رقمي قابل للتحقق يلتقط ما أذن به المستخدم. ينشئ هذا المنشئ تفويضات الشراء والدفع وفق بنية AP2 الحالية ويتحقق من اتساق الحقول.',
+    s2_in:'دعم امتداد AP2 المعلن في البطاقة المدققة، محتويات الشراء (العناصر، المبالغ، العملة)، قيود طريقة الدفع، وضع حضور المستخدم، نوافذ الانتهاء.',
+    s2_out:'JSON منظم لتفويضات AP2 مع نتائج التدقيق — المبلغ المصرح به والقيود تنتقل إلى محاكاة التسوية x402.',
+    s3b1:'x402',s3b2:'تدفق 402',
+    s3_title:'مفكك ترميز رؤوس x402 ومدقق الحمولة ومحاكي تدفق 402',
+    s3_desc:'يعيد x402 إحياء HTTP 402 Payment Required كمسار تسوية آلي. تفكك هذه الأداة رؤوس X-PAYMENT حقلاً بحقل، وتتحقق من بنية متطلبات الدفع، وتحاكي التسلسل الكامل: طلب → 402 → إعادة محاولة بالدفع → تسوية.',
+    s3_in:'المبلغ المصرح به والعملة والقيود من تفويض AP2؛ عينات رؤوس X-PAYMENT؛ JSON متطلبات الدفع؛ زوج المخطط/الشبكة المحدد.',
+    s3_out:'نتائج الرؤوس المفككة، نتائج تدقيق الحمولة، تتبع خطوة بخطوة لتدفق 402 — الطلب الموقّع الخارج من هذا التدفق هو ما تتحقق منه الخطوة 4.',
+    s4b1:'Visa TAP',s4b2:'RFC 9421',
+    s4_title:'فاحص توقيعات بروتوكول الوكيل الموثوق من Visa والاستعداد',
+    s4_desc:'يميز بروتوكول الوكيل الموثوق من Visa حركة الوكلاء الموثوقين من حركة الروبوتات عبر توقيعات رسائل HTTP (RFC 9421). يحلل هذا الفاحص رؤوس Signature-Input وSignature، ويتحقق من المكونات المغطاة ونوافذ الانتهاء، ويدقق JWKS الوكيل، ويسجل استعداد TAP.',
+    s4_in:'عينات الطلبات الموقّعة من تدفق x402 (رؤوس Signature-Input / Signature)، JWKS الوكيل، قائمة المكونات المغطاة، سياسة تدوير المفاتيح والانتهاء.',
+    s4_out:'نتائج التحقق من التوقيعات، نتائج تدقيق JWKS، درجة استعداد TAP — انضباط التوقيع معيار اختيار للخطوة 5.',
+    s5b1:'5 بروتوكولات',s5b2:'مقارنة الحقول',
+    s5_title:'مقارن بروتوكولات المدفوعات الوكيلية وجدول مقارنة الحقول',
+    s5_desc:'الخطوة الأخيرة هي قرار البنية. يضع هذا المقارن AP2 وACP وx402 وVisa TAP وMastercard Agent Pay جنباً إلى جنب — نموذج التفويض، مسار التسوية، مخطط التوقيع، دلالات التفويض — وينشئ جدول مقارنة على مستوى الحقول.',
+    s5_in:'الامتدادات المعلنة (الخطوة 1)، بنية التفويض (الخطوة 2)، قيود التسوية (الخطوة 3)، استعداد التوقيعات (الخطوة 4)، بالإضافة إلى فئة التاجر ومتطلبات الممر.',
+    s5_out:'مصفوفة مقارنة البروتوكولات، جدول مقارنة على مستوى الحقول، توصية الحزمة مع قائمة الفجوات — سجل قرار البنية الجاهز للإطلاق.',
+    related_label:'انظر أيضاً',related_heading:'المحاور والعروض ذات الصلة',
+    related_desc:'استكشف جميع أدوات التجارة الوكيلية وتطوير MCP الـ15 في المركز، أو انشر خادم MCP الخاص بك مع سير العمل المرافق، أو شاهد التفويضات الوكيلية في عروض Post Oak Labs.',
+    related_pol1:'عرض POL: صندوق رمل التفويضات الوكيلية ↗',related_pol2:'عرض POL: حاجز سياسات AP2 ↗',related_hub:'مركز التجارة الوكيلية وتطوير MCP',related_wf:'سير عمل نشر MCP',related_all:'جميع الأدوات 400+ →'
+  },
+  pt:{
+    nav_home:'Início',nav_hub:'Hub Agêntico e MCP',nav_demo:'Demo POL →',
+    hero_eyebrow:'Fluxo de Trabalho Guiado · Comércio Agêntico',
+    hero_h1:'Da Descoberta do Agente ao Checkout Agêntico Assinado',
+    hero_desc:'Execute cinco ferramentas em sequência para montar um checkout agêntico: valide o cartão de agente A2A e suas extensões de pagamento, construa os mandatos de checkout e pagamento do Google AP2, simule a liquidação sobre o fluxo x402, verifique as assinaturas RFC 9421 do Trusted Agent Protocol da Visa e termine com um crosswalk de campos para travar seu stack.',
+    badge_steps:'5 Ferramentas · Sequência Ordenada',badge_time:'~60 min no total',badge_privacy:'Local · Zero PII',
+    flow1:'Cartão de Agente',flow2:'Mandato AP2',flow3:'Liquidação x402',flow4:'Assinatura TAP',flow5:'Seleção de Stack',
+    input_label:'↳ Entradas',output_label:'→ Saídas',open_tool:'Abrir Ferramenta',
+    s1b1:'A2A v1.0',s1b2:'Descoberta',
+    s1_title:'Validador de Cartões de Agente A2A e Verificador de Extensões',
+    s1_desc:'O checkout agêntico começa com a descoberta: o agente comprador deve encontrar e confiar no agente contraparte antes de qualquer movimento de dinheiro. Este validador verifica o cartão de agente contra a forma A2A v1.0, a estrutura de assinatura de cartões assinados e quais extensões de pagamento (AP2, x402) o cartão realmente declara.',
+    s1_in:'JSON do cartão de agente (seu ou da contraparte), endpoints de transporte declarados, referências de chaves de assinatura, blocos de extensão AP2 / x402.',
+    s1_out:'Cartão de agente validado, achados de forma e assinatura, lista confirmada de extensões de pagamento declaradas — determina o formato de mandato do Passo 2.',
+    s2b1:'Google AP2',s2b2:'Mandato VDC',
+    s2_title:'Construtor e Validador de Mandatos Checkout/Pagamento Google AP2 (VDC)',
+    s2_desc:'No Agent Payments Protocol do Google, a autoridade de transação é um mandato — uma credencial digital verificável capturando o que o usuário autorizou. Este construtor cria mandatos de checkout e pagamento contra a estrutura AP2 atual, valida a consistência de campos e sinaliza campos de esquema em evolução como ilustrativos.',
+    s2_in:'Suporte de extensão AP2 declarado no cartão validado, conteúdo do checkout (itens, valores, moeda), restrições de método de pagamento, modo de presença do usuário, janelas de expiração.',
+    s2_out:'JSON estruturado dos mandatos AP2 com achados de validação — valor autorizado e restrições seguem para a simulação de liquidação x402.',
+    s3b1:'x402',s3b2:'Fluxo 402',
+    s3_title:'Decodificador de Cabeçalhos x402, Linter de Payload e Simulador de Fluxo 402',
+    s3_desc:'x402 revive o HTTP 402 Payment Required como trecho de liquidação nativo de máquina. Esta ferramenta decodifica e verifica cabeçalhos X-PAYMENT campo a campo, valida a estrutura de requisitos de pagamento e simula a sequência completa requisição → 402 → nova tentativa com pagamento → liquidação.',
+    s3_in:'Valor autorizado, moeda e restrições do mandato AP2; amostras de cabeçalhos X-PAYMENT; JSON de requisitos de pagamento; par esquema/rede selecionado.',
+    s3_out:'Achados de cabeçalhos decodificados, resultados do linter, rastreamento passo a passo do fluxo 402 — a requisição assinada que sai deste fluxo é o que o Passo 4 verifica.',
+    s4b1:'Visa TAP',s4b2:'RFC 9421',
+    s4_title:'Inspetor de Assinaturas do Trusted Agent Protocol da Visa e Prontidão',
+    s4_desc:'O Trusted Agent Protocol da Visa distingue tráfego de agentes confiáveis de tráfego de bots via HTTP Message Signatures (RFC 9421). Este inspetor analisa cabeçalhos Signature-Input e Signature, verifica componentes cobertos e janelas de expiração, verifica o JWKS do agente e pontua a prontidão TAP.',
+    s4_in:'Amostras de requisições assinadas do fluxo x402 (cabeçalhos Signature-Input / Signature), o JWKS do agente, lista de componentes cobertos, política de rotação e expiração de chaves.',
+    s4_out:'Achados de verificação de assinaturas, resultados do linter JWKS, pontuação de prontidão TAP — disciplina de assinatura é critério de seleção de stack para o Passo 5.',
+    s5b1:'5 Protocolos',s5b2:'Crosswalk de Campos',
+    s5_title:'Comparador de Protocolos de Pagamentos Agênticos e Crosswalk de Campos',
+    s5_desc:'O passo final é a decisão de arquitetura. Este comparador coloca AP2, ACP, x402, Visa TAP e Mastercard Agent Pay lado a lado — modelo de autorização, trecho de liquidação, esquema de assinatura, semântica de mandatos — e gera um crosswalk em nível de campo.',
+    s5_in:'Extensões declaradas (Passo 1), estrutura do mandato (Passo 2), restrições de liquidação (Passo 3), prontidão de assinaturas (Passo 4), mais categoria do lojista e requisitos de corredor.',
+    s5_out:'Matriz de comparação de protocolos, tabela crosswalk em nível de campo, recomendação de stack com lista de lacunas — o registro de decisão de arquitetura pronto para lançamento.',
+    related_label:'Ver Também',related_heading:'Hubs e Demos Relacionados',
+    related_desc:'Explore as 15 ferramentas de comércio agêntico e desenvolvimento MCP no hub, publique seu próprio servidor MCP com o fluxo complementar, ou veja mandatos agênticos em ação nas demos do Post Oak Labs.',
+    related_pol1:'Demo POL: Sandbox de Mandatos Agênticos ↗',related_pol2:'Demo POL: Guarda-corpo de Políticas AP2 ↗',related_hub:'Hub de Comércio Agêntico e Desenvolvimento MCP',related_wf:'Fluxo de Publicação MCP',related_all:'Todas as 400+ Ferramentas →'
+  },
+  zh:{
+    nav_home:'首页',nav_hub:'代理与MCP专题中心',nav_demo:'POL演示 →',
+    hero_eyebrow:'引导式工作流 · 代理商务',
+    hero_h1:'从代理发现到签名的代理结账',
+    hero_desc:'按顺序运行五个工具来搭建代理结账：验证A2A代理卡及其支付扩展，构建Google AP2结账/支付授权（可验证数字凭证），模拟x402支付流程的结算，验证Visa可信代理协议依赖的RFC 9421请求签名，最后通过协议字段对照表锁定您的技术栈——代理发起支付的完整上线前验证链。',
+    badge_steps:'5个工具 · 有序序列',badge_time:'全程约60分钟',badge_privacy:'本地运行 · 零PII',
+    flow1:'代理卡',flow2:'AP2授权',flow3:'x402结算',flow4:'TAP签名',flow5:'技术栈选择',
+    input_label:'↳ 输入',output_label:'→ 输出',open_tool:'打开工具',
+    s1b1:'A2A v1.0',s1b2:'发现',
+    s1_title:'A2A代理卡验证器与扩展检查器',
+    s1_desc:'代理结账始于发现：买方代理必须在资金流动前找到并信任对手方代理。A2A代理卡是该信任锚——声明代理身份、能力、传输端点、签名密钥和支付协议扩展的JSON文档。该验证器根据A2A v1.0形态检查代理卡，验证签名卡的签名结构，并确认卡实际声明的支付扩展（AP2、x402）。',
+    s1_in:'代理卡JSON（您的或对手方的）、声明的传输端点、签名密钥引用、AP2 / x402扩展块。',
+    s1_out:'已验证的代理卡、形态和签名发现、确认的已声明支付扩展列表——决定第2步构建哪种授权格式。',
+    s2b1:'Google AP2',s2b2:'VDC授权',
+    s2_title:'Google AP2结账/支付授权（VDC）构建器与验证器',
+    s2_desc:'在Google的代理支付协议中，交易权限是授权（mandate）——捕获用户授权内容的可验证数字凭证。该构建器根据当前AP2结构构建结账和支付两种授权，验证字段一致性，并将仍在演变的模式字段标记为示意性。',
+    s2_in:'已验证代理卡中声明的AP2扩展支持、结账内容（商品、金额、货币）、支付方式约束、用户在场模式、有效期窗口。',
+    s2_out:'结构化的AP2结账+支付授权JSON及验证发现——授权金额和约束进入第3步的x402结算模拟。',
+    s3b1:'x402',s3b2:'402流程',
+    s3_title:'x402头部解码器、载荷检查器与402流程模拟器',
+    s3_desc:'x402将HTTP 402 Payment Required复活为机器原生的结算环节。该工具逐字段解码并检查X-PAYMENT头部，验证支付要求结构，并模拟完整的请求 → 402 → 携带支付重试 → 结算序列，揭示格式错误的载荷或与第2步授权金额不匹配处。',
+    s3_in:'AP2授权中的授权金额、货币和约束；X-PAYMENT头部样本；支付要求JSON；所选方案/网络对。',
+    s3_out:'解码的头部发现、载荷检查结果、逐步402流程跟踪——离开此流程的签名请求是第4步要验证的对象。',
+    s4b1:'Visa TAP',s4b2:'RFC 9421',
+    s4_title:'Visa可信代理协议签名检查器与就绪评估',
+    s4_desc:'Visa的可信代理协议通过HTTP消息签名（RFC 9421）区分可信代理流量与机器人流量。该检查器解析Signature-Input和Signature头部，检查覆盖组件和有效期窗口，检查代理的JWKS（包括私钥泄漏自检），并对TAP就绪程度评分。',
+    s4_in:'x402流程的签名请求样本（Signature-Input / Signature头部）、代理的JWKS、覆盖组件列表、密钥轮换和过期策略。',
+    s4_out:'签名验证发现、JWKS检查结果、TAP就绪评分——签名纪律是第5步技术栈选择的标准之一。',
+    s5b1:'5个协议',s5b2:'字段对照表',
+    s5_title:'代理支付协议比较器与字段对照表',
+    s5_desc:'最后一步是架构决策。该比较器将AP2、ACP、x402、Visa TAP和Mastercard Agent Pay并排比较——授权模型、结算环节、签名方案、授权语义——并生成字段级对照表，显示哪些字段可映射、哪些有损转换、哪些没有对应项。',
+    s5_in:'已声明的扩展（第1步）、授权结构（第2步）、结算约束（第3步）、签名就绪（第4步），加上商户类别和通道要求。',
+    s5_out:'协议比较矩阵、字段级对照表、带缺口清单的技术栈推荐——可用于上线的架构决策记录。',
+    related_label:'另请参阅',related_heading:'相关专题中心与演示',
+    related_desc:'在专题中心探索全部15个代理商务和MCP开发工具，通过配套工作流发布您自己的MCP服务器，或在Post Oak Labs互动演示中查看代理授权的实际运作。',
+    related_pol1:'POL演示：代理授权沙盒 ↗',related_pol2:'POL演示：AP2策略护栏 ↗',related_hub:'代理商务与MCP开发者专题中心',related_wf:'MCP发布工作流',related_all:'全部400+工具 →'
+  }
+};
+
+function setLang(lang) {
+  const t = TRANSLATIONS[lang];
+  if (!t) return;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+  document.documentElement.lang = lang;
+  document.documentElement.dir = (lang === 'ar') ? 'rtl' : 'ltr';
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const k = el.dataset.i18n;
+    if (t[k]) el.textContent = t[k];
+  });
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e) {}
+}
+
+(function() {
+  try {
+    const saved = sessionStorage.getItem('ain_lang');
+    if (saved && TRANSLATIONS[saved]) setLang(saved);
+  } catch(e) {}
+})();
+</script>
+</body>
+</html>
