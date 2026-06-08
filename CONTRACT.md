@@ -17,23 +17,22 @@ This is the **Single Source of Truth (SSOT)** for all AINumbers.co builds. It su
 | **Architecture** | Single self-contained `.html` per tool. All CSS/JS inline. Google Fonts only (`DM Serif Display`, `Sora`, `JetBrains Mono`). | Zero build step, zero dependency drift, portable static deployment. |
 | **Runtime** | Synchronous, deterministic execution. Zero `fetch`, `async`, `WebWorker`, or external network calls after page load. Seeded PRNG allowed *only* for synthetic data. | Ensures bit-for-bit reproducible outputs across sessions and clients. |
 | **Data Safety** | **Zero PII** collected, stored, logged, or transmitted. Input sanitization strips identifiable fields. Output schemas exclude personal data. | Compliance-first design; eliminates regulatory liability. |
-| **Client Storage** | **Forbidden:** `localStorage`, `cookies`, `IndexedDB`, any PII-adjacent cache. **Permitted:** `sessionStorage` **only** for `ain_lang` UI preference. All other state is in-memory. | Aligns with ePrivacy session-scoping norms; preserves tab-close data wipe. |
+| **Client Storage** | **Forbidden:** `localStorage`, `cookies`, `IndexedDB`, `sessionStorage`, any PII-adjacent cache. All state is in-memory. (`ain_lang` sessionStorage exemption removed — lang toggle deferred; see §1.1.) | Aligns with ePrivacy session-scoping norms; preserves tab-close data wipe. |
 | **Routing & URLs** | Internal cross-links **MUST** use relative paths (`../tools/...`). Absolute URLs reserved **strictly** for `suite-registry.json` and external MCP endpoints. | Build-time resilience + portability; prevents broken links on staging/mirrors. |
 
 ---
 
 ## 🌐 1. Global UI & Accessibility Contract
-### 1.1 Multilingual Toggle (WCAG 2.2 Compliant)
-- **Container:** `<div class="lang-bar">`
-- **Elements:** `<button class="lang-btn">` (NOT `<a>` tags). State-changing controls MUST use `<button>` per WCAG §4.1.2.
-- **Sequence:** `EN · ES · FR · AR · PT · 中文`
-- **Behavior:** `onclick="setLang('xx')"` must visibly update UI chrome text, flip `dir="rtl"` for Arabic, and persist via `sessionStorage.setItem('ain_lang', lang)`.
-- **Scope:** Translates UI chrome only. Regulatory citations, ISO/SWIFT codes, JS logic, Policy Mandate keys, and tool-generated output remain in English.
+### 1.1 Multilingual Toggle — DEFERRED (Option A)
+The lang toggle (`.lang-bar` / `setLang()`) has been **removed from all new builds** as of June 2026. The existing toggle on live tools was cosmetic only — it did not translate content, providing no value and a misleading UX for the target audience.
+
+**Do not add a lang toggle to new tools or hubs.** Do not include `.lang-bar` CSS, `setLang()`, `TRANSLATIONS` objects, or `sessionStorage` `ain_lang` writes in any new file.
+
+When bandwidth allows, a proper implementation (translated metadata layer for ES/FR/PT with AR/中文 stubs) is fully specced in **`../I18N-SPEC.md`** (Option B). That spec is the source of truth for any future re-implementation.
 
 ### 1.2 Mandatory UI Components
 | Component | Selector/Pattern | Notes |
 |---|---|---|
-| Language Bar | `.lang-bar > .lang-btn` | Placed top of file, above tool title |
 | Input Panels | `.panel` / `.panel-label` / `.panel-row` | Semantic grouping, explicit `<label>` pairing |
 | Run Button | `.run-btn` | Disabled loading state during sync calculation |
 | Results Container | `.results-panel` | Hidden by default, revealed post-calculation |
@@ -200,7 +199,7 @@ A fourth valid page architecture (rubric-scored with its own profile): a guide-l
 - Same-origin iframes count as page-load resources, not post-load network calls.
 - Emits a **composite Policy Mandate** whose payload carries the ordered stage mandates; MUST validate against the §3.1 required-field set before download. Tier 1 export (Policy JSON + Markdown transcript).
 - `mandate_id` MAY use `crypto.getRandomValues` UUIDv4 (exception to determinism for ID generation only; stage payloads remain deterministic).
-- Required: 6-language chrome i18n, JSON-LD HowTo block, PII banner text per §1.3.
+- Required: JSON-LD HowTo block, PII banner text per §1.3.
 
 **Rules:**
 - Never reset, never reuse RESERVED numbers.
@@ -218,16 +217,16 @@ A fourth valid page architecture (rubric-scored with its own profile): a guide-l
 ## ✅ 6. Build & Quality Assurance Workflow
 ### 6.1 Pre-Flight Checklist (AI Build Instance)
 - [ ] Single `.html` file, fully self-contained, inline CSS/JS
-- [ ] `.lang-bar` with `<button>` toggles, full 6-language set, RTL CSS block
+- [ ] **No `.lang-bar` / `setLang()` / `TRANSLATIONS` object** — lang toggle deferred (§1.1)
 - [ ] Metadata badges in header/footer
 - [ ] PII banner on identifier inputs (exact text per §1.3)
 - [ ] All cross-tool links use relative `../tools/` paths
 - [ ] Zero external scripts, CDNs, APIs, or network calls
+- [ ] Zero `sessionStorage` / `localStorage` / `cookies` / `IndexedDB` writes
 - [ ] Financial/regulatory claims have numbered citations
 - [ ] Input validation covers empty, negative, non-numeric, malformed
 - [ ] Export output matches Tier system contract
 - [ ] Complex logic & payments math are inline-commented
-- [ ] `sessionStorage` used ONLY for `ain_lang`
 
 ### 6.2 Pre-Merge Validation Pipeline
 ```bash
@@ -252,11 +251,10 @@ npm run test:ui-ap2-placement
 - [ ] `mcp_tool_definition.name` globally unique
 - [ ] Policy Mandate button present where `ap2_export: true`, validates before download
 - [ ] `execution.function_name` corresponds to callable global JS function
-- [ ] Stage 2 i18n: full `TRANSLATIONS` object, `setLang()` implementation, RTL flip
 - [ ] Deterministic output verified across 3 identical runs
 
 ### 6.4 AIN Bridge Snippet — Amendment A1.3
-Master copy: `scripts/ain-bridge-v1.snippet.html`. Per-tool copies are inserted verbatim before `</body>` with a one-line `window.AIN_BRIDGE_CFG={runFn,intake,intakeTarget,intakeAnchor}`. The bridge provides prefill (§2.4), intake (§3.3), and same-origin parent messaging for Runners (§5.3); its UI strings carry their own 6-language dict. Tools with a non-downloading mandate builder SHOULD expose it as `window.AIN_BUILD_MANDATE()` so Runner capture works without an export click. Constraints honored: zero network, zero storage writes (reads `ain_lang` only). Manifest signals: `prefill`, `bridge_version`; `mcp/catalog.json` carries `metadata.prefill` (regenerated via `scripts/regen_catalog.py` — never hand-edit).
+Master copy: `scripts/ain-bridge-v1.snippet.html`. Per-tool copies are inserted verbatim before `</body>` with a one-line `window.AIN_BRIDGE_CFG={runFn,intake,intakeTarget,intakeAnchor}`. The bridge provides prefill (§2.4), intake (§3.3), and same-origin parent messaging for Runners (§5.3); its UI strings are English-only (lang toggle deferred — §1.1). Tools with a non-downloading mandate builder SHOULD expose it as `window.AIN_BUILD_MANDATE()` so Runner capture works without an export click. Constraints honored: zero network, zero storage reads or writes. Manifest signals: `prefill`, `bridge_version`; `mcp/catalog.json` carries `metadata.prefill` (regenerated via `scripts/regen_catalog.py` — never hand-edit).
 
 ---
 
@@ -277,24 +275,8 @@ Master copy: `scripts/ain-bridge-v1.snippet.html`. Per-tool copies are inserted 
 /* Hub accents: Cat-12=--red | Cat-13=--teal | Cat-14=--purple | Cat-15=--gold | Cat-16=--red | Cat-17=--gold | Cat-18=--teal | Cat-19=--purple | Cat-20=--green | Cat-21=--teal | Cat-22=--red | Cat-2=--teal */
 ```
 
-### B. i18n Stage 2 Template Snippet
-```html
-<div class="lang-bar">
-  <div class="lang-inner">
-    <button class="lang-btn active" onclick="setLang('en')">EN</button>
-    <button class="lang-btn" onclick="setLang('es')">ES</button>
-    <button class="lang-btn" onclick="setLang('fr')">FR</button>
-    <button class="lang-btn" onclick="setLang('ar')">AR</button>
-    <button class="lang-btn" onclick="setLang('pt')">PT</button>
-    <button class="lang-btn" onclick="setLang('zh')">中文</button>
-  </div>
-</div>
-<script>
-const TRANSLATIONS = { en: { /* keys */ }, es: {}, fr: {}, ar: { lang_dir: "rtl" }, pt: {}, zh: {} };
-function setLang(lang) { /* full implementation from §1.1 */ }
-(function initLang() { /* restore from sessionStorage */ })();
-</script>
-```
+### B. Multilingual Toggle — Deferred
+The lang toggle template has been removed from active builds. See **`../I18N-SPEC.md`** for the full Option B implementation spec (I18N object pattern, upgraded `setLang()`, ES/FR/PT full translation, AR/中文 stubs, `data-i18n` attribute convention, and rollout sequence). Do not implement from memory — use that spec.
 
 ### C. Policy Mandate Export Button Pattern
 ```html

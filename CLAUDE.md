@@ -38,13 +38,13 @@ ainumbers/
 - **Single self-contained `.html` per tool.** Inline CSS/JS only. Google Fonts (`DM Serif Display`, `Sora`, `JetBrains Mono`) only.
 - **Zero network calls.** No `fetch`, `async`, `WebWorker`, external APIs, or CDNs after page load.
 - **Zero PII.** No storage, logging, or transmission of personal/identifiable data.
-- **Storage:** `sessionStorage` permitted **only** for `ain_lang` UI preference. `localStorage`, cookies, `IndexedDB` strictly forbidden.
+- **Storage:** All client storage forbidden — `sessionStorage`, `localStorage`, `cookies`, `IndexedDB`. All state is in-memory. (`ain_lang` sessionStorage exemption removed — lang toggle deferred; see `CONTRACT.md` §1.1.)
 - **Routing:** Tools in `tools/` must use `../` relative paths to reach root assets. Index uses `tools/` and `guides/` prefixes for all internal links. Absolute URLs reserved strictly for `suite-registry.json` & external MCP endpoints.
 - **License:** CC BY 4.0. Code must be readable, commented, and attribution-ready.
 
 ## 📐 Required UI & Export Contracts
 
-- **i18n:** `.lang-bar` with `<button>` toggles (`EN ES FR AR PT 中文`). `<a>` toggles are deprecated.
+- **Lang toggle:** OMIT. Do not add `.lang-bar`, `setLang()`, or `TRANSLATIONS` objects. Toggle deferred — see `CONTRACT.md` §1.1 and `../I18N-SPEC.md` for future re-implementation spec.
 - **AP2 Button:** Must live in `.results-export-row`. Validates against AP2 v1.0 schema before download.
 - **Export Tiers:** Tier 1 (AP2 JSON + Markdown) mandatory for all policy/rule/mandate tools. Tier 2/3 conditional.
 - **PII Banner:** Exact text: `🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.`
@@ -53,7 +53,7 @@ ainumbers/
 
 1. Read `CONTRACT.md` §0–§6 fully.
 2. Generate single `.html` file and place it in `tools/`.
-3. Validate AP2 schema, i18n, storage, and export contracts before output.
+3. Validate AP2 schema, storage, and export contracts before output.
 4. Run pre-flight checklist from `CONTRACT.md` §6.1.
 5. Add card entry to `index.html` tool grid (correct `data-cat`, `data-tags`, `data-name`).
 6. Update category tool count in `index.html` cat-heading `<span class="cat-n">`.
