@@ -146,6 +146,12 @@ footer{border-top:1px solid var(--border);padding:1.6rem 0 2.2rem;margin-top:3re
     </div>
   </div>
 
+  <div id="diag-banner" style="display:none;background:var(--bg-3);border:1px solid rgba(239,68,68,.4);border-left:3px solid var(--red);border-radius:var(--radius-lg);padding:.9rem 1.25rem;margin:1.1rem 0 0;font-size:.78rem;color:var(--text)">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--red);margin-bottom:.5rem">&#128203; Seeded from DORA Readiness Diagnostic</div>
+    <div id="diag-banner-body" style="color:var(--bright)"></div>
+    <div style="margin-top:.5rem;font-size:.72rem;color:var(--body)">Stage 1 has been prefilled with your diagnostic scores. Run T300, then Capture to continue the chain.</div>
+  </div>
+
   <div id="stages"></div>
 
   <div class="export-panel">
@@ -405,6 +411,40 @@ function toggleTranscript(){
   t.classList.toggle('visible');
   if (t.classList.contains('visible')) t.textContent = transcriptMd();
 }
+
+/* ── diagnostic handoff (WS2) ── */
+var diagContext = null;
+function initFromDiag(){
+  var m=(location.hash||'').match(/[#&]diag=([A-Za-z0-9_\-]+)/); if(!m)return;
+  try{
+    var s=m[1].replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4)s+='=';
+    diagContext=JSON.parse(decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join('')));
+  }catch(e){return;}
+  if(!diagContext||!diagContext.grade)return;
+  var banner=el('diag-banner'), body=el('diag-banner-body');
+  var domStr=(diagContext.domain_scores||[]).map(function(d){
+    return '<span style="margin-right:.8rem"><strong>'+d.label+':</strong> '+d.pct+'%</span>';
+  }).join('');
+  body.innerHTML='Grade <strong style="color:var(--red)">'+diagContext.grade+'</strong> &middot; '+diagContext.score_pct+'/100'+(domStr?' &nbsp;|&nbsp; '+domStr:'');
+  banner.style.display='block';
+  var f=el('frame-1'); if(!f)return;
+  var fields={diagnostic_grade:diagContext.grade,diagnostic_score_pct:diagContext.score_pct,source_tool:'dora-readiness-diagnostic'};
+  if(diagContext.domain_scores){
+    if(diagContext.domain_scores[0])fields.ict_risk_score=diagContext.domain_scores[0].pct;
+    if(diagContext.domain_scores[1])fields.incident_score=diagContext.domain_scores[1].pct;
+    if(diagContext.domain_scores[2])fields.testing_score=diagContext.domain_scores[2].pct;
+    if(diagContext.domain_scores[3])fields.tpp_score=diagContext.domain_scores[3].pct;
+  }
+  if(diagContext.gaps)fields.gaps_count=diagContext.gaps.length;
+  var doSend=function(){
+    var ro=(location.origin&&location.origin!=='null')?location.origin:'*';
+    f.contentWindow.postMessage({type:'ain:prefill',fields:fields},ro);
+    log(1,'Seeded from DORA Diagnostic -- grade '+diagContext.grade+' ('+diagContext.score_pct+'/100)','ok');
+  };
+  try{if(f.contentDocument&&f.contentDocument.readyState==='complete'){doSend();return;}}catch(e){}
+  f.addEventListener('load',doSend,{once:true});
+}
+(function(){ initFromDiag(); })();
 
 /* i18n (Stage 2: chrome only) */
 var TRANSLATIONS = {
