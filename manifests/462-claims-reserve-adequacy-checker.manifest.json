@@ -1,0 +1,219 @@
+{
+  "tool_id": "462-claims-reserve-adequacy-checker",
+  "version": "1.0",
+  "title": "Claims Reserve Adequacy Checker — Chain Ladder + Bornhuetter-Ferguson",
+  "description": "Run the Chain Ladder (development) and Bornhuetter-Ferguson reserving methods on a loss development triangle. Computes age-to-age factors, loss development factors to ultimate, chain-ladder and B-F ultimate losses, IBNR by accident year, a selected (blended) IBNR, and a reserve adequacy signal versus a booked reserve. Flags >15% method divergence and low-credibility triangles. Client-side. Zero PII.",
+  "category": "cat-30",
+  "tags": [
+    "reserving",
+    "chain-ladder",
+    "bornhuetter-ferguson",
+    "loss-triangle",
+    "IBNR",
+    "LDF",
+    "loss-development-factor",
+    "reserve-adequacy",
+    "actuarial",
+    "CAS",
+    "Friedland-2010",
+    "Zero-PII"
+  ],
+  "audience": [
+    "actuary",
+    "reserving-actuary",
+    "appointed-actuary",
+    "cfo",
+    "auditor",
+    "insurance-finance"
+  ],
+  "last_reviewed": "2026-06-08",
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "triangle",
+      "ldfMethod"
+    ],
+    "properties": {
+      "triangle": {
+        "type": "array",
+        "description": "Cumulative loss development triangle: array of rows (accident years), each an array of cumulative incurred losses by development age. Ragged/blank lower-right cells permitted.",
+        "items": {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      },
+      "ldfMethod": {
+        "type": "string",
+        "enum": [
+          "vw",
+          "simple",
+          "vw3",
+          "vw5",
+          "manual"
+        ],
+        "description": "LDF averaging method (volume-weighted / simple / 3yr / 5yr / manual selected)"
+      },
+      "tailFactor": {
+        "type": "number",
+        "minimum": 0.5,
+        "maximum": 5,
+        "description": "Development beyond the last diagonal (default 1.000)"
+      },
+      "excludeDiag": {
+        "type": "boolean",
+        "description": "Exclude latest calendar diagonal from ATAF averages"
+      },
+      "elr": {
+        "type": "number",
+        "minimum": 0,
+        "description": "A priori (expected) loss ratio %"
+      },
+      "clWeight": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Blend weight on Chain Ladder vs Bornhuetter-Ferguson for selected IBNR (%)"
+      },
+      "earnedPremium": {
+        "type": "array",
+        "items": {
+          "type": "number",
+          "minimum": 0
+        },
+        "description": "Earned premium by accident year ($)"
+      },
+      "bookedReserve": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Carried reserve on the balance sheet ($)"
+      },
+      "priorReserve": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Optional prior-year booked reserve ($)"
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "selected_ibnr": {
+        "type": "number"
+      },
+      "chain_ladder_ibnr": {
+        "type": "number"
+      },
+      "bornhuetter_ferguson_ibnr": {
+        "type": "number"
+      },
+      "booked_reserve": {
+        "type": "number"
+      },
+      "redundancy_deficiency": {
+        "type": "number"
+      },
+      "redundancy_deficiency_pct": {
+        "type": "number"
+      },
+      "adequacy_signal": {
+        "type": "string",
+        "enum": [
+          "ADEQUATE",
+          "DEFICIENT"
+        ]
+      },
+      "method_divergence_pct": {
+        "type": "number"
+      },
+      "selected_ldfs_to_ultimate": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "check_claims_reserve_adequacy",
+    "description": "Run Chain Ladder (development) and Bornhuetter-Ferguson reserving on a cumulative loss development triangle. Computes volume-weighted/simple/3yr/5yr/manual age-to-age factors with optional tail factor and latest-diagonal exclusion, LDFs to ultimate, % unreported, chain-ladder and B-F ultimates and IBNR by accident year, a blended selected IBNR, and a reserve adequacy signal (redundancy/deficiency) versus a booked reserve. Flags CL-vs-BF divergence beyond 15% and low-credibility triangles (<5 accident years or <3 development ages). Methods per CAS/Friedland (2010) and Bornhuetter-Ferguson (1972). Deterministic, client-side, zero PII.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "triangle",
+        "ldfMethod"
+      ],
+      "properties": {
+        "triangle": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        },
+        "ldfMethod": {
+          "type": "string",
+          "enum": [
+            "vw",
+            "simple",
+            "vw3",
+            "vw5",
+            "manual"
+          ]
+        },
+        "tailFactor": {
+          "type": "number"
+        },
+        "excludeDiag": {
+          "type": "boolean"
+        },
+        "elr": {
+          "type": "number"
+        },
+        "clWeight": {
+          "type": "number"
+        },
+        "earnedPremium": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "bookedReserve": {
+          "type": "number"
+        },
+        "priorReserve": {
+          "type": "number"
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/462-claims-reserve-adequacy-checker.html",
+    "function_name": "runReserve",
+    "timeout_ms": 5000
+  },
+  "deterministic": true,
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "regulatory_citations": [
+    "Friedland, \"Estimating Unpaid Claims Using Basic Techniques\" (CAS, 2010) — Chain Ladder (development) method",
+    "Bornhuetter & Ferguson (1972), \"The Actuary and IBNR,\" PCAS LIX — Bornhuetter-Ferguson method",
+    "Actuarial Standard of Practice (ASOP) No. 43 — Property/Casualty Unpaid Claim Estimates",
+    "NAIC Property and Casualty Annual Statement Instructions — Schedule P",
+    "CAS Statement of Principles Regarding Property and Casualty Loss and Loss Adjustment Expense Reserves"
+  ],
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0"
+}

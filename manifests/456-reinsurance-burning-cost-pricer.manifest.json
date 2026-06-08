@@ -1,0 +1,217 @@
+{
+  "tool_id": "456-reinsurance-burning-cost-pricer",
+  "version": "1.0",
+  "title": "Reinsurance Burning Cost & XL Layer Pricer",
+  "description": "Price an excess-of-loss (XL) reinsurance layer using the burning cost method (CAS Basics of Reinsurance Pricing). Enter historical loss experience and the layer structure; the tool trends ground-up losses to the prospective period, applies an IBNR load, computes the as-if per-occurrence (or aggregate) layer loss per year, and returns the burning cost rate, technical rate, technical premium, reinstatement cost, a year-by-year table, and a 5x5 attachment x limit sensitivity grid. Flags low credibility when fewer than 5 years or fewer than 5 non-zero layer years. Client-side. Zero PII.",
+  "category": "cat-30",
+  "tags": [
+    "reinsurance",
+    "burning-cost",
+    "excess-of-loss",
+    "XL",
+    "treaty-pricing",
+    "technical-premium",
+    "as-if",
+    "reinstatement",
+    "IBNR",
+    "loss-trend",
+    "sensitivity",
+    "CAS",
+    "actuarial",
+    "Zero-PII"
+  ],
+  "audience": [
+    "actuary",
+    "reinsurance-analyst",
+    "treaty-underwriter",
+    "mga",
+    "captive-manager",
+    "pricing-actuary"
+  ],
+  "last_reviewed": "2026-06-08",
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "attach",
+      "limit",
+      "targetLR"
+    ],
+    "properties": {
+      "attach": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Layer attachment point ($)"
+      },
+      "limit": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "description": "Layer limit / max recovery per occurrence ($)"
+      },
+      "treatyType": {
+        "type": "string",
+        "enum": [
+          "per_occ",
+          "aggregate"
+        ],
+        "description": "Per-occurrence or aggregate XL"
+      },
+      "reinstNum": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Number of reinstatements"
+      },
+      "reinstPct": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Reinstatement premium as % of base premium"
+      },
+      "basePrem": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Base/deposit layer premium ($)"
+      },
+      "trend": {
+        "type": "number",
+        "description": "Loss (severity) trend factor % p.a. — default 4.5"
+      },
+      "trendYears": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Trend period in years"
+      },
+      "ibnr": {
+        "type": "number",
+        "minimum": 0,
+        "description": "IBNR load %"
+      },
+      "exposureAdj": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "description": "Exposure change multiplier"
+      },
+      "targetLR": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 100,
+        "description": "Target loss ratio % — default 70"
+      },
+      "prospPrem": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Prospective subject premium ($)"
+      },
+      "loss_experience": {
+        "type": "array",
+        "description": "Up to 15 accident-year rows",
+        "items": {
+          "type": "object",
+          "properties": {
+            "year": {
+              "type": "number"
+            },
+            "prem": {
+              "type": "number"
+            },
+            "gross_loss": {
+              "type": "number"
+            },
+            "claims": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "burning_cost_rate": {
+        "type": "number"
+      },
+      "technical_rate": {
+        "type": "number"
+      },
+      "technical_premium": {
+        "type": "number"
+      },
+      "expected_layer_loss": {
+        "type": "number"
+      },
+      "implied_loss_ratio_pct": {
+        "type": "number"
+      },
+      "reinstatement_cost": {
+        "type": "number"
+      },
+      "credibility_low": {
+        "type": "boolean"
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "price_reinsurance_burning_cost",
+    "description": "Price an excess-of-loss reinsurance layer by the burning cost method. Trends historical ground-up losses to the prospective period, applies an IBNR load and exposure adjustment, computes the as-if layer loss per accident year (min(max(developed-attachment,0),limit)), and divides total layer losses by total subject premium to get the burning cost rate. Returns technical rate (BC / target loss ratio), technical premium, expected layer loss, reinstatement cost, and a low-credibility flag. Use when an agent needs an experience-rated indicative price for a treaty XL layer. Supplement with exposure rating for thin/high layers.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "attach",
+        "limit",
+        "targetLR"
+      ],
+      "properties": {
+        "attach": {
+          "type": "number"
+        },
+        "limit": {
+          "type": "number"
+        },
+        "treatyType": {
+          "type": "string",
+          "enum": [
+            "per_occ",
+            "aggregate"
+          ]
+        },
+        "trend": {
+          "type": "number"
+        },
+        "trendYears": {
+          "type": "number"
+        },
+        "ibnr": {
+          "type": "number"
+        },
+        "targetLR": {
+          "type": "number"
+        },
+        "prospPrem": {
+          "type": "number"
+        },
+        "loss_experience": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/456-reinsurance-burning-cost-pricer.html",
+    "function_name": "runBurningCost",
+    "timeout_ms": 3000
+  },
+  "deterministic": true,
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "regulatory_citations": [
+    "CAS Study Note — Basics of Reinsurance Pricing (Casualty Actuarial Society)",
+    "CAS Statement of Principles Regarding Property and Casualty Insurance Ratemaking",
+    "Friedland — Estimating Unpaid Claims Using Basic Techniques (CAS, 2010)"
+  ],
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0"
+}

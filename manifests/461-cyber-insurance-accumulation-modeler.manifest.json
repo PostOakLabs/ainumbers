@@ -1,0 +1,270 @@
+{
+  "tool_id": "461-cyber-insurance-accumulation-modeler",
+  "version": "1.0",
+  "title": "Cyber Insurance Accumulation & PML Modeler",
+  "description": "Estimate portfolio-level cyber insurance Probable Maximum Loss (PML) at multiple return periods by scenario type, using published industry severity curves by sector and coverage trigger (IBM/Ponemon 2024, FBI IC3 2024) and Lloyd's RDS 2024 systemic PML scalars. Computes attritional expected loss, systemic PML by return period, combined PML upper bound, loss-ratio stress, and an accumulation alert at >25% of the aggregate limit. Client-side. Zero PII; synthetic aggregate inputs only.",
+  "category": "cat-30",
+  "tags": [
+    "cyber-insurance",
+    "accumulation-risk",
+    "PML",
+    "probable-maximum-loss",
+    "return-period",
+    "tail-risk",
+    "systemic-cyber",
+    "Lloyds-RDS",
+    "catastrophe-model",
+    "reinsurance",
+    "underwriting",
+    "insurtech",
+    "Zero-PII"
+  ],
+  "audience": [
+    "cyber-underwriter",
+    "actuary",
+    "exposure-management",
+    "reinsurance-buyer",
+    "MGA",
+    "Lloyds-syndicate",
+    "chief-underwriting-officer"
+  ],
+  "last_reviewed": "2026-06-08",
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "numRisks",
+      "avgRevenue",
+      "avgLimit",
+      "aggLimit",
+      "avgPremium"
+    ],
+    "properties": {
+      "numRisks": {
+        "type": "number",
+        "minimum": 1,
+        "description": "Number of cyber risks in portfolio"
+      },
+      "avgRevenue": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Average annual revenue per risk ($M)"
+      },
+      "revDist": {
+        "type": "string",
+        "enum": [
+          "uniform",
+          "sme",
+          "enterprise"
+        ],
+        "description": "Revenue distribution skew"
+      },
+      "sector": {
+        "type": "string",
+        "enum": [
+          "healthcare",
+          "financial",
+          "retail",
+          "manufacturing",
+          "technology",
+          "education",
+          "energy",
+          "professional",
+          "diversified"
+        ],
+        "description": "Primary industry sector"
+      },
+      "avgLimit": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Average policy limit ($M)"
+      },
+      "avgRetention": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Average attachment/retention ($M)"
+      },
+      "avgPremium": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Average premium per risk ($K)"
+      },
+      "aggLimit": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Aggregate policy limit, total portfolio ($M)"
+      },
+      "mixRansomNum": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Ransomware/extortion trigger share (%)"
+      },
+      "mixBreachNum": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Data breach/privacy trigger share (%)"
+      },
+      "mixBINum": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Business interruption trigger share (%)"
+      },
+      "mixLiabNum": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "3rd party liability trigger share (%)"
+      },
+      "mixFTFNum": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Funds transfer fraud trigger share (%); all five trigger shares must sum to 100"
+      },
+      "correlation": {
+        "type": "string",
+        "enum": [
+          "low",
+          "medium",
+          "high",
+          "extreme"
+        ],
+        "description": "Systemic event correlation toggle"
+      },
+      "cspConc": {
+        "type": "string",
+        "enum": [
+          "none",
+          "low",
+          "medium",
+          "high"
+        ],
+        "description": "Cloud provider concentration"
+      },
+      "scaExp": {
+        "type": "string",
+        "enum": [
+          "none",
+          "low",
+          "medium",
+          "high"
+        ],
+        "description": "Software supply chain exposure"
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "attritional_el_m": {
+        "type": "number",
+        "description": "Attritional expected annual loss ($M)"
+      },
+      "pml_1in100_m": {
+        "type": "number",
+        "description": "Combined 1-in-100 PML ($M)"
+      },
+      "pml_1in250_m": {
+        "type": "number",
+        "description": "Combined 1-in-250 PML ($M)"
+      },
+      "pml_1in100_pct_of_aggregate": {
+        "type": "number",
+        "description": "1-in-100 PML as % of aggregate limit"
+      },
+      "accumulation_alert": {
+        "type": "boolean",
+        "description": "True if 1-in-100 PML exceeds 25% of aggregate limit (Lloyd's RDS threshold)"
+      },
+      "loss_ratio_stress_pct": {
+        "type": "object",
+        "description": "Stressed loss ratio by return period"
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "model_cyber_accumulation_pml",
+    "description": "Estimate portfolio-level cyber PML at multiple return periods (1-in-10/50/100/250) by systemic scenario (mass ransomware, cloud outage, critical infrastructure, supply chain) using published severity curves (IBM/Ponemon 2024, FBI IC3 2024) and Lloyd's RDS 2024 scalars. Returns attritional expected loss, per-scenario and combined PML, loss-ratio stress, concentration indicators, and an accumulation alert at >25% of aggregate limit. Inputs are synthetic aggregates only — never policyholder-level data.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "numRisks",
+        "avgRevenue",
+        "avgLimit",
+        "aggLimit",
+        "avgPremium"
+      ],
+      "properties": {
+        "numRisks": {
+          "type": "number"
+        },
+        "avgRevenue": {
+          "type": "number"
+        },
+        "revDist": {
+          "type": "string"
+        },
+        "sector": {
+          "type": "string"
+        },
+        "avgLimit": {
+          "type": "number"
+        },
+        "avgRetention": {
+          "type": "number"
+        },
+        "avgPremium": {
+          "type": "number"
+        },
+        "aggLimit": {
+          "type": "number"
+        },
+        "mixRansomNum": {
+          "type": "number"
+        },
+        "mixBreachNum": {
+          "type": "number"
+        },
+        "mixBINum": {
+          "type": "number"
+        },
+        "mixLiabNum": {
+          "type": "number"
+        },
+        "mixFTFNum": {
+          "type": "number"
+        },
+        "correlation": {
+          "type": "string"
+        },
+        "cspConc": {
+          "type": "string"
+        },
+        "scaExp": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/461-cyber-insurance-accumulation-modeler.html",
+    "function_name": "runCyberPML",
+    "timeout_ms": 3000
+  },
+  "deterministic": true,
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "regulatory_citations": [
+    "IBM / Ponemon Institute — Cost of a Data Breach Report 2024",
+    "FBI Internet Crime Complaint Center (IC3) — 2024 Annual Report",
+    "Lloyd's of London — Realistic Disaster Scenarios (RDS) for Cyber, 2024",
+    "WEF — Global Cybersecurity Outlook 2024",
+    "NAIC — Cyber Insurance Supplement"
+  ],
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0"
+}

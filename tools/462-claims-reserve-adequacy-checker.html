@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Claims Reserve Adequacy Checker — Chain Ladder + Bornhuetter-Ferguson · T462 · AINumbers.co</title>
+<meta name="description" content="Run the Chain Ladder (development) and Bornhuetter-Ferguson reserving methods on a loss development triangle. Computes age-to-age factors, LDFs to ultimate, ultimate losses, IBNR, and a reserve adequacy signal vs. a booked reserve. Client-side. Zero PII.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Claims Reserve Adequacy Checker — Chain Ladder + Bornhuetter-Ferguson · T462","url":"https://ainumbers.co/tools/462-claims-reserve-adequacy-checker.html","description":"Run the Chain Ladder (development) and Bornhuetter-Ferguson reserving methods on a loss development triangle. Computes age-to-age factors, loss development factors to ultimate, ultimate losses, IBNR, and a reserve adequacy signal versus a user-supplied booked reserve. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+.edu-disclaimer{border:1px solid var(--warn);border-left:3px solid var(--warn);background:rgba(245,158,11,.06);padding:1rem 1.25rem;margin-bottom:2rem;font-size:.76rem;color:var(--body);line-height:1.7;border-radius:var(--radius)}
+.edu-disclaimer-label{display:block;color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:14px;line-height:1.6;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.03) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+body>*{position:relative;z-index:1}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:6px 0}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 24px;display:flex;gap:4px;justify-content:flex-end}
+.lang-btn{background:transparent;border:1px solid transparent;color:var(--body);font-family:'Sora',sans-serif;font-size:11px;font-weight:500;letter-spacing:.06em;padding:3px 10px;border-radius:var(--radius);cursor:pointer;transition:all .15s}
+.lang-btn:hover{color:var(--text);border-color:var(--border-2)}
+.lang-btn.active{background:var(--purple-dim);color:var(--purple);border-color:rgba(155,114,245,.3)}
+nav{background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.nav-inner{max-width:1100px;margin:0 auto;padding:0 24px;height:56px;display:grid;grid-template-columns:1fr auto 1fr}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center;justify-self:center;text-align:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--purple)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem;margin-left:auto}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--purple);color:var(--purple)}
+.nav-cta{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bg);background:var(--purple);border:1px solid var(--purple);padding:.4rem 1rem;border-radius:4px;transition:opacity .2s;white-space:nowrap;flex-shrink:0;text-decoration:none}
+.nav-cta:hover{opacity:.85}
+.hero{padding:52px 24px 40px;max-width:1100px;margin:0 auto}
+.hero-eyebrow{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.tool-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);letter-spacing:.1em;text-transform:uppercase}
+.hero-badge{background:var(--purple-dim);color:var(--purple);font-size:10px;font-weight:600;padding:3px 10px;border-radius:20px;border:1px solid rgba(155,114,245,.25)}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(26px,4vw,40px);color:var(--white);line-height:1.2;margin-bottom:14px;max-width:820px}
+.hero-desc{color:var(--body);font-size:14px;max-width:700px;line-height:1.7}
+.hero-meta{display:flex;gap:16px;margin-top:20px;flex-wrap:wrap}
+.hero-meta-pill{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--body);background:var(--bg-3);border:1px solid var(--border);padding:4px 12px;border-radius:20px}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+.tag{font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;letter-spacing:.04em;border:1px solid}
+.tag-teal{background:var(--teal-dim);color:var(--teal);border-color:rgba(20,184,166,.25)}
+.tag-gold{background:var(--gold-dim);color:var(--gold);border-color:rgba(212,168,71,.25)}
+.tag-green{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.25)}
+.tag-purple{background:var(--purple-dim);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.tool-body{max-width:1100px;margin:0 auto;padding:0 24px 60px;display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
+@media(max-width:900px){.tool-body{grid-template-columns:1fr}}
+.main-col,.side-col{display:flex;flex-direction:column;gap:20px}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);letter-spacing:.08em;text-transform:uppercase;font-weight:500}
+.panel-body{padding:20px}
+.panel-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.panel-row.three{grid-template-columns:1fr 1fr 1fr}
+.panel-row.full{grid-template-columns:1fr}
+.panel-row:last-child{margin-bottom:0}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:11px;color:var(--body);font-weight:500;letter-spacing:.04em}
+.field input,.field select,.field textarea{background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);font-family:'Sora',sans-serif;font-size:13px;padding:8px 10px;border-radius:var(--radius);outline:none;transition:border-color .15s;width:100%}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--purple)}
+.field select option{background:var(--bg-3)}
+.field-hint{font-size:10px;color:var(--muted);margin-top:2px}
+.section-divider{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);text-transform:uppercase;letter-spacing:.12em;padding:10px 0 6px;border-bottom:1px solid var(--border);margin-bottom:14px;margin-top:4px}
+.btn{display:inline-flex;align-items:center;gap:6px;font-family:'Sora',sans-serif;font-size:12px;font-weight:500;padding:7px 16px;border-radius:var(--radius);cursor:pointer;border:1px solid transparent;transition:all .15s;white-space:nowrap}
+.btn-teal{background:var(--teal);color:var(--bg);border-color:var(--teal)}
+.btn-teal:hover{background:var(--teal-lt);border-color:var(--teal-lt)}
+.btn-ghost{background:transparent;color:var(--text);border-color:var(--border-2)}
+.btn-ghost:hover{background:var(--bg-3);border-color:var(--purple);color:var(--purple)}
+.btn-sm{font-size:11px;padding:5px 12px}
+.btn-subtitle{font-size:9px;color:var(--muted);margin-left:4px;font-family:'JetBrains Mono',monospace}
+#ap2ExportBtn{position:relative}
+#ap2ExportBtn[disabled]{opacity:.28;cursor:not-allowed}
+#ap2ExportBtn.ready{opacity:1}
+.run-btn{width:100%;background:var(--purple);color:var(--bg);border:none;font-family:'Sora',sans-serif;font-size:14px;font-weight:600;padding:14px 24px;border-radius:var(--radius-lg);cursor:pointer;transition:all .2s;letter-spacing:.02em;box-shadow:0 0 20px rgba(155,114,245,.2)}
+.run-btn:hover{background:#AE8BFF;box-shadow:0 0 30px rgba(155,114,245,.35)}
+.run-btn:active{transform:scale(.99)}
+.results-panel{display:none}
+.results-panel.visible{display:flex;flex-direction:column;gap:16px}
+.tri-wrap{overflow-x:auto}
+.tri-table{border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:11px}
+.tri-table th{background:var(--bg-4);color:var(--body);font-weight:500;padding:6px 8px;text-align:center;font-size:9.5px;letter-spacing:.03em;border:1px solid var(--border);white-space:nowrap}
+.tri-table th.rowhead{background:var(--bg-4);color:var(--purple);text-align:left;position:sticky;left:0}
+.tri-table td{padding:0;border:1px solid var(--border)}
+.tri-table td.rowhead{padding:4px 8px;color:var(--purple);background:var(--bg-3);font-weight:500;text-align:left;white-space:nowrap;position:sticky;left:0}
+.tri-table input{width:78px;background:var(--bg-3);border:none;color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:11px;padding:5px 6px;text-align:right;outline:none}
+.tri-table input:focus{background:var(--bg-4);box-shadow:inset 0 0 0 1px var(--purple)}
+.tri-table input.has-val{color:var(--bright)}
+.tri-cell-actual{color:var(--bright)}
+.tri-cell-proj{color:var(--gold);background:var(--gold-dim)}
+.tri-cell-empty{color:var(--muted)}
+.tri-num{padding:5px 8px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:11px}
+.ldf-table,.ult-table{width:100%;border-collapse:collapse;font-size:11.5px}
+.ldf-table th,.ult-table th{background:var(--bg-4);color:var(--body);font-weight:500;padding:7px 10px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.03em;border-bottom:1px solid var(--border);white-space:nowrap}
+.ldf-table th:first-child,.ult-table th:first-child{text-align:left}
+.ldf-table td,.ult-table td{padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;text-align:right}
+.ldf-table td:first-child,.ult-table td:first-child{text-align:left;color:var(--purple)}
+.ldf-table tr:last-child td,.ult-table tr:last-child td{border-bottom:none}
+.ult-table tr.total-row td{background:var(--bg-4);color:var(--purple);font-weight:700;font-size:12px}
+.ldf-table td.excluded{color:var(--red);text-decoration:line-through;opacity:.6}
+.adq-box{border-radius:var(--radius-lg);padding:22px 26px;text-align:center;margin-bottom:2px;border:1px solid}
+.adq-ok{background:var(--green-dim);border-color:rgba(34,197,94,.35)}
+.adq-def{background:var(--red-dim);border-color:rgba(239,68,68,.35)}
+.adq-label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.adq-value{font-family:'DM Serif Display',serif;font-size:34px;line-height:1.15}
+.adq-sub{font-size:12px;color:var(--body);margin-top:8px}
+.cmp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:600px){.cmp-grid{grid-template-columns:1fr}}
+.cmp-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;text-align:center}
+.cmp-card .l{font-size:10px;color:var(--body);font-family:'JetBrains Mono',monospace;letter-spacing:.04em;margin-bottom:6px}
+.cmp-card .v{font-family:'DM Serif Display',serif;font-size:24px;color:var(--white)}
+.cmp-card .s{font-size:10px;color:var(--body);margin-top:4px}
+.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:600px){.metric-grid{grid-template-columns:1fr 1fr}}
+.metric-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
+.metric-card.highlight{border-color:rgba(155,114,245,.35);background:var(--purple-dim)}
+.metric-lbl{font-size:10px;color:var(--body);margin-bottom:4px;font-family:'JetBrains Mono',monospace;letter-spacing:.04em}
+.metric-val{font-family:'DM Serif Display',serif;font-size:20px;color:var(--white)}
+.metric-sub{font-size:10px;color:var(--body);margin-top:3px}
+.results-export-row{display:flex;gap:8px;flex-wrap:wrap;padding:14px 20px;background:var(--bg-3);border-top:1px solid var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.warning-box{background:var(--warn-dim);border:1px solid rgba(245,158,11,.3);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;font-size:11px}
+.warning-box:last-child{margin-bottom:0}
+.warning-box.crit{background:var(--red-dim);border-color:rgba(239,68,68,.35)}
+.warning-title{color:var(--warn);font-weight:600;margin-bottom:3px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.04em}
+.warning-box.crit .warning-title{color:var(--red)}
+.about-item{padding:10px 0;border-bottom:1px solid var(--border);font-size:12px}
+.about-item:last-child{border-bottom:none}
+.about-item strong{color:var(--text);display:block;margin-bottom:3px}
+.about-item .cite{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple)}
+.mcp-code{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--body);overflow-x:auto;line-height:1.6;white-space:pre}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:12px 18px;font-size:13px;color:var(--bright);box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:9999;transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none;max-width:340px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.error{border-color:rgba(239,68,68,.4);color:var(--red)}
+.toast.success{border-color:rgba(155,114,245,.4);color:var(--purple)}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--purple)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--body);font-family:'JetBrains Mono',monospace;margin-top:10px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:11px;height:11px;border-radius:2px;display:inline-block}
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner{text-align:right}
+[dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+</style>
+</head>
+<body>
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">中文</button>
+  </div>
+</div>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" style="text-decoration:none;display:flex;align-items:center;gap:10px">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--purple)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".7"/></svg>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)"><span style="color:var(--purple)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="nav-bc">
+      <a href="../index.html">All Tools</a>
+      <span class="nav-bc-sep">›</span>
+      <span class="nav-bc-current">T462 · Claims Reserve Adequacy Checker</span>
+    </div>
+    <div class="nav-right">
+      <button class="nav-pill" onclick="scrollMfst()">Manifest</button>
+      <a href="../index.html" class="nav-cta">All Tools</a>
+    </div>
+  </div>
+</nav>
+<div class="hero">
+  <div class="hero-eyebrow">
+    <span class="tool-eyebrow">ACTUARIAL RESERVING · T462</span>
+    <span class="hero-badge">cat-30</span>
+  </div>
+  <h1>Claims Reserve Adequacy Checker</h1>
+  <p class="hero-desc">Run the two universal actuarial reserving methods — the Development (Chain Ladder) method and the Bornhuetter-Ferguson method — on a loss development triangle. Outputs loss development factors, ultimate loss estimates, IBNR, and a reserve adequacy signal versus a booked reserve.</p>
+  <div class="hero-meta">
+    <div class="hero-meta-pill"><span>🔒</span><span>Zero PII</span></div>
+    <div class="hero-meta-pill"><span>📡</span><span>No server calls</span></div>
+    <div class="hero-meta-pill"><span>💻</span><span>Client-side</span></div>
+    <div class="hero-meta-pill"><span>📋</span><span>CAS Reserving Standards</span></div>
+  </div>
+  <div class="tag-row">
+    <span class="tag tag-purple">Chain Ladder</span>
+    <span class="tag tag-gold">Bornhuetter-Ferguson</span>
+    <span class="tag tag-teal">Loss Triangle</span>
+    <span class="tag tag-green">IBNR</span>
+    <span class="tag tag-purple">LDF</span>
+    <span class="tag tag-teal">Reserve Adequacy</span>
+    <span class="tag tag-gold">CAS / Friedland 2010</span>
+  </div>
+</div>
+<div class="tool-body">
+  <div class="main-col">
+    <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label">A — Loss Development Triangle (Cumulative)</span>
+        <span style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="loadExample()">Load example triangle</button>
+          <button class="btn btn-ghost btn-sm" onclick="clearTriangle()">Clear</button>
+        </span>
+      </div>
+      <div class="panel-body">
+        <div class="section-divider">Cumulative incurred losses — rows = accident years · columns = development age (months)</div>
+        <div class="panel-row three">
+          <div class="field">
+            <label>Number of accident years</label>
+            <select id="nYears" onchange="buildTriangle()">
+              <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+              <option value="7">7</option><option value="8" selected>8</option><option value="9">9</option><option value="10">10</option>
+            </select>
+            <span class="field-hint">Rows (max 10)</span>
+          </div>
+          <div class="field">
+            <label>Number of development ages</label>
+            <select id="nAges" onchange="buildTriangle()">
+              <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+              <option value="7">7</option><option value="8" selected>8</option><option value="9">9</option><option value="10">10</option>
+            </select>
+            <span class="field-hint">Columns (12, 24, 36 … months)</span>
+          </div>
+          <div class="field">
+            <label>First accident year (label)</label>
+            <input type="number" id="baseYear" value="2017" min="1900" max="2099" step="1" onchange="relabelTriangle()">
+            <span class="field-hint">For row labels only</span>
+          </div>
+        </div>
+        <div class="tri-wrap"><table class="tri-table" id="triInput"></table></div>
+        <p style="font-size:10px;color:var(--muted);margin-top:8px;font-family:'JetBrains Mono',monospace">Enter cumulative values along each row's available diagonal. Leave the lower-right corner blank — those cells are projected. Blank, ragged, and non-numeric cells are handled automatically.</p>
+        <div class="section-divider" style="margin-top:18px">Bulk paste (optional)</div>
+        <div class="field">
+          <label>Paste a triangle — rows on separate lines, cells separated by tabs, commas, or spaces (blanks allowed)</label>
+          <textarea id="pasteArea" rows="4" spellcheck="false" placeholder="1000  1750  2100  2300&#10;1100  1900  2280&#10;1250  2150&#10;1400"></textarea>
+          <span style="display:flex;gap:6px;margin-top:6px"><button class="btn btn-ghost btn-sm" onclick="applyPaste()">Apply pasted triangle</button></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><span class="panel-label">B — LDF Selection Controls</span></div>
+      <div class="panel-body">
+        <div class="panel-row">
+          <div class="field">
+            <label>LDF averaging method</label>
+            <select id="ldfMethod">
+              <option value="vw" selected>Volume-weighted average (all years)</option>
+              <option value="simple">Simple average (all years)</option>
+              <option value="vw3">3-year volume-weighted average</option>
+              <option value="vw5">5-year volume-weighted average</option>
+              <option value="manual">Selected manual (enter ATAFs)</option>
+            </select>
+            <span class="field-hint">Method for selecting age-to-age factors</span>
+          </div>
+          <div class="field">
+            <label>Tail factor (beyond last diagonal)</label>
+            <input type="number" id="tailFactor" value="1.000" min="0.5" max="5" step="0.001">
+            <span class="field-hint">Default 1.000 — short-tailed lines only</span>
+          </div>
+        </div>
+        <div class="panel-row full">
+          <div class="field">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="excludeDiag" style="width:auto" onchange="toggleManualExcl()"> Exclude latest diagonal (most recent calendar-year development) from ATAF averages</label>
+            <span class="field-hint">Removes the newest, least-mature link ratios — useful when the latest diagonal is a known outlier.</span>
+          </div>
+        </div>
+        <div id="manualLdfWrap" style="display:none">
+          <div class="section-divider">Manual selected age-to-age factors</div>
+          <div id="manualLdfRow" class="panel-row three"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><span class="panel-label">C — Bornhuetter-Ferguson Inputs</span></div>
+      <div class="panel-body">
+        <div class="panel-row">
+          <div class="field">
+            <label>A priori (expected) loss ratio %</label>
+            <input type="number" id="elr" value="65" min="0" max="500" step="0.5">
+            <span class="field-hint">Expected loss ratio before experience (ELR)</span>
+          </div>
+          <div class="field">
+            <label>CL / BF blend weight on Chain Ladder %</label>
+            <input type="number" id="clWeight" value="50" min="0" max="100" step="5">
+            <span class="field-hint">50 = simple average of CL &amp; BF (default)</span>
+          </div>
+        </div>
+        <div class="section-divider">Earned premium by accident year ($)</div>
+        <div id="premRow" class="panel-row three"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><span class="panel-label">D — Reserve Adequacy</span></div>
+      <div class="panel-body">
+        <div class="panel-row">
+          <div class="field">
+            <label>Booked / carried reserve ($)</label>
+            <input type="number" id="bookedReserve" value="3200000" min="0" step="1000">
+            <span class="field-hint">Reserve currently on the balance sheet (total across years)</span>
+          </div>
+          <div class="field">
+            <label>Prior-year booked reserve ($) — optional</label>
+            <input type="number" id="priorReserve" value="0" min="0" step="1000">
+            <span class="field-hint">Leave 0 to skip year-over-year comparison</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="run-btn" onclick="runReserve()">Compute reserves &amp; adequacy →</button>
+
+    <div class="results-panel" id="resultsPanel">
+      <div id="adqBoxEl"></div>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-label">E — Key Reserving Metrics</span>
+          <span style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace" id="resultsTimestamp"></span>
+        </div>
+        <div class="panel-body"><div class="metric-grid" id="metricGrid"></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span class="panel-label">F — Age-to-Age Factors &amp; LDFs to Ultimate</span></div>
+        <div class="panel-body" style="overflow-x:auto"><table class="ldf-table" id="ldfTable"></table></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span class="panel-label">G — Completed Development Triangle</span></div>
+        <div class="panel-body">
+          <div class="tri-wrap"><table class="tri-table" id="triComplete"></table></div>
+          <div class="legend">
+            <span><i style="background:var(--bg-3);border:1px solid var(--border)"></i> Actual (reported)</span>
+            <span><i style="background:var(--gold-dim);border:1px solid rgba(212,168,71,.4)"></i> Projected (Chain Ladder)</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span class="panel-label">H — Ultimate &amp; IBNR by Accident Year</span></div>
+        <div class="panel-body" style="overflow-x:auto"><table class="ult-table" id="ultTable"></table></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span class="panel-label">I — Method Comparison · Chain Ladder vs. Bornhuetter-Ferguson</span></div>
+        <div class="panel-body">
+          <div class="cmp-grid" id="cmpGrid"></div>
+          <div id="divergenceEl" style="margin-top:12px"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span class="panel-label">J — Credibility Advisory &amp; Caveats</span></div>
+        <div class="panel-body" id="warningsEl"></div>
+      </div>
+      <div class="panel">
+        <div class="results-export-row">
+          <button class="btn btn-teal btn-sm" onclick="exportMarkdown()">Export Markdown</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV()">Export CSV</button>
+          <button class="btn btn-ghost btn-sm" id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the analysis above to generate a Policy Mandate">
+            {} Export Policy Mandate
+            <span class="btn-subtitle">API · audit trail</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="side-col">
+    <div class="panel">
+      <div class="panel-header"><span class="panel-label">About This Tool</span></div>
+      <div class="panel-body">
+        <div class="edu-disclaimer">
+          <span class="edu-disclaimer-label">Disclaimer</span>
+          Deterministic chain ladder and Bornhuetter-Ferguson calculation only. No confidence intervals or percentile estimates — stochastic reserving (Mack, bootstrap) requires additional modelling. The reserve adequacy conclusion is a mathematical comparison and does not constitute an actuarial opinion or satisfy appointed-actuary requirements under NAIC model law.
+        </div>
+        <div class="about-item"><strong>Development (Chain Ladder) Method</strong>Projects ultimate losses by applying selected age-to-age factors to the latest diagonal. The dominant deterministic reserving technique for mature, stable lines.<span class="cite">CAS · Friedland (2010)</span></div>
+        <div class="about-item"><strong>Bornhuetter-Ferguson Method</strong>Credibility-weights reported losses against an a priori expected-loss estimate (earned premium × ELR), stabilising immature accident years.<span class="cite">Bornhuetter &amp; Ferguson (1972), PCAS LIX</span></div>
+        <div class="about-item"><strong>Loss Development Factors (LDFs)</strong>Cumulative product of selected age-to-age factors plus a tail factor — converts the latest diagonal to ultimate.<span class="cite">CAS Exam 7 syllabus</span></div>
+        <div class="about-item"><strong>IBNR &amp; Reserve Adequacy</strong>IBNR = ultimate − reported. Redundancy / deficiency = booked reserve − selected IBNR.<span class="cite">Friedland (2010), ch. 7–8</span></div>
+        <div class="about-item"><strong>Tail Factor</strong>Development beyond the last observed diagonal. Critical for long-tailed lines (workers' comp, medical malpractice); default 1.000 suits short-tailed lines only.<span class="cite">CAS reserving practice</span></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><span class="panel-label">Method Cheat-Sheet</span></div>
+      <div class="panel-body" style="font-size:11px">
+        <div style="margin-bottom:10px"><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:6px">AGE-TO-AGE FACTOR (VW)</div><div style="font-family:'JetBrains Mono',monospace;color:var(--body);font-size:10px;line-height:1.6">ATAF(j to j+1) = sum C(i,j+1) / sum C(i,j)<br>over rows with data in both cols</div></div>
+        <div style="margin-bottom:10px"><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:6px">CHAIN LADDER</div><div style="font-family:'JetBrains Mono',monospace;color:var(--body);font-size:10px;line-height:1.6">Ult = Latest * LDF(age to ult)<br>IBNR = Ult - Latest</div></div>
+        <div style="margin-bottom:10px"><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:6px">% UNREPORTED</div><div style="font-family:'JetBrains Mono',monospace;color:var(--body);font-size:10px;line-height:1.6">%Unrep(a) = 1 - 1/LDF(a to ult)</div></div>
+        <div><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:6px">BORNHUETTER-FERGUSON</div><div style="font-family:'JetBrains Mono',monospace;color:var(--body);font-size:10px;line-height:1.6">Exp = EP * ELR<br>BF Ult = Latest + %Unrep * Exp<br>IBNR = %Unrep * Exp</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <button class="mfst-btn" onclick="toggleMfst()">
+      <span>MCP Manifest · T462 · Claims Reserve Adequacy Checker</span>
+      <span id="mfstArr">▼</span>
+    </button>
+    <div id="mfstBody" style="display:none">
+      <div style="display:flex;gap:8px;padding:.6rem 0">
+        <button class="btn btn-ghost btn-sm" onclick="copyMfst()">Copy JSON</button>
+      </div>
+      <pre class="mcp-code" id="mfstCode"></pre>
+    </div>
+  </div>
+</section>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--purple)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--purple)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+<script>
+"use strict";
+
+var TOOL_ID = '462-claims-reserve-adequacy-checker';
+var TOOL_VERSION = '1.0';
+
+var I18N = {
+  en:{pii:'🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.',run:'Compute reserves & adequacy →'},
+  es:{pii:'🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No introduzca datos personales reales — use solo entradas sintéticas o anonimizadas.',run:'Calcular reservas y suficiencia →'},
+  fr:{pii:'🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée nest transmise. Nentrez pas de données personnelles réelles — utilisez uniquement des entrées synthétiques ou anonymisées.',run:'Calculer réserves et adéquation →'},
+  ar:{pii:'🔒 تتم معالجة جميع المدخلات محليًا في متصفحك. لا يتم نقل أي بيانات. لا تُدخل بيانات شخصية حقيقية — استخدم مدخلات اصطناعية أو مجهولة الهوية فقط.',run:'احسب الاحتياطيات والكفاية →'},
+  pt:{pii:'🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido. Não insira dados pessoais reais — use apenas entradas sintéticas ou anonimizadas.',run:'Calcular reservas e adequação →'},
+  zh:{pii:'🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。请勿输入真实个人数据——仅使用合成或匿名化输入。',run:'计算准备金与充足性 →'}
+};
+
+function setLang(lang){
+  var dir = lang === 'ar' ? 'rtl' : 'ltr';
+  document.documentElement.setAttribute('lang', lang);
+  document.documentElement.setAttribute('dir', dir);
+  document.querySelectorAll('.lang-btn').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-lang') === lang); });
+  try { sessionStorage.setItem('ain_lang', lang); } catch(e){}
+  var t = I18N[lang] || I18N.en;
+  var pn = document.querySelector('.pii-notice'); if(pn) pn.textContent = t.pii;
+  var rb = document.querySelector('.run-btn'); if(rb) rb.textContent = t.run;
+}
+
+function showToast(msg, type){
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast ' + (type||''); t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 3200);
+}
+
+function triggerDownload(content, filename, mime){
+  var blob = new Blob([content], {type: mime});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+
+function fmtUSD(n){
+  if (!isFinite(n)) return '—';
+  var neg = n < 0; n = Math.abs(n);
+  var s;
+  if (n >= 1e9) s = '$' + (n/1e9).toFixed(2) + 'B';
+  else if (n >= 1e6) s = '$' + (n/1e6).toFixed(2) + 'M';
+  else if (n >= 1e3) s = '$' + (n/1e3).toFixed(1) + 'K';
+  else s = '$' + n.toFixed(0);
+  return (neg ? '−' : '') + s;
+}
+function fmtFull(n){
+  if (!isFinite(n)) return '—';
+  return (n<0?'−':'') + '$' + Math.abs(n).toLocaleString('en-US', {maximumFractionDigits:0});
+}
+function fmtPct(n){ return (isFinite(n) ? n.toFixed(1) : '0.0') + '%'; }
+function fmtF(n, d){ return isFinite(n) ? n.toFixed(d===undefined?3:d) : '—'; }
+
+function getN(id, fb){ var v = parseInt(document.getElementById(id).value,10); return isNaN(v)?fb:v; }
+
+function buildTriangle(){
+  var nY = getN('nYears', 8), nA = getN('nAges', 8);
+  var base = getN('baseYear', 2017);
+  var tbl = document.getElementById('triInput');
+  var prev = readTriangleRaw();
+  var html = '<thead><tr><th class="rowhead">AY \\ Dev</th>';
+  for (var a=0;a<nA;a++) html += '<th>' + ((a+1)*12) + ' mo</th>';
+  html += '</tr></thead><tbody>';
+  for (var i=0;i<nY;i++){
+    html += '<tr><td class="rowhead">' + (base+i) + '</td>';
+    for (var j=0;j<nA;j++){
+      var v = (prev[i] && prev[i][j]!==undefined && prev[i][j]!=='') ? prev[i][j] : '';
+      html += '<td><input type="text" inputmode="decimal" data-r="'+i+'" data-c="'+j+'" value="'+ (v===null?'':escAttr(v)) +'" oninput="this.classList.toggle(\'has-val\',this.value.trim()!=\'\')"></td>';
+    }
+    html += '</tr>';
+  }
+  html += '</tbody>';
+  tbl.innerHTML = html;
+  rebuildPremRow();
+  rebuildManualLdfRow();
+}
+
+function escAttr(s){ return String(s).replace(/"/g,'&quot;'); }
+
+function relabelTriangle(){
+  var base = getN('baseYear', 2017);
+  var heads = document.querySelectorAll('#triInput tbody tr td.rowhead');
+  heads.forEach(function(td,i){ td.textContent = base+i; });
+  rebuildPremRow();
+}
+
+function clearTriangle(){
+  document.querySelectorAll('#triInput input').forEach(function(inp){ inp.value=''; inp.classList.remove('has-val'); });
+  document.getElementById('pasteArea').value='';
+  showToast('Triangle cleared','success');
+}
+
+function readTriangleRaw(){
+  var grid = [];
+  document.querySelectorAll('#triInput input').forEach(function(inp){
+    var r = +inp.getAttribute('data-r'), c = +inp.getAttribute('data-c');
+    if (!grid[r]) grid[r]=[];
+    grid[r][c] = inp.value;
+  });
+  return grid;
+}
+
+function parseCell(s){
+  if (s===undefined || s===null) return NaN;
+  s = String(s).trim();
+  if (s==='') return NaN;
+  s = s.replace(/[$,\s]/g,'').replace(/[()]/g,'');
+  var v = parseFloat(s);
+  return isNaN(v) ? NaN : v;
+}
+
+function getCleanTriangle(){
+  var raw = readTriangleRaw();
+  var nY = getN('nYears',8), nA = getN('nAges',8);
+  var tri = [], anyBad = false, badCells = [];
+  for (var i=0;i<nY;i++){
+    tri[i]=[];
+    for (var j=0;j<nA;j++){
+      var cellStr = (raw[i] && raw[i][j]!==undefined) ? raw[i][j] : '';
+      if (String(cellStr).trim()===''){ tri[i][j]=NaN; continue; }
+      var v = parseCell(cellStr);
+      if (isNaN(v) || v < 0){ anyBad = true; badCells.push((i+1)+','+(j+1)); tri[i][j]=NaN; }
+      else tri[i][j]=v;
+    }
+  }
+  return {tri:tri, nY:nY, nA:nA, badCells:badCells, anyBad:anyBad};
+}
+
+function rebuildPremRow(){
+  var nY = getN('nYears',8), base = getN('baseYear',2017);
+  var row = document.getElementById('premRow');
+  var prev = {};
+  row.querySelectorAll('input').forEach(function(inp){ prev[inp.getAttribute('data-py')] = inp.value; });
+  var defaults = [5000000,5200000,5400000,5600000,5800000,6000000,6200000,6400000,6600000,6800000];
+  var html = '';
+  for (var i=0;i<nY;i++){
+    var id='prem_'+i;
+    var val = prev[i]!==undefined ? prev[i] : defaults[i];
+    html += '<div class="field"><label>EP '+(base+i)+' ($)</label><input type="number" id="'+id+'" data-py="'+i+'" min="0" step="1000" value="'+val+'"></div>';
+  }
+  row.innerHTML = html;
+}
+
+function toggleManualExcl(){ }
+
+function rebuildManualLdfRow(){
+  var nA = getN('nAges',8);
+  var wrap = document.getElementById('manualLdfRow');
+  var prev = {};
+  wrap.querySelectorAll('input').forEach(function(inp){ prev[inp.getAttribute('data-ml')] = inp.value; });
+  var html = '';
+  for (var j=0;j<nA-1;j++){
+    var id='mldf_'+j;
+    var val = prev[j]!==undefined ? prev[j] : '1.000';
+    html += '<div class="field"><label>'+((j+1)*12)+' to '+((j+2)*12)+' mo</label><input type="number" id="'+id+'" data-ml="'+j+'" min="0.1" max="10" step="0.001" value="'+val+'"></div>';
+  }
+  wrap.innerHTML = html;
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  var sel = document.getElementById('ldfMethod');
+  sel.addEventListener('change', function(){
+    document.getElementById('manualLdfWrap').style.display = (sel.value==='manual') ? 'block' : 'none';
+    if (sel.value==='manual') rebuildManualLdfRow();
+  });
+});
+
+function loadExample(){
+  document.getElementById('nYears').value = '8';
+  document.getElementById('nAges').value = '8';
+  document.getElementById('baseYear').value = '2017';
+  buildTriangle();
+  var ex = [
+    [1000000,1750000,2150000,2380000,2510000,2580000,2615000,2630000],
+    [1080000,1900000,2330000,2580000,2720000,2795000,2832000],
+    [1170000,2050000,2520000,2790000,2945000,3026000],
+    [1260000,2210000,2715000,3010000,3175000],
+    [1360000,2385000,2930000,3245000],
+    [1465000,2570000,3160000],
+    [1580000,2770000],
+    [1700000]
+  ];
+  document.querySelectorAll('#triInput input').forEach(function(inp){
+    var r=+inp.getAttribute('data-r'), c=+inp.getAttribute('data-c');
+    if (ex[r] && ex[r][c]!==undefined){ inp.value = ex[r][c]; inp.classList.add('has-val'); }
+    else { inp.value=''; inp.classList.remove('has-val'); }
+  });
+  var premEx = [3800000,4100000,4450000,4800000,5150000,5500000,5900000,6300000];
+  for (var i=0;i<8;i++){ var el=document.getElementById('prem_'+i); if(el) el.value=premEx[i]; }
+  document.getElementById('elr').value = '65';
+  document.getElementById('clWeight').value = '50';
+  document.getElementById('ldfMethod').value = 'vw';
+  document.getElementById('tailFactor').value = '1.020';
+  document.getElementById('bookedReserve').value = '3200000';
+  document.getElementById('priorReserve').value = '0';
+  document.getElementById('manualLdfWrap').style.display='none';
+  showToast('Synthetic example triangle loaded — illustrative only','success');
+}
+
+function applyPaste(){
+  var txt = document.getElementById('pasteArea').value;
+  if (!txt.trim()){ showToast('Paste a triangle first','error'); return; }
+  var lines = txt.replace(/\r/g,'').split('\n').filter(function(l){ return l.trim()!==''; });
+  var rows = lines.map(function(l){ return l.trim().split(/[\t,;]+|\s{2,}|\s+/).filter(function(x){return x!=='';}); });
+  var nY = Math.min(10, rows.length);
+  var nA = Math.min(10, Math.max.apply(null, rows.map(function(r){return r.length;}).concat([1])));
+  document.getElementById('nYears').value = String(Math.max(4,nY));
+  document.getElementById('nAges').value = String(Math.max(4,nA));
+  buildTriangle();
+  document.querySelectorAll('#triInput input').forEach(function(inp){
+    var r=+inp.getAttribute('data-r'), c=+inp.getAttribute('data-c');
+    if (rows[r] && rows[r][c]!==undefined){ inp.value = rows[r][c]; inp.classList.toggle('has-val', String(rows[r][c]).trim()!==''); }
+  });
+  showToast('Pasted '+nY+'x'+nA+' triangle applied','success');
+}
+
+var lastResult = null;
+var lastMandate = null;
+
+function runReserve(){
+  var clean = getCleanTriangle();
+  var tri = clean.tri, nY = clean.nY, nA = clean.nA;
+
+  var dataCount = 0;
+  for (var i=0;i<nY;i++) for (var j=0;j<nA;j++) if (isFinite(tri[i][j])) dataCount++;
+  if (dataCount < 3){ showToast('Enter at least a few cumulative loss cells (try "Load example triangle")','error'); return; }
+  if (clean.anyBad){ showToast('Ignored '+clean.badCells.length+' non-numeric / negative cell(s): '+clean.badCells.slice(0,6).join(' ')+(clean.badCells.length>6?' …':''),'error'); }
+
+  var latestCol = [], latestVal = [];
+  for (var i=0;i<nY;i++){
+    var last = -1;
+    for (var j=0;j<nA;j++){ if (isFinite(tri[i][j])) last = j; else break; }
+    latestCol[i] = last;
+    latestVal[i] = last>=0 ? tri[i][last] : NaN;
+  }
+
+  var method = document.getElementById('ldfMethod').value;
+  var excludeLatest = document.getElementById('excludeDiag').checked;
+  var tail = parseFloat(document.getElementById('tailFactor').value); if (!isFinite(tail)||tail<=0) tail = 1.0;
+
+  var maxDiag = 0;
+  for (var i=0;i<nY;i++) for (var j=0;j<nA;j++) if (isFinite(tri[i][j])) maxDiag = Math.max(maxDiag, i+j);
+
+  var ataf = [];
+  var atafDetail = [];
+  for (var j=0;j<nA-1;j++){
+    var num=0, den=0, ratios=[];
+    var perRow=[];
+    for (var i=0;i<nY;i++){
+      var a=tri[i][j], b=tri[i][j+1];
+      if (isFinite(a) && isFinite(b) && a>0){
+        var excl = excludeLatest && ((i+j+1)===maxDiag);
+        ratios.push({ay:i, ratio:b/a, excluded:excl});
+        perRow.push({i:i, a:a, b:b, excl:excl});
+      }
+    }
+    var useRows = perRow.filter(function(p){ return !p.excl; });
+    if (method==='vw3' || method==='vw5'){
+      var win = method==='vw3'?3:5;
+      useRows = useRows.slice().sort(function(x,y){return y.i-x.i;}).slice(0,win);
+    }
+    var sel;
+    if (method==='simple'){
+      var s=0,nn=0; useRows.forEach(function(p){ s += p.b/p.a; nn++; });
+      sel = nn>0 ? s/nn : 1.0;
+    } else if (method==='manual'){
+      var mEl = document.getElementById('mldf_'+j);
+      sel = mEl ? (parseFloat(mEl.value)||1.0) : 1.0;
+    } else {
+      useRows.forEach(function(p){ num += p.b; den += p.a; });
+      sel = den>0 ? num/den : 1.0;
+    }
+    ataf[j] = sel;
+    atafDetail[j] = {num:num, den:den, ratios:ratios, sel:sel};
+  }
+
+  var ldfToUlt = [];
+  for (var j=0;j<nA;j++){
+    var p = tail;
+    for (var k=j;k<nA-1;k++) p *= ataf[k];
+    ldfToUlt[j] = p;
+  }
+  var pctUnrep = ldfToUlt.map(function(L){ return L>0 ? (1 - 1/L) : 0; });
+
+  var elr = (parseFloat(document.getElementById('elr').value)||0)/100;
+  var clW = Math.min(100,Math.max(0,parseFloat(document.getElementById('clWeight').value))); if(!isFinite(clW)) clW=50; clW/=100;
+
+  var rows = [];
+  var tot = {latest:0, clUlt:0, bfUlt:0, selUlt:0, clIBNR:0, bfIBNR:0, selIBNR:0, ep:0, exp:0};
+  for (var i=0;i<nY;i++){
+    var lc = latestCol[i];
+    if (lc<0){ rows.push(null); continue; }
+    var latest = latestVal[i];
+    var L = ldfToUlt[lc];
+    var pu = pctUnrep[lc];
+    var ep = parseFloat((document.getElementById('prem_'+i)||{}).value)||0;
+    var expLoss = ep * elr;
+    var clUlt = latest * L;
+    var clIBNR = clUlt - latest;
+    var bfIBNR = pu * expLoss;
+    var bfUlt = latest + bfIBNR;
+    var selIBNR = clW*clIBNR + (1-clW)*bfIBNR;
+    var selUlt = latest + selIBNR;
+    rows.push({ay:i, latestCol:lc, latest:latest, ldf:L, pctUnrep:pu, ep:ep, expLoss:expLoss, clUlt:clUlt, clIBNR:clIBNR, bfUlt:bfUlt, bfIBNR:bfIBNR, selUlt:selUlt, selIBNR:selIBNR});
+    tot.latest+=latest; tot.clUlt+=clUlt; tot.bfUlt+=bfUlt; tot.selUlt+=selUlt;
+    tot.clIBNR+=clIBNR; tot.bfIBNR+=bfIBNR; tot.selIBNR+=selIBNR; tot.ep+=ep; tot.exp+=expLoss;
+  }
+
+  var comp = [];
+  for (var i=0;i<nY;i++){
+    comp[i]=[];
+    var lc = latestCol[i];
+    for (var j=0;j<nA;j++){
+      if (j<=lc && isFinite(tri[i][j])){ comp[i][j]={v:tri[i][j], proj:false}; }
+      else if (lc>=0 && j>lc){
+        var pv = latestVal[i];
+        for (var k=lc;k<j;k++) pv *= ataf[k];
+        comp[i][j]={v:pv, proj:true};
+      } else { comp[i][j]=null; }
+    }
+  }
+
+  var booked = parseFloat(document.getElementById('bookedReserve').value)||0;
+  var prior = parseFloat(document.getElementById('priorReserve').value)||0;
+  var selIBNR = tot.selIBNR;
+  var redundancy = booked - selIBNR;
+  var redPct = selIBNR>0 ? (redundancy/selIBNR*100) : 0;
+
+  var clT=tot.clIBNR, bfT=tot.bfIBNR;
+  var avgT = (clT+bfT)/2;
+  var divergencePct = avgT>0 ? Math.abs(clT-bfT)/avgT*100 : 0;
+
+  var nRowsWithData = rows.filter(function(r){return r;}).length;
+  var maxDevObserved = 0;
+  for (var i=0;i<nY;i++) maxDevObserved = Math.max(maxDevObserved, latestCol[i]+1);
+
+  lastResult = {
+    nY:nY, nA:nA, tri:tri, comp:comp, ataf:ataf, atafDetail:atafDetail, ldfToUlt:ldfToUlt, pctUnrep:pctUnrep,
+    rows:rows, tot:tot, method:method, methodLabel:document.getElementById('ldfMethod').selectedOptions[0].text,
+    tail:tail, excludeLatest:excludeLatest, elr:elr, clW:clW,
+    booked:booked, prior:prior, selIBNR:selIBNR, redundancy:redundancy, redPct:redPct,
+    clIBNR:clT, bfIBNR:bfT, divergencePct:divergencePct,
+    nRowsWithData:nRowsWithData, maxDevObserved:maxDevObserved, badCells:clean.badCells,
+    baseYear:getN('baseYear',2017), timestamp:new Date().toISOString()
+  };
+
+  renderResults(lastResult);
+  document.getElementById('resultsPanel').classList.add('visible');
+  document.getElementById('resultsTimestamp').textContent = new Date().toISOString().slice(0,16).replace('T',' ') + ' UTC';
+  enableAP2Btn();
+  try { lastMandate = buildMandate(lastResult); window._lastMandate = lastMandate; } catch(e){ lastMandate = null; }
+  document.getElementById('resultsPanel').scrollIntoView({behavior:'smooth', block:'nearest'});
+  showToast('Reserves computed','success');
+}
+</script>
+<script>
+"use strict";
+function renderResults(r){
+  var base = r.baseYear;
+  var adequate = r.redundancy >= 0;
+  var cls = adequate ? 'adq-ok' : 'adq-def';
+  var color = adequate ? 'var(--green)' : 'var(--red)';
+  var word = adequate ? 'ADEQUATE' : 'DEFICIENT';
+  var amtWord = adequate ? 'surplus' : 'shortfall';
+  var sign = adequate ? '+' : '−';
+  var adqHtml = '<div class="adq-box '+cls+'">' +
+    '<div class="adq-label" style="color:'+color+'">Booked reserve vs. selected IBNR</div>' +
+    '<div class="adq-value" style="color:'+color+'">Booked reserve is '+word+'</div>' +
+    '<div class="adq-sub">'+amtWord.charAt(0).toUpperCase()+amtWord.slice(1)+' '+fmtFull(Math.abs(r.redundancy))+' ('+sign+fmtPct(Math.abs(r.redPct))+') &nbsp;·&nbsp; Booked '+fmtFull(r.booked)+' &nbsp;vs&nbsp; Selected IBNR '+fmtFull(r.selIBNR)+'</div>' +
+    (r.prior>0 ? '<div class="adq-sub" style="margin-top:4px">Prior-year booked reserve '+fmtFull(r.prior)+' · YoY change '+ (r.booked-r.prior>=0?'+':'−') + fmtFull(Math.abs(r.booked-r.prior)) +'</div>' : '') +
+    '</div>';
+  document.getElementById('adqBoxEl').innerHTML = adqHtml;
+
+  var metrics = [
+    {l:'Selected IBNR', v:fmtUSD(r.selIBNR), s:(r.clW*100).toFixed(0)+'% CL / '+((1-r.clW)*100).toFixed(0)+'% BF blend', cls:'highlight'},
+    {l:'Chain Ladder IBNR', v:fmtUSD(r.clIBNR), s:'Development method', cls:''},
+    {l:'Bornhuetter-Ferguson IBNR', v:fmtUSD(r.bfIBNR), s:'ELR '+(r.elr*100).toFixed(1)+'%', cls:''},
+    {l:'Booked Reserve', v:fmtUSD(r.booked), s:'Carried on balance sheet', cls:''},
+    {l:'Redundancy / (Deficiency)', v:fmtUSD(r.redundancy), s:(r.redundancy>=0?'Adequate':'Deficient')+' · '+fmtPct(r.redPct), cls:''},
+    {l:'Total Ultimate (Selected)', v:fmtUSD(r.tot.selUlt), s:'Latest '+fmtUSD(r.tot.latest)+' + IBNR', cls:''}
+  ];
+  var mg='';
+  metrics.forEach(function(m){ mg += '<div class="metric-card '+(m.cls||'')+'"><div class="metric-lbl">'+m.l+'</div><div class="metric-val">'+m.v+'</div><div class="metric-sub">'+m.s+'</div></div>'; });
+  document.getElementById('metricGrid').innerHTML = mg;
+
+  var lh = '<thead><tr><th>Development transition</th>';
+  for (var j=0;j<r.nA-1;j++) lh += '<th>'+((j+1)*12)+' to '+((j+2)*12)+'</th>';
+  lh += '<th>Tail</th></tr></thead><tbody>';
+  lh += '<tr><td>Selected ATAF ('+r.methodLabel+')</td>';
+  for (var j=0;j<r.nA-1;j++) lh += '<td>'+fmtF(r.ataf[j],3)+'</td>';
+  lh += '<td>'+fmtF(r.tail,3)+'</td></tr>';
+  lh += '<tr><td style="color:var(--body)">Link ratios used / available</td>';
+  for (var j=0;j<r.nA-1;j++){ var d=r.atafDetail[j]; var used=d.ratios.filter(function(x){return !x.excluded;}).length; lh+='<td style="color:var(--body)">'+used+'/'+d.ratios.length+'</td>'; }
+  lh += '<td style="color:var(--body)">—</td></tr>';
+  lh += '<tr><td>Cumulative LDF to ultimate (from age)</td>';
+  for (var j=0;j<r.nA-1;j++) lh += '<td>'+fmtF(r.ldfToUlt[j],3)+'</td>';
+  lh += '<td>'+fmtF(r.ldfToUlt[r.nA-1],3)+'</td></tr>';
+  lh += '<tr><td style="color:var(--body)">% unreported at age start</td>';
+  for (var j=0;j<r.nA-1;j++) lh += '<td style="color:var(--gold)">'+fmtPct(r.pctUnrep[j]*100)+'</td>';
+  lh += '<td style="color:var(--gold)">'+fmtPct(r.pctUnrep[r.nA-1]*100)+'</td></tr>';
+  lh += '</tbody>';
+  if (r.excludeLatest) lh += '<tfoot><tr><td colspan="'+(r.nA+1)+'" style="color:var(--red);font-size:10px;text-align:left;padding-top:6px">Latest diagonal excluded from ATAF averages.</td></tr></tfoot>';
+  document.getElementById('ldfTable').innerHTML = lh;
+
+  var ch = '<thead><tr><th class="rowhead">AY \\ Dev</th>';
+  for (var a=0;a<r.nA;a++) ch += '<th>'+((a+1)*12)+' mo</th>';
+  ch += '<th>Ult (CL)</th></tr></thead><tbody>';
+  for (var i=0;i<r.nY;i++){
+    ch += '<tr><td class="rowhead">'+(base+i)+'</td>';
+    for (var j=0;j<r.nA;j++){
+      var c = r.comp[i][j];
+      if (!c){ ch += '<td class="tri-num tri-cell-empty">·</td>'; }
+      else { ch += '<td class="tri-num '+(c.proj?'tri-cell-proj':'tri-cell-actual')+'">'+fmtUSD(c.v)+'</td>'; }
+    }
+    var rr = r.rows[i];
+    ch += '<td class="tri-num" style="color:var(--purple);font-weight:600">'+(rr?fmtUSD(rr.clUlt):'—')+'</td>';
+    ch += '</tr>';
+  }
+  ch += '</tbody>';
+  document.getElementById('triComplete').innerHTML = ch;
+
+  var uh = '<thead><tr><th>AY</th><th>Latest diag.</th><th>LDF to ult</th><th>CL ult.</th><th>BF ult.</th><th>CL IBNR</th><th>BF IBNR</th><th>Selected IBNR</th></tr></thead><tbody>';
+  for (var i=0;i<r.nY;i++){
+    var x = r.rows[i];
+    if (!x){ continue; }
+    uh += '<tr><td>'+(base+i)+'</td>'+
+      '<td>'+fmtUSD(x.latest)+'</td>'+
+      '<td>'+fmtF(x.ldf,3)+'</td>'+
+      '<td>'+fmtUSD(x.clUlt)+'</td>'+
+      '<td>'+fmtUSD(x.bfUlt)+'</td>'+
+      '<td>'+fmtUSD(x.clIBNR)+'</td>'+
+      '<td>'+fmtUSD(x.bfIBNR)+'</td>'+
+      '<td style="color:var(--purple)">'+fmtUSD(x.selIBNR)+'</td></tr>';
+  }
+  uh += '<tr class="total-row"><td>Total</td><td>'+fmtUSD(r.tot.latest)+'</td><td>—</td><td>'+fmtUSD(r.tot.clUlt)+'</td><td>'+fmtUSD(r.tot.bfUlt)+'</td><td>'+fmtUSD(r.tot.clIBNR)+'</td><td>'+fmtUSD(r.tot.bfIBNR)+'</td><td>'+fmtUSD(r.tot.selIBNR)+'</td></tr>';
+  uh += '</tbody>';
+  document.getElementById('ultTable').innerHTML = uh;
+
+  var cg = '';
+  cg += '<div class="cmp-card"><div class="l">CHAIN LADDER · TOTAL IBNR</div><div class="v" style="color:var(--purple)">'+fmtUSD(r.clIBNR)+'</div><div class="s">Ultimate '+fmtUSD(r.tot.clUlt)+'</div></div>';
+  cg += '<div class="cmp-card"><div class="l">BORNHUETTER-FERGUSON · TOTAL IBNR</div><div class="v" style="color:var(--gold)">'+fmtUSD(r.bfIBNR)+'</div><div class="s">Ultimate '+fmtUSD(r.tot.bfUlt)+'</div></div>';
+  document.getElementById('cmpGrid').innerHTML = cg;
+
+  var divHtml;
+  if (r.divergencePct > 15){
+    divHtml = '<div class="warning-box crit"><div class="warning-title">⚠ Method divergence '+fmtPct(r.divergencePct)+' — exceeds 15% threshold</div>'+
+      'Chain Ladder and Bornhuetter-Ferguson IBNR differ by '+fmtPct(r.divergencePct)+' ('+fmtUSD(Math.abs(r.clIBNR-r.bfIBNR))+'). A divergence this large warrants actuarial investigation: review the a priori loss ratio, the selected LDFs (especially the tail), and whether recent accident years are over- or under-developing relative to expectation.</div>';
+  } else {
+    divHtml = '<div class="warning-box" style="background:var(--green-dim);border-color:rgba(34,197,94,.3)"><div class="warning-title" style="color:var(--green)">✓ Methods converge ('+fmtPct(r.divergencePct)+' difference)</div>'+
+      'Chain Ladder and Bornhuetter-Ferguson IBNR estimates agree within the 15% guidance band, supporting confidence in the selected IBNR.</div>';
+  }
+  document.getElementById('divergenceEl').innerHTML = divHtml;
+
+  var warns = [];
+  if (r.nRowsWithData < 5){ warns.push({crit:true, t:'Low credibility — fewer than 5 accident years', b:'Only '+r.nRowsWithData+' accident year(s) carry data. Chain ladder LDFs estimated from short experience are volatile; Bornhuetter-Ferguson (anchored on the a priori loss ratio) is generally more reliable for thin triangles. Treat the selected IBNR as indicative only.'}); }
+  if (r.maxDevObserved < 3){ warns.push({crit:true, t:'Low credibility — fewer than 3 development periods', b:'The triangle spans only '+r.maxDevObserved+' development age(s). Tail behaviour is essentially unobserved; the LDF-to-ultimate and tail factor dominate the result. Extend the triangle or anchor with an industry development pattern before relying on the output.'}); }
+  if (r.badCells.length){ warns.push({crit:false, t:'Some cells were ignored', b:r.badCells.length+' cell(s) were non-numeric or negative and were treated as blank: '+r.badCells.slice(0,12).join('  ')+(r.badCells.length>12?' …':'')+' (row,col references).'}); }
+  warns.push({crit:false, t:'Deterministic point estimate only', b:'This tool produces a single deterministic IBNR per method. It does not generate confidence intervals or percentile estimates — stochastic reserving (Mack method, bootstrap) requires additional modelling [Note 3].'});
+  warns.push({crit:false, t:'Tail factor sensitivity', b:'The selected tail factor of '+fmtF(r.tail,3)+' is applied beyond the last observed diagonal. For long-tailed lines (workers comp, medical malpractice) a tail of 1.000 materially understates ultimate losses [Note 4].'});
+  warns.push({crit:false, t:'Not an actuarial opinion', b:'The adequacy conclusion is a mathematical comparison of booked reserve to selected IBNR. It does not constitute a Statement of Actuarial Opinion and does not satisfy appointed-actuary requirements under NAIC model law [Note 5].'});
+
+  var wh='';
+  warns.forEach(function(w){ wh += '<div class="warning-box'+(w.crit?' crit':'')+'"><div class="warning-title">'+(w.crit?'⚠ ':'• ')+w.t+'</div><div>'+w.b+'</div></div>'; });
+  wh += '<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;font-size:10.5px;color:var(--body);line-height:1.7">'+
+    '<div style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:var(--purple);letter-spacing:.08em;margin-bottom:6px">SOURCE NOTES</div>'+
+    '1. Chain Ladder (development) method per CAS Exam 7 study materials and Friedland, "Estimating Unpaid Claims Using Basic Techniques" (CAS, 2010).<br>'+
+    '2. Bornhuetter-Ferguson method per Bornhuetter &amp; Ferguson (1972), "The Actuary and IBNR," PCAS LIX.<br>'+
+    '3. Deterministic chain ladder only — no confidence intervals; stochastic reserving (bootstrapping, Mack method) requires additional modelling.<br>'+
+    '4. Tail factor selection is critical for long-tailed lines (workers comp, medical malpractice); default tail 1.000 is appropriate for short-tailed lines only.<br>'+
+    '5. The reserve adequacy conclusion is a mathematical comparison only — it does not constitute an actuarial opinion or satisfy appointed-actuary requirements under NAIC model law.'+
+    '</div>';
+  document.getElementById('warningsEl').innerHTML = wh;
+}
+</script>
+<script>
+"use strict";
+function uuidv4(){
+  if (window.crypto && crypto.getRandomValues){
+    var b = new Uint8Array(16); crypto.getRandomValues(b);
+    b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80;
+    var h = []; for (var i=0;i<16;i++) h.push((b[i]+0x100).toString(16).slice(1));
+    return h[0]+h[1]+h[2]+h[3]+'-'+h[4]+h[5]+'-'+h[6]+h[7]+'-'+h[8]+h[9]+'-'+h[10]+h[11]+h[12]+h[13]+h[14]+h[15];
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){var r=Math.random()*16|0,v=c==='x'?r:(r&0x3|0x8);return v.toString(16);});
+}
+
+var AP2_REQUIRED = ['ap2_version','mandate_id','issued_at','issued_by','tool_id','tool_version','mandate_type','jurisdiction','regulatory_frameworks','payload','summary','agent_instructions','valid_from','valid_until','last_reviewed','source_tool_inputs','regulatory_citations','audit_metadata'];
+
+var AP2Schema = {
+  validate: function(m){
+    var errs = [];
+    if (!m || typeof m!=='object'){ return {valid:false, errors:['Mandate is not an object']}; }
+    AP2_REQUIRED.forEach(function(k){ if (!(k in m) || m[k]===null || m[k]===undefined) errs.push('Missing required field: '+k); });
+    if (m.ap2_version && m.ap2_version!=='1.0') errs.push('ap2_version must be "1.0"');
+    if (m.issued_by && m.issued_by!=='ainumbers.co') errs.push('issued_by must be "ainumbers.co"');
+    if (m.mandate_id && !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(m.mandate_id)) errs.push('mandate_id must be a UUIDv4');
+    if (!Array.isArray(m.jurisdiction)) errs.push('jurisdiction must be an array');
+    if (!Array.isArray(m.regulatory_frameworks)) errs.push('regulatory_frameworks must be an array');
+    if (!Array.isArray(m.agent_instructions)) errs.push('agent_instructions must be an array');
+    if (!Array.isArray(m.regulatory_citations)) errs.push('regulatory_citations must be an array');
+    if (m.payload && typeof m.payload!=='object') errs.push('payload must be an object');
+    if (m.audit_metadata && typeof m.audit_metadata!=='object') errs.push('audit_metadata must be an object');
+    return {valid: errs.length===0, errors: errs};
+  }
+};
+
+function buildMandate(r){
+  if (!r) return null;
+  var now = new Date();
+  var validFrom = now.toISOString();
+  var validUntil = new Date(now.getTime() + 365*24*3600*1000).toISOString();
+  var adequate = r.redundancy >= 0;
+
+  var srcInputs = {
+    accident_years: r.nY, development_ages: r.nA, base_accident_year: r.baseYear,
+    ldf_method: r.methodLabel, tail_factor: +r.tail.toFixed(4), exclude_latest_diagonal: r.excludeLatest,
+    a_priori_loss_ratio_pct: +(r.elr*100).toFixed(2), cl_blend_weight_pct: +(r.clW*100).toFixed(0),
+    booked_reserve: +r.booked.toFixed(0), prior_year_booked_reserve: +r.prior.toFixed(0),
+    earned_premium_by_ay: r.rows.map(function(x){return x?+x.ep.toFixed(0):null;}),
+    triangle_cumulative: r.tri.map(function(row){return row.map(function(v){return isFinite(v)?+v.toFixed(0):null;});})
+  };
+
+  var payload = {
+    assessment: 'claims_reserve_adequacy',
+    selected_ibnr: +r.selIBNR.toFixed(0), chain_ladder_ibnr: +r.clIBNR.toFixed(0), bornhuetter_ferguson_ibnr: +r.bfIBNR.toFixed(0),
+    chain_ladder_ultimate: +r.tot.clUlt.toFixed(0), bornhuetter_ferguson_ultimate: +r.tot.bfUlt.toFixed(0), selected_ultimate: +r.tot.selUlt.toFixed(0),
+    total_reported_to_date: +r.tot.latest.toFixed(0), booked_reserve: +r.booked.toFixed(0),
+    redundancy_deficiency: +r.redundancy.toFixed(0), redundancy_deficiency_pct: +r.redPct.toFixed(2),
+    adequacy_signal: adequate ? 'ADEQUATE' : 'DEFICIENT',
+    method_divergence_pct: +r.divergencePct.toFixed(2), divergence_exceeds_threshold: r.divergencePct > 15,
+    selected_ldfs_to_ultimate: r.ldfToUlt.map(function(L){return +L.toFixed(4);}),
+    age_to_age_factors: r.ataf.map(function(a){return +a.toFixed(4);}),
+    pct_unreported_by_age: r.pctUnrep.map(function(p){return +(p*100).toFixed(2);}),
+    by_accident_year: r.rows.map(function(x){ return x ? {
+      accident_year: r.baseYear + x.ay, latest_diagonal: +x.latest.toFixed(0), ldf_to_ultimate: +x.ldf.toFixed(4),
+      cl_ultimate: +x.clUlt.toFixed(0), bf_ultimate: +x.bfUlt.toFixed(0),
+      cl_ibnr: +x.clIBNR.toFixed(0), bf_ibnr: +x.bfIBNR.toFixed(0), selected_ibnr: +x.selIBNR.toFixed(0)
+    } : null; }).filter(function(x){return x;}),
+    currency: 'USD', units: 'absolute'
+  };
+
+  var instructions = [
+    'Treat the selected IBNR of ' + fmtFull(r.selIBNR) + ' as the recommended unpaid-claim provision for this triangle.',
+    'The booked reserve of ' + fmtFull(r.booked) + ' is ' + (adequate?'ADEQUATE — a surplus of ':'DEFICIENT — a shortfall of ') + fmtFull(Math.abs(r.redundancy)) + ' (' + r.redPct.toFixed(1) + '%) versus selected IBNR.',
+    (r.divergencePct>15 ? 'Chain Ladder and Bornhuetter-Ferguson diverge by '+r.divergencePct.toFixed(1)+'% — escalate for actuarial investigation before booking.' : 'Chain Ladder and Bornhuetter-Ferguson agree within 15% — selected IBNR is well supported.'),
+    'Do not treat this output as a Statement of Actuarial Opinion; obtain appointed-actuary sign-off before regulatory filing.'
+  ];
+
+  var summary = 'Selected IBNR is ' + fmtFull(r.selIBNR) + ' (' + (r.clW*100).toFixed(0) + '% Chain Ladder / ' + ((1-r.clW)*100).toFixed(0) + '% Bornhuetter-Ferguson). The booked reserve of ' + fmtFull(r.booked) + ' is ' + (adequate?'adequate':'deficient') + ' by ' + fmtFull(Math.abs(r.redundancy)) + ' (' + Math.abs(r.redPct).toFixed(1) + '%). CL vs BF divergence ' + r.divergencePct.toFixed(1) + '%.';
+
+  var mandate = {
+    ap2_version: '1.0', mandate_id: uuidv4(), issued_at: now.toISOString(), issued_by: 'ainumbers.co',
+    tool_id: TOOL_ID, tool_version: TOOL_VERSION, mandate_type: 'risk_parameter',
+    jurisdiction: ['US'],
+    regulatory_frameworks: ['CAS Statement of Principles — Loss and Loss Adjustment Expense Reserves','NAIC Annual Statement — Schedule P','ASOP No. 43 — Property/Casualty Unpaid Claim Estimates'],
+    payload: payload, summary: summary, agent_instructions: instructions,
+    valid_from: validFrom, valid_until: validUntil, last_reviewed: '2026-06-08',
+    source_tool_inputs: srcInputs,
+    regulatory_citations: [
+      'Friedland, "Estimating Unpaid Claims Using Basic Techniques" (CAS, 2010)',
+      'Bornhuetter & Ferguson (1972), "The Actuary and IBNR," PCAS LIX',
+      'Actuarial Standard of Practice (ASOP) No. 43 — Property/Casualty Unpaid Claim Estimates',
+      'NAIC Property and Casualty Annual Statement Instructions — Schedule P'
+    ],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  return mandate;
+}
+
+window.AIN_BUILD_MANDATE = function(){ return lastResult ? buildMandate(lastResult) : null; };
+
+function enableAP2Btn(){
+  var btn = document.getElementById('ap2ExportBtn');
+  if (btn){ btn.disabled = false; btn.classList.add('ready'); btn.title = 'For API integration · audit trail'; }
+}
+
+function exportAP2(){
+  if (!lastResult){ showToast('Run the analysis first to generate a Policy Mandate','error'); return; }
+  var mandate = buildMandate(lastResult);
+  var res = AP2Schema.validate(mandate);
+  if (!res.valid){ showToast('Policy Mandate validation failed: '+res.errors.slice(0,2).join('; '),'error'); return; }
+  window._lastMandate = mandate; lastMandate = mandate;
+  var ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  triggerDownload(JSON.stringify(mandate,null,2), TOOL_ID+'_'+ts+'.policy.json', 'application/json');
+  showToast('Policy Mandate exported','success');
+}
+
+function exportMarkdown(){
+  if (!lastResult){ showToast('Run the analysis first','error'); return; }
+  var r = lastResult, base = r.baseYear;
+  var adequate = r.redundancy>=0;
+  var md = '';
+  md += '# Claims Reserve Adequacy Report (T462)\n\n';
+  md += '_Generated '+r.timestamp+' · AINumbers.co · Chain Ladder + Bornhuetter-Ferguson_\n\n';
+  md += '## Reserve Adequacy Signal\n\n';
+  md += '**Booked reserve is '+(adequate?'ADEQUATE':'DEFICIENT')+'** — '+(adequate?'surplus':'shortfall')+' of '+fmtFull(Math.abs(r.redundancy))+' ('+(adequate?'+':'−')+Math.abs(r.redPct).toFixed(1)+'%).\n\n';
+  md += '| Metric | Value |\n|---|---:|\n';
+  md += '| Selected IBNR ('+(r.clW*100).toFixed(0)+'% CL / '+((1-r.clW)*100).toFixed(0)+'% BF) | '+fmtFull(r.selIBNR)+' |\n';
+  md += '| Chain Ladder IBNR | '+fmtFull(r.clIBNR)+' |\n';
+  md += '| Bornhuetter-Ferguson IBNR | '+fmtFull(r.bfIBNR)+' |\n';
+  md += '| Booked reserve | '+fmtFull(r.booked)+' |\n';
+  md += '| Redundancy / (Deficiency) | '+fmtFull(r.redundancy)+' |\n';
+  md += '| Total selected ultimate | '+fmtFull(r.tot.selUlt)+' |\n';
+  md += '| CL vs BF divergence | '+r.divergencePct.toFixed(1)+'%'+(r.divergencePct>15?' (exceeds 15% threshold)':'')+' |\n\n';
+  md += '## Selected LDFs (method: '+r.methodLabel+', tail '+fmtF(r.tail,3)+')\n\n';
+  md += '| Transition | ATAF | Cumulative LDF to ult | % unreported |\n|---|---:|---:|---:|\n';
+  for (var j=0;j<r.nA-1;j++) md += '| '+((j+1)*12)+' to '+((j+2)*12)+' mo | '+fmtF(r.ataf[j],3)+' | '+fmtF(r.ldfToUlt[j],3)+' | '+(r.pctUnrep[j]*100).toFixed(1)+'% |\n';
+  md += '\n## Ultimate & IBNR by Accident Year\n\n';
+  md += '| AY | Latest | LDF to ult | CL ult | BF ult | CL IBNR | BF IBNR | Selected IBNR |\n|---|---:|---:|---:|---:|---:|---:|---:|\n';
+  for (var i=0;i<r.nY;i++){ var x=r.rows[i]; if(!x) continue;
+    md += '| '+(base+i)+' | '+fmtFull(x.latest)+' | '+fmtF(x.ldf,3)+' | '+fmtFull(x.clUlt)+' | '+fmtFull(x.bfUlt)+' | '+fmtFull(x.clIBNR)+' | '+fmtFull(x.bfIBNR)+' | '+fmtFull(x.selIBNR)+' |\n';
+  }
+  md += '| **Total** | **'+fmtFull(r.tot.latest)+'** | — | **'+fmtFull(r.tot.clUlt)+'** | **'+fmtFull(r.tot.bfUlt)+'** | **'+fmtFull(r.tot.clIBNR)+'** | **'+fmtFull(r.tot.bfIBNR)+'** | **'+fmtFull(r.tot.selIBNR)+'** |\n\n';
+  md += '## Source Notes\n\n';
+  md += '1. Chain Ladder (development) method per CAS Exam 7 materials and Friedland, "Estimating Unpaid Claims Using Basic Techniques" (CAS, 2010).\n';
+  md += '2. Bornhuetter-Ferguson method per Bornhuetter & Ferguson (1972), "The Actuary and IBNR," PCAS LIX.\n';
+  md += '3. Deterministic point estimate only — no confidence intervals; stochastic reserving requires additional modelling.\n';
+  md += '4. Tail factor is critical for long-tailed lines; default 1.000 suits short-tailed lines only.\n';
+  md += '5. Adequacy conclusion is a mathematical comparison only — not an actuarial opinion and does not satisfy appointed-actuary requirements under NAIC model law.\n';
+  var ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  triggerDownload(md, 't462-reserve-adequacy-'+ts+'.md', 'text/markdown');
+  showToast('Markdown exported','success');
+}
+
+function csvEsc(s){ s=String(s); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; }
+function exportCSV(){
+  if (!lastResult){ showToast('Run the analysis first','error'); return; }
+  var r = lastResult, base = r.baseYear;
+  var lines = [];
+  lines.push('# T462 Claims Reserve Adequacy Checker — '+r.timestamp);
+  lines.push('');
+  lines.push('# Section 1: Completed development triangle (cumulative; P=projected)');
+  var hdr = ['AY']; for (var a=0;a<r.nA;a++) hdr.push((a+1)*12+'mo'); hdr.push('CL_Ultimate');
+  lines.push(hdr.join(','));
+  for (var i=0;i<r.nY;i++){
+    var row=[base+i];
+    for (var j=0;j<r.nA;j++){ var c=r.comp[i][j]; row.push(c? (c.v.toFixed(0)+(c.proj?'(P)':'')) : ''); }
+    row.push(r.rows[i]? r.rows[i].clUlt.toFixed(0):'');
+    lines.push(row.map(csvEsc).join(','));
+  }
+  lines.push('');
+  lines.push('# Section 2: Selected loss development factors (method: '+r.methodLabel+', tail '+r.tail.toFixed(3)+')');
+  lines.push('Transition,ATAF,Cumulative_LDF_to_ult,Pct_unreported');
+  for (var j=0;j<r.nA-1;j++) lines.push([((j+1)*12)+'-'+((j+2)*12)+'mo', r.ataf[j].toFixed(4), r.ldfToUlt[j].toFixed(4), (r.pctUnrep[j]*100).toFixed(2)+'%'].join(','));
+  lines.push('');
+  lines.push('# Section 3: Ultimate & IBNR by accident year');
+  lines.push('AY,Latest_diagonal,LDF_to_ult,CL_ultimate,BF_ultimate,CL_IBNR,BF_IBNR,Selected_IBNR');
+  for (var i=0;i<r.nY;i++){ var x=r.rows[i]; if(!x) continue;
+    lines.push([base+i, x.latest.toFixed(0), x.ldf.toFixed(4), x.clUlt.toFixed(0), x.bfUlt.toFixed(0), x.clIBNR.toFixed(0), x.bfIBNR.toFixed(0), x.selIBNR.toFixed(0)].join(','));
+  }
+  lines.push(['Total', r.tot.latest.toFixed(0), '', r.tot.clUlt.toFixed(0), r.tot.bfUlt.toFixed(0), r.tot.clIBNR.toFixed(0), r.tot.bfIBNR.toFixed(0), r.tot.selIBNR.toFixed(0)].join(','));
+  lines.push('');
+  lines.push('# Section 4: Reserve adequacy');
+  lines.push('Metric,Value');
+  lines.push('Selected_IBNR,'+r.selIBNR.toFixed(0));
+  lines.push('Booked_reserve,'+r.booked.toFixed(0));
+  lines.push('Redundancy_deficiency,'+r.redundancy.toFixed(0));
+  lines.push('Redundancy_deficiency_pct,'+r.redPct.toFixed(2)+'%');
+  lines.push('Adequacy_signal,'+(r.redundancy>=0?'ADEQUATE':'DEFICIENT'));
+  lines.push('CL_vs_BF_divergence_pct,'+r.divergencePct.toFixed(2)+'%');
+  var ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  triggerDownload(lines.join('\n'), 't462-reserve-adequacy-'+ts+'.csv', 'text/csv');
+  showToast('CSV exported','success');
+}
+
+function toggleMfst(){
+  var b=document.getElementById('mfstBody'), a=document.getElementById('mfstArr');
+  if (b.style.display==='none' || b.style.display===''){ b.style.display='block'; if(a)a.textContent='▲'; document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2); }
+  else { b.style.display='none'; if(a)a.textContent='▼'; }
+}
+function copyMfst(){ if(navigator.clipboard) navigator.clipboard.writeText(JSON.stringify(MANIFEST,null,2)); showToast('Manifest copied','success'); }
+function scrollMfst(){ var el=document.getElementById('mfstSec'); if(el) el.scrollIntoView({behavior:'smooth'}); }
+
+buildTriangle();
+(function(){ try{ var s=sessionStorage.getItem('ain_lang'); if(s && I18N[s]) setLang(s); }catch(e){} })();
+</script>
+<script>
+var MANIFEST = {"tool_id":"462-claims-reserve-adequacy-checker","version":"1.0","title":"Claims Reserve Adequacy Checker — Chain Ladder + Bornhuetter-Ferguson","description":"Run the Chain Ladder (development) and Bornhuetter-Ferguson reserving methods on a loss development triangle. Computes age-to-age factors, loss development factors to ultimate, chain-ladder and B-F ultimate losses, IBNR by accident year, a selected (blended) IBNR, and a reserve adequacy signal versus a booked reserve. Flags >15% method divergence and low-credibility triangles. Client-side. Zero PII.","category":"cat-30","tags":["reserving","chain-ladder","bornhuetter-ferguson","loss-triangle","IBNR","LDF","loss-development-factor","reserve-adequacy","actuarial","CAS","Friedland-2010","Zero-PII"],"audience":["actuary","reserving-actuary","appointed-actuary","cfo","auditor","insurance-finance"],"last_reviewed":"2026-06-08","input_schema":{"type":"object","required":["triangle","ldfMethod"],"properties":{"triangle":{"type":"array","description":"Cumulative loss development triangle: array of rows (accident years), each an array of cumulative incurred losses by development age. Ragged/blank lower-right cells permitted.","items":{"type":"array","items":{"type":["number","null"]}}},"ldfMethod":{"type":"string","enum":["vw","simple","vw3","vw5","manual"],"description":"LDF averaging method"},"tailFactor":{"type":"number","minimum":0.5,"maximum":5,"description":"Development beyond the last diagonal (default 1.000)"},"excludeDiag":{"type":"boolean","description":"Exclude latest calendar diagonal from ATAF averages"},"elr":{"type":"number","minimum":0,"description":"A priori (expected) loss ratio %"},"clWeight":{"type":"number","minimum":0,"maximum":100,"description":"Blend weight on Chain Ladder vs B-F for selected IBNR (%)"},"earnedPremium":{"type":"array","items":{"type":"number","minimum":0},"description":"Earned premium by accident year ($)"},"bookedReserve":{"type":"number","minimum":0,"description":"Carried reserve on the balance sheet ($)"},"priorReserve":{"type":"number","minimum":0,"description":"Optional prior-year booked reserve ($)"}}},"output_schema":{"type":"object","properties":{"selected_ibnr":{"type":"number"},"chain_ladder_ibnr":{"type":"number"},"bornhuetter_ferguson_ibnr":{"type":"number"},"booked_reserve":{"type":"number"},"redundancy_deficiency":{"type":"number"},"redundancy_deficiency_pct":{"type":"number"},"adequacy_signal":{"type":"string","enum":["ADEQUATE","DEFICIENT"]},"method_divergence_pct":{"type":"number"},"selected_ldfs_to_ultimate":{"type":"array","items":{"type":"number"}}}},"mcp_tool_definition":{"name":"check_claims_reserve_adequacy","description":"Run Chain Ladder (development) and Bornhuetter-Ferguson reserving on a cumulative loss development triangle. Computes volume-weighted/simple/3yr/5yr/manual age-to-age factors with optional tail factor and latest-diagonal exclusion, LDFs to ultimate, % unreported, chain-ladder and B-F ultimates and IBNR by accident year, a blended selected IBNR, and a reserve adequacy signal (redundancy/deficiency) versus a booked reserve. Flags CL-vs-BF divergence beyond 15% and low-credibility triangles (<5 accident years or <3 development ages). Methods per CAS/Friedland (2010) and Bornhuetter-Ferguson (1972). Deterministic, client-side, zero PII.","inputSchema":{"type":"object","required":["triangle","ldfMethod"],"properties":{"triangle":{"type":"array","items":{"type":"array","items":{"type":["number","null"]}}},"ldfMethod":{"type":"string","enum":["vw","simple","vw3","vw5","manual"]},"tailFactor":{"type":"number"},"excludeDiag":{"type":"boolean"},"elr":{"type":"number"},"clWeight":{"type":"number"},"earnedPremium":{"type":"array","items":{"type":"number"}},"bookedReserve":{"type":"number"},"priorReserve":{"type":"number"}}}},"execution":{"type":"browser-javascript","entry":"tools/462-claims-reserve-adequacy-checker.html","function_name":"runReserve","timeout_ms":5000},"deterministic":true,"pii_transmitted":false,"execution_context":"client_side_browser","regulatory_citations":["Friedland, \"Estimating Unpaid Claims Using Basic Techniques\" (CAS, 2010) — Chain Ladder (development) method","Bornhuetter & Ferguson (1972), \"The Actuary and IBNR,\" PCAS LIX — Bornhuetter-Ferguson method","Actuarial Standard of Practice (ASOP) No. 43 — Property/Casualty Unpaid Claim Estimates","NAIC Property and Casualty Annual Statement Instructions — Schedule P","CAS Statement of Principles Regarding Property and Casualty Loss and Loss Adjustment Expense Reserves"],"ap2_export":true,"prefill":true,"bridge_version":"1.0"};
+</script>
+
+<!-- ═══ AIN Bridge v1.0 — prefill deep-links (#in=<base64url JSON>[&run=1]). Master: scripts/ain-bridge-v1.snippet.html · CONTRACT §2.4/§6.4 ═══ -->
+<script>window.AIN_BRIDGE_CFG={runFn:'runReserve',intake:false,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+var L={
+ en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled from link and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'},
+ es:{pf:'Campos precargados desde el enlace — revise y ejecute',ran:'Campos precargados desde el enlace y ejecutados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Suelte un .policy.json aquí, o',choose:'Elegir archivo',paste:'Pegar JSON',apply:'Aplicar',ok:'Policy Mandate importado desde',bad:'JSON de Policy Mandate no válido'},
+ fr:{pf:'Champs préremplis depuis le lien — vérifiez puis exécutez',ran:'Champs préremplis depuis le lien et exécutés',fields:'champs',it:'Importer un Policy Mandate (.policy.json)',drop:'Déposez un .policy.json ici, ou',choose:'Choisir un fichier',paste:'Coller le JSON',apply:'Appliquer',ok:'Policy Mandate importé depuis',bad:'JSON Policy Mandate non valide'},
+ ar:{pf:'تم ملء الحقول مسبقًا من الرابط — راجع ثم شغّل',ran:'تم ملء الحقول من الرابط وتنفيذها',fields:'حقول',it:'استيراد Policy Mandate (.policy.json)',drop:'أسقط ملف ‎.policy.json هنا، أو',choose:'اختر ملفًا',paste:'لصق JSON',apply:'تطبيق',ok:'تم استيراد Policy Mandate من',bad:'JSON غير صالح لـ Policy Mandate'},
+ pt:{pf:'Campos pré-preenchidos a partir do link — revise e execute',ran:'Campos pré-preenchidos a partir do link e executados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Solte um .policy.json aqui, ou',choose:'Escolher arquivo',paste:'Colar JSON',apply:'Aplicar',ok:'Policy Mandate importado de',bad:'JSON de Policy Mandate inválido'},
+ zh:{pf:'已从链接预填输入 — 请检查后运行',ran:'已从链接预填并自动执行',fields:'个字段',it:'导入 Policy Mandate (.policy.json)',drop:'将 .policy.json 拖放到此处，或',choose:'选择文件',paste:'粘贴 JSON',apply:'应用',ok:'已导入 Policy Mandate，来源：',bad:'无效的 AINumbers Policy Mandate JSON'}
+};
+function t(k){var lg='en';try{lg=sessionStorage.getItem('ain_lang')||'en';}catch(e){}return (L[lg]&&L[lg][k])||L.en[k];}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function anchorEl(){return (CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.querySelector('.pii-notice')||document.querySelector('.panel')||document.body.firstElementChild;}
+function notice(msg,kind){
+  var d=document.getElementById('ainBridgeNotice');
+  if(!d){d=document.createElement('div');d.id='ainBridgeNotice';
+    var a=document.getElementById('ainIntakeZone')||anchorEl();
+    if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}
+  d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));
+  d.textContent=msg;
+}
+function looksLikeMandate(o){return !!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}
+function intakeApply(text){
+  var o;try{o=JSON.parse(text);}catch(e){notice('⚠ '+t('bad'),'warn');return 0;}
+  if(!looksLikeMandate(o)){notice('⚠ '+t('bad'),'warn');return 0;}
+  var n=0;
+  if(CFG.intakeTarget){var ta=document.getElementById(CFG.intakeTarget);
+    if(ta){ta.value=JSON.stringify(o,null,2);try{ta.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}n++;}}
+  if(o.payload&&typeof o.payload==='object')n+=applyFields(o.payload);
+  if(o.source_tool_inputs&&typeof o.source_tool_inputs==='object')n+=applyFields(o.source_tool_inputs);
+  notice((n>0?'📥 ':'⚠ ')+t('ok')+' '+(o.tool_id||'?')+' · '+n+' '+t('fields'),n>0?'ok':'warn');
+  return n;
+}
+function buildIntakeUI(){
+  if(!CFG.intake)return;
+  var a=anchorEl();if(!a||!a.parentNode)return;
+  var z=document.createElement('div');z.id='ainIntakeZone';
+  z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8;letter-spacing:.04em');
+  var lbl=document.createElement('div');lbl.textContent='📥 '+t('it');lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');
+  var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');
+  var txt=document.createElement('span');txt.textContent=t('drop');
+  function mkBtn(label){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}
+  var bFile=mkBtn(t('choose')),bPaste=mkBtn(t('paste'));
+  var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';
+  fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});
+  bFile.addEventListener('click',function(){fi.click();});
+  var pasteRow=document.createElement('div');pasteRow.style.display='none';pasteRow.setAttribute('style','display:none;margin-top:.6rem');
+  var ta=document.createElement('textarea');ta.rows=5;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');
+  var bApply=mkBtn(t('apply'));bApply.style.marginTop='.4rem';
+  bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});
+  pasteRow.appendChild(ta);pasteRow.appendChild(bApply);
+  bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';if(pasteRow.style.display==='block')ta.focus();});
+  z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});
+  z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});
+  z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});
+  row.appendChild(txt);row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);
+  z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);
+  a.parentNode.insertBefore(z,a);
+}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  var n=applyFields(fields);
+  if(n>0){
+    if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');
+    else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');
+  }
+}
+window.AINBridge={
+  version:'1.0',
+  apply:applyFields,
+  run:runTool,
+  intake:intakeApply,
+  getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
+};
+window.addEventListener('message',function(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=(e.origin&&e.origin!=='null')?e.origin:'*';
+  var d=e.data||{};
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+  else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
+});
+function boot(){buildIntakeUI();initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>

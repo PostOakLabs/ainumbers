@@ -89,6 +89,27 @@ nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);backgroun
 .comp-note.warn{border-left-color:var(--warn)}
 .comp-note.info{border-left-color:var(--purple)}
 .be-line{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--bright);padding:.5rem 0}
+.chk-item{display:flex;gap:.7rem;align-items:flex-start;padding:.6rem 0;border-bottom:1px solid var(--border)}
+.chk-item:last-child{border-bottom:none}
+.chk-icon{flex:0 0 auto;width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.6rem;font-weight:600;margin-top:.1rem}
+.chk-ok{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.chk-warn{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+.chk-info{background:var(--purple-dim);color:var(--purple-lt);border:1px solid rgba(155,114,245,.3)}
+.chk-text{flex:1}
+.chk-art{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);margin-bottom:.15rem}
+.chk-req{font-size:.74rem;color:var(--bright);line-height:1.5}
+.chk-stat{font-size:.7rem;color:var(--body);line-height:1.5;margin-top:.15rem}
+.jx-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.jx-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .7rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400}
+.jx-table td{padding:.5rem .7rem;border-bottom:1px solid var(--border);vertical-align:top;color:var(--body)}
+.jx-table tr:last-child td{border-bottom:none}
+.jx-table tr.jx-active td{background:rgba(20,184,166,.06)}
+.jx-table td:first-child{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem}
+.jx-pill{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.06em;text-transform:uppercase;padding:.12rem .45rem;border-radius:3px;border:1px solid}
+.jx-low{color:var(--red);border-color:rgba(239,68,68,.35);background:var(--red-dim)}
+.jx-med{color:var(--warn);border-color:rgba(245,158,11,.35);background:var(--warn-dim)}
+.jx-high{color:var(--green);border-color:rgba(34,197,94,.35);background:var(--green-dim)}
+.jx-flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--gold);margin-right:.35rem}
 /* SVG chart */
 .chart-wrap{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;overflow-x:auto}
 .chart-wrap svg{display:block}
@@ -179,6 +200,30 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
       </div>
     </div>
     <div class="form-grid-3">
+      <div class="form-group">
+        <label class="form-label" for="buyerCountry">Buyer / Drawee Country</label>
+        <select class="form-select" id="buyerCountry">
+          <option value="">— Not specified —</option>
+          <option value="IN">India (IN)</option>
+          <option value="CN">China (CN)</option>
+          <option value="BR">Brazil (BR)</option>
+          <option value="NG">Nigeria (NG)</option>
+          <option value="TR">Türkiye (TR)</option>
+          <option value="US">United States (US)</option>
+          <option value="GB">United Kingdom (GB)</option>
+          <option value="DE">Germany (DE)</option>
+          <option value="FR">France (FR)</option>
+          <option value="AE">United Arab Emirates (AE)</option>
+          <option value="SG">Singapore (SG)</option>
+          <option value="ZA">South Africa (ZA)</option>
+          <option value="MX">Mexico (MX)</option>
+          <option value="ID">Indonesia (ID)</option>
+          <option value="VN">Vietnam (VN)</option>
+          <option value="EG">Egypt (EG)</option>
+          <option value="RU">Russia (RU)</option>
+        </select>
+        <span class="form-hint">Drives D/A enforceability flags</span>
+      </div>
       <div class="form-group">
         <label class="form-label" for="buyerRel">Buyer Relationship</label>
         <select class="form-select" id="buyerRel">
@@ -338,6 +383,16 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
     </div>
 
     <div class="out-card">
+      <div class="out-header"><span class="out-title">URC 522 Compliance Checklist</span></div>
+      <div class="out-body" id="urcChecklistBody"></div>
+    </div>
+
+    <div class="out-card">
+      <div class="out-header"><span class="out-title">Jurisdiction D/A Enforceability</span></div>
+      <div class="out-body" id="jurisdictionBody"></div>
+    </div>
+
+    <div class="out-card">
       <div class="out-header"><span class="out-title">Compliance Notes</span></div>
       <div class="out-body" id="complianceBody"></div>
     </div>
@@ -380,11 +435,110 @@ var lastResult = null;
 function fmt(n){return '$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function fmtPct(n){return n.toFixed(2)+'%';}
 
+// ── TF-06 Jurisdiction D/A enforceability reference (indicative) ──────────────
+// Ratings are INDICATIVE, derived from the spec's cited sources: ICC Banking
+// Commission reports, Berne Union country-risk data, and World Bank Doing
+// Business survey. Not legal advice. Verify locally before relying on D/A terms.
+var JURISDICTION_FLAGS={
+  IN:{name:"India",da:"Medium",aval:false,protest:true,note:"Bills of Exchange Act 1881 governs; protest required for recourse on dishonoured drafts."},
+  CN:{name:"China",da:"Low",aval:true,protest:false,note:"D/A enforcement weaker without bank avalisation; consider LC or avalised draft."},
+  BR:{name:"Brazil",da:"Medium",aval:false,protest:true,note:"Cambial legislation applies; notarisation/protest may be required for enforcement."},
+  NG:{name:"Nigeria",da:"Low",aval:true,protest:true,note:"FX transfer restrictions may delay remittance; consider confirmed LC or ECA cover."},
+  TR:{name:"Türkiye",da:"Medium",aval:false,protest:true,note:"Cheque enforcement strong; bill-of-exchange enforcement less consistent."},
+  US:{name:"United States",da:"High",aval:false,protest:false,note:"UCC Art. 3 negotiable-instrument framework; generally reliable enforcement."},
+  GB:{name:"United Kingdom",da:"High",aval:false,protest:false,note:"Bills of Exchange Act 1882; mature, predictable enforcement of accepted drafts."},
+  DE:{name:"Germany",da:"High",aval:false,protest:true,note:"Wechselgesetz (Bills of Exchange Act); protest formalities support recourse."},
+  FR:{name:"France",da:"High",aval:false,protest:true,note:"Code de commerce governs lettres de change; protest may be required for recourse."},
+  AE:{name:"United Arab Emirates",da:"Medium",aval:true,protest:true,note:"Commercial Transactions Law applies; avalisation strengthens cross-border recourse."},
+  SG:{name:"Singapore",da:"High",aval:false,protest:false,note:"Bills of Exchange Act; strong, efficient enforcement of negotiable instruments."},
+  ZA:{name:"South Africa",da:"Medium",aval:false,protest:true,note:"Bills of Exchange Act 34 of 1964; exchange-control timing can affect remittance."},
+  MX:{name:"Mexico",da:"Medium",aval:false,protest:true,note:"Ley General de Títulos y Operaciones de Crédito; protest supports recourse."},
+  ID:{name:"Indonesia",da:"Low",aval:true,protest:true,note:"Enforcement timelines can be long; avalisation or LC recommended for D/A."},
+  VN:{name:"Vietnam",da:"Low",aval:true,protest:true,note:"D/A enforceability developing; FX controls apply — consider avalisation or LC."},
+  EG:{name:"Egypt",da:"Medium",aval:true,protest:true,note:"FX availability can delay settlement; avalisation strengthens position."},
+  RU:{name:"Russia",da:"Low",aval:true,protest:true,note:"Sanctions and FX-transfer constraints; screen counterparties and consider alternatives."}
+};
+function jxRating(j){var r=(j.da||"").toLowerCase();return r.indexOf("high")>-1?"high":(r.indexOf("low")>-1?"low":"med");}
+
+// ── TF-06 URC 522 compliance checklist (key articles applied to scenario) ─────
+function renderUrcChecklist(dcType){
+  var items=[
+    {art:"Art. 1 — Scope",req:"The collection instruction must be complete and unambiguous; banks act only on the instructions given.",
+     status:"All collection orders should carry full instructions (amount, tenor, documents, charges, protest, case-of-need).",icon:"info"},
+    {art:"Art. 4 — Instructions",req:"The collecting bank may not deviate from the remitting bank's instructions; it acts strictly as agent.",
+     status:"Confirm your remitting-bank instructions are explicit — the collecting bank will not assume terms not stated.",icon:"info"},
+    {art:"Art. 7 — Release of documents",
+     req:(dcType==="da")
+       ? "D/A: documents are released only against the buyer's acceptance of the bill of exchange — before payment."
+       : "D/P: documents are released only against payment.",
+     status:(dcType==="da")
+       ? "D/A selected — title passes on ACCEPTANCE, not payment. Seller carries credit risk until maturity."
+       : "D/P selected — documents (and thus title) are withheld until payment is received. Lower seller risk.",
+     icon:(dcType==="da")?"warn":"ok"},
+    {art:"Art. 24 — Charges",req:"The instruction should state who bears collection charges and whether documents may be released if charges are refused.",
+     status:"Specify charge allocation up front; absent instructions, refusal of charges can stall document release.",icon:"info"},
+    {art:"Art. 26 — Force majeure",req:"Banks assume no liability for consequences of acts of God, war, civil commotion, or other causes beyond their control.",
+     status:"No bank payment guarantee under a collection — force-majeure events fall on the parties, not the banks.",icon:"info"}
+  ];
+  var html='<div class="comp-note info" style="margin-bottom:1rem">Key URC 522 (ICC Pub. 522, 1995) articles applied to your selected collection type. Under a documentary collection, banks act as agents only and assume no payment liability.</div>';
+  for(var i=0;i<items.length;i++){
+    var it=items[i];
+    var icls=it.icon==="ok"?"chk-ok":(it.icon==="warn"?"chk-warn":"chk-info");
+    var ich=it.icon==="ok"?"✓":(it.icon==="warn"?"!":"i");
+    html+='<div class="chk-item"><div class="chk-icon '+icls+'">'+ich+'</div>'+
+      '<div class="chk-text"><div class="chk-art">'+it.art+'</div>'+
+      '<div class="chk-req">'+it.req+'</div>'+
+      '<div class="chk-stat">'+it.status+'</div></div></div>';
+  }
+  document.getElementById('urcChecklistBody').innerHTML=html;
+}
+
+// ── TF-06 Jurisdiction D/A enforceability flag panel ─────────────────────────
+function renderJurisdiction(buyerCountry,dcType){
+  var sel=buyerCountry&&JURISDICTION_FLAGS[buyerCountry]?buyerCountry:null;
+  var html='';
+  if(sel){
+    var j=JURISDICTION_FLAGS[sel];var rating=jxRating(j);
+    if(dcType==="da" && (rating==="low"||rating==="med")){
+      html+='<div class="comp-note warn"><strong style="color:var(--warn);font-family:\'JetBrains Mono\',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase">D/A Enforceability Warning — '+j.name+' ('+sel+')</strong><br>'+
+        'D/A acceptance enforceability is rated <strong>'+j.da+'</strong> for this jurisdiction (indicative). With Documents against Acceptance selected, '+
+        (j.aval?'request <strong>avalisation</strong> of the draft by a creditworthy bank, ':'')+
+        'consider <strong>upgrading to a Letter of Credit</strong> or adding credit-insurance / ECA cover. '+j.note+'</div>';
+    } else if(dcType==="da"){
+      html+='<div class="comp-note"><strong style="color:var(--teal-lt);font-family:\'JetBrains Mono\',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase">D/A Enforceability — '+j.name+' ('+sel+')</strong><br>'+
+        'D/A acceptance enforceability is rated <strong>'+j.da+'</strong> (indicative). '+j.note+'</div>';
+    } else {
+      html+='<div class="comp-note info"><strong style="color:var(--purple-lt);font-family:\'JetBrains Mono\',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase">Jurisdiction Note — '+j.name+' ('+sel+')</strong><br>'+
+        'D/P selected. For reference, this jurisdiction\'s D/A acceptance enforceability is rated <strong>'+j.da+'</strong> (indicative). '+j.note+'</div>';
+    }
+  } else {
+    html+='<div class="comp-note info">Select a <strong>Buyer / Drawee Country</strong> above to flag jurisdiction-specific D/A enforceability, avalisation, and protest considerations.</div>';
+  }
+  // Reference table
+  html+='<table class="jx-table"><thead><tr><th>Country</th><th>D/A Enforceability</th><th>Avalisation</th><th>Protest</th><th>Note</th></tr></thead><tbody>';
+  var keys=Object.keys(JURISDICTION_FLAGS);
+  for(var i=0;i<keys.length;i++){
+    var k=keys[i],jj=JURISDICTION_FLAGS[k],rt=jxRating(jj);
+    var pcls=rt==="high"?"jx-high":(rt==="low"?"jx-low":"jx-med");
+    var active=(k===sel)?' class="jx-active"':'';
+    html+='<tr'+active+'><td>'+jj.name+' ('+k+')</td>'+
+      '<td><span class="jx-pill '+pcls+'">'+jj.da+'</span></td>'+
+      '<td>'+(jj.aval?'<span class="jx-flag">⚑ Recommended</span>':'—')+'</td>'+
+      '<td>'+(jj.protest?'Required for recourse':'Not required')+'</td>'+
+      '<td>'+jj.note+'</td></tr>';
+  }
+  html+='</tbody></table>';
+  html+='<div class="form-hint" style="margin-top:.75rem;line-height:1.5">Indicative — based on ICC Banking Commission / Berne Union / World Bank sources; not legal advice; verify locally. Ratings vary by counterparty and change over time.</div>';
+  document.getElementById('jurisdictionBody').innerHTML=html;
+}
+
 function runAnalyzer(){
   var invoice  = parseFloat(document.getElementById('invoiceVal').value)||0;
   var sellerR  = document.getElementById('sellerRisk').value;
   var buyerR   = document.getElementById('buyerRisk').value;
   var buyerRel = document.getElementById('buyerRel').value;
+  var buyerCountryEl = document.getElementById('buyerCountry');
+  var buyerCountry = buyerCountryEl ? buyerCountryEl.value : '';
   var payDays  = parseInt(document.getElementById('paymentDays').value)||0;
   var goodsSt  = document.getElementById('goodsStatus').value;
 
@@ -544,10 +698,20 @@ function runAnalyzer(){
   if(dcType==="da"){
     compHTML+='<div class="comp-note warn"><strong style="color:var(--warn);font-family:\'JetBrains Mono\',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase">D/A Risk Warning</strong><br>Documents against Acceptance: title documents are released upon buyer\'s acceptance of a draft — before payment. If buyer defaults, seller retains only the dishonoured acceptance and must pursue legal remedies. Consider credit insurance or export credit agency cover for D/A transactions.</div>';
   }
+  // TF-06 Source Notes
+  compHTML+='<div class="comp-note info" style="margin-top:.75rem"><strong style="color:var(--purple-lt);font-family:\'JetBrains Mono\',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase">Source Notes (TF-06)</strong><br>'+
+    'URC 522: ICC Uniform Rules for Collections, Publication No. 522 (1995 revision) — current governing rules for documentary collections. '+
+    'Under URC 522 collecting banks act as agents only and assume no payment liability — a key risk for exporters. '+
+    'Jurisdiction D/A enforceability ratings are <strong>indicative</strong> and based on ICC Banking Commission reports, Berne Union country-risk data, and World Bank Doing Business survey. '+
+    'They are <strong>not legal advice</strong>; D/A draft enforceability varies by jurisdiction and changes over time — always obtain local legal advice before relying on D/A terms with new counterparties.</div>';
   document.getElementById('complianceBody').innerHTML=compHTML;
 
+  // TF-06 panels — URC 522 checklist + jurisdiction D/A enforceability flags
+  renderUrcChecklist(dcType);
+  renderJurisdiction(buyerCountry,dcType);
+
   // Store result
-  lastResult={invoice,sellerRisk:sellerR,buyerRisk:buyerR,buyerRel,payDays,goodsStatus:goodsSt,
+  lastResult={invoice,sellerRisk:sellerR,buyerRisk:buyerR,buyerRel,buyerCountry,payDays,goodsStatus:goodsSt,
     lcType,lcTotalFees,dcType,dcTotalFees,dcRiskExposure,lcRiskAdj,dcRiskAdj,
     lcRiskScore,beProb,recommended:lcRec?'LC':'DC',timestamp:new Date().toISOString()};
 
@@ -612,15 +776,16 @@ function setLang(lang){
 var MANIFEST={
   schema_version:"mcp-manifest/1.0",
   tool_id:"ain-t423-dc-vs-lc-analyzer",
-  version:"1.0.0",
+  version:"1.2.0",
   title:"Documentary Collection vs Letter of Credit Cost-Benefit Analyzer",
-  description:"Compares total cost and risk-adjusted exposure of Documentary Collections (D/P, D/A) against Letters of Credit (Sight, Usance, Confirmed, SBLC). Outputs fee breakdown, risk scores, break-even probability, and recommendation.",
+  description:"Compares total cost and risk-adjusted exposure of Documentary Collections (D/P, D/A) against Letters of Credit (Sight, Usance, Confirmed, SBLC). Outputs fee breakdown, risk scores, break-even probability, and recommendation, plus a URC 522 compliance checklist (Art. 1/4/7/24/26) and jurisdiction D/A enforceability flags (avalisation / protest) for the buyer's country.",
   category:"cat-26",
   tags:["letter-of-credit","documentary-collection","trade-finance","UCP600","URC522","URDG758","DC","LC","SBLC","risk"],
   input_schema:{type:"object",properties:{
     invoiceValueUSD:{type:"number"},sellerCountryRisk:{type:"string",enum:["low","medium","high"]},
     buyerCountryRisk:{type:"string",enum:["low","medium","high"]},
     buyerRelationship:{type:"string",enum:["new","lt2","2to5","gt5"]},
+    buyerCountry:{type:"string",description:"ISO 3166-1 alpha-2 buyer/drawee country for D/A enforceability flags (optional)"},
     paymentTermDays:{type:"integer"},goodsStatus:{type:"string",enum:["shipped","transit","manufacture"]},
     lcType:{type:"string",enum:["sight","usance","confirmed_sight","confirmed_usance","sblc"]},
     lcIssuancePctPerQuarter:{type:"number"},lcAdvisingFeeUSD:{type:"number"},
@@ -647,7 +812,7 @@ var MANIFEST={
   privacy:{pii:false,storage:"sessionStorage(ain_lang) only",network:"none"},
   policy_mandate:{schema:"ap2/1.0",mandate_fields:["lcTotalFeesUSD","dcRiskAdjCostUSD","recommendation","breakEvenProbabilityPct"]},
   regulatory_frameworks:["UCP 600 (ICC 2007)","URC 522 (ICC 1995)","URDG 758 (ICC 2010)","ISP98"],
-  last_reviewed:"2026-05-01",
+  last_reviewed:"2026-06-08",
   source:"https://ainumbers.co/tools/423-dc-vs-lc-analyzer.html"
 };
 </script>

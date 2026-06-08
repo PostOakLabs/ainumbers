@@ -1,0 +1,195 @@
+{
+  "tool_id": "455-pc-combined-ratio-analyzer",
+  "version": "1.0",
+  "title": "P&C Combined Ratio Analyzer & Benchmarker",
+  "description": "Compute Loss Ratio, Expense Ratio, and Combined Ratio for a P&C insurer from premium, loss, and expense inputs, and benchmark against published industry medians (AM Best 2024/2025, NAIC 2024) by line of business with colour-coded adequacy zones and NAIC IRIS ratio context. Client-side. Zero PII.",
+  "category": "cat-30",
+  "tags": [
+    "combined-ratio",
+    "loss-ratio",
+    "expense-ratio",
+    "P&C",
+    "underwriting",
+    "NAIC-IRIS",
+    "AM-Best",
+    "benchmark",
+    "insurance",
+    "actuarial",
+    "profitability",
+    "Zero-PII"
+  ],
+  "audience": [
+    "actuary",
+    "underwriter",
+    "insurance-cfo",
+    "risk-manager",
+    "mga",
+    "reinsurance-analyst",
+    "insurance-finance"
+  ],
+  "last_reviewed": "2026-06-08",
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "lob",
+      "earnedPremium",
+      "incurredLosses",
+      "uwExpenses"
+    ],
+    "properties": {
+      "lob": {
+        "type": "string",
+        "enum": [
+          "personal_auto",
+          "homeowners",
+          "workers_comp",
+          "commercial_auto",
+          "commercial_gl",
+          "commercial_property",
+          "med_mal",
+          "do_mgmt",
+          "cyber",
+          "inland_marine",
+          "reinsurance_assumed",
+          "all_lines"
+        ],
+        "description": "Line of business"
+      },
+      "earnedPremium": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Earned premium ($)"
+      },
+      "writtenPremium": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Written premium ($); optional expense-ratio denominator"
+      },
+      "incurredLosses": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Incurred losses ($) — claims paid + case reserves"
+      },
+      "lae": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Loss adjustment expense — ALAE + ULAE combined ($)"
+      },
+      "uwExpenses": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Underwriting expenses ($) — commissions + salaries + overhead"
+      },
+      "acqCosts": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Optional policy acquisition costs ($)"
+      },
+      "basis": {
+        "type": "string",
+        "enum": [
+          "earned",
+          "written"
+        ],
+        "description": "Expense-ratio denominator basis (written vs earned premium)"
+      },
+      "invYield": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Optional investment yield (%) for the Operating Ratio"
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "loss_ratio_pct": {
+        "type": "number",
+        "description": "(Incurred losses + LAE) / earned premium x 100"
+      },
+      "expense_ratio_pct": {
+        "type": "number",
+        "description": "Underwriting expenses / written or earned premium x 100"
+      },
+      "combined_ratio_pct": {
+        "type": "number",
+        "description": "Loss ratio + expense ratio"
+      },
+      "operating_ratio_pct": {
+        "type": ["number", "null"],
+        "description": "Combined ratio - investment yield % (illustrative; null if no yield)"
+      },
+      "adequacy_zone": {
+        "type": "string",
+        "enum": ["green", "amber", "red"]
+      },
+      "naic_iris_flag": {
+        "type": "boolean",
+        "description": "True when combined ratio exceeds the 115% NAIC IRIS screening threshold"
+      },
+      "benchmark_median_combined_pct": {
+        "type": ["number", "null"]
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "analyze_pc_combined_ratio",
+    "description": "Compute P&C Loss Ratio = (incurred losses + LAE) / earned premium, Expense Ratio = underwriting expenses / (written or earned premium), Combined Ratio = loss + expense, and optional Operating Ratio = combined - investment yield. Benchmark the combined ratio against published industry medians (AM Best 2024/2025, NAIC 2024) by line of business, assign a colour-coded adequacy zone (green <95%, amber 95-105%, red >105%), and flag the NAIC IRIS solvency-screening threshold (combined ratio > 115%). Returns ratios, zone, IRIS flag, and benchmark deltas.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "lob",
+        "earnedPremium",
+        "incurredLosses",
+        "uwExpenses"
+      ],
+      "properties": {
+        "lob": {
+          "type": "string"
+        },
+        "earnedPremium": {
+          "type": "number"
+        },
+        "writtenPremium": {
+          "type": "number"
+        },
+        "incurredLosses": {
+          "type": "number"
+        },
+        "lae": {
+          "type": "number"
+        },
+        "uwExpenses": {
+          "type": "number"
+        },
+        "acqCosts": {
+          "type": "number"
+        },
+        "basis": {
+          "type": "string"
+        },
+        "invYield": {
+          "type": "number"
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/455-pc-combined-ratio-analyzer.html",
+    "function_name": "runCombinedRatio",
+    "timeout_ms": 3000
+  },
+  "deterministic": true,
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "regulatory_citations": [
+    "NAIC Insurance Regulatory Information System (IRIS) Ratios Manual (2025 edition)",
+    "AM Best P&C Industry Financial Review (2024 / 2025 editions)",
+    "NAIC Industry Data (2024)"
+  ],
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0"
+}

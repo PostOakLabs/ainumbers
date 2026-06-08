@@ -131,6 +131,21 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
 #ap2ExportBtn{opacity:.4;cursor:default;pointer-events:none}
 #ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright);pointer-events:auto}
 #ap2ExportBtn.ready:hover{background:var(--bg-4)}
+/* ── Presented-Documents Discrepancy Check (additive) ── */
+.collapse-head{width:100%;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:background .15s}
+.collapse-head:hover{background:var(--bg-3)}
+.collapse-head .ch-arr{color:var(--muted)}
+.collapse-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius-lg) var(--radius-lg);background:var(--bg-2);padding:1.25rem;margin-bottom:1.5rem}
+.collapse-body.open{display:block}
+#dcExportBtn{opacity:.4;cursor:default;pointer-events:none}
+#dcExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright);pointer-events:auto}
+#dcExportBtn.ready:hover{background:var(--bg-4)}
+#dcResults{display:none}
+.dc-badge{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;padding:.25rem .6rem;border-radius:3px;border:1px solid;display:inline-block}
+.dc-badge.crit{color:var(--red);border-color:rgba(239,68,68,.4);background:var(--red-dim)}
+.dc-badge.clean{color:var(--green);border-color:rgba(34,197,94,.4);background:var(--green-dim)}
+.dc-rulecite{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--purple-lt)}
+.dc-remedy{font-size:.66rem;color:var(--body);font-style:italic}
 </style>
 </head>
 <body>
@@ -379,6 +394,228 @@ footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5r
   </div>
 
 </div><!-- /results -->
+
+<!-- ═══ PRESENTED DOCUMENTS — UCP 600 DISCREPANCY CHECK (additive, TF-02) ═══ -->
+<button class="collapse-head" id="dcHead" onclick="toggleDC()" aria-expanded="false">
+  <span>▸ Presented Documents — UCP 600 Discrepancy Check</span>
+  <span class="ch-arr" id="dcArr">▼</span>
+</button>
+<div class="collapse-body" id="dcSection">
+
+  <div class="scope-note"><strong>Indicative discrepancy check —</strong> Mechanical application of published ICC rules (UCP 600 / ISBP 821, rules R01–R14) comparing the documents you actually present against the LC terms already entered above (Fields 31D, 32B, 43P, 43T, 44A, 44B, 44C, 48, 45A). Output is indicative only — qualified document checkers and bank decisions are final. Where an LC term is not captured the rule is marked N/A. Client-side. Zero PII (document fields only — ports, dates, amounts).</div>
+
+  <div class="panel" style="margin-bottom:1.25rem">
+    <div class="panel-title">▸ Presented Document Inputs</div>
+    <div class="field-grid">
+
+      <div class="field-group">
+        <label class="field-label" for="dc_pres_date">Presentation Date</label>
+        <div class="field-sub">YYMMDD — date documents presented to the bank</div>
+        <input class="field-input" id="dc_pres_date" type="text" placeholder="YYMMDD" maxlength="6">
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dc_bl_date">B/L On-Board Date</label>
+        <div class="field-sub">YYMMDD — on-board notation date on the transport document</div>
+        <input class="field-input" id="dc_bl_date" type="text" placeholder="YYMMDD" maxlength="6">
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dc_inv_date">Invoice Date</label>
+        <div class="field-sub">YYMMDD</div>
+        <input class="field-input" id="dc_inv_date" type="text" placeholder="YYMMDD" maxlength="6">
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dc_inv_amt">Invoice Amount</label>
+        <div class="field-sub">Numeric only (same currency as LC Field 32B)</div>
+        <input class="field-input" id="dc_inv_amt" type="text" placeholder="e.g. 500000.00">
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dc_amt_tol">Amount Tolerance</label>
+        <div class="field-sub">UCP 600 Art.30 tolerance band on Field 32B amount</div>
+        <select class="field-select" id="dc_amt_tol">
+          <option value="0">None (exact)</option>
+          <option value="5">±5%</option>
+          <option value="10" selected>±10% (UCP default if no qty/unit price)</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dc_desc_match">Invoice Goods Description Matches LC 45A?</label>
+        <div class="field-sub">Beneficiary/checker confirmation (Art.18(c))</div>
+        <select class="field-select" id="dc_desc_match">
+          <option value="">— select —</option>
+          <option value="yes">YES — matches Field 45A</option>
+          <option value="no">NO — differs from Field 45A</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dc_bl_pol">B/L — Port of Loading</label>
+        <div class="field-sub">Compared to LC Field 44A above</div>
+        <input class="field-input" id="dc_bl_pol" type="text" placeholder="e.g. SHANGHAI, CHINA">
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dc_bl_pod">B/L — Port of Discharge</label>
+        <div class="field-sub">Compared to LC Field 44B above</div>
+        <input class="field-input" id="dc_bl_pod" type="text" placeholder="e.g. ROTTERDAM, NETHERLANDS">
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dc_bl_onboard">B/L — On-Board Notation Present?</label>
+        <div class="field-sub">UCP 600 Art.20(a)(ii)</div>
+        <select class="field-select" id="dc_bl_onboard">
+          <option value="">— select —</option>
+          <option value="yes">YES — on-board notation shown</option>
+          <option value="no">NO — received-for-shipment only</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dc_consignee">B/L — Consignee</label>
+        <select class="field-select" id="dc_consignee">
+          <option value="">— select —</option>
+          <option>TO ORDER</option>
+          <option>TO ISSUING BANK</option>
+          <option>NAMED PARTY</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dc_notify">B/L — Notify Party Present?</label>
+        <select class="field-select" id="dc_notify">
+          <option value="">— select —</option>
+          <option value="yes">PRESENT</option>
+          <option value="no">ABSENT</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dc_freight">B/L — Freight</label>
+        <div class="field-sub">Compared to LC additional conditions / charges</div>
+        <select class="field-select" id="dc_freight">
+          <option value="">— select —</option>
+          <option value="prepaid">FREIGHT PREPAID</option>
+          <option value="collect">FREIGHT COLLECT</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dc_lc_freight">LC Requires Freight…</label>
+        <div class="field-sub">As stated in LC terms (for R12)</div>
+        <select class="field-select" id="dc_lc_freight">
+          <option value="">— not specified —</option>
+          <option value="prepaid">FREIGHT PREPAID</option>
+          <option value="collect">FREIGHT COLLECT</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dc_partial">Partial Shipment Present in Presentation?</label>
+        <div class="field-sub">Compared to LC Field 43P above</div>
+        <select class="field-select" id="dc_partial">
+          <option value="">— select —</option>
+          <option value="yes">YES — partial / multiple shipments</option>
+          <option value="no">NO — single shipment</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dc_tranship">Transhipment Shown on B/L?</label>
+        <div class="field-sub">Compared to LC Field 43T above</div>
+        <select class="field-select" id="dc_tranship">
+          <option value="">— select —</option>
+          <option value="yes">YES — transhipment indicated</option>
+          <option value="no">NO — direct shipment</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dc_ins_req">Insurance Document Required by LC?</label>
+        <div class="field-sub">UCP 600 Art.28 — typically for CIF / CIP terms</div>
+        <select class="field-select" id="dc_ins_req">
+          <option value="">— select —</option>
+          <option value="yes">YES — insurance required</option>
+          <option value="no">NO — not required</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dc_ins_pct">Insurance Coverage (% of CIF/CIP value)</label>
+        <div class="field-sub">UCP 600 Art.28(f)(ii) minimum 110%</div>
+        <input class="field-input" id="dc_ins_pct" type="number" min="0" max="500" placeholder="110">
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dc_coo_country">Certificate of Origin — Country</label>
+        <div class="field-sub">Origin country shown on CoO (if presented)</div>
+        <input class="field-input" id="dc_coo_country" type="text" placeholder="e.g. CHINA">
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dc_orig_req">Originals Required by LC</label>
+        <div class="field-sub">Number of original transport/invoice sets the LC calls for</div>
+        <input class="field-input" id="dc_orig_req" type="number" min="0" max="20" placeholder="e.g. 3">
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="dc_orig_pres">Number of Originals Presented</label>
+        <div class="field-sub">UCP 600 Art.17</div>
+        <input class="field-input" id="dc_orig_pres" type="number" min="0" max="20" placeholder="e.g. 3">
+      </div>
+
+    </div>
+    <div class="btn-row">
+      <button class="run-btn" onclick="runDiscrepancyCheck()">▶ Run UCP 600 Discrepancy Check</button>
+      <button class="ghost-btn" id="dcExportBtn" onclick="exportDiscrepancyCSV()">↓ Export Discrepancy CSV</button>
+    </div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);margin-top:.4rem">Reads LC terms from Fields 31D / 32B / 43P / 43T / 44A / 44B / 44C / 48 / 45A above — enter those first.</div>
+  </div>
+
+  <!-- DISCREPANCY RESULTS -->
+  <div id="dcResults">
+    <div class="score-card" id="dcScoreCard">
+      <div>
+        <div class="score-label">Presentation Readiness</div>
+        <div class="score-num" id="dcScoreNum">—</div>
+      </div>
+      <div class="score-meta" style="flex:1">
+        <div id="dcVerdict" style="font-size:.82rem;margin-bottom:.4rem"></div>
+        <div class="score-bar-outer"><div class="score-bar-inner" id="dcBar" style="width:0%"></div></div>
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.55rem;align-items:center">
+          <span class="dc-badge" id="dcBadge"></span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)">Informational — not a bank guarantee</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="out-panel">
+      <div class="out-header"><span class="out-title">Rule-by-Rule Discrepancy Report (R01–R14)</span></div>
+      <div class="out-body" style="overflow-x:auto">
+        <table class="results-table">
+          <thead><tr><th>Rule</th><th>UCP Art.</th><th>Status</th><th>Explanation</th><th>Suggested Remedy</th></tr></thead>
+          <tbody id="dcTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /dcResults -->
+
+</div><!-- /dcSection -->
+
+<!-- SOURCE NOTES (TF-02) -->
+<div class="panel" id="sourceNotes">
+  <div class="panel-title">▸ Source Notes — UCP 600 / ISBP 821</div>
+  <ul style="list-style:none;display:flex;flex-direction:column;gap:.5rem;font-size:.72rem;line-height:1.6;color:var(--body)">
+    <li><strong style="color:var(--text)">UCP 600</strong> — ICC Uniform Customs and Practice for Documentary Credits (2007 Revision), Publication No. 600. Discrepancy rules above cite Art. 6, 14, 17, 18, 19–25, 20, 26, 28, 30.</li>
+    <li><strong style="color:var(--text)">ISBP 821</strong> — International Standard Banking Practice for the Examination of Documents under UCP 600, ICC Publication 821 (2013).</li>
+    <li><strong style="color:var(--text)">eUCP 2.0</strong> — Electronic supplement to UCP 600; not implemented in this version (see ICC eRules 2.0, 2019).</li>
+    <li>This tool applies the published ICC rules mechanically. Human judgment by qualified document checkers is required for ambiguous presentations. <strong style="color:var(--text)">Bank decisions are final.</strong></li>
+    <li>Discrepancy-rate context (50–70% of presentations discrepant on first submission): ICC Global Survey on Trade Finance 2023.</li>
+  </ul>
+</div>
 
 </div></div><!-- /tool-body /container -->
 
@@ -809,6 +1046,231 @@ function toggleMfst(){
       version_stamp:'v1.0 · May 2026'
     },null,2);
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PRESENTED DOCUMENTS — UCP 600 DISCREPANCY CHECK (additive, TF-02 R01–R14)
+// Deterministic. Reads LC terms from existing field inputs above. No network.
+// ══════════════════════════════════════════════════════════════════════════════
+function toggleDC(){
+  const sec=document.getElementById('dcSection');
+  const arr=document.getElementById('dcArr');
+  const head=document.getElementById('dcHead');
+  const open=sec.classList.toggle('open');
+  arr.textContent=open?'▲':'▼';
+  head.setAttribute('aria-expanded',open?'true':'false');
+}
+
+let lastDC=null;
+
+function runDiscrepancyCheck(){
+  // Presented-document inputs
+  const g=id=>document.getElementById(id);
+  const p={
+    pres:g('dc_pres_date').value.trim(),
+    bl:g('dc_bl_date').value.trim(),
+    inv:g('dc_inv_date').value.trim(),
+    invAmt:g('dc_inv_amt').value.trim(),
+    tol:parseFloat(g('dc_amt_tol').value),
+    descMatch:g('dc_desc_match').value,
+    blPol:g('dc_bl_pol').value.trim(),
+    blPod:g('dc_bl_pod').value.trim(),
+    onboard:g('dc_bl_onboard').value,
+    consignee:g('dc_consignee').value,
+    notify:g('dc_notify').value,
+    freight:g('dc_freight').value,
+    lcFreight:g('dc_lc_freight').value,
+    partial:g('dc_partial').value,
+    tranship:g('dc_tranship').value,
+    insReq:g('dc_ins_req').value,
+    insPct:g('dc_ins_pct').value.trim(),
+    cooCountry:g('dc_coo_country').value.trim(),
+    origReq:g('dc_orig_req').value.trim(),
+    origPres:g('dc_orig_pres').value.trim()
+  };
+  // LC terms reused from the existing MT700 inputs above
+  const lc={
+    expiry:g('f31d_date').value.trim(),
+    amount32b:g('f32b').value.trim(),
+    partial43p:g('f43p').value,
+    tranship43t:g('f43t').value,
+    pol44a:g('f44a').value.trim(),
+    pod44b:g('f44b').value.trim(),
+    latestShip44c:g('f44c').value.trim(),
+    presPeriod48:g('f48').value.trim(),
+    desc45a:g('f45a').value.trim()
+  };
+
+  const presD=parseYYMMDD(p.pres), blD=parseYYMMDD(p.bl), invD=parseYYMMDD(p.inv);
+  const expD=parseYYMMDD(lc.expiry), shipD=parseYYMMDD(lc.latestShip44c);
+  // LC amount from 32B
+  const lcAmtParts=lc.amount32b.split(/\s+/); const lcAmt=parseFloat(lcAmtParts[1]);
+  const invAmtNum=parseFloat(p.invAmt);
+  const presPeriod=parseInt(lc.presPeriod48,10);
+  const normPort=s=>(s||'').toUpperCase().replace(/[.,]/g,' ').replace(/\s+/g,' ').trim();
+
+  const rules=[];
+  // status: 'pass' | 'fail' | 'warn' | 'na'
+  function R(id,art,status,explain,remedy){rules.push({id,art,status,explain,remedy});}
+
+  // R01 [Art. 6] Expiry: presentation_date <= expiry_date
+  if(!presD||!expD){R('R01','Art. 6','na','Presentation date or LC expiry date (Field 31D) not available.','Enter the presentation date and ensure Field 31D above is populated.');}
+  else if(presD>expD){R('R01','Art. 6','fail','Documents presented after the credit expiry date — the credit has expired.','Present documents on or before the expiry date, or seek an amendment extending Field 31D.');}
+  else {R('R01','Art. 6','pass','Presentation is on or before the credit expiry date.','—');}
+
+  // R02 [Art. 14] Presentation period: (pres - bl) <= presentation_period_days
+  if(!presD||!blD){R('R02','Art. 14','na','Presentation date or B/L on-board date not available.','Enter both the presentation date and the B/L on-board date.');}
+  else if(isNaN(presPeriod)||presPeriod<1){R('R02','Art. 14','na','LC presentation period (Field 48) not captured.','Enter the presentation period in Field 48 above (UCP default 21 days).');}
+  else {
+    const days=Math.round((presD-blD)/86400000);
+    if(days<0){R('R02','Art. 14','fail','Presentation date is earlier than the B/L on-board date — date sequence is impossible.','Correct the B/L on-board date or the presentation date.');}
+    else if(days>presPeriod){R('R02','Art. 14','fail',`Presentation made ${days} days after the B/L date, exceeding the ${presPeriod}-day presentation period.`,'Present within the allowed period, or request a waiver/amendment of Field 48.');}
+    else {R('R02','Art. 14','pass',`Presentation made ${days} days after the B/L date — within the ${presPeriod}-day period.`,'—');}
+  }
+
+  // R03 [Art. 14] Latest shipment: bl_date <= latest_shipment_date
+  if(!blD||!shipD){R('R03','Art. 14','na','B/L on-board date or LC latest shipment date (Field 44C) not available.','Enter the B/L on-board date and populate Field 44C above.');}
+  else if(blD>shipD){R('R03','Art. 14','fail','B/L on-board date is later than the latest shipment date — goods shipped too late.','Goods must ship on or before the latest shipment date; seek an amendment to Field 44C.');}
+  else {R('R03','Art. 14','pass','B/L on-board date is on or before the latest shipment date.','—');}
+
+  // R04 [Art. 14c / Art. 30] Invoice amount within tolerance band of LC amount
+  if(isNaN(invAmtNum)||isNaN(lcAmt)){R('R04','Art. 30','na','Invoice amount or LC amount (Field 32B) not available.','Enter the invoice amount and ensure Field 32B above contains a valid currency + amount.');}
+  else {
+    const tol=isNaN(p.tol)?0:p.tol;
+    const upper=lcAmt*(1+tol/100), lower=lcAmt*(1-tol/100);
+    if(invAmtNum>upper){R('R04','Art. 30','fail',`Invoice amount ${invAmtNum.toFixed(2)} exceeds the LC amount ${lcAmt.toFixed(2)} beyond the ±${tol}% tolerance (max ${upper.toFixed(2)}).`,'Reduce the drawing to within tolerance or obtain an amendment increasing Field 32B.');}
+    else if(invAmtNum<lower){R('R04','Art. 30','warn',`Invoice amount ${invAmtNum.toFixed(2)} is below the lower tolerance band (min ${lower.toFixed(2)}). Under-drawing may be permitted unless the LC requires full shipment.`,'Confirm the LC permits under-drawing; otherwise present the full amount.');}
+    else {R('R04','Art. 30','pass',`Invoice amount ${invAmtNum.toFixed(2)} is within the ±${tol}% tolerance of the LC amount.`,'—');}
+  }
+
+  // R05 [Art. 18c] Invoice description must correspond to LC field 45A
+  if(!p.descMatch){R('R05','Art. 18','na','Goods-description match not confirmed.','Confirm whether the invoice goods description corresponds to LC Field 45A.');}
+  else if(!lc.desc45a){R('R05','Art. 18','na','LC goods description (Field 45A) not captured above.','Populate Field 45A so the description can be compared.');}
+  else if(p.descMatch==='no'){R('R05','Art. 18','fail','Invoice goods description does not correspond to LC Field 45A.','Amend the invoice so the goods description matches the wording of Field 45A exactly.');}
+  else {R('R05','Art. 18','pass','Invoice goods description corresponds to LC Field 45A.','—');}
+
+  // R06 [Art. 19–25] B/L port of loading must match LC field 44A
+  if(!p.blPol||!lc.pol44a){R('R06','Art. 19–25','na','B/L port of loading or LC port of loading (Field 44A) not available.','Enter the B/L port of loading and populate Field 44A above.');}
+  else if(normPort(p.blPol)!==normPort(lc.pol44a)){R('R06','Art. 19–25','fail',`B/L port of loading "${p.blPol}" does not match LC Field 44A "${lc.pol44a}".`,'Correct the B/L or confirm the port matches the LC; otherwise seek an amendment.');}
+  else {R('R06','Art. 19–25','pass','B/L port of loading matches LC Field 44A.','—');}
+
+  // R07 [Art. 19–25] B/L port of discharge must match LC field 44B
+  if(!p.blPod||!lc.pod44b){R('R07','Art. 19–25','na','B/L port of discharge or LC port of discharge (Field 44B) not available.','Enter the B/L port of discharge and populate Field 44B above.');}
+  else if(normPort(p.blPod)!==normPort(lc.pod44b)){R('R07','Art. 19–25','fail',`B/L port of discharge "${p.blPod}" does not match LC Field 44B "${lc.pod44b}".`,'Correct the B/L or confirm the port matches the LC; otherwise seek an amendment.');}
+  else {R('R07','Art. 19–25','pass','B/L port of discharge matches LC Field 44B.','—');}
+
+  // R08 [Art. 20] B/L on-board notation required
+  if(!p.onboard){R('R08','Art. 20','na','On-board notation status not confirmed.','Confirm whether the B/L bears an on-board notation.');}
+  else if(p.onboard==='no'){R('R08','Art. 20','fail','B/L does not bear an on-board notation (received-for-shipment only) — not acceptable under Art.20(a)(ii).','Obtain a B/L with a dated on-board notation.');}
+  else {R('R08','Art. 20','pass','B/L bears an on-board notation as required by Art.20(a)(ii).','—');}
+
+  // R09 [Art. 26 / 31] Partial shipment: if not allowed, single shipment only
+  if(lc.partial43p!=='NOT ALLOWED'){R('R09','Art. 26','na','LC permits partial shipments (or Field 43P not set to NOT ALLOWED) — single-shipment rule not enforced.','—');}
+  else if(!p.partial){R('R09','Art. 26','na','Partial-shipment presence not confirmed.','Confirm whether the presentation shows partial / multiple shipments.');}
+  else if(p.partial==='yes'){R('R09','Art. 26','fail','LC prohibits partial shipments (Field 43P) but the presentation shows partial / multiple shipments.','Present a single complete shipment or obtain an amendment allowing partial shipments.');}
+  else {R('R09','Art. 26','pass','Single shipment presented, consistent with the LC prohibition on partial shipments.','—');}
+
+  // R10 [Art. 20b] Transhipment: if not allowed, B/L must not indicate transhipment
+  if(lc.tranship43t!=='NOT ALLOWED'){R('R10','Art. 20','na','LC permits transhipment (or Field 43T not set to NOT ALLOWED) — rule not enforced.','—');}
+  else if(!p.tranship){R('R10','Art. 20','na','Transhipment indication not confirmed.','Confirm whether the B/L indicates transhipment.');}
+  else if(p.tranship==='yes'){R('R10','Art. 20','warn','LC prohibits transhipment (Field 43T) but the B/L indicates transhipment. Note: Art.20(c) still permits transhipment for containerised/through-transport carriage even when the LC prohibits it.','Verify the carriage type; if not within the Art.20(c) exception, obtain a B/L without transhipment or an amendment.');}
+  else {R('R10','Art. 20','pass','No transhipment indicated, consistent with the LC prohibition.','—');}
+
+  // R11 [Art. 28] Insurance: if required, must cover minimum 110%
+  if(p.insReq!=='yes'){R('R11','Art. 28','na','Insurance document not required by the LC (or not confirmed).','—');}
+  else if(p.insPct===''){R('R11','Art. 28','na','Insurance coverage percentage not entered.','Enter the insurance coverage as a percentage of CIF/CIP value.');}
+  else {
+    const pct=parseFloat(p.insPct);
+    if(isNaN(pct)){R('R11','Art. 28','na','Insurance coverage percentage is not numeric.','Enter a numeric coverage percentage.');}
+    else if(pct<110){R('R11','Art. 28','fail',`Insurance covers ${pct}% of value — below the Art.28(f)(ii) minimum of 110% of CIF/CIP value.`,'Obtain insurance for at least 110% of the CIF/CIP value.');}
+    else {R('R11','Art. 28','pass',`Insurance covers ${pct}% of value — meets the 110% minimum.`,'—');}
+  }
+
+  // R12 [Art. 14] Freight clause: if LC says freight prepaid, B/L must confirm
+  if(!p.lcFreight){R('R12','Art. 14','na','LC freight requirement not specified.','Select what the LC requires for freight (prepaid / collect) if applicable.');}
+  else if(!p.freight){R('R12','Art. 14','na','B/L freight clause not confirmed.','Confirm whether the B/L shows freight prepaid or collect.');}
+  else if(p.lcFreight!==p.freight){R('R12','Art. 14','fail',`LC requires freight ${p.lcFreight.toUpperCase()} but the B/L shows freight ${p.freight.toUpperCase()}.`,'Obtain a B/L whose freight clause matches the LC requirement.');}
+  else {R('R12','Art. 14','pass',`B/L freight clause (${p.freight.toUpperCase()}) matches the LC requirement.`,'—');}
+
+  // R13 [Art. 17] Originals: must present the number of originals specified in the LC
+  const oReq=parseInt(p.origReq,10), oPres=parseInt(p.origPres,10);
+  if(isNaN(oReq)){R('R13','Art. 17','na','Number of originals required by the LC not entered.','Enter how many originals the LC requires.');}
+  else if(isNaN(oPres)){R('R13','Art. 17','na','Number of originals presented not entered.','Enter how many originals are presented.');}
+  else if(oPres<oReq){R('R13','Art. 17','fail',`Presented ${oPres} original(s) but the LC requires ${oReq}. Under Art.17 at least one original of each document must be presented in the required count.`,'Present the full number of originals the LC requires.');}
+  else if(oPres>oReq){R('R13','Art. 17','warn',`Presented ${oPres} original(s), more than the ${oReq} the LC requires. Usually acceptable but verify against the LC.`,'Confirm the surplus originals do not breach any LC stipulation.');}
+  else {R('R13','Art. 17','pass',`Presented ${oPres} original(s), matching the LC requirement.`,'—');}
+
+  // R14 [Art. 14] All docs must be dated no later than presentation date
+  if(!presD){R('R14','Art. 14','na','Presentation date not available.','Enter the presentation date.');}
+  else {
+    const late=[];
+    if(invD&&invD>presD)late.push('invoice');
+    if(blD&&blD>presD)late.push('B/L');
+    if(!invD&&!blD){R('R14','Art. 14','na','No dated documents (invoice / B/L) available to compare against the presentation date.','Enter the invoice and/or B/L dates.');}
+    else if(late.length){R('R14','Art. 14','fail',`The following document(s) are dated after the presentation date: ${late.join(', ')} — a document cannot post-date its own presentation.`,'Correct the document dates; documents must not be dated later than the presentation date.');}
+    else {R('R14','Art. 14','pass','All dated documents are dated on or before the presentation date.','—');}
+  }
+
+  // Tally
+  let pass=0,fail=0,warn=0,na=0;
+  rules.forEach(r=>{if(r.status==='pass')pass++;else if(r.status==='fail')fail++;else if(r.status==='warn')warn++;else na++;});
+  const applicable=pass+fail+warn;
+  const score=applicable>0?Math.round((pass/applicable)*100):0;
+
+  lastDC={rules,pass,fail,warn,na,applicable,score};
+  renderDC(lastDC);
+  document.getElementById('dcExportBtn').classList.add('ready');
+}
+
+function renderDC(d){
+  document.getElementById('dcResults').style.display='block';
+  const num=document.getElementById('dcScoreNum');
+  const bar=document.getElementById('dcBar');
+  const verdict=document.getElementById('dcVerdict');
+  const badge=document.getElementById('dcBadge');
+
+  let color,vtxt;
+  if(d.fail>0){color='var(--red)';vtxt='Discrepant — critical issues must be resolved before presentation';}
+  else if(d.warn>0){color='var(--warn)';vtxt='Review recommended — warnings to verify before presentation';}
+  else if(d.applicable===0){color='var(--muted)';vtxt='No applicable rules — enter more presented-document and LC data';}
+  else{color='var(--green)';vtxt='Clean against checked rules — qualified review still required';}
+
+  num.textContent=d.applicable>0?d.score+'%':'—';
+  num.style.color=color;
+  bar.style.width=d.score+'%';
+  bar.style.background=color;
+  verdict.textContent=vtxt;
+  verdict.style.color=color;
+
+  badge.textContent=d.fail+' critical · '+d.warn+' warning(s) · '+d.pass+' pass · '+d.na+' n/a';
+  badge.className='dc-badge '+(d.fail>0?'crit':'clean');
+
+  const tbl=document.getElementById('dcTable');
+  tbl.innerHTML='';
+  d.rules.forEach(r=>{
+    const cls=r.status==='pass'?'tag-ok':r.status==='fail'?'tag-err':r.status==='warn'?'tag-warn':'tag-skip';
+    const lbl=r.status==='pass'?'PASS':r.status==='fail'?'FAIL':r.status==='warn'?'WARN':'N/A';
+    tbl.innerHTML+=`<tr><td style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal)">${r.id}</td><td class="dc-rulecite">${r.art}</td><td><span class="tag ${cls}">${lbl}</span></td><td style="font-size:.68rem;color:var(--text)">${r.explain}</td><td class="dc-remedy">${r.remedy}</td></tr>`;
+  });
+}
+
+function exportDiscrepancyCSV(){
+  if(!lastDC)return;
+  const esc=s=>{s=String(s==null?'':s);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+  const lines=['Rule ID,UCP Article,Status,Explanation,Suggested Remedy'];
+  lastDC.rules.forEach(r=>{
+    const st=r.status==='pass'?'PASS':r.status==='fail'?'FAIL':r.status==='warn'?'WARNING':'NOT APPLICABLE';
+    lines.push([esc(r.id),esc(r.art),esc(st),esc(r.explain),esc(r.remedy)].join(','));
+  });
+  lines.push('');
+  lines.push(['Summary','','','',''].join(','));
+  lines.push(['Readiness score (informational only — not a bank guarantee)',esc(lastDC.applicable>0?lastDC.score+'%':'n/a'),'','',''].join(','));
+  lines.push(['Critical / Warning / Pass / N-A',esc(lastDC.fail+' / '+lastDC.warn+' / '+lastDC.pass+' / '+lastDC.na),'','',''].join(','));
+  const blob=new Blob([lines.join('\r\n')],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='T420-discrepancy-check.csv';
+  a.click();
 }
 </script>
 

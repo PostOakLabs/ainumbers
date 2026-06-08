@@ -1,0 +1,224 @@
+{
+  "tool_id": "459-insurance-ratemaking-adequacy",
+  "version": "1.0",
+  "title": "Insurance Ratemaking Adequacy Tester — Pure Premium Method",
+  "description": "Implements the pure premium (exposure-based) ratemaking method per CAS Exam 5 study materials and the CAS Statement of Principles Regarding P&C Insurance Ratemaking. Computes on-level premium, trended ultimate loss, exposure-weighted trended pure premium, the permissible loss ratio, the indicated rate change (loss-ratio method), and the credibility-weighted indication using the classical square-root standard (default full-credibility 1,082 claims). Outputs a year-by-year table, indicated-change summary, permissible-LR decomposition, an adequacy verdict, and a trend/PLR sensitivity grid. On-level factors and loss development are user-supplied. Client-side. Zero PII.",
+  "category": "cat-30",
+  "tags": [
+    "ratemaking",
+    "pure-premium-method",
+    "loss-ratio-method",
+    "indicated-rate-change",
+    "credibility",
+    "permissible-loss-ratio",
+    "actuarial",
+    "rate-filing",
+    "CAS",
+    "property-casualty",
+    "insurance-pricing",
+    "Zero-PII"
+  ],
+  "audience": [
+    "actuary",
+    "pricing-actuary",
+    "rate-filing-analyst",
+    "reinsurance-pricing",
+    "mga",
+    "captive",
+    "startup-carrier",
+    "insurance-regulator"
+  ],
+  "last_reviewed": "2026-06-08",
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "lossTrend",
+      "trendPeriod",
+      "varExp",
+      "fixedExp",
+      "profit",
+      "fullCred"
+    ],
+    "properties": {
+      "experience_years": {
+        "type": "array",
+        "description": "Up to 10 accident-year rows; element ids ay0..ay9, exp0..exp9, prem0..prem9, loss0..loss9, clm0..clm9, crlf0..crlf9",
+        "items": {
+          "type": "object",
+          "properties": {
+            "ay": {
+              "type": "integer"
+            },
+            "exp": {
+              "type": "number",
+              "minimum": 0
+            },
+            "prem": {
+              "type": "number",
+              "minimum": 0
+            },
+            "loss": {
+              "type": "number",
+              "minimum": 0
+            },
+            "clm": {
+              "type": "number",
+              "minimum": 0
+            },
+            "crlf": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      },
+      "lossTrend": {
+        "type": "number",
+        "description": "Annual loss trend (% p.a.), severity + frequency combined"
+      },
+      "trendPeriod": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Trend period in years for the latest accident year"
+      },
+      "premTrend": {
+        "type": "number",
+        "description": "Optional premium trend (% p.a.)"
+      },
+      "varExp": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Variable expense %"
+      },
+      "fixedExp": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Fixed expense per exposure ($)"
+      },
+      "profit": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Profit & contingency loading %"
+      },
+      "credMethod": {
+        "type": "string",
+        "enum": [
+          "sqrt",
+          "classical",
+          "full"
+        ]
+      },
+      "fullCred": {
+        "type": "number",
+        "minimum": 1,
+        "description": "Full credibility threshold in claims (default 1082)"
+      },
+      "complementType": {
+        "type": "string",
+        "enum": [
+          "industry",
+          "prior",
+          "manual"
+        ]
+      },
+      "complementVal": {
+        "type": "number",
+        "description": "Complement-of-credibility rate change (%)"
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "indicated_change_uncapped": {
+        "type": "number",
+        "description": "Final credibility-weighted indicated rate change (fraction)"
+      },
+      "indication_before_credibility": {
+        "type": "number"
+      },
+      "credibility_z": {
+        "type": "number"
+      },
+      "trended_pure_premium": {
+        "type": "number"
+      },
+      "permissible_loss_ratio": {
+        "type": "number"
+      },
+      "actual_loss_ratio": {
+        "type": "number"
+      },
+      "total_claims": {
+        "type": "number"
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "test_ratemaking_adequacy",
+    "description": "Test P&C insurance rate adequacy with the pure premium / loss-ratio method (CAS Exam 5; CAS Statement of Principles). Supply up to 10 accident-year rows (earned exposures, earned premium, incurred losses+LAE, claim counts, current rate level factor), loss/premium trend, variable & fixed expense and profit provisions, and credibility settings (square-root or full; default full-credibility 1,082 claims). Returns on-level premium, exposure-weighted trended pure premium, permissible loss ratio, indicated rate change, credibility weight Z = min(sqrt(n/n_full),1), the credibility-weighted indication, an adequacy verdict, and a trend/PLR sensitivity grid. On-level factors and loss development must be supplied by the caller. Deterministic, client-side, zero PII.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "lossTrend",
+        "trendPeriod",
+        "varExp",
+        "fixedExp",
+        "profit",
+        "fullCred"
+      ],
+      "properties": {
+        "lossTrend": {
+          "type": "number"
+        },
+        "trendPeriod": {
+          "type": "number"
+        },
+        "premTrend": {
+          "type": "number"
+        },
+        "varExp": {
+          "type": "number"
+        },
+        "fixedExp": {
+          "type": "number"
+        },
+        "profit": {
+          "type": "number"
+        },
+        "credMethod": {
+          "type": "string"
+        },
+        "fullCred": {
+          "type": "number"
+        },
+        "complementType": {
+          "type": "string"
+        },
+        "complementVal": {
+          "type": "number"
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/459-insurance-ratemaking-adequacy.html",
+    "function_name": "runRatemaking",
+    "timeout_ms": 4000
+  },
+  "deterministic": true,
+  "pii_transmitted": false,
+  "execution_context": "client_side_browser",
+  "regulatory_citations": [
+    "CAS Statement of Principles Regarding Property and Casualty Insurance Ratemaking",
+    "CAS Exam 5 syllabus - Werner & Modlin, Basic Ratemaking; Friedland, Estimating Unpaid Claims Using Basic Techniques",
+    "Classical limited fluctuation credibility - 90/10 standard, 1,082 full-credibility claim count",
+    "Actuarial Standard of Practice (ASOP) No. 25 - Credibility Procedures"
+  ],
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0"
+}

@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Insurance Ratemaking Adequacy Tester &mdash; Pure Premium Method &middot; T459 &middot; AINumbers.co</title>
+<meta name="description" content="Implements the pure premium (exposure-based) ratemaking method per CAS Exam 5 / CAS Statement of Principles. Computes the indicated rate change from historical exposure and loss data, applies credibility weighting (classical square-root, 1,082-claim full-credibility standard), and outputs a rate adequacy conclusion for a regulatory rate filing. Zero PII. Client-side.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Insurance Ratemaking Adequacy Tester - Pure Premium Method - T459","url":"https://ainumbers.co/tools/459-insurance-ratemaking-adequacy.html","description":"Pure premium (exposure-based) ratemaking calculator per CAS Exam 5 study materials and the CAS Statement of Principles Regarding P&C Insurance Ratemaking. Computes on-level premium, trended pure premium, permissible loss ratio, indicated rate change, and credibility-weighted indication. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+.edu-disclaimer{border:1px solid var(--warn);border-left:3px solid var(--warn);background:rgba(245,158,11,.06);padding:1rem 1.25rem;margin-bottom:2rem;font-size:.76rem;color:var(--body);line-height:1.7;border-radius:var(--radius)}
+.edu-disclaimer-label{display:block;color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--red-dim:rgba(239,68,68,.12);--warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:14px;line-height:1.6;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.03) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+body>*{position:relative;z-index:1}
+.lang-bar{background:var(--bg-2);border-bottom:1px solid var(--border);padding:6px 0}
+.lang-inner{max-width:1100px;margin:0 auto;padding:0 24px;display:flex;gap:4px;justify-content:flex-end}
+.lang-btn{background:transparent;border:1px solid transparent;color:var(--body);font-family:'Sora',sans-serif;font-size:11px;font-weight:500;letter-spacing:.06em;padding:3px 10px;border-radius:var(--radius);cursor:pointer;transition:all .15s}
+.lang-btn:hover{color:var(--text);border-color:var(--border-2)}
+.lang-btn.active{background:var(--purple-dim);color:var(--purple);border-color:rgba(155,114,245,.3)}
+nav{background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.nav-inner{max-width:1100px;margin:0 auto;padding:0 24px;height:56px;display:grid;grid-template-columns:1fr auto 1fr}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center;justify-self:center;text-align:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--purple)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem;margin-left:auto}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--purple);color:var(--purple)}
+.nav-cta{display:inline-flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bg);background:var(--purple);border:1px solid var(--purple);padding:.4rem 1rem;border-radius:4px;transition:opacity .2s;white-space:nowrap;flex-shrink:0;text-decoration:none}
+.nav-cta:hover{opacity:.85}
+.hero{padding:52px 24px 40px;max-width:1100px;margin:0 auto}
+.hero-eyebrow{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.tool-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);letter-spacing:.1em;text-transform:uppercase}
+.hero-badge{background:var(--purple-dim);color:var(--purple);font-size:10px;font-weight:600;padding:3px 10px;border-radius:20px;border:1px solid rgba(155,114,245,.25)}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(26px,4vw,40px);color:var(--white);line-height:1.2;margin-bottom:14px;max-width:820px}
+.hero-desc{color:var(--body);font-size:14px;max-width:720px;line-height:1.7}
+.hero-meta{display:flex;gap:16px;margin-top:20px;flex-wrap:wrap}
+.hero-meta-pill{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--body);background:var(--bg-3);border:1px solid var(--border);padding:4px 12px;border-radius:20px}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+.tag{font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;letter-spacing:.04em;border:1px solid}
+.tag-teal{background:var(--teal-dim);color:var(--teal);border-color:rgba(20,184,166,.25)}
+.tag-gold{background:var(--gold-dim);color:var(--gold);border-color:rgba(212,168,71,.25)}
+.tag-green{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.25)}
+.tag-purple{background:var(--purple-dim);color:var(--purple);border-color:rgba(155,114,245,.25)}
+.tool-body{max-width:1100px;margin:0 auto;padding:0 24px 60px;display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
+@media(max-width:900px){.tool-body{grid-template-columns:1fr}}
+.main-col,.side-col{display:flex;flex-direction:column;gap:20px}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);letter-spacing:.08em;text-transform:uppercase;font-weight:500}
+.panel-body{padding:20px}
+.panel-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.panel-row.three{grid-template-columns:1fr 1fr 1fr}
+.panel-row.full{grid-template-columns:1fr}
+.panel-row:last-child{margin-bottom:0}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:11px;color:var(--body);font-weight:500;letter-spacing:.04em}
+.field input,.field select{background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);font-family:'Sora',sans-serif;font-size:13px;padding:8px 10px;border-radius:var(--radius);outline:none;transition:border-color .15s;width:100%}
+.field input:focus,.field select:focus{border-color:var(--purple)}
+.field select option{background:var(--bg-3)}
+.field-hint{font-size:10px;color:var(--muted);margin-top:2px}
+.section-divider{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);text-transform:uppercase;letter-spacing:.12em;padding:10px 0 6px;border-bottom:1px solid var(--border);margin-bottom:14px;margin-top:4px}
+.btn{display:inline-flex;align-items:center;gap:6px;font-family:'Sora',sans-serif;font-size:12px;font-weight:500;padding:7px 16px;border-radius:var(--radius);cursor:pointer;border:1px solid transparent;transition:all .15s;white-space:nowrap}
+.btn-purple{background:var(--purple);color:var(--bg);border-color:var(--purple)}
+.btn-purple:hover{filter:brightness(1.12)}
+.btn-ghost{background:transparent;color:var(--text);border-color:var(--border-2)}
+.btn-ghost:hover{background:var(--bg-3);border-color:var(--purple);color:var(--purple)}
+.btn-sm{font-size:11px;padding:5px 12px}
+.run-btn{width:100%;background:var(--purple);color:var(--bg);border:none;font-family:'Sora',sans-serif;font-size:14px;font-weight:600;padding:14px 24px;border-radius:var(--radius-lg);cursor:pointer;transition:all .2s;letter-spacing:.02em;box-shadow:0 0 20px rgba(155,114,245,.2)}
+.run-btn:hover{filter:brightness(1.1);box-shadow:0 0 30px rgba(155,114,245,.35)}
+.run-btn:active{transform:scale(.99)}
+.results-panel{display:none}
+.results-panel.visible{display:flex;flex-direction:column;gap:16px}
+.exp-table{width:100%;border-collapse:collapse;font-size:12px}
+.exp-table th{background:var(--bg-4);color:var(--body);font-weight:500;padding:8px 10px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.03em;border-bottom:1px solid var(--border)}
+.exp-table th:first-child{text-align:left}
+.exp-table td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;text-align:right}
+.exp-table td:first-child{text-align:left;color:var(--bright)}
+.exp-table tr:last-child td{border-bottom:none}
+.exp-table tr.total-row td{background:var(--bg-4);color:var(--purple);font-weight:700}
+.yr-input-grid{width:100%;border-collapse:collapse;font-size:11px}
+.yr-input-grid th{background:var(--bg-4);color:var(--body);font-weight:500;padding:6px 6px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.02em;border-bottom:1px solid var(--border)}
+.yr-input-grid td{padding:3px 4px;border-bottom:1px solid var(--border)}
+.yr-input-grid input{background:var(--bg-3);border:1px solid var(--border-2);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:11px;padding:5px 6px;border-radius:4px;outline:none;width:100%;min-width:64px}
+.yr-input-grid input:focus{border-color:var(--purple)}
+.big-box{border-radius:var(--radius-lg);padding:20px 24px;text-align:center;margin-bottom:4px;background:var(--purple-dim);border:1px solid rgba(155,114,245,.3)}
+.big-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.big-value{font-family:'DM Serif Display',serif;font-size:48px;color:var(--white);line-height:1.1}
+.big-sub{font-size:11px;color:var(--body);margin-top:6px}
+.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:600px){.metric-grid{grid-template-columns:1fr 1fr}}
+.metric-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
+.metric-card.highlight{border-color:rgba(155,114,245,.35);background:var(--purple-dim)}
+.metric-lbl{font-size:10px;color:var(--body);margin-bottom:4px;font-family:'JetBrains Mono',monospace;letter-spacing:.04em}
+.metric-val{font-family:'DM Serif Display',serif;font-size:20px;color:var(--white)}
+.metric-sub{font-size:10px;color:var(--body);margin-top:3px}
+.decomp-bar{display:flex;height:34px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);margin:10px 0}
+.decomp-seg{display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--bg);font-weight:600;min-width:0;overflow:hidden;white-space:nowrap}
+.decomp-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--body);font-family:'JetBrains Mono',monospace}
+.decomp-key{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.verdict-box{border-radius:var(--radius-lg);padding:16px 18px;border:1px solid var(--border);font-size:13px;line-height:1.7}
+.verdict-ok{background:var(--green-dim);border-color:rgba(34,197,94,.3)}
+.verdict-low{background:var(--warn-dim);border-color:rgba(245,158,11,.3)}
+.verdict-crit{background:var(--red-dim);border-color:rgba(239,68,68,.3)}
+.sens-table{width:100%;border-collapse:collapse;font-size:11px}
+.sens-table th,.sens-table td{padding:7px 9px;border:1px solid var(--border);text-align:center;font-family:'JetBrains Mono',monospace}
+.sens-table th{background:var(--bg-4);color:var(--body)}
+.sens-table td{background:var(--bg-3);color:var(--text)}
+.sens-table td.base{background:var(--purple-dim);color:var(--purple);font-weight:600}
+.sens-table td.rowhdr{background:var(--bg-4);color:var(--body)}
+.warning-box{background:var(--warn-dim);border:1px solid rgba(245,158,11,.3);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;font-size:11px}
+.warning-box:last-child{margin-bottom:0}
+.warning-title{color:var(--warn);font-weight:600;margin-bottom:3px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.04em}
+.results-export-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:14px 20px;background:var(--bg-3);border-top:1px solid var(--border)}
+#ap2ExportBtn{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.55rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);cursor:not-allowed;opacity:.28;transition:opacity .2s,border-color .2s}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--purple);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.about-item{padding:10px 0;border-bottom:1px solid var(--border);font-size:12px}
+.about-item:last-child{border-bottom:none}
+.about-item strong{color:var(--text);display:block;margin-bottom:3px}
+.about-item .cite{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple)}
+.mcp-code{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--body);overflow-x:auto;line-height:1.6;white-space:pre}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:12px 18px;font-size:13px;color:var(--bright);box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:9999;transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none;max-width:340px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.error{border-color:rgba(239,68,68,.4);color:var(--red)}
+.toast.success{border-color:rgba(155,114,245,.4);color:var(--purple)}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--purple)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+[dir="rtl"] .nav-inner,[dir="rtl"] .lang-inner{text-align:right}
+[dir="rtl"] body{font-family:'Sora','Segoe UI',Tahoma,sans-serif}
+[dir="rtl"] .exp-table th,[dir="rtl"] .exp-table td{text-align:left}
+[dir="rtl"] .exp-table th:first-child,[dir="rtl"] .exp-table td:first-child{text-align:right}
+</style>
+</head>
+<body>
+<div class="lang-bar">
+  <div class="lang-inner">
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+    <button class="lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" data-lang="ar" onclick="setLang('ar')">AR</button>
+    <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    <button class="lang-btn" data-lang="zh" onclick="setLang('zh')">&#20013;&#25991;</button>
+  </div>
+</div>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" style="text-decoration:none;display:flex;align-items:center;gap:10px">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--purple)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".7"/></svg>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)"><span style="color:var(--purple)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="nav-bc">
+      <a href="../index.html">All Tools</a>
+      <span class="nav-bc-sep">&rsaquo;</span>
+      <span class="nav-bc-current">T459 &middot; Ratemaking Adequacy Tester</span>
+    </div>
+    <div class="nav-right">
+      <button class="nav-pill" onclick="scrollMfst()">Manifest</button>
+      <a href="../index.html" class="nav-cta">All Tools</a>
+    </div>
+  </div>
+</nav>
+<div class="hero">
+  <div class="hero-eyebrow">
+    <span class="tool-eyebrow">INSURANCE ACTUARIAL &middot; T459</span>
+    <span class="hero-badge">cat-30</span>
+  </div>
+  <h1>Insurance Ratemaking Adequacy Tester</h1>
+  <p class="hero-desc">Pure premium (exposure-based) ratemaking per the CAS Exam 5 study materials and the CAS Statement of Principles Regarding P&amp;C Insurance Ratemaking. Computes the indicated rate change from historical exposure and loss data, applies credibility weighting (classical square-root, 1,082-claim full-credibility standard), and outputs a rate-adequacy conclusion suitable for supporting a regulatory rate filing.</p>
+  <div class="hero-meta">
+    <div class="hero-meta-pill"><span>&#128274;</span><span>Zero PII</span></div>
+    <div class="hero-meta-pill"><span>&#128225;</span><span>No server calls</span></div>
+    <div class="hero-meta-pill"><span>&#128187;</span><span>Client-side</span></div>
+    <div class="hero-meta-pill"><span>&#128203;</span><span>CAS Ratemaking Standards</span></div>
+  </div>
+  <div class="tag-row">
+    <span class="tag tag-purple">Pure Premium Method</span>
+    <span class="tag tag-gold">Indicated Rate Change</span>
+    <span class="tag tag-teal">Credibility</span>
+    <span class="tag tag-green">Permissible Loss Ratio</span>
+    <span class="tag tag-purple">CAS Exam 5</span>
+    <span class="tag tag-gold">Rate Filing</span>
+  </div>
+</div>
+<div class="tool-body">
+  <div class="main-col">
+    <div class="pii-notice">&#128274; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data &mdash; use synthetic or anonymised inputs only.</div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label">A &mdash; Experience Data (by accident year)</span>
+        <button class="btn btn-ghost btn-sm" onclick="loadExample()">Load example data</button>
+      </div>
+      <div class="panel-body">
+        <div class="section-divider">Up to 10 accident years &middot; leave a row blank or zero exposures to exclude it</div>
+        <div style="overflow-x:auto">
+          <table class="yr-input-grid">
+            <thead>
+              <tr>
+                <th style="text-align:left">Accident Year</th>
+                <th>Earned Exposures</th>
+                <th>Earned Premium ($)</th>
+                <th>Incurred Losses + LAE ($)</th>
+                <th>Reported Claim Count</th>
+                <th>Current Rate Level Factor</th>
+              </tr>
+            </thead>
+            <tbody id="yrBody"></tbody>
+          </table>
+        </div>
+        <div class="field-hint" style="margin-top:8px">Earned Premium is at as-written rates; the Current Rate Level Factor on-levels it to current rates (Step 1). Enter 1.0 if premium is already on-level. Claim counts drive the credibility weight.</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><span class="panel-label">B &mdash; Trend &amp; Development</span></div>
+      <div class="panel-body">
+        <div class="panel-row three">
+          <div class="field">
+            <label>Loss Trend Factor (% p.a.)</label>
+            <input type="number" id="lossTrend" value="5.0" step="0.1">
+            <span class="field-hint">Severity + frequency combined annual loss trend</span>
+          </div>
+          <div class="field">
+            <label>Trend Period (years)</label>
+            <input type="number" id="trendPeriod" value="2.5" min="0" step="0.25">
+            <span class="field-hint">Mid-accident-year to mid-prospective-period for the latest year; earlier years get +1 yr each</span>
+          </div>
+          <div class="field">
+            <label>Premium Trend Factor (% p.a.)</label>
+            <input type="number" id="premTrend" value="0.0" step="0.1">
+            <span class="field-hint">Optional &mdash; exposure / average-premium drift</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><span class="panel-label">C &mdash; Expense &amp; Profit Provisions</span></div>
+      <div class="panel-body">
+        <div class="panel-row three">
+          <div class="field">
+            <label>Variable Expense %</label>
+            <input type="number" id="varExp" value="22.0" min="0" max="100" step="0.1">
+            <span class="field-hint">Commissions, premium tax, assessments</span>
+          </div>
+          <div class="field">
+            <label>Fixed Expense Per Exposure ($)</label>
+            <input type="number" id="fixedExp" value="35" min="0" step="0.5">
+            <span class="field-hint">Salaries, overhead allocated per exposure unit</span>
+          </div>
+          <div class="field">
+            <label>Profit &amp; Contingency Loading %</label>
+            <input type="number" id="profit" value="5.0" min="0" max="100" step="0.1">
+            <span class="field-hint">Target underwriting profit margin</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><span class="panel-label">D &mdash; Credibility</span></div>
+      <div class="panel-body">
+        <div class="panel-row">
+          <div class="field">
+            <label>Credibility Method</label>
+            <select id="credMethod">
+              <option value="sqrt" selected>Square root (classical / B&uuml;hlmann)</option>
+              <option value="classical">Classical limited fluctuation (= square root)</option>
+              <option value="full">Force full credibility (Z = 1)</option>
+            </select>
+            <span class="field-hint">Square root and classical limited-fluctuation both use Z = &radic;(n / n_full)</span>
+          </div>
+          <div class="field">
+            <label>Full Credibility Threshold (claims)</label>
+            <input type="number" id="fullCred" value="1082" min="1" step="1">
+            <span class="field-hint">Default 1,082 = standard 90/10 (P=90%, k=10%) claim-count standard</span>
+          </div>
+        </div>
+        <div class="panel-row">
+          <div class="field">
+            <label>Complement of Credibility</label>
+            <select id="complementType">
+              <option value="industry">Industry / trended present rates (0% change)</option>
+              <option value="prior">Prior indicated change</option>
+              <option value="manual">Manual / benchmark rate change</option>
+            </select>
+            <span class="field-hint">The indication blended into the (1 &minus; Z) portion</span>
+          </div>
+          <div class="field">
+            <label>Complement Value (%)</label>
+            <input type="number" id="complementVal" value="0.0" step="0.1">
+            <span class="field-hint">Rate change implied by the complement, e.g. 0% = "hold present rates"</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="run-btn" onclick="runRatemaking()">Test Rate Adequacy &rarr;</button>
+
+    <div class="results-panel" id="resultsPanel">
+      <div id="headlineEl"></div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-label">1 &mdash; Year-by-Year Experience</span>
+          <span style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace" id="resultsTimestamp"></span>
+        </div>
+        <div class="panel-body" style="padding:0;overflow-x:auto">
+          <table class="exp-table" id="yearTable"></table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-label">2 &mdash; Indicated Change Summary</span></div>
+        <div class="panel-body">
+          <div class="metric-grid" id="metricGrid"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-label">3 &mdash; Permissible Loss Ratio Decomposition</span></div>
+        <div class="panel-body" id="decompEl"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-label">4 &mdash; Adequacy Assessment</span></div>
+        <div class="panel-body" id="verdictEl"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-label">5 &mdash; Sensitivity Analysis</span></div>
+        <div class="panel-body">
+          <p style="font-size:11px;color:var(--body);margin-bottom:12px">Credibility-weighted indicated rate change under loss-trend shifts (rows) and permissible-LR shifts (columns). Base case highlighted.</p>
+          <div style="overflow-x:auto" id="sensEl"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-label">6 &mdash; Caveats &amp; Method Limitations</span></div>
+        <div class="panel-body" id="warningsEl"></div>
+      </div>
+
+      <div class="panel">
+        <div class="results-export-row">
+          <button class="btn btn-purple btn-sm" onclick="exportMarkdown()">Export Markdown</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV()">Export CSV</button>
+          <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the analysis above to generate a Policy Mandate">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API &middot; audit trail</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="side-col">
+    <div class="panel">
+      <div class="panel-header"><span class="panel-label">About This Tool</span></div>
+      <div class="panel-body">
+        <div class="edu-disclaimer">
+          <span class="edu-disclaimer-label">Disclaimer</span>
+          Indicative ratemaking calculation only. On-level factors and loss development to ultimate must be supplied by the user &mdash; this tool does not compute them. The indicated rate change is for reference; an actual rate filing requires appointed-actuary certification and jurisdiction-specific documentation. Not a substitute for actuarial sign-off.
+        </div>
+        <div class="about-item">
+          <strong>CAS Statement of Principles</strong>
+          Regarding Property and Casualty Insurance Ratemaking &mdash; the four principles and the definition of a reasonable rate (not excessive, inadequate, or unfairly discriminatory).
+          <span class="cite">[1] CAS SoP &mdash; Ratemaking</span>
+        </div>
+        <div class="about-item">
+          <strong>CAS Exam 5 / Friedland</strong>
+          Werner &amp; Modlin, "Basic Ratemaking"; Friedland, "Estimating Unpaid Claims Using Basic Techniques" &mdash; pure premium and loss-ratio indication methods.
+          <span class="cite">[1] CAS Exam 5 syllabus</span>
+        </div>
+        <div class="about-item">
+          <strong>Classical Credibility (90/10)</strong>
+          Full-credibility standard of 1,082 expected claims for P=90%, k=10% under the classical limited-fluctuation framework; partial credibility Z = &radic;(n / n_full).
+          <span class="cite">[2] Limited fluctuation credibility</span>
+        </div>
+        <div class="about-item">
+          <strong>Complement of Credibility</strong>
+          The (1 &minus; Z) weight is applied to a complement &mdash; present-rate change, prior indication, or external benchmark &mdash; per ASOP No. 25 and CAS credibility literature.
+          <span class="cite">[2] ASOP No. 25</span>
+        </div>
+        <div class="about-item">
+          <strong>On-Levelling</strong>
+          Current-rate-level factors are supplied by the user (parallelogram method not computed here). See Note [3].
+          <span class="cite">[3] On-level premium</span>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><span class="panel-label">Method Parameters</span></div>
+      <div class="panel-body" style="font-size:11px">
+        <div style="margin-bottom:10px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:6px">CREDIBILITY</div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)"><span style="color:var(--body)">Full-cred standard (claims)</span><span style="font-family:'JetBrains Mono',monospace;color:var(--bright)">1,082</span></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--body)">Partial credibility</span><span style="font-family:'JetBrains Mono',monospace;color:var(--bright)">Z = &radic;(n/n_full)</span></div>
+        </div>
+        <div style="margin-bottom:10px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:6px">PERMISSIBLE LOSS RATIO</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--body);line-height:1.6">PLR = 1 &minus; VarExp% &minus; Profit% &minus; (FixedExp / AvgPrem)</div>
+        </div>
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:6px">INDICATED CHANGE</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--body);line-height:1.6">&Delta; = ActualLR / PermissibleLR &minus; 1<br>Z&middot;&Delta; + (1&minus;Z)&middot;Complement</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <button class="mfst-btn" onclick="toggleMfst()">
+      <span>&#128230; &nbsp;MCP Manifest &middot; T459 &middot; Ratemaking Adequacy Tester</span>
+      <span id="mfstArr">&#9660;</span>
+    </button>
+    <div id="mfstBody" style="display:none">
+      <div style="display:flex;gap:8px;padding:.6rem 0">
+        <button class="btn btn-ghost btn-sm" onclick="copyMfst()">Copy JSON</button>
+      </div>
+      <pre class="mcp-code" id="mfstCode"></pre>
+    </div>
+  </div>
+</section>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--purple)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--purple)" opacity=".7"/></svg>
+      <span class="footer-wordmark"><span style="color:var(--purple)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html" data-i18n="footer.alltools">All Tools</a>
+      <a href="../sitemap.html" data-i18n="footer.sitemap">Sitemap</a>
+      <a href="../contact.html" data-i18n="footer.contact">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span data-i18n="footer.cc">CC BY 4.0 &middot; Post Oak Labs</span>
+      <span data-i18n="footer.privacy">&#128274; Zero PII &nbsp; &#128225; No server calls &nbsp; &#128187; Client-side</span>
+    </div>
+  </div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+var N_YEARS = 10;
+var lastResult = null;
+
+var TRANSLATIONS = {
+  en:{"pii.banner":"🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.","run":"Test Rate Adequacy →","footer.alltools":"All Tools","footer.sitemap":"Sitemap","footer.contact":"Contact","footer.cc":"CC BY 4.0 · Post Oak Labs","footer.privacy":"🔒 Zero PII   📡 No server calls   💻 Client-side"},
+  es:{"pii.banner":"🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No introduzca datos personales reales — use datos sintéticos o anonimizados.","run":"Probar Suficiencia →","footer.alltools":"Todas las Herramientas","footer.sitemap":"Mapa del Sitio","footer.contact":"Contacto","footer.cc":"CC BY 4.0 · Post Oak Labs","footer.privacy":"🔒 Sin PII   📡 Sin llamadas al servidor   💻 Cliente"},
+  fr:{"pii.banner":"🔒 Toutes les entrées sont traitées localement dans votre navigateur. Aucune donnée n'est transmise. N'entrez pas de données personnelles réelles — utilisez des données synthétiques ou anonymisées.","run":"Tester l'Adéquation →","footer.alltools":"Tous les Outils","footer.sitemap":"Plan du Site","footer.contact":"Contact","footer.cc":"CC BY 4.0 · Post Oak Labs","footer.privacy":"🔒 Aucune PII   📡 Aucun appel serveur   💻 Côté client"},
+  ar:{"pii.banner":"🔒 جميع المدخلات تُعالج محلياً في متصفحك. لا تُنقل أي بيانات. لا تُدخل بيانات شخصية حقيقية — استخدم بيانات اصطناعية أو مجهّلة فقط.","run":"اختبر كفاية التسعير ←","footer.alltools":"جميع الأدوات","footer.sitemap":"خريطة الموقع","footer.contact":"اتصل","footer.cc":"CC BY 4.0 · Post Oak Labs","footer.privacy":"🔒 لا بيانات شخصية   📡 لا استدعاءات للخادم   💻 على المتصفح"},
+  pt:{"pii.banner":"🔒 Todas as entradas são processadas localmente no seu navegador. Nenhum dado é transmitido. Não insira dados pessoais reais — use dados sintéticos ou anonimizados.","run":"Testar Adequação →","footer.alltools":"Todas as Ferramentas","footer.sitemap":"Mapa do Site","footer.contact":"Contato","footer.cc":"CC BY 4.0 · Post Oak Labs","footer.privacy":"🔒 Sem PII   📡 Sem chamadas ao servidor   💻 Client-side"},
+  zh:{"pii.banner":"🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。请勿输入真实个人数据——仅使用合成或匿名数据。","run":"测试费率充足性 →","footer.alltools":"所有工具","footer.sitemap":"网站地图","footer.contact":"联系","footer.cc":"CC BY 4.0 · Post Oak Labs","footer.privacy":"🔒 零个人数据   📡 无服务器调用   💻 纯客户端"}
+};
+
+function setLang(lang){
+  if(!TRANSLATIONS[lang])return;
+  var dict=TRANSLATIONS[lang];
+  document.querySelectorAll("[data-i18n]").forEach(function(el){var k=el.getAttribute("data-i18n");if(dict[k]!==undefined)el.textContent=dict[k];});
+  var pn=document.querySelector(".pii-notice");if(pn&&dict["pii.banner"])pn.textContent=dict["pii.banner"];
+  var rb=document.querySelector(".run-btn");if(rb&&dict["run"])rb.textContent=dict["run"];
+  document.querySelectorAll(".lang-btn").forEach(function(b){b.classList.toggle("active",b.getAttribute("data-lang")===lang);});
+  document.documentElement.setAttribute("dir",lang==="ar"?"rtl":"ltr");
+  document.documentElement.setAttribute("lang",lang);
+  try{sessionStorage.setItem("ain_lang",lang);}catch(e){}
+}
+(function initLang(){try{var s=sessionStorage.getItem("ain_lang");if(s&&TRANSLATIONS[s])setLang(s);}catch(e){}})();
+
+function showToast(msg,type){var t=document.getElementById("toast");t.textContent=msg;t.className="toast "+(type||"");t.classList.add("show");setTimeout(function(){t.classList.remove("show");},3200);}
+function triggerDownload(content,filename,mime){var blob=new Blob([content],{type:mime});var url=URL.createObjectURL(blob);var a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(function(){URL.revokeObjectURL(url);},1000);}
+function num(id){var el=document.getElementById(id);if(!el)return 0;var v=parseFloat(el.value);return isFinite(v)?v:0;}
+function fmtUSDfull(n){return "$"+n.toLocaleString("en-US",{maximumFractionDigits:0});}
+function fmtSignedPct(n,d){return (n>=0?"+":"")+n.toFixed(d===undefined?1:d)+"%";}
+
+function buildGrid(){
+  var tb=document.getElementById("yrBody");
+  var html="";
+  for(var i=0;i<N_YEARS;i++){
+    html+='<tr>'+
+      '<td><input type="number" id="ay'+i+'" placeholder="YYYY" step="1" min="1900" max="2100"></td>'+
+      '<td><input type="number" id="exp'+i+'" placeholder="0" min="0" step="0.01"></td>'+
+      '<td><input type="number" id="prem'+i+'" placeholder="0" min="0" step="1"></td>'+
+      '<td><input type="number" id="loss'+i+'" placeholder="0" min="0" step="1"></td>'+
+      '<td><input type="number" id="clm'+i+'" placeholder="0" min="0" step="1"></td>'+
+      '<td><input type="number" id="crlf'+i+'" placeholder="1.000" min="0" step="0.001"></td>'+
+    '</tr>';
+  }
+  tb.innerHTML=html;
+}
+
+function loadExample(){
+  var ex=[
+    [2019, 18500, 9620000,  6180000,  1240, 1.085],
+    [2020, 19100, 10120000, 6540000,  1310, 1.062],
+    [2021, 19800, 10780000, 7250000,  1395, 1.041],
+    [2022, 20450, 11410000, 7980000,  1460, 1.022],
+    [2023, 21200, 12190000, 8730000,  1520, 1.000]
+  ];
+  for(var i=0;i<N_YEARS;i++){
+    var r=ex[i];
+    document.getElementById("ay"+i).value   = r?r[0]:"";
+    document.getElementById("exp"+i).value  = r?r[1]:"";
+    document.getElementById("prem"+i).value = r?r[2]:"";
+    document.getElementById("loss"+i).value = r?r[3]:"";
+    document.getElementById("clm"+i).value  = r?r[4]:"";
+    document.getElementById("crlf"+i).value = r?r[5]:"";
+  }
+  document.getElementById("lossTrend").value="5.0";
+  document.getElementById("trendPeriod").value="2.5";
+  document.getElementById("premTrend").value="0.0";
+  document.getElementById("varExp").value="22.0";
+  document.getElementById("fixedExp").value="35";
+  document.getElementById("profit").value="5.0";
+  document.getElementById("credMethod").value="sqrt";
+  document.getElementById("fullCred").value="1082";
+  document.getElementById("complementType").value="industry";
+  document.getElementById("complementVal").value="0.0";
+  showToast("Synthetic example loaded (Synthetica Mutual — fictitious)","success");
+}
+
+function computeIndication(rows, lossTrendPct, trendPeriodLatest, plrOverride, params){
+  var nRows=rows.length;
+  var aggTrendedLoss=0, aggOnLevelPrem=0, aggExposure=0, ppWeightSum=0;
+  var lt = lossTrendPct/100;
+  var perRow=[];
+  for(var i=0;i<nRows;i++){
+    var rw=rows[i];
+    var onLevelPrem = rw.prem * rw.crlf;
+    var yearsFromLatest = (nRows-1-i);
+    var tp = trendPeriodLatest + yearsFromLatest;
+    var trendFactor = Math.pow(1+lt, tp);
+    var trendedLoss = rw.loss * trendFactor;
+    var pp = rw.exp>0 ? trendedLoss/rw.exp : 0;
+    aggTrendedLoss += trendedLoss;
+    aggOnLevelPrem += onLevelPrem;
+    aggExposure    += rw.exp;
+    ppWeightSum    += rw.exp * pp;
+    perRow.push({ay:rw.ay,exp:rw.exp,onLevelPrem:onLevelPrem,trendFactor:trendFactor,trendedLoss:trendedLoss,pp:pp,clm:rw.clm,curLR:onLevelPrem>0?(rw.loss/onLevelPrem):0});
+  }
+  var ppWeighted = aggExposure>0 ? ppWeightSum/aggExposure : 0;
+  var avgPrem = aggExposure>0 ? aggOnLevelPrem/aggExposure : 0;
+  var fixedRatio = avgPrem>0 ? (params.fixedExp/avgPrem) : 0;
+  var plr = (plrOverride!==null && plrOverride!==undefined) ? plrOverride
+            : (1 - params.varExp/100 - params.profit/100 - fixedRatio);
+  var actualLR = aggOnLevelPrem>0 ? (aggTrendedLoss/aggOnLevelPrem) : 0;
+  var indicated = plr>0 ? (actualLR/plr - 1) : 0;
+  return {
+    perRow:perRow, aggTrendedLoss:aggTrendedLoss, aggOnLevelPrem:aggOnLevelPrem,
+    aggExposure:aggExposure, ppWeighted:ppWeighted, avgPrem:avgPrem, fixedRatio:fixedRatio,
+    plr:plr, actualLR:actualLR, indicated:indicated
+  };
+}
+
+function runRatemaking(){
+  var rows=[], totalClaims=0, errs=[];
+  for(var i=0;i<N_YEARS;i++){
+    var exp=num("exp"+i);
+    if(exp<=0)continue;
+    var ay=parseInt(document.getElementById("ay"+i).value,10);
+    var prem=num("prem"+i);
+    var loss=num("loss"+i);
+    var clm=num("clm"+i);
+    var crlf=num("crlf"+i);
+    if(crlf<=0)crlf=1.0;
+    if(prem<0||loss<0||clm<0){errs.push("Row "+(i+1)+": negative values are not allowed.");}
+    rows.push({ay:isFinite(ay)?ay:(2000+i),exp:exp,prem:prem,loss:loss,clm:clm,crlf:crlf});
+    totalClaims+=clm;
+  }
+  if(rows.length===0){showToast("Enter at least one experience year with positive earned exposures.","error");return;}
+  rows.sort(function(a,b){return a.ay-b.ay;});
+  if(errs.length){showToast(errs[0],"error");return;}
+
+  var params={
+    lossTrend:num("lossTrend"), trendPeriod:Math.max(0,num("trendPeriod")), premTrend:num("premTrend"),
+    varExp:num("varExp"), fixedExp:Math.max(0,num("fixedExp")), profit:num("profit"),
+    fullCred:Math.max(1,num("fullCred")), credMethod:document.getElementById("credMethod").value,
+    complementType:document.getElementById("complementType").value, complementVal:num("complementVal")
+  };
+  if(params.varExp+params.profit>=100){showToast("Variable expense % + profit % must be below 100% to leave room for losses.","error");return;}
+
+  var base=computeIndication(rows, params.lossTrend, params.trendPeriod, null, params);
+  if(base.plr<=0){showToast("Permissible loss ratio is <= 0 — reduce expense / profit provisions or fixed expense per exposure.","error");return;}
+
+  var Z;
+  if(params.credMethod==="full"){Z=1;}
+  else{ Z=Math.min(Math.sqrt(totalClaims/params.fullCred),1); }
+  var complement=params.complementVal/100;
+  var finalChange = Z*base.indicated + (1-Z)*complement;
+
+  var trendShifts=[+2,+1,0,-1,-2];
+  var plrShifts=[+5,0,-5];
+  var sens=[];
+  trendShifts.forEach(function(ts){
+    var rowOut=[];
+    plrShifts.forEach(function(ps){
+      var plrAdj=base.plr + ps/100;
+      var c=computeIndication(rows, params.lossTrend+ts, params.trendPeriod, plrAdj, params);
+      var cw = Z*c.indicated + (1-Z)*complement;
+      rowOut.push({trendShift:ts,plrShift:ps,plr:plrAdj,indicated:c.indicated,cw:cw});
+    });
+    sens.push(rowOut);
+  });
+
+  lastResult={
+    rows:rows, params:params, base:base, totalClaims:totalClaims, Z:Z, complement:complement,
+    finalChange:finalChange, sens:sens, trendShifts:trendShifts, plrShifts:plrShifts,
+    generated:new Date().toISOString()
+  };
+
+  renderResults(lastResult);
+  document.getElementById("resultsPanel").classList.add("visible");
+  document.getElementById("resultsTimestamp").textContent=new Date().toISOString().slice(0,16).replace("T"," ")+" UTC";
+  document.getElementById("resultsPanel").scrollIntoView({behavior:"smooth",block:"nearest"});
+  if(typeof enableAP2Btn==="function")enableAP2Btn();
+  showToast("Indicated rate change: "+fmtSignedPct(finalChange*100),"success");
+}
+
+function renderResults(r){
+  var b=r.base;
+  var hl = r.finalChange;
+  var hlColor = Math.abs(hl)<0.005 ? "var(--green)" : (hl>0 ? "var(--warn)" : "var(--teal)");
+  document.getElementById("headlineEl").innerHTML=
+    '<div class="big-box">'+
+    '<div class="big-label">Credibility-Weighted Indicated Rate Change</div>'+
+    '<div class="big-value" style="color:'+hlColor+'">'+fmtSignedPct(hl*100)+'</div>'+
+    '<div class="big-sub">Uncapped indication &middot; Z = '+(r.Z*100).toFixed(1)+'% credible on '+r.totalClaims.toLocaleString("en-US")+' claims &middot; complement '+fmtSignedPct(r.complement*100)+'</div>'+
+    '</div>';
+
+  var th='<thead><tr><th>Accident Year</th><th>Exposures</th><th>On-Level Prem</th><th>Trend Factor</th><th>Trended Loss+LAE</th><th>Pure Premium</th><th>Current LR</th></tr></thead><tbody>';
+  b.perRow.forEach(function(p){
+    th+='<tr><td>'+p.ay+'</td>'+
+      '<td>'+p.exp.toLocaleString("en-US")+'</td>'+
+      '<td>'+fmtUSDfull(p.onLevelPrem)+'</td>'+
+      '<td>'+p.trendFactor.toFixed(4)+'</td>'+
+      '<td>'+fmtUSDfull(p.trendedLoss)+'</td>'+
+      '<td>$'+p.pp.toFixed(2)+'</td>'+
+      '<td>'+(p.curLR*100).toFixed(1)+'%</td></tr>';
+  });
+  th+='<tr class="total-row"><td>Total / Wtd</td>'+
+      '<td>'+b.aggExposure.toLocaleString("en-US")+'</td>'+
+      '<td>'+fmtUSDfull(b.aggOnLevelPrem)+'</td>'+
+      '<td>&mdash;</td>'+
+      '<td>'+fmtUSDfull(b.aggTrendedLoss)+'</td>'+
+      '<td>$'+b.ppWeighted.toFixed(2)+'</td>'+
+      '<td>'+(b.actualLR*100).toFixed(1)+'%</td></tr>';
+  th+='</tbody>';
+  document.getElementById("yearTable").innerHTML=th;
+
+  var metrics=[
+    {l:"Indicated &Delta; (uncapped)",v:fmtSignedPct(r.finalChange*100),s:"Credibility-weighted",cls:"highlight"},
+    {l:"Indication Before Cred.",v:fmtSignedPct(b.indicated*100),s:"Loss-ratio method",cls:""},
+    {l:"Credibility Z",v:(r.Z*100).toFixed(1)+"%",s:r.totalClaims.toLocaleString("en-US")+" / "+r.params.fullCred.toLocaleString("en-US")+" claims",cls:""},
+    {l:"Trended Pure Premium",v:"$"+b.ppWeighted.toFixed(2),s:"Exposure-weighted",cls:""},
+    {l:"Actual Loss Ratio",v:(b.actualLR*100).toFixed(1)+"%",s:"Trended loss / on-level prem",cls:""},
+    {l:"Permissible Loss Ratio",v:(b.plr*100).toFixed(1)+"%",s:"Target loss + LAE ratio",cls:""}
+  ];
+  var mg="";
+  metrics.forEach(function(m){mg+='<div class="metric-card '+(m.cls||"")+'"><div class="metric-lbl">'+m.l+'</div><div class="metric-val">'+m.v+'</div><div class="metric-sub">'+m.s+'</div></div>';});
+  document.getElementById("metricGrid").innerHTML=mg;
+
+  var pVar=r.params.varExp, pProfit=r.params.profit, pFixed=b.fixedRatio*100, pLoss=b.plr*100;
+  var segs=[
+    {l:"Permissible Loss+LAE",v:pLoss,c:"var(--purple)"},
+    {l:"Variable Expense",v:pVar,c:"var(--gold)"},
+    {l:"Fixed Expense",v:pFixed,c:"var(--teal)"},
+    {l:"Profit & Contingency",v:pProfit,c:"var(--green)"}
+  ];
+  var totalPct=segs.reduce(function(a,s){return a+s.v;},0);
+  var bar='<div class="decomp-bar">';
+  segs.forEach(function(s){var w=totalPct>0?(s.v/totalPct*100):0;bar+='<div class="decomp-seg" style="flex:0 0 '+w.toFixed(2)+'%;background:'+s.c+'" title="'+s.l+': '+s.v.toFixed(1)+'%">'+(w>9?s.v.toFixed(1)+"%":"")+'</div>';});
+  bar+='</div>';
+  var legend='<div class="decomp-legend">';
+  segs.forEach(function(s){legend+='<span><span class="decomp-key" style="background:'+s.c+'"></span>'+s.l+' '+s.v.toFixed(1)+'%</span>';});
+  legend+='</div>';
+  var note='<p style="font-size:11px;color:var(--body);margin-top:12px">Of every premium dollar at the target rate level, <strong style="color:var(--purple)">'+pLoss.toFixed(1)+'¢</strong> is available for losses &amp; LAE after '+(pVar).toFixed(1)+'% variable expense, '+pFixed.toFixed(1)+'% fixed expense (= $'+r.params.fixedExp.toFixed(2)+' / $'+b.avgPrem.toFixed(2)+' avg premium), and '+pProfit.toFixed(1)+'% profit &amp; contingency loading.</p>';
+  document.getElementById("decompEl").innerHTML=bar+legend+note;
+
+  var chgPct=r.finalChange*100;
+  var vClass, vTitle, vBody;
+  if(Math.abs(chgPct)<1){
+    vClass="verdict-ok";vTitle="Rates are broadly adequate";
+    vBody="Current rates are adequate within ±1%. The indicated change of <strong>"+fmtSignedPct(chgPct)+"</strong> is immaterial; holding present rates is defensible.";
+  }else if(chgPct>0){
+    vClass = chgPct>=10 ? "verdict-crit" : "verdict-low";vTitle="Rates are inadequate";
+    vBody="Current rates are <strong>inadequate by approximately "+chgPct.toFixed(1)+"%</strong>. A rate <strong>increase of "+fmtSignedPct(chgPct)+"</strong> is indicated to restore the target loss ratio. The trended actual loss ratio ("+(b.actualLR*100).toFixed(1)+"%) exceeds the permissible loss ratio ("+(b.plr*100).toFixed(1)+"%).";
+  }else{
+    vClass="verdict-ok";vTitle="Rates are redundant";
+    vBody="Current rates are <strong>redundant by approximately "+Math.abs(chgPct).toFixed(1)+"%</strong>. A rate <strong>decrease of "+fmtSignedPct(chgPct)+"</strong> is indicated. The trended actual loss ratio ("+(b.actualLR*100).toFixed(1)+"%) is below the permissible loss ratio ("+(b.plr*100).toFixed(1)+"%).";
+  }
+  document.getElementById("verdictEl").innerHTML='<div class="verdict-box '+vClass+'"><div style="font-family:\'JetBrains Mono\',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--body);margin-bottom:6px">Verdict</div><div style="font-family:\'DM Serif Display\',serif;font-size:22px;color:var(--white);margin-bottom:8px">'+vTitle+'</div><div style="color:var(--text)">'+vBody+'</div><div style="font-size:11px;color:var(--body);margin-top:10px">Credibility-weighted with complement '+fmtSignedPct(r.complement*100)+' at Z='+(r.Z*100).toFixed(1)+'%. Indication before credibility weighting: '+fmtSignedPct(b.indicated*100)+'. This is an uncapped indication; rate caps, dislocation analysis, and lifetime-value constraints are out of scope.</div></div>';
+
+  var st='<table class="sens-table"><thead><tr><th>Loss Trend \\ Perm. LR</th>';
+  r.plrShifts.forEach(function(ps){st+='<th>'+(ps>0?"+":"")+ps+' pts<br>('+(b.plr*100+ps).toFixed(1)+'%)</th>';});
+  st+='</tr></thead><tbody>';
+  r.sens.forEach(function(rowOut,ri){
+    var ts=r.trendShifts[ri];
+    st+='<tr><td class="rowhdr">'+(ts>0?"+":"")+ts+' pts ('+(r.params.lossTrend+ts).toFixed(1)+'%)</td>';
+    rowOut.forEach(function(cell){
+      var isBase = cell.trendShift===0 && cell.plrShift===0;
+      st+='<td class="'+(isBase?"base":"")+'">'+fmtSignedPct(cell.cw*100)+'</td>';
+    });
+    st+='</tr>';
+  });
+  st+='</tbody></table>';
+  document.getElementById("sensEl").innerHTML=st;
+
+  var warns=[
+    {t:"On-Level Factors Are User-Supplied",b:"This tool multiplies earned premium by the current rate level factor you enter; it does not compute on-level factors (parallelogram / extension-of-exposures methods). Verify your CRLFs. [Note 3]"},
+    {t:"Losses Assumed Developed to Ultimate",b:"Incurred losses + LAE are taken as already developed to ultimate. If you enter undeveloped losses, the indication will understate the required change. Apply loss development factors before entry."},
+    {t:"Trend Period Spacing",b:"Each accident year older than the latest is given +1 year of additional trend (mid-year-to-mid-year). For non-annual or off-cycle data, confirm the trend period mapping matches your exhibit."},
+    {t:"Credibility Complement",b:"The (1-Z) weight is applied to the complement you select. A poorly-chosen complement biases the final indication. ASOP No. 25 requires the complement to be a reasonable, relevant estimate. [Note 2]"},
+    {t:"Uncapped Indication",b:"The output is the actuarially indicated change before regulatory caps, rate dislocation limits, competitive constraints, or transition rules. Selected (filed) rate changes commonly differ from the indication."},
+    {t:"Not a Filing or Certification",b:"This is a reference calculation only. A regulatory rate filing requires appointed-actuary certification, full supporting exhibits, and jurisdiction-specific documentation. [Note 4]"}
+  ];
+  var wh="";
+  warns.forEach(function(w){wh+='<div class="warning-box"><div class="warning-title">⚠ '+w.t+'</div><div>'+w.b+'</div></div>';});
+  document.getElementById("warningsEl").innerHTML=wh;
+}
+
+function exportCSV(){
+  if(!lastResult){showToast("Run the analysis first.","error");return;}
+  var r=lastResult,b=r.base;
+  var lines=[];
+  lines.push("T459 Insurance Ratemaking Adequacy Tester (Pure Premium Method) - AINumbers.co");
+  lines.push("Generated,"+r.generated);
+  lines.push("");
+  lines.push("Accident Year,Earned Exposures,On-Level Premium,Trend Factor,Trended Loss+LAE,Pure Premium,Claim Count,Current Loss Ratio");
+  b.perRow.forEach(function(p){
+    lines.push([p.ay,p.exp,p.onLevelPrem.toFixed(2),p.trendFactor.toFixed(6),p.trendedLoss.toFixed(2),p.pp.toFixed(4),p.clm,(p.curLR*100).toFixed(2)+"%"].join(","));
+  });
+  lines.push(["TOTAL",b.aggExposure,b.aggOnLevelPrem.toFixed(2),"",b.aggTrendedLoss.toFixed(2),b.ppWeighted.toFixed(4),r.totalClaims,(b.actualLR*100).toFixed(2)+"%"].join(","));
+  lines.push("");
+  lines.push("Metric,Value");
+  lines.push("Exposure-weighted trended pure premium,"+b.ppWeighted.toFixed(4));
+  lines.push("Average on-level premium per exposure,"+b.avgPrem.toFixed(2));
+  lines.push("Permissible loss ratio,"+(b.plr*100).toFixed(2)+"%");
+  lines.push("Actual (trended) loss ratio,"+(b.actualLR*100).toFixed(2)+"%");
+  lines.push("Indicated change before credibility,"+(b.indicated*100).toFixed(2)+"%");
+  lines.push("Total claims,"+r.totalClaims);
+  lines.push("Full credibility threshold,"+r.params.fullCred);
+  lines.push("Credibility Z,"+(r.Z*100).toFixed(2)+"%");
+  lines.push("Complement of credibility,"+(r.complement*100).toFixed(2)+"%");
+  lines.push("Final credibility-weighted indicated change,"+(r.finalChange*100).toFixed(2)+"%");
+  lines.push("");
+  lines.push("Sensitivity: credibility-weighted indicated change");
+  var hdr=["Loss Trend shift \\ Perm LR shift"];
+  r.plrShifts.forEach(function(ps){hdr.push((ps>0?"+":"")+ps+"pts");});
+  lines.push(hdr.join(","));
+  r.sens.forEach(function(rowOut,ri){
+    var row=[(r.trendShifts[ri]>0?"+":"")+r.trendShifts[ri]+"pts"];
+    rowOut.forEach(function(c){row.push((c.cw*100).toFixed(2)+"%");});
+    lines.push(row.join(","));
+  });
+  var ts=new Date().toISOString().replace(/[-:T]/g,"").slice(0,14);
+  triggerDownload(lines.join("\n"),"t459-ratemaking-adequacy-"+ts+".csv","text/csv");
+  showToast("CSV exported","success");
+}
+
+function exportMarkdown(){
+  if(!lastResult){showToast("Run the analysis first.","error");return;}
+  var r=lastResult,b=r.base;
+  var md=[];
+  md.push("# Rate Adequacy Summary — Pure Premium Method");
+  md.push("");
+  md.push("**Tool:** T459 · Insurance Ratemaking Adequacy Tester · AINumbers.co  ");
+  md.push("**Method:** Pure premium / loss-ratio indication (CAS Exam 5; CAS Statement of Principles)  ");
+  md.push("**Generated:** "+r.generated+"  ");
+  md.push("");
+  md.push("> Indicative reference calculation. Not a rate filing. Requires appointed-actuary certification.");
+  md.push("");
+  md.push("## Indicated Rate Change");
+  md.push("");
+  md.push("**Credibility-weighted indicated change: "+fmtSignedPct(r.finalChange*100)+"**");
+  md.push("");
+  md.push("- Indication before credibility: "+fmtSignedPct(b.indicated*100));
+  md.push("- Credibility Z: "+(r.Z*100).toFixed(1)+"% ("+r.totalClaims.toLocaleString("en-US")+" of "+r.params.fullCred.toLocaleString("en-US")+" claims)");
+  md.push("- Complement of credibility: "+fmtSignedPct(r.complement*100)+" ("+r.params.complementType+")");
+  md.push("");
+  md.push("## Year-by-Year Experience");
+  md.push("");
+  md.push("| Accident Year | Exposures | On-Level Premium | Trend Factor | Trended Loss+LAE | Pure Premium | Current LR |");
+  md.push("|---|---:|---:|---:|---:|---:|---:|");
+  b.perRow.forEach(function(p){
+    md.push("| "+p.ay+" | "+p.exp.toLocaleString("en-US")+" | "+fmtUSDfull(p.onLevelPrem)+" | "+p.trendFactor.toFixed(4)+" | "+fmtUSDfull(p.trendedLoss)+" | $"+p.pp.toFixed(2)+" | "+(p.curLR*100).toFixed(1)+"% |");
+  });
+  md.push("| **Total / Wtd** | **"+b.aggExposure.toLocaleString("en-US")+"** | **"+fmtUSDfull(b.aggOnLevelPrem)+"** | — | **"+fmtUSDfull(b.aggTrendedLoss)+"** | **$"+b.ppWeighted.toFixed(2)+"** | **"+(b.actualLR*100).toFixed(1)+"%** |");
+  md.push("");
+  md.push("## Permissible Loss Ratio Decomposition");
+  md.push("");
+  md.push("| Component | Share of Premium |");
+  md.push("|---|---:|");
+  md.push("| Permissible Loss + LAE | "+(b.plr*100).toFixed(1)+"% |");
+  md.push("| Variable Expense | "+r.params.varExp.toFixed(1)+"% |");
+  md.push("| Fixed Expense | "+(b.fixedRatio*100).toFixed(1)+"% |");
+  md.push("| Profit & Contingency | "+r.params.profit.toFixed(1)+"% |");
+  md.push("");
+  md.push("Permissible LR = 1 − "+r.params.varExp.toFixed(1)+"% (variable) − "+r.params.profit.toFixed(1)+"% (profit) − $"+r.params.fixedExp.toFixed(2)+"/$"+b.avgPrem.toFixed(2)+" (fixed/avg prem) = **"+(b.plr*100).toFixed(1)+"%**");
+  md.push("");
+  md.push("## Adequacy Assessment");
+  md.push("");
+  var chgPct=r.finalChange*100;
+  var verdict = Math.abs(chgPct)<1 ? "Current rates are broadly adequate (within ±1%)."
+    : (chgPct>0 ? "Current rates are inadequate by approximately "+chgPct.toFixed(1)+"%. A rate change of "+fmtSignedPct(chgPct)+" is indicated."
+                : "Current rates are redundant by approximately "+Math.abs(chgPct).toFixed(1)+"%. A rate change of "+fmtSignedPct(chgPct)+" is indicated.");
+  md.push(verdict);
+  md.push("");
+  md.push("## Sensitivity (credibility-weighted indicated change)");
+  md.push("");
+  var h="| Loss Trend shift \\\\ Perm. LR shift |";
+  var sep="|---|";
+  r.plrShifts.forEach(function(ps){h+=" "+(ps>0?"+":"")+ps+" pts |";sep+="---:|";});
+  md.push(h);md.push(sep);
+  r.sens.forEach(function(rowOut,ri){
+    var line="| "+(r.trendShifts[ri]>0?"+":"")+r.trendShifts[ri]+" pts |";
+    rowOut.forEach(function(c){line+=" "+fmtSignedPct(c.cw*100)+" |";});
+    md.push(line);
+  });
+  md.push("");
+  md.push("## Source Notes");
+  md.push("");
+  md.push("1. Pure premium ratemaking method per CAS Exam 5 (Friedland; Werner & Modlin) and the CAS Statement of Principles Regarding P&C Insurance Ratemaking.");
+  md.push("2. Full credibility threshold of "+r.params.fullCred.toLocaleString("en-US")+" claims is the standard 90/10 (P=90%, k=10%) claim-count standard; partial credibility Z = sqrt(n / n_full).");
+  md.push("3. On-level factors are user-supplied; this tool does not compute them.");
+  md.push("4. Indicated change is for reference; actual filings require appointed-actuary certification and jurisdiction-specific documentation.");
+  md.push("");
+  md.push("*Computed client-side. Zero PII. CC BY 4.0 · Post Oak Labs.*");
+  var ts=new Date().toISOString().replace(/[-:T]/g,"").slice(0,14);
+  triggerDownload(md.join("\n"),"t459-ratemaking-adequacy-"+ts+".md","text/markdown");
+  showToast("Markdown exported","success");
+}
+
+var MANIFEST={"tool_id":"459-insurance-ratemaking-adequacy","version":"1.0","title":"Insurance Ratemaking Adequacy Tester — Pure Premium Method","description":"Implements the pure premium (exposure-based) ratemaking method per CAS Exam 5 study materials and the CAS Statement of Principles Regarding P&C Insurance Ratemaking. Computes on-level premium, trended ultimate loss, exposure-weighted trended pure premium, the permissible loss ratio, the indicated rate change (loss-ratio method), and the credibility-weighted indication using the classical square-root standard (default full-credibility 1,082 claims). Outputs a year-by-year table, indicated-change summary, permissible-LR decomposition, an adequacy verdict, and a trend/PLR sensitivity grid. On-level factors and loss development are user-supplied. Client-side. Zero PII.","category":"cat-30","tags":["ratemaking","pure-premium-method","loss-ratio-method","indicated-rate-change","credibility","permissible-loss-ratio","actuarial","rate-filing","CAS","property-casualty","insurance-pricing","Zero-PII"],"audience":["actuary","pricing-actuary","rate-filing-analyst","reinsurance-pricing","mga","captive","startup-carrier","insurance-regulator"],"last_reviewed":"2026-06-08","input_schema":{"type":"object","required":["lossTrend","trendPeriod","varExp","fixedExp","profit","fullCred"],"properties":{"experience_years":{"type":"array","description":"Up to 10 accident-year rows; element ids ay0..ay9, exp0..exp9, prem0..prem9, loss0..loss9, clm0..clm9, crlf0..crlf9","items":{"type":"object","properties":{"ay":{"type":"integer"},"exp":{"type":"number","minimum":0},"prem":{"type":"number","minimum":0},"loss":{"type":"number","minimum":0},"clm":{"type":"number","minimum":0},"crlf":{"type":"number","minimum":0}}}},"lossTrend":{"type":"number","description":"Annual loss trend (% p.a.), severity + frequency combined"},"trendPeriod":{"type":"number","minimum":0,"description":"Trend period in years for the latest accident year"},"premTrend":{"type":"number","description":"Optional premium trend (% p.a.)"},"varExp":{"type":"number","minimum":0,"maximum":100,"description":"Variable expense %"},"fixedExp":{"type":"number","minimum":0,"description":"Fixed expense per exposure ($)"},"profit":{"type":"number","minimum":0,"maximum":100,"description":"Profit & contingency loading %"},"credMethod":{"type":"string","enum":["sqrt","classical","full"]},"fullCred":{"type":"number","minimum":1,"description":"Full credibility threshold in claims (default 1082)"},"complementType":{"type":"string","enum":["industry","prior","manual"]},"complementVal":{"type":"number","description":"Complement-of-credibility rate change (%)"}}},"output_schema":{"type":"object","properties":{"indicated_change_uncapped":{"type":"number","description":"Final credibility-weighted indicated rate change (fraction)"},"indication_before_credibility":{"type":"number"},"credibility_z":{"type":"number"},"trended_pure_premium":{"type":"number"},"permissible_loss_ratio":{"type":"number"},"actual_loss_ratio":{"type":"number"},"total_claims":{"type":"number"}}},"mcp_tool_definition":{"name":"test_ratemaking_adequacy","description":"Test P&C insurance rate adequacy with the pure premium / loss-ratio method (CAS Exam 5; CAS Statement of Principles). Supply up to 10 accident-year rows (earned exposures, earned premium, incurred losses+LAE, claim counts, current rate level factor), loss/premium trend, variable & fixed expense and profit provisions, and credibility settings (square-root or full; default full-credibility 1,082 claims). Returns on-level premium, exposure-weighted trended pure premium, permissible loss ratio, indicated rate change, credibility weight Z = min(sqrt(n/n_full),1), the credibility-weighted indication, an adequacy verdict, and a trend/PLR sensitivity grid. On-level factors and loss development must be supplied by the caller. Deterministic, client-side, zero PII.","inputSchema":{"type":"object","required":["lossTrend","trendPeriod","varExp","fixedExp","profit","fullCred"],"properties":{"lossTrend":{"type":"number"},"trendPeriod":{"type":"number"},"premTrend":{"type":"number"},"varExp":{"type":"number"},"fixedExp":{"type":"number"},"profit":{"type":"number"},"credMethod":{"type":"string"},"fullCred":{"type":"number"},"complementType":{"type":"string"},"complementVal":{"type":"number"}}}},"execution":{"type":"browser-javascript","entry":"tools/459-insurance-ratemaking-adequacy.html","function_name":"runRatemaking","timeout_ms":4000},"deterministic":true,"pii_transmitted":false,"execution_context":"client_side_browser","regulatory_citations":["CAS Statement of Principles Regarding Property and Casualty Insurance Ratemaking","CAS Exam 5 syllabus - Werner & Modlin, Basic Ratemaking; Friedland, Estimating Unpaid Claims Using Basic Techniques","Classical limited fluctuation credibility - 90/10 standard, 1,082 full-credibility claim count","Actuarial Standard of Practice (ASOP) No. 25 - Credibility Procedures"],"ap2_export":true,"prefill":true,"bridge_version":"1.0"};
+
+function toggleMfst(){
+  var b=document.getElementById("mfstBody"),a=document.getElementById("mfstArr");
+  if(b.style.display==="none"||b.style.display===""){b.style.display="block";if(a)a.textContent="▲";document.getElementById("mfstCode").textContent=JSON.stringify(MANIFEST,null,2);}
+  else{b.style.display="none";if(a)a.textContent="▼";}
+}
+function copyMfst(){if(navigator.clipboard)navigator.clipboard.writeText(JSON.stringify(MANIFEST,null,2));showToast("Manifest copied","success");}
+function scrollMfst(){var el=document.getElementById("mfstSec");if(el)el.scrollIntoView({behavior:"smooth"});}
+
+(function(){
+  function uuidv4(){
+    if(window.crypto&&crypto.getRandomValues){
+      var b=new Uint8Array(16);crypto.getRandomValues(b);
+      b[6]=(b[6]&0x0f)|0x40;b[8]=(b[8]&0x3f)|0x80;
+      var h=[];for(var i=0;i<16;i++)h.push((b[i]+0x100).toString(16).slice(1));
+      return h[0]+h[1]+h[2]+h[3]+"-"+h[4]+h[5]+"-"+h[6]+h[7]+"-"+h[8]+h[9]+"-"+h[10]+h[11]+h[12]+h[13]+h[14]+h[15];
+    }
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,function(c){var r=Math.random()*16|0,v=c==="x"?r:(r&0x3|0x8);return v.toString(16);});
+  }
+  var UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  var ISO_RE=/^\d{4}-\d{2}-\d{2}/;
+
+  if(typeof window.AP2Schema==="undefined")window.AP2Schema={};
+  window.AP2Schema.validate=function(m){
+    var req=["ap2_version","mandate_id","issued_at","issued_by","tool_id","tool_version","mandate_type","jurisdiction","regulatory_frameworks","payload","summary","agent_instructions","valid_from","valid_until","last_reviewed","source_tool_inputs","regulatory_citations","audit_metadata"];
+    if(!m||typeof m!=="object")throw new Error("mandate must be an object");
+    var miss=[];req.forEach(function(k){if(!(k in m)||m[k]===null||m[k]===undefined)miss.push(k);});
+    if(miss.length)throw new Error("missing required field(s): "+miss.join(", "));
+    if(!UUID_RE.test(m.mandate_id))throw new Error("mandate_id must be a UUIDv4");
+    if(m.issued_by!=="ainumbers.co")throw new Error("issued_by must be 'ainumbers.co'");
+    if(!ISO_RE.test(m.issued_at)||!ISO_RE.test(m.valid_from)||!ISO_RE.test(m.valid_until)||!ISO_RE.test(m.last_reviewed))throw new Error("issued_at / valid_from / valid_until / last_reviewed must be ISO 8601");
+    if(!Array.isArray(m.jurisdiction)||!m.jurisdiction.length)throw new Error("jurisdiction must be a non-empty array");
+    if(!Array.isArray(m.regulatory_frameworks)||!m.regulatory_frameworks.length)throw new Error("regulatory_frameworks must be a non-empty array");
+    if(!Array.isArray(m.agent_instructions)||!m.agent_instructions.length)throw new Error("agent_instructions must be a non-empty array");
+    if(!Array.isArray(m.regulatory_citations)||!m.regulatory_citations.length)throw new Error("regulatory_citations must be a non-empty array");
+    if(typeof m.payload!=="object")throw new Error("payload must be an object");
+    if(typeof m.summary!=="string"||!m.summary)throw new Error("summary must be a non-empty string");
+    if(typeof m.mandate_type!=="string"||!m.mandate_type)throw new Error("mandate_type must be a string");
+    if(typeof m.audit_metadata!=="object")throw new Error("audit_metadata must be an object");
+    return true;
+  };
+  window.enableAP2Btn=function(){var b=document.getElementById("ap2ExportBtn");if(b){b.disabled=false;b.classList.add("ready");b.title="For API integration · audit trail";}};
+
+  window.AIN_BUILD_MANDATE=function(){
+    if(!lastResult)return null;
+    var r=lastResult,b=r.base;
+    var ts=new Date().toISOString();
+    var validUntil=new Date(Date.now()+365*24*3600*1000).toISOString();
+    var srcInputs={
+      lossTrend:r.params.lossTrend,trendPeriod:r.params.trendPeriod,premTrend:r.params.premTrend,
+      varExp:r.params.varExp,fixedExp:r.params.fixedExp,profit:r.params.profit,
+      credMethod:r.params.credMethod,fullCred:r.params.fullCred,
+      complementType:r.params.complementType,complementVal:r.params.complementVal,
+      experience_years:r.rows.map(function(rw){return {ay:rw.ay,earned_exposures:rw.exp,earned_premium:rw.prem,incurred_loss_lae:rw.loss,claim_count:rw.clm,current_rate_level_factor:rw.crlf};})
+    };
+    var payload={
+      indicated_rate_change_uncapped:+(r.finalChange).toFixed(6),
+      indicated_rate_change_pct:+(r.finalChange*100).toFixed(3),
+      indication_before_credibility_pct:+(b.indicated*100).toFixed(3),
+      credibility_z:+(r.Z).toFixed(6),
+      total_claims:r.totalClaims,
+      full_credibility_threshold:r.params.fullCred,
+      complement_pct:+(r.complement*100).toFixed(3),
+      trended_pure_premium:+b.ppWeighted.toFixed(4),
+      average_on_level_premium:+b.avgPrem.toFixed(2),
+      permissible_loss_ratio:+b.plr.toFixed(6),
+      actual_trended_loss_ratio:+b.actualLR.toFixed(6),
+      aggregate_on_level_premium:+b.aggOnLevelPrem.toFixed(2),
+      aggregate_trended_loss_lae:+b.aggTrendedLoss.toFixed(2),
+      aggregate_exposures:b.aggExposure,
+      method:"pure_premium_loss_ratio_indication",
+      capped:false
+    };
+    var chgPct=r.finalChange*100;
+    var verdict = Math.abs(chgPct)<1 ? "adequate" : (chgPct>0 ? "inadequate" : "redundant");
+    var mandate={
+      ap2_version:"1.0",
+      mandate_id:uuidv4(),
+      issued_at:ts,
+      issued_by:"ainumbers.co",
+      tool_id:MANIFEST.tool_id,
+      tool_version:MANIFEST.version,
+      mandate_type:"risk_parameter",
+      jurisdiction:["US"],
+      regulatory_frameworks:["CAS Statement of Principles Regarding P&C Insurance Ratemaking","CAS Exam 5 ratemaking standards","NAIC Property and Casualty rate filing framework"],
+      payload:payload,
+      summary:"Pure premium ratemaking indication: current rates are "+verdict+"; credibility-weighted indicated rate change "+(chgPct>=0?"+":"")+chgPct.toFixed(1)+"% at Z="+(r.Z*100).toFixed(1)+"% on "+r.totalClaims.toLocaleString("en-US")+" claims.",
+      agent_instructions:[
+        "Treat "+(chgPct>=0?"+":"")+chgPct.toFixed(1)+"% as the actuarially indicated (uncapped) rate change for this segment.",
+        "Verify the user-supplied current rate level factors and ultimate loss development before relying on this indication.",
+        "Apply jurisdiction rate caps, dislocation limits, and competitive constraints to derive the selected (filed) rate change.",
+        "Obtain appointed-actuary certification and full supporting exhibits before any regulatory rate filing."
+      ],
+      valid_from:ts,
+      valid_until:validUntil,
+      last_reviewed:MANIFEST.last_reviewed,
+      source_tool_inputs:srcInputs,
+      regulatory_citations:MANIFEST.regulatory_citations,
+      audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+    };
+    window._currentMandate=mandate;
+    return mandate;
+  };
+
+  window.exportAP2=function(){
+    if(!lastResult){showToast("Run the analysis first to generate a Policy Mandate.","error");return;}
+    var mandate;
+    try{mandate=window.AIN_BUILD_MANDATE();window.AP2Schema.validate(mandate);}
+    catch(e){showToast("Policy Mandate validation failed: "+e.message,"error");return;}
+    var json=JSON.stringify(mandate,null,2);
+    var ts=new Date().toISOString().replace(/[-:T]/g,"").slice(0,14);
+    triggerDownload(json,MANIFEST.tool_id+"_"+ts+".policy.json","application/json");
+    showToast("Policy Mandate exported","success");
+  };
+})();
+
+buildGrid();
+</script>
+
+<!-- AIN Bridge v1.0 - prefill deep-links. Master: scripts/ain-bridge-v1.snippet.html - CONTRACT 2.4/6.4 -->
+<script>window.AIN_BRIDGE_CFG={runFn:'runRatemaking',intake:false,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+var L={
+ en:{pf:'Inputs prefilled from link - review, then Run',ran:'Inputs prefilled from link and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'},
+ es:{pf:'Campos precargados desde el enlace - revise y ejecute',ran:'Campos precargados desde el enlace y ejecutados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Suelte un .policy.json aqui, o',choose:'Elegir archivo',paste:'Pegar JSON',apply:'Aplicar',ok:'Policy Mandate importado desde',bad:'JSON de Policy Mandate no valido'},
+ fr:{pf:'Champs preremplis depuis le lien - verifiez puis executez',ran:'Champs preremplis depuis le lien et executes',fields:'champs',it:'Importer un Policy Mandate (.policy.json)',drop:'Deposez un .policy.json ici, ou',choose:'Choisir un fichier',paste:'Coller le JSON',apply:'Appliquer',ok:'Policy Mandate importe depuis',bad:'JSON Policy Mandate non valide'},
+ ar:{pf:'تم ملء الحقول مسبقًا من الرابط - راجع ثم شغّل',ran:'تم ملء الحقول من الرابط وتنفيذها',fields:'حقول',it:'استيراد Policy Mandate (.policy.json)',drop:'أسقط ملف .policy.json هنا، أو',choose:'اختر ملفًا',paste:'لصق JSON',apply:'تطبيق',ok:'تم استيراد Policy Mandate من',bad:'JSON غير صالح لـ Policy Mandate'},
+ pt:{pf:'Campos pre-preenchidos a partir do link - revise e execute',ran:'Campos pre-preenchidos a partir do link e executados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Solte um .policy.json aqui, ou',choose:'Escolher arquivo',paste:'Colar JSON',apply:'Aplicar',ok:'Policy Mandate importado de',bad:'JSON de Policy Mandate invalido'},
+ zh:{pf:'已从链接预填输入 - 请检查后运行',ran:'已从链接预填并自动执行',fields:'个字段',it:'导入 Policy Mandate (.policy.json)',drop:'将 .policy.json 拖放到此处，或',choose:'选择文件',paste:'粘贴 JSON',apply:'应用',ok:'已导入 Policy Mandate，来源：',bad:'无效的 AINumbers Policy Mandate JSON'}
+};
+function t(k){var lg='en';try{lg=sessionStorage.getItem('ain_lang')||'en';}catch(e){}return (L[lg]&&L[lg][k])||L.en[k];}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function anchorEl(){return (CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.querySelector('.pii-notice')||document.querySelector('.panel')||document.body.firstElementChild;}
+function notice(msg,kind){
+  var d=document.getElementById('ainBridgeNotice');
+  if(!d){d=document.createElement('div');d.id='ainBridgeNotice';
+    var a=document.getElementById('ainIntakeZone')||anchorEl();
+    if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}
+  d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));
+  d.textContent=msg;
+}
+function looksLikeMandate(o){return !!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}
+function intakeApply(text){
+  var o;try{o=JSON.parse(text);}catch(e){notice('! '+t('bad'),'warn');return 0;}
+  if(!looksLikeMandate(o)){notice('! '+t('bad'),'warn');return 0;}
+  var n=0;
+  if(CFG.intakeTarget){var ta=document.getElementById(CFG.intakeTarget);
+    if(ta){ta.value=JSON.stringify(o,null,2);try{ta.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}n++;}}
+  if(o.payload&&typeof o.payload==='object')n+=applyFields(o.payload);
+  if(o.source_tool_inputs&&typeof o.source_tool_inputs==='object')n+=applyFields(o.source_tool_inputs);
+  notice((n>0?'✓ ':'! ')+t('ok')+' '+(o.tool_id||'?')+' - '+n+' '+t('fields'),n>0?'ok':'warn');
+  return n;
+}
+function buildIntakeUI(){
+  if(!CFG.intake)return;
+  var a=anchorEl();if(!a||!a.parentNode)return;
+  var z=document.createElement('div');z.id='ainIntakeZone';
+  z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8;letter-spacing:.04em');
+  var lbl=document.createElement('div');lbl.textContent=t('it');lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');
+  var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');
+  var txt=document.createElement('span');txt.textContent=t('drop');
+  function mkBtn(label){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}
+  var bFile=mkBtn(t('choose')),bPaste=mkBtn(t('paste'));
+  var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';
+  fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});
+  bFile.addEventListener('click',function(){fi.click();});
+  var pasteRow=document.createElement('div');pasteRow.style.display='none';pasteRow.setAttribute('style','display:none;margin-top:.6rem');
+  var ta=document.createElement('textarea');ta.rows=5;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');
+  var bApply=mkBtn(t('apply'));bApply.style.marginTop='.4rem';
+  bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});
+  pasteRow.appendChild(ta);pasteRow.appendChild(bApply);
+  bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';if(pasteRow.style.display==='block')ta.focus();});
+  z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});
+  z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});
+  z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});
+  row.appendChild(txt);row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);
+  z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);
+  a.parentNode.insertBefore(z,a);
+}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  var n=applyFields(fields);
+  if(n>0){
+    if(/[#&]run=1/.test(h)&&runTool())notice(t('ran')+' ('+n+' '+t('fields')+')','ok');
+    else notice(t('pf')+' ('+n+' '+t('fields')+')','ok');
+  }
+}
+window.AINBridge={
+  version:'1.0',
+  apply:applyFields,
+  run:runTool,
+  intake:intakeApply,
+  getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
+};
+window.addEventListener('message',function(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=(e.origin&&e.origin!=='null')?e.origin:'*';
+  var d=e.data||{};
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+  else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
+});
+function boot(){buildIntakeUI();initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>
