@@ -111,6 +111,18 @@ tools/{slug}.html#in=<base64url(JSON of {element_id: value})>[&run=1]
 - Inputs travel in the URL hash fragment — never transmitted to a server. Zero-PII rules apply (synthetic values only).
 - Values are assigned via `.value`/`.checked` only (never innerHTML); run functions are limited to the per-tool CFG whitelist.
 
+### 2.5 MCP Workflow-Chain Integrity (Amendment A1.5)
+The MCP server (`mcp-apps-poc/worker.mjs`) exposes the `build_workflow_links` tool, backed by a `NAMED_CHAINS` map. Each chain MUST satisfy:
+- Every `steps[].slug` corresponds to a real `tools/<slug>.html` (or `rbe-*`) — a missing file means the server hands out **404 deep-links**.
+- Every `composer_url` resolves to a real `guides/*.html`.
+- Where a chain has a `composer_url`, its ordered `steps[].slug` list **equals** that composer's `STAGES` slug list — the chain, the composer page, and the underlying tools must all agree.
+
+**Validator (run before every `wrangler deploy`):** `mcp-apps-poc/scripts/validate-chains.mjs` — zero-dependency Node. From `mcp-apps-poc/`:
+```bash
+node scripts/validate-chains.mjs   # or: npm run validate:chains
+```
+Missing tool/composer files are **errors** (non-zero exit → block deploy); chain↔composer sequence divergence prints as a **warning**. Paths default to the sibling `repo/` layout; override with `WORKER_PATH`, `TOOLS_DIR`, `GUIDES_DIR`. This check exists because Wave-2 chains once referenced invented slugs (e.g. `53-stablecoin-compliance-checker` vs the real `53-cbdc-architecture-comparator`), silently 404ing on the live server.
+
 ---
 
 ## 📦 3. AINumbers Policy Mandate Schema & UI Contract
@@ -236,6 +248,10 @@ npm run lint:manifests
 npm run test:ap2-exports
 # Enforce UI placement rule via DOM inspection tests
 npm run test:ui-ap2-placement
+```
+When MCP server chains change (`mcp-apps-poc/worker.mjs`), also run the chain-integrity validator before `wrangler deploy` (see §2.5):
+```bash
+cd mcp-apps-poc && npm run validate:chains
 ```
 
 ### 6.3 Global Quality Checklist
