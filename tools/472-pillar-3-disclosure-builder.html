@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Pillar 3 Disclosure Builder · T472 · AINumbers.co</title>
+<meta name="description" content="Assemble Basel III Pillar 3 disclosure tables: KM1 (key metrics), OV1 (overview of RWAs), LIQ1 (LCR detail), LIQ2 (NSFR). Per the BCBS Pillar 3 disclosure framework (BCBS 309/400). Consumes outputs from T201 (RWA), T469 (LCR), T470 (NSFR), T471 (leverage ratio). Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/472-pillar-3-disclosure-builder">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--accent:var(--teal);--radius:6px;--radius-lg:10px;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:980px;margin:0 auto;padding:0 2rem}
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:space-between}
+.logo{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}.logo .ai{color:var(--teal)}.logo .co{color:var(--muted);font-size:.8rem}
+.nav-r{display:flex;gap:16px;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}.nav-r a:hover{color:var(--teal-lt)}
+.hero{padding:2.5rem 0 1.5rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);margin-bottom:.6rem}
+.hero h1{font-size:1.9rem;color:var(--white);margin-bottom:.6rem}.hero p{font-size:.88rem;color:var(--body);max-width:780px}
+.hero-badges{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:1rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.28rem .65rem;border-radius:999px;border:1px solid var(--border-2);color:var(--body)}
+.badge.b-teal{border-color:rgba(20,184,166,.4);color:var(--teal);background:var(--teal-dim)}
+.pii{font-size:.75rem;color:var(--body);background:rgba(20,184,166,.07);border:1px solid rgba(20,184,166,.2);border-radius:var(--radius);padding:.55rem .85rem;margin:1.2rem 0 0}
+section.card{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);padding:1.3rem 1.4rem;margin:1.4rem 0}
+section.card h2{font-size:1.1rem;color:var(--white);margin-bottom:.9rem}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+.form-row.tri{grid-template-columns:1fr 1fr 1fr}
+.form-row.quad{grid-template-columns:1fr 1fr 1fr 1fr}
+.field{display:flex;flex-direction:column;gap:.3rem}
+label{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+input[type=number],input[type=text],select{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:.55rem .8rem;color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;width:100%;outline:none;transition:border .2s;color-scheme:dark}
+input:focus,select:focus{border-color:var(--accent)}
+.hint{font-size:.68rem;color:var(--muted);margin-top:.2rem}
+.run-btn{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;padding:.65rem 1.4rem;border-radius:var(--radius);border:none;background:var(--accent);color:var(--bg);font-weight:500;margin-top:1.1rem;transition:opacity .2s}.run-btn:hover{opacity:.88}
+.results{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);padding:1.3rem 1.4rem;margin:1.4rem 0;display:none}.results.show{display:block}
+.results h2{font-size:1.1rem;color:var(--white);margin-bottom:1rem}
+.p3-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.65rem;margin-bottom:1.2rem}
+.p3-table caption{font-family:'DM Serif Display',serif;font-size:.95rem;color:var(--white);text-align:left;padding-bottom:.5rem}
+.p3-table th{color:var(--muted);text-transform:uppercase;letter-spacing:.09em;border-bottom:2px solid var(--border);padding:.38rem .6rem;text-align:left;font-weight:400}
+.p3-table td{padding:.4rem .6rem;border-bottom:1px solid rgba(30,47,74,.5)}
+.p3-table td:last-child{text-align:right;color:var(--bright)}
+.p3-table tr.pass td:last-child{color:var(--green)}
+.p3-table tr.fail td:last-child{color:var(--red)}
+.p3-table tr.subtotal td{color:var(--text);border-top:1px solid var(--border-2);font-weight:500}
+.p3-table tr.total td{color:var(--white);border-top:2px solid var(--border);font-weight:500}
+.export-row{display:flex;flex-wrap:wrap;gap:.55rem;margin-top:1rem}
+.exp-btn{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;border-radius:var(--radius);border:1px solid var(--border-2);background:transparent;color:var(--text);transition:all .2s}.exp-btn:hover{border-color:var(--accent);color:var(--accent)}
+.exp-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:500}.exp-btn.primary:hover{opacity:.88}
+.cite{font-size:.68rem;color:var(--muted);font-style:italic;margin-top:.8rem}
+footer{border-top:1px solid var(--border);padding:1.4rem 0 2rem;margin-top:3rem}
+.foot{max-width:980px;margin:0 auto;padding:0 2rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.foot a:hover{color:var(--teal-lt)}
+@media(max-width:640px){.form-row,.form-row.tri,.form-row.quad{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav>
+  <a href="../index.html" class="logo"><span class="ai">AI</span>Numbers<span class="co">.co</span></a>
+  <div class="nav-r"><a href="../index.html">Tools</a><a href="../guides/tool-chains.html">Chains</a><a href="../sitemap.html">Sitemap</a></div>
+</nav>
+<div class="container">
+  <div class="hero">
+    <div class="eyebrow">T472 · Treasury & Capital · AINumbers.co</div>
+    <h1>Pillar 3 Disclosure Builder</h1>
+    <p>Assemble Basel III Pillar 3 disclosure tables per the BCBS consolidated Pillar 3 disclosure requirements (BCBS 309, March 2017; BCBS 400, December 2018). Generates KM1 (key metrics), OV1 (overview of risk-weighted assets), LIQ1 (LCR detail), and LIQ2 (NSFR). Enter figures from T201 (RWA), T469 (LCR), T470 (NSFR), and T471 (leverage ratio). ⚠ Verify all table row definitions against current BCBS Pillar 3 requirements and applicable jurisdiction rules (CRR3 Pillar 3 / EBA ITS for EU; PRA for UK).</p>
+    <div class="hero-badges">
+      <span class="badge b-teal">BCBS 309 / BCBS 400 — Pillar 3</span>
+      <span class="badge">KM1 · OV1 · LIQ1 · LIQ2</span>
+      <span class="badge">Feeds from T201, T469, T470, T471</span>
+      <span class="badge">Deterministic · Zero PII · Client-side</span>
+    </div>
+    <div class="pii">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  </div>
+
+  <section class="card">
+    <h2>KM1 — Key metrics (period-end)</h2>
+    <p style="font-size:.78rem;color:var(--body);margin-bottom:.8rem">Paste or enter figures from T201, T469, T470, T471. Rows per BCBS 309 Table KM1. ⚠ Verify row references against current BCBS 309 / EBA ITS.</p>
+    <div class="form-row quad">
+      <div class="field"><label>CET1 ratio % (T201)</label><input type="number" id="cet1_ratio" value="14.2" step="0.01"><span class="hint">CET1 / RWA × 100</span></div>
+      <div class="field"><label>Tier 1 ratio %</label><input type="number" id="t1_ratio" value="16.1" step="0.01"></div>
+      <div class="field"><label>Total capital ratio %</label><input type="number" id="tc_ratio" value="18.5" step="0.01"></div>
+      <div class="field"><label>Total RWA (m)</label><input type="number" id="rwa" value="35000" step="0.01"></div>
+    </div>
+    <div class="form-row quad" style="margin-top:.7rem">
+      <div class="field"><label>Leverage ratio %</label><input type="number" id="lr_pct" value="5.2" step="0.01"></div>
+      <div class="field"><label>LCR % (T469)</label><input type="number" id="lcr_pct" value="128.5" step="0.01"></div>
+      <div class="field"><label>NSFR % (T470)</label><input type="number" id="nsfr_pct" value="115.3" step="0.01"></div>
+      <div class="field"><label>Tier 1 capital (m)</label><input type="number" id="t1_cap" value="5500" step="0.01"></div>
+    </div>
+    <div class="form-row tri" style="margin-top:.7rem">
+      <div class="field"><label>CET1 capital (m)</label><input type="number" id="cet1_cap" value="5000" step="0.01"></div>
+      <div class="field"><label>Total capital (m)</label><input type="number" id="tc_cap" value="6475" step="0.01"></div>
+      <div class="field"><label>Total exposure measure (m) (T471)</label><input type="number" id="total_exp" value="105000" step="0.01"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>OV1 — Overview of risk-weighted assets (by risk type)</h2>
+    <div class="form-row tri">
+      <div class="field"><label>Credit risk RWA (m)</label><input type="number" id="cr_rwa" value="28000" step="0.01"></div>
+      <div class="field"><label>Market risk RWA (m)</label><input type="number" id="mr_rwa" value="3000" step="0.01"></div>
+      <div class="field"><label>Operational risk RWA (m)</label><input type="number" id="or_rwa" value="4000" step="0.01"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>LIQ1 — LCR detail (T469 output)</h2>
+    <div class="form-row quad">
+      <div class="field"><label>HQLA (m)</label><input type="number" id="hqla_m" value="9200" step="0.01"></div>
+      <div class="field"><label>Gross outflows (m)</label><input type="number" id="gross_out" value="8500" step="0.01"></div>
+      <div class="field"><label>Net inflows capped (m)</label><input type="number" id="net_inf" value="1350" step="0.01"></div>
+      <div class="field"><label>NCO (m)</label><input type="number" id="nco" value="7150" step="0.01"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>LIQ2 — NSFR detail (T470 output)</h2>
+    <div class="form-row tri">
+      <div class="field"><label>Available Stable Funding — ASF (m)</label><input type="number" id="asf_m" value="16800" step="0.01"></div>
+      <div class="field"><label>Required Stable Funding — RSF (m)</label><input type="number" id="rsf_m" value="14580" step="0.01"></div>
+      <div class="field"><label>NSFR surplus (m)</label><input type="number" id="nsfr_surp" value="2220" step="0.01"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Header information</h2>
+    <div class="form-row">
+      <div class="field"><label>Institution name (synthetic)</label><input type="text" id="bank_name" value="Synthetic Bank plc"></div>
+      <div class="field"><label>Reporting period</label><input type="text" id="period" value="Q1 2026"></div>
+    </div>
+  </section>
+
+  <button class="run-btn" onclick="buildP3()">▶ Build Pillar 3 Tables</button>
+
+  <div class="results" id="results">
+    <h2>Pillar 3 Disclosure — <span id="hdr-bank"></span> — <span id="hdr-period"></span></h2>
+    <div id="km1-table"></div>
+    <div id="ov1-table"></div>
+    <div id="liq1-table"></div>
+    <div id="liq2-table"></div>
+    <p class="cite">Source: BCBS 309 Pillar 3 disclosure requirements — consolidated and enhanced framework (March 2017); BCBS 400 (December 2018). ⚠ Verify all row definitions and required disclosure frequency against BCBS 309 Annex, EBA ITS on Pillar 3 disclosures (EU), and PRA rules (UK). Rows may differ by jurisdiction.</p>
+    <div class="export-row">
+      <button class="exp-btn primary" onclick="exportMandate()">📤 Export Policy Mandate JSON</button>
+      <button class="exp-btn" onclick="exportMarkdown()">📄 Export Pillar 3 Markdown</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="foot">
+    <span>T472 · Pillar 3 Disclosure Builder · v1.0 · CC BY 4.0 · Post Oak Labs</span>
+    <span><a href="471-leverage-ratio-calculator.html">← T471 LR</a> · <a href="469-lcr-calculator.html">T469 LCR</a> · <a href="470-nsfr-calculator.html">T470 NSFR</a> · <a href="../guides/bank-capital-liquidity-composer.html">Composer</a></span>
+  </div>
+</footer>
+
+<script>window.AIN_BRIDGE_CFG={runFn:'buildP3',intake:true,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+'use strict';
+/* ═══ T472 Pillar 3 Disclosure Builder v1.0
+   Generates Basel Pillar 3 templates: KM1, OV1, LIQ1, LIQ2.
+   BCBS 309 (March 2017) — consolidated Pillar 3 framework.
+   BCBS 400 (December 2018) — Phase 2 Pillar 3.
+   ⚠ Row definitions and disclosure frequency vary by jurisdiction.
+      EU: EBA ITS on Pillar 3 disclosures (Commission Implementing Regulation).
+      UK: PRA Pillar 3 disclosure requirements.
+      Verify against applicable rules before using in actual disclosures. ═══ */
+
+var _lastResult=null;
+function gn(id){var v=parseFloat(document.getElementById(id).value);return isNaN(v)?0:v;}
+function gv(id){var e=document.getElementById(id);return e?e.value.trim():'';}
+function fmtM(n){return(n<0?'-':'')+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1})+'m';}
+function fmtPct(n){return n.toFixed(2)+'%';}
+
+function buildP3(){
+  var d={
+    bank_name:gv('bank_name'),period:gv('period'),
+    cet1_ratio:gn('cet1_ratio'),t1_ratio:gn('t1_ratio'),tc_ratio:gn('tc_ratio'),
+    rwa:gn('rwa'),lr_pct:gn('lr_pct'),lcr_pct:gn('lcr_pct'),nsfr_pct:gn('nsfr_pct'),
+    t1_cap:gn('t1_cap'),cet1_cap:gn('cet1_cap'),tc_cap:gn('tc_cap'),total_exp:gn('total_exp'),
+    cr_rwa:gn('cr_rwa'),mr_rwa:gn('mr_rwa'),or_rwa:gn('or_rwa'),
+    hqla_m:gn('hqla_m'),gross_out:gn('gross_out'),net_inf:gn('net_inf'),nco:gn('nco'),
+    asf_m:gn('asf_m'),rsf_m:gn('rsf_m'),nsfr_surp:gn('nsfr_surp'),
+  };
+  _lastResult=d;
+  renderP3(d);
+}
+
+function renderP3(d){
+  var res=document.getElementById('results');res.classList.add('show');
+  document.getElementById('hdr-bank').textContent=d.bank_name;
+  document.getElementById('hdr-period').textContent=d.period;
+
+  // KM1
+  document.getElementById('km1-table').innerHTML=buildTable('KM1 — Key metrics (period-end)',[
+    ['','Row','Current period','Minimum'],
+    ['row','CET1 ratio (%)','a',fmtPct(d.cet1_ratio),'≥ 4.5%'],
+    ['row','Tier 1 capital ratio (%)','b',fmtPct(d.t1_ratio),'≥ 6.0%'],
+    ['row','Total capital ratio (%)','c',fmtPct(d.tc_ratio),'≥ 8.0%'],
+    ['row','Total risk-weighted assets (m)','d',fmtM(d.rwa),'—'],
+    ['row','CET1 capital (m)','e',fmtM(d.cet1_cap),'—'],
+    ['row','Tier 1 capital (m)','f',fmtM(d.t1_cap),'—'],
+    ['row','Total capital (m)','g',fmtM(d.tc_cap),'—'],
+    ['row','Leverage ratio (%)','h',fmtPct(d.lr_pct),'≥ 3.0%'],
+    ['row','Total leverage exposure measure (m)','i',fmtM(d.total_exp),'—'],
+    ['row','LCR (%)','j',fmtPct(d.lcr_pct),'≥ 100%'],
+    ['row','NSFR (%)','k',fmtPct(d.nsfr_pct),'≥ 100%'],
+  ]);
+
+  // OV1
+  var cr_cap=d.cr_rwa*0.08, mr_cap=d.mr_rwa*0.08, or_cap=d.or_rwa*0.08, total_rwa=d.cr_rwa+d.mr_rwa+d.or_rwa, total_cap=cr_cap+mr_cap+or_cap;
+  document.getElementById('ov1-table').innerHTML=buildTable('OV1 — Overview of risk-weighted assets',[
+    ['','Risk type','RWA (m)','Capital requirement (m) [8%]'],
+    ['row','Credit risk (SA)','a',fmtM(d.cr_rwa),fmtM(cr_cap)],
+    ['row','Market risk','b',fmtM(d.mr_rwa),fmtM(mr_cap)],
+    ['row','Operational risk','c',fmtM(d.or_rwa),fmtM(or_cap)],
+    ['total','Total RWA and capital requirement','',fmtM(total_rwa),fmtM(total_cap)],
+  ]);
+
+  // LIQ1
+  document.getElementById('liq1-table').innerHTML=buildTable('LIQ1 — Liquidity Coverage Ratio (LCR) detail',[
+    ['','Component','Row','Value (m)'],
+    ['row','High-quality liquid assets (HQLA)','1',fmtM(d.hqla_m),''],
+    ['row','Gross cash outflows (30-day stress)','2',fmtM(d.gross_out),''],
+    ['row','Net cash inflows (capped at 75% of outflows)','3',fmtM(d.net_inf),''],
+    ['row','Net cash outflows (NCO)','4',fmtM(d.nco),''],
+    ['total','LCR (HQLA ÷ NCO) %','5',fmtPct(d.lcr_pct),''],
+  ]);
+
+  // LIQ2
+  document.getElementById('liq2-table').innerHTML=buildTable('LIQ2 — Net Stable Funding Ratio (NSFR) detail',[
+    ['','Component','Row','Value (m)'],
+    ['row','Available Stable Funding (ASF)','1',fmtM(d.asf_m),''],
+    ['row','Required Stable Funding (RSF)','2',fmtM(d.rsf_m),''],
+    ['row','NSFR surplus','3',fmtM(d.nsfr_surp),''],
+    ['total','NSFR (ASF ÷ RSF) %','4',fmtPct(d.nsfr_pct),''],
+  ]);
+
+  res.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function buildTable(caption, rows){
+  var cls={'total':'total','subtotal':'subtotal','row':''};
+  var head=rows[0];
+  var html='<table class="p3-table"><caption>'+caption+'</caption><thead><tr>'+
+    head.slice(1).map(function(h){return'<th>'+h+'</th>';}).join('')+'</tr></thead><tbody>';
+  rows.slice(1).forEach(function(row){
+    var type=row[0];var cells=row.slice(1);
+    html+='<tr class="'+(cls[type]||'')+'">'+cells.map(function(c,i){return'<td>'+c+'</td>';}).join('')+'</tr>';
+  });
+  return html+'</tbody></table>';
+}
+
+function uuid(){var b=new Uint8Array(16);crypto.getRandomValues(b);b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;var h=Array.prototype.map.call(b,function(x){return('0'+x.toString(16)).slice(-2);}).join('');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);}
+
+function buildMandateObj(d){
+  var now=new Date().toISOString();
+  return{ap2_version:'1.0',mandate_id:uuid(),issued_at:now,issued_by:'ainumbers.co',tool_id:'472-pillar-3-disclosure-builder',tool_version:'1.0.0',mandate_type:'compliance_control',jurisdiction:['BIS','Global'],
+    regulatory_frameworks:['BCBS 309 — Pillar 3 disclosure requirements (March 2017)','BCBS 400 — Pillar 3 Phase 2 (December 2018)','EBA ITS on Pillar 3 disclosures (EU)','PRA Pillar 3 disclosure requirements (UK)','AINumbers.co Unified Build Contract v1.1'],
+    payload:{bank_name:d.bank_name,period:d.period,km1:{cet1_ratio_pct:d.cet1_ratio,t1_ratio_pct:d.t1_ratio,tc_ratio_pct:d.tc_ratio,total_rwa_m:d.rwa,lr_pct:d.lr_pct,lcr_pct:d.lcr_pct,nsfr_pct:d.nsfr_pct},ov1:{cr_rwa_m:d.cr_rwa,mr_rwa_m:d.mr_rwa,or_rwa_m:d.or_rwa},liq1:{hqla_m:d.hqla_m,gross_out_m:d.gross_out,net_inflows_m:d.net_inf,nco_m:d.nco},liq2:{asf_m:d.asf_m,rsf_m:d.rsf_m,surplus_m:d.nsfr_surp}},
+    summary:'Pillar 3 disclosure tables (KM1/OV1/LIQ1/LIQ2) for '+d.bank_name+' period '+d.period+'. CET1: '+fmtPct(d.cet1_ratio)+'. LCR: '+fmtPct(d.lcr_pct)+'. NSFR: '+fmtPct(d.nsfr_pct)+'. LR: '+fmtPct(d.lr_pct)+'.',
+    agent_instructions:['Pillar 3 tables are for disclosure purposes — verify all row definitions against BCBS 309 Annex and applicable jurisdiction rules.','KM1 is mandatory quarterly; other templates may have different frequency requirements.','EBA ITS for EU banks; PRA rules for UK banks — both have additional/modified rows.','Do not use synthetic figures in actual regulatory filings.'],
+    valid_from:now.slice(0,10),valid_until:new Date(Date.now()+90*24*60*60*1000).toISOString().slice(0,10),
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+}
+window.AIN_BUILD_MANDATE=function(){return _lastResult?buildMandateObj(_lastResult):null;};
+function exportMandate(){if(!_lastResult){alert('Run first.');return;}var o=buildMandateObj(_lastResult);var ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);download('pillar3_'+ts+'.policy.json',JSON.stringify(o,null,2),'application/json');}
+function exportMarkdown(){
+  if(!_lastResult){alert('Run first.');return;}var d=_lastResult;
+  var lines=['# Pillar 3 Disclosure — '+d.bank_name+' — '+d.period,'','## KM1 — Key metrics','','| Row | Metric | Value | Minimum |','|---|---|---|---|',
+    '| a | CET1 ratio | '+fmtPct(d.cet1_ratio)+' | ≥ 4.5% |',
+    '| b | Tier 1 capital ratio | '+fmtPct(d.t1_ratio)+' | ≥ 6.0% |',
+    '| c | Total capital ratio | '+fmtPct(d.tc_ratio)+' | ≥ 8.0% |',
+    '| d | Total RWA | '+fmtM(d.rwa)+' | — |',
+    '| h | Leverage ratio | '+fmtPct(d.lr_pct)+' | ≥ 3.0% |',
+    '| j | LCR | '+fmtPct(d.lcr_pct)+' | ≥ 100% |',
+    '| k | NSFR | '+fmtPct(d.nsfr_pct)+' | ≥ 100% |','',
+    '## OV1 — Risk-weighted assets','','| Risk type | RWA (m) | Capital req. (m) |','|---|---|---|',
+    '| Credit risk | '+fmtM(d.cr_rwa)+' | '+fmtM(d.cr_rwa*0.08)+' |',
+    '| Market risk | '+fmtM(d.mr_rwa)+' | '+fmtM(d.mr_rwa*0.08)+' |',
+    '| Operational risk | '+fmtM(d.or_rwa)+' | '+fmtM(d.or_rwa*0.08)+' |','',
+    '## LIQ1 — LCR','','| Component | Value |','|---|---|',
+    '| HQLA | '+fmtM(d.hqla_m)+' |','| Gross outflows | '+fmtM(d.gross_out)+' |','| Net inflows (capped) | '+fmtM(d.net_inf)+' |','| NCO | '+fmtM(d.nco)+' |','| **LCR** | **'+fmtPct(d.lcr_pct)+'** |','',
+    '## LIQ2 — NSFR','','| Component | Value |','|---|---|',
+    '| ASF | '+fmtM(d.asf_m)+' |','| RSF | '+fmtM(d.rsf_m)+' |','| **NSFR** | **'+fmtPct(d.nsfr_pct)+'** |','',
+    '---','*Generated by AINumbers.co T472 Pillar 3 Disclosure Builder v1.0 · Post Oak Labs · CC BY 4.0*',
+    '*⚠ Verify row definitions against BCBS 309/400 and applicable jurisdiction rules. Use synthetic data only.*'];
+  var ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);download('pillar3_'+ts+'.md',lines.join('\n'),'text/markdown');
+}
+function download(name,content,mime){var blob=new Blob([content],{type:mime});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href);}
+</script>
+<script>
+(function(){var CFG=window.AIN_BRIDGE_CFG||{};var runFn=CFG.runFn||null;function applyFields(fields){if(!fields||typeof fields!=='object')return 0;var n=0;Object.keys(fields).forEach(function(k){var el=document.getElementById(k);if(!el)return;if(el.type==='checkbox'){el.checked=!!fields[k];n++;}else if(el.tagName==='SELECT'||el.type==='text'||el.type==='number'){el.value=fields[k];n++;}});return n;}function safeRun(){try{if(runFn&&window[runFn])window[runFn]();}catch(e){}}window.AINBridge={apply:applyFields,run:safeRun,cfg:CFG};var ro=(location.origin&&location.origin!=='null')?location.origin:'*';window.addEventListener('message',function(e){if(ro!=='*'&&e.origin!==ro)return;var d=e.data||{};if(d.type==='ain:prefill'){var n=applyFields(d.fields);e.source&&e.source.postMessage({type:'ain:prefilled',applied:n},ro);}else if(d.type==='ain:run'){safeRun();e.source&&e.source.postMessage({type:'ain:ran',ok:true},ro);}else if(d.type==='ain:getMandate'){var m=window.AIN_BUILD_MANDATE?window.AIN_BUILD_MANDATE():null;e.source&&e.source.postMessage({type:'ain:mandate',mandate:m},ro);}});})();
+</script>
+</body>
+</html>

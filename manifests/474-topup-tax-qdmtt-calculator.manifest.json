@@ -1,0 +1,80 @@
+{
+  "tool_id": "474-topup-tax-qdmtt-calculator",
+  "version": "1.0.0",
+  "title": "Top-up Tax / QDMTT Calculator",
+  "description": "OECD Pillar Two top-up tax per jurisdiction. Top-up tax = (15% − ETR) × GloBE income net SBIE (Art. 5.2.1). Allocates top-up tax across QDMTT (Art. 11.3), IIR (Art. 2.1), and UTPR (Art. 2.4). ⚠ US-HQ groups exempt from IIR and UTPR per January 2026 OECD side-by-side package. Consumes T473 ETR outputs. Feeds T476 GIR Builder. Tier 1 Policy Mandate JSON + Markdown. Client-side. Zero PII.",
+  "category": "treasury-strategy",
+  "tags": ["pillar-two","globe","top-up-tax","qdmtt","iir","utpr","oecd","minimum-tax","jurisdiction","mne","us-exemption"],
+  "audience": ["tax","treasury","compliance","finance","legal"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "parent_hq": {"type":"string","description":"Parent HQ ISO-3 jurisdiction (e.g. DE, US)"},
+      "fy": {"type":"integer","description":"Reporting fiscal year"},
+      "jurisdictions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "jur": {"type":"string"},
+            "income": {"type":"number","description":"GloBE income (m)"},
+            "taxes": {"type":"number","description":"Covered taxes (m)"},
+            "sbie": {"type":"number","description":"SBIE deduction (m, from T473)"},
+            "qdmtt_enacted": {"type":"boolean"},
+            "qdmtt_rate_pct": {"type":"number","description":"QDMTT rate % (typically 15)"}
+          },
+          "required": ["jur","income","taxes","sbie"]
+        }
+      }
+    },
+    "required": ["parent_hq","jurisdictions"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "jurisdictions": {"type":"array","description":"Per-jurisdiction ETR, top-up amount, QDMTT, IIR, UTPR"},
+      "total_topup_m": {"type":"number"},
+      "total_qdmtt_m": {"type":"number"},
+      "total_iir_m": {"type":"number"},
+      "total_utpr_m": {"type":"number"},
+      "us_exempt": {"type":"boolean"}
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "topup_tax_qdmtt_calculator",
+    "description": "Compute Pillar Two top-up tax per jurisdiction (Art. 5.2.1) and allocate across QDMTT (Art. 11.3), IIR (Art. 2.1), and UTPR (Art. 2.4). ⚠ US-HQ groups are exempt from IIR and UTPR per the OECD January 2026 side-by-side package — set parent_hq='US' to apply exemption automatically. QDMTT exposure remains for all groups in jurisdictions with enacted QDMTT. Consumes T473 outputs. Feeds T476. Synthetic data only.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "parent_hq": {"type":"string","description":"Parent HQ ISO-3 code — use 'US' to apply IIR/UTPR exemption"},
+        "fy": {"type":"integer","description":"Fiscal year (affects SBIE transitional rates)"},
+        "jurisdictions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "jur": {"type":"string"},
+              "income": {"type":"number","description":"GloBE income (m)"},
+              "taxes": {"type":"number","description":"Covered taxes (m)"},
+              "sbie": {"type":"number","description":"SBIE (m) from T473"},
+              "qdmtt_enacted": {"type":"boolean","description":"True if jurisdiction has enacted QDMTT"},
+              "qdmtt_rate_pct": {"type":"number","description":"QDMTT rate % (typically 15)"}
+            },
+            "required": ["jur","income","taxes","sbie"]
+          }
+        }
+      },
+      "required": ["parent_hq","jurisdictions"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/474-topup-tax-qdmtt-calculator.html",
+    "function_name": "runTopupTax",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true
+}

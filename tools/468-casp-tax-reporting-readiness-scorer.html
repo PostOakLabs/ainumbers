@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>CASP Tax Reporting Readiness Scorer · T468 · AINumbers.co</title>
+<meta name="description" content="Weighted readiness scorer for Crypto-Asset Service Providers (CASPs) preparing for CARF (OECD), DAC8 (EU Directive 2023/2226), and IRS 1099-DA (TD 9996) tax reporting obligations. Scores five domains, produces A–F grade, and outputs an ordered gap list linked to T465/T466/T467. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/468-casp-tax-reporting-readiness-scorer">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.1);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --accent:var(--purple);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:980px;margin:0 auto;padding:0 2rem}
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:space-between}
+.logo{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo .ai{color:var(--teal)}.logo .co{color:var(--muted);font-size:.8rem}
+.nav-r{display:flex;gap:16px;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.nav-r a:hover{color:var(--teal-lt)}
+.hero{padding:2.5rem 0 1.5rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);margin-bottom:.6rem}
+.hero h1{font-size:1.9rem;color:var(--white);margin-bottom:.6rem}
+.hero p{font-size:.88rem;color:var(--body);max-width:780px}
+.hero-badges{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:1rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.28rem .65rem;border-radius:999px;border:1px solid var(--border-2);color:var(--body)}
+.badge.b-purple{border-color:rgba(155,114,245,.4);color:var(--purple);background:var(--purple-dim)}
+.pii{font-size:.75rem;color:var(--body);background:rgba(20,184,166,.07);border:1px solid rgba(20,184,166,.2);border-radius:var(--radius);padding:.55rem .85rem;margin:1.2rem 0 0}
+section.card{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);padding:1.3rem 1.4rem;margin:1.4rem 0}
+section.card h2{font-size:1.1rem;color:var(--white);margin-bottom:.9rem}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+.field{display:flex;flex-direction:column;gap:.3rem}
+label{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+select,input[type=text]{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:.55rem .8rem;color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;width:100%;outline:none;transition:border .2s}
+select:focus,input:focus{border-color:var(--accent)}
+.domain-card{border:1px solid var(--border-2);border-radius:var(--radius-lg);background:var(--bg-3);padding:1rem 1.2rem;margin-bottom:.9rem}
+.domain-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem}
+.domain-title{font-size:.9rem;color:var(--white)}
+.domain-weight{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.q-row{display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:start;padding:.4rem 0;border-bottom:1px solid rgba(30,47,74,.4)}
+.q-row:last-child{border-bottom:none}
+.q-text{font-size:.78rem;color:var(--text)}
+.q-sel{background:var(--bg-4);border:1px solid var(--border);border-radius:4px;padding:.3rem .5rem;color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.62rem;min-width:120px;color-scheme:dark;outline:none}
+.run-btn{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;padding:.65rem 1.4rem;border-radius:var(--radius);border:none;background:var(--accent);color:var(--bg);font-weight:500;margin-top:1.1rem;transition:opacity .2s}
+.run-btn:hover{opacity:.88}
+.results{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);padding:1.3rem 1.4rem;margin:1.4rem 0;display:none}
+.results.show{display:block}
+.results h2{font-size:1.1rem;color:var(--white);margin-bottom:1rem}
+.grade-banner{text-align:center;padding:1.5rem;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);margin-bottom:1.2rem}
+.grade-letter{font-family:'DM Serif Display',serif;font-size:4rem;line-height:1}
+.grade-score{font-family:'JetBrains Mono',monospace;font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;margin-top:.4rem}
+.stats-row{display:flex;flex-wrap:wrap;gap:.7rem;margin-bottom:1rem}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .9rem;flex:1;min-width:120px}
+.stat-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.stat-val{font-size:1.25rem;font-family:'DM Serif Display',serif;color:var(--white)}
+.domain-result{border:1px solid var(--border-2);border-radius:var(--radius);background:var(--bg-3);padding:.7rem 1rem;margin-bottom:.55rem;display:flex;align-items:center;gap:1rem}
+.dr-bar-wrap{flex:1;background:var(--bg-4);border-radius:999px;height:8px;overflow:hidden}
+.dr-bar{height:100%;border-radius:999px;transition:width .4s}
+.dr-label{font-family:'JetBrains Mono',monospace;font-size:.58rem;min-width:220px;color:var(--text)}
+.dr-score{font-family:'JetBrains Mono',monospace;font-size:.65rem;min-width:50px;text-align:right;color:var(--bright)}
+.gap-list{margin-top:1.2rem}
+.gap-list h3{font-size:.95rem;color:var(--white);margin-bottom:.65rem}
+.gap-item{border-left:3px solid var(--warn);padding:.5rem .8rem;margin-bottom:.5rem;background:var(--bg-3);border-radius:0 var(--radius) var(--radius) 0}
+.gap-item.gap-crit{border-left-color:var(--red)}
+.gap-item.gap-ok{border-left-color:var(--green)}
+.gap-title{font-size:.8rem;color:var(--bright)}
+.gap-desc{font-size:.7rem;color:var(--body);margin-top:.15rem}
+.gap-tool{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--accent)}
+.export-row{display:flex;flex-wrap:wrap;gap:.55rem;margin-top:1rem}
+.exp-btn{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;border-radius:var(--radius);border:1px solid var(--border-2);background:transparent;color:var(--text);transition:all .2s}
+.exp-btn:hover{border-color:var(--accent);color:var(--accent)}
+.exp-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:500}
+.exp-btn.primary:hover{opacity:.88}
+footer{border-top:1px solid var(--border);padding:1.4rem 0 2rem;margin-top:3rem}
+.foot{max-width:980px;margin:0 auto;padding:0 2rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.foot a:hover{color:var(--teal-lt)}
+@media(max-width:640px){.form-row{grid-template-columns:1fr}.q-row{grid-template-columns:1fr}.stats-row{flex-direction:column}}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="../index.html" class="logo"><span class="ai">AI</span>Numbers<span class="co">.co</span></a>
+  <div class="nav-r">
+    <a href="../index.html">Tools</a>
+    <a href="../guides/tool-chains.html">Chains</a>
+    <a href="../sitemap.html">Sitemap</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="hero">
+    <div class="eyebrow">T468 · DLT / Crypto-Tax · AINumbers.co</div>
+    <h1>CASP Tax Reporting Readiness Scorer</h1>
+    <p>Weighted readiness assessment for Crypto-Asset Service Providers (CASPs) preparing for OECD CARF (1 Jan 2026), EU DAC8 (FY2026, first reports 31 Jan 2027), and IRS Form 1099-DA (gross proceeds from 1 Jan 2025; basis from 1 Jan 2026). Scores five domains — Due Diligence, Data & Classification, Technical Infrastructure, Governance, and US Compliance — and outputs an ordered gap list linked to the T465/T466/T467 tool chain.</p>
+    <div class="hero-badges">
+      <span class="badge b-purple">CARF · OECD 2026</span>
+      <span class="badge b-purple">DAC8 · EU 2023/2226</span>
+      <span class="badge">IRS 1099-DA · TD 9996</span>
+      <span class="badge">A–F Grade · Gap Priority</span>
+      <span class="badge">Deterministic · Zero PII · Client-side</span>
+    </div>
+    <div class="pii">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  </div>
+
+  <section class="card">
+    <h2>Entity context</h2>
+    <div class="form-row">
+      <div class="field">
+        <label>Entity type</label>
+        <select id="entity_type">
+          <option value="exchange">Centralised exchange (CEX)</option>
+          <option value="broker">Broker / dealer</option>
+          <option value="wallet_provider">Wallet provider</option>
+          <option value="atm_operator">ATM operator</option>
+          <option value="other">Other CASP</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Applicable regime(s)</label>
+        <select id="regime">
+          <option value="both">CARF + DAC8 + 1099-DA</option>
+          <option value="carf_only">CARF only (non-EU)</option>
+          <option value="dac8_only">DAC8 only (EU)</option>
+          <option value="us_only">IRS 1099-DA only (US)</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <!-- DOMAIN 1: Due Diligence (weight 25%) -->
+  <div class="domain-card">
+    <div class="domain-head">
+      <span class="domain-title">Domain 1 — Due Diligence &amp; Customer Identification</span>
+      <span class="domain-weight">Weight: 25%</span>
+    </div>
+    <div class="q-row"><span class="q-text">Do you collect and verify customer TIN / taxpayer identification per CRS / CARF due-diligence procedures?</span><select class="q-sel" id="q1_1"><option value="4">Yes — full TIN/TRC collection for all reportable customers</option><option value="2">Partial — collected but not systematically verified</option><option value="0">No — not yet implemented</option></select></div>
+    <div class="q-row"><span class="q-text">Do you classify users by residency against the CARF participating-jurisdiction list (52 jurisdictions as of Jan 2026)?</span><select class="q-sel" id="q1_2"><option value="4">Yes — automated residency classification against current list</option><option value="2">Partial — manual or incomplete</option><option value="0">No</option></select></div>
+    <div class="q-row"><span class="q-text">Can you identify and exclude US customers from CARF exchange (US reporting commences 2027, not 2026)?</span><select class="q-sel" id="q1_3"><option value="3">Yes — US customers flagged and segregated correctly</option><option value="1">Partial — flag exists but not enforced in reporting</option><option value="0">No</option></select></div>
+    <div class="q-row"><span class="q-text">Do you perform annual self-certification and re-attestation procedures for Reportable Persons?</span><select class="q-sel" id="q1_4"><option value="4">Yes — annual cycle documented and in production</option><option value="2">Planned but not yet live</option><option value="0">No</option></select></div>
+  </div>
+
+  <!-- DOMAIN 2: Data & Classification (weight 25%) -->
+  <div class="domain-card">
+    <div class="domain-head">
+      <span class="domain-title">Domain 2 — Data Completeness &amp; Transaction Classification</span>
+      <span class="domain-weight">Weight: 25%</span>
+    </div>
+    <div class="q-row"><span class="q-text">Can you classify transactions as: exchange (crypto-fiat/crypto-crypto), transfer to unhosted wallet, or retail payment (≥ USD 50,000 threshold — CARF §II.D.3)?</span><select class="q-sel" id="q2_1"><option value="4">Yes — all three types classified automatically</option><option value="2">Partial — some types missing or manual</option><option value="0">No — not classified</option></select></div>
+    <div class="q-row"><span class="q-text">Do you record and retain asset type, acquisition date, disposal date, proceeds, and cost basis per disposal?</span><select class="q-sel" id="q2_2"><option value="4">Yes — all fields captured for all disposals</option><option value="2">Partial — some fields missing (e.g. basis, acquisition date)</option><option value="0">No — data gaps are material</option></select></div>
+    <div class="q-row"><span class="q-text">Do you support per-wallet / per-address basis tracking (required for US covered securities from 2026 per IRS Rev. Proc. 2024-28)?</span><select class="q-sel" id="q2_3"><option value="4">Yes — per-wallet basis segregation implemented</option><option value="2">Planned — not yet in production</option><option value="0">No — pooled basis only</option></select></div>
+    <div class="q-row"><span class="q-text">Can you produce aggregate annual values per customer per asset (total proceeds, total consideration) as required by CARF Annex I?</span><select class="q-sel" id="q2_4"><option value="3">Yes — aggregate reports generated on demand</option><option value="1">Partial — can generate manually but not automated</option><option value="0">No</option></select></div>
+  </div>
+
+  <!-- DOMAIN 3: Technical Infrastructure (weight 20%) -->
+  <div class="domain-card">
+    <div class="domain-head">
+      <span class="domain-title">Domain 3 — Technical Infrastructure &amp; Reporting Pipelines</span>
+      <span class="domain-weight">Weight: 20%</span>
+    </div>
+    <div class="q-row"><span class="q-text">Do you have an automated pipeline to generate CARF XML (OECD schema) or DAC8 country-by-country reporting extracts?</span><select class="q-sel" id="q3_1"><option value="5">Yes — automated XML generation in production</option><option value="2">In development</option><option value="0">No — manual only</option></select></div>
+    <div class="q-row"><span class="q-text">Can you produce IRS Form 1099-DA compliant filing extracts (gross proceeds 2025; basis 2026) for US customers?</span><select class="q-sel" id="q3_2"><option value="5">Yes — automated 1099-DA generation or integrated with T467</option><option value="2">Planned for 2025 filing cycle</option><option value="0">No</option></select></div>
+    <div class="q-row"><span class="q-text">Do you have validation and completeness-checking on reporting files before submission?</span><select class="q-sel" id="q3_3"><option value="5">Yes — automated validation in pipeline</option><option value="2">Manual QA only</option><option value="0">No validation</option></select></div>
+    <div class="q-row"><span class="q-text">Are your reporting pipelines capable of delivering files to tax authority portals or via FIRE system (IRS)?</span><select class="q-sel" id="q3_4"><option value="5">Yes — submission capability tested and verified</option><option value="2">Built but untested end-to-end</option><option value="0">No</option></select></div>
+  </div>
+
+  <!-- DOMAIN 4: Governance (weight 15%) -->
+  <div class="domain-card">
+    <div class="domain-head">
+      <span class="domain-title">Domain 4 — Governance, Controls &amp; Documentation</span>
+      <span class="domain-weight">Weight: 15%</span>
+    </div>
+    <div class="q-row"><span class="q-text">Is there a named CARF/DAC8 programme owner with board-level oversight?</span><select class="q-sel" id="q4_1"><option value="4">Yes — named owner, board-approved programme</option><option value="2">Assigned informally — no formal governance structure</option><option value="0">No</option></select></div>
+    <div class="q-row"><span class="q-text">Are your CARF/1099-DA obligations documented in a tax-reporting policy with annual review?</span><select class="q-sel" id="q4_2"><option value="3">Yes — documented policy in force</option><option value="1">Draft exists but not formally approved</option><option value="0">No</option></select></div>
+    <div class="q-row"><span class="q-text">Do you have audit trails for all classification decisions, TIN validations, and reporting submissions?</span><select class="q-sel" id="q4_3"><option value="3">Yes — immutable audit trail in production</option><option value="1">Partial logs — gaps exist</option><option value="0">No</option></select></div>
+  </div>
+
+  <!-- DOMAIN 5: US-specific (weight 15%) -->
+  <div class="domain-card">
+    <div class="domain-head">
+      <span class="domain-title">Domain 5 — US Compliance (1099-DA / IRS)</span>
+      <span class="domain-weight">Weight: 15%</span>
+    </div>
+    <div class="q-row"><span class="q-text">Do you distinguish covered vs noncovered digital assets per IRS TD 9996 §1.6045-1(a)(19)?</span><select class="q-sel" id="q5_1"><option value="4">Yes — covered/noncovered flags in customer data</option><option value="2">Partial — covered status tracked for some assets only</option><option value="0">No</option></select></div>
+    <div class="q-row"><span class="q-text">Are you implementing the IRS Rev. Proc. 2024-28 per-wallet basis transition for existing customers?</span><select class="q-sel" id="q5_2"><option value="4">Yes — transition plan executed or in progress</option><option value="2">Aware — plan not yet executed</option><option value="0">Not aware / not addressed</option></select></div>
+    <div class="q-row"><span class="q-text">Have you documented good-faith compliance efforts for 2025 transitional penalty relief (IRS Notice 2025-7)?</span><select class="q-sel" id="q5_3"><option value="4">Yes — contemporaneous documentation in place</option><option value="2">Partial — some efforts documented</option><option value="0">No documentation</option></select></div>
+    <div class="q-row"><span class="q-text">Do you have a wash-sale identification and adjustment process for 1099-DA Box 1e?</span><select class="q-sel" id="q5_4"><option value="3">Yes — automated wash-sale detection</option><option value="1">Manual review only</option><option value="0">No process</option></select></div>
+  </div>
+
+  <button class="run-btn" onclick="runCaspReadiness()">▶ Score Readiness</button>
+
+  <div class="results" id="results">
+    <h2>CASP Tax Reporting Readiness Assessment</h2>
+    <div class="grade-banner" id="grade-banner"></div>
+    <div class="stats-row" id="stats-row"></div>
+    <div id="domain-results"></div>
+    <div class="gap-list" id="gap-list"></div>
+    <div class="export-row">
+      <button class="exp-btn primary" onclick="exportMandate()">📤 Export Policy Mandate JSON</button>
+      <button class="exp-btn" onclick="exportMarkdown()">📄 Export Readiness Report (Markdown)</button>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <div class="foot">
+    <span>T468 · CASP Tax Reporting Readiness Scorer · v1.0 · CC BY 4.0 · Post Oak Labs</span>
+    <span><a href="467-form-1099-da-generator.html">← T467 1099-DA</a> · <a href="465-carf-dac8-reportable-classifier.html">T465 CARF Classifier</a> · <a href="../guides/crypto-tax-reporting-composer.html">Composer</a></span>
+  </div>
+</footer>
+
+<script>window.AIN_BRIDGE_CFG={runFn:'runCaspReadiness',intake:true,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+'use strict';
+/* ═══ T468 CASP Tax Reporting Readiness Scorer v1.0
+   CARF: OECD (effective 1 Jan 2026), 52 participating jurisdictions.
+   DAC8: EU Directive 2023/2226 (FY2026, first reports 31 Jan 2027).
+   IRS 1099-DA: TD 9996 (June 2024) — gross proceeds 2025, basis 2026.
+   IRS Rev. Proc. 2024-28: per-wallet basis transition.
+   IRS Notice 2025-7: 2025 good-faith transitional penalty relief.
+   Scoring: 5 domains, weighted. Grade A ≥90, B ≥75, C ≥60, D ≥45, F <45. ═══ */
+
+var DOMAINS = [
+  { id:'d1', label:'Due Diligence & Customer ID', weight:0.25, questions:['q1_1','q1_2','q1_3','q1_4'], max_pts:15 },
+  { id:'d2', label:'Data Completeness & Classification', weight:0.25, questions:['q2_1','q2_2','q2_3','q2_4'], max_pts:15 },
+  { id:'d3', label:'Technical Infrastructure', weight:0.20, questions:['q3_1','q3_2','q3_3','q3_4'], max_pts:20 },
+  { id:'d4', label:'Governance & Documentation', weight:0.15, questions:['q4_1','q4_2','q4_3'], max_pts:10 },
+  { id:'d5', label:'US Compliance (1099-DA / IRS)', weight:0.15, questions:['q5_1','q5_2','q5_3','q5_4'], max_pts:15 },
+];
+
+var GAP_ITEMS = [
+  { q:'q1_2', threshold:3, priority:'critical', label:'CARF residency classification', desc:'Automate user residency classification against the 52-jurisdiction CARF participating list. Without this, reportability cannot be determined.', tool:'T465 — carf-dac8-reportable-classifier' },
+  { q:'q1_1', threshold:3, priority:'critical', label:'TIN/taxpayer ID collection', desc:'Implement full TIN/TRC collection and verification for all reportable customers per CARF due-diligence procedures.', tool:null },
+  { q:'q2_2', threshold:3, priority:'critical', label:'Disposal data completeness', desc:'Capture acquisition date, disposal date, proceeds, and cost basis for all disposals. Gaps block 1099-DA Box 1a/1b/1c/1d population.', tool:'T467 — form-1099-da-generator' },
+  { q:'q3_1', threshold:3, priority:'critical', label:'CARF/DAC8 XML generation pipeline', desc:'Build automated OECD-schema XML or DAC8 country-by-country extract. Manual reporting is not sustainable at scale.', tool:'T465 — carf-dac8-reportable-classifier' },
+  { q:'q3_2', threshold:3, priority:'critical', label:'IRS 1099-DA filing extract', desc:'Implement automated 1099-DA generation for US customers. Gross-proceeds reporting required from 1 Jan 2025.', tool:'T467 — form-1099-da-generator' },
+  { q:'q2_3', threshold:3, priority:'high', label:'Per-wallet basis tracking', desc:'Implement per-wallet/per-address basis segregation required for US covered securities from 2026 per IRS Rev. Proc. 2024-28.', tool:'T466 — crypto-cost-basis-gain-calculator' },
+  { q:'q2_1', threshold:3, priority:'high', label:'Transaction type classification', desc:'Classify all transactions as exchange, unhosted wallet transfer, or retail payment (≥ USD 50,000 CARF threshold).', tool:'T465 — carf-dac8-reportable-classifier' },
+  { q:'q1_3', threshold:2, priority:'high', label:'US customer CARF exclusion', desc:'Flag US customers as excluded from CARF exchange (US commences 2027). Incorrectly including US customers creates cross-border reporting errors.', tool:'T465 — carf-dac8-reportable-classifier' },
+  { q:'q5_2', threshold:3, priority:'high', label:'IRS Rev. Proc. 2024-28 transition', desc:'Execute per-wallet basis transition plan for existing customers as required by IRS Rev. Proc. 2024-28.', tool:'T466 — crypto-cost-basis-gain-calculator' },
+  { q:'q5_3', threshold:3, priority:'medium', label:'2025 good-faith relief documentation', desc:'Document good-faith compliance efforts contemporaneously to rely on IRS Notice 2025-7 transitional penalty relief.', tool:'T467 — form-1099-da-generator' },
+  { q:'q3_3', threshold:3, priority:'medium', label:'Reporting file validation', desc:'Add automated completeness and validation checks before submission to reduce rejected filings.', tool:null },
+  { q:'q5_1', threshold:3, priority:'medium', label:'Covered vs noncovered classification', desc:'Flag covered/noncovered status per TD 9996 §1.6045-1(a)(19) for all assets. Covered securities require basis reporting (Box 1d) from 2026.', tool:'T467 — form-1099-da-generator' },
+  { q:'q4_1', threshold:3, priority:'medium', label:'Programme governance', desc:'Appoint named CARF/DAC8 programme owner with board-level oversight and approved programme mandate.', tool:null },
+  { q:'q2_4', threshold:2, priority:'medium', label:'Aggregate annual reporting per customer', desc:'Automate aggregate annual values per customer per asset (total proceeds, total consideration) per CARF Annex I.', tool:null },
+  { q:'q5_4', threshold:2, priority:'low', label:'Wash-sale detection (Box 1e)', desc:'Implement automated wash-sale identification and adjustment for IRS 1099-DA Box 1e reporting.', tool:'T466 — crypto-cost-basis-gain-calculator' },
+  { q:'q1_4', threshold:3, priority:'low', label:'Annual self-certification cycle', desc:'Implement annual re-attestation procedures for Reportable Persons per CARF due-diligence requirements.', tool:null },
+  { q:'q4_2', threshold:2, priority:'low', label:'Tax-reporting policy', desc:'Formalise CARF/1099-DA obligations in a board-approved tax-reporting policy with annual review schedule.', tool:null },
+  { q:'q4_3', threshold:2, priority:'low', label:'Audit trail', desc:'Implement immutable audit trails for classification decisions, TIN validations, and submission records.', tool:null },
+];
+
+var _lastResult = null;
+
+function gv(id){ var e=document.getElementById(id); return e?e.value.trim():''; }
+function gn(id){ var v=parseInt(gv(id)); return isNaN(v)?0:v; }
+function gradeColor(g){ return g==='A'?'var(--green)':g==='B'?'var(--teal)':g==='C'?'var(--warn)':g==='D'?'#F97316':'var(--red)'; }
+
+function runCaspReadiness() {
+  var entity_type = gv('entity_type');
+  var regime = gv('regime');
+
+  // Score each domain
+  var domain_results = DOMAINS.map(function(d) {
+    var raw = d.questions.reduce(function(s,q){ return s + gn(q); }, 0);
+    var pct = Math.min(raw / d.max_pts, 1);
+    var weighted = pct * d.weight;
+    return { id: d.id, label: d.label, weight: d.weight, raw: raw, max_pts: d.max_pts, pct: pct, weighted: weighted };
+  });
+  var total_weighted = domain_results.reduce(function(s,d){ return s+d.weighted; }, 0);
+  var overall_pct = Math.round(total_weighted * 100);
+  var grade = overall_pct >= 90 ? 'A' : overall_pct >= 75 ? 'B' : overall_pct >= 60 ? 'C' : overall_pct >= 45 ? 'D' : 'F';
+
+  // Build gap list: items where score below threshold
+  var gaps = GAP_ITEMS.filter(function(g){ return gn(g.q) < g.threshold; })
+    .sort(function(a,b){
+      var pri = {critical:0,high:1,medium:2,low:3};
+      return pri[a.priority] - pri[b.priority];
+    });
+
+  _lastResult = { entity_type, regime, domain_results, overall_pct, grade, gaps };
+  renderResults(_lastResult);
+}
+
+function renderResults(r) {
+  var res = document.getElementById('results');
+  res.classList.add('show');
+
+  var col = gradeColor(r.grade);
+  document.getElementById('grade-banner').innerHTML =
+    '<div class="grade-letter" style="color:'+col+'">'+r.grade+'</div>' +
+    '<div class="grade-score" style="color:var(--muted)">Overall readiness: <span style="color:'+col+'">'+r.overall_pct+'%</span></div>' +
+    '<div style="font-size:.72rem;color:var(--body);margin-top:.3rem">'+gradeDesc(r.grade)+'</div>';
+
+  var critCount = r.gaps.filter(function(g){ return g.priority==='critical'; }).length;
+  var highCount = r.gaps.filter(function(g){ return g.priority==='high'; }).length;
+  document.getElementById('stats-row').innerHTML =
+    '<div class="stat"><div class="stat-label">Critical gaps</div><div class="stat-val" style="color:var(--red)">'+critCount+'</div></div>' +
+    '<div class="stat"><div class="stat-label">High-priority gaps</div><div class="stat-val" style="color:var(--warn)">'+highCount+'</div></div>' +
+    '<div class="stat"><div class="stat-label">Total gap items</div><div class="stat-val">'+r.gaps.length+'</div></div>' +
+    '<div class="stat"><div class="stat-label">Domains scored</div><div class="stat-val">'+DOMAINS.length+'</div></div>';
+
+  var drArea = document.getElementById('domain-results'); drArea.innerHTML = '<h3 style="font-size:.9rem;color:var(--white);margin-bottom:.65rem">Domain scores</h3>';
+  r.domain_results.forEach(function(d) {
+    var pct = Math.round(d.pct*100);
+    var barCol = pct>=75?'var(--green)':pct>=50?'var(--warn)':'var(--red)';
+    var el = document.createElement('div');
+    el.className = 'domain-result';
+    el.innerHTML =
+      '<span class="dr-label">'+d.label+' ('+Math.round(d.weight*100)+'%)</span>' +
+      '<div class="dr-bar-wrap"><div class="dr-bar" style="width:'+pct+'%;background:'+barCol+'"></div></div>' +
+      '<span class="dr-score">'+d.raw+'/'+d.max_pts+' ('+pct+'%)</span>';
+    drArea.appendChild(el);
+  });
+
+  var gapArea = document.getElementById('gap-list');
+  gapArea.innerHTML = '<h3>Prioritised gap list</h3>';
+  if (r.gaps.length === 0) {
+    gapArea.innerHTML += '<div class="gap-item gap-ok"><div class="gap-title">No gaps identified — readiness is strong.</div></div>';
+  } else {
+    r.gaps.forEach(function(g) {
+      var cls = g.priority === 'critical' ? 'gap-crit' : g.priority === 'low' ? 'gap-ok' : '';
+      var priLabel = g.priority.charAt(0).toUpperCase()+g.priority.slice(1);
+      var el = document.createElement('div');
+      el.className = 'gap-item '+cls;
+      el.innerHTML =
+        '<div class="gap-title">['+priLabel+'] '+g.label+'</div>' +
+        '<div class="gap-desc">'+g.desc+'</div>' +
+        (g.tool ? '<div class="gap-tool">→ Remediate with '+g.tool+'</div>' : '');
+      gapArea.appendChild(el);
+    });
+  }
+
+  res.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function gradeDesc(g){
+  return {
+    A:'Strong readiness — on track for CARF/DAC8/1099-DA obligations. Address any remaining low-priority gaps.',
+    B:'Good readiness — material gaps remain in 1–2 domains. Prioritise critical items before first reporting deadlines.',
+    C:'Moderate readiness — significant gaps across multiple domains. Accelerate programme delivery.',
+    D:'Significant readiness shortfall — critical gaps present. Immediate programme escalation recommended.',
+    F:'Not ready — fundamental gaps across all domains. Regulatory penalty exposure is high without urgent action.',
+  }[g] || '';
+}
+
+function uuid(){var b=new Uint8Array(16);crypto.getRandomValues(b);b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;var h=Array.prototype.map.call(b,function(x){return('0'+x.toString(16)).slice(-2);}).join('');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);}
+
+function buildMandateObj(r) {
+  var now = new Date().toISOString();
+  return {
+    ap2_version: '1.0',
+    mandate_id: uuid(),
+    issued_at: now,
+    issued_by: 'ainumbers.co',
+    tool_id: '468-casp-tax-reporting-readiness-scorer',
+    tool_version: '1.0.0',
+    mandate_type: 'compliance_control',
+    jurisdiction: ['OECD','EU','US'],
+    regulatory_frameworks: [
+      'OECD CARF — Crypto-Asset Reporting Framework (effective 1 Jan 2026)',
+      'EU Directive 2023/2226 — DAC8 (FY2026, first reports 31 Jan 2027)',
+      'IRS Treasury Decision 9996 (June 2024) — Form 1099-DA final regulations',
+      'IRS Rev. Proc. 2024-28 — Per-wallet basis transition',
+      'IRS Notice 2025-7 — 2025 good-faith transitional penalty relief',
+      'AINumbers.co Unified Build Contract v1.1',
+    ],
+    payload: {
+      entity_type: r.entity_type,
+      regime: r.regime,
+      overall_pct: r.overall_pct,
+      grade: r.grade,
+      domain_results: r.domain_results,
+      gap_count: r.gaps.length,
+      critical_gap_count: r.gaps.filter(function(g){ return g.priority==='critical'; }).length,
+      gaps: r.gaps.map(function(g){ return { label: g.label, priority: g.priority, tool: g.tool||null }; }),
+    },
+    summary: 'CASP tax-reporting readiness score: ' + r.overall_pct + '% (Grade ' + r.grade + '). Entity type: ' + r.entity_type + '. Regime: ' + r.regime + '. ' + r.gaps.filter(function(g){ return g.priority==='critical'; }).length + ' critical gaps identified.',
+    agent_instructions: [
+      'Grade A (≥90%): minimal remediation required before CARF/DAC8 deadlines.',
+      'Grades B–C: prioritise critical and high-priority gaps — these risk regulatory penalties or rejected filings.',
+      'Grades D–F: escalate programme immediately; CARF effective 1 Jan 2026, first DAC8 reports due 31 Jan 2027.',
+      'Remediate classification gaps using T465 (CARF/DAC8 classifier), basis gaps using T466 (cost-basis calculator), and 1099-DA gaps using T467 (form generator).',
+      'US CARF exchange commences 2027 — exclude US customers from 2026 CARF reporting.',
+      'Document good-faith efforts for 2025 1099-DA transition to benefit from IRS Notice 2025-7 penalty relief.',
+    ],
+    valid_from: now.slice(0,10),
+    valid_until: new Date(Date.now()+90*24*60*60*1000).toISOString().slice(0,10),
+    last_reviewed: now.slice(0,10),
+    source_tool_inputs: { entity_type: r.entity_type, regime: r.regime },
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true },
+  };
+}
+window.AIN_BUILD_MANDATE = function(){ return _lastResult ? buildMandateObj(_lastResult) : null; };
+
+function exportMandate(){if(!_lastResult){alert('Run first.');return;}var obj=buildMandateObj(_lastResult);var ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);download('casp-readiness_'+ts+'.policy.json',JSON.stringify(obj,null,2),'application/json');}
+function exportMarkdown(){
+  if(!_lastResult){alert('Run first.');return;}
+  var r=_lastResult;
+  var lines=['# CASP Tax Reporting Readiness Assessment','','**Grade:** '+r.grade+' ('+r.overall_pct+'%) — '+gradeDesc(r.grade),'','## Domain scores',''];
+  r.domain_results.forEach(function(d){lines.push('- **'+d.label+'** ('+Math.round(d.weight*100)+'% weight): '+d.raw+'/'+d.max_pts+' ('+Math.round(d.pct*100)+'%)');});
+  lines.push('','## Gap list ('+r.gaps.length+' items)','');
+  r.gaps.forEach(function(g,i){
+    lines.push('### '+(i+1)+'. ['+g.priority.toUpperCase()+'] '+g.label);
+    lines.push(g.desc);
+    if(g.tool) lines.push('**Recommended tool:** '+g.tool);
+    lines.push('');
+  });
+  lines.push('---');
+  lines.push('*Generated by AINumbers.co T468 CASP Tax Reporting Readiness Scorer v1.0 · Post Oak Labs · CC BY 4.0*');
+  var ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);download('casp-readiness_'+ts+'.md',lines.join('\n'),'text/markdown');
+}
+function download(name,content,mime){var blob=new Blob([content],{type:mime});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href);}
+</script>
+
+<script>
+(function(){var CFG=window.AIN_BRIDGE_CFG||{};var runFn=CFG.runFn||null;function applyFields(fields){if(!fields||typeof fields!=='object')return 0;var n=0;Object.keys(fields).forEach(function(k){var el=document.getElementById(k);if(!el)return;if(el.type==='checkbox'){el.checked=!!fields[k];n++;}else if(el.tagName==='SELECT'||el.type==='text'){el.value=fields[k];n++;}});return n;}function safeRun(){try{if(runFn&&window[runFn])window[runFn]();}catch(e){}}window.AINBridge={apply:applyFields,run:safeRun,cfg:CFG};var ro=(location.origin&&location.origin!=='null')?location.origin:'*';window.addEventListener('message',function(e){if(ro!=='*'&&e.origin!==ro)return;var d=e.data||{};if(d.type==='ain:prefill'){var n=applyFields(d.fields);e.source&&e.source.postMessage({type:'ain:prefilled',applied:n},ro);}else if(d.type==='ain:run'){safeRun();e.source&&e.source.postMessage({type:'ain:ran',ok:true},ro);}else if(d.type==='ain:getMandate'){var m=window.AIN_BUILD_MANDATE?window.AIN_BUILD_MANDATE():null;e.source&&e.source.postMessage({type:'ain:mandate',mandate:m},ro);}});})();
+</script>
+</body>
+</html>

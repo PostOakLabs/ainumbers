@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Pillar Two GloBE Composer · AINumbers.co</title>
+<meta name="description" content="OECD Pillar Two GloBE workflow composer. 4-stage orchestration: T473 ETR → T474 Top-up Tax → T475 Safe Harbours → T476 GIR Builder. Outputs composite GloBE Policy Mandate. US-HQ groups: IIR/UTPR exempt (Jan 2026). Client-side.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/guides/pillar-two-globe-composer">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.1);
+  --gold:#EAB308;--gold-dim:rgba(234,179,8,.12);
+  --accent:var(--gold);
+  --s1:#14B8A6;--s2:#3B82F6;--s3:#A855F7;--s4:#F59E0B;
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+nav{padding:0 2rem;height:48px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.95);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;z-index:100}
+.logo{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--bright)}.logo .ai{color:var(--teal)}.logo .co{color:var(--muted);font-size:.78rem}
+.nav-r{display:flex;gap:14px;font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}.nav-r a:hover{color:var(--teal-lt)}
+.composer-shell{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.composer-header{padding:.9rem 1.6rem .7rem;border-bottom:1px solid var(--border);background:var(--bg-2);flex-shrink:0}
+.ch-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+.ch-title{font-size:1.35rem;color:var(--white);font-family:'DM Serif Display',serif}
+.ch-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem}
+.ch-badges{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.09em;text-transform:uppercase;padding:.22rem .55rem;border-radius:999px;border:1px solid var(--border-2);color:var(--body)}
+.badge.b-gold{border-color:rgba(234,179,8,.4);color:var(--gold);background:var(--gold-dim)}
+.badge.b-warn{border-color:rgba(245,158,11,.4);color:var(--warn);background:var(--warn-dim)}
+.us-warning{font-size:.72rem;color:var(--warn);background:var(--warn-dim);border:1px solid rgba(245,158,11,.3);border-radius:var(--radius);padding:.5rem .85rem;margin:.6rem 0 0}
+.stage-rail{padding:.7rem 1.6rem;border-bottom:1px solid var(--border);background:var(--bg-2);display:flex;gap:.5rem;align-items:center;flex-shrink:0;overflow-x:auto}
+.stage-chip{display:flex;align-items:center;gap:.4rem;padding:.28rem .75rem;border-radius:999px;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0}
+.stage-chip.active{color:var(--white);font-weight:500}
+.stage-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
+.stage-arrow{color:var(--muted);font-size:.65rem;flex-shrink:0}
+.stage-chip.done{opacity:.6}
+.tool-area{flex:1;display:flex;gap:0;overflow:hidden;min-height:0}
+.tool-panel{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.tool-panel-header{padding:.45rem .9rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.tph-left{display:flex;align-items:center;gap:.6rem}
+.tph-stage{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.18rem .5rem;border-radius:999px}
+.tph-title{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;color:var(--bright)}
+.tph-right{display:flex;gap:.4rem}
+.tph-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.28rem .65rem;border-radius:var(--radius);border:1px solid var(--border-2);background:transparent;color:var(--muted);transition:all .2s}
+.tph-btn:hover{border-color:var(--accent);color:var(--accent)}
+.tph-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:500}
+.tph-btn.primary:hover{opacity:.88}
+iframe{flex:1;border:none;width:100%;background:var(--bg);min-height:0}
+.side-panel{width:300px;flex-shrink:0;border-left:1px solid var(--border);background:var(--bg-3);display:flex;flex-direction:column;overflow:hidden}
+.sp-header{padding:.65rem 1rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--teal)}
+.sp-body{flex:1;overflow-y:auto;padding:.7rem .9rem}
+.mandate-slot{background:var(--bg-4);border:1px solid var(--border);border-radius:var(--radius);padding:.5rem .7rem;margin-bottom:.5rem;font-family:'JetBrains Mono',monospace;font-size:.55rem}
+.ms-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.2rem}
+.ms-stage{padding:.12rem .4rem;border-radius:999px;font-size:.48rem}
+.ms-status{font-size:.48rem;color:var(--muted)}
+.ms-status.captured{color:var(--green)}
+.ms-preview{color:var(--body);font-size:.5rem;line-height:1.5;margin-top:.25rem;white-space:pre-wrap;word-break:break-word;max-height:60px;overflow:hidden}
+.sp-export{padding:.7rem .9rem;border-top:1px solid var(--border)}
+.sp-exp-btn{display:block;width:100%;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem;border-radius:var(--radius);border:1px solid var(--border-2);background:transparent;color:var(--text);margin-bottom:.4rem;transition:all .2s}
+.sp-exp-btn:hover{border-color:var(--accent);color:var(--accent)}
+.sp-exp-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:500}.sp-exp-btn.primary:hover{opacity:.88}
+.sp-exp-btn:disabled{opacity:.35;cursor:default}
+.loading-overlay{position:absolute;inset:0;background:rgba(8,14,26,.7);display:flex;align-items:center;justify-content:center;z-index:50;display:none}
+.loading-spinner{width:28px;height:28px;border:2px solid var(--border-2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:900px){.side-panel{width:240px}}
+@media(max-width:680px){.side-panel{display:none}}
+</style>
+</head>
+<body>
+<nav>
+  <a href="../index.html" class="logo"><span class="ai">AI</span>Numbers<span class="co">.co</span></a>
+  <div class="nav-r"><a href="../index.html">Tools</a><a href="tool-chains.html">Chains</a><a href="../sitemap.html">Sitemap</a></div>
+</nav>
+
+<div class="composer-shell">
+  <div class="composer-header">
+    <div class="ch-eyebrow">Workflow Composer · Pillar Two GloBE · AINumbers.co</div>
+    <div class="ch-top">
+      <div class="ch-title">Pillar Two GloBE Minimum Tax</div>
+    </div>
+    <div class="ch-badges">
+      <span class="badge b-gold">OECD Pillar Two GloBE</span>
+      <span class="badge">15% minimum ETR</span>
+      <span class="badge">ETR → Top-up → Safe Harbours → GIR</span>
+      <span class="badge b-warn">⚠ US-HQ: IIR/UTPR exempt (Jan 2026)</span>
+      <span class="badge">4 stages · 4 tools</span>
+    </div>
+    <div class="us-warning">⚠ <strong>US Headquarter Exemption:</strong> US-headquartered MNE groups are <strong>exempt from IIR and UTPR</strong> per the OECD January 2026 side-by-side package. This composer analyses non-US-parented groups and QDMTT / GIR obligations for all groups. Set parent HQ to <code>US</code> in T474 and T476 to apply the exemption. Consult counsel; verify at oecd.org.</div>
+  </div>
+
+  <div class="stage-rail" id="stage-rail"></div>
+
+  <div class="tool-area">
+    <div class="tool-panel" id="tool-panel">
+      <div class="tool-panel-header" id="tph">
+        <div class="tph-left">
+          <span class="tph-stage" id="tph-stage-badge"></span>
+          <span class="tph-title" id="tph-title"></span>
+        </div>
+        <div class="tph-right">
+          <button class="tph-btn" onclick="prevStage()">← Prev</button>
+          <button class="tph-btn" onclick="captureMandate()" id="btn-capture">Capture mandate</button>
+          <button class="tph-btn primary" onclick="nextStage()" id="btn-next">Next →</button>
+        </div>
+      </div>
+      <iframe id="tool-iframe" title="GloBE tool" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"></iframe>
+    </div>
+
+    <div class="side-panel">
+      <div class="sp-header">Stage mandates</div>
+      <div class="sp-body" id="sp-body"></div>
+      <div class="sp-export">
+        <button class="sp-exp-btn primary" id="btn-export" onclick="exportComposite()" disabled>📤 Export composite mandate</button>
+        <button class="sp-exp-btn" id="btn-md" onclick="exportMarkdown()" disabled>📄 Export Markdown summary</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ═══ Pillar Two GloBE Composer v1.0
+   4-stage orchestration: T473 → T474 → T475 → T476
+   Handoffs via postMessage AIN Bridge (ain:getMandate / ain:mandate).
+   Composite Policy Mandate exported at end.
+   US exemption: US-HQ groups exempt from IIR/UTPR per Jan 2026 OECD side-by-side package.
+   ═══ */
+
+var STAGES = [
+  { num:1, tool_id:'473-globe-etr-jurisdiction-calculator', tid:'T473',
+    url:'../tools/473-globe-etr-jurisdiction-calculator.html',
+    color:'var(--s1)', label:'ETR by Jurisdiction',
+    handoff:'ETR + SBIE → Stage 2 top-up calc' },
+  { num:2, tool_id:'474-topup-tax-qdmtt-calculator', tid:'T474',
+    url:'../tools/474-topup-tax-qdmtt-calculator.html',
+    color:'var(--s2)', label:'Top-up Tax / QDMTT',
+    handoff:'Top-up amounts + QDMTT → Stage 3 safe harbour check' },
+  { num:3, tool_id:'475-pillar-two-safe-harbour-checker', tid:'T475',
+    url:'../tools/475-pillar-two-safe-harbour-checker.html',
+    color:'var(--s3)', label:'Safe Harbour Checker',
+    handoff:'Safe harbour flags → Stage 4 GIR Builder' },
+  { num:4, tool_id:'476-gir-builder', tid:'T476',
+    url:'../tools/476-gir-builder.html',
+    color:'var(--s4)', label:'GIR Builder',
+    handoff:'Final: GloBE Information Return Policy Mandate' },
+];
+
+var _currentStage = 0;
+var _mandates = {}; // keyed by stage index
+
+function renderRail() {
+  var rail = document.getElementById('stage-rail');
+  rail.innerHTML = '';
+  STAGES.forEach(function(s, i) {
+    if (i > 0) {
+      var arr = document.createElement('span');
+      arr.className = 'stage-arrow';
+      arr.textContent = '›';
+      rail.appendChild(arr);
+    }
+    var chip = document.createElement('div');
+    chip.className = 'stage-chip' + (i === _currentStage ? ' active' : '') + (_mandates[i] ? ' done' : '');
+    chip.style.color = i === _currentStage ? s.color : (_mandates[i] ? s.color : '');
+    chip.style.borderColor = i === _currentStage ? s.color : (_mandates[i] ? 'rgba(255,255,255,.15)' : '');
+    chip.innerHTML = '<span class="stage-dot" style="background:'+(i===_currentStage||_mandates[i]?s.color:'var(--muted)')+'"></span>'+s.tid+' '+s.label;
+    chip.onclick = (function(idx){return function(){gotoStage(idx);};})(i);
+    rail.appendChild(chip);
+  });
+}
+
+function renderSidePanel() {
+  var body = document.getElementById('sp-body');
+  body.innerHTML = '';
+  STAGES.forEach(function(s, i) {
+    var slot = document.createElement('div');
+    slot.className = 'mandate-slot';
+    var captured = !!_mandates[i];
+    var preview = captured ? (_mandates[i].summary || JSON.stringify(_mandates[i].payload).slice(0, 120)) : '—';
+    slot.innerHTML =
+      '<div class="ms-head">'+
+        '<span class="ms-stage" style="background:rgba('+hexToRgb(s.color)+',.15);color:'+s.color+'">'+s.tid+'</span>'+
+        '<span class="ms-status '+(captured?'captured':'')+'">'+( captured?'✓ captured':'pending')+'</span>'+
+      '</div>'+
+      '<div class="ms-preview">'+escHtml(preview)+'</div>';
+    body.appendChild(slot);
+  });
+  var allCaptured = STAGES.every(function(_,i){return !!_mandates[i];});
+  document.getElementById('btn-export').disabled = !allCaptured;
+  document.getElementById('btn-md').disabled = !allCaptured;
+}
+
+function hexToRgb(cssVar) {
+  var map = {'var(--s1)':'20,184,166','var(--s2)':'59,130,246','var(--s3)':'168,85,247','var(--s4)':'245,158,11'};
+  return map[cssVar] || '255,255,255';
+}
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function gotoStage(idx) {
+  _currentStage = idx;
+  var s = STAGES[idx];
+  document.getElementById('tool-iframe').src = s.url;
+  var badge = document.getElementById('tph-stage-badge');
+  badge.textContent = s.tid;
+  badge.style.background = 'rgba('+hexToRgb(s.color)+',.15)';
+  badge.style.color = s.color;
+  document.getElementById('tph-title').textContent = s.label + ' — ' + s.handoff;
+  document.getElementById('btn-next').textContent = idx < STAGES.length - 1 ? 'Next →' : 'Finish';
+  renderRail();
+  renderSidePanel();
+}
+
+function nextStage() {
+  if (_currentStage < STAGES.length - 1) {
+    gotoStage(_currentStage + 1);
+  }
+}
+function prevStage() {
+  if (_currentStage > 0) gotoStage(_currentStage - 1);
+}
+
+function captureMandate() {
+  var iframe = document.getElementById('tool-iframe');
+  var origin = location.origin || '*';
+  iframe.contentWindow.postMessage({ type: 'ain:getMandate' }, origin);
+}
+
+window.addEventListener('message', function(e) {
+  if (e.data && e.data.type === 'ain:mandate') {
+    var m = e.data.mandate;
+    if (m) {
+      _mandates[_currentStage] = m;
+      renderSidePanel();
+      renderRail();
+    } else {
+      alert('Stage ' + (_currentStage + 1) + ': run the tool first, then capture.');
+    }
+  }
+});
+
+function uuid(){var b=new Uint8Array(16);crypto.getRandomValues(b);b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;var h=Array.prototype.map.call(b,function(x){return('0'+x.toString(16)).slice(-2);}).join('');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);}
+
+function buildComposite() {
+  var now = new Date().toISOString();
+  var stages_summary = STAGES.map(function(s,i){
+    var m = _mandates[i];
+    return {stage:s.num, tool_id:s.tool_id, tid:s.tid, captured:!!m, summary:m?m.summary:null};
+  });
+  // Aggregate key figures from captured mandates
+  var etr_m = _mandates[0];
+  var topup_m = _mandates[1];
+  var sh_m = _mandates[2];
+  var gir_m = _mandates[3];
+  var payload = {
+    stages: stages_summary,
+    aggregate_etr: etr_m ? etr_m.payload.aggregate_etr : null,
+    low_etr_count: etr_m ? etr_m.payload.low_etr_count : null,
+    total_topup_m: topup_m ? topup_m.payload.total_topup_m : null,
+    total_qdmtt_m: topup_m ? topup_m.payload.total_qdmtt_m : null,
+    total_iir_m: topup_m ? topup_m.payload.total_iir_m : null,
+    us_exempt: topup_m ? topup_m.payload.us_exempt : null,
+    safe_harbour_count: sh_m ? sh_m.payload.safe_count : null,
+    gir_in_scope: gir_m ? gir_m.payload.in_scope : null,
+    upe_name: gir_m ? gir_m.payload.upe_name : null,
+    fy: gir_m ? gir_m.payload.fy : null,
+  };
+  return {
+    ap2_version: '1.0',
+    mandate_id: uuid(),
+    issued_at: now,
+    issued_by: 'ainumbers.co',
+    tool_id: 'pillar-two-globe-composer',
+    tool_version: '1.0.0',
+    mandate_type: 'compliance_control',
+    jurisdiction: ['OECD', 'Global'],
+    regulatory_frameworks: [
+      'OECD GloBE Model Rules (December 2021)',
+      'OECD GloBE Commentary (March 2022)',
+      'OECD Administrative Guidance (2023–2024)',
+      'OECD Transitional CbCR Safe Harbour agreed guidance (December 2022)',
+      'OECD GloBE Information Return Standard (November 2022)',
+      'OECD side-by-side package — US exemption from IIR/UTPR (January 2026)',
+      'AINumbers.co Unified Build Contract v1.1'
+    ],
+    payload: payload,
+    source_mandates: Object.keys(_mandates).map(function(k){return _mandates[k];}),
+    summary: 'Pillar Two GloBE assessment complete. ' +
+      (payload.upe_name ? payload.upe_name + ' FY' + payload.fy + '. ' : '') +
+      (payload.low_etr_count != null ? payload.low_etr_count + ' jurisdiction(s) below 15% ETR. ' : '') +
+      (payload.total_topup_m != null ? 'Total top-up: ' + payload.total_topup_m.toFixed(1) + 'm. ' : '') +
+      (payload.total_qdmtt_m != null ? 'QDMTT: ' + payload.total_qdmtt_m.toFixed(1) + 'm. ' : '') +
+      (payload.us_exempt ? '⚠ US-HQ: IIR/UTPR exempt (Jan 2026). ' : '') +
+      (payload.safe_harbour_count != null ? payload.safe_harbour_count + ' jurisdiction(s) with safe harbour. ' : '') +
+      'GIR: ' + (payload.gir_in_scope ? 'in scope' : 'check €750M threshold') + '.',
+    agent_instructions: [
+      'Pillar Two GloBE minimum ETR = 15%. Top-up tax = (15% − ETR) × GloBE income net SBIE.',
+      'SBIE = transitional payroll rate × qualifying payroll + transitional assets rate × tangible assets (Art. 5.3).',
+      'QDMTT collected locally reduces IIR liability. US-HQ groups: IIR and UTPR exempt per OECD January 2026 side-by-side package.',
+      'Transitional safe harbours expire after FY2026. Check T475 results for each jurisdiction.',
+      'GIR first filing: FY2024 groups due 30 June 2026. Required for groups with consolidated revenue ≥ €750M.',
+      '⚠ This composite mandate is based on synthetic/anonymised data only. Consult a qualified tax adviser before any real filing.'
+    ],
+    valid_from: now.slice(0, 10),
+    valid_until: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, composer: 'pillar-two-globe-composer', stages_completed: Object.keys(_mandates).length }
+  };
+}
+
+function exportComposite() {
+  var o = buildComposite();
+  var ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  download('globe-composite_'+ts+'.policy.json', JSON.stringify(o, null, 2), 'application/json');
+}
+
+function exportMarkdown() {
+  var c = buildComposite();
+  var lines = [
+    '# Pillar Two GloBE Assessment — Composite Policy Mandate',
+    '',
+    '> ⚠ **US-HQ groups exempt from IIR and UTPR per OECD January 2026 side-by-side package.**',
+    '',
+    '**'+c.mandate_id+'** | Issued: '+c.issued_at.slice(0,10),
+    '',
+    '## Summary',
+    '',
+    c.summary,
+    '',
+    '## Stages',
+    ''
+  ];
+  c.payload.stages.forEach(function(s){
+    lines.push('### Stage '+s.stage+' — '+s.tid+' ('+s.tool_id+')');
+    lines.push(s.captured ? (s.summary||'Captured.') : '_Not captured._');
+    lines.push('');
+  });
+  lines.push('## Regulatory Frameworks');
+  lines.push('');
+  c.regulatory_frameworks.forEach(function(f){lines.push('- '+f);});
+  lines.push('');
+  lines.push('*Composite mandate via AINumbers.co Pillar Two GloBE Composer. Synthetic data only.*');
+  var ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  download('globe-composite_'+ts+'.md', lines.join('\n'), 'text/markdown');
+}
+
+function download(name, content, mime) {
+  var blob = new Blob([content], {type: mime});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// Init
+gotoStage(0);
+</script>
+</body>
+</html>

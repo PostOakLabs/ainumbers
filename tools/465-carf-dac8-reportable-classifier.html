@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>CARF / DAC8 Reportable Classifier · T465 · AINumbers.co</title>
+<meta name="description" content="Classify CASPs, users, and transactions as reportable under OECD CARF and EU DAC8. Determines reporting-CASP status, reportable-user residency, and transaction-type triggers. CARF effective 1 Jan 2026; DAC8 FY2026 (first reports 31 Jan 2027). Client-side. Zero PII. Zero network.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/465-carf-dac8-reportable-classifier">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.1);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --accent:var(--purple);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:900px;margin:0 auto;padding:0 2rem}
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:space-between}
+.logo{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo .ai{color:var(--teal)}.logo .co{color:var(--muted);font-size:.8rem}
+.nav-r{display:flex;gap:16px;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.nav-r a:hover{color:var(--teal-lt)}
+.hero{padding:2.5rem 0 1.5rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);margin-bottom:.6rem}
+.hero h1{font-size:1.9rem;color:var(--white);margin-bottom:.6rem}
+.hero p{font-size:.88rem;color:var(--body);max-width:780px}
+.hero-badges{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:1rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.28rem .65rem;border-radius:999px;border:1px solid var(--border-2);color:var(--body)}
+.badge.b-purple{border-color:rgba(155,114,245,.4);color:var(--purple);background:var(--purple-dim)}
+.badge.b-warn{border-color:rgba(245,158,11,.4);color:var(--warn);background:var(--warn-dim)}
+.pii{font-size:.75rem;color:var(--body);background:rgba(20,184,166,.07);border:1px solid rgba(20,184,166,.2);border-radius:var(--radius);padding:.55rem .85rem;margin:1.2rem 0 0}
+section.card{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);padding:1.3rem 1.4rem;margin:1.4rem 0}
+section.card h2{font-size:1.1rem;color:var(--white);margin-bottom:1rem}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+.form-row.triple{grid-template-columns:1fr 1fr 1fr}
+.field{display:flex;flex-direction:column;gap:.3rem}
+label{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+select,input[type=text],input[type=number]{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:.55rem .8rem;color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;width:100%;outline:none;transition:border .2s}
+select:focus,input:focus{border-color:var(--accent)}
+.hint{font-size:.68rem;color:var(--muted);margin-top:.2rem}
+.tx-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.66rem;margin-top:.5rem}
+.tx-table th{color:var(--muted);text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid var(--border);padding:.4rem .5rem;text-align:left;font-weight:400}
+.tx-table td{padding:.45rem .5rem;border-bottom:1px solid rgba(30,47,74,.6);color:var(--text)}
+.tx-table tr:last-child td{border:none}
+.tx-table select,
+.tx-table input{background:var(--bg-4);border:1px solid var(--border);padding:.3rem .5rem;color:var(--bright);border-radius:4px;font-size:.66rem;width:100%}
+.tx-table input[type=checkbox]{width:auto}
+.row-add{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;padding:.38rem .75rem;border:1px dashed var(--border-2);border-radius:var(--radius);background:transparent;color:var(--muted);margin-top:.6rem}
+.row-add:hover{border-color:var(--accent);color:var(--accent)}
+.row-del{background:none;border:none;color:var(--muted);font-size:.8rem;cursor:pointer;padding:0 .3rem}
+.row-del:hover{color:var(--red)}
+.run-btn{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;padding:.65rem 1.4rem;border-radius:var(--radius);border:none;background:var(--accent);color:var(--bg);font-weight:500;margin-top:1.1rem;transition:opacity .2s}
+.run-btn:hover{opacity:.88}
+.results{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);padding:1.3rem 1.4rem;margin:1.4rem 0;display:none}
+.results.show{display:block}
+.results h2{font-size:1.1rem;color:var(--white);margin-bottom:1rem}
+.verdict-block{border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1.1rem;border:1px solid}
+.v-yes{background:var(--purple-dim);border-color:rgba(155,114,245,.4)}
+.v-no{background:var(--bg-3);border-color:var(--border-2)}
+.verdict-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:.3rem}
+.verdict-val{font-family:'DM Serif Display',serif;font-size:1.6rem;color:var(--white)}
+.stats-row{display:flex;flex-wrap:wrap;gap:.7rem;margin-bottom:1rem}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .9rem;flex:1;min-width:120px}
+.stat-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.stat-val{font-size:1.25rem;font-family:'DM Serif Display',serif;color:var(--white)}
+.results-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.64rem;margin-bottom:1rem}
+.results-table th{color:var(--muted);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);padding:.4rem .55rem;text-align:left;font-weight:400}
+.results-table td{padding:.45rem .55rem;border-bottom:1px solid rgba(30,47,74,.5);color:var(--text)}
+.results-table tr:last-child td{border:none}
+.pill{display:inline-block;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .55rem;border-radius:999px;border:1px solid}
+.pill-yes{color:var(--purple);border-color:rgba(155,114,245,.4);background:var(--purple-dim)}
+.pill-no{color:var(--muted);border-color:var(--border-2)}
+.pill-green{color:var(--green);border-color:rgba(34,197,94,.4);background:var(--green-dim)}
+.pill-warn{color:var(--warn);border-color:rgba(245,158,11,.4);background:var(--warn-dim)}
+.export-row{display:flex;flex-wrap:wrap;gap:.55rem;margin-top:1rem}
+.exp-btn{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;border-radius:var(--radius);border:1px solid var(--border-2);background:transparent;color:var(--text);transition:all .2s}
+.exp-btn:hover{border-color:var(--accent);color:var(--accent)}
+.exp-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:500}
+.exp-btn.primary:hover{opacity:.88}
+.cite{font-size:.68rem;color:var(--muted);font-style:italic;margin-top:.8rem}
+.cite a{color:var(--teal-lt)}
+footer{border-top:1px solid var(--border);padding:1.4rem 0 2rem;margin-top:3rem}
+.foot{max-width:900px;margin:0 auto;padding:0 2rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.foot a:hover{color:var(--teal-lt)}
+@media(max-width:640px){.form-row,.form-row.triple{grid-template-columns:1fr}.stats-row{flex-direction:column}}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="../index.html" class="logo"><span class="ai">AI</span>Numbers<span class="co">.co</span></a>
+  <div class="nav-r">
+    <a href="../index.html">Tools</a>
+    <a href="../guides/tool-chains.html">Chains</a>
+    <a href="../sitemap.html">Sitemap</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="hero">
+    <div class="eyebrow">T465 · DLT / Crypto-Tax · AINumbers.co</div>
+    <h1>CARF / DAC8 Reportable Classifier</h1>
+    <p>Classify users and transactions as reportable under the OECD Crypto-Asset Reporting Framework (CARF) and EU DAC8. Determines reporting-CASP status, reportable-user residency, and which transaction types trigger reporting (crypto-to-fiat, crypto-to-crypto, transfers, retail payments ≥ USD 50,000). CARF effective 1 January 2026 across 52 jurisdictions; EU DAC8 for FY 2026 with first reports due 31 January 2027.</p>
+    <div class="hero-badges">
+      <span class="badge b-purple">CARF · DAC8 · Crypto-Tax</span>
+      <span class="badge">Deterministic · Zero PII · Client-side</span>
+      <span class="badge b-warn">CARF live 1 Jan 2026 · DAC8 FY2026</span>
+    </div>
+    <div class="pii">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  </div>
+
+  <section class="card">
+    <h2>Entity profile</h2>
+    <div class="form-row">
+      <div class="field">
+        <label>Entity type</label>
+        <select id="entity_type">
+          <option value="exchange">Exchange (centralised)</option>
+          <option value="broker">Broker / dealer</option>
+          <option value="wallet_provider">Wallet provider (custodial)</option>
+          <option value="atm_operator">ATM operator</option>
+          <option value="other">Other CASP</option>
+        </select>
+        <span class="hint">Per OECD CARF §2 — Reporting Crypto-Asset Service Provider definition</span>
+      </div>
+      <div class="field">
+        <label>Applicable regime</label>
+        <select id="regime">
+          <option value="both">Both — CARF + DAC8</option>
+          <option value="carf">CARF only</option>
+          <option value="dac8">DAC8 only (EU member-state)</option>
+        </select>
+        <span class="hint">DAC8 = CARF transposed into EU law; functionally identical</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>User residencies to classify</h2>
+    <p style="font-size:.78rem;color:var(--body);margin-bottom:.8rem">Enter ISO 3166-1 alpha-2 country codes for each user. The classifier checks each against the CARF/DAC8 participating-jurisdiction list as at 1 January 2026.</p>
+    <div id="user-rows">
+      <table class="tx-table">
+        <thead><tr><th>User ID (synthetic)</th><th>Residency (ISO alpha-2)</th><th></th></tr></thead>
+        <tbody id="user-tbody"></tbody>
+      </table>
+    </div>
+    <button class="row-add" onclick="addUserRow()">+ Add user</button>
+  </section>
+
+  <section class="card">
+    <h2>Transactions to classify</h2>
+    <p style="font-size:.78rem;color:var(--body);margin-bottom:.8rem">Add each transaction. Retail payments ≥ USD 50,000 trigger reporting. Crypto-to-fiat, fiat-to-crypto, and crypto-to-crypto exchanges are reportable regardless of amount.</p>
+    <table class="tx-table">
+      <thead>
+        <tr>
+          <th>Transaction ID</th>
+          <th>Type</th>
+          <th>Amount (USD)</th>
+          <th>Counterparty hosted?</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tx-tbody"></tbody>
+    </table>
+    <button class="row-add" onclick="addTxRow()">+ Add transaction</button>
+  </section>
+
+  <button class="run-btn" onclick="runCarfClassify()">▶ Run CARF / DAC8 Classification</button>
+
+  <div class="results" id="results">
+    <h2>Classification Results</h2>
+    <div id="casp-verdict"></div>
+    <div class="stats-row" id="stats-row"></div>
+    <h3 style="color:var(--white);font-family:'DM Serif Display',serif;font-size:1rem;margin:.8rem 0 .5rem">User reportability</h3>
+    <table class="results-table" id="user-results-table">
+      <thead><tr><th>User ID</th><th>Residency</th><th>Participating jurisdiction</th><th>Reportable</th></tr></thead>
+      <tbody id="user-results-body"></tbody>
+    </table>
+    <h3 style="color:var(--white);font-family:'DM Serif Display',serif;font-size:1rem;margin:.8rem 0 .5rem">Transaction reportability</h3>
+    <table class="results-table" id="tx-results-table">
+      <thead><tr><th>TX ID</th><th>Type</th><th>Amount (USD)</th><th>Counterparty hosted</th><th>Reportable</th><th>Reason</th></tr></thead>
+      <tbody id="tx-results-body"></tbody>
+    </table>
+    <p class="cite">Sources: OECD Crypto-Asset Reporting Framework (CARF) — OECD/G20 BEPS Project 2022. EU Council Directive 2023/2226 (DAC8) — amending Directive 2011/16/EU. IRS Notice 2023-34 — transitional relief. Jurisdiction list: OECD CARF Signatory List (verify against current OECD list at oecd.org). Retail payment threshold: CARF §II.D.3 — USD 50,000.</p>
+    <div class="export-row">
+      <button class="exp-btn primary" onclick="exportMandate()">📤 Export Policy Mandate JSON</button>
+      <button class="exp-btn" onclick="exportMarkdown()">📄 Export Markdown</button>
+      <button class="exp-btn" onclick="exportCSV()">⬇ Export Classification CSV</button>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <div class="foot">
+    <span>T465 · CARF / DAC8 Reportable Classifier · v1.0 · CC BY 4.0 · Post Oak Labs</span>
+    <span><a href="../guides/crypto-tax-reporting-composer.html">Crypto-Tax Composer</a> · <a href="466-crypto-cost-basis-gain-calculator.html">T466 Cost Basis →</a> · <a href="../mcp/server.json">MCP</a></span>
+  </div>
+</footer>
+
+<script>window.AIN_BRIDGE_CFG={runFn:'runCarfClassify',intake:true,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+'use strict';
+/* ═══ T465 CARF / DAC8 Reportable Classifier v1.0
+   OECD CARF effective 1 Jan 2026 across 52 jurisdictions.
+   EU DAC8 (Directive 2023/2226) — FY2026, first reports 31 Jan 2027.
+   Sources: OECD CARF rules; DAC8 Directive; OECD signatory list.
+   ⚠ Jurisdiction list inline below — refresh against current OECD CARF signatory list. ═══ */
+
+/* CARF participating jurisdictions as at 1 January 2026.
+   Source: OECD Global Forum, Crypto-Asset Reporting Framework signatories.
+   ⚠ Verify against https://www.oecd.org/tax/exchange-of-tax-information/crypto-asset-reporting-framework-and-amendment-to-crs.htm */
+var CARF_JURISDICTIONS = new Set([
+  // EU member states (DAC8 — all 27)
+  'AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT',
+  'LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE',
+  // CARF early adopters / committed signatories (OECD list, Jan 2026 snapshot)
+  'AU','CA','JP','GB','KR','SG','CH','NO','IS','LI','NZ','ZA','BR','MX','AR',
+  'IN','ID','HK','MY','TH','CL','CO','CR','DO','EC','GT','PA','PY','PE','UY',
+  'AE','SA','QA','BH','KW','OM','JO','IL',
+  // Crown dependencies / overseas territories with CARF frameworks
+  'JE','GG','IM','KY','BM','VG','GI',
+  // Note: US implementing CARF from 2027 — NOT in scope for 2026 exchange
+]);
+// US: 1099-DA broker reporting (separate regime) effective 2025; CARF exchange from 2027.
+
+var ALWAYS_REPORTABLE_TYPES = new Set(['crypto_to_fiat','fiat_to_crypto','crypto_to_crypto']);
+var RETAIL_PAYMENT_THRESHOLD_USD = 50000;
+
+var _userRows = [];
+var _txRows = [];
+var _lastResult = null;
+var _userRowId = 0;
+var _txRowId = 0;
+
+function addUserRow() {
+  var id = ++_userRowId;
+  var tr = document.createElement('tr');
+  tr.id = 'ur-'+id;
+  tr.innerHTML =
+    '<td><input type="text" placeholder="USER-'+id+'" id="uid-'+id+'" value="USER-'+id+'"></td>' +
+    '<td><input type="text" placeholder="GB" id="ures-'+id+'" style="width:80px" maxlength="2"></td>' +
+    '<td><button class="row-del" onclick="delRow(\'ur-'+id+'\')">✕</button></td>';
+  document.getElementById('user-tbody').appendChild(tr);
+  _userRows.push(id);
+}
+function addTxRow() {
+  var id = ++_txRowId;
+  var tr = document.createElement('tr');
+  tr.id = 'tr-'+id;
+  tr.innerHTML =
+    '<td><input type="text" placeholder="TX-'+id+'" id="txid-'+id+'" value="TX-'+id+'"></td>' +
+    '<td><select id="txtype-'+id+'">' +
+      '<option value="crypto_to_fiat">Crypto → Fiat</option>' +
+      '<option value="fiat_to_crypto">Fiat → Crypto</option>' +
+      '<option value="crypto_to_crypto">Crypto ↔ Crypto</option>' +
+      '<option value="transfer_out">Transfer out</option>' +
+      '<option value="retail_payment">Retail payment</option>' +
+    '</select></td>' +
+    '<td><input type="number" id="txamt-'+id+'" value="10000" min="0" step="1"></td>' +
+    '<td style="text-align:center"><input type="checkbox" id="txhosted-'+id+'" checked></td>' +
+    '<td><button class="row-del" onclick="delRow(\'tr-'+id+'\')">✕</button></td>';
+  document.getElementById('tx-tbody').appendChild(tr);
+  _txRows.push(id);
+}
+function delRow(id) { var el = document.getElementById(id); if (el) el.remove(); }
+
+function gv(id) { var e = document.getElementById(id); return e ? e.value : ''; }
+function gc(id) { var e = document.getElementById(id); return e ? e.checked : false; }
+function gn(id) { var v = parseFloat(gv(id)); return isNaN(v) ? 0 : v; }
+
+function runCarfClassify() {
+  var entity_type = gv('entity_type');
+  var regime = gv('regime');
+
+  // 1. CASP determination (CARF §II — Reporting Crypto-Asset Service Providers)
+  var is_reporting_casp;
+  var casp_reason;
+  if (entity_type === 'exchange' || entity_type === 'broker' || entity_type === 'wallet_provider') {
+    is_reporting_casp = true;
+    casp_reason = 'Entity type falls within CARF §II Reporting CASP definition (exchange/broker/custodial wallet provider).';
+  } else if (entity_type === 'atm_operator') {
+    is_reporting_casp = true;
+    casp_reason = 'ATM operators facilitating crypto-asset exchanges are Reporting CASPs under CARF §II.A.3.';
+  } else {
+    is_reporting_casp = null; // requires further analysis
+    casp_reason = 'Other entity — requires case-by-case CARF §II analysis. Use tool with guidance from legal counsel.';
+  }
+
+  // 2. Classify users
+  var users = [];
+  document.querySelectorAll('#user-tbody tr').forEach(function(tr) {
+    var uid_i = tr.querySelector('input[id^="uid-"]');
+    var res_i = tr.querySelector('input[id^="ures-"]');
+    if (!uid_i || !res_i) return;
+    var uid = uid_i.value.trim() || uid_i.placeholder;
+    var res = res_i.value.trim().toUpperCase();
+    var in_juris = res.length === 2 && CARF_JURISDICTIONS.has(res);
+    users.push({
+      user_id: uid,
+      residency: res || '??',
+      in_participating_jurisdiction: in_juris,
+      reportable: in_juris,
+      note: !res ? 'Residency not entered' : (in_juris ? 'Jurisdiction participates in CARF/DAC8 as at 1 Jan 2026' : 'Jurisdiction not yet in CARF/DAC8 signatory list (verify OECD list)')
+    });
+  });
+
+  // 3. Classify transactions
+  var transactions = [];
+  document.querySelectorAll('#tx-tbody tr').forEach(function(tr) {
+    var tid_i = tr.querySelector('input[id^="txid-"]');
+    var typ_s = tr.querySelector('select[id^="txtype-"]');
+    var amt_i = tr.querySelector('input[id^="txamt-"]');
+    var hos_c = tr.querySelector('input[type="checkbox"]');
+    if (!tid_i || !typ_s) return;
+    var tid = tid_i.value.trim() || tid_i.placeholder;
+    var typ = typ_s.value;
+    var amt = parseFloat(amt_i ? amt_i.value : 0) || 0;
+    var hosted = hos_c ? hos_c.checked : true;
+    var reportable = false;
+    var reason = '';
+    if (ALWAYS_REPORTABLE_TYPES.has(typ)) {
+      reportable = true;
+      reason = 'Exchange/conversion transaction — reportable per CARF §II.D.1-2 regardless of amount.';
+    } else if (typ === 'transfer_out') {
+      reportable = !hosted;
+      reason = hosted
+        ? 'Transfer to hosted wallet — aggregate tracking required; single transfer not necessarily reportable.'
+        : 'Transfer to unhosted wallet — reportable per CARF §II.D.2(c).';
+    } else if (typ === 'retail_payment') {
+      reportable = amt >= RETAIL_PAYMENT_THRESHOLD_USD;
+      reason = reportable
+        ? 'Retail payment ≥ USD ' + RETAIL_PAYMENT_THRESHOLD_USD.toLocaleString() + ' — reportable per CARF §II.D.3.'
+        : 'Retail payment < USD ' + RETAIL_PAYMENT_THRESHOLD_USD.toLocaleString() + ' — below reporting threshold (CARF §II.D.3).';
+    }
+    transactions.push({ tx_id: tid, type: typ, amount_usd: amt, counterparty_hosted: hosted, reportable: reportable, reason: reason });
+  });
+
+  var reportable_users = users.filter(function(u){ return u.reportable; });
+  var reportable_txns = transactions.filter(function(t){ return t.reportable; });
+
+  _lastResult = {
+    entity_type: entity_type,
+    regime: regime,
+    is_reporting_casp: is_reporting_casp,
+    casp_reason: casp_reason,
+    users: users,
+    transactions: transactions,
+    reportable_users_count: reportable_users.length,
+    reportable_txns_count: reportable_txns.length,
+    total_users: users.length,
+    total_txns: transactions.length,
+  };
+
+  renderResults(_lastResult);
+}
+
+function renderResults(r) {
+  var res = document.getElementById('results');
+  res.classList.add('show');
+
+  // CASP verdict
+  var cv = document.getElementById('casp-verdict');
+  var cvClass = r.is_reporting_casp === true ? 'v-yes' : (r.is_reporting_casp === false ? 'v-no' : 'v-no');
+  var cvLabel = r.is_reporting_casp === true ? 'REPORTING CASP' : (r.is_reporting_casp === null ? 'FURTHER ANALYSIS REQUIRED' : 'NOT A REPORTING CASP');
+  cv.innerHTML = '<div class="verdict-block ' + cvClass + '">' +
+    '<div class="verdict-label">CASP status — ' + r.entity_type + ' · ' + r.regime + '</div>' +
+    '<div class="verdict-val">' + cvLabel + '</div>' +
+    '<div style="font-size:.78rem;color:var(--body);margin-top:.4rem">' + r.casp_reason + '</div>' +
+    '</div>';
+
+  // Stats
+  document.getElementById('stats-row').innerHTML =
+    '<div class="stat"><div class="stat-label">Total users</div><div class="stat-val">' + r.total_users + '</div></div>' +
+    '<div class="stat"><div class="stat-label">Reportable users</div><div class="stat-val" style="color:var(--purple)">' + r.reportable_users_count + '</div></div>' +
+    '<div class="stat"><div class="stat-label">Total transactions</div><div class="stat-val">' + r.total_txns + '</div></div>' +
+    '<div class="stat"><div class="stat-label">Reportable txns</div><div class="stat-val" style="color:var(--purple)">' + r.reportable_txns_count + '</div></div>';
+
+  // User table
+  var ub = document.getElementById('user-results-body'); ub.innerHTML = '';
+  r.users.forEach(function(u) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + esc(u.user_id) + '</td>' +
+      '<td>' + esc(u.residency) + '</td>' +
+      '<td><span class="pill ' + (u.in_participating_jurisdiction ? 'pill-yes' : 'pill-no') + '">' + (u.in_participating_jurisdiction ? '✓ Yes' : '✗ No') + '</span></td>' +
+      '<td><span class="pill ' + (u.reportable ? 'pill-yes' : 'pill-no') + '">' + (u.reportable ? 'REPORTABLE' : 'Not reportable') + '</span></td>';
+    ub.appendChild(tr);
+  });
+
+  // Transaction table
+  var tb = document.getElementById('tx-results-body'); tb.innerHTML = '';
+  r.transactions.forEach(function(t) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + esc(t.tx_id) + '</td>' +
+      '<td>' + esc(t.type) + '</td>' +
+      '<td>$' + Number(t.amount_usd).toLocaleString() + '</td>' +
+      '<td>' + (t.counterparty_hosted ? 'Yes' : 'No') + '</td>' +
+      '<td><span class="pill ' + (t.reportable ? 'pill-yes' : 'pill-no') + '">' + (t.reportable ? 'REPORTABLE' : 'Not reportable') + '</span></td>' +
+      '<td style="font-size:.6rem;color:var(--body)">' + esc(t.reason) + '</td>';
+    tb.appendChild(tr);
+  });
+
+  res.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function uuid() {
+  var b = new Uint8Array(16); crypto.getRandomValues(b);
+  b[6]=(b[6]&15)|64; b[8]=(b[8]&63)|128;
+  var h=Array.prototype.map.call(b,function(x){return('0'+x.toString(16)).slice(-2);}).join('');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
+
+function buildMandateObj(r) {
+  var now = new Date().toISOString();
+  return {
+    ap2_version: '1.0',
+    mandate_id: uuid(),
+    issued_at: now,
+    issued_by: 'ainumbers.co',
+    tool_id: '465-carf-dac8-reportable-classifier',
+    tool_version: '1.0.0',
+    mandate_type: 'compliance_control',
+    jurisdiction: r.regime === 'carf' ? ['MULTI'] : (r.regime === 'dac8' ? ['EU'] : ['MULTI','EU']),
+    regulatory_frameworks: [
+      'OECD Crypto-Asset Reporting Framework (CARF) — OECD/G20 BEPS Project 2022; effective 1 Jan 2026',
+      'EU Directive 2023/2226 (DAC8) — amending Directive 2011/16/EU; FY2026, reports due 31 Jan 2027',
+      'AINumbers.co Unified Build Contract v1.1',
+    ],
+    payload: {
+      entity_type: r.entity_type,
+      regime: r.regime,
+      is_reporting_casp: r.is_reporting_casp,
+      casp_reason: r.casp_reason,
+      reportable_users_count: r.reportable_users_count,
+      total_users: r.total_users,
+      reportable_txns_count: r.reportable_txns_count,
+      total_txns: r.total_txns,
+      users: r.users,
+      transactions: r.transactions,
+    },
+    summary: 'CARF/DAC8 reportable classification for ' + r.entity_type + ' under ' + r.regime + '. ' +
+      'Reporting-CASP status: ' + (r.is_reporting_casp === true ? 'YES' : r.is_reporting_casp === null ? 'REQUIRES ANALYSIS' : 'NO') + '. ' +
+      r.reportable_users_count + '/' + r.total_users + ' users reportable; ' +
+      r.reportable_txns_count + '/' + r.total_txns + ' transactions reportable.',
+    agent_instructions: [
+      'is_reporting_casp = true triggers all CARF/DAC8 obligations: user due-diligence, self-certification, annual reporting to competent authority.',
+      'Reportable users must have their financial information (proceeds, gains, fair market value) reported per CARF Part III.',
+      'Retail payments ≥ USD 50,000 trigger reporting — verify counterparty hosted/unhosted wallet status for transfer classifications.',
+      'US implementing CARF exchange from 2027; US-resident users are NOT in CARF exchange scope for FY2026 (1099-DA applies separately).',
+      'Verify jurisdiction list against current OECD CARF signatory list before reliance.',
+      'Feed reportable_users and reportable_txns to T466 crypto-cost-basis-gain-calculator for gain/loss computation.',
+    ],
+    valid_from: now.slice(0,10),
+    valid_until: new Date(Date.now()+90*24*60*60*1000).toISOString().slice(0,10),
+    last_reviewed: now.slice(0,10),
+    source_tool_inputs: { entity_type: r.entity_type, regime: r.regime, user_count: r.total_users, tx_count: r.total_txns },
+    regulatory_citations: [
+      'CARF §II — Reporting Crypto-Asset Service Providers',
+      'CARF §II.D — Reportable Transactions (§II.D.1-2 exchanges; §II.D.2(c) unhosted transfers; §II.D.3 retail payments ≥ USD 50,000)',
+      'OECD/G20 BEPS CARF Commentary (2022)',
+      'EU Council Directive 2023/2226 Art.1 — DAC8 amendments',
+    ],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true },
+  };
+}
+window.AIN_BUILD_MANDATE = function() { return _lastResult ? buildMandateObj(_lastResult) : null; };
+
+function exportMandate() {
+  if (!_lastResult) { alert('Run the classification first.'); return; }
+  var obj = buildMandateObj(_lastResult);
+  var ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  download('carf-dac8-classifier_'+ts+'.policy.json', JSON.stringify(obj,null,2), 'application/json');
+}
+
+function exportMarkdown() {
+  if (!_lastResult) { alert('Run the classification first.'); return; }
+  var r = _lastResult;
+  var lines = [
+    '# CARF / DAC8 Reportable Classification Report',
+    '',
+    '**Entity type:** ' + r.entity_type,
+    '**Regime:** ' + r.regime,
+    '**Reporting CASP:** ' + (r.is_reporting_casp === true ? '✓ Yes' : r.is_reporting_casp === null ? '⚠ Requires analysis' : '✗ No'),
+    '',
+    '## User Reportability',
+    '',
+    '| User ID | Residency | Participating Jurisdiction | Reportable |',
+    '|---|---|---|---|',
+  ];
+  r.users.forEach(function(u){ lines.push('| '+u.user_id+' | '+u.residency+' | '+(u.in_participating_jurisdiction?'Yes':'No')+' | '+(u.reportable?'**REPORTABLE**':'Not reportable')+' |'); });
+  lines.push('','## Transaction Reportability','','| TX ID | Type | Amount USD | Counterparty Hosted | Reportable | Reason |','|---|---|---|---|---|---|');
+  r.transactions.forEach(function(t){ lines.push('| '+t.tx_id+' | '+t.type+' | $'+Number(t.amount_usd).toLocaleString()+' | '+(t.counterparty_hosted?'Yes':'No')+' | '+(t.reportable?'**REPORTABLE**':'Not reportable')+' | '+t.reason+' |'); });
+  lines.push('','---','','*Generated by AINumbers.co T465 CARF/DAC8 Reportable Classifier v1.0 · Post Oak Labs · CC BY 4.0*','*Verify CARF jurisdiction list against current OECD signatory list. Use synthetic data only.*');
+  var ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  download('carf-dac8-classifier_'+ts+'.md', lines.join('\n'), 'text/markdown');
+}
+
+function exportCSV() {
+  if (!_lastResult) { alert('Run the classification first.'); return; }
+  var r = _lastResult;
+  var lines = ['record_type,id,field1,field2,field3,reportable,note'];
+  r.users.forEach(function(u){ lines.push(['user',u.user_id,u.residency,u.in_participating_jurisdiction,'',u.reportable,u.note].join(',')); });
+  r.transactions.forEach(function(t){ lines.push(['transaction',t.tx_id,t.type,t.amount_usd,t.counterparty_hosted,t.reportable,'"'+t.reason.replace(/"/g,"'")+'"'].join(',')); });
+  var ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  download('carf-dac8-classifier_'+ts+'.csv', lines.join('\n'), 'text/csv');
+}
+
+function download(name, content, mime) {
+  var blob = new Blob([content], {type:mime});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = name; a.click(); URL.revokeObjectURL(a.href);
+}
+
+// Seed default rows
+addUserRow(); addUserRow();
+(function(){ var e=document.querySelector('#user-tbody tr:first-child input[id^="ures-"]'); if(e)e.value='GB'; })();
+(function(){ var e=document.querySelectorAll('#user-tbody tr'); if(e[1]){ var r=e[1].querySelector('input[id^="ures-"]'); if(r)r.value='US'; } })();
+addTxRow(); addTxRow();
+(function(){
+  var rows = document.querySelectorAll('#tx-tbody tr');
+  if (rows[0]) { var s=rows[0].querySelector('select'); if(s)s.value='crypto_to_fiat'; var a=rows[0].querySelector('input[type=number]'); if(a)a.value='8500'; }
+  if (rows[1]) { var s=rows[1].querySelector('select'); if(s)s.value='retail_payment'; var a=rows[1].querySelector('input[type=number]'); if(a)a.value='75000'; }
+})();
+</script>
+
+<script>
+// ── AIN Bridge v1.0 ──────────────────────────────────────────────────────────
+(function(){
+  var CFG=window.AIN_BRIDGE_CFG||{};
+  var runFn=CFG.runFn||null;
+  function applyFields(fields){
+    if(!fields||typeof fields!=='object')return 0;
+    var n=0;
+    Object.keys(fields).forEach(function(k){
+      var el=document.getElementById(k);
+      if(!el)return;
+      if(el.type==='checkbox'){el.checked=!!fields[k];n++;}
+      else if(el.tagName==='SELECT'||el.type==='text'||el.type==='number'||el.type==='range'){el.value=fields[k];n++;}
+    });
+    return n;
+  }
+  function safeRun(){try{if(runFn&&window[runFn])window[runFn]();}catch(e){}}
+  window.AINBridge={apply:applyFields,run:safeRun,cfg:CFG};
+  var ro=(location.origin&&location.origin!=='null')?location.origin:'*';
+  window.addEventListener('message',function(e){
+    if(ro!=='*'&&e.origin!==ro)return;
+    var d=e.data||{};
+    if(d.type==='ain:prefill'){var n=applyFields(d.fields);e.source&&e.source.postMessage({type:'ain:prefilled',applied:n},ro);}
+    else if(d.type==='ain:run'){safeRun();e.source&&e.source.postMessage({type:'ain:ran',ok:true},ro);}
+    else if(d.type==='ain:getMandate'){var m=window.AIN_BUILD_MANDATE?window.AIN_BUILD_MANDATE():null;e.source&&e.source.postMessage({type:'ain:mandate',mandate:m},ro);}
+  });
+})();
+</script>
+</body>
+</html>

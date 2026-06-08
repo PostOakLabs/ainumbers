@@ -1,0 +1,93 @@
+{
+  "tool_id": "476-gir-builder",
+  "version": "1.0.0",
+  "title": "GloBE Information Return Builder",
+  "description": "OECD GloBE Information Return (GIR) data assembly per the GIR Standard (November 2022). Covers GIR Parts I (group header), II (jurisdiction overview), V (top-up tax summary). Required for MNE groups with consolidated revenue ≥ €750M. First filing: FY2024 groups, due 30 June 2026. Consumes T473 (ETR), T474 (top-up), T475 (safe harbours). ⚠ US-HQ groups exempt from IIR/UTPR per January 2026 OECD side-by-side package. Final stage of the Pillar Two GloBE composer chain. Tier 1 Policy Mandate JSON + Markdown + CSV. Client-side. Zero PII.",
+  "category": "treasury-strategy",
+  "tags": ["pillar-two","globe","gir","information-return","oecd","minimum-tax","mne","filing","jurisdiction","qdmtt","sbie","us-exemption"],
+  "audience": ["tax","treasury","compliance","finance","legal"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "upe_name": {"type":"string","description":"Ultimate parent entity synthetic name"},
+      "upe_jur": {"type":"string","description":"UPE tax jurisdiction (ISO-3)"},
+      "fy": {"type":"integer","description":"Reporting fiscal year"},
+      "total_rev": {"type":"number","description":"Total consolidated revenue (€m) — €750M threshold"},
+      "entity_count": {"type":"integer","description":"Number of constituent entities"},
+      "filing_jur": {"type":"string","description":"GIR filing jurisdiction"},
+      "jurisdictions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "jur": {"type":"string"},
+            "income": {"type":"number","description":"GloBE income (m)"},
+            "taxes": {"type":"number","description":"Covered taxes (m)"},
+            "etr_pct": {"type":"number","description":"ETR % from T473"},
+            "sbie": {"type":"number","description":"SBIE (m) from T473"},
+            "topup": {"type":"number","description":"Top-up tax (m) from T474"},
+            "qdmtt": {"type":"number","description":"QDMTT collected (m) from T474"},
+            "safe_harbour": {"type":"boolean","description":"Safe harbour flag from T475"},
+            "iir_utpr_exempt": {"type":"boolean","description":"IIR/UTPR exempt (US-HQ)"}
+          },
+          "required": ["jur","income","taxes","etr_pct"]
+        }
+      }
+    },
+    "required": ["upe_name","upe_jur","fy","total_rev","jurisdictions"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "in_scope": {"type":"boolean"},
+      "jurisdictions": {"type":"array"},
+      "total_income_m": {"type":"number"},
+      "total_topup_m": {"type":"number"},
+      "total_qdmtt_m": {"type":"number"}
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "gir_builder",
+    "description": "Assemble OECD GloBE Information Return (GIR) skeleton per GIR Standard (November 2022). Covers Parts I (group header), II (jurisdiction overview), V (top-up tax summary). Required for MNE groups with consolidated revenue ≥ €750M. First GIR filing: FY2024 groups, due 30 June 2026. Consumes T473 (ETR), T474 (top-up), T475 (safe harbours). ⚠ US-HQ groups exempt from IIR/UTPR per January 2026 OECD side-by-side package — set iir_utpr_exempt=true for US-parented jurisdictions. Safe harbour jurisdictions must still be disclosed in GIR. Actual XML filing requires authorised tax software. Synthetic data only.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "upe_name": {"type":"string","description":"Synthetic UPE name"},
+        "upe_jur": {"type":"string","description":"UPE jurisdiction ISO-3"},
+        "fy": {"type":"integer","description":"Fiscal year"},
+        "total_rev": {"type":"number","description":"Total consolidated revenue (€m)"},
+        "entity_count": {"type":"integer","description":"Number of constituent entities"},
+        "filing_jur": {"type":"string","description":"GIR filing jurisdiction ISO-3"},
+        "jurisdictions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "jur": {"type":"string"},
+              "income": {"type":"number"},
+              "taxes": {"type":"number"},
+              "etr_pct": {"type":"number"},
+              "sbie": {"type":"number"},
+              "topup": {"type":"number"},
+              "qdmtt": {"type":"number"},
+              "safe_harbour": {"type":"boolean"},
+              "iir_utpr_exempt": {"type":"boolean","description":"True for US-HQ parent jurisdictions"}
+            },
+            "required": ["jur","income","taxes","etr_pct"]
+          }
+        }
+      },
+      "required": ["upe_name","upe_jur","fy","total_rev","jurisdictions"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/476-gir-builder.html",
+    "function_name": "buildGIR",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true
+}

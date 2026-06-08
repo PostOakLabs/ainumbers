@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>GloBE Information Return Builder · T476 · AINumbers.co</title>
+<meta name="description" content="OECD Pillar Two GloBE Information Return (GIR) data assembly. Consolidates jurisdiction-level ETR, top-up tax, SBIE, safe harbour flags, and QDMTT into a structured GIR skeleton. First filings due 30 June 2026. US-HQ groups: IIR/UTPR exempt. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/476-gir-builder">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.1);
+  --gold:#EAB308;--gold-dim:rgba(234,179,8,.12);
+  --accent:var(--gold);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:980px;margin:0 auto;padding:0 2rem}
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:space-between}
+.logo{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}.logo .ai{color:var(--teal)}.logo .co{color:var(--muted);font-size:.8rem}
+.nav-r{display:flex;gap:16px;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}.nav-r a:hover{color:var(--teal-lt)}
+.hero{padding:2.5rem 0 1.5rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);margin-bottom:.6rem}
+.hero h1{font-size:1.9rem;color:var(--white);margin-bottom:.6rem}.hero p{font-size:.88rem;color:var(--body);max-width:780px}
+.hero-badges{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:1rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.28rem .65rem;border-radius:999px;border:1px solid var(--border-2);color:var(--body)}
+.badge.b-gold{border-color:rgba(234,179,8,.4);color:var(--gold);background:var(--gold-dim)}
+.badge.b-warn{border-color:rgba(245,158,11,.4);color:var(--warn);background:var(--warn-dim)}
+.pii{font-size:.75rem;color:var(--body);background:rgba(20,184,166,.07);border:1px solid rgba(20,184,166,.2);border-radius:var(--radius);padding:.55rem .85rem;margin:1.2rem 0 0}
+.us-warning{font-size:.78rem;color:var(--warn);background:var(--warn-dim);border:1px solid rgba(245,158,11,.35);border-radius:var(--radius);padding:.7rem 1rem;margin:1rem 0}
+section.card{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);padding:1.3rem 1.4rem;margin:1.4rem 0}
+section.card h2{font-size:1.1rem;color:var(--white);margin-bottom:.9rem}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem}
+.field{margin-bottom:.7rem}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.field input,.field select{width:100%;background:var(--bg-4);border:1px solid var(--border);padding:.4rem .6rem;color:var(--bright);border-radius:var(--radius);font-size:.8rem;color-scheme:dark;outline:none;font-family:'JetBrains Mono',monospace}
+.field small{font-size:.62rem;color:var(--muted);margin-top:.15rem;display:block}
+.d-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.6rem;margin-top:.4rem}
+.d-table th{color:var(--muted);text-transform:uppercase;letter-spacing:.09em;border-bottom:1px solid var(--border);padding:.38rem .4rem;text-align:left;font-weight:400}
+.d-table td{padding:.38rem .4rem;border-bottom:1px solid rgba(30,47,74,.5);vertical-align:middle}
+.d-table input,.d-table select{background:var(--bg-4);border:1px solid var(--border);padding:.25rem .35rem;color:var(--bright);border-radius:4px;font-size:.6rem;width:100%;color-scheme:dark;outline:none}
+.row-add{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;padding:.38rem .75rem;border:1px dashed var(--border-2);border-radius:var(--radius);background:transparent;color:var(--muted);margin-top:.6rem}
+.row-add:hover{border-color:var(--accent);color:var(--accent)}
+.row-del{background:none;border:none;color:var(--muted);font-size:.8rem;cursor:pointer;padding:0 .25rem}
+.row-del:hover{color:var(--red)}
+.run-btn{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;padding:.65rem 1.4rem;border-radius:var(--radius);border:none;background:var(--accent);color:var(--bg);font-weight:500;margin-top:1.1rem;transition:opacity .2s}.run-btn:hover{opacity:.88}
+.results{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);padding:1.3rem 1.4rem;margin:1.4rem 0;display:none}.results.show{display:block}
+.results h2{font-size:1.1rem;color:var(--white);margin-bottom:.6rem}
+.gir-header-block{border:1px solid var(--border-2);border-radius:var(--radius-lg);background:var(--bg-3);padding:.9rem 1.1rem;margin-bottom:1rem}
+.gir-kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:.4rem;margin-bottom:.5rem}
+.kv{background:var(--bg-4);border:1px solid var(--border);border-radius:var(--radius);padding:.32rem .5rem}
+.kv-label{font-family:'JetBrains Mono',monospace;font-size:.47rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.kv-val{font-family:'JetBrains Mono',monospace;font-size:.67rem;color:var(--bright);margin-top:.1rem}
+.gir-section-title{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);margin:.9rem 0 .45rem;border-top:1px solid var(--border);padding-top:.7rem}
+.jur-row{display:grid;grid-template-columns:55px 1fr;gap:.6rem;margin-bottom:.5rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-3);padding:.5rem .7rem;align-items:start}
+.jur-iso{font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--white);font-weight:600;padding-top:.3rem}
+.jur-data{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:.35rem}
+.stats-row{display:flex;flex-wrap:wrap;gap:.7rem;margin-bottom:1rem}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .9rem;flex:1;min-width:130px}
+.stat-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.stat-val{font-size:1.1rem;font-family:'DM Serif Display',serif;color:var(--white)}
+.export-row{display:flex;flex-wrap:wrap;gap:.55rem;margin-top:1rem}
+.exp-btn{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;border-radius:var(--radius);border:1px solid var(--border-2);background:transparent;color:var(--text);transition:all .2s}.exp-btn:hover{border-color:var(--accent);color:var(--accent)}
+.exp-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:500}.exp-btn.primary:hover{opacity:.88}
+.cite{font-size:.68rem;color:var(--muted);font-style:italic;margin-top:.8rem}
+footer{border-top:1px solid var(--border);padding:1.4rem 0 2rem;margin-top:3rem}
+.foot{max-width:980px;margin:0 auto;padding:0 2rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.foot a:hover{color:var(--teal-lt)}
+@media(max-width:640px){.grid-2{grid-template-columns:1fr}.grid-3{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<nav>
+  <a href="../index.html" class="logo"><span class="ai">AI</span>Numbers<span class="co">.co</span></a>
+  <div class="nav-r"><a href="../index.html">Tools</a><a href="../guides/tool-chains.html">Chains</a><a href="../sitemap.html">Sitemap</a></div>
+</nav>
+<div class="container">
+  <div class="hero">
+    <div class="eyebrow">T476 · Tax / GloBE · AINumbers.co</div>
+    <h1>GloBE Information Return Builder</h1>
+    <p>Assemble the key data points for the OECD GloBE Information Return (GIR) per the OECD GloBE Information Return standard (November 2022). The GIR is a standardised compliance report covering jurisdiction-level GloBE income, covered taxes, ETR, SBIE, top-up tax, safe harbour flags, and entity registrations. First GIR filings due 30 June 2026 for FY2024 groups. Use outputs from T473 (ETR), T474 (top-up tax), and T475 (safe harbours) to populate this return. ⚠ This tool produces a structured skeleton — actual GIR XML filing requires local jurisdiction-specific software or service providers.</p>
+    <div class="hero-badges">
+      <span class="badge b-gold">OECD GIR Standard (Nov 2022)</span>
+      <span class="badge">First filing: 30 Jun 2026</span>
+      <span class="badge">Consumes T473 · T474 · T475</span>
+      <span class="badge b-warn">US-HQ: IIR/UTPR exempt (Jan 2026)</span>
+      <span class="badge">€750M revenue threshold</span>
+    </div>
+    <div class="us-warning">⚠ <strong>US Headquarter Exemption:</strong> US-headquartered MNE groups are <strong>exempt from IIR and UTPR</strong> per the January 2026 OECD side-by-side package. US-HQ groups may still have GIR filing obligations in jurisdictions that have enacted local GIR requirements. QDMTT exposure remains possible. Verify current obligations with counsel.</div>
+    <div class="pii">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  </div>
+
+  <section class="card">
+    <h2>MNE group header</h2>
+    <div class="grid-3">
+      <div class="field"><label>Ultimate parent entity name</label><input type="text" id="upe_name" value="Synthcorp AG (Demo)" placeholder="Synthetic name only"></div>
+      <div class="field"><label>UPE tax jurisdiction (ISO)</label><input type="text" id="upe_jur" value="DE" maxlength="3"></div>
+      <div class="field"><label>Reporting FY</label><input type="number" id="fy" value="2024" min="2024" max="2035"><small>First GIR: FY2024, due 30 Jun 2026.</small></div>
+    </div>
+    <div class="grid-3">
+      <div class="field"><label>Total consolidated revenue (€m)</label><input type="number" id="total_rev" value="900" step="1"><small>€750M threshold for GloBE scope.</small></div>
+      <div class="field"><label>Number of constituent entities</label><input type="number" id="entity_count" value="12" min="1"></div>
+      <div class="field"><label>Filing jurisdiction (where GIR submitted)</label><input type="text" id="filing_jur" value="DE" maxlength="3"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Jurisdiction-level GIR data</h2>
+    <p style="font-size:.78rem;color:var(--body);margin-bottom:.7rem">Paste consolidated outputs from T473 (ETR), T474 (top-up), and T475 (safe harbours) per jurisdiction. All amounts in reporting currency (millions).</p>
+    <table class="d-table">
+      <thead><tr><th>Jurisdiction</th><th>GloBE income (m)</th><th>Covered taxes (m)</th><th>ETR %</th><th>SBIE (m)</th><th>Top-up tax (m)</th><th>QDMTT (m)</th><th>Safe harbour</th><th>IIR/UTPR exempt</th><th></th></tr></thead>
+      <tbody id="jur-tbody"></tbody>
+    </table>
+    <button class="row-add" onclick="addRow()">+ Add jurisdiction</button>
+  </section>
+
+  <button class="run-btn" onclick="buildGIR()">▶ Build GIR Skeleton</button>
+
+  <div class="results" id="results">
+    <h2>GloBE Information Return Skeleton</h2>
+    <p style="font-size:.78rem;color:var(--body);margin-bottom:.8rem">Structured GIR summary based on your inputs. This skeleton maps to GIR Part I (header), Part II (tax jurisdiction overview), and Part V (top-up taxes). ⚠ Actual XML filing requires authorised local tax software.</p>
+    <div class="stats-row" id="stats-row"></div>
+    <div id="gir-area"></div>
+    <p class="cite">Sources: OECD GloBE Information Return Standard (November 2022); OECD GloBE Model Rules (December 2021); OECD Administrative Guidance (2023–2024). Filing deadline: 30 June 2026 (FY2024, 18-month transitional period). €750M revenue threshold applies to both GloBE scope and GIR filing. US exemption: OECD side-by-side package (January 2026). ⚠ GIR filing requirements vary by implementing jurisdiction — verify locally.</p>
+    <div class="export-row">
+      <button class="exp-btn primary" onclick="exportMandate()">📤 Export Policy Mandate JSON</button>
+      <button class="exp-btn" onclick="exportMarkdown()">📄 Export Markdown</button>
+      <button class="exp-btn" onclick="exportCSV()">📊 Export CSV (GIR data)</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="foot">
+    <span>T476 · GloBE Information Return Builder · v1.0 · CC BY 4.0 · Post Oak Labs</span>
+    <span><a href="475-pillar-two-safe-harbour-checker.html">← T475 Safe Harbours</a> · <a href="../guides/pillar-two-globe-composer.html">Composer</a></span>
+  </div>
+</footer>
+
+<script>window.AIN_BRIDGE_CFG={runFn:'buildGIR',intake:true,intakeTarget:'upe_name',intakeAnchor:'upe_name'};</script>
+<script>
+'use strict';
+/* ═══ T476 GloBE Information Return Builder v1.0
+   OECD GloBE Information Return Standard (November 2022).
+   GIR required for MNE groups with consolidated revenue ≥ €750M in 2+ years out of 4.
+   First filing: 30 June 2026 (18-month transitional period for FY2024).
+   GIR structure: Part I (header), II (jurisdiction overview), III (constituent entities),
+     IV (entity data), V (top-up taxes), VI (cross-border adjustments).
+   This tool assembles Parts I, II, V (simplified skeleton).
+   US exemption: Jan 2026 OECD side-by-side. US-HQ exempt from IIR/UTPR;
+     may still need to file GIR in jurisdictions with local GIR laws.
+   ═══ */
+
+var _lastResult = null;
+var _rId = 0;
+
+function addRow(jur, income, taxes, etr, sbie, topup, qdmtt, sh, iir_exempt) {
+  var id = ++_rId;
+  var tr = document.createElement('tr'); tr.id='r-'+id;
+  tr.innerHTML=
+    '<td><input type="text" id="rjur-'+id+'" value="'+(jur||'DE')+'" style="width:48px" maxlength="3"></td>'+
+    '<td><input type="number" id="rinc-'+id+'" value="'+(income||'500')+'" step="0.01" style="width:72px"></td>'+
+    '<td><input type="number" id="rtax-'+id+'" value="'+(taxes||'60')+'" step="0.01" style="width:70px"></td>'+
+    '<td><input type="number" id="retr-'+id+'" value="'+(etr||'12')+'" step="0.01" min="0" max="100" style="width:55px"></td>'+
+    '<td><input type="number" id="rsbie-'+id+'" value="'+(sbie||'40')+'" step="0.01" style="width:70px"></td>'+
+    '<td><input type="number" id="rtopup-'+id+'" value="'+(topup||'15')+'" step="0.01" style="width:70px"></td>'+
+    '<td><input type="number" id="rqdmtt-'+id+'" value="'+(qdmtt||'10')+'" step="0.01" style="width:70px"></td>'+
+    '<td style="text-align:center"><input type="checkbox" id="rsh-'+id+'"'+(sh?' checked':'')+' style="width:auto" title="Transitional/permanent safe harbour"></td>'+
+    '<td style="text-align:center"><input type="checkbox" id="riir-'+id+'"'+(iir_exempt?' checked':'')+' style="width:auto" title="IIR/UTPR exempt (e.g. US-HQ)"></td>'+
+    '<td><button class="row-del" onclick="delRow(\'r-'+id+'\')">✕</button></td>';
+  document.getElementById('jur-tbody').appendChild(tr);
+}
+function delRow(id){var el=document.getElementById(id);if(el)el.remove();}
+function gn(id){var v=parseFloat(document.getElementById(id).value);return isNaN(v)?0:v;}
+function gs(id){var el=document.getElementById(id);return el?el.value||'':''}
+function gc(id){var el=document.getElementById(id);return el?el.checked:false;}
+function fmtM(n){return n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'m';}
+function fmtPct(n){return(n).toFixed(2)+'%';}
+
+function buildGIR(){
+  var upe_name=gs('upe_name')||'(not set)';
+  var upe_jur=(gs('upe_jur')||'').toUpperCase();
+  var fy=parseInt(document.getElementById('fy').value)||2024;
+  var total_rev=gn('total_rev');
+  var entity_count=parseInt(document.getElementById('entity_count').value)||0;
+  var filing_jur=(gs('filing_jur')||'').toUpperCase();
+  var in_scope=total_rev>=750;
+  var rows=[];
+  document.querySelectorAll('#jur-tbody tr').forEach(function(tr){
+    var id=tr.id.replace('r-','');
+    var jurEl=document.getElementById('rjur-'+id);if(!jurEl)return;
+    rows.push({
+      jur:jurEl.value.trim().toUpperCase(),
+      income:gn('rinc-'+id),taxes:gn('rtax-'+id),
+      etr_pct:gn('retr-'+id),sbie:gn('rsbie-'+id),
+      topup:gn('rtopup-'+id),qdmtt:gn('rqdmtt-'+id),
+      safe_harbour:gc('rsh-'+id),iir_utpr_exempt:gc('riir-'+id)
+    });
+  });
+  var total_income=rows.reduce(function(s,r){return s+r.income;},0);
+  var total_topup=rows.reduce(function(s,r){return s+r.topup;},0);
+  var total_qdmtt=rows.reduce(function(s,r){return s+r.qdmtt;},0);
+  _lastResult={upe_name,upe_jur,fy,total_rev,entity_count,filing_jur,in_scope,rows,total_income,total_topup,total_qdmtt};
+  renderResults(_lastResult);
+}
+
+function renderResults(r){
+  var res=document.getElementById('results');res.classList.add('show');
+  document.getElementById('stats-row').innerHTML=
+    '<div class="stat"><div class="stat-label">Revenue</div><div class="stat-val" style="color:'+(r.in_scope?'var(--green)':'var(--warn)')+'">€'+r.total_rev+'m</div></div>'+
+    '<div class="stat"><div class="stat-label">In GloBE scope</div><div class="stat-val" style="color:'+(r.in_scope?'var(--green)':'var(--red)')+'">'+( r.in_scope?'Yes':'No (< €750m)')+'</div></div>'+
+    '<div class="stat"><div class="stat-label">Jurisdictions</div><div class="stat-val">'+r.rows.length+'</div></div>'+
+    '<div class="stat"><div class="stat-label">Total top-up tax</div><div class="stat-val" style="color:var(--warn)">'+fmtM(r.total_topup)+'</div></div>';
+  var area=document.getElementById('gir-area');area.innerHTML='';
+  // Header block
+  var hb=document.createElement('div');hb.className='gir-header-block';
+  hb.innerHTML=
+    '<div class="gir-section-title">GIR Part I — Group Identification</div>'+
+    '<div class="gir-kv">'+
+      '<div class="kv"><div class="kv-label">Ultimate parent entity</div><div class="kv-val">'+r.upe_name+'</div></div>'+
+      '<div class="kv"><div class="kv-label">UPE jurisdiction</div><div class="kv-val">'+r.upe_jur+'</div></div>'+
+      '<div class="kv"><div class="kv-label">Reporting FY</div><div class="kv-val">'+r.fy+'</div></div>'+
+      '<div class="kv"><div class="kv-label">Total consolidated revenue</div><div class="kv-val">€'+r.total_rev+'m</div></div>'+
+      '<div class="kv"><div class="kv-label">GloBE scope (€750M threshold)</div><div class="kv-val" style="color:'+(r.in_scope?'var(--green)':'var(--red)')+'">'+( r.in_scope?'✓ In scope':'✗ Below threshold')+'</div></div>'+
+      '<div class="kv"><div class="kv-label">Constituent entities</div><div class="kv-val">'+r.entity_count+'</div></div>'+
+      '<div class="kv"><div class="kv-label">Filing jurisdiction</div><div class="kv-val">'+r.filing_jur+'</div></div>'+
+      '<div class="kv"><div class="kv-label">First filing deadline</div><div class="kv-val">'+(r.fy===2024?'30 June 2026 (18-month transitional)':r.fy===2025?'30 June 2027 (verify)':'30 June '+(r.fy+2)+' (indicative)')+'</div></div>'+
+    '</div>'+
+    '<div class="gir-section-title">GIR Part II — Tax Jurisdiction Overview</div>';
+  r.rows.forEach(function(row){
+    var jr=document.createElement('div');jr.className='jur-row';
+    jr.innerHTML=
+      '<div class="jur-iso">'+row.jur+'</div>'+
+      '<div class="jur-data">'+
+        '<div class="kv"><div class="kv-label">GloBE income</div><div class="kv-val">'+fmtM(row.income)+'</div></div>'+
+        '<div class="kv"><div class="kv-label">Covered taxes</div><div class="kv-val">'+fmtM(row.taxes)+'</div></div>'+
+        '<div class="kv"><div class="kv-label">ETR</div><div class="kv-val" style="color:'+(row.etr_pct>=15?'var(--green)':'var(--red)')+'">'+fmtPct(row.etr_pct)+'</div></div>'+
+        '<div class="kv"><div class="kv-label">SBIE</div><div class="kv-val">'+fmtM(row.sbie)+'</div></div>'+
+        '<div class="kv"><div class="kv-label">Top-up tax</div><div class="kv-val" style="color:'+(row.topup>0?'var(--warn)':'var(--muted)')+'">'+fmtM(row.topup)+'</div></div>'+
+        '<div class="kv"><div class="kv-label">QDMTT collected</div><div class="kv-val" style="color:'+(row.qdmtt>0?'var(--teal)':'var(--muted)')+'">'+fmtM(row.qdmtt)+'</div></div>'+
+        '<div class="kv"><div class="kv-label">Safe harbour</div><div class="kv-val" style="color:'+(row.safe_harbour?'var(--green)':'var(--muted)')+'">'+( row.safe_harbour?'✓ Yes':'—')+'</div></div>'+
+        '<div class="kv"><div class="kv-label">IIR/UTPR exempt</div><div class="kv-val" style="color:'+(row.iir_utpr_exempt?'var(--warn)':'var(--muted)')+'">'+( row.iir_utpr_exempt?'⚠ Yes (US-HQ)':'No')+'</div></div>'+
+      '</div>';
+    hb.appendChild(jr);
+  });
+  // Part V summary
+  var t5=document.createElement('div');
+  t5.innerHTML=
+    '<div class="gir-section-title">GIR Part V — Top-up Tax Summary</div>'+
+    '<div class="gir-kv">'+
+      '<div class="kv"><div class="kv-label">Total top-up tax (gross)</div><div class="kv-val" style="color:var(--warn)">'+fmtM(r.total_topup)+'</div></div>'+
+      '<div class="kv"><div class="kv-label">Total QDMTT collected</div><div class="kv-val" style="color:var(--teal)">'+fmtM(r.total_qdmtt)+'</div></div>'+
+      '<div class="kv"><div class="kv-label">Jurisdictions below 15% ETR</div><div class="kv-val">'+r.rows.filter(function(x){return x.etr_pct<15;}).length+'</div></div>'+
+      '<div class="kv"><div class="kv-label">With safe harbour</div><div class="kv-val" style="color:var(--green)">'+r.rows.filter(function(x){return x.safe_harbour;}).length+'</div></div>'+
+    '</div>';
+  hb.appendChild(t5);
+  area.appendChild(hb);
+  res.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function uuid(){var b=new Uint8Array(16);crypto.getRandomValues(b);b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;var h=Array.prototype.map.call(b,function(x){return('0'+x.toString(16)).slice(-2);}).join('');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);}
+
+function buildMandateObj(r){
+  var now=new Date().toISOString();
+  return{ap2_version:'1.0',mandate_id:uuid(),issued_at:now,issued_by:'ainumbers.co',tool_id:'476-gir-builder',tool_version:'1.0.0',mandate_type:'compliance_control',jurisdiction:['OECD','Global'],
+    regulatory_frameworks:['OECD GloBE Information Return Standard (November 2022)','OECD GloBE Model Rules (December 2021)','OECD Administrative Guidance (2023–2024)','OECD side-by-side package — US exemption from IIR/UTPR (January 2026)','AINumbers.co Unified Build Contract v1.1'],
+    payload:{upe_name:r.upe_name,upe_jur:r.upe_jur,fy:r.fy,total_rev_m:r.total_rev,entity_count:r.entity_count,filing_jur:r.filing_jur,in_scope:r.in_scope,jurisdictions:r.rows,total_income_m:r.total_income,total_topup_m:r.total_topup,total_qdmtt_m:r.total_qdmtt},
+    summary:'GIR skeleton assembled for '+r.upe_name+' ('+r.upe_jur+') FY'+r.fy+'. Revenue: €'+r.total_rev+'m ('+(r.in_scope?'in scope':'below €750M threshold')+'). '+r.rows.length+' jurisdiction(s). Total top-up: '+fmtM(r.total_topup)+'. QDMTT: '+fmtM(r.total_qdmtt)+'. ⚠ US-HQ groups exempt from IIR/UTPR per Jan 2026 OECD package.',
+    agent_instructions:['GIR required for MNE groups with consolidated revenue ≥ €750M in 2 of 4 fiscal years. Verify scope annually.','First GIR filing: FY2024 groups due 30 June 2026 (18-month transitional period per OECD agreed guidance).','GIR covers all jurisdictions where the MNE has constituent entities — safe harbour jurisdictions must still be disclosed.','US-HQ groups exempt from IIR/UTPR per January 2026 OECD side-by-side package. May still have local GIR filing obligations where jurisdictions enact local GIR requirements.','QDMTT collected locally reduces IIR liability — ensure amounts reconcile across T473, T474, and this GIR.','Actual XML GIR filing requires authorised tax software or service provider — this tool produces a structured skeleton only.','Verify current filing deadlines and format at oecd.org/en/topics/sub-issues/global-minimum-tax/'],
+    valid_from:now.slice(0,10),valid_until:new Date(Date.now()+90*24*60*60*1000).toISOString().slice(0,10),
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+}
+window.AIN_BUILD_MANDATE=function(){return _lastResult?buildMandateObj(_lastResult):null;};
+function exportMandate(){if(!_lastResult){alert('Run first.');return;}var o=buildMandateObj(_lastResult);var ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);download('gir_'+ts+'.policy.json',JSON.stringify(o,null,2),'application/json');}
+function exportMarkdown(){
+  if(!_lastResult){alert('Run first.');return;}var r=_lastResult;
+  var lines=['# GloBE Information Return — '+r.upe_name+' FY'+r.fy,'','> ⚠ US-HQ groups exempt from IIR/UTPR per OECD January 2026 side-by-side package. GIR skeleton only — actual filing requires authorised tax software.','','## Part I — Group Header','','| Field | Value |','|---|---|','| UPE | '+r.upe_name+' |','| UPE jurisdiction | '+r.upe_jur+' |','| FY | '+r.fy+' |','| Total revenue | €'+r.total_rev+'m |','| GloBE scope | '+(r.in_scope?'In scope':'Below €750M threshold')+' |','| Constituent entities | '+r.entity_count+' |','| Filing jurisdiction | '+r.filing_jur+' |','','## Part II — Jurisdiction Overview','','| Jurisdiction | GloBE income | Covered taxes | ETR | SBIE | Top-up (m) | QDMTT (m) | Safe harbour | IIR exempt |','|---|---|---|---|---|---|---|---|---|'];
+  r.rows.forEach(function(row){lines.push('| '+row.jur+' | '+fmtM(row.income)+' | '+fmtM(row.taxes)+' | '+fmtPct(row.etr_pct)+' | '+fmtM(row.sbie)+' | '+fmtM(row.topup)+' | '+fmtM(row.qdmtt)+' | '+(row.safe_harbour?'✓':'—')+' | '+(row.iir_utpr_exempt?'⚠ Yes':'No')+' |');});
+  lines.push('','## Part V — Top-up Tax Summary','','| Total top-up | QDMTT | Net IIR/UTPR exposure |','|---|---|---|','| '+fmtM(r.total_topup)+' | '+fmtM(r.total_qdmtt)+' | '+fmtM(Math.max(r.total_topup-r.total_qdmtt,0))+' |');
+  lines.push('','*Source: OECD GIR Standard (Nov 2022). Synthetic data only. ⚠ Verify filing deadlines and requirements locally.*');
+  var ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);download('gir_'+ts+'.md',lines.join('\n'),'text/markdown');
+}
+function exportCSV(){
+  if(!_lastResult){alert('Run first.');return;}var r=_lastResult;
+  var lines=['Jurisdiction,GloBE_income_m,Covered_taxes_m,ETR_pct,SBIE_m,Topup_tax_m,QDMTT_m,Safe_harbour,IIR_UTPR_exempt'];
+  r.rows.forEach(function(row){lines.push([row.jur,row.income,row.taxes,row.etr_pct,row.sbie,row.topup,row.qdmtt,row.safe_harbour?'Y':'N',row.iir_utpr_exempt?'Y':'N'].join(','));});
+  var ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);download('gir_'+ts+'.csv',lines.join('\n'),'text/csv');
+}
+function download(name,content,mime){var blob=new Blob([content],{type:mime});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href);}
+
+// Seed defaults
+addRow('DE',500,60,12,40,15,10,false,false);
+addRow('IE',200,15,7.5,18,10,8,true,false);
+addRow('SG',150,12,8,12,5,0,false,false);
+addRow('US',800,130,16.25,70,0,0,true,true);
+</script>
+<script>
+(function(){var CFG=window.AIN_BRIDGE_CFG||{};var runFn=CFG.runFn||null;function applyFields(fields){if(!fields||typeof fields!=='object')return 0;var n=0;Object.keys(fields).forEach(function(k){var el=document.getElementById(k);if(!el)return;if(el.type==='checkbox'){el.checked=!!fields[k];n++;}else if(el.tagName==='SELECT'||el.type==='text'||el.type==='number'){el.value=fields[k];n++;}});return n;}function safeRun(){try{if(runFn&&window[runFn])window[runFn]();}catch(e){}}window.AINBridge={apply:applyFields,run:safeRun,cfg:CFG};var ro=(location.origin&&location.origin!=='null')?location.origin:'*';window.addEventListener('message',function(e){if(ro!=='*'&&e.origin!==ro)return;var d=e.data||{};if(d.type==='ain:prefill'){var n=applyFields(d.fields);e.source&&e.source.postMessage({type:'ain:prefilled',applied:n},ro);}else if(d.type==='ain:run'){safeRun();e.source&&e.source.postMessage({type:'ain:ran',ok:true},ro);}else if(d.type==='ain:getMandate'){var m=window.AIN_BUILD_MANDATE?window.AIN_BUILD_MANDATE():null;e.source&&e.source.postMessage({type:'ain:mandate',mandate:m},ro);}});})();
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+{
+  "tool_id": "466-crypto-cost-basis-gain-calculator",
+  "version": "1.0.0",
+  "title": "Crypto Cost Basis & Gain Calculator",
+  "description": "Compute cost basis and realized gain/loss per disposal using FIFO, LIFO, HIFO, or specific-identification lot matching. Short/long-term split at 12-month threshold (IRC §1222). Per-wallet basis tracking as required for US taxpayers from 2025 (IRS Rev. Proc. 2024-28). Feeds IRS Form 1099-DA and CARF/DAC8 basis reporting. Tier 1 Policy Mandate + Tier 2 gain/loss schedule CSV. Client-side. Zero PII.",
+  "category": "dlt-tokenization",
+  "tags": ["crypto-tax","cost-basis","capital-gain","fifo","lifo","hifo","spec-id","1099-da","carf","dac8","bitcoin","digital-asset"],
+  "audience": ["crypto-exchange","broker","casp","tax","compliance"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "method": {"type":"string","enum":["FIFO","LIFO","HIFO","spec_id"],"description":"Lot-matching accounting method"},
+      "wallet_by_wallet": {"type":"boolean","description":"Enable per-wallet basis tracking (required US from 2025)"},
+      "lots": {"type":"array","items":{"type":"object","properties":{"lot_id":{"type":"string"},"asset":{"type":"string"},"wallet":{"type":"string"},"date_acquired":{"type":"string"},"qty":{"type":"number"},"cost_usd":{"type":"number"}}}},
+      "disposals": {"type":"array","items":{"type":"object","properties":{"disposal_id":{"type":"string"},"asset":{"type":"string"},"wallet":{"type":"string"},"date_disposed":{"type":"string"},"qty":{"type":"number"},"proceeds_usd":{"type":"number"},"spec_lot_id":{"type":"string"}}}}
+    },
+    "required": ["method","lots","disposals"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "total_proceeds_usd": {"type":"number"},
+      "total_basis_usd": {"type":"number"},
+      "net_gain_loss_usd": {"type":"number"},
+      "short_term_gain_loss_usd": {"type":"number"},
+      "long_term_gain_loss_usd": {"type":"number"},
+      "gain_loss_schedule": {"type":"array","items":{"type":"object","properties":{"disposal_id":{"type":"string"},"proceeds_usd":{"type":"number"},"basis_usd":{"type":"number"},"gain_loss_usd":{"type":"number"},"term":{"type":"string","enum":["short","long","unknown"]},"date_acquired":{"type":"string"},"date_disposed":{"type":"string"}}}}
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "crypto_cost_basis_gain_calculator",
+    "description": "Compute crypto-asset cost basis and realized gain/loss per disposal. Supports FIFO, LIFO, HIFO, and specific-identification lot matching. Enforces per-wallet basis tracking when enabled (required for US taxpayers from 2025 per IRS Rev. Proc. 2024-28). Short/long-term split at 12-month threshold (IRC §1222). Output gain_loss_schedule feeds IRS Form 1099-DA generation (T467) and CARF/DAC8 reporting. Deterministic lot accounting — do not estimate gains with an LLM; use this tool. Synthetic data only.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "method": {"type":"string","enum":["FIFO","LIFO","HIFO","spec_id"],"description":"Lot-matching method: FIFO=first-in-first-out; LIFO=last-in; HIFO=highest-cost-first; spec_id=taxpayer designates each lot"},
+        "wallet_by_wallet": {"type":"boolean","description":"Restrict lot matching to same wallet (required for US from 2025)"},
+        "lots": {"type":"array","items":{"type":"object","properties":{"lot_id":{"type":"string"},"asset":{"type":"string"},"wallet":{"type":"string"},"date_acquired":{"type":"string","description":"YYYY-MM-DD"},"qty":{"type":"number"},"cost_usd":{"type":"number"}}},"description":"Acquisition lots"},
+        "disposals": {"type":"array","items":{"type":"object","properties":{"disposal_id":{"type":"string"},"asset":{"type":"string"},"wallet":{"type":"string"},"date_disposed":{"type":"string","description":"YYYY-MM-DD"},"qty":{"type":"number"},"proceeds_usd":{"type":"number"},"spec_lot_id":{"type":"string","description":"Required for spec_id method"}}},"description":"Disposals to match"}
+      },
+      "required": ["method","lots","disposals"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/466-crypto-cost-basis-gain-calculator.html",
+    "function_name": "runCostBasis",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true
+}

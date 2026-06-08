@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Crypto Cost Basis &amp; Gain Calculator · T466 · AINumbers.co</title>
+<meta name="description" content="Compute cost basis and realized gain/loss per disposal using FIFO, LIFO, HIFO, or specific-identification accounting. Short/long-term split. Per-wallet basis tracking (required US from 2025). Feeds IRS Form 1099-DA and CARF/DAC8 reporting. Client-side. Zero PII. Zero network.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/466-crypto-cost-basis-gain-calculator">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.1);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --accent:var(--purple);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:980px;margin:0 auto;padding:0 2rem}
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:space-between}
+.logo{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo .ai{color:var(--teal)}.logo .co{color:var(--muted);font-size:.8rem}
+.nav-r{display:flex;gap:16px;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.nav-r a:hover{color:var(--teal-lt)}
+.hero{padding:2.5rem 0 1.5rem;border-bottom:1px solid var(--border)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);margin-bottom:.6rem}
+.hero h1{font-size:1.9rem;color:var(--white);margin-bottom:.6rem}
+.hero p{font-size:.88rem;color:var(--body);max-width:780px}
+.hero-badges{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:1rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.28rem .65rem;border-radius:999px;border:1px solid var(--border-2);color:var(--body)}
+.badge.b-purple{border-color:rgba(155,114,245,.4);color:var(--purple);background:var(--purple-dim)}
+.pii{font-size:.75rem;color:var(--body);background:rgba(20,184,166,.07);border:1px solid rgba(20,184,166,.2);border-radius:var(--radius);padding:.55rem .85rem;margin:1.2rem 0 0}
+section.card{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);padding:1.3rem 1.4rem;margin:1.4rem 0}
+section.card h2{font-size:1.1rem;color:var(--white);margin-bottom:.9rem}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+.field{display:flex;flex-direction:column;gap:.3rem}
+label{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+select,input[type=text],input[type=number],input[type=date]{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:.55rem .8rem;color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;width:100%;outline:none;transition:border .2s;color-scheme:dark}
+select:focus,input:focus{border-color:var(--accent)}
+.check-row{display:flex;align-items:center;gap:.5rem;font-size:.8rem;color:var(--body);margin-top:.3rem}
+.check-row input{width:auto}
+.hint{font-size:.68rem;color:var(--muted);margin-top:.2rem}
+.lot-table,.dis-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.65rem;margin-top:.4rem}
+.lot-table th,.dis-table th{color:var(--muted);text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid var(--border);padding:.38rem .45rem;text-align:left;font-weight:400}
+.lot-table td,.dis-table td{padding:.42rem .45rem;border-bottom:1px solid rgba(30,47,74,.5)}
+.lot-table select,.lot-table input,.dis-table select,.dis-table input{background:var(--bg-4);border:1px solid var(--border);padding:.28rem .45rem;color:var(--bright);border-radius:4px;font-size:.65rem;width:100%}
+.row-add{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;padding:.38rem .75rem;border:1px dashed var(--border-2);border-radius:var(--radius);background:transparent;color:var(--muted);margin-top:.6rem}
+.row-add:hover{border-color:var(--accent);color:var(--accent)}
+.row-del{background:none;border:none;color:var(--muted);font-size:.8rem;cursor:pointer;padding:0 .3rem}
+.row-del:hover{color:var(--red)}
+.run-btn{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;padding:.65rem 1.4rem;border-radius:var(--radius);border:none;background:var(--accent);color:var(--bg);font-weight:500;margin-top:1.1rem;transition:opacity .2s}
+.run-btn:hover{opacity:.88}
+.results{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);padding:1.3rem 1.4rem;margin:1.4rem 0;display:none}
+.results.show{display:block}
+.results h2{font-size:1.1rem;color:var(--white);margin-bottom:1rem}
+.stats-row{display:flex;flex-wrap:wrap;gap:.7rem;margin-bottom:1rem}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .9rem;flex:1;min-width:140px}
+.stat-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.stat-val{font-size:1.25rem;font-family:'DM Serif Display',serif;color:var(--white)}
+.stat-val.gain{color:var(--green)}
+.stat-val.loss{color:var(--red)}
+.g-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.64rem;margin-bottom:1rem}
+.g-table th{color:var(--muted);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);padding:.4rem .5rem;text-align:left;font-weight:400}
+.g-table td{padding:.44rem .5rem;border-bottom:1px solid rgba(30,47,74,.45);color:var(--text)}
+.g-table tr:last-child td{border:none}
+.pill{display:inline-block;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .5rem;border-radius:999px;border:1px solid}
+.pill-st{color:var(--warn);border-color:rgba(245,158,11,.4);background:var(--warn-dim)}
+.pill-lt{color:var(--green);border-color:rgba(34,197,94,.4);background:var(--green-dim)}
+.pill-gain{color:var(--green);border-color:rgba(34,197,94,.4);background:var(--green-dim)}
+.pill-loss{color:var(--red);border-color:rgba(239,68,68,.4);background:var(--red-dim)}
+.export-row{display:flex;flex-wrap:wrap;gap:.55rem;margin-top:1rem}
+.exp-btn{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;border-radius:var(--radius);border:1px solid var(--border-2);background:transparent;color:var(--text);transition:all .2s}
+.exp-btn:hover{border-color:var(--accent);color:var(--accent)}
+.exp-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:500}
+.exp-btn.primary:hover{opacity:.88}
+.cite{font-size:.68rem;color:var(--muted);font-style:italic;margin-top:.8rem}
+footer{border-top:1px solid var(--border);padding:1.4rem 0 2rem;margin-top:3rem}
+.foot{max-width:980px;margin:0 auto;padding:0 2rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.foot a:hover{color:var(--teal-lt)}
+@media(max-width:640px){.form-row{grid-template-columns:1fr}.stats-row{flex-direction:column}}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="../index.html" class="logo"><span class="ai">AI</span>Numbers<span class="co">.co</span></a>
+  <div class="nav-r">
+    <a href="../index.html">Tools</a>
+    <a href="../guides/tool-chains.html">Chains</a>
+    <a href="../sitemap.html">Sitemap</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="hero">
+    <div class="eyebrow">T466 · DLT / Crypto-Tax · AINumbers.co</div>
+    <h1>Crypto Cost Basis &amp; Gain Calculator</h1>
+    <p>Compute cost basis and realized gain/loss per disposal using FIFO, LIFO, HIFO, or specific-identification lot matching — the figure brokers must report on IRS Form 1099-DA (gross proceeds + basis, required from 1 January 2026) and that CARF/DAC8 expects. Supports per-wallet basis tracking as required for US taxpayers from 2025. Short/long-term split at the 12-month threshold. Tier 1 Policy Mandate + Tier 2 gain/loss schedule CSV for downstream T467 1099-DA assembly.</p>
+    <div class="hero-badges">
+      <span class="badge b-purple">FIFO · LIFO · HIFO · Spec-ID</span>
+      <span class="badge">IRS 1099-DA · CARF/DAC8 basis</span>
+      <span class="badge">Deterministic · Zero PII · Client-side</span>
+    </div>
+    <div class="pii">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  </div>
+
+  <section class="card">
+    <h2>Calculation settings</h2>
+    <div class="form-row">
+      <div class="field">
+        <label>Accounting method</label>
+        <select id="method">
+          <option value="FIFO">FIFO — First In, First Out (IRS default 2024)</option>
+          <option value="LIFO">LIFO — Last In, First Out</option>
+          <option value="HIFO">HIFO — Highest Cost, First Out</option>
+          <option value="spec_id">Spec-ID — Specific Identification</option>
+        </select>
+        <span class="hint">IRS Rev. Proc. 2024-28: FIFO is the default; Spec-ID requires adequate identification records. Rev. Proc. 2024-28 also addresses per-wallet basis transition.</span>
+      </div>
+      <div class="field">
+        <label>Reporting year</label>
+        <input type="number" id="report_year" value="2025" min="2020" max="2030">
+        <div class="check-row">
+          <input type="checkbox" id="wallet_by_wallet" checked>
+          <span>Per-wallet basis tracking (required for US from 2025 per IRS Rev. Proc. 2024-28)</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Acquisition lots</h2>
+    <p style="font-size:.78rem;color:var(--body);margin-bottom:.8rem">Enter each acquisition lot. For per-wallet tracking, include the wallet ID. Cost in USD at acquisition.</p>
+    <table class="lot-table">
+      <thead><tr><th>Lot ID</th><th>Asset</th><th>Wallet</th><th>Date acquired</th><th>Quantity</th><th>Cost basis (USD)</th><th></th></tr></thead>
+      <tbody id="lot-tbody"></tbody>
+    </table>
+    <button class="row-add" onclick="addLotRow()">+ Add lot</button>
+  </section>
+
+  <section class="card">
+    <h2>Disposals</h2>
+    <p style="font-size:.78rem;color:var(--body);margin-bottom:.8rem">Enter each disposal (sale, exchange, or other disposition). For Spec-ID, the lot ID must match an acquisition lot above.</p>
+    <table class="dis-table">
+      <thead><tr><th>Disposal ID</th><th>Asset</th><th>Wallet</th><th>Date disposed</th><th>Quantity</th><th>Proceeds (USD)</th><th>Lot ID (Spec-ID)</th><th></th></tr></thead>
+      <tbody id="dis-tbody"></tbody>
+    </table>
+    <button class="row-add" onclick="addDisRow()">+ Add disposal</button>
+  </section>
+
+  <button class="run-btn" onclick="runCostBasis()">▶ Calculate Cost Basis &amp; Gains</button>
+
+  <div class="results" id="results">
+    <h2>Gain / Loss Schedule</h2>
+    <div class="stats-row" id="stats-row"></div>
+    <table class="g-table" id="g-table">
+      <thead>
+        <tr>
+          <th>Disposal ID</th><th>Asset</th><th>Date acquired</th><th>Date disposed</th>
+          <th>Proceeds USD</th><th>Basis USD</th><th>Gain/Loss USD</th><th>Term</th><th>Lot matched</th>
+        </tr>
+      </thead>
+      <tbody id="g-tbody"></tbody>
+    </table>
+    <p class="cite">Sources: IRS Rev. Proc. 2024-28 — per-wallet basis transition rules. IRS Notice 2023-34 — transitional relief for digital asset broker reporting. IRS Publication 544 — Sales and Other Dispositions of Assets. Short-term/long-term threshold: IRC §1222 (≤/>12 months).</p>
+    <div class="export-row">
+      <button class="exp-btn primary" onclick="exportMandate()">📤 Export Policy Mandate JSON</button>
+      <button class="exp-btn" onclick="exportMarkdown()">📄 Export Markdown</button>
+      <button class="exp-btn" onclick="exportCSV()">⬇ Export Gain/Loss CSV</button>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <div class="foot">
+    <span>T466 · Crypto Cost Basis &amp; Gain Calculator · v1.0 · CC BY 4.0 · Post Oak Labs</span>
+    <span><a href="465-carf-dac8-reportable-classifier.html">← T465 CARF</a> · <a href="467-form-1099-da-generator.html">T467 1099-DA →</a> · <a href="../guides/crypto-tax-reporting-composer.html">Composer</a></span>
+  </div>
+</footer>
+
+<script>window.AIN_BRIDGE_CFG={runFn:'runCostBasis',intake:true,intakeTarget:null,intakeAnchor:null};</script>
+<script>
+'use strict';
+/* ═══ T466 Crypto Cost Basis & Gain Calculator v1.0
+   Deterministic FIFO/LIFO/HIFO/spec_id lot matching.
+   Short/long-term: IRC §1222 — ≤12 months = short-term, >12 months = long-term.
+   Per-wallet basis: IRS Rev. Proc. 2024-28 (effective 2025).
+   IRS 1099-DA basis reporting effective 1 Jan 2026 (gross proceeds from 1 Jan 2025). ═══ */
+
+var _lastResult = null;
+var _lotId = 0;
+var _disId = 0;
+
+function addLotRow() {
+  var id = ++_lotId;
+  var tr = document.createElement('tr');
+  tr.id = 'lr-'+id;
+  tr.innerHTML =
+    '<td><input type="text" id="lid-'+id+'" value="LOT-'+id+'" style="width:70px"></td>' +
+    '<td><input type="text" id="lasset-'+id+'" value="BTC" style="width:60px"></td>' +
+    '<td><input type="text" id="lwallet-'+id+'" value="W1" style="width:60px"></td>' +
+    '<td><input type="date" id="lacq-'+id+'" value="2023-06-15" style="width:130px"></td>' +
+    '<td><input type="number" id="lqty-'+id+'" value="0.5" step="0.00000001" style="width:90px"></td>' +
+    '<td><input type="number" id="lcost-'+id+'" value="15000" step="0.01" style="width:100px"></td>' +
+    '<td><button class="row-del" onclick="delRow(\'lr-'+id+'\')">✕</button></td>';
+  document.getElementById('lot-tbody').appendChild(tr);
+}
+function addDisRow() {
+  var id = ++_disId;
+  var tr = document.createElement('tr');
+  tr.id = 'dr-'+id;
+  tr.innerHTML =
+    '<td><input type="text" id="did-'+id+'" value="DIS-'+id+'" style="width:70px"></td>' +
+    '<td><input type="text" id="dasset-'+id+'" value="BTC" style="width:60px"></td>' +
+    '<td><input type="text" id="dwallet-'+id+'" value="W1" style="width:60px"></td>' +
+    '<td><input type="date" id="ddis-'+id+'" value="2024-09-20" style="width:130px"></td>' +
+    '<td><input type="number" id="dqty-'+id+'" value="0.3" step="0.00000001" style="width:90px"></td>' +
+    '<td><input type="number" id="dproc-'+id+'" value="18000" step="0.01" style="width:100px"></td>' +
+    '<td><input type="text" id="dspec-'+id+'" value="" placeholder="LOT-x" style="width:70px"></td>' +
+    '<td><button class="row-del" onclick="delRow(\'dr-'+id+'\')">✕</button></td>';
+  document.getElementById('dis-tbody').appendChild(tr);
+}
+function delRow(id) { var el = document.getElementById(id); if (el) el.remove(); }
+
+function gv(id) { var e = document.getElementById(id); return e ? e.value.trim() : ''; }
+function gn(id) { var v = parseFloat(gv(id)); return isNaN(v) ? 0 : v; }
+function gc(id) { var e = document.getElementById(id); return e ? e.checked : false; }
+
+function daysBetween(d1, d2) {
+  return Math.round((new Date(d2) - new Date(d1)) / 86400000);
+}
+
+function runCostBasis() {
+  var method = gv('method');
+  var wallet_by_wallet = gc('wallet_by_wallet');
+
+  // Collect lots
+  var lots = [];
+  document.querySelectorAll('#lot-tbody tr').forEach(function(tr) {
+    var lid = tr.querySelector('input[id^="lid-"]');
+    if (!lid) return;
+    var rowId = lid.id.replace('lid-','');
+    lots.push({
+      lot_id: gv('lid-'+rowId),
+      asset: gv('lasset-'+rowId).toUpperCase(),
+      wallet: gv('lwallet-'+rowId),
+      date_acquired: gv('lacq-'+rowId),
+      qty: gn('lqty-'+rowId),
+      cost_usd: gn('lcost-'+rowId),
+      remaining_qty: gn('lqty-'+rowId), // mutable copy for matching
+    });
+  });
+
+  // Collect disposals
+  var disposals = [];
+  document.querySelectorAll('#dis-tbody tr').forEach(function(tr) {
+    var did = tr.querySelector('input[id^="did-"]');
+    if (!did) return;
+    var rowId = did.id.replace('did-','');
+    disposals.push({
+      disposal_id: gv('did-'+rowId),
+      asset: gv('dasset-'+rowId).toUpperCase(),
+      wallet: gv('dwallet-'+rowId),
+      date_disposed: gv('ddis-'+rowId),
+      qty: gn('dqty-'+rowId),
+      proceeds_usd: gn('dproc-'+rowId),
+      spec_lot_id: gv('dspec-'+rowId),
+    });
+  });
+
+  // Make a mutable lot pool (deep copy remaining_qty per run)
+  var lotPool = lots.map(function(l){ return Object.assign({},l,{remaining_qty:l.qty}); });
+
+  // Per-wallet: if enabled, filter lot pool per disposal to same wallet
+  function getAvailableLots(disposal) {
+    var pool = wallet_by_wallet
+      ? lotPool.filter(function(l){ return l.asset === disposal.asset && l.wallet === disposal.wallet; })
+      : lotPool.filter(function(l){ return l.asset === disposal.asset; });
+    return pool.filter(function(l){ return l.remaining_qty > 1e-10 && l.date_acquired <= disposal.date_disposed; });
+  }
+
+  function sortLots(pool, m) {
+    if (m === 'FIFO') return pool.slice().sort(function(a,b){ return a.date_acquired.localeCompare(b.date_acquired); });
+    if (m === 'LIFO') return pool.slice().sort(function(a,b){ return b.date_acquired.localeCompare(a.date_acquired); });
+    if (m === 'HIFO') return pool.slice().sort(function(a,b){ return (b.cost_usd/b.qty) - (a.cost_usd/a.qty); });
+    return pool; // spec_id — handled separately
+  }
+
+  var schedule = [];
+  var errors = [];
+
+  disposals.forEach(function(d) {
+    var qty_needed = d.qty;
+    var total_basis = 0;
+    var lot_matches = [];
+
+    if (method === 'spec_id') {
+      // find the specified lot
+      var spec = lotPool.find(function(l){ return l.lot_id === d.spec_lot_id && l.asset === d.asset; });
+      if (!spec) { errors.push('Spec-ID: lot "' + d.spec_lot_id + '" not found for disposal ' + d.disposal_id); }
+      else if (spec.remaining_qty < qty_needed - 1e-10) {
+        errors.push('Spec-ID: lot "' + d.spec_lot_id + '" has insufficient quantity for disposal ' + d.disposal_id);
+      } else {
+        var unit_basis = spec.cost_usd / spec.qty;
+        var basis = unit_basis * qty_needed;
+        lot_matches.push({ lot_id: spec.lot_id, qty_used: qty_needed, date_acquired: spec.date_acquired });
+        total_basis = basis;
+        spec.remaining_qty -= qty_needed;
+        qty_needed = 0;
+      }
+    } else {
+      var available = sortLots(getAvailableLots(d), method);
+      available.forEach(function(lot) {
+        if (qty_needed <= 1e-10) return;
+        var use = Math.min(lot.remaining_qty, qty_needed);
+        var unit_basis = lot.cost_usd / lot.qty;
+        total_basis += unit_basis * use;
+        lot_matches.push({ lot_id: lot.lot_id, qty_used: use, date_acquired: lot.date_acquired });
+        lot.remaining_qty -= use;
+        qty_needed -= use;
+      });
+      if (qty_needed > 1e-10) {
+        errors.push('Insufficient lots to cover disposal ' + d.disposal_id + ' (' + qty_needed.toFixed(8) + ' ' + d.asset + ' unmatched).');
+      }
+    }
+
+    // Determine holding period from earliest lot date matched (FIFO/LIFO/HIFO use first match)
+    var acq_date = lot_matches.length > 0 ? lot_matches[0].date_acquired : '';
+    var days_held = acq_date ? daysBetween(acq_date, d.date_disposed) : null;
+    var term = days_held !== null ? (days_held <= 365 ? 'short' : 'long') : 'unknown';
+    var gain_loss = d.proceeds_usd - total_basis;
+
+    schedule.push({
+      disposal_id: d.disposal_id,
+      asset: d.asset,
+      wallet: d.wallet,
+      date_acquired: acq_date,
+      date_disposed: d.date_disposed,
+      qty: d.qty,
+      proceeds_usd: d.proceeds_usd,
+      basis_usd: total_basis,
+      gain_loss_usd: gain_loss,
+      term: term,
+      days_held: days_held,
+      lots_matched: lot_matches.map(function(m){ return m.lot_id; }).join('+'),
+      method: method,
+    });
+  });
+
+  var total_proceeds = schedule.reduce(function(s,r){ return s+r.proceeds_usd; }, 0);
+  var total_basis = schedule.reduce(function(s,r){ return s+r.basis_usd; }, 0);
+  var total_gl = schedule.reduce(function(s,r){ return s+r.gain_loss_usd; }, 0);
+  var st_gl = schedule.filter(function(r){ return r.term==='short'; }).reduce(function(s,r){ return s+r.gain_loss_usd; }, 0);
+  var lt_gl = schedule.filter(function(r){ return r.term==='long'; }).reduce(function(s,r){ return s+r.gain_loss_usd; }, 0);
+
+  _lastResult = { method, wallet_by_wallet, schedule, errors, total_proceeds, total_basis, total_gl, st_gl, lt_gl };
+  renderResults(_lastResult);
+}
+
+function fmt(n) { return (n>=0?'':'-')+'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+function renderResults(r) {
+  var res = document.getElementById('results');
+  res.classList.add('show');
+
+  var glClass = r.total_gl >= 0 ? 'gain' : 'loss';
+  document.getElementById('stats-row').innerHTML =
+    '<div class="stat"><div class="stat-label">Method</div><div class="stat-val">' + r.method + '</div></div>' +
+    '<div class="stat"><div class="stat-label">Total proceeds</div><div class="stat-val">' + fmt(r.total_proceeds) + '</div></div>' +
+    '<div class="stat"><div class="stat-label">Total basis</div><div class="stat-val">' + fmt(r.total_basis) + '</div></div>' +
+    '<div class="stat"><div class="stat-label">Net gain/loss</div><div class="stat-val ' + glClass + '">' + fmt(r.total_gl) + '</div></div>' +
+    '<div class="stat"><div class="stat-label">Short-term G/L</div><div class="stat-val ' + (r.st_gl>=0?'gain':'loss') + '">' + fmt(r.st_gl) + '</div></div>' +
+    '<div class="stat"><div class="stat-label">Long-term G/L</div><div class="stat-val ' + (r.lt_gl>=0?'gain':'loss') + '">' + fmt(r.lt_gl) + '</div></div>';
+
+  var tb = document.getElementById('g-tbody'); tb.innerHTML = '';
+  if (r.errors.length) {
+    var er = document.createElement('tr');
+    er.innerHTML = '<td colspan="9" style="color:var(--warn);font-size:.65rem">⚠ '+esc(r.errors.join(' | '))+'</td>';
+    tb.appendChild(er);
+  }
+  r.schedule.forEach(function(s) {
+    var gl = s.gain_loss_usd;
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>' + esc(s.disposal_id) + '</td>' +
+      '<td>' + esc(s.asset) + '</td>' +
+      '<td>' + (s.date_acquired||'—') + '</td>' +
+      '<td>' + (s.date_disposed||'—') + '</td>' +
+      '<td>' + fmt(s.proceeds_usd) + '</td>' +
+      '<td>' + fmt(s.basis_usd) + '</td>' +
+      '<td style="color:' + (gl>=0?'var(--green)':'var(--red)') + '">' + fmt(gl) + '</td>' +
+      '<td><span class="pill ' + (s.term==='short'?'pill-st':'pill-lt') + '">' + (s.term==='short'?'ST':'LT') + '</span></td>' +
+      '<td style="font-size:.6rem;color:var(--muted)">' + esc(s.lots_matched||'—') + '</td>';
+    tb.appendChild(tr);
+  });
+  res.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function uuid(){var b=new Uint8Array(16);crypto.getRandomValues(b);b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;var h=Array.prototype.map.call(b,function(x){return('0'+x.toString(16)).slice(-2);}).join('');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);}
+
+function buildMandateObj(r) {
+  var now = new Date().toISOString();
+  return {
+    ap2_version: '1.0',
+    mandate_id: uuid(),
+    issued_at: now,
+    issued_by: 'ainumbers.co',
+    tool_id: '466-crypto-cost-basis-gain-calculator',
+    tool_version: '1.0.0',
+    mandate_type: 'compliance_control',
+    jurisdiction: ['US','MULTI'],
+    regulatory_frameworks: [
+      'IRS Rev. Proc. 2024-28 — per-wallet basis tracking transition rules (effective 2025)',
+      'IRS Notice 2023-34 — transitional relief for digital asset broker reporting',
+      'IRC §1222 — short-term (≤12 months) and long-term (>12 months) capital gain definitions',
+      'IRS Final Regulations TD 9996 — 1099-DA broker reporting of basis (effective 1 Jan 2026)',
+      'OECD CARF — basis reporting expected under aggregate reporting requirements',
+      'AINumbers.co Unified Build Contract v1.1',
+    ],
+    payload: {
+      method: r.method,
+      wallet_by_wallet: r.wallet_by_wallet,
+      total_proceeds_usd: r.total_proceeds,
+      total_basis_usd: r.total_basis,
+      net_gain_loss_usd: r.total_gl,
+      short_term_gain_loss_usd: r.st_gl,
+      long_term_gain_loss_usd: r.lt_gl,
+      disposal_count: r.schedule.length,
+      errors: r.errors,
+      gain_loss_schedule: r.schedule,
+    },
+    summary: 'Crypto cost basis and gain/loss schedule computed using ' + r.method + ' method' + (r.wallet_by_wallet?' (per-wallet tracking)':'') + '. ' +
+      r.schedule.length + ' disposals processed. Net: ' + fmt(r.total_gl) + ' (' + fmt(r.st_gl) + ' ST, ' + fmt(r.lt_gl) + ' LT).',
+    agent_instructions: [
+      'gain_loss_schedule is the authoritative input for T467 Form 1099-DA generation — pass each record as a disposal.',
+      'Short-term gains (term=short, ≤365 days held) are taxed at ordinary income rates; long-term (>365 days) at preferential capital gains rates.',
+      'Per-wallet basis (wallet_by_wallet=true) is required for US taxpayers from 2025 per IRS Rev. Proc. 2024-28.',
+      'If errors array is non-empty, review insufficient-lot warnings before using schedule for filing.',
+      'Verify holding period calculation independently if staking rewards or airdrops affect acquisition date.',
+    ],
+    valid_from: now.slice(0,10),
+    valid_until: new Date(Date.now()+90*24*60*60*1000).toISOString().slice(0,10),
+    last_reviewed: now.slice(0,10),
+    source_tool_inputs: { method: r.method, wallet_by_wallet: r.wallet_by_wallet },
+    regulatory_citations: [
+      'IRC §1222 — capital gain/loss definitions and holding period',
+      'IRS Rev. Proc. 2024-28 §4 — safe harbour for per-wallet basis transition',
+      'IRS TD 9996 — Final regulations on broker reporting of digital asset proceeds and basis',
+    ],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true },
+  };
+}
+window.AIN_BUILD_MANDATE = function(){ return _lastResult ? buildMandateObj(_lastResult) : null; };
+
+function fmt(n){ return (n>=0?'':'-')+'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+function exportMandate(){if(!_lastResult){alert('Run first.');return;}var obj=buildMandateObj(_lastResult);var ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);download('cost-basis-gain_'+ts+'.policy.json',JSON.stringify(obj,null,2),'application/json');}
+function exportMarkdown(){
+  if(!_lastResult){alert('Run first.');return;}
+  var r=_lastResult;
+  var lines=['# Crypto Cost Basis & Gain/Loss Schedule','','**Method:** '+r.method+(r.wallet_by_wallet?' (per-wallet)':''),'**Net gain/loss:** '+fmt(r.total_gl),'**Short-term:** '+fmt(r.st_gl)+'  **Long-term:** '+fmt(r.lt_gl),'','| Disposal ID | Asset | Date Acquired | Date Disposed | Proceeds | Basis | Gain/Loss | Term | Lots |','|---|---|---|---|---|---|---|---|---|'];
+  r.schedule.forEach(function(s){lines.push('|'+s.disposal_id+'|'+s.asset+'|'+(s.date_acquired||'—')+'|'+s.date_disposed+'|'+fmt(s.proceeds_usd)+'|'+fmt(s.basis_usd)+'|'+fmt(s.gain_loss_usd)+'|'+s.term.toUpperCase()+'|'+s.lots_matched+'|');});
+  if(r.errors.length){lines.push('','**Errors / warnings:**','');r.errors.forEach(function(e){lines.push('- '+e);});}
+  lines.push('','---','*Generated by AINumbers.co T466 Crypto Cost Basis & Gain Calculator v1.0 · Post Oak Labs · CC BY 4.0*');
+  var ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);download('cost-basis-gain_'+ts+'.md',lines.join('\n'),'text/markdown');
+}
+function exportCSV(){
+  if(!_lastResult){alert('Run first.');return;}
+  var r=_lastResult;
+  var lines=['disposal_id,asset,wallet,date_acquired,date_disposed,qty,proceeds_usd,basis_usd,gain_loss_usd,term,days_held,lots_matched,method'];
+  r.schedule.forEach(function(s){lines.push([s.disposal_id,s.asset,s.wallet,s.date_acquired,s.date_disposed,s.qty,s.proceeds_usd.toFixed(2),s.basis_usd.toFixed(2),s.gain_loss_usd.toFixed(2),s.term,s.days_held||'',s.lots_matched,s.method].join(','));});
+  var ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);download('cost-basis-gain_'+ts+'.csv',lines.join('\n'),'text/csv');
+}
+function download(name,content,mime){var blob=new Blob([content],{type:mime});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href);}
+
+// Seed defaults
+addLotRow(); addLotRow(); addLotRow();
+(function(){
+  var rows=document.querySelectorAll('#lot-tbody tr');
+  if(rows[1]){var i=rows[1].querySelector('input[id^="lacq-"]');if(i)i.value='2022-11-20';var c=rows[1].querySelector('input[id^="lcost-"]');if(c)c.value='9000';var q=rows[1].querySelector('input[id^="lqty-"]');if(q)q.value='0.4';}
+  if(rows[2]){var i=rows[2].querySelector('input[id^="lacq-"]');if(i)i.value='2024-01-08';var c=rows[2].querySelector('input[id^="lcost-"]');if(c)c.value='22000';var q=rows[2].querySelector('input[id^="lqty-"]');if(q)q.value='0.2';var lid=rows[2].querySelector('input[id^="lid-"]');if(lid)lid.value='LOT-3';}
+})();
+addDisRow(); addDisRow();
+</script>
+
+<script>
+(function(){var CFG=window.AIN_BRIDGE_CFG||{};var runFn=CFG.runFn||null;function applyFields(fields){if(!fields||typeof fields!=='object')return 0;var n=0;Object.keys(fields).forEach(function(k){var el=document.getElementById(k);if(!el)return;if(el.type==='checkbox'){el.checked=!!fields[k];n++;}else if(el.tagName==='SELECT'||el.type==='text'||el.type==='number'||el.type==='date'){el.value=fields[k];n++;}});return n;}function safeRun(){try{if(runFn&&window[runFn])window[runFn]();}catch(e){}}window.AINBridge={apply:applyFields,run:safeRun,cfg:CFG};var ro=(location.origin&&location.origin!=='null')?location.origin:'*';window.addEventListener('message',function(e){if(ro!=='*'&&e.origin!==ro)return;var d=e.data||{};if(d.type==='ain:prefill'){var n=applyFields(d.fields);e.source&&e.source.postMessage({type:'ain:prefilled',applied:n},ro);}else if(d.type==='ain:run'){safeRun();e.source&&e.source.postMessage({type:'ain:ran',ok:true},ro);}else if(d.type==='ain:getMandate'){var m=window.AIN_BUILD_MANDATE?window.AIN_BUILD_MANDATE():null;e.source&&e.source.postMessage({type:'ain:mandate',mandate:m},ro);}});})();
+</script>
+</body>
+</html>

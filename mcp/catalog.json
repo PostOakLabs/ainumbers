@@ -2,10 +2,10 @@
   "schema_version": "mcp-catalog-v1",
   "server_id": "ainumbers-fintech-suite",
   "name": "AINumbers Fintech Intelligence Suite",
-  "description": "432 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
+  "description": "444 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
   "base_url": "https://ainumbers.co",
   "generated": "2026-06-08",
-  "tool_count": 432,
+  "tool_count": 444,
   "tools": [
     {
       "name": "calculate_a2a_fee_route",
@@ -13367,6 +13367,889 @@
         "tool_id": "464-form-crs-generator",
         "category": "fintech",
         "url": "https://ainumbers.co/tools/464-form-crs-generator.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": true
+      }
+    },
+    {
+      "name": "carf_dac8_reportable_classifier",
+      "description": "Classify a CASP and its users/transactions as reportable under OECD CARF and EU DAC8. Determines Reporting-CASP status per CARF \u00a7II; classifies user residency against the 52-jurisdiction CARF participating list (Jan 2026); classifies transactions by type (exchanges always reportable; retail payments \u2265 USD 50,000; unhosted wallet transfers). CARF effective 1 Jan 2026; DAC8 (EU Directive 2023/2226) for FY2026. US implementing CARF exchange from 2027. Use synthetic data only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "exchange",
+              "broker",
+              "wallet_provider",
+              "atm_operator",
+              "other"
+            ],
+            "description": "CASP entity type per CARF \u00a7II Reporting CASP definition"
+          },
+          "regime": {
+            "type": "string",
+            "enum": [
+              "carf",
+              "dac8",
+              "both"
+            ],
+            "description": "Applicable regime: carf (non-EU jurisdictions), dac8 (EU member states), or both"
+          },
+          "user_residencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "ISO 3166-1 alpha-2 residency codes for each user to classify"
+          },
+          "transactions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "crypto_to_fiat",
+                    "fiat_to_crypto",
+                    "crypto_to_crypto",
+                    "transfer_out",
+                    "retail_payment"
+                  ]
+                },
+                "amount_usd": {
+                  "type": "number"
+                },
+                "counterparty_hosted": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "description": "Transactions to classify; retail_payment threshold is USD 50,000 per CARF \u00a7II.D.3"
+          }
+        },
+        "required": [
+          "entity_type",
+          "regime"
+        ]
+      },
+      "metadata": {
+        "tool_id": "465-carf-dac8-reportable-classifier",
+        "category": "dlt-tokenization",
+        "url": "https://ainumbers.co/tools/465-carf-dac8-reportable-classifier.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": true
+      }
+    },
+    {
+      "name": "crypto_cost_basis_gain_calculator",
+      "description": "Compute crypto-asset cost basis and realized gain/loss per disposal. Supports FIFO, LIFO, HIFO, and specific-identification lot matching. Enforces per-wallet basis tracking when enabled (required for US taxpayers from 2025 per IRS Rev. Proc. 2024-28). Short/long-term split at 12-month threshold (IRC \u00a71222). Output gain_loss_schedule feeds IRS Form 1099-DA generation (T467) and CARF/DAC8 reporting. Deterministic lot accounting \u2014 do not estimate gains with an LLM; use this tool. Synthetic data only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "FIFO",
+              "LIFO",
+              "HIFO",
+              "spec_id"
+            ],
+            "description": "Lot-matching method: FIFO=first-in-first-out; LIFO=last-in; HIFO=highest-cost-first; spec_id=taxpayer designates each lot"
+          },
+          "wallet_by_wallet": {
+            "type": "boolean",
+            "description": "Restrict lot matching to same wallet (required for US from 2025)"
+          },
+          "lots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "lot_id": {
+                  "type": "string"
+                },
+                "asset": {
+                  "type": "string"
+                },
+                "wallet": {
+                  "type": "string"
+                },
+                "date_acquired": {
+                  "type": "string",
+                  "description": "YYYY-MM-DD"
+                },
+                "qty": {
+                  "type": "number"
+                },
+                "cost_usd": {
+                  "type": "number"
+                }
+              }
+            },
+            "description": "Acquisition lots"
+          },
+          "disposals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "disposal_id": {
+                  "type": "string"
+                },
+                "asset": {
+                  "type": "string"
+                },
+                "wallet": {
+                  "type": "string"
+                },
+                "date_disposed": {
+                  "type": "string",
+                  "description": "YYYY-MM-DD"
+                },
+                "qty": {
+                  "type": "number"
+                },
+                "proceeds_usd": {
+                  "type": "number"
+                },
+                "spec_lot_id": {
+                  "type": "string",
+                  "description": "Required for spec_id method"
+                }
+              }
+            },
+            "description": "Disposals to match"
+          }
+        },
+        "required": [
+          "method",
+          "lots",
+          "disposals"
+        ]
+      },
+      "metadata": {
+        "tool_id": "466-crypto-cost-basis-gain-calculator",
+        "category": "dlt-tokenization",
+        "url": "https://ainumbers.co/tools/466-crypto-cost-basis-gain-calculator.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": true
+      }
+    },
+    {
+      "name": "form_1099_da_generator",
+      "description": "Assemble IRS Form 1099-DA records from digital asset disposal and basis data. Validates completeness per IRS final broker-reporting regulations (TD 9996, June 2024). Gross-proceeds reporting required from 1 Jan 2025; basis (Box 1d) required for covered digital assets acquired on/after 1 Jan 2026. Applies IRS Notice 2025-7 transitional penalty relief notation for tax year 2025. Output contains complete/incomplete flags for each record and a filing CSV extract. Consumes output from T466 crypto-cost-basis-gain-calculator. Verify box numbers against current IRS Form 1099-DA instructions before filing. Synthetic data only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "broker_name": {
+            "type": "string",
+            "description": "Synthetic broker name"
+          },
+          "broker_ein": {
+            "type": "string",
+            "description": "Synthetic broker EIN"
+          },
+          "tax_year": {
+            "type": "integer",
+            "description": "Tax year (2025 or later)"
+          },
+          "covered_status": {
+            "type": "string",
+            "enum": [
+              "covered",
+              "noncovered",
+              "transferred"
+            ],
+            "description": "Covered/noncovered status per TD 9996 \u00a71.6045-1(a)(19)"
+          },
+          "disposals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "recipient_id": {
+                  "type": "string"
+                },
+                "asset": {
+                  "type": "string"
+                },
+                "date_acquired": {
+                  "type": "string",
+                  "description": "YYYY-MM-DD"
+                },
+                "date_sold": {
+                  "type": "string",
+                  "description": "YYYY-MM-DD"
+                },
+                "proceeds_usd": {
+                  "type": "number"
+                },
+                "basis_usd": {
+                  "type": "number"
+                },
+                "wash_sale_adj_usd": {
+                  "type": "number"
+                },
+                "term": {
+                  "type": "string",
+                  "enum": [
+                    "short",
+                    "long",
+                    "unknown"
+                  ]
+                },
+                "is_nft": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "recipient_id",
+                "asset",
+                "date_sold",
+                "proceeds_usd"
+              ]
+            },
+            "description": "Disposal records to assemble into 1099-DA entries; typically sourced from T466 gain/loss schedule"
+          }
+        },
+        "required": [
+          "tax_year",
+          "covered_status",
+          "disposals"
+        ]
+      },
+      "metadata": {
+        "tool_id": "467-form-1099-da-generator",
+        "category": "dlt-tokenization",
+        "url": "https://ainumbers.co/tools/467-form-1099-da-generator.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": true
+      }
+    },
+    {
+      "name": "casp_tax_reporting_readiness_scorer",
+      "description": "Assess a CASP's readiness for CARF (OECD, effective 1 Jan 2026), DAC8 (EU Directive 2023/2226, FY2026), and IRS Form 1099-DA (TD 9996) reporting obligations. Scores five weighted domains and returns an A\u2013F grade with a prioritised gap list linked to T465 (CARF classifier), T466 (cost-basis calculator), and T467 (1099-DA generator). Use at programme-initiation or quarterly readiness review. Synthetic inputs only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "exchange",
+              "broker",
+              "wallet_provider",
+              "atm_operator",
+              "other"
+            ]
+          },
+          "regime": {
+            "type": "string",
+            "enum": [
+              "both",
+              "carf_only",
+              "dac8_only",
+              "us_only"
+            ],
+            "description": "Regime scope: both=CARF+DAC8+1099-DA; carf_only; dac8_only; us_only=IRS 1099-DA only"
+          }
+        },
+        "required": [
+          "entity_type",
+          "regime"
+        ]
+      },
+      "metadata": {
+        "tool_id": "468-casp-tax-reporting-readiness-scorer",
+        "category": "dlt-tokenization",
+        "url": "https://ainumbers.co/tools/468-casp-tax-reporting-readiness-scorer.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": true
+      }
+    },
+    {
+      "name": "lcr_calculator",
+      "description": "Calculate the Basel III Liquidity Coverage Ratio (LCR) per BCBS 238. LCR = HQLA (after haircut and caps) / Net Cash Outflows (30-day stress, inflow cap 75%) \u2265 100%. HQLA haircuts: Level 1 = 0%; Level 2A = 15%; Level 2B = 25\u201350%. Outputs compliant flag, surplus/(shortfall), and feeds Pillar 3 LIQ1 (T472). Verify haircut and outflow rates against applicable jurisdiction LCR rules. Synthetic data only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "hqla_items": {
+            "type": "array",
+            "description": "HQLA stock \u2014 level, asset description, and market value",
+            "items": {
+              "type": "object",
+              "properties": {
+                "level": {
+                  "type": "string",
+                  "enum": [
+                    "l1",
+                    "l2a",
+                    "l2b_25",
+                    "l2b_40",
+                    "l2b_50"
+                  ]
+                },
+                "asset": {
+                  "type": "string"
+                },
+                "market_value_m": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "outflow_items": {
+            "type": "array",
+            "description": "30-day stress outflow categories",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "balance_m": {
+                  "type": "number"
+                },
+                "outflow_rate_pct": {
+                  "type": "number",
+                  "description": "Outflow rate 0\u2013100%"
+                }
+              }
+            }
+          },
+          "inflow_items": {
+            "type": "array",
+            "description": "30-day stress inflow categories (capped at 75% of outflows)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "balance_m": {
+                  "type": "number"
+                },
+                "inflow_rate_pct": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "hqla_items",
+          "outflow_items"
+        ]
+      },
+      "metadata": {
+        "tool_id": "469-lcr-calculator",
+        "category": "treasury-strategy",
+        "url": "https://ainumbers.co/tools/469-lcr-calculator.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": true
+      }
+    },
+    {
+      "name": "nsfr_calculator",
+      "description": "Calculate the Basel III Net Stable Funding Ratio (NSFR) per BCBS 295. NSFR = ASF / RSF \u2265 100%. ASF and RSF factors per BCBS 295 Tables 1\u20132. Outputs compliant flag, ASF/RSF totals, surplus/(shortfall), and feeds Pillar 3 LIQ2 (T472). Verify factors against applicable jurisdiction rules (CRR2 EU; PRA UK). Synthetic data only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "asf_items": {
+            "type": "array",
+            "description": "Available Stable Funding items with ASF factor",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "amount_m": {
+                  "type": "number"
+                },
+                "asf_factor_pct": {
+                  "type": "number",
+                  "description": "ASF factor 0\u2013100"
+                }
+              }
+            }
+          },
+          "rsf_items": {
+            "type": "array",
+            "description": "Required Stable Funding items with RSF factor",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "amount_m": {
+                  "type": "number"
+                },
+                "rsf_factor_pct": {
+                  "type": "number",
+                  "description": "RSF factor 0\u2013100"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "asf_items",
+          "rsf_items"
+        ]
+      },
+      "metadata": {
+        "tool_id": "470-nsfr-calculator",
+        "category": "treasury-strategy",
+        "url": "https://ainumbers.co/tools/470-nsfr-calculator.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": true
+      }
+    },
+    {
+      "name": "leverage_ratio_calculator",
+      "description": "Calculate the Basel III leverage ratio per BCBS 360. LR = Tier 1 / Total Exposure Measure \u2265 3% (G-SIB leverage buffer additional per \u00a712). Total exposure = on-BS + derivative (SA-CCR RC+PFE) + SFT + OBS (CCF-adjusted). Outputs ratio, minimum threshold, compliant flag. Feeds Pillar 3 KM1 row h (T472). Verify against CRR3/EU, PRA, or Fed SLR as applicable. Synthetic data only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "cet1": {
+            "type": "number",
+            "description": "CET1 capital (m)"
+          },
+          "at1": {
+            "type": "number",
+            "description": "Additional Tier 1 capital (m); defaults to 0"
+          },
+          "gsib_bucket": {
+            "type": "number",
+            "enum": [
+              0,
+              1,
+              1.5,
+              2,
+              2.5,
+              3.5
+            ],
+            "description": "G-SIB surcharge bucket; 0 = not G-SIB"
+          },
+          "obs_exp": {
+            "type": "number",
+            "description": "On-balance-sheet gross exposures (m)"
+          },
+          "deriv_exp": {
+            "type": "number",
+            "description": "Derivative exposure measure (SA-CCR RC+PFE, m)"
+          },
+          "sft_exp": {
+            "type": "number",
+            "description": "SFT exposure measure (m)"
+          },
+          "offbs_exp": {
+            "type": "number",
+            "description": "Off-balance-sheet CCF-adjusted exposures (m)"
+          },
+          "other_exp": {
+            "type": "number",
+            "description": "Other adjustments (m)"
+          }
+        },
+        "required": [
+          "cet1",
+          "obs_exp"
+        ]
+      },
+      "metadata": {
+        "tool_id": "471-leverage-ratio-calculator",
+        "category": "treasury-strategy",
+        "url": "https://ainumbers.co/tools/471-leverage-ratio-calculator.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": true
+      }
+    },
+    {
+      "name": "pillar_3_disclosure_builder",
+      "description": "Assemble Basel III Pillar 3 disclosure tables (KM1, OV1, LIQ1, LIQ2) per BCBS 309/400. Consumes inputs from T201 (RWA), T469 (LCR), T470 (NSFR), T471 (leverage ratio). Final step in the bank-capital-liquidity composer chain. Verify row definitions against EBA ITS (EU) or PRA rules (UK) before use in actual disclosures. Synthetic data only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "bank_name": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "cet1_ratio": {
+            "type": "number",
+            "description": "CET1 ratio %"
+          },
+          "t1_ratio": {
+            "type": "number"
+          },
+          "tc_ratio": {
+            "type": "number"
+          },
+          "rwa": {
+            "type": "number",
+            "description": "Total RWA (m)"
+          },
+          "lr_pct": {
+            "type": "number",
+            "description": "Leverage ratio %"
+          },
+          "lcr_pct": {
+            "type": "number",
+            "description": "LCR %"
+          },
+          "nsfr_pct": {
+            "type": "number",
+            "description": "NSFR %"
+          },
+          "cr_rwa": {
+            "type": "number"
+          },
+          "mr_rwa": {
+            "type": "number"
+          },
+          "or_rwa": {
+            "type": "number"
+          },
+          "hqla_m": {
+            "type": "number"
+          },
+          "gross_out": {
+            "type": "number"
+          },
+          "net_inf": {
+            "type": "number"
+          },
+          "nco": {
+            "type": "number"
+          },
+          "asf_m": {
+            "type": "number"
+          },
+          "rsf_m": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "cet1_ratio",
+          "t1_ratio",
+          "tc_ratio",
+          "rwa",
+          "lcr_pct",
+          "nsfr_pct",
+          "lr_pct"
+        ]
+      },
+      "metadata": {
+        "tool_id": "472-pillar-3-disclosure-builder",
+        "category": "treasury-strategy",
+        "url": "https://ainumbers.co/tools/472-pillar-3-disclosure-builder.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": true
+      }
+    },
+    {
+      "name": "globe_etr_jurisdiction_calculator",
+      "description": "Calculate GloBE effective tax rate (ETR) per jurisdiction per OECD Pillar Two (Art. 5.1.1). ETR = Adjusted Covered Taxes / GloBE Income. Minimum 15%. SBIE deduction applied (Art. 5.3 transitional rates). Identifies jurisdictions below 15% for top-up tax (T474). \u26a0 US-HQ groups exempt from IIR/UTPR per January 2026 OECD side-by-side package \u2014 do not apply IIR/UTPR to US-parented groups. Verify SBIE rates against current OECD Administrative Guidance. Synthetic data only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "jurisdictions": {
+            "type": "array",
+            "description": "List of jurisdictions with GloBE income data",
+            "items": {
+              "type": "object",
+              "properties": {
+                "jur": {
+                  "type": "string",
+                  "description": "ISO-3 jurisdiction code (e.g. DE, IE, SG)"
+                },
+                "income": {
+                  "type": "number",
+                  "description": "GloBE income (m)"
+                },
+                "taxes": {
+                  "type": "number",
+                  "description": "Adjusted covered taxes (m)"
+                },
+                "payroll": {
+                  "type": "number",
+                  "description": "Qualifying payroll (m); used for SBIE"
+                },
+                "assets": {
+                  "type": "number",
+                  "description": "Qualifying tangible assets (m); used for SBIE"
+                },
+                "sbie_payroll_rate_pct": {
+                  "type": "number",
+                  "description": "SBIE payroll rate % \u2014 FY2024: 9.8, FY2025: 9.6, FY2026: 9.4, FY2027+: 5.0"
+                }
+              },
+              "required": [
+                "jur",
+                "income",
+                "taxes"
+              ]
+            }
+          }
+        },
+        "required": [
+          "jurisdictions"
+        ]
+      },
+      "metadata": {
+        "tool_id": "473-globe-etr-jurisdiction-calculator",
+        "category": "treasury-strategy",
+        "url": "https://ainumbers.co/tools/473-globe-etr-jurisdiction-calculator.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": true
+      }
+    },
+    {
+      "name": "topup_tax_qdmtt_calculator",
+      "description": "Compute Pillar Two top-up tax per jurisdiction (Art. 5.2.1) and allocate across QDMTT (Art. 11.3), IIR (Art. 2.1), and UTPR (Art. 2.4). \u26a0 US-HQ groups are exempt from IIR and UTPR per the OECD January 2026 side-by-side package \u2014 set parent_hq='US' to apply exemption automatically. QDMTT exposure remains for all groups in jurisdictions with enacted QDMTT. Consumes T473 outputs. Feeds T476. Synthetic data only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "parent_hq": {
+            "type": "string",
+            "description": "Parent HQ ISO-3 code \u2014 use 'US' to apply IIR/UTPR exemption"
+          },
+          "fy": {
+            "type": "integer",
+            "description": "Fiscal year (affects SBIE transitional rates)"
+          },
+          "jurisdictions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "jur": {
+                  "type": "string"
+                },
+                "income": {
+                  "type": "number",
+                  "description": "GloBE income (m)"
+                },
+                "taxes": {
+                  "type": "number",
+                  "description": "Covered taxes (m)"
+                },
+                "sbie": {
+                  "type": "number",
+                  "description": "SBIE (m) from T473"
+                },
+                "qdmtt_enacted": {
+                  "type": "boolean",
+                  "description": "True if jurisdiction has enacted QDMTT"
+                },
+                "qdmtt_rate_pct": {
+                  "type": "number",
+                  "description": "QDMTT rate % (typically 15)"
+                }
+              },
+              "required": [
+                "jur",
+                "income",
+                "taxes",
+                "sbie"
+              ]
+            }
+          }
+        },
+        "required": [
+          "parent_hq",
+          "jurisdictions"
+        ]
+      },
+      "metadata": {
+        "tool_id": "474-topup-tax-qdmtt-calculator",
+        "category": "treasury-strategy",
+        "url": "https://ainumbers.co/tools/474-topup-tax-qdmtt-calculator.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": true
+      }
+    },
+    {
+      "name": "pillar_two_safe_harbour_checker",
+      "description": "Check OECD Pillar Two transitional CbCR safe harbour eligibility per December 2022 agreed guidance. Three tests: (1) de minimis \u2014 revenue < \u20ac10M AND PBT < \u20ac1M; (2) simplified ETR \u2014 CbCR taxes/PBT \u2265 threshold (15% FY2024\u20132025, 16% FY2026, 17% FY2027+); (3) routine profits \u2014 CbCR PBT \u2264 SBIE. Also checks permanent safe harbour (GloBE ETR \u2265 15%). Transitional period expires after FY2026. \u26a0 US-HQ exempt from IIR/UTPR (Jan 2026). Safe harbour jurisdictions still require GIR disclosure. Verify against full agreed guidance before filing reliance. Synthetic data only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "parent_hq": {
+            "type": "string",
+            "description": "Parent HQ ISO-3 code"
+          },
+          "fy": {
+            "type": "integer",
+            "description": "Fiscal year \u2014 transitional safe harbours available 2024\u20132026 only"
+          },
+          "jurisdictions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "jur": {
+                  "type": "string"
+                },
+                "rev": {
+                  "type": "number",
+                  "description": "CbCR revenue (m)"
+                },
+                "pbt": {
+                  "type": "number",
+                  "description": "CbCR profit before tax (m)"
+                },
+                "taxes": {
+                  "type": "number",
+                  "description": "CbCR covered taxes (m)"
+                },
+                "globe_etr_pct": {
+                  "type": "number",
+                  "description": "GloBE ETR % from T473"
+                },
+                "sbie": {
+                  "type": "number",
+                  "description": "SBIE amount (m)"
+                }
+              },
+              "required": [
+                "jur",
+                "rev",
+                "pbt",
+                "taxes"
+              ]
+            }
+          }
+        },
+        "required": [
+          "parent_hq",
+          "fy",
+          "jurisdictions"
+        ]
+      },
+      "metadata": {
+        "tool_id": "475-pillar-two-safe-harbour-checker",
+        "category": "treasury-strategy",
+        "url": "https://ainumbers.co/tools/475-pillar-two-safe-harbour-checker.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": true
+      }
+    },
+    {
+      "name": "gir_builder",
+      "description": "Assemble OECD GloBE Information Return (GIR) skeleton per GIR Standard (November 2022). Covers Parts I (group header), II (jurisdiction overview), V (top-up tax summary). Required for MNE groups with consolidated revenue \u2265 \u20ac750M. First GIR filing: FY2024 groups, due 30 June 2026. Consumes T473 (ETR), T474 (top-up), T475 (safe harbours). \u26a0 US-HQ groups exempt from IIR/UTPR per January 2026 OECD side-by-side package \u2014 set iir_utpr_exempt=true for US-parented jurisdictions. Safe harbour jurisdictions must still be disclosed in GIR. Actual XML filing requires authorised tax software. Synthetic data only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "upe_name": {
+            "type": "string",
+            "description": "Synthetic UPE name"
+          },
+          "upe_jur": {
+            "type": "string",
+            "description": "UPE jurisdiction ISO-3"
+          },
+          "fy": {
+            "type": "integer",
+            "description": "Fiscal year"
+          },
+          "total_rev": {
+            "type": "number",
+            "description": "Total consolidated revenue (\u20acm)"
+          },
+          "entity_count": {
+            "type": "integer",
+            "description": "Number of constituent entities"
+          },
+          "filing_jur": {
+            "type": "string",
+            "description": "GIR filing jurisdiction ISO-3"
+          },
+          "jurisdictions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "jur": {
+                  "type": "string"
+                },
+                "income": {
+                  "type": "number"
+                },
+                "taxes": {
+                  "type": "number"
+                },
+                "etr_pct": {
+                  "type": "number"
+                },
+                "sbie": {
+                  "type": "number"
+                },
+                "topup": {
+                  "type": "number"
+                },
+                "qdmtt": {
+                  "type": "number"
+                },
+                "safe_harbour": {
+                  "type": "boolean"
+                },
+                "iir_utpr_exempt": {
+                  "type": "boolean",
+                  "description": "True for US-HQ parent jurisdictions"
+                }
+              },
+              "required": [
+                "jur",
+                "income",
+                "taxes",
+                "etr_pct"
+              ]
+            }
+          }
+        },
+        "required": [
+          "upe_name",
+          "upe_jur",
+          "fy",
+          "total_rev",
+          "jurisdictions"
+        ]
+      },
+      "metadata": {
+        "tool_id": "476-gir-builder",
+        "category": "treasury-strategy",
+        "url": "https://ainumbers.co/tools/476-gir-builder.html",
         "ap2_export": true,
         "execution_type": "browser-reference",
         "version": "1.0.0",

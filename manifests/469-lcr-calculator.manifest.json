@@ -1,0 +1,54 @@
+{
+  "tool_id": "469-lcr-calculator",
+  "version": "1.0.0",
+  "title": "LCR Calculator",
+  "description": "Liquidity Coverage Ratio (LCR) per Basel III LCR standard (BCBS 238, January 2013). LCR = HQLA ÷ Net Cash Outflows (30-day stress) ≥ 100%. HQLA haircuts: Level 1 0%, Level 2A 15%, Level 2B 25–50%. Inflow cap 75%. Level 2A cap 40%, Level 2B cap 15% of HQLA. Tier 1 Policy Mandate JSON + Markdown. Client-side. Zero PII.",
+  "category": "treasury-strategy",
+  "tags": ["lcr","liquidity","hqla","basel-iii","bcbs-238","pillar-3","liq1","capital","regulatory"],
+  "audience": ["risk","treasury","compliance","alm"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "hqla_items": {"type":"array","items":{"type":"object","properties":{"level":{"type":"string","enum":["l1","l2a","l2b_25","l2b_40","l2b_50"]},"asset":{"type":"string"},"market_value_m":{"type":"number"}}}},
+      "outflow_items": {"type":"array","items":{"type":"object","properties":{"label":{"type":"string"},"balance_m":{"type":"number"},"outflow_rate_pct":{"type":"number"}}}},
+      "inflow_items": {"type":"array","items":{"type":"object","properties":{"label":{"type":"string"},"balance_m":{"type":"number"},"inflow_rate_pct":{"type":"number"}}}}
+    },
+    "required": ["hqla_items","outflow_items"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "hqla_total_m": {"type":"number"},
+      "gross_out_m": {"type":"number"},
+      "net_inflows_m": {"type":"number"},
+      "nco_m": {"type":"number"},
+      "lcr_ratio": {"type":"number"},
+      "lcr_pct": {"type":"number"},
+      "compliant": {"type":"boolean"},
+      "surplus_m": {"type":"number"}
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "lcr_calculator",
+    "description": "Calculate the Basel III Liquidity Coverage Ratio (LCR) per BCBS 238. LCR = HQLA (after haircut and caps) / Net Cash Outflows (30-day stress, inflow cap 75%) ≥ 100%. HQLA haircuts: Level 1 = 0%; Level 2A = 15%; Level 2B = 25–50%. Outputs compliant flag, surplus/(shortfall), and feeds Pillar 3 LIQ1 (T472). Verify haircut and outflow rates against applicable jurisdiction LCR rules. Synthetic data only.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "hqla_items": {"type":"array","description":"HQLA stock — level, asset description, and market value","items":{"type":"object","properties":{"level":{"type":"string","enum":["l1","l2a","l2b_25","l2b_40","l2b_50"]},"asset":{"type":"string"},"market_value_m":{"type":"number"}}}},
+        "outflow_items": {"type":"array","description":"30-day stress outflow categories","items":{"type":"object","properties":{"label":{"type":"string"},"balance_m":{"type":"number"},"outflow_rate_pct":{"type":"number","description":"Outflow rate 0–100%"}}}},
+        "inflow_items": {"type":"array","description":"30-day stress inflow categories (capped at 75% of outflows)","items":{"type":"object","properties":{"label":{"type":"string"},"balance_m":{"type":"number"},"inflow_rate_pct":{"type":"number"}}}}
+      },
+      "required": ["hqla_items","outflow_items"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/469-lcr-calculator.html",
+    "function_name": "runLCR",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true
+}

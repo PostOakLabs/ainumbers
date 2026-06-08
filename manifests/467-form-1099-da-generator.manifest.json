@@ -1,0 +1,108 @@
+{
+  "tool_id": "467-form-1099-da-generator",
+  "version": "1.0.0",
+  "title": "IRS Form 1099-DA Generator",
+  "description": "Assemble IRS Form 1099-DA (Digital Asset Proceeds from Broker Transactions) records from disposal and basis data. Validates completeness per IRS final broker-reporting regulations (Treasury Decision 9996, June 2024). Gross-proceeds reporting effective 1 January 2025; basis reporting for covered securities effective 1 January 2026. IRS Notice 2025-7 transitional penalty relief for tax year 2025. Tier 1 Policy Mandate JSON + Markdown per-payee statements + Tier 2 CSV filing extract. Client-side. Zero PII.",
+  "category": "dlt-tokenization",
+  "tags": ["1099-da","crypto-tax","broker-reporting","digital-asset","irs","td-9996","basis","proceeds","carf","dac8","covered-security"],
+  "audience": ["crypto-exchange","broker","casp","tax","compliance"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "broker_name": {"type":"string","description":"Synthetic broker or issuer name"},
+      "broker_ein": {"type":"string","description":"Synthetic broker EIN (xx-xxxxxxx format)"},
+      "tax_year": {"type":"integer","description":"Tax year for 1099-DA reporting (2025+)"},
+      "covered_status": {"type":"string","enum":["covered","noncovered","transferred"],"description":"IRS covered/noncovered status per TD 9996 §1.6045-1(a)(19)"},
+      "disposals": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "recipient_id": {"type":"string","description":"Synthetic recipient identifier (TIN placeholder)"},
+            "asset": {"type":"string","description":"Digital asset ticker or identifier (e.g. BTC, ETH)"},
+            "date_acquired": {"type":"string","description":"Date of acquisition YYYY-MM-DD (Box 1a)"},
+            "date_sold": {"type":"string","description":"Date of sale YYYY-MM-DD (Box 1b)"},
+            "proceeds_usd": {"type":"number","description":"Gross proceeds in USD (Box 1c)"},
+            "basis_usd": {"type":"number","description":"Cost or other basis in USD (Box 1d; required for covered)"},
+            "wash_sale_adj_usd": {"type":"number","description":"Wash sale loss disallowed in USD (Box 1e)"},
+            "term": {"type":"string","enum":["short","long","unknown"],"description":"Short or long-term holding (Box 2)"},
+            "is_nft": {"type":"boolean","description":"Whether the asset is an NFT"}
+          }
+        }
+      }
+    },
+    "required": ["tax_year","covered_status","disposals"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "record_count": {"type":"integer"},
+      "complete_count": {"type":"integer"},
+      "total_proceeds_usd": {"type":"number"},
+      "total_net_gain_loss_usd": {"type":"number"},
+      "records": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "recipient_id": {"type":"string"},
+            "asset": {"type":"string"},
+            "date_acquired": {"type":"string"},
+            "date_sold": {"type":"string"},
+            "proceeds_usd": {"type":"number"},
+            "basis_usd": {"type":"number"},
+            "wash_sale_adj_usd": {"type":"number"},
+            "net_gain_loss_usd": {"type":"number"},
+            "term": {"type":"string"},
+            "is_covered": {"type":"boolean"},
+            "complete": {"type":"boolean"},
+            "missing_fields": {"type":"array","items":{"type":"string"}}
+          }
+        }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "form_1099_da_generator",
+    "description": "Assemble IRS Form 1099-DA records from digital asset disposal and basis data. Validates completeness per IRS final broker-reporting regulations (TD 9996, June 2024). Gross-proceeds reporting required from 1 Jan 2025; basis (Box 1d) required for covered digital assets acquired on/after 1 Jan 2026. Applies IRS Notice 2025-7 transitional penalty relief notation for tax year 2025. Output contains complete/incomplete flags for each record and a filing CSV extract. Consumes output from T466 crypto-cost-basis-gain-calculator. Verify box numbers against current IRS Form 1099-DA instructions before filing. Synthetic data only.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "broker_name": {"type":"string","description":"Synthetic broker name"},
+        "broker_ein": {"type":"string","description":"Synthetic broker EIN"},
+        "tax_year": {"type":"integer","description":"Tax year (2025 or later)"},
+        "covered_status": {"type":"string","enum":["covered","noncovered","transferred"],"description":"Covered/noncovered status per TD 9996 §1.6045-1(a)(19)"},
+        "disposals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "recipient_id": {"type":"string"},
+              "asset": {"type":"string"},
+              "date_acquired": {"type":"string","description":"YYYY-MM-DD"},
+              "date_sold": {"type":"string","description":"YYYY-MM-DD"},
+              "proceeds_usd": {"type":"number"},
+              "basis_usd": {"type":"number"},
+              "wash_sale_adj_usd": {"type":"number"},
+              "term": {"type":"string","enum":["short","long","unknown"]},
+              "is_nft": {"type":"boolean"}
+            },
+            "required": ["recipient_id","asset","date_sold","proceeds_usd"]
+          },
+          "description": "Disposal records to assemble into 1099-DA entries; typically sourced from T466 gain/loss schedule"
+        }
+      },
+      "required": ["tax_year","covered_status","disposals"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/467-form-1099-da-generator.html",
+    "function_name": "run1099DA",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true
+}
