@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Mandate Diff · T291 · AINumbers.co</title>
+<meta name="description" content="Schema-aware diff between two AINumbers Policy Mandate JSON files. Compares top-level fields, payload deep-diff, agent_instructions deltas, and stage-level diff for composite mandates. Tier 1 export. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/291-mandate-diff.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Mandate Diff","url":"https://ainumbers.co/tools/291-mandate-diff.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "mandate-diff",
+  "version": "1.0.0",
+  "title": "Mandate Diff",
+  "description": "Schema-aware diff between two AINumbers Policy Mandate JSON files: top-level field changes, payload deep-diff, agent_instructions deltas, and stage-level diff for composite mandates.",
+  "category": "cat-22",
+  "tags": ["mandate","diff","compare","audit","ap2","policy","lifecycle"],
+  "audience": ["compliance","risk","legal","engineering"],
+  "mcp_tool_definition": {"name":"mandate_diff","description":"Produces a schema-aware diff between two AINumbers Policy Mandate JSON objects.","inputSchema":{"type":"object","properties":{"mandate_a":{"type":"object","description":"First (older) mandate"},"mandate_b":{"type":"object","description":"Second (newer) mandate"}},"required":["mandate_a","mandate_b"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/291-mandate-diff.html","function_name":"runDiff","timeout_ms":3000},
+  "ap2_export": true,
+  "prefill": false,
+  "intake": true,
+  "bridge_version": "1.0"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:300;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-name .ai{color:var(--teal)}.logo-name .co{color:var(--muted);font-size:.8rem}
+.nav-links{display:flex;align-items:center;gap:18px}
+.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);transition:color .2s}
+.nav-links a:hover{color:var(--teal-lt)}
+.hero{padding:2.5rem 0 1.5rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.22em;text-transform:uppercase;color:var(--purple);margin-bottom:.8rem}
+.hero h1{font-size:2rem;color:var(--white);margin-bottom:.6rem}
+.hero p{max-width:780px;font-size:.92rem;color:var(--body)}
+.hero-badges{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1rem}
+.hero-badge{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.3rem .7rem;border-radius:999px;border:1px solid var(--border-2);color:var(--body)}
+.hero-badge.b-purple{border-color:rgba(155,114,245,.4);color:var(--purple);background:var(--purple-dim)}
+.scope-note{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:1.2rem 0 0}
+/* intake grid */
+.intake-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin:2rem 0 0}
+@media(max-width:720px){.intake-grid{grid-template-columns:1fr}}
+.intake-slot{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);overflow:hidden}
+.slot-head{padding:.6rem 1rem;background:var(--bg-3);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.slot-label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.slot-label.loaded{color:var(--teal-lt)}
+.slot-body{padding:1rem}
+.drop-zone{border:2px dashed var(--border-2);border-radius:var(--radius);background:var(--bg);padding:1.5rem 1rem;text-align:center;transition:border-color .2s;cursor:pointer;margin-bottom:.75rem}
+.drop-zone.drag-over{border-color:var(--purple);background:var(--purple-dim)}
+.drop-zone.has-file{border-color:var(--teal);border-style:solid;background:var(--teal-dim)}
+.drop-zone-icon{font-size:1.4rem;margin-bottom:.35rem}
+.drop-zone-label{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.drop-zone.has-file .drop-zone-label{color:var(--teal-lt)}
+textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.6rem .8rem;resize:vertical;min-height:6rem;outline:none;transition:border-color .2s}
+textarea:focus{border-color:var(--purple)}
+input[type="file"]{display:none}
+/* controls */
+.ctl-btn{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;border-radius:var(--radius);border:1px solid var(--border-2);background:transparent;color:var(--text);transition:all .2s}
+.ctl-btn:hover{border-color:var(--teal);color:var(--teal-lt)}
+.ctl-btn.primary{background:var(--teal);border-color:var(--teal);color:var(--bg);font-weight:500}
+.ctl-btn.primary:hover{background:var(--teal-lt)}
+.ctl-btn:disabled{opacity:.35;cursor:not-allowed}
+.run-row{display:flex;gap:.6rem;margin:1.2rem 0;flex-wrap:wrap;align-items:center}
+/* diff output */
+.diff-section{margin:1.8rem 0}
+.diff-section-head{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);padding:.5rem .85rem;background:var(--bg-3);border:1px solid var(--border);border-bottom:none;border-radius:var(--radius) var(--radius) 0 0}
+.diff-panel{border:1px solid var(--border);border-radius:0 0 var(--radius) var(--radius);background:var(--bg-2);overflow:hidden}
+.diff-table{width:100%;border-collapse:collapse}
+.diff-table th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.45rem .75rem;border-bottom:1px solid var(--border);text-align:left;background:var(--bg-3)}
+.diff-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.6rem;vertical-align:top;word-break:break-word;max-width:360px}
+.diff-table tr:last-child td{border-bottom:none}
+.diff-key{color:var(--text)}
+.diff-old{color:var(--red)}
+.diff-new{color:var(--teal-lt)}
+.diff-add{background:rgba(34,197,94,.06)}
+.diff-remove{background:rgba(239,68,68,.06)}
+.diff-change{background:rgba(245,158,11,.04)}
+.no-changes{padding:.9rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted)}
+.summary-bar{display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0}
+.s-chip{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;padding:.28rem .65rem;border-radius:999px;border:1px solid var(--border-2)}
+.s-chip.changed{border-color:rgba(245,158,11,.4);color:var(--warn);background:var(--warn-dim)}
+.s-chip.added{border-color:rgba(34,197,94,.4);color:var(--green);background:var(--green-dim)}
+.s-chip.removed{border-color:rgba(239,68,68,.4);color:var(--red);background:var(--red-dim)}
+.s-chip.clean{border-color:rgba(20,184,166,.4);color:var(--teal-lt);background:var(--teal-dim)}
+/* export */
+.export-panel{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);margin:2rem 0;padding:1.4rem 1.5rem;display:none}
+.export-panel h2{color:var(--white);font-size:1.2rem;margin-bottom:.4rem}
+.export-panel p{font-size:.8rem;color:var(--body);margin-bottom:1rem;max-width:820px}
+.export-row{display:flex;flex-wrap:wrap;gap:.6rem}
+.ctl-btn .btn-subtitle{display:block;font-size:.46rem;letter-spacing:.06em;opacity:.7;text-transform:none}
+.toast{position:fixed;bottom:1.4rem;left:50%;transform:translateX(-50%);background:var(--bg-4);border:1px solid var(--teal);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.6rem 1.1rem;border-radius:var(--radius);z-index:400;display:none}
+.toast.err{border-color:var(--red);color:var(--red)}
+footer{border-top:1px solid var(--border);padding:1.6rem 0 2.2rem;margin-top:3rem}
+.foot-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.foot-inner a:hover{color:var(--teal-lt)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo-name"><span class="ai">AI</span>Numbers<span class="co">.co</span></a>
+    <div class="nav-links">
+      <a href="../index.html">Tools</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="290-policy-register.html">Register</a>
+      <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="hero">
+    <div class="hero-eyebrow">Mandate Lifecycle · T291 · AINumbers.co</div>
+    <h1>Mandate Diff</h1>
+    <p>Schema-aware diff between two exported <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal-lt)">.policy.json</code> files — top-level field changes, payload deep-diff, <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal-lt)">agent_instructions</code> additions and removals, and stage-level diff for composite mandates matched by <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal-lt)">tool_id</code>.</p>
+    <div class="hero-badges">
+      <span class="hero-badge b-purple">Mandate Lifecycle Tool</span>
+      <span class="hero-badge">Top-level + Payload Diff</span>
+      <span class="hero-badge">Composite Stage Diff</span>
+      <span class="hero-badge">Client-side · Zero PII · Zero network</span>
+    </div>
+    <div class="scope-note" data-i18n="pii.banner">&#x1F512; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  </div>
+
+  <!-- Intake -->
+  <div class="intake-grid">
+    <!-- Mandate A -->
+    <div class="intake-slot">
+      <div class="slot-head">
+        <span class="slot-label" id="labelA">Mandate A (older)</span>
+        <button class="ctl-btn" style="padding:.2rem .55rem;font-size:.5rem" onclick="clearSlot('A')">&#215; clear</button>
+      </div>
+      <div class="slot-body">
+        <div class="drop-zone" id="dropA" onclick="el('fileA').click()"
+             ondragover="onDrag(event,'A')" ondragleave="onDragLeave(event,'A')" ondrop="onDrop(event,'A')">
+          <div class="drop-zone-icon">&#x1F4C4;</div>
+          <div class="drop-zone-label" id="dropLabelA">Drop or click to load mandate A</div>
+          <input type="file" id="fileA" accept=".json,.policy.json" onchange="onFile(event,'A')">
+        </div>
+        <textarea id="pasteA" placeholder='{ "ap2_version": "1.0", ... }' oninput="onTextInput('A')"></textarea>
+      </div>
+    </div>
+    <!-- Mandate B -->
+    <div class="intake-slot">
+      <div class="slot-head">
+        <span class="slot-label" id="labelB">Mandate B (newer)</span>
+        <button class="ctl-btn" style="padding:.2rem .55rem;font-size:.5rem" onclick="clearSlot('B')">&#215; clear</button>
+      </div>
+      <div class="slot-body">
+        <div class="drop-zone" id="dropB" onclick="el('fileB').click()"
+             ondragover="onDrag(event,'B')" ondragleave="onDragLeave(event,'B')" ondrop="onDrop(event,'B')">
+          <div class="drop-zone-icon">&#x1F4C4;</div>
+          <div class="drop-zone-label" id="dropLabelB">Drop or click to load mandate B</div>
+          <input type="file" id="fileB" accept=".json,.policy.json" onchange="onFile(event,'B')">
+        </div>
+        <textarea id="pasteB" placeholder='{ "ap2_version": "1.0", ... }' oninput="onTextInput('B')"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="run-row">
+    <button class="ctl-btn primary" id="diffBtn" onclick="runDiff()" disabled>&#x2206; Run diff</button>
+    <button class="ctl-btn" id="swapBtn" onclick="swapMandates()" disabled>&#x21C4; Swap A &amp; B</button>
+    <span id="loadStatus" style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted)">Load both mandates to diff</span>
+  </div>
+
+  <!-- Diff output -->
+  <div id="diffOutput" style="display:none">
+    <div class="summary-bar" id="summaryBar"></div>
+
+    <!-- Top-level fields -->
+    <div class="diff-section" id="secTopLevel">
+      <div class="diff-section-head">Top-level field changes</div>
+      <div class="diff-panel" id="panelTopLevel"></div>
+    </div>
+
+    <!-- Payload diff -->
+    <div class="diff-section" id="secPayload">
+      <div class="diff-section-head">Payload diff</div>
+      <div class="diff-panel" id="panelPayload"></div>
+    </div>
+
+    <!-- agent_instructions diff -->
+    <div class="diff-section" id="secAgentInstr">
+      <div class="diff-section-head">agent_instructions delta</div>
+      <div class="diff-panel" id="panelAgentInstr"></div>
+    </div>
+
+    <!-- Composite stage diff -->
+    <div class="diff-section" id="secStages" style="display:none">
+      <div class="diff-section-head">Composite stage diff (matched by tool_id)</div>
+      <div class="diff-panel" id="panelStages"></div>
+    </div>
+  </div>
+
+  <!-- Export -->
+  <div class="export-panel" id="exportPanel">
+    <h2>Export diff mandate</h2>
+    <p>Tier 1: a Policy Mandate whose payload is the complete diff record — field changes, payload diff, agent_instructions delta, and stage diffs where applicable. <em style="color:var(--muted)">mandate_type: compliance_control (closest existing enum per CONTRACT §3.1; flagged as a potential CONTRACT amendment candidate for a dedicated diff type).</em></p>
+    <div class="export-row">
+      <button class="ctl-btn primary" onclick="exportAP2()">{} Export Diff Mandate<span class="btn-subtitle">Tier 1 · diff as mandate payload</span></button>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <span>&#xA9; 2026 Post Oak Labs &middot; CC BY 4.0</span>
+    <a href="../sitemap.html">All Tools</a>
+    <a href="290-policy-register.html">Policy Register</a>
+    <a href="../llms.txt">llms.txt</a>
+  </div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* Mandate Diff v1.0 -- T291
+   Schema-aware diff: top-level, payload, agent_instructions, stage-level for composites.
+   Architecture #1. frame-src none. Zero network. Zero storage. */
+
+var slots = { A: null, B: null };  // mandate objects
+var lastDiff = null;
+
+function el(id){ return document.getElementById(id); }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function toast(msg, err){
+  var t = el('toast'); t.textContent = msg;
+  t.className = 'toast'+(err?' err':''); t.style.display='block';
+  clearTimeout(t._h); t._h=setTimeout(function(){t.style.display='none';},3200);
+}
+
+// ---------------------------------------------------------------------------
+// File intake
+// ---------------------------------------------------------------------------
+function onDrag(e, s){ e.preventDefault(); el('drop'+s).classList.add('drag-over'); }
+function onDragLeave(e, s){ el('drop'+s).classList.remove('drag-over'); }
+function onDrop(e, s){
+  e.preventDefault(); el('drop'+s).classList.remove('drag-over');
+  var f = e.dataTransfer.files[0]; if(!f) return;
+  readFile(f, s);
+}
+function onFile(e, s){ var f = e.target.files[0]; if(f) readFile(f, s); e.target.value=''; }
+function onTextInput(s){
+  var txt = el('paste'+s).value.trim();
+  if(!txt){ slots[s]=null; updateState(); return; }
+  try { slots[s]=JSON.parse(txt); updateSlotUI(s, 'pasted'); } catch(x){ slots[s]=null; updateState(); }
+}
+
+function readFile(file, s){
+  var r = new FileReader();
+  r.onload = function(e){
+    try {
+      var obj = JSON.parse(e.target.result);
+      slots[s] = obj;
+      el('paste'+s).value = JSON.stringify(obj, null, 2);
+      updateSlotUI(s, file.name);
+    } catch(x){ toast('Could not parse '+file.name, true); }
+  };
+  r.readAsText(file);
+}
+
+function updateSlotUI(s, name){
+  el('drop'+s).classList.add('has-file');
+  el('dropLabel'+s).textContent = name + ' ✓';
+  el('label'+s).classList.add('loaded');
+  el('label'+s).textContent = 'Mandate '+s+' — '+esc((slots[s]&&slots[s].tool_id)||'loaded');
+  updateState();
+}
+
+function clearSlot(s){
+  slots[s] = null;
+  el('drop'+s).classList.remove('has-file');
+  el('dropLabel'+s).textContent = 'Drop or click to load mandate '+s;
+  el('label'+s).className = 'slot-label';
+  el('label'+s).textContent = 'Mandate '+s+' ('+(s==='A'?'older':'newer')+')';
+  el('paste'+s).value = '';
+  updateState();
+}
+
+function updateState(){
+  var both = slots.A && slots.B;
+  el('diffBtn').disabled = !both;
+  el('swapBtn').disabled = !both;
+  el('loadStatus').textContent = both ? 'Both mandates loaded — ready to diff' :
+    (slots.A ? 'Load mandate B' : (slots.B ? 'Load mandate A' : 'Load both mandates to diff'));
+}
+
+function swapMandates(){
+  var tmp = slots.A; slots.A = slots.B; slots.B = tmp;
+  var ta = el('pasteA').value; el('pasteA').value = el('pasteB').value; el('pasteB').value = ta;
+  if(slots.A) updateSlotUI('A', (slots.A.tool_id||'loaded')); else clearSlot('A');
+  if(slots.B) updateSlotUI('B', (slots.B.tool_id||'loaded')); else clearSlot('B');
+}
+
+// ---------------------------------------------------------------------------
+// Diff engine
+// ---------------------------------------------------------------------------
+// Fields to skip at all levels (identity / timing, not content)
+var SKIP_TOP = new Set(['mandate_id','issued_at','valid_from','valid_until','last_reviewed']);
+
+function valStr(v){
+  if(v===null||v===undefined) return '—';
+  if(typeof v==='object') return JSON.stringify(v).slice(0,200)+(JSON.stringify(v).length>200?'…':'');
+  return String(v);
+}
+
+// Flat diff of two plain objects — returns array of {key, oldVal, newVal, type:'changed'|'added'|'removed'}
+function flatDiff(a, b, skipSet){
+  var changes = [];
+  var keys = new Set(Object.keys(a||{}).concat(Object.keys(b||{})));
+  keys.forEach(function(k){
+    if(skipSet && skipSet.has(k)) return;
+    var av = (a||{})[k], bv = (b||{})[k];
+    if(!(k in (a||{}))){ changes.push({key:k, oldVal:undefined, newVal:bv, type:'added'}); return; }
+    if(!(k in (b||{}))){ changes.push({key:k, oldVal:av, newVal:undefined, type:'removed'}); return; }
+    if(JSON.stringify(av) !== JSON.stringify(bv)) changes.push({key:k, oldVal:av, newVal:bv, type:'changed'});
+  });
+  return changes;
+}
+
+// Deep diff of two objects — returns flat list of {path, oldVal, newVal, type}
+function deepDiff(a, b, path){
+  path = path || '';
+  var results = [];
+  if(typeof a!=='object'||typeof b!=='object'||a===null||b===null||Array.isArray(a)||Array.isArray(b)){
+    if(JSON.stringify(a)!==JSON.stringify(b)){
+      results.push({path:path||'(root)', oldVal:a, newVal:b, type: a===undefined?'added': b===undefined?'removed':'changed'});
+    }
+    return results;
+  }
+  var keys = new Set(Object.keys(a).concat(Object.keys(b)));
+  keys.forEach(function(k){
+    var p = path ? path+'.'+k : k;
+    var av=a[k], bv=b[k];
+    if(!(k in a)){ results.push({path:p, oldVal:undefined, newVal:bv, type:'added'}); return; }
+    if(!(k in b)){ results.push({path:p, oldVal:av, newVal:undefined, type:'removed'}); return; }
+    if(typeof av==='object'&&av!==null&&!Array.isArray(av)&&typeof bv==='object'&&bv!==null&&!Array.isArray(bv)){
+      results = results.concat(deepDiff(av,bv,p));
+    } else {
+      if(JSON.stringify(av)!==JSON.stringify(bv)) results.push({path:p, oldVal:av, newVal:bv, type:'changed'});
+    }
+  });
+  return results;
+}
+
+// agent_instructions set diff
+function instrDiff(a, b){
+  var ai = Array.isArray(a)?a:[], bi = Array.isArray(b)?b:[];
+  var added   = bi.filter(function(x){ return ai.indexOf(x)<0; });
+  var removed = ai.filter(function(x){ return bi.indexOf(x)<0; });
+  return { added:added, removed:removed, unchanged: ai.filter(function(x){ return bi.indexOf(x)>=0; }) };
+}
+
+function runDiff(){
+  if(!slots.A||!slots.B){ toast('Load both mandates first', true); return; }
+  var A = slots.A, B = slots.B;
+
+  // 1. Top-level diff (skip identity/timing fields)
+  var topChanges = flatDiff(A, B, SKIP_TOP);
+  // Remove 'payload' and 'agent_instructions' from top-level (handled separately)
+  topChanges = topChanges.filter(function(c){ return c.key!=='payload'&&c.key!=='agent_instructions'; });
+
+  // 2. Payload deep diff
+  var payloadChanges = deepDiff(A.payload||{}, B.payload||{}, '');
+
+  // 3. agent_instructions
+  var instr = instrDiff(A.agent_instructions, B.agent_instructions);
+
+  // 4. Stage-level diff for composites
+  var stageResults = [];
+  var aStages = (A.payload&&Array.isArray(A.payload.stage_mandates)) ? A.payload.stage_mandates : null;
+  var bStages = (B.payload&&Array.isArray(B.payload.stage_mandates)) ? B.payload.stage_mandates : null;
+  if(aStages&&bStages){
+    var bByTool = {};
+    bStages.forEach(function(s){ if(s&&s.tool_id) bByTool[s.tool_id]=s; });
+    aStages.forEach(function(aS){
+      if(!aS||!aS.tool_id) return;
+      var bS = bByTool[aS.tool_id];
+      if(!bS){ stageResults.push({tool_id:aS.tool_id, status:'removed_in_b', changes:[]}); return; }
+      var sc = deepDiff(aS.payload||{}, bS.payload||{}, 'payload');
+      stageResults.push({tool_id:aS.tool_id, status:sc.length?'changed':'unchanged', changes:sc});
+    });
+    bStages.forEach(function(bS){
+      if(!bS||!bS.tool_id) return;
+      var found = aStages.some(function(aS){ return aS&&aS.tool_id===bS.tool_id; });
+      if(!found) stageResults.push({tool_id:bS.tool_id, status:'added_in_b', changes:[]});
+    });
+  }
+
+  lastDiff = { topChanges:topChanges, payloadChanges:payloadChanges, instr:instr, stageResults:stageResults, A:A, B:B };
+  renderDiff(lastDiff);
+}
+
+function renderDiff(d){
+  el('diffOutput').style.display = '';
+  el('exportPanel').style.display = '';
+
+  // Summary bar
+  var totalTopChg = d.topChanges.filter(function(c){return c.type==='changed';}).length;
+  var totalTopAdd = d.topChanges.filter(function(c){return c.type==='added';}).length;
+  var totalTopRm  = d.topChanges.filter(function(c){return c.type==='removed';}).length;
+  var anyChange   = totalTopChg||totalTopAdd||totalTopRm||d.payloadChanges.length||d.instr.added.length||d.instr.removed.length||d.stageResults.some(function(s){return s.status!=='unchanged';});
+  var sumChips = [];
+  if(!anyChange) sumChips.push('<span class="s-chip clean">No material changes</span>');
+  if(totalTopChg) sumChips.push('<span class="s-chip changed">'+totalTopChg+' top-level changed</span>');
+  if(totalTopAdd) sumChips.push('<span class="s-chip added">'+totalTopAdd+' top-level added</span>');
+  if(totalTopRm)  sumChips.push('<span class="s-chip removed">'+totalTopRm+' top-level removed</span>');
+  if(d.payloadChanges.length) sumChips.push('<span class="s-chip changed">'+d.payloadChanges.length+' payload path(s) changed</span>');
+  if(d.instr.added.length)    sumChips.push('<span class="s-chip added">'+d.instr.added.length+' instruction(s) added</span>');
+  if(d.instr.removed.length)  sumChips.push('<span class="s-chip removed">'+d.instr.removed.length+' instruction(s) removed</span>');
+  el('summaryBar').innerHTML = sumChips.join('');
+
+  // Top-level
+  el('panelTopLevel').innerHTML = renderFlatDiff(d.topChanges);
+
+  // Payload
+  el('panelPayload').innerHTML = renderFlatDiff(d.payloadChanges.map(function(c){ return {key:c.path, oldVal:c.oldVal, newVal:c.newVal, type:c.type}; }));
+
+  // agent_instructions
+  if(!d.instr.added.length && !d.instr.removed.length){
+    el('panelAgentInstr').innerHTML = '<div class="no-changes">No changes to agent_instructions</div>';
+  } else {
+    var rows = d.instr.added.map(function(x){ return '<tr class="diff-add"><td>+ added</td><td class="diff-new">'+esc(x)+'</td></tr>'; }).join('')+
+               d.instr.removed.map(function(x){ return '<tr class="diff-remove"><td>- removed</td><td class="diff-old">'+esc(x)+'</td></tr>'; }).join('');
+    el('panelAgentInstr').innerHTML = '<table class="diff-table"><thead><tr><th>Change</th><th>Instruction</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  }
+
+  // Stage diff
+  if(d.stageResults.length){
+    el('secStages').style.display='';
+    var stageHtml = d.stageResults.map(function(s){
+      var badge = s.status==='unchanged'?'<span style="color:var(--green);font-size:.56rem">unchanged</span>':
+        s.status==='added_in_b'?'<span style="color:var(--teal-lt);font-size:.56rem">added in B</span>':
+        s.status==='removed_in_b'?'<span style="color:var(--red);font-size:.56rem">removed in B</span>':
+        '<span style="color:var(--warn);font-size:.56rem">'+s.changes.length+' change(s)</span>';
+      var inner = s.changes.length ? renderFlatDiff(s.changes.map(function(c){ return {key:c.path, oldVal:c.oldVal, newVal:c.newVal, type:c.type}; })) : '<div class="no-changes">No payload changes</div>';
+      return '<div style="border-bottom:1px solid var(--border);padding:.75rem 1rem"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem"><span style="font-family:\'JetBrains Mono\',monospace;font-size:.62rem;color:var(--text)">'+esc(s.tool_id)+'</span>'+badge+'</div>'+inner+'</div>';
+    }).join('');
+    el('panelStages').innerHTML = stageHtml;
+  } else {
+    el('secStages').style.display='none';
+  }
+}
+
+function renderFlatDiff(changes){
+  if(!changes.length) return '<div class="no-changes">No changes</div>';
+  var rows = changes.map(function(c){
+    var rowCls = c.type==='added'?'diff-add': c.type==='removed'?'diff-remove':'diff-change';
+    var old = c.type==='added' ? '<em style="color:var(--muted)">—</em>' : '<span class="diff-old">'+esc(valStr(c.oldVal))+'</span>';
+    var nw  = c.type==='removed' ? '<em style="color:var(--muted)">—</em>' : '<span class="diff-new">'+esc(valStr(c.newVal))+'</span>';
+    return '<tr class="'+rowCls+'"><td class="diff-key">'+esc(c.key)+'</td><td>'+old+'</td><td>'+nw+'</td></tr>';
+  }).join('');
+  return '<table class="diff-table"><thead><tr><th>Field / path</th><th>A (old)</th><th>B (new)</th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+
+// ---------------------------------------------------------------------------
+// Export
+// ---------------------------------------------------------------------------
+function dl(content, name, type){
+  var url = URL.createObjectURL(new Blob([content],{type:type}));
+  var a = document.createElement('a'); a.href=url; a.download=name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},800);
+}
+function ts14(){ return new Date().toISOString().replace(/[-:T]/g,'').slice(0,14); }
+
+function exportAP2(){
+  if(!lastDiff){ toast('Run the diff first', true); return; }
+  var d = lastDiff;
+  var now = new Date().toISOString();
+  var mandate = {
+    ap2_version: '1.0',
+    mandate_id: (crypto.randomUUID ? crypto.randomUUID() : 'diff-'+Date.now()),
+    issued_at: now,
+    issued_by: 'ainumbers.co',
+    tool_id: 'mandate-diff',
+    tool_version: '1.0.0',
+    // compliance_control is the closest existing enum for a diff/audit record.
+    // A dedicated 'audit_diff_mandate' type would be more precise — flagged as
+    // a candidate CONTRACT amendment (A2).
+    mandate_type: 'compliance_control',
+    jurisdiction: (d.A.jurisdiction||['ZZ']),
+    regulatory_frameworks: ['AINumbers.co Unified Build Contract v1.0'],
+    payload: {
+      mandate_a_id: d.A.mandate_id || null,
+      mandate_b_id: d.B.mandate_id || null,
+      mandate_a_tool: d.A.tool_id || null,
+      mandate_b_tool: d.B.tool_id || null,
+      top_level_changes: d.topChanges,
+      payload_changes: d.payloadChanges,
+      agent_instructions_diff: { added: d.instr.added, removed: d.instr.removed },
+      stage_diffs: d.stageResults.length ? d.stageResults : undefined,
+      has_material_changes: !!(
+        d.topChanges.length || d.payloadChanges.length ||
+        d.instr.added.length || d.instr.removed.length ||
+        d.stageResults.some(function(s){ return s.status!=='unchanged'; })
+      )
+    },
+    summary: 'Mandate diff: '+
+      (d.A.tool_id||'?')+' mandate_id '+((d.A.mandate_id||'?').slice(0,8))+'... vs '+
+      (d.B.tool_id||'?')+' mandate_id '+((d.B.mandate_id||'?').slice(0,8))+'...',
+    agent_instructions: [
+      'payload.has_material_changes:false means no substantive differences were found.',
+      'Review payload.top_level_changes for schema-level field additions or removals between versions.',
+      'payload.agent_instructions_diff.removed lists guardrails that were present in A but absent in B — investigate before adopting B.',
+      'For composite mandates, payload.stage_diffs shows per-stage payload changes matched by tool_id.'
+    ],
+    valid_from: now.slice(0,10),
+    valid_until: new Date(Date.now()+365*86400000).toISOString().slice(0,10),
+    last_reviewed: now.slice(0,10),
+    source_tool_inputs: { mandate_a_id: d.A.mandate_id||null, mandate_b_id: d.B.mandate_id||null },
+    regulatory_citations: ['ainumbers.co/tools/291-mandate-diff.html'],
+    audit_metadata: { client_side_executed:true, zero_pii_verified:true, deterministic_run:true }
+  };
+  dl(JSON.stringify(mandate,null,2), '291-mandate-diff_'+ts14()+'.policy.json', 'application/json');
+  toast('Diff Policy Mandate exported');
+  window._lastMandate = mandate;
+}
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+var MANIFEST = JSON.parse('{"tool_id":"mandate-diff","version":"1.0.0","title":"Mandate Diff","description":"Schema-aware diff between two AINumbers Policy Mandate JSON files: top-level field changes, payload deep-diff, agent_instructions deltas, and stage-level diff for composite mandates.","category":"cat-22","tags":["mandate","diff","compare","audit","ap2","policy","lifecycle"],"audience":["compliance","risk","legal","engineering"],"mcp_tool_definition":{"name":"mandate_diff","description":"Produces a schema-aware diff between two AINumbers Policy Mandate JSON objects.","inputSchema":{"type":"object","properties":{"mandate_a":{"type":"object"},"mandate_b":{"type":"object"}},"required":["mandate_a","mandate_b"]}},"execution":{"type":"browser-javascript","entry":"tools/291-mandate-diff.html","function_name":"runDiff","timeout_ms":3000},"ap2_export":true,"prefill":false,"intake":true,"bridge_version":"1.0"}');
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b&&(b.style.display==='none'||b.style.display==='')){b.style.display='block';if(a)a.textContent='▲';var c=document.getElementById('mfstCode');if(c)c.textContent=JSON.stringify(MANIFEST,null,2);}else if(b){b.style.display='none';if(a)a.textContent='▼';}}
+function copyMfst(){navigator.clipboard&&navigator.clipboard.writeText(JSON.stringify(MANIFEST,null,2));}
+</script>
+
+<!-- ainumbers-universal-chrome-i18n v1 -->
+<script>
+(function(){
+  var UC={
+    en:{'pii.banner':'🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.','footer.alltools':'All Tools','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Sitemap','footer.privacy':'🔒 Zero PII  📡 No server calls  💻 Client-side'},
+    es:{'pii.banner':'🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos.','footer.alltools':'Todas las Herramientas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contacto','footer.sitemap':'Mapa del Sitio','footer.privacy':'🔒 Sin PII  📡 Sin llamadas  💻 Cliente'},
+    fr:{'pii.banner':'🔒 Toutes les entrées sont traitées localement. Aucune donnée n'est transmise.','footer.alltools':'Tous les Outils','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Plan du Site','footer.privacy':'🔒 Aucune PII  📡 Aucun appel  💻 Côté client'},
+    ar:{'pii.banner':'🔒 جميع المدخلات تُعالج محليًا. لا تُرسَل أي بيانات.','footer.alltools':'جميع الأدوات','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'اتصل','footer.sitemap':'خريطة الموقع','footer.privacy':'🔒 لا بيانات  📡 لا اتصالات  💻 متصفح'},
+    pt:{'pii.banner':'🔒 Todas as entradas são processadas localmente. Nenhum dado é transmitido.','footer.alltools':'Todas as Ferramentas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contato','footer.sitemap':'Mapa do Site','footer.privacy':'🔒 Sem PII  📡 Sem chamadas  💻 Client-side'},
+    zh:{'pii.banner':'🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。','footer.alltools':'所有工具','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'联系','footer.sitemap':'网站地图','footer.privacy':'🔒 零个人数据  📡 无服务器调用  💻 纯客户端'}
+  };
+  function applyLang(lang){
+    var t=UC[lang]||UC.en;
+    document.querySelectorAll('[data-i18n]').forEach(function(n){var k=n.getAttribute('data-i18n');if(t[k])n.textContent=t[k];});
+  }
+  var l='en'; try{l=sessionStorage.getItem('ain_lang')||'en';}catch(e){}
+  if(l!=='en') applyLang(l);
+})();
+</script>
+
+</body>
+</html>

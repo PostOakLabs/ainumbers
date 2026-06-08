@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Policy Mandate Register · T290 · AINumbers.co</title>
+<meta name="description" content="Portfolio viewer for AINumbers Policy Mandate JSON files. Drop multiple .policy.json mandates to see a register table with expiry tracking, 30/90-day alerts, a mandate_type × jurisdiction coverage matrix, and duplicate detection. Tier 1 + CSV export. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/290-policy-register.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Policy Mandate Register","url":"https://ainumbers.co/tools/290-policy-register.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "policy-register",
+  "version": "1.0.0",
+  "title": "Policy Mandate Register",
+  "description": "Portfolio viewer for AINumbers Policy Mandate JSON files. Register table with expiry tracking, 30/90-day roll-ups, coverage matrix (mandate_type x jurisdiction), and duplicate detection via SHA-256 payload hash.",
+  "category": "cat-22",
+  "tags": ["mandate","policy","register","portfolio","expiry","compliance","ap2","audit"],
+  "audience": ["compliance","risk","legal"],
+  "mcp_tool_definition": {"name":"policy_register","description":"View and analyse a portfolio of AINumbers Policy Mandate JSON files: register table with expiry dates, coverage matrix, and duplicate detection.","inputSchema":{"type":"object","properties":{"mandates":{"type":"array","description":"Array of Policy Mandate objects"},"as_of_date":{"type":"string","description":"ISO date string (YYYY-MM-DD) to compute days-to-expiry against"}},"required":["mandates"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/290-policy-register.html","function_name":"runRegister","timeout_ms":5000},
+  "ap2_export": true,
+  "prefill": false,
+  "intake": true,
+  "bridge_version": "1.0"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1160px;margin:0 auto;padding:0 2rem}
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:300;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1160px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-name .ai{color:var(--teal)}.logo-name .co{color:var(--muted);font-size:.8rem}
+.nav-links{display:flex;align-items:center;gap:18px}
+.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);transition:color .2s}
+.nav-links a:hover{color:var(--teal-lt)}
+.hero{padding:2.5rem 0 1.5rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.22em;text-transform:uppercase;color:var(--purple);margin-bottom:.8rem}
+.hero h1{font-size:2rem;color:var(--white);margin-bottom:.6rem}
+.hero p{max-width:780px;font-size:.92rem;color:var(--body)}
+.hero-badges{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1rem}
+.hero-badge{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.3rem .7rem;border-radius:999px;border:1px solid var(--border-2);color:var(--body)}
+.hero-badge.b-purple{border-color:rgba(155,114,245,.4);color:var(--purple);background:var(--purple-dim)}
+.scope-note{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:1.2rem 0 0}
+/* intake */
+.intake{margin:2rem 0 0;display:grid;grid-template-columns:1fr 1fr;gap:1.2rem}
+@media(max-width:700px){.intake{grid-template-columns:1fr}}
+.drop-zone{border:2px dashed var(--border-2);border-radius:var(--radius-lg);background:var(--bg-2);padding:2rem 1.5rem;text-align:center;transition:border-color .2s;cursor:pointer}
+.drop-zone.drag-over{border-color:var(--purple);background:var(--purple-dim)}
+.drop-zone-icon{font-size:2rem;margin-bottom:.6rem}
+.drop-zone-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.8rem}
+.drop-zone-sub{font-size:.72rem;color:var(--muted)}
+.paste-zone{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);padding:1rem 1.25rem;display:flex;flex-direction:column;gap:.6rem}
+.paste-zone label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.paste-zone textarea{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.6rem .8rem;resize:vertical;min-height:7rem;outline:none}
+.paste-zone textarea:focus{border-color:var(--purple)}
+input[type="file"]{display:none}
+input[type="date"],input[type="text"]{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.4rem .75rem;outline:none;transition:border-color .2s}
+input[type="date"]:focus,input[type="text"]:focus{border-color:var(--teal)}
+/* controls */
+.ctl-btn{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;border-radius:var(--radius);border:1px solid var(--border-2);background:transparent;color:var(--text);transition:all .2s}
+.ctl-btn:hover{border-color:var(--teal);color:var(--teal-lt)}
+.ctl-btn.primary{background:var(--teal);border-color:var(--teal);color:var(--bg);font-weight:500}
+.ctl-btn.primary:hover{background:var(--teal-lt)}
+.ctl-btn:disabled{opacity:.35;cursor:not-allowed}
+/* register */
+.register-section{margin:2rem 0 0}
+.section-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;margin-bottom:.9rem}
+.section-head h2{font-size:1.1rem;color:var(--bright)}
+.register-empty{border:1px dashed var(--border);border-radius:var(--radius-lg);padding:2rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted)}
+.reg-table-wrap{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:auto}
+.reg-table{width:100%;border-collapse:collapse;min-width:820px}
+.reg-table th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;background:var(--bg-3)}
+.reg-table td{padding:.55rem .75rem;border-bottom:1px solid var(--border);font-size:.75rem;vertical-align:middle}
+.reg-table tr:last-child td{border-bottom:none}
+.reg-table tr:hover td{background:var(--bg-3)}
+.exp-chip{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.2rem .55rem;border-radius:999px;display:inline-block;white-space:nowrap}
+.exp-ok{color:var(--green);border:1px solid rgba(34,197,94,.4);background:var(--green-dim)}
+.exp-warn{color:var(--warn);border:1px solid rgba(245,158,11,.4);background:var(--warn-dim)}
+.exp-crit{color:var(--red);border:1px solid rgba(239,68,68,.4);background:var(--red-dim)}
+.exp-none{color:var(--muted);border:1px solid var(--border-2)}
+.dup-flag{color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.55rem}
+/* roll-up panels */
+.rollup-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin:1.5rem 0}
+@media(max-width:700px){.rollup-grid{grid-template-columns:1fr}}
+.rollup-panel{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);overflow:hidden}
+.rollup-head{padding:.65rem 1rem;background:var(--bg-3);border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.rollup-body{padding:.85rem 1rem}
+.rollup-stat{display:flex;justify-content:space-between;align-items:center;padding:.3rem 0;border-bottom:1px solid var(--border);font-size:.78rem}
+.rollup-stat:last-child{border-bottom:none}
+.rollup-stat .label{color:var(--body);font-size:.75rem}
+.rollup-stat .val{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--bright)}
+.rollup-stat .val.crit{color:var(--red)}
+.rollup-stat .val.warn{color:var(--warn)}
+/* coverage matrix */
+.matrix-wrap{overflow:auto;margin:1.5rem 0}
+.matrix-table{border-collapse:collapse;font-size:.7rem;min-width:400px}
+.matrix-table th,.matrix-table td{border:1px solid var(--border);padding:.35rem .65rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.56rem}
+.matrix-table th{background:var(--bg-3);color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+.matrix-table td.covered{background:rgba(20,184,166,.15);color:var(--teal-lt)}
+.matrix-table td.empty{color:var(--border-2)}
+.matrix-table .row-head{text-align:left;color:var(--text);background:var(--bg-2)}
+/* export */
+.export-panel{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);margin:2rem 0;padding:1.4rem 1.5rem}
+.export-panel h2{color:var(--white);font-size:1.2rem;margin-bottom:.4rem}
+.export-panel p{font-size:.8rem;color:var(--body);margin-bottom:1rem;max-width:820px}
+.export-row{display:flex;flex-wrap:wrap;gap:.6rem}
+.ctl-btn .btn-subtitle{display:block;font-size:.46rem;letter-spacing:.06em;opacity:.7;text-transform:none}
+.toast{position:fixed;bottom:1.4rem;left:50%;transform:translateX(-50%);background:var(--bg-4);border:1px solid var(--teal);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.6rem 1.1rem;border-radius:var(--radius);z-index:400;display:none}
+.toast.err{border-color:var(--red);color:var(--red)}
+footer{border-top:1px solid var(--border);padding:1.6rem 0 2.2rem;margin-top:3rem}
+.foot-inner{max-width:1160px;margin:0 auto;padding:0 2rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.foot-inner a:hover{color:var(--teal-lt)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo-name"><span class="ai">AI</span>Numbers<span class="co">.co</span></a>
+    <div class="nav-links">
+      <a href="../index.html">Tools</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../guides/tool-chains.html">Chains</a>
+      <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="hero">
+    <div class="hero-eyebrow">Mandate Lifecycle · T290 · AINumbers.co</div>
+    <h1>Policy Mandate Register</h1>
+    <p>Drop one or more exported <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal-lt)">.policy.json</code> files to build a register: expiry table with days-to-expiry computed against a reference date, 30/90-day alerts, a mandate_type&nbsp;&times;&nbsp;jurisdiction coverage matrix, and SHA-256 duplicate detection.</p>
+    <div class="hero-badges">
+      <span class="hero-badge b-purple">Mandate Lifecycle Tool</span>
+      <span class="hero-badge">Expiry Tracking</span>
+      <span class="hero-badge">Coverage Matrix</span>
+      <span class="hero-badge">Client-side · Zero PII · Zero network</span>
+    </div>
+    <div class="scope-note" data-i18n="pii.banner">&#x1F512; All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  </div>
+
+  <!-- File intake -->
+  <div class="intake">
+    <div class="drop-zone" id="dropZone" onclick="el('fileInput').click()"
+         ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+      <div class="drop-zone-icon">&#x1F4C2;</div>
+      <div class="drop-zone-label">Drop .policy.json files here</div>
+      <div class="drop-zone-sub">or click to choose — multiple files supported</div>
+      <input type="file" id="fileInput" accept=".json,.policy.json" multiple onchange="onFileInput(event)">
+    </div>
+    <div class="paste-zone">
+      <label for="pasteArea">Paste a single mandate JSON</label>
+      <textarea id="pasteArea" placeholder='{ "ap2_version": "1.0", "mandate_id": "...", ... }'></textarea>
+      <button class="ctl-btn" onclick="onPaste()">&#43; Add pasted mandate</button>
+    </div>
+  </div>
+
+  <!-- Register section -->
+  <div class="register-section">
+    <div class="section-head">
+      <h2>Register (<span id="regCount">0</span> mandates)</h2>
+      <div style="display:flex;align-items:center;gap:.8rem;flex-wrap:wrap">
+        <label style="font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">
+          As&nbsp;of&nbsp;date
+          <input type="date" id="asOfDate" style="margin-left:.5rem" oninput="refreshRegister()">
+        </label>
+        <button class="ctl-btn" id="clearBtn" onclick="clearAll()" disabled>&#215; Clear all</button>
+        <button class="ctl-btn primary" id="buildBtn" onclick="buildRegister()" disabled>&#x25B6; Build register</button>
+      </div>
+    </div>
+    <div class="register-empty" id="regEmpty">No mandates loaded. Drop .policy.json files or paste above, then click Build register.</div>
+    <div id="regOutput" style="display:none">
+      <!-- Summary chips -->
+      <div id="sumChips" style="display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem"></div>
+      <!-- Register table -->
+      <div class="reg-table-wrap" id="regTableWrap"></div>
+      <!-- Roll-up panels -->
+      <div class="rollup-grid" id="rollupGrid"></div>
+      <!-- Coverage matrix -->
+      <div id="matrixSection"></div>
+    </div>
+  </div>
+
+  <!-- Export -->
+  <div class="export-panel" id="exportPanel" style="display:none">
+    <h2>Export</h2>
+    <p>Tier 1: Policy Mandate JSON whose payload carries the register snapshot. Tier 2: CSV register table.</p>
+    <div class="export-row">
+      <button class="ctl-btn primary" id="ap2ExportBtn" onclick="exportAP2()">{} Export Policy Mandate<span class="btn-subtitle">Tier 1 · register snapshot</span></button>
+      <button class="ctl-btn" id="csvExportBtn" onclick="exportCSV()">&#x1F4CA; Export CSV register<span class="btn-subtitle">Tier 2 · spreadsheet-ready</span></button>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <span>&#xA9; 2026 Post Oak Labs &middot; CC BY 4.0</span>
+    <a href="../sitemap.html">All Tools</a>
+    <a href="../guides/tool-chains.html">Chains</a>
+    <a href="../llms.txt">llms.txt</a>
+  </div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* Policy Mandate Register v1.0 -- T290
+   Multi-file intake, expiry tracking, coverage matrix, duplicate detection.
+   Architecture #1. frame-src none. Zero network. Zero storage. */
+
+var mandates = [];   // { obj, source, hash }
+var regRows  = [];   // built register rows (after buildRegister)
+
+function el(id){ return document.getElementById(id); }
+function toast(msg, err){
+  var t = el('toast'); t.textContent = msg;
+  t.className = 'toast'+(err?' err':''); t.style.display='block';
+  clearTimeout(t._h); t._h=setTimeout(function(){t.style.display='none';},3200);
+}
+
+// ---------------------------------------------------------------------------
+// File intake
+// ---------------------------------------------------------------------------
+function onDragOver(e){ e.preventDefault(); el('dropZone').classList.add('drag-over'); }
+function onDragLeave(e){ el('dropZone').classList.remove('drag-over'); }
+function onDrop(e){
+  e.preventDefault(); el('dropZone').classList.remove('drag-over');
+  loadFiles(Array.from(e.dataTransfer.files));
+}
+function onFileInput(e){ loadFiles(Array.from(e.target.files)); e.target.value=''; }
+function onPaste(){
+  var txt = el('pasteArea').value.trim();
+  if(!txt){ toast('Paste a JSON mandate first', true); return; }
+  parseMandates([{ text:txt, source:'pasted' }]);
+  el('pasteArea').value = '';
+}
+
+function loadFiles(files){
+  var tasks = files.filter(function(f){ return /\.json$/i.test(f.name); }).map(function(f){
+    return new Promise(function(res){
+      var r = new FileReader();
+      r.onload = function(e){ res({ text:e.target.result, source:f.name }); };
+      r.readAsText(f);
+    });
+  });
+  Promise.all(tasks).then(parseMandates);
+}
+
+function parseMandates(items){
+  var added = 0, errors = 0;
+  items.forEach(function(item){
+    try {
+      var obj = JSON.parse(item.text);
+      var arr = Array.isArray(obj) ? obj : [obj];
+      arr.forEach(function(m){
+        if(!m || typeof m !== 'object' || !m.mandate_id){ errors++; return; }
+        mandates.push({ obj:m, source:item.source, hash:null }); // hash filled async
+        added++;
+      });
+    } catch(e){ errors++; }
+  });
+  if(errors) toast(errors+' item(s) could not be parsed as mandate JSON', true);
+  if(added){
+    toast(added+' mandate(s) added');
+    // compute hashes async
+    mandates.forEach(function(m){
+      if(m.hash===null) hashPayload(m.obj.payload||m.obj).then(function(h){ m.hash=h; });
+    });
+    el('regCount').textContent = mandates.length;
+    el('clearBtn').disabled = false;
+    el('buildBtn').disabled = false;
+    el('regEmpty').style.display = 'none';
+    // set as-of date default = today if empty
+    if(!el('asOfDate').value) el('asOfDate').value = new Date().toISOString().slice(0,10);
+  }
+}
+
+function clearAll(){
+  mandates = []; regRows = [];
+  el('regCount').textContent = '0';
+  el('clearBtn').disabled = true; el('buildBtn').disabled = true;
+  el('regOutput').style.display = 'none'; el('exportPanel').style.display = 'none';
+  el('regEmpty').style.display = '';
+}
+
+// ---------------------------------------------------------------------------
+// Hashing (for duplicate detection)
+// ---------------------------------------------------------------------------
+function stableStringify(obj){
+  if(obj===null||typeof obj!=='object'||Array.isArray(obj)) return JSON.stringify(obj);
+  var keys = Object.keys(obj).sort();
+  return '{'+keys.map(function(k){ return JSON.stringify(k)+':'+stableStringify(obj[k]); }).join(',')+'}';
+}
+async function hashPayload(payload){
+  try {
+    var enc = new TextEncoder().encode(stableStringify(payload));
+    var buf = await crypto.subtle.digest('SHA-256', enc);
+    return Array.from(new Uint8Array(buf)).map(function(b){ return ('00'+b.toString(16)).slice(-2); }).join('');
+  } catch(e){ return null; }
+}
+
+// ---------------------------------------------------------------------------
+// Build register
+// ---------------------------------------------------------------------------
+function buildRegister(){
+  if(!mandates.length){ toast('Load mandates first', true); return; }
+  var asOf = el('asOfDate').value;
+  if(!asOf){ toast('Enter an as-of date first', true); return; }
+  var asOfMs = new Date(asOf).getTime();
+
+  // Build rows
+  // First collect hashes synchronously (may be null if still computing)
+  var hashMap = {}; // hash -> [indices] for duplicate detection
+  mandates.forEach(function(m, i){
+    if(m.hash){ hashMap[m.hash] = hashMap[m.hash] || []; hashMap[m.hash].push(i); }
+  });
+
+  regRows = mandates.map(function(m, i){
+    var obj = m.obj;
+    var validUntil = obj.valid_until;
+    var daysToExp = null;
+    var expClass = 'exp-none';
+    if(validUntil){
+      var expMs = new Date(validUntil).getTime();
+      daysToExp = Math.round((expMs - asOfMs) / 86400000);
+      if(daysToExp < 0) expClass = 'exp-crit';
+      else if(daysToExp <= 30) expClass = 'exp-crit';
+      else if(daysToExp <= 90) expClass = 'exp-warn';
+      else expClass = 'exp-ok';
+    }
+    var isDup = m.hash && hashMap[m.hash] && hashMap[m.hash].length > 1 &&
+                hashMap[m.hash].indexOf(i) > 0;
+    var juris = Array.isArray(obj.jurisdiction) ? obj.jurisdiction.join(', ') : (obj.jurisdiction || '—');
+    var regs  = Array.isArray(obj.regulatory_frameworks) ? obj.regulatory_frameworks.join('; ') : '—';
+    return {
+      idx: i+1,
+      source: m.source || '—',
+      mandate_id: obj.mandate_id || '—',
+      tool_id: obj.tool_id || '—',
+      mandate_type: obj.mandate_type || '—',
+      jurisdiction: juris,
+      issued_at: (obj.issued_at || '—').slice(0,10),
+      valid_until: validUntil || '—',
+      days_to_expiry: daysToExp,
+      exp_class: expClass,
+      regulatory_frameworks: regs,
+      is_duplicate: isDup,
+      hash: m.hash
+    };
+  });
+
+  renderRegister(asOf);
+}
+
+function refreshRegister(){ if(regRows.length) buildRegister(); }
+
+function renderRegister(asOf){
+  el('regOutput').style.display = '';
+  el('exportPanel').style.display = '';
+
+  // Summary chips
+  var total = regRows.length;
+  var expired = regRows.filter(function(r){ return r.days_to_expiry !== null && r.days_to_expiry < 0; }).length;
+  var crit30  = regRows.filter(function(r){ return r.days_to_expiry !== null && r.days_to_expiry >= 0 && r.days_to_expiry <= 30; }).length;
+  var warn90  = regRows.filter(function(r){ return r.days_to_expiry !== null && r.days_to_expiry > 30 && r.days_to_expiry <= 90; }).length;
+  var dups    = regRows.filter(function(r){ return r.is_duplicate; }).length;
+  var chips = el('sumChips');
+  chips.innerHTML = [
+    '<span class="hero-badge">'+total+' mandates</span>',
+    expired ? '<span class="hero-badge" style="border-color:rgba(239,68,68,.4);color:var(--red);background:var(--red-dim)">'+expired+' expired</span>' : '',
+    crit30  ? '<span class="hero-badge" style="border-color:rgba(239,68,68,.4);color:var(--red);background:var(--red-dim)">'+crit30+' expiring &le; 30d</span>' : '',
+    warn90  ? '<span class="hero-badge" style="border-color:rgba(245,158,11,.4);color:var(--warn);background:var(--warn-dim)">'+warn90+' expiring &le; 90d</span>' : '',
+    dups    ? '<span class="hero-badge" style="border-color:rgba(245,158,11,.4);color:var(--warn);background:var(--warn-dim)">'+dups+' duplicate payloads</span>' : ''
+  ].filter(Boolean).join('');
+
+  // Register table
+  var rows = regRows.map(function(r){
+    var expLabel = r.days_to_expiry === null ? '—' :
+      r.days_to_expiry < 0 ? 'Expired '+Math.abs(r.days_to_expiry)+'d ago' :
+      r.days_to_expiry === 0 ? 'Expires today' :
+      'in '+r.days_to_expiry+'d';
+    return '<tr>'+
+      '<td style="color:var(--muted);font-family:\'JetBrains Mono\',monospace;font-size:.6rem">'+r.idx+'</td>'+
+      '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--body);font-size:.72rem" title="'+esc(r.source)+'">'+esc(r.source)+'</td>'+
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.62rem;color:var(--teal-lt);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.tool_id)+'">'+esc(r.tool_id)+'</td>'+
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.62rem">'+esc(r.mandate_type)+'</td>'+
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.62rem">'+esc(r.jurisdiction)+'</td>'+
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.62rem">'+esc(r.issued_at)+'</td>'+
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.62rem">'+esc(r.valid_until)+'</td>'+
+      '<td><span class="exp-chip '+r.exp_class+'">'+esc(expLabel)+'</span>'+(r.is_duplicate?' <span class="dup-flag" title="Same payload hash as another mandate">&#x26A0; dup</span>':'')+'</td>'+
+      '</tr>';
+  }).join('');
+  el('regTableWrap').innerHTML =
+    '<table class="reg-table"><thead><tr>'+
+    '<th>#</th><th>Source</th><th>tool_id</th><th>mandate_type</th><th>Jurisdiction</th>'+
+    '<th>Issued</th><th>Valid until</th><th>Days to expiry (as of '+esc(asOf)+')</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table>';
+
+  // Roll-up panels
+  var types = {};
+  regRows.forEach(function(r){
+    var t = r.mandate_type; types[t] = (types[t]||0)+1;
+  });
+  var typeRows = Object.keys(types).sort().map(function(t){
+    return '<div class="rollup-stat"><span class="label">'+esc(t)+'</span><span class="val">'+types[t]+'</span></div>';
+  }).join('');
+
+  var expRows =
+    '<div class="rollup-stat"><span class="label">Expired</span><span class="val crit">'+expired+'</span></div>'+
+    '<div class="rollup-stat"><span class="label">Expiring &le; 30 days</span><span class="val '+(crit30?'crit':'')+'">'+crit30+'</span></div>'+
+    '<div class="rollup-stat"><span class="label">Expiring &le; 90 days</span><span class="val '+(warn90?'warn':'')+'">'+warn90+'</span></div>'+
+    '<div class="rollup-stat"><span class="label">Valid beyond 90 days</span><span class="val">'+
+      regRows.filter(function(r){ return r.days_to_expiry !== null && r.days_to_expiry > 90; }).length+
+    '</span></div>'+
+    '<div class="rollup-stat"><span class="label">No expiry set</span><span class="val">'+
+      regRows.filter(function(r){ return r.days_to_expiry === null; }).length+
+    '</span></div>'+
+    (dups?'<div class="rollup-stat"><span class="label">Duplicate payloads</span><span class="val warn">'+dups+'</span></div>':'');
+
+  el('rollupGrid').innerHTML =
+    '<div class="rollup-panel"><div class="rollup-head">By mandate_type</div><div class="rollup-body">'+typeRows+'</div></div>'+
+    '<div class="rollup-panel"><div class="rollup-head">Expiry status (as of '+esc(asOf)+')</div><div class="rollup-body">'+expRows+'</div></div>';
+
+  // Coverage matrix: mandate_type rows × jurisdiction cols
+  var allTypes = Object.keys(types).sort();
+  var jurisSet = {};
+  regRows.forEach(function(r){
+    r.jurisdiction.split(',').forEach(function(j){ var jt = j.trim(); if(jt) jurisSet[jt]=true; });
+  });
+  var allJuris = Object.keys(jurisSet).sort();
+  var covered = {};
+  regRows.forEach(function(r){
+    r.jurisdiction.split(',').forEach(function(j){
+      var jt = j.trim();
+      if(jt){ var key = r.mandate_type+'|'+jt; covered[key]=(covered[key]||0)+1; }
+    });
+  });
+  var matrixRows = allTypes.map(function(t){
+    return '<tr><td class="matrix-table row-head">'+esc(t)+'</td>'+
+      allJuris.map(function(j){
+        var n = covered[t+'|'+j]||0;
+        return n ? '<td class="covered">'+n+'</td>' : '<td class="empty">&#x2014;</td>';
+      }).join('')+'</tr>';
+  }).join('');
+  el('matrixSection').innerHTML = allTypes.length && allJuris.length ?
+    '<h3 style="color:var(--bright);font-size:.95rem;margin:.6rem 0 .5rem">Coverage matrix</h3>'+
+    '<div class="matrix-wrap"><table class="matrix-table">'+
+    '<thead><tr><th>mandate_type \\ jurisdiction</th>'+allJuris.map(function(j){ return '<th>'+esc(j)+'</th>'; }).join('')+'</tr></thead>'+
+    '<tbody>'+matrixRows+'</tbody></table></div>' : '';
+}
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ---------------------------------------------------------------------------
+// Export
+// ---------------------------------------------------------------------------
+function dl(content, name, type){
+  var url = URL.createObjectURL(new Blob([content],{type:type}));
+  var a = document.createElement('a'); a.href=url; a.download=name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},800);
+}
+function ts14(){ return new Date().toISOString().replace(/[-:T]/g,'').slice(0,14); }
+
+function exportAP2(){
+  if(!regRows.length){ toast('Build the register first', true); return; }
+  var now = new Date().toISOString();
+  var asOf = el('asOfDate').value || now.slice(0,10);
+  var mandate = {
+    ap2_version: '1.0',
+    mandate_id: (crypto.randomUUID ? crypto.randomUUID() : 'reg-'+Date.now()),
+    issued_at: now,
+    issued_by: 'ainumbers.co',
+    tool_id: 'policy-register',
+    tool_version: '1.0.0',
+    mandate_type: 'compliance_control',
+    jurisdiction: ['ZZ'],
+    regulatory_frameworks: ['AINumbers.co Unified Build Contract v1.0'],
+    payload: {
+      as_of_date: asOf,
+      total_mandates: regRows.length,
+      register: regRows.map(function(r){
+        return { tool_id:r.tool_id, mandate_type:r.mandate_type, jurisdiction:r.jurisdiction,
+          issued_at:r.issued_at, valid_until:r.valid_until,
+          days_to_expiry:r.days_to_expiry, is_duplicate:r.is_duplicate };
+      })
+    },
+    summary: 'Policy Mandate Register snapshot — '+regRows.length+' mandates as of '+asOf,
+    agent_instructions: [
+      'Review any mandate with days_to_expiry <= 30 for immediate renewal.',
+      'Investigate mandates flagged is_duplicate:true — same payload hash indicates no substantive change since last export.',
+      'Use the coverage matrix to identify mandate_type/jurisdiction gaps before deploying new agentic flows.'
+    ],
+    valid_from: asOf,
+    valid_until: new Date(Date.now()+90*86400000).toISOString().slice(0,10),
+    last_reviewed: asOf,
+    source_tool_inputs: { mandate_ids: regRows.map(function(r){ return mandates[r.idx-1].obj.mandate_id||null; }) },
+    regulatory_citations: ['ainumbers.co/tools/290-policy-register.html'],
+    audit_metadata: { client_side_executed:true, zero_pii_verified:true, deterministic_run:true }
+  };
+  dl(JSON.stringify(mandate,null,2), '290-policy-register_'+ts14()+'.policy.json', 'application/json');
+  toast('Policy Mandate exported');
+  window._lastMandate = mandate;
+}
+
+function exportCSV(){
+  if(!regRows.length){ toast('Build the register first', true); return; }
+  var asOf = el('asOfDate').value || '';
+  var header = ['#','source','tool_id','mandate_type','jurisdiction','issued_at','valid_until','days_to_expiry (as_of '+asOf+')','is_duplicate'];
+  var rows = regRows.map(function(r){
+    return [r.idx, r.source, r.tool_id, r.mandate_type, r.jurisdiction, r.issued_at, r.valid_until,
+      r.days_to_expiry === null ? '' : r.days_to_expiry, r.is_duplicate ? 'TRUE' : 'FALSE'];
+  });
+  var csv = [header].concat(rows).map(function(row){
+    return row.map(function(cell){ var s=String(cell||''); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }).join(',');
+  }).join('\n');
+  dl(csv, '290-policy-register_'+ts14()+'.csv', 'text/csv');
+  toast('CSV register exported');
+}
+</script>
+
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+var MANIFEST = JSON.parse('{"tool_id":"policy-register","version":"1.0.0","title":"Policy Mandate Register","description":"Portfolio viewer for AINumbers Policy Mandate JSON files. Register table with expiry tracking, 30/90-day roll-ups, coverage matrix (mandate_type x jurisdiction), and duplicate detection via SHA-256 payload hash.","category":"cat-22","tags":["mandate","policy","register","portfolio","expiry","compliance","ap2","audit"],"audience":["compliance","risk","legal"],"mcp_tool_definition":{"name":"policy_register","description":"View and analyse a portfolio of AINumbers Policy Mandate JSON files.","inputSchema":{"type":"object","properties":{"mandates":{"type":"array"},"as_of_date":{"type":"string"}},"required":["mandates"]}},"execution":{"type":"browser-javascript","entry":"tools/290-policy-register.html","function_name":"runRegister","timeout_ms":5000},"ap2_export":true,"prefill":false,"intake":true,"bridge_version":"1.0"}');
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b&&(b.style.display==='none'||b.style.display==='')){b.style.display='block';if(a)a.textContent='▲';var c=document.getElementById('mfstCode');if(c)c.textContent=JSON.stringify(MANIFEST,null,2);}else if(b){b.style.display='none';if(a)a.textContent='▼';}}
+function copyMfst(){navigator.clipboard&&navigator.clipboard.writeText(JSON.stringify(MANIFEST,null,2));}
+</script>
+
+<!-- ainumbers-universal-chrome-i18n v1 -->
+<script>
+(function(){
+  var UC={
+    en:{'pii.banner':'🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.','footer.alltools':'All Tools','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Sitemap','footer.privacy':'🔒 Zero PII  📡 No server calls  💻 Client-side'},
+    es:{'pii.banner':'🔒 Todas las entradas se procesan localmente en su navegador. No se transmiten datos. No introduzca datos personales reales.','footer.alltools':'Todas las Herramientas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contacto','footer.sitemap':'Mapa del Sitio','footer.privacy':'🔒 Sin PII  📡 Sin llamadas al servidor  💻 Cliente'},
+    fr:{'pii.banner':'🔒 Toutes les entrées sont traitées localement. Aucune donnée n’est transmise. N’entrez pas de données personnelles réelles.','footer.alltools':'Tous les Outils','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contact','footer.sitemap':'Plan du Site','footer.privacy':'🔒 Aucune PII  📡 Aucun appel serveur  💻 Côté client'},
+    ar:{'pii.banner':'🔒 جميع المدخلات تُعالج محليًا. لا تُرسَل أي بيانات.','footer.alltools':'جميع الأدوات','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'اتصل','footer.sitemap':'خريطة الموقع','footer.privacy':'🔒 لا بيانات شخصية  📡 لا اتصالات بالخادم  💻 على المتصفح'},
+    pt:{'pii.banner':'🔒 Todas as entradas são processadas localmente. Nenhum dado é transmitido. Não insira dados pessoais reais.','footer.alltools':'Todas as Ferramentas','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'Contato','footer.sitemap':'Mapa do Site','footer.privacy':'🔒 Sem PII  📡 Sem chamadas ao servidor  💻 Client-side'},
+    zh:{'pii.banner':'🔒 所有输入均在您的浏览器中本地处理。不传输任何数据。请勿输入真实个人数据。','footer.alltools':'所有工具','footer.cc':'CC BY 4.0 · Post Oak Labs','footer.contact':'联系','footer.sitemap':'网站地图','footer.privacy':'🔒 零个人数据  📡 无服务器调用  💻 纯客户端'}
+  };
+  function applyLang(lang){
+    var t=UC[lang]||UC.en;
+    document.querySelectorAll('[data-i18n]').forEach(function(n){var k=n.getAttribute('data-i18n');if(t[k])n.textContent=t[k];});
+  }
+  var l='en'; try{l=sessionStorage.getItem('ain_lang')||'en';}catch(e){}
+  if(l!=='en') applyLang(l);
+})();
+</script>
+
+</body>
+</html>
