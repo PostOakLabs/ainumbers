@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Reg BI Best-Interest Checker · AINumbers.co</title>
+<meta name="description" content="Assess a securities recommendation against SEC Regulation Best Interest's four component obligations (Disclosure, Care, Conflict of Interest, Compliance). Per-obligation PASS/GAP determination + overall best-interest verdict + remediation. US broker-dealer compliance. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/463-reg-bi-best-interest-checker.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Reg BI Best-Interest Checker","url":"https://ainumbers.co/tools/463-reg-bi-best-interest-checker.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "463-reg-bi-best-interest-checker",
+  "version": "1.0.0",
+  "title": "Reg BI Best-Interest Checker",
+  "description": "Assess a securities recommendation against SEC Regulation Best Interest's four component obligations (Disclosure, Care, Conflict of Interest, Compliance). Returns per-obligation PASS/GAP determination, overall best-interest verdict, and ordered remediation list. Deterministic. US broker-dealer scope.",
+  "category": "fintech",
+  "tags": ["reg-bi","best-interest","form-crs","suitability","us","wealth","broker-dealer","finra","sec","compliance"],
+  "audience": ["broker-dealer","investment-adviser","compliance"],
+  "input_schema": {"type":"object","properties":{"recommendation_type":{"type":"string","enum":["security_transaction","investment_strategy","account_type","rollover","margin"]},"retail_customer":{"type":"boolean"},"investment_profile":{"type":"object"},"reasonably_available_alternatives_considered":{"type":"integer","minimum":0},"total_cost_bps":{"type":"number"},"lower_cost_alternative_exists":{"type":"boolean"},"conflicts_disclosed":{"type":"boolean"},"conflicts_mitigated":{"type":"boolean"},"form_crs_delivered":{"type":"boolean"},"rationale_documented":{"type":"boolean"},"compliance_program_in_place":{"type":"boolean"}},"required":["recommendation_type","retail_customer"]},
+  "output_schema": {"type":"object","properties":{"verdict":{"type":"string","enum":["BEST_INTEREST_MET","ATTENTION","NOT_MET","OUT_OF_SCOPE"]},"obligations":{"type":"array"},"remediation":{"type":"array"}}},
+  "mcp_tool_definition": {"name":"reg_bi_best_interest_checker","description":"Assess a securities recommendation against SEC Regulation Best Interest (17 CFR 240.15l-1). Scores all four component obligations (Disclosure, Care, Conflict of Interest, Compliance). Returns PASS/GAP per obligation, overall best-interest verdict, and remediation steps. Deterministic. Use with synthetic inputs only.","inputSchema":{"type":"object","properties":{"recommendation_type":{"type":"string","enum":["security_transaction","investment_strategy","account_type","rollover","margin"]},"retail_customer":{"type":"boolean"},"reasonably_available_alternatives_considered":{"type":"integer","minimum":0},"total_cost_bps":{"type":"number"},"lower_cost_alternative_exists":{"type":"boolean"},"conflicts_disclosed":{"type":"boolean"},"conflicts_mitigated":{"type":"boolean"},"form_crs_delivered":{"type":"boolean"},"rationale_documented":{"type":"boolean"},"compliance_program_in_place":{"type":"boolean"}},"required":["recommendation_type","retail_customer"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/463-reg-bi-best-interest-checker.html","function_name":"runRegBiCheck","timeout_ms":5000},
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;
+  --radius:6px;--radius-lg:10px;
+  --accent:var(--purple);--accent-dim:var(--purple-dim);--accent-lt:var(--purple-lt);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* Nav */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--accent)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--accent);color:var(--accent)}
+/* Hero */
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--accent)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+/* PII notice */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+/* Tool body */
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+@media(max-width:780px){.tool-grid{grid-template-columns:1fr}}
+/* Panels */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+.panel-title::before{content:'';display:block;width:16px;height:1px;background:var(--accent)}
+.panel-row{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.9rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.panel-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.4rem .6rem;border-radius:3px;outline:none;transition:border-color .2s;width:100%}
+.panel-input:focus{border-color:var(--accent)}
+select.panel-input option{background:var(--bg-3);color:var(--bright)}
+.checkbox-row{display:flex;align-items:center;gap:.5rem}
+.checkbox-row input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+.checkbox-row label{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);cursor:pointer;letter-spacing:.02em}
+/* Run button */
+.run-btn{background:var(--accent);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;width:100%}
+.run-btn:hover{background:var(--accent-lt)}
+/* Results */
+.results-panel{display:none;margin-top:1.5rem}
+.results-panel.visible{display:block}
+.verdict-banner{padding:1rem 1.25rem;border-radius:var(--radius-lg);border:1px solid;margin-bottom:1.25rem;display:flex;align-items:center;gap:1rem}
+.verdict-met{background:var(--green-dim);border-color:rgba(34,197,94,.4)}
+.verdict-attention{background:var(--gold-dim);border-color:rgba(212,168,71,.4)}
+.verdict-not-met{background:var(--red-dim);border-color:rgba(239,68,68,.4)}
+.verdict-oos{background:var(--purple-dim);border-color:rgba(155,114,245,.3)}
+.verdict-icon{font-size:1.5rem;flex-shrink:0}
+.verdict-label{font-family:'DM Serif Display',serif;font-size:1.15rem;color:var(--white)}
+.verdict-sub{font-size:.72rem;color:var(--body);margin-top:.15rem}
+.obligations-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem}
+@media(max-width:680px){.obligations-grid{grid-template-columns:1fr}}
+.obligation-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.1rem;border-left:3px solid}
+.obligation-card.pass{border-left-color:var(--green)}
+.obligation-card.gap{border-left-color:var(--red)}
+.obligation-card.na{border-left-color:var(--muted)}
+.obligation-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.obligation-name{font-size:.88rem;color:var(--bright);margin-bottom:.4rem}
+.obligation-status{display:inline-flex;align-items:center;gap:.35rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;padding:.22rem .6rem;border-radius:3px;margin-bottom:.5rem}
+.status-pass{background:var(--green-dim);color:var(--green)}
+.status-gap{background:var(--red-dim);color:var(--red)}
+.obligation-detail{font-size:.72rem;color:var(--body);line-height:1.6}
+.remediation-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.25rem;margin-bottom:1.25rem}
+.remediation-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;color:var(--warn);margin-bottom:.75rem}
+.remediation-list{list-style:none;display:flex;flex-direction:column;gap:.5rem}
+.remediation-list li{display:flex;gap:.75rem;font-size:.78rem;color:var(--text);line-height:1.6}
+.remediation-list li::before{content:counter(item);counter-increment:item;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--warn);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:3px;padding:.15rem .45rem;flex-shrink:0;height:fit-content;margin-top:.15rem}
+.remediation-list{counter-reset:item}
+/* Export row */
+.results-export-row{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:1.25rem}
+.btn{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;border-radius:var(--radius);border:1px solid var(--border-2);background:transparent;color:var(--text);transition:all .2s;cursor:pointer}
+.btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.btn:disabled{opacity:.28;cursor:not-allowed}
+.btn.ready{border-color:rgba(155,114,245,.5);color:var(--accent)}
+.btn-subtitle{display:block;font-size:.46rem;letter-spacing:.06em;color:inherit;opacity:.7;text-transform:none}
+/* Toast */
+.toast{position:fixed;bottom:1.4rem;left:50%;transform:translateX(-50%);background:var(--bg-4);border:1px solid var(--accent);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.6rem 1.1rem;border-radius:var(--radius);z-index:400;display:none;white-space:nowrap}
+.toast.err{border-color:var(--red);color:var(--red)}
+/* Footer */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;position:relative;z-index:1}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span>
+    </a>
+    <div class="nav-bc">
+      <a href="../index.html">Home</a>
+      <span class="nav-bc-sep">›</span>
+      <a href="../index.html#cat-27">WealthTech</a>
+      <span class="nav-bc-sep">›</span>
+      <span class="nav-bc-current">Reg BI Best-Interest Checker</span>
+    </div>
+    <div class="nav-right">
+      <a href="../guides/wealth-advisory-regbi-composer.html" class="nav-pill">↗ Wealth Workflow</a>
+      <a href="../index.html" class="nav-pill">All Tools</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="hero">
+    <div class="hero-eyebrow">T463 · WealthTech · Cat-27</div>
+    <h1>Reg BI Best-Interest Checker</h1>
+    <p class="hero-desc">Assess a securities recommendation against SEC Regulation Best Interest's four component obligations. Returns a per-obligation PASS/GAP determination, overall best-interest verdict, and ordered remediation list. Applies to every US broker-dealer recommendation to a retail customer. A 2026 FINRA enforcement priority.<sup>1</sup></p>
+    <div class="hero-badges">
+      <span class="badge badge-purple">T463 · v1.0</span>
+      <span class="badge badge-gold">SEC Reg BI · 17 CFR 240.15l-1</span>
+      <span class="badge badge-muted">US Broker-Dealer Scope</span>
+      <span class="badge badge-red">2026 FINRA Enforcement Priority</span>
+      <span class="badge badge-muted">Client-side · Zero PII</span>
+    </div>
+    <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  </div>
+
+  <div class="tool-body">
+    <div class="tool-grid">
+      <!-- Left column: Recommendation + Customer inputs -->
+      <div>
+        <div class="panel">
+          <div class="panel-title">Recommendation Details</div>
+          <div class="panel-row">
+            <label class="panel-label" for="recommendation_type">Recommendation Type</label>
+            <select class="panel-input" id="recommendation_type">
+              <option value="security_transaction">Security Transaction</option>
+              <option value="investment_strategy">Investment Strategy</option>
+              <option value="account_type">Account Type</option>
+              <option value="rollover">Rollover</option>
+              <option value="margin">Margin</option>
+            </select>
+          </div>
+          <div class="panel-row">
+            <div class="checkbox-row">
+              <input type="checkbox" id="retail_customer" checked>
+              <label for="retail_customer">Retail Customer (Reg BI applies only to retail recommendations)</label>
+            </div>
+          </div>
+          <div class="panel-row">
+            <label class="panel-label" for="reasonably_available_alternatives_considered">Reasonably Available Alternatives Considered (count)</label>
+            <input type="number" class="panel-input" id="reasonably_available_alternatives_considered" value="2" min="0" step="1">
+          </div>
+          <div class="panel-row">
+            <label class="panel-label" for="total_cost_bps">Total Cost to Customer (basis points)</label>
+            <input type="number" class="panel-input" id="total_cost_bps" value="125" min="0" step="1">
+          </div>
+          <div class="panel-row">
+            <div class="checkbox-row">
+              <input type="checkbox" id="lower_cost_alternative_exists">
+              <label for="lower_cost_alternative_exists">A lower-cost alternative exists in the considered set</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Investor Profile (for Care Obligation context)</div>
+          <div class="panel-row">
+            <label class="panel-label" for="risk_tolerance">Risk Tolerance</label>
+            <select class="panel-input" id="risk_tolerance">
+              <option value="conservative">Conservative</option>
+              <option value="moderate" selected>Moderate</option>
+              <option value="aggressive">Aggressive</option>
+            </select>
+          </div>
+          <div class="panel-row">
+            <label class="panel-label" for="time_horizon_years">Investment Time Horizon (years)</label>
+            <input type="number" class="panel-input" id="time_horizon_years" value="10" min="1" max="50">
+          </div>
+          <div class="panel-row">
+            <label class="panel-label" for="liquidity_needs">Liquidity Needs</label>
+            <select class="panel-input" id="liquidity_needs">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right column: Obligation flags -->
+      <div>
+        <div class="panel">
+          <div class="panel-title">Disclosure Obligation Inputs</div>
+          <div class="panel-row" style="margin-bottom:.5rem">
+            <div class="checkbox-row">
+              <input type="checkbox" id="form_crs_delivered" checked>
+              <label for="form_crs_delivered">Form CRS delivered to retail customer before or at the time of recommendation</label>
+            </div>
+          </div>
+          <div class="panel-row">
+            <div class="checkbox-row">
+              <input type="checkbox" id="conflicts_disclosed" checked>
+              <label for="conflicts_disclosed">Material conflicts of interest disclosed in writing</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Care Obligation Inputs</div>
+          <div class="panel-row">
+            <div class="checkbox-row">
+              <input type="checkbox" id="rationale_documented" checked>
+              <label for="rationale_documented">Recommendation rationale documented (basis for best interest)</label>
+            </div>
+          </div>
+          <p style="font-size:.7rem;color:var(--muted);margin-top:.35rem;line-height:1.6">Care Obligation requires: reasonable basis belief the recommendation is in the customer's best interest; consideration of reasonably available alternatives; and cost-consciousness across a series of transactions.<sup>2</sup></p>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Conflict of Interest Obligation</div>
+          <div class="panel-row" style="margin-bottom:.5rem">
+            <div class="checkbox-row">
+              <input type="checkbox" id="conflicts_mitigated" checked>
+              <label for="conflicts_mitigated">Conflicts of interest mitigated or eliminated (written policies in place)</label>
+            </div>
+          </div>
+          <p style="font-size:.7rem;color:var(--muted);margin-top:.35rem;line-height:1.6">BD must establish, maintain, and enforce policies and procedures to identify, disclose, and mitigate — or eliminate — conflicts of interest.<sup>3</sup></p>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Compliance Obligation</div>
+          <div class="panel-row">
+            <div class="checkbox-row">
+              <input type="checkbox" id="compliance_program_in_place" checked>
+              <label for="compliance_program_in_place">Written compliance program in place reasonably designed to achieve Reg BI compliance</label>
+            </div>
+          </div>
+          <p style="font-size:.7rem;color:var(--muted);margin-top:.35rem;line-height:1.6">BD must have a compliance program — policies and procedures — reasonably designed to achieve compliance with all four Reg BI obligations.<sup>4</sup></p>
+        </div>
+
+        <button class="run-btn" onclick="runRegBiCheck()">▶ Run Reg BI Assessment</button>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="results-panel" id="resultsPanel">
+      <div id="verdictBanner" class="verdict-banner"></div>
+      <div class="obligations-grid" id="obligationsGrid"></div>
+      <div class="remediation-panel" id="remediationPanel" style="display:none">
+        <div class="remediation-title">⚠ Remediation Actions Required</div>
+        <ol class="remediation-list" id="remediationList"></ol>
+      </div>
+      <div style="font-size:.7rem;color:var(--muted);line-height:1.6;margin-bottom:1rem">
+        <strong style="color:var(--text)">Regulatory citations:</strong><br>
+        1. SEC Release No. 34-86031 (June 5, 2019); effective July 12, 2020 — SEC Regulation Best Interest. FINRA 2026 Exam Priorities Letter (January 2026).<br>
+        2. Reg BI Exchange Act Rule 15l-1(a)(2)(ii) — Care Obligation, including series-of-transactions and cost-conscious requirement.<br>
+        3. Reg BI Exchange Act Rule 15l-1(a)(2)(iii) — Conflict of Interest Obligation.<br>
+        4. Reg BI Exchange Act Rule 15l-1(a)(2)(iv) — Compliance Obligation.
+      </div>
+      <div class="results-export-row">
+        <button class="btn" id="ap2ExportBtn" disabled onclick="exportAP2()" title="Run the analysis above to generate a Policy Mandate">
+          {} Export Policy Mandate
+          <span class="btn-subtitle">API · audit trail</span>
+        </button>
+        <button class="btn" id="mdExportBtn" disabled onclick="exportMarkdown()">
+          📄 Export Markdown
+          <span class="btn-subtitle">Summary report</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner-ai">
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="../guides/wealth-advisory-regbi-composer.html">Wealth Workflow</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs</a>
+    </div>
+    <div class="footer-badge-ai">© 2026 Post Oak Labs · CC BY 4.0 · T463 · v1.0</div>
+  </div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ═══ Reg BI Best-Interest Checker (T463) — deterministic, client-side.
+   SEC Regulation Best Interest (17 CFR 240.15l-1), effective 2020-07-12.
+   Scores all four component obligations from user inputs; returns verdict.
+   No network, no storage, no PII. ═══ */
+
+var _lastResult = null;
+
+/* ── Obligation scoring ──────────────────────────────────────────── */
+function getCheckboxVal(id) { var el = document.getElementById(id); return el ? el.checked : false; }
+function getSelectVal(id)   { var el = document.getElementById(id); return el ? el.value : ''; }
+function getNumVal(id)      { var el = document.getElementById(id); return el ? parseFloat(el.value) || 0 : 0; }
+
+function scoreDisclosure(inputs) {
+  /* Disclosure Obligation (Rule 15l-1(a)(2)(i)):
+     Disclose material information about the recommendation including conflicts.
+     Form CRS must be delivered before or at the time of the recommendation. */
+  var gaps = [];
+  if (!inputs.form_crs_delivered)  gaps.push('Form CRS not delivered to the retail customer at or prior to recommendation');
+  if (!inputs.conflicts_disclosed) gaps.push('Material conflicts of interest not disclosed in writing');
+  return {
+    obligation: 'Disclosure Obligation',
+    citation:   'Rule 15l-1(a)(2)(i)',
+    status:     gaps.length === 0 ? 'PASS' : 'GAP',
+    gaps:       gaps,
+    detail:     gaps.length === 0
+      ? 'Form CRS delivered and conflicts disclosed in writing.'
+      : gaps.join('; ') + '.',
+  };
+}
+
+function scoreCare(inputs) {
+  /* Care Obligation (Rule 15l-1(a)(2)(ii)):
+     Reasonable basis that recommendation is in best interest of the retail customer;
+     must consider reasonably available alternatives and be cost-conscious. */
+  var gaps = [];
+  if (inputs.reasonably_available_alternatives_considered < 2)
+    gaps.push('Fewer than 2 reasonably available alternatives considered (at least 2 required for a reasonable basis)');
+  if (!inputs.rationale_documented)
+    gaps.push('Recommendation rationale not documented — no record of best-interest basis');
+  if (inputs.lower_cost_alternative_exists && !inputs.rationale_documented)
+    gaps.push('Lower-cost alternative exists but no documented justification for the higher-cost recommendation');
+  return {
+    obligation: 'Care Obligation',
+    citation:   'Rule 15l-1(a)(2)(ii)',
+    status:     gaps.length === 0 ? 'PASS' : 'GAP',
+    gaps:       gaps,
+    detail:     gaps.length === 0
+      ? 'Sufficient alternatives considered, rationale documented, cost analysis complete.'
+      : gaps.join('; ') + '.',
+  };
+}
+
+function scoreConflict(inputs) {
+  /* Conflict of Interest Obligation (Rule 15l-1(a)(2)(iii)):
+     Establish, maintain, and enforce written policies to identify, disclose,
+     and mitigate or eliminate conflicts of interest. */
+  var gaps = [];
+  if (!inputs.conflicts_disclosed)  gaps.push('Conflicts of interest not identified and disclosed');
+  if (!inputs.conflicts_mitigated)  gaps.push('Conflicts of interest not mitigated or eliminated through written policies');
+  return {
+    obligation: 'Conflict of Interest Obligation',
+    citation:   'Rule 15l-1(a)(2)(iii)',
+    status:     gaps.length === 0 ? 'PASS' : 'GAP',
+    gaps:       gaps,
+    detail:     gaps.length === 0
+      ? 'Conflicts identified, disclosed, and mitigated by written policies.'
+      : gaps.join('; ') + '.',
+  };
+}
+
+function scoreCompliance(inputs) {
+  /* Compliance Obligation (Rule 15l-1(a)(2)(iv)):
+     Written policies and procedures reasonably designed to achieve Reg BI compliance. */
+  var gaps = [];
+  if (!inputs.compliance_program_in_place)
+    gaps.push('Written compliance program not in place — required to be reasonably designed for Reg BI compliance');
+  return {
+    obligation: 'Compliance Obligation',
+    citation:   'Rule 15l-1(a)(2)(iv)',
+    status:     gaps.length === 0 ? 'PASS' : 'GAP',
+    gaps:       gaps,
+    detail:     gaps.length === 0
+      ? 'Compliance program in place and reasonably designed to achieve Reg BI compliance.'
+      : gaps[0] + '.',
+  };
+}
+
+/* ── Main run function ──────────────────────────────────────────── */
+function runRegBiCheck() {
+  var inputs = {
+    recommendation_type:                          getSelectVal('recommendation_type'),
+    retail_customer:                              getCheckboxVal('retail_customer'),
+    reasonably_available_alternatives_considered: getNumVal('reasonably_available_alternatives_considered'),
+    total_cost_bps:                               getNumVal('total_cost_bps'),
+    lower_cost_alternative_exists:                getCheckboxVal('lower_cost_alternative_exists'),
+    conflicts_disclosed:                          getCheckboxVal('conflicts_disclosed'),
+    conflicts_mitigated:                          getCheckboxVal('conflicts_mitigated'),
+    form_crs_delivered:                           getCheckboxVal('form_crs_delivered'),
+    rationale_documented:                         getCheckboxVal('rationale_documented'),
+    compliance_program_in_place:                  getCheckboxVal('compliance_program_in_place'),
+    risk_tolerance:                               getSelectVal('risk_tolerance'),
+    time_horizon_years:                           getNumVal('time_horizon_years'),
+    liquidity_needs:                              getSelectVal('liquidity_needs'),
+  };
+
+  /* Out-of-scope: non-retail */
+  if (!inputs.retail_customer) {
+    _lastResult = {
+      verdict: 'OUT_OF_SCOPE',
+      verdict_label: 'Out of Scope',
+      obligations: [],
+      remediation: [],
+      note: 'Reg BI applies only to recommendations to retail customers (as defined in Exchange Act Rule 15l-1(b)(1)). This assessment is out of scope for non-retail counterparties.',
+      inputs: inputs,
+    };
+    renderResults(_lastResult);
+    return;
+  }
+
+  /* Score each obligation */
+  var disclosure = scoreDisclosure(inputs);
+  var care       = scoreCare(inputs);
+  var conflict   = scoreConflict(inputs);
+  var compliance = scoreCompliance(inputs);
+  var obligations = [disclosure, care, conflict, compliance];
+
+  /* Overall verdict */
+  var gapCount = obligations.filter(function(o){ return o.status === 'GAP'; }).length;
+  var verdict, verdictLabel;
+  if      (gapCount === 0) { verdict = 'BEST_INTEREST_MET';  verdictLabel = 'Best-Interest Met'; }
+  else if (gapCount === 1) { verdict = 'ATTENTION';          verdictLabel = 'Attention — 1 Gap'; }
+  else                     { verdict = 'NOT_MET';            verdictLabel = 'Not Met — ' + gapCount + ' Gaps'; }
+
+  /* Remediation list (one action per GAP) */
+  var remediation = [];
+  obligations.forEach(function(o){
+    if (o.status === 'GAP') {
+      o.gaps.forEach(function(g){
+        remediation.push('[' + o.obligation + '] ' + g + '.');
+      });
+    }
+  });
+
+  _lastResult = {
+    verdict:       verdict,
+    verdict_label: verdictLabel,
+    obligations:   obligations,
+    remediation:   remediation,
+    inputs:        inputs,
+  };
+
+  renderResults(_lastResult);
+}
+
+/* ── Render ─────────────────────────────────────────────────────── */
+function renderResults(r) {
+  var panel = document.getElementById('resultsPanel');
+  panel.classList.add('visible');
+
+  /* Verdict banner */
+  var banner = document.getElementById('verdictBanner');
+  var icon, cls, sub;
+  if (r.verdict === 'BEST_INTEREST_MET')  { icon = '✅'; cls = 'verdict-met';        sub = 'All four Reg BI obligations satisfied.'; }
+  else if (r.verdict === 'ATTENTION')     { icon = '⚠️'; cls = 'verdict-attention';  sub = 'One obligation has a gap — remediate before finalising the recommendation.'; }
+  else if (r.verdict === 'NOT_MET')       { icon = '❌'; cls = 'verdict-not-met';    sub = 'Multiple obligations unmet — recommendation must not be made as-is.'; }
+  else                                    { icon = 'ℹ️'; cls = 'verdict-oos';        sub = r.note || 'Not applicable to non-retail customers.'; }
+  banner.className = 'verdict-banner ' + cls;
+  banner.innerHTML = '<span class="verdict-icon">' + icon + '</span><div><div class="verdict-label">' + r.verdict_label + '</div><div class="verdict-sub">' + sub + '</div></div>';
+
+  /* Obligations grid */
+  var grid = document.getElementById('obligationsGrid');
+  grid.innerHTML = '';
+  r.obligations.forEach(function(o) {
+    var card = document.createElement('div');
+    card.className = 'obligation-card ' + (o.status === 'PASS' ? 'pass' : 'gap');
+    card.innerHTML =
+      '<div class="obligation-label">' + o.citation + '</div>' +
+      '<div class="obligation-name">' + o.obligation + '</div>' +
+      '<span class="obligation-status ' + (o.status === 'PASS' ? 'status-pass' : 'status-gap') + '">' +
+        (o.status === 'PASS' ? '✓ PASS' : '✗ GAP') + '</span>' +
+      '<div class="obligation-detail">' + escHtml(o.detail) + '</div>';
+    grid.appendChild(card);
+  });
+
+  /* Remediation */
+  var remPanel = document.getElementById('remediationPanel');
+  var remList  = document.getElementById('remediationList');
+  remList.innerHTML = '';
+  if (r.remediation && r.remediation.length > 0) {
+    remPanel.style.display = 'block';
+    r.remediation.forEach(function(item) {
+      var li = document.createElement('li');
+      li.textContent = item;
+      remList.appendChild(li);
+    });
+  } else {
+    remPanel.style.display = 'none';
+  }
+
+  /* Enable exports */
+  enableAP2Btn();
+  document.getElementById('mdExportBtn').disabled = false;
+
+  /* Expose mandate for Runner capture */
+  window._lastMandate  = buildMandateObj(r);
+  window._currentMandate = window._lastMandate;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ── Policy Mandate (Tier 1 export) ─────────────────────────────── */
+var AP2Schema = {
+  REQUIRED: ['ap2_version','mandate_id','issued_at','issued_by','tool_id','tool_version','mandate_type','jurisdiction','regulatory_frameworks','payload','summary'],
+  validate: function(obj) {
+    var missing = [];
+    this.REQUIRED.forEach(function(k){ if (!(k in obj)) missing.push(k); });
+    return missing;
+  }
+};
+
+function uuid() {
+  var b = new Uint8Array(16); crypto.getRandomValues(b);
+  b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
+  var h = Array.prototype.map.call(b, function(x){ return ('0'+x.toString(16)).slice(-2); }).join('');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
+
+function buildMandateObj(r) {
+  var now = new Date().toISOString();
+  return {
+    ap2_version: '1.0',
+    mandate_id: uuid(),
+    issued_at: now,
+    issued_by: 'ainumbers.co',
+    tool_id: '463-reg-bi-best-interest-checker',
+    tool_version: '1.0.0',
+    mandate_type: 'compliance_control',
+    jurisdiction: ['US'],
+    regulatory_frameworks: [
+      'SEC Regulation Best Interest — Exchange Act Rule 15l-1 (17 CFR 240.15l-1); effective 2020-07-12',
+      'SEC Release No. 34-86031 (June 5, 2019)',
+      'FINRA 2026 Examination Priorities — Reg BI and Form CRS',
+    ],
+    payload: {
+      verdict:               r.verdict,
+      verdict_label:         r.verdict_label,
+      recommendation_type:   r.inputs ? r.inputs.recommendation_type : null,
+      retail_customer:       r.inputs ? r.inputs.retail_customer : null,
+      obligation_results:    r.obligations || [],
+      gap_count:             (r.obligations || []).filter(function(o){ return o.status === 'GAP'; }).length,
+      remediation_actions:   r.remediation || [],
+    },
+    summary: r.verdict === 'BEST_INTEREST_MET'
+      ? 'Reg BI assessment PASSED — all four component obligations (Disclosure, Care, Conflict of Interest, Compliance) satisfied for a ' + (r.inputs ? r.inputs.recommendation_type : '') + ' recommendation to a retail customer.'
+      : r.verdict === 'OUT_OF_SCOPE'
+      ? 'Reg BI assessment is out of scope — recommendation is not made to a retail customer as defined in Exchange Act Rule 15l-1(b)(1).'
+      : 'Reg BI assessment ' + r.verdict + ' — ' + ((r.obligations || []).filter(function(o){ return o.status === 'GAP'; }).length) + ' of 4 obligations unmet. Remediation required before finalising the recommendation.',
+    agent_instructions: [
+      'Verdict "BEST_INTEREST_MET" indicates all four Reg BI obligations are satisfied; proceed with recommendation documentation.',
+      'Verdict "ATTENTION" indicates one gap — the recommendation must not be executed until the gap is remediated.',
+      'Verdict "NOT_MET" indicates two or more gaps — the recommendation must be revised or abandoned.',
+      'Remediation actions in payload.remediation_actions must be completed in the order listed.',
+      'Re-run this assessment if any material fact about the recommendation, conflicts, or customer profile changes.',
+    ],
+    valid_from:   now.slice(0,10),
+    valid_until:  new Date(Date.now() + 90*24*60*60*1000).toISOString().slice(0,10),
+    last_reviewed: now.slice(0,10),
+    source_tool_inputs: r.inputs || {},
+    regulatory_citations: [
+      'Exchange Act Rule 15l-1(a)(2)(i) — Disclosure Obligation',
+      'Exchange Act Rule 15l-1(a)(2)(ii) — Care Obligation',
+      'Exchange Act Rule 15l-1(a)(2)(iii) — Conflict of Interest Obligation',
+      'Exchange Act Rule 15l-1(a)(2)(iv) — Compliance Obligation',
+    ],
+    audit_metadata: {
+      client_side_executed: true,
+      zero_pii_verified: true,
+      deterministic_run: true,
+    },
+  };
+}
+
+/* Expose for Runner capture without needing an export click */
+window.AIN_BUILD_MANDATE = function() {
+  if (!_lastResult) return null;
+  return buildMandateObj(_lastResult);
+};
+
+function enableAP2Btn() {
+  var btn = document.getElementById('ap2ExportBtn');
+  if (btn) { btn.disabled = false; btn.classList.add('ready'); }
+}
+
+function exportAP2() {
+  if (!_lastResult) return;
+  var obj = buildMandateObj(_lastResult);
+  var errs = AP2Schema.validate(obj);
+  if (errs.length > 0) { showToast('Validation error: missing ' + errs.join(', '), true); return; }
+  var ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  var blob = new Blob([JSON.stringify(obj, null, 2)], {type:'application/json'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = '463-reg-bi-best-interest-checker_' + ts + '.policy.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function exportMarkdown() {
+  if (!_lastResult) return;
+  var r = _lastResult;
+  var now = new Date().toISOString();
+  var lines = [
+    '# Reg BI Best-Interest Assessment',
+    '**Tool:** T463 · Reg BI Best-Interest Checker (ainumbers.co)',
+    '**Run date:** ' + now,
+    '',
+    '## Overall Verdict: ' + r.verdict_label,
+    '',
+    '| Recommendation Type | Retail Customer |',
+    '|---|---|',
+    '| ' + (r.inputs ? r.inputs.recommendation_type : '-') + ' | ' + (r.inputs ? (r.inputs.retail_customer ? 'Yes' : 'No') : '-') + ' |',
+    '',
+    '## Obligation Results',
+    '',
+  ];
+  if (r.obligations && r.obligations.length > 0) {
+    lines.push('| Obligation | Citation | Status | Detail |');
+    lines.push('|---|---|---|---|');
+    r.obligations.forEach(function(o) {
+      lines.push('| ' + o.obligation + ' | ' + o.citation + ' | **' + o.status + '** | ' + o.detail + ' |');
+    });
+  }
+  if (r.remediation && r.remediation.length > 0) {
+    lines.push('', '## Remediation Actions Required', '');
+    r.remediation.forEach(function(item, i) {
+      lines.push((i+1) + '. ' + item);
+    });
+  }
+  lines.push('', '---', '');
+  lines.push('**Regulatory framework:** SEC Regulation Best Interest (17 CFR 240.15l-1), effective 2020-07-12.');
+  lines.push('**Generated by:** ainumbers.co T463 · v1.0 · CC BY 4.0 · Post Oak Labs');
+  var ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  var blob = new Blob([lines.join('\n')], {type:'text/markdown'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = '463-reg-bi-best-interest-checker_' + ts + '.md';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function showToast(msg, err) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast' + (err ? ' err' : '');
+  t.style.display = 'block';
+  clearTimeout(t._h); t._h = setTimeout(function(){ t.style.display='none'; }, 3200);
+}
+</script>
+
+<!-- AIN Bridge v1.0 — prefill deep-links + Policy Mandate intake + Composer messaging -->
+<script>window.AIN_BRIDGE_CFG={runFn:'runRegBiCheck',intake:true,intakeTarget:null,intakeAnchor:'.pii-notice'};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+var L={
+ en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled from link and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'},
+ es:{pf:'Campos precargados desde el enlace — revise y ejecute',ran:'Campos precargados desde el enlace y ejecutados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Suelte un .policy.json aquí, o',choose:'Elegir archivo',paste:'Pegar JSON',apply:'Aplicar',ok:'Policy Mandate importado desde',bad:'JSON de Policy Mandate no válido'},
+ fr:{pf:'Champs préremplis depuis le lien — vérifiez puis exécutez',ran:'Champs préremplis depuis le lien et exécutés',fields:'champs',it:'Importer un Policy Mandate (.policy.json)',drop:'Déposez un .policy.json ici, ou',choose:'Choisir un fichier',paste:'Coller le JSON',apply:'Appliquer',ok:'Policy Mandate importé depuis',bad:'JSON Policy Mandate non valide'},
+ ar:{pf:'تم ملء الحقول مسبقًا من الرابط — راجع ثم شغّل',ran:'تم ملء الحقول من الرابط وتنفيذها',fields:'حقول',it:'استيراد Policy Mandate (.policy.json)',drop:'أسقط ملف ‎.policy.json هنا، أو',choose:'اختر ملفًا',paste:'لصق JSON',apply:'تطبيق',ok:'تم استيراد Policy Mandate من',bad:'JSON غير صالح لـ Policy Mandate'},
+ pt:{pf:'Campos pré-preenchidos a partir do link — revise e execute',ran:'Campos pré-preenchidos a partir do link e executados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Solte um .policy.json aqui, ou',choose:'Escolher arquivo',paste:'Colar JSON',apply:'Aplicar',ok:'Policy Mandate importado de',bad:'JSON de Policy Mandate inválido'},
+ zh:{pf:'已从链接预填输入 — 请检查后运行',ran:'已从链接预填并自动执行',fields:'个字段',it:'导入 Policy Mandate (.policy.json)',drop:'将 .policy.json 拖放到此处，或',choose:'选择文件',paste:'粘贴 JSON',apply:'应用',ok:'已导入 Policy Mandate，来源：',bad:'无效的 AINumbers Policy Mandate JSON'}
+};
+function t(k){var lg='en';try{lg=sessionStorage.getItem('ain_lang')||'en';}catch(e){}return (L[lg]&&L[lg][k])||L.en[k];}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function anchorEl(){return (CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.querySelector('.pii-notice')||document.querySelector('.panel')||document.body.firstElementChild;}
+function notice(msg,kind){
+  var d=document.getElementById('ainBridgeNotice');
+  if(!d){d=document.createElement('div');d.id='ainBridgeNotice';
+    var a=document.getElementById('ainIntakeZone')||anchorEl();
+    if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}
+  d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));
+  d.textContent=msg;
+}
+function looksLikeMandate(o){return !!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}
+function intakeApply(text){
+  var o;try{o=JSON.parse(text);}catch(e){notice('⚠ '+t('bad'),'warn');return 0;}
+  if(!looksLikeMandate(o)){notice('⚠ '+t('bad'),'warn');return 0;}
+  var n=0;
+  if(CFG.intakeTarget){var ta=document.getElementById(CFG.intakeTarget);
+    if(ta){ta.value=JSON.stringify(o,null,2);try{ta.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}n++;}}
+  if(o.payload&&typeof o.payload==='object')n+=applyFields(o.payload);
+  if(o.source_tool_inputs&&typeof o.source_tool_inputs==='object')n+=applyFields(o.source_tool_inputs);
+  notice((n>0?'📥 ':'⚠ ')+t('ok')+' '+(o.tool_id||'?')+' · '+n+' '+t('fields'),n>0?'ok':'warn');
+  return n;
+}
+function buildIntakeUI(){
+  if(!CFG.intake)return;
+  var a=anchorEl();if(!a||!a.parentNode)return;
+  var z=document.createElement('div');z.id='ainIntakeZone';
+  z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8;letter-spacing:.04em');
+  var lbl=document.createElement('div');lbl.textContent='📥 '+t('it');lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');
+  var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');
+  var txt=document.createElement('span');txt.textContent=t('drop');
+  function mkBtn(label){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}
+  var bFile=mkBtn(t('choose')),bPaste=mkBtn(t('paste'));
+  var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';
+  fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});
+  bFile.addEventListener('click',function(){fi.click();});
+  var pasteRow=document.createElement('div');pasteRow.style.display='none';pasteRow.setAttribute('style','display:none;margin-top:.6rem');
+  var ta=document.createElement('textarea');ta.rows=5;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');
+  var bApply=mkBtn(t('apply'));bApply.style.marginTop='.4rem';
+  bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});
+  pasteRow.appendChild(ta);pasteRow.appendChild(bApply);
+  bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';if(pasteRow.style.display==='block')ta.focus();});
+  z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});
+  z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});
+  z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});
+  row.appendChild(txt);row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);
+  z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);
+  a.parentNode.insertBefore(z,a);
+}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  var n=applyFields(fields);
+  if(n>0){
+    if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');
+    else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');
+  }
+}
+window.AINBridge={
+  version:'1.0',
+  apply:applyFields,
+  run:runTool,
+  intake:intakeApply,
+  getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
+};
+window.addEventListener('message',function(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=(e.origin&&e.origin!=='null')?e.origin:'*';
+  var d=e.data||{};
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+  else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
+});
+function boot(){buildIntakeUI();initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>

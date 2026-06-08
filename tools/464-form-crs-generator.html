@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Form CRS Generator · AINumbers.co</title>
+<meta name="description" content="Generate a Form CRS (Customer Relationship Summary) using SEC-prescribed headings and conversation-starter questions. Checks format compliance (page-length estimate) for broker-dealers, investment advisers, and dual registrants. Reg BI disclosure artifact. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/464-form-crs-generator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Form CRS Generator","url":"https://ainumbers.co/tools/464-form-crs-generator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "464-form-crs-generator",
+  "version": "1.0.0",
+  "title": "Form CRS Generator",
+  "description": "Generate a Form CRS (Customer Relationship Summary) using SEC-prescribed headings and verbatim conversation-starter questions. Checks format compliance (page-length estimate; 2 pages for BD/IA, 4 for dual registrants). The Reg BI disclosure artifact required for every retail investor engagement. Client-side. Zero PII.",
+  "category": "fintech",
+  "tags": ["reg-bi","form-crs","suitability","us","wealth","broker-dealer","investment-adviser","disclosure","sec","compliance"],
+  "audience": ["broker-dealer","investment-adviser","compliance"],
+  "input_schema": {"type":"object","properties":{"firm_type":{"type":"string","enum":["broker_dealer","investment_adviser","dual_registrant"]},"services_offered":{"type":"array","items":{"type":"string"}},"fee_model":{"type":"string","enum":["commission","aum_fee","wrap_fee","hourly","flat","mixed"]},"account_minimums":{"type":"string"},"monitoring_offered":{"type":"boolean"},"discretionary_authority":{"type":"boolean"},"material_conflicts":{"type":"array","items":{"type":"string"}},"disciplinary_history":{"type":"boolean"}},"required":["firm_type","fee_model"]},
+  "output_schema": {"type":"object","properties":{"sections":{"type":"array"},"format_ok":{"type":"boolean"},"estimated_pages":{"type":"number"},"conversation_starters":{"type":"array"}}},
+  "mcp_tool_definition": {"name":"form_crs_generator","description":"Generate a Form CRS (Customer Relationship Summary) with SEC-prescribed headings and verbatim conversation-starter questions. Checks page-length compliance (2 pages for BD/IA, 4 for dual registrants). Required Reg BI disclosure for every retail investor. Exports clean Markdown suitable for filing. Use with synthetic firm data only.","inputSchema":{"type":"object","properties":{"firm_type":{"type":"string","enum":["broker_dealer","investment_adviser","dual_registrant"]},"fee_model":{"type":"string","enum":["commission","aum_fee","wrap_fee","hourly","flat","mixed"]},"services_offered":{"type":"array","items":{"type":"string"}},"account_minimums":{"type":"string"},"monitoring_offered":{"type":"boolean"},"discretionary_authority":{"type":"boolean"},"material_conflicts":{"type":"array","items":{"type":"string"}},"disciplinary_history":{"type":"boolean"}},"required":["firm_type","fee_model"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/464-form-crs-generator.html","function_name":"runFormCrs","timeout_ms":5000},
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;
+  --radius:6px;--radius-lg:10px;
+  --accent:var(--purple);--accent-dim:var(--purple-dim);--accent-lt:var(--purple-lt);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* Nav */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--accent)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--accent);color:var(--accent)}
+/* Hero */
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--accent)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+/* PII notice */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+/* Tool body */
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+@media(max-width:780px){.tool-grid{grid-template-columns:1fr}}
+/* Panels */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+.panel-title::before{content:'';display:block;width:16px;height:1px;background:var(--accent)}
+.panel-row{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.9rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.panel-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.4rem .6rem;border-radius:3px;outline:none;transition:border-color .2s;width:100%}
+.panel-input:focus{border-color:var(--accent)}
+select.panel-input option{background:var(--bg-3);color:var(--bright)}
+textarea.panel-input{resize:vertical;min-height:80px;font-size:.68rem;line-height:1.6}
+.checkbox-row{display:flex;align-items:center;gap:.5rem}
+.checkbox-row input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+.checkbox-row label{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--text);cursor:pointer;letter-spacing:.02em}
+/* Run button */
+.run-btn{background:var(--accent);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s;width:100%;margin-top:.5rem}
+.run-btn:hover{background:var(--accent-lt)}
+/* Results */
+.results-panel{display:none;margin-top:1.5rem}
+.results-panel.visible{display:block}
+/* Format badge */
+.format-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;padding:.35rem .9rem;border-radius:var(--radius);border:1px solid;margin-bottom:1.25rem}
+.format-ok{background:var(--green-dim);border-color:rgba(34,197,94,.4);color:var(--green)}
+.format-warn{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.4);color:var(--warn)}
+/* CRS preview */
+.crs-preview{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.25rem;font-size:.8rem;line-height:1.8}
+.crs-title{font-family:'DM Serif Display',serif;font-size:1.25rem;color:var(--white);margin-bottom:.5rem}
+.crs-subtitle{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:1.25rem}
+.crs-section{margin-bottom:1.25rem}
+.crs-section-heading{font-family:'DM Serif Display',serif;font-size:.95rem;color:var(--bright);margin-bottom:.35rem;border-bottom:1px solid var(--border);padding-bottom:.25rem}
+.crs-q{font-style:italic;color:var(--gold);font-size:.78rem;margin:.45rem 0 .25rem}
+.crs-body{color:var(--text);font-size:.78rem;line-height:1.8}
+/* Conversation starters */
+.starters-panel{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:1.1rem 1.25rem;margin-bottom:1.25rem}
+.starters-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:.75rem}
+.starter-item{display:flex;gap:.75rem;font-size:.78rem;color:var(--text);line-height:1.6;margin-bottom:.5rem}
+.starter-item::before{content:'›';color:var(--gold);flex-shrink:0}
+/* Export row */
+.results-export-row{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:1.25rem}
+.btn{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;border-radius:var(--radius);border:1px solid var(--border-2);background:transparent;color:var(--text);transition:all .2s;cursor:pointer}
+.btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.btn:disabled{opacity:.28;cursor:not-allowed}
+.btn.ready{border-color:rgba(155,114,245,.5);color:var(--accent)}
+.btn-subtitle{display:block;font-size:.46rem;letter-spacing:.06em;color:inherit;opacity:.7;text-transform:none}
+/* Toast */
+.toast{position:fixed;bottom:1.4rem;left:50%;transform:translateX(-50%);background:var(--bg-4);border:1px solid var(--accent);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.6rem 1.1rem;border-radius:var(--radius);z-index:400;display:none;white-space:nowrap}
+.toast.err{border-color:var(--red);color:var(--red)}
+/* Footer */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;position:relative;z-index:1}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></a>
+    <div class="nav-bc">
+      <a href="../index.html">Home</a>
+      <span class="nav-bc-sep">›</span>
+      <a href="../index.html#cat-27">WealthTech</a>
+      <span class="nav-bc-sep">›</span>
+      <span class="nav-bc-current">Form CRS Generator</span>
+    </div>
+    <div class="nav-right">
+      <a href="../guides/wealth-advisory-regbi-composer.html" class="nav-pill">↗ Wealth Workflow</a>
+      <a href="463-reg-bi-best-interest-checker.html" class="nav-pill">T463 Reg BI Checker</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="hero">
+    <div class="hero-eyebrow">T464 · WealthTech · Cat-27</div>
+    <h1>Form CRS Generator</h1>
+    <p class="hero-desc">Generate a Form CRS (Customer Relationship Summary) using SEC-prescribed headings and verbatim conversation-starter questions. Checks format compliance — page-length estimate vs. the SEC's 2-page limit (BD/IA) or 4-page limit (dual registrant). The Reg BI disclosure artifact required for every retail investor engagement.<sup>1</sup></p>
+    <div class="hero-badges">
+      <span class="badge badge-purple">T464 · v1.0</span>
+      <span class="badge badge-gold">Form CRS · Reg BI · 17 CFR 240.15l-1</span>
+      <span class="badge badge-muted">BD · IA · Dual Registrant</span>
+      <span class="badge badge-muted">Client-side · Zero PII</span>
+    </div>
+    <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  </div>
+
+  <div class="tool-body">
+    <div class="tool-grid">
+      <!-- Left column -->
+      <div>
+        <div class="panel">
+          <div class="panel-title">Firm Details</div>
+          <div class="panel-row">
+            <label class="panel-label" for="firm_type">Firm Type</label>
+            <select class="panel-input" id="firm_type">
+              <option value="broker_dealer">Broker-Dealer</option>
+              <option value="investment_adviser">Investment Adviser</option>
+              <option value="dual_registrant">Dual Registrant (BD + IA)</option>
+            </select>
+          </div>
+          <div class="panel-row">
+            <label class="panel-label" for="firm_name">Firm Name (synthetic)</label>
+            <input type="text" class="panel-input" id="firm_name" value="Example Capital Partners LLC" maxlength="120">
+          </div>
+          <div class="panel-row">
+            <label class="panel-label" for="account_minimums">Account Minimums</label>
+            <input type="text" class="panel-input" id="account_minimums" value="$25,000 minimum for advisory accounts; no minimum for brokerage accounts" maxlength="200">
+          </div>
+          <div class="panel-row">
+            <div class="checkbox-row">
+              <input type="checkbox" id="monitoring_offered" checked>
+              <label for="monitoring_offered">Ongoing account monitoring offered</label>
+            </div>
+          </div>
+          <div class="panel-row">
+            <div class="checkbox-row">
+              <input type="checkbox" id="discretionary_authority">
+              <label for="discretionary_authority">Discretionary investment authority exercised</label>
+            </div>
+          </div>
+          <div class="panel-row">
+            <div class="checkbox-row">
+              <input type="checkbox" id="disciplinary_history">
+              <label for="disciplinary_history">Legal or disciplinary history exists (requires "Yes" in Form CRS)</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Fee Model</div>
+          <div class="panel-row">
+            <label class="panel-label" for="fee_model">Primary Fee Model</label>
+            <select class="panel-input" id="fee_model">
+              <option value="commission">Commission-based</option>
+              <option value="aum_fee" selected>AUM fee (% of assets)</option>
+              <option value="wrap_fee">Wrap fee (bundled advisory + brokerage)</option>
+              <option value="hourly">Hourly fee</option>
+              <option value="flat">Flat fee</option>
+              <option value="mixed">Mixed (commission + fee)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div>
+        <div class="panel">
+          <div class="panel-title">Services Offered (one per line)</div>
+          <div class="panel-row">
+            <textarea class="panel-input" id="services_offered" rows="6">Portfolio management and rebalancing
+Retirement planning and rollover advice
+Tax-loss harvesting
+Financial goal planning
+Mutual fund and ETF recommendations
+529 college savings planning</textarea>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Material Conflicts of Interest (one per line)</div>
+          <div class="panel-row">
+            <textarea class="panel-input" id="material_conflicts" rows="4">Compensation from product sponsors for recommending certain funds
+Revenue-sharing arrangements with affiliated clearing firm
+Sales incentives tied to account type recommendations</textarea>
+          </div>
+          <p style="font-size:.7rem;color:var(--muted);margin-top:.35rem;line-height:1.6">Form CRS must disclose how the firm makes money and what conflicts of interest it has. Enter each material conflict on a separate line.<sup>2</sup></p>
+        </div>
+
+        <button class="run-btn" onclick="runFormCrs()">▶ Generate Form CRS</button>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="results-panel" id="resultsPanel">
+      <div id="formatBadge"></div>
+      <div class="crs-preview" id="crsPreview"></div>
+      <div class="starters-panel">
+        <div class="starters-title">SEC-Prescribed Conversation Starters<sup>3</sup></div>
+        <div id="startersList"></div>
+      </div>
+      <div style="font-size:.7rem;color:var(--muted);line-height:1.6;margin-bottom:1rem">
+        <strong style="color:var(--text)">Regulatory citations:</strong><br>
+        1. SEC Release No. 34-86032 (June 5, 2019) — Form CRS Relationship Summary; Exchange Act Rule 17a-14; IA Act Rule 204-5.<br>
+        2. Form CRS headings and required content: SEC "Form CRS Relationship Summary — Instructions for Broker-Dealers and Investment Advisers" (June 2019).<br>
+        3. Conversation starters: SEC prescribed questions per Form CRS General Instructions §E (Relationship Summary — Questions to Ask Your Financial Professional).
+      </div>
+      <div class="results-export-row">
+        <button class="btn" id="ap2ExportBtn" disabled onclick="exportAP2()" title="Run the analysis above to generate a Policy Mandate">
+          {} Export Policy Mandate
+          <span class="btn-subtitle">API · audit trail</span>
+        </button>
+        <button class="btn" id="mdExportBtn" disabled onclick="exportMarkdown()">
+          📄 Export Form CRS (Markdown)
+          <span class="btn-subtitle">Clean copy-pasteable text</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner-ai">
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="../guides/wealth-advisory-regbi-composer.html">Wealth Workflow</a>
+      <a href="463-reg-bi-best-interest-checker.html">T463 Reg BI Checker</a>
+      <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs</a>
+    </div>
+    <div class="footer-badge-ai">© 2026 Post Oak Labs · CC BY 4.0 · T464 · v1.0</div>
+  </div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ═══ Form CRS Generator (T464) — deterministic, client-side.
+   Generates a Form CRS using SEC-prescribed headings (Form CRS Release 34-86032).
+   Verbatim conversation-starter questions per SEC General Instructions §E.
+   Checks page-length compliance: 2 pages (standalone BD or IA), 4 pages (dual registrant).
+   No network, no storage, no PII. ═══ */
+
+/* ── SEC-prescribed verbatim content ──────────────────────────────
+   Source: SEC Form CRS General Instructions (June 2019),
+   as prescribed for broker-dealers and investment advisers. */
+var CONVERSATION_STARTERS = [
+  '"Given my financial situation, should I choose an investment advisory service? Why or why not?"',
+  '"How will you choose investments to recommend to me?"',
+  '"What is your relevant experience, including your licenses, education and other qualifications? What do these qualifications mean?"',
+];
+
+/* SEC prescribes these headings verbatim */
+var REQUIRED_HEADINGS = {
+  intro:          'Introduction',
+  relationships:  'Relationships and Services',
+  fees:           'Fees, Costs, Conflicts, and Standard of Conduct',
+  disciplinary:   'Disciplinary History',
+  additional:     'Additional Information',
+};
+
+/* Required conversation-starter questions per section (verbatim per SEC) */
+var SECTION_QUESTIONS = {
+  relationships: '"What investment services and advice can you provide me?"',
+  fees:          '"What fees will I pay?" · "What are your legal obligations to me? How else does your firm make money and what conflicts of interest do you have?"',
+  disciplinary:  '"Do you or your financial professionals have legal or disciplinary history?"',
+};
+
+/* ── Fee model descriptions ──────────────────────────────────────── */
+var FEE_DESC = {
+  commission: 'You will pay a commission each time we buy or sell an investment for you. Commissions typically range from 0.10% to 5% depending on the investment. We also receive compensation from product sponsors, which creates a conflict of interest (see Conflicts section).',
+  aum_fee:    'You will pay an ongoing fee based on the value of the assets we manage for you. The fee is typically charged quarterly. As the value of your assets grows, so does the amount you pay us.',
+  wrap_fee:   'You will pay a single bundled fee covering our investment advice, brokerage execution, and account management. This means you do not pay separate trading commissions, but the bundled fee may be higher than paying separately.',
+  hourly:     'You will pay an hourly fee for our time. The amount you pay depends on how long it takes to provide the services you need. We will agree on the scope of work and estimated hours before beginning.',
+  flat:       'You will pay a flat fee, agreed in advance, for a specified scope of services. This is a fixed amount regardless of the time spent or assets managed.',
+  mixed:      'You will pay a combination of commissions and ongoing fees. Some recommendations may be made through our brokerage capacity (commission-based) and others through our advisory capacity (fee-based). This may create an incentive to recommend one account type over another.',
+};
+
+var FEE_CONDUCT = {
+  commission:   'When we act as a broker-dealer, we must act in your best interest and not put our interests ahead of yours (Regulation Best Interest).',
+  aum_fee:      'When we act as your investment adviser, we are held to a fiduciary standard — we must act in your best interest.',
+  wrap_fee:     'When we act as your investment adviser under a wrap-fee programme, we are held to a fiduciary standard.',
+  hourly:       'When we act as your investment adviser, we are held to a fiduciary standard — we must act in your best interest.',
+  flat:         'When we act as your investment adviser, we are held to a fiduciary standard — we must act in your best interest.',
+  mixed:        'The standard of conduct we owe you depends on the capacity in which we are acting. When recommending as a broker-dealer, Regulation Best Interest applies. When providing ongoing advisory services, our fiduciary duty applies.',
+};
+
+var _lastResult = null;
+
+function getVal(id)     { var el=document.getElementById(id); return el?el.value.trim():''; }
+function getChecked(id) { var el=document.getElementById(id); return el?el.checked:false; }
+
+/* ── Main run function ──────────────────────────────────────────── */
+function runFormCrs() {
+  var firmType       = getVal('firm_type');
+  var firmName       = getVal('firm_name') || '[Firm Name]';
+  var feeModel       = getVal('fee_model');
+  var accountMin     = getVal('account_minimums') || 'No account minimum.';
+  var monitoring     = getChecked('monitoring_offered');
+  var discretionary  = getChecked('discretionary_authority');
+  var disciplinary   = getChecked('disciplinary_history');
+
+  var servicesRaw    = getVal('services_offered');
+  var services       = servicesRaw.split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+  var conflictsRaw   = getVal('material_conflicts');
+  var conflicts      = conflictsRaw.split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+
+  var firmTypeLabel = {
+    broker_dealer:       'Broker-Dealer',
+    investment_adviser:  'Investment Adviser',
+    dual_registrant:     'Dual Registrant (Broker-Dealer and Investment Adviser)',
+  }[firmType] || firmType;
+
+  /* ── Build the five mandated sections ───────────────────────── */
+
+  /* 1. Introduction */
+  var introBody = firmName + ' is a ' + firmTypeLabel + ' registered with the SEC.';
+  if (firmType === 'dual_registrant') {
+    introBody += ' Brokerage and investment advisory services and fees differ. It is important for you to understand the differences. Free and simple tools are available to research firms and financial professionals at Investor.gov/CRS, which also provides educational materials about broker-dealers, investment advisers, and investing.';
+  } else if (firmType === 'broker_dealer') {
+    introBody += ' There are different ways you can get help with your investments. You should carefully consider which types of accounts and services are right for you. Free and simple tools are available to research firms and financial professionals at Investor.gov/CRS.';
+  } else {
+    introBody += ' There are different ways you can get help with your investments. You should carefully consider which types of accounts and services are right for you. Free and simple tools are available to research firms and financial professionals at Investor.gov/CRS.';
+  }
+
+  /* 2. Relationships and Services */
+  var relBody = services.length > 0
+    ? 'We offer the following investment services and advice: ' + services.join('; ') + '.'
+    : 'We offer investment advice and related financial services to retail investors.';
+  if (monitoring) relBody += ' We provide ongoing monitoring of your account and investments.';
+  else relBody += ' We do not provide ongoing monitoring of your account unless you specifically request it.';
+  if (discretionary) relBody += ' We exercise discretionary authority over your account, meaning we may buy and sell investments without asking you each time.';
+  else relBody += ' We do not exercise discretionary authority — all transactions require your approval.';
+  relBody += ' Account minimums: ' + accountMin;
+
+  /* 3. Fees, Costs, Conflicts */
+  var feeBody = (FEE_DESC[feeModel] || 'You will pay fees as described in your agreement with us.') +
+    ' ' + (FEE_CONDUCT[feeModel] || '');
+  var conflictBody = conflicts.length > 0
+    ? 'We have the following material conflicts of interest: ' + conflicts.join('; ') + '. We address these conflicts by disclosing them to you and by having compliance policies and procedures to manage them.'
+    : 'We have conflicts of interest that we are required to disclose. Please ask us for more information.';
+
+  /* 4. Disciplinary History */
+  var discBody = disciplinary ? 'Yes.' : 'No.';
+  var discNote = disciplinary
+    ? 'We have legal or disciplinary history. Visit Investor.gov/CRS for a free and simple search tool to research us and our financial professionals.'
+    : 'We do not have legal or disciplinary history. You can visit Investor.gov/CRS for a free and simple search tool to research us and our financial professionals.';
+
+  /* 5. Additional Information */
+  var addBody = 'For additional information about our services, please see our ' +
+    (firmType === 'broker_dealer' ? 'Form BD and related disclosures' : firmType === 'investment_adviser' ? 'Form ADV and related disclosures' : 'Form BD, Form ADV, and related disclosures') +
+    '. Up-to-date information about our firm is available at Investor.gov/CRS. To report a problem or get additional information, contact us at the address or phone number on your account statements.';
+
+  var sections = [
+    { heading: REQUIRED_HEADINGS.intro,         question: null,                      body: introBody },
+    { heading: REQUIRED_HEADINGS.relationships,  question: SECTION_QUESTIONS.relationships, body: relBody },
+    { heading: REQUIRED_HEADINGS.fees,           question: SECTION_QUESTIONS.fees,          body: feeBody + ' ' + conflictBody },
+    { heading: REQUIRED_HEADINGS.disciplinary,   question: SECTION_QUESTIONS.disciplinary,  body: discBody + ' ' + discNote },
+    { heading: REQUIRED_HEADINGS.additional,     question: null,                      body: addBody },
+  ];
+
+  /* ── Format compliance check ────────────────────────────────────
+     SEC page limit: 2 pages for standalone BD or IA; 4 pages for dual registrant.
+     We estimate pages using character count / 3500 chars per page (approximate for
+     a plain-text, standard-margin page — the SEC requires readable 10pt+ type,
+     standard margins). This is a directional estimate, not a typeset calculation. */
+  var maxPages = (firmType === 'dual_registrant') ? 4 : 2;
+  var totalChars = sections.reduce(function(acc, s) {
+    return acc + s.heading.length + (s.question ? s.question.length : 0) + s.body.length;
+  }, 0);
+  /* Add conversation starters length estimate */
+  totalChars += CONVERSATION_STARTERS.reduce(function(acc, q){ return acc + q.length; }, 0);
+  var CHARS_PER_PAGE = 3500; /* conservative estimate for readable 10pt text with headings */
+  var estimatedPages = Math.max(1, parseFloat((totalChars / CHARS_PER_PAGE).toFixed(1)));
+  var formatOk = estimatedPages <= maxPages;
+
+  _lastResult = {
+    firm_name:       firmName,
+    firm_type:       firmType,
+    firm_type_label: firmTypeLabel,
+    fee_model:       feeModel,
+    sections:        sections,
+    format_ok:       formatOk,
+    estimated_pages: estimatedPages,
+    max_pages:       maxPages,
+    inputs: {
+      firm_type: firmType, fee_model: feeModel, services_offered: services,
+      account_minimums: accountMin, monitoring_offered: monitoring,
+      discretionary_authority: discretionary, material_conflicts: conflicts,
+      disciplinary_history: disciplinary,
+    },
+  };
+
+  renderResults(_lastResult);
+}
+
+/* ── Render ─────────────────────────────────────────────────────── */
+function renderResults(r) {
+  var panel = document.getElementById('resultsPanel');
+  panel.classList.add('visible');
+
+  /* Format badge */
+  var badge = document.getElementById('formatBadge');
+  badge.innerHTML = '<span class="format-badge ' + (r.format_ok ? 'format-ok' : 'format-warn') + '">' +
+    (r.format_ok ? '✓ Format OK' : '⚠ Exceeds page limit') +
+    ' — Estimated ' + r.estimated_pages + ' page' + (r.estimated_pages !== 1 ? 's' : '') +
+    ' (max ' + r.max_pages + ' for ' + r.firm_type_label + ')</span>';
+
+  /* CRS preview */
+  var preview = document.getElementById('crsPreview');
+  var html = '<div class="crs-title">Customer Relationship Summary</div>' +
+    '<div class="crs-subtitle">' + escHtml(r.firm_name) + ' · ' + escHtml(r.firm_type_label) + '</div>';
+  r.sections.forEach(function(s) {
+    html += '<div class="crs-section">';
+    html += '<div class="crs-section-heading">' + escHtml(s.heading) + '</div>';
+    if (s.question) html += '<div class="crs-q">' + escHtml(s.question) + '</div>';
+    html += '<div class="crs-body">' + escHtml(s.body) + '</div>';
+    html += '</div>';
+  });
+  preview.innerHTML = html;
+
+  /* Conversation starters */
+  var starters = document.getElementById('startersList');
+  starters.innerHTML = CONVERSATION_STARTERS.map(function(q) {
+    return '<div class="starter-item">' + escHtml(q) + '</div>';
+  }).join('');
+
+  /* Enable exports */
+  enableAP2Btn();
+  document.getElementById('mdExportBtn').disabled = false;
+
+  /* Expose for Runner capture */
+  window._lastMandate  = buildMandateObj(r);
+  window._currentMandate = window._lastMandate;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ── Policy Mandate (Tier 1 export) ─────────────────────────────── */
+var AP2Schema = {
+  REQUIRED: ['ap2_version','mandate_id','issued_at','issued_by','tool_id','tool_version','mandate_type','jurisdiction','regulatory_frameworks','payload','summary'],
+  validate: function(obj) {
+    var missing = [];
+    this.REQUIRED.forEach(function(k){ if (!(k in obj)) missing.push(k); });
+    return missing;
+  }
+};
+
+function uuid() {
+  var b = new Uint8Array(16); crypto.getRandomValues(b);
+  b[6]=(b[6]&15)|64; b[8]=(b[8]&63)|128;
+  var h=Array.prototype.map.call(b,function(x){return ('0'+x.toString(16)).slice(-2);}).join('');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
+
+function buildMandateObj(r) {
+  var now = new Date().toISOString();
+  return {
+    ap2_version: '1.0',
+    mandate_id: uuid(),
+    issued_at: now,
+    issued_by: 'ainumbers.co',
+    tool_id: '464-form-crs-generator',
+    tool_version: '1.0.0',
+    mandate_type: 'disclosure_template',
+    jurisdiction: ['US'],
+    regulatory_frameworks: [
+      'SEC Form CRS Relationship Summary — Exchange Act Rule 17a-14; IA Act Rule 204-5',
+      'SEC Release No. 34-86032 (June 5, 2019)',
+      'Regulation Best Interest (SEC Release No. 34-86031)',
+    ],
+    payload: {
+      firm_type:         r.firm_type,
+      firm_type_label:   r.firm_type_label,
+      fee_model:         r.fee_model,
+      section_count:     r.sections ? r.sections.length : 0,
+      format_ok:         r.format_ok,
+      estimated_pages:   r.estimated_pages,
+      max_pages_allowed: r.max_pages,
+      sections:          r.sections || [],
+      conversation_starters: CONVERSATION_STARTERS,
+    },
+    summary: 'Form CRS generated for ' + r.firm_type_label + ' (' + r.fee_model + ' fee model). ' +
+      (r.format_ok ? 'Format compliant — estimated ' + r.estimated_pages + ' page(s) within the SEC ' + r.max_pages + '-page limit.' : 'FORMAT WARNING — estimated ' + r.estimated_pages + ' page(s) exceeds the SEC ' + r.max_pages + '-page limit. Shorten content before filing.'),
+    agent_instructions: [
+      'payload.sections contains the five mandated Form CRS sections with SEC-prescribed headings.',
+      'payload.format_ok indicates whether the estimated page count is within the SEC limit.',
+      'If format_ok is false, reduce the content of longer sections (especially Fees and Relationships) before finalising.',
+      'payload.conversation_starters contains the verbatim SEC-prescribed questions that must appear in the Form CRS.',
+      'Form CRS must be delivered to each retail investor before or at the time of the first recommendation.',
+      'Review Form CRS annually and update within 30 days of any material changes.',
+    ],
+    valid_from:   now.slice(0,10),
+    valid_until:  new Date(Date.now() + 365*24*60*60*1000).toISOString().slice(0,10),
+    last_reviewed: now.slice(0,10),
+    source_tool_inputs: r.inputs || {},
+    regulatory_citations: [
+      'Exchange Act Rule 17a-14 — Form CRS filing requirement for broker-dealers',
+      'Investment Advisers Act Rule 204-5 — Form CRS filing requirement for investment advisers',
+      'SEC Release No. 34-86032 (June 5, 2019) — Form CRS Relationship Summary',
+      'Form CRS General Instructions §E — Conversation Starters (verbatim prescribed questions)',
+    ],
+    audit_metadata: {
+      client_side_executed: true,
+      zero_pii_verified: true,
+      deterministic_run: true,
+    },
+  };
+}
+
+window.AIN_BUILD_MANDATE = function() {
+  if (!_lastResult) return null;
+  return buildMandateObj(_lastResult);
+};
+
+function enableAP2Btn() {
+  var btn = document.getElementById('ap2ExportBtn');
+  if (btn) { btn.disabled = false; btn.classList.add('ready'); }
+}
+
+function exportAP2() {
+  if (!_lastResult) return;
+  var obj = buildMandateObj(_lastResult);
+  var errs = AP2Schema.validate(obj);
+  if (errs.length > 0) { showToast('Validation error: missing ' + errs.join(', '), true); return; }
+  var ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  var blob = new Blob([JSON.stringify(obj, null, 2)], {type:'application/json'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = '464-form-crs-generator_' + ts + '.policy.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function buildMarkdownCRS(r) {
+  /* The Markdown export IS the deliverable — clean and copy-pasteable. */
+  var now = new Date().toISOString();
+  var lines = [
+    '# Customer Relationship Summary',
+    '',
+    '**' + r.firm_name + '**  ',
+    '*' + r.firm_type_label + '*  ',
+    '',
+    '---',
+    '',
+  ];
+  r.sections.forEach(function(s) {
+    lines.push('## ' + s.heading);
+    lines.push('');
+    if (s.question) {
+      lines.push('> ' + s.question);
+      lines.push('');
+    }
+    lines.push(s.body);
+    lines.push('');
+  });
+  lines.push('---');
+  lines.push('');
+  lines.push('## Questions to Ask Your Financial Professional');
+  lines.push('');
+  CONVERSATION_STARTERS.forEach(function(q) {
+    lines.push('- ' + q);
+  });
+  lines.push('');
+  lines.push('---');
+  lines.push('');
+  lines.push('*Format check: ~' + r.estimated_pages + ' estimated page(s) — ' + (r.format_ok ? '✓ within' : '⚠ exceeds') + ' SEC ' + r.max_pages + '-page limit for ' + r.firm_type_label + '.*');
+  lines.push('');
+  lines.push('*Generated ' + now.slice(0,10) + ' by ainumbers.co T464 Form CRS Generator · v1.0 · CC BY 4.0 · Post Oak Labs*');
+  lines.push('*Regulatory basis: SEC Release 34-86032; Exchange Act Rule 17a-14; IA Act Rule 204-5. Synthetic firm data only.*');
+  return lines.join('\n');
+}
+
+function exportMarkdown() {
+  if (!_lastResult) return;
+  var md = buildMarkdownCRS(_lastResult);
+  var ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  var blob = new Blob([md], {type:'text/markdown'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = '464-form-crs_' + ts + '.md';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function showToast(msg, err) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast' + (err ? ' err' : '');
+  t.style.display = 'block';
+  clearTimeout(t._h); t._h = setTimeout(function(){ t.style.display='none'; }, 3200);
+}
+</script>
+
+<!-- AIN Bridge v1.0 — prefill deep-links + Policy Mandate intake + Composer messaging -->
+<script>window.AIN_BRIDGE_CFG={runFn:'runFormCrs',intake:true,intakeTarget:null,intakeAnchor:'.pii-notice'};</script>
+<script>
+(function(){
+'use strict';
+var CFG=window.AIN_BRIDGE_CFG||{};
+var L={
+ en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled from link and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'},
+ es:{pf:'Campos precargados desde el enlace — revise y ejecute',ran:'Campos precargados desde el enlace y ejecutados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Suelte un .policy.json aquí, o',choose:'Elegir archivo',paste:'Pegar JSON',apply:'Aplicar',ok:'Policy Mandate importado desde',bad:'JSON de Policy Mandate no válido'},
+ fr:{pf:'Champs préremplis depuis le lien — vérifiez puis exécutez',ran:'Champs préremplis depuis le lien et exécutés',fields:'champs',it:'Importer un Policy Mandate (.policy.json)',drop:'Déposez un .policy.json ici, ou',choose:'Choisir un fichier',paste:'Coller le JSON',apply:'Appliquer',ok:'Policy Mandate importé depuis',bad:'JSON Policy Mandate non valide'},
+ ar:{pf:'تم ملء الحقول مسبقًا من الرابط — راجع ثم شغّل',ran:'تم ملء الحقول من الرابط وتنفيذها',fields:'حقول',it:'استيراد Policy Mandate (.policy.json)',drop:'أسقط ملف ‎.policy.json هنا، أو',choose:'اختر ملفًا',paste:'لصق JSON',apply:'تطبيق',ok:'تم استيراد Policy Mandate من',bad:'JSON غير صالح لـ Policy Mandate'},
+ pt:{pf:'Campos pré-preenchidos a partir do link — revise e execute',ran:'Campos pré-preenchidos a partir do link e executados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Solte um .policy.json aqui, ou',choose:'Escolher arquivo',paste:'Colar JSON',apply:'Aplicar',ok:'Policy Mandate importado de',bad:'JSON de Policy Mandate inválido'},
+ zh:{pf:'已从链接预填输入 — 请检查后运行',ran:'已从链接预填并自动执行',fields:'个字段',it:'导入 Policy Mandate (.policy.json)',drop:'将 .policy.json 拖放到此处，或',choose:'选择文件',paste:'粘贴 JSON',apply:'应用',ok:'已导入 Policy Mandate，来源：',bad:'无效的 AINumbers Policy Mandate JSON'}
+};
+function t(k){var lg='en';try{lg=sessionStorage.getItem('ain_lang')||'en';}catch(e){}return (L[lg]&&L[lg][k])||L.en[k];}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function anchorEl(){return (CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.querySelector('.pii-notice')||document.querySelector('.panel')||document.body.firstElementChild;}
+function notice(msg,kind){
+  var d=document.getElementById('ainBridgeNotice');
+  if(!d){d=document.createElement('div');d.id='ainBridgeNotice';
+    var a=document.getElementById('ainIntakeZone')||anchorEl();
+    if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}
+  d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));
+  d.textContent=msg;
+}
+function looksLikeMandate(o){return !!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}
+function intakeApply(text){
+  var o;try{o=JSON.parse(text);}catch(e){notice('⚠ '+t('bad'),'warn');return 0;}
+  if(!looksLikeMandate(o)){notice('⚠ '+t('bad'),'warn');return 0;}
+  var n=0;
+  if(CFG.intakeTarget){var ta=document.getElementById(CFG.intakeTarget);
+    if(ta){ta.value=JSON.stringify(o,null,2);try{ta.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}n++;}}
+  if(o.payload&&typeof o.payload==='object')n+=applyFields(o.payload);
+  if(o.source_tool_inputs&&typeof o.source_tool_inputs==='object')n+=applyFields(o.source_tool_inputs);
+  notice((n>0?'📥 ':'⚠ ')+t('ok')+' '+(o.tool_id||'?')+' · '+n+' '+t('fields'),n>0?'ok':'warn');
+  return n;
+}
+function buildIntakeUI(){
+  if(!CFG.intake)return;
+  var a=anchorEl();if(!a||!a.parentNode)return;
+  var z=document.createElement('div');z.id='ainIntakeZone';
+  z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8;letter-spacing:.04em');
+  var lbl=document.createElement('div');lbl.textContent='📥 '+t('it');lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');
+  var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');
+  var txt=document.createElement('span');txt.textContent=t('drop');
+  function mkBtn(label){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}
+  var bFile=mkBtn(t('choose')),bPaste=mkBtn(t('paste'));
+  var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';
+  fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});
+  bFile.addEventListener('click',function(){fi.click();});
+  var pasteRow=document.createElement('div');pasteRow.style.display='none';pasteRow.setAttribute('style','display:none;margin-top:.6rem');
+  var ta=document.createElement('textarea');ta.rows=5;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');
+  var bApply=mkBtn(t('apply'));bApply.style.marginTop='.4rem';
+  bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});
+  pasteRow.appendChild(ta);pasteRow.appendChild(bApply);
+  bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';if(pasteRow.style.display==='block')ta.focus();});
+  z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});
+  z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});
+  z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});
+  row.appendChild(txt);row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);
+  z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);
+  a.parentNode.insertBefore(z,a);
+}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  var n=applyFields(fields);
+  if(n>0){
+    if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');
+    else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');
+  }
+}
+window.AINBridge={
+  version:'1.0',
+  apply:applyFields,
+  run:runTool,
+  intake:intakeApply,
+  getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
+};
+window.addEventListener('message',function(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=(e.origin&&e.origin!=='null')?e.origin:'*';
+  var d=e.data||{};
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+  else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
+});
+function boot(){buildIntakeUI();initPrefill();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>

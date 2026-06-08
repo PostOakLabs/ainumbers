@@ -1,0 +1,65 @@
+{
+  "tool_id": "463-reg-bi-best-interest-checker",
+  "version": "1.0.0",
+  "title": "Reg BI Best-Interest Checker",
+  "description": "Assess a securities recommendation against SEC Regulation Best Interest's four component obligations (Disclosure, Care, Conflict of Interest, Compliance). Returns per-obligation PASS/GAP determination, overall best-interest verdict, and ordered remediation list. Deterministic. US broker-dealer scope. 2026 FINRA enforcement priority.",
+  "category": "fintech",
+  "tags": ["reg-bi","best-interest","form-crs","suitability","us","wealth","broker-dealer","finra","sec","compliance"],
+  "audience": ["broker-dealer","investment-adviser","compliance"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "recommendation_type": {"type":"string","enum":["security_transaction","investment_strategy","account_type","rollover","margin"]},
+      "retail_customer": {"type":"boolean"},
+      "investment_profile": {"type":"object","properties":{"age":{"type":"integer"},"time_horizon_years":{"type":"integer"},"risk_tolerance":{"type":"string","enum":["conservative","moderate","aggressive"]},"liquidity_needs":{"type":"string","enum":["low","medium","high"]},"investment_objective":{"type":"string"}}},
+      "reasonably_available_alternatives_considered": {"type":"integer","minimum":0},
+      "total_cost_bps": {"type":"number"},
+      "lower_cost_alternative_exists": {"type":"boolean"},
+      "conflicts_disclosed": {"type":"boolean"},
+      "conflicts_mitigated": {"type":"boolean"},
+      "form_crs_delivered": {"type":"boolean"},
+      "rationale_documented": {"type":"boolean"},
+      "compliance_program_in_place": {"type":"boolean"}
+    },
+    "required": ["recommendation_type","retail_customer"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "verdict": {"type":"string","enum":["BEST_INTEREST_MET","ATTENTION","NOT_MET","OUT_OF_SCOPE"]},
+      "verdict_label": {"type":"string"},
+      "obligations": {"type":"array","items":{"type":"object","properties":{"obligation":{"type":"string"},"citation":{"type":"string"},"status":{"type":"string","enum":["PASS","GAP"]},"gaps":{"type":"array"},"detail":{"type":"string"}}}},
+      "remediation": {"type":"array","items":{"type":"string"}}
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "reg_bi_best_interest_checker",
+    "description": "Assess a securities recommendation against SEC Regulation Best Interest (17 CFR 240.15l-1). Scores all four component obligations: Disclosure (Rule 15l-1(a)(2)(i)), Care (Rule 15l-1(a)(2)(ii)), Conflict of Interest (Rule 15l-1(a)(2)(iii)), and Compliance (Rule 15l-1(a)(2)(iv)). Returns PASS/GAP per obligation, overall best-interest verdict (BEST_INTEREST_MET / ATTENTION / NOT_MET / OUT_OF_SCOPE), and ordered remediation steps. Deterministic. 2026 FINRA enforcement priority. Use with synthetic inputs only.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "recommendation_type": {"type":"string","enum":["security_transaction","investment_strategy","account_type","rollover","margin"],"description":"Type of recommendation being assessed"},
+        "retail_customer": {"type":"boolean","description":"True if the recommendation is made to a retail customer (required for Reg BI scope)"},
+        "reasonably_available_alternatives_considered": {"type":"integer","minimum":0,"description":"Number of reasonably available alternatives considered before making the recommendation"},
+        "total_cost_bps": {"type":"number","description":"Total cost to the retail customer in basis points"},
+        "lower_cost_alternative_exists": {"type":"boolean","description":"True if a lower-cost alternative was identified in the considered set"},
+        "conflicts_disclosed": {"type":"boolean","description":"True if material conflicts of interest were disclosed in writing"},
+        "conflicts_mitigated": {"type":"boolean","description":"True if conflicts of interest were mitigated or eliminated through written policies"},
+        "form_crs_delivered": {"type":"boolean","description":"True if Form CRS was delivered to the retail customer at or before the recommendation"},
+        "rationale_documented": {"type":"boolean","description":"True if the recommendation rationale (basis for best interest) was documented"},
+        "compliance_program_in_place": {"type":"boolean","description":"True if a written compliance program reasonably designed to achieve Reg BI compliance is in place"}
+      },
+      "required": ["recommendation_type","retail_customer"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/463-reg-bi-best-interest-checker.html",
+    "function_name": "runRegBiCheck",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true
+}
