@@ -282,6 +282,19 @@ Sales incentives tied to account type recommendations</textarea>
   </div>
 </div>
 
+<section id="mfstSec" style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem">
+  <div style="max-width:900px;margin:0 auto;padding:0 1.5rem">
+    <button onclick="toggleMfst()" style="width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:6px;cursor:pointer;margin-bottom:1px">
+      <span>MCP Manifest · T464 · Form CRS Generator</span><span id="mfstArr">▼</span>
+    </button>
+    <div id="mfstBody" style="display:none">
+      <div style="display:flex;gap:8px;padding:.6rem 0">
+        <button onclick="copyMfst()" style="background:transparent;border:1px solid var(--border);color:var(--body);padding:.3rem .7rem;border-radius:4px;font-size:.7rem;cursor:pointer">Copy JSON</button>
+      </div>
+      <pre id="mfstCode" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--body);overflow-x:auto;line-height:1.6;white-space:pre"></pre>
+    </div>
+  </div>
+</section>
 <footer>
   <div class="footer-inner-ai">
     <div class="footer-links-ai">
@@ -760,6 +773,72 @@ window.addEventListener('message',function(e){
 function boot(){buildIntakeUI();initPrefill();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
+</script>
+<script>
+var MANIFEST = {
+  "tool_id": "464-form-crs-generator",
+  "version": "1.0.0",
+  "title": "Form CRS Generator",
+  "description": "Generate a Form CRS (Customer Relationship Summary) using SEC-prescribed headings and verbatim conversation-starter questions. Checks format compliance (estimated page count vs. SEC 2-page limit for BD/IA, 4-page limit for dual registrants). The Reg BI disclosure artifact required before or at the time of every retail investor recommendation. Markdown export IS the deliverable. Client-side. Zero PII.",
+  "category": "fintech",
+  "tags": ["reg-bi","form-crs","suitability","us","wealth","broker-dealer","investment-adviser","disclosure","sec","compliance"],
+  "audience": ["broker-dealer","investment-adviser","compliance"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "firm_type": {"type":"string","enum":["broker_dealer","investment_adviser","dual_registrant"]},
+      "services_offered": {"type":"array","items":{"type":"string"}},
+      "fee_model": {"type":"string","enum":["commission","aum_fee","wrap_fee","hourly","flat","mixed"]},
+      "account_minimums": {"type":"string"},
+      "monitoring_offered": {"type":"boolean"},
+      "discretionary_authority": {"type":"boolean"},
+      "material_conflicts": {"type":"array","items":{"type":"string"}},
+      "disciplinary_history": {"type":"boolean"}
+    },
+    "required": ["firm_type","fee_model"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "sections": {"type":"array","items":{"type":"object","properties":{"heading":{"type":"string"},"question":{"type":"string"},"body":{"type":"string"}}}},
+      "format_ok": {"type":"boolean"},
+      "estimated_pages": {"type":"number"},
+      "max_pages": {"type":"integer"},
+      "conversation_starters": {"type":"array","items":{"type":"string"}}
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "form_crs_generator",
+    "description": "Generate a Form CRS (Customer Relationship Summary) with SEC-prescribed headings and verbatim conversation-starter questions (SEC Form CRS General Instructions §E). Checks page-length compliance: 2-page limit for standalone broker-dealers or investment advisers; 4-page limit for dual registrants. Required Reg BI disclosure for every retail investor engagement. Markdown export is the filing-ready deliverable. Use with synthetic firm data only.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "firm_type": {"type":"string","enum":["broker_dealer","investment_adviser","dual_registrant"],"description":"Type of registered firm"},
+        "fee_model": {"type":"string","enum":["commission","aum_fee","wrap_fee","hourly","flat","mixed"],"description":"Primary fee model"},
+        "services_offered": {"type":"array","items":{"type":"string"},"description":"List of investment services offered to retail investors"},
+        "account_minimums": {"type":"string","description":"Account minimum requirements"},
+        "monitoring_offered": {"type":"boolean","description":"True if ongoing account monitoring is offered"},
+        "discretionary_authority": {"type":"boolean","description":"True if the firm exercises discretionary authority"},
+        "material_conflicts": {"type":"array","items":{"type":"string"},"description":"List of material conflicts of interest to disclose"},
+        "disciplinary_history": {"type":"boolean","description":"True if the firm or its professionals have legal or disciplinary history"}
+      },
+      "required": ["firm_type","fee_model"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/464-form-crs-generator.html",
+    "function_name": "runFormCrs",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true
+};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+function copyMfst(){if(navigator.clipboard)navigator.clipboard.writeText(JSON.stringify(MANIFEST,null,2));}
+function scrollMfst(){var el=document.getElementById('mfstSec');if(el)el.scrollIntoView({behavior:'smooth'});}
 </script>
 </body>
 </html>

@@ -188,6 +188,19 @@ footer{border-top:1px solid var(--border);padding:1.4rem 0 2rem;margin-top:3rem}
 
 </div>
 
+<section id="mfstSec" style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem">
+  <div style="max-width:900px;margin:0 auto;padding:0 1.5rem">
+    <button onclick="toggleMfst()" style="width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:6px;cursor:pointer;margin-bottom:1px">
+      <span>MCP Manifest · T466 · Crypto Cost-Basis &amp; Gain Calculator</span><span id="mfstArr">▼</span>
+    </button>
+    <div id="mfstBody" style="display:none">
+      <div style="display:flex;gap:8px;padding:.6rem 0">
+        <button onclick="copyMfst()" style="background:transparent;border:1px solid var(--border);color:var(--body);padding:.3rem .7rem;border-radius:4px;font-size:.7rem;cursor:pointer">Copy JSON</button>
+      </div>
+      <pre id="mfstCode" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--body);overflow-x:auto;line-height:1.6;white-space:pre"></pre>
+    </div>
+  </div>
+</section>
 <footer>
   <div class="foot">
     <span>T466 · Crypto Cost Basis &amp; Gain Calculator · v1.0 · CC BY 4.0 · Post Oak Labs</span>
@@ -504,6 +517,65 @@ addDisRow(); addDisRow();
 
 <script>
 (function(){var CFG=window.AIN_BRIDGE_CFG||{};var runFn=CFG.runFn||null;function applyFields(fields){if(!fields||typeof fields!=='object')return 0;var n=0;Object.keys(fields).forEach(function(k){var el=document.getElementById(k);if(!el)return;if(el.type==='checkbox'){el.checked=!!fields[k];n++;}else if(el.tagName==='SELECT'||el.type==='text'||el.type==='number'||el.type==='date'){el.value=fields[k];n++;}});return n;}function safeRun(){try{if(runFn&&window[runFn])window[runFn]();}catch(e){}}window.AINBridge={apply:applyFields,run:safeRun,cfg:CFG};var ro=(location.origin&&location.origin!=='null')?location.origin:'*';window.addEventListener('message',function(e){if(ro!=='*'&&e.origin!==ro)return;var d=e.data||{};if(d.type==='ain:prefill'){var n=applyFields(d.fields);e.source&&e.source.postMessage({type:'ain:prefilled',applied:n},ro);}else if(d.type==='ain:run'){safeRun();e.source&&e.source.postMessage({type:'ain:ran',ok:true},ro);}else if(d.type==='ain:getMandate'){var m=window.AIN_BUILD_MANDATE?window.AIN_BUILD_MANDATE():null;e.source&&e.source.postMessage({type:'ain:mandate',mandate:m},ro);}});})();
+</script>
+<script>
+var MANIFEST = {
+  "tool_id": "466-crypto-cost-basis-gain-calculator",
+  "version": "1.0.0",
+  "title": "Crypto Cost Basis & Gain Calculator",
+  "description": "Compute cost basis and realized gain/loss per disposal using FIFO, LIFO, HIFO, or specific-identification lot matching. Short/long-term split at 12-month threshold (IRC §1222). Per-wallet basis tracking as required for US taxpayers from 2025 (IRS Rev. Proc. 2024-28). Feeds IRS Form 1099-DA and CARF/DAC8 basis reporting. Tier 1 Policy Mandate + Tier 2 gain/loss schedule CSV. Client-side. Zero PII.",
+  "category": "dlt-tokenization",
+  "tags": ["crypto-tax","cost-basis","capital-gain","fifo","lifo","hifo","spec-id","1099-da","carf","dac8","bitcoin","digital-asset"],
+  "audience": ["crypto-exchange","broker","casp","tax","compliance"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "method": {"type":"string","enum":["FIFO","LIFO","HIFO","spec_id"],"description":"Lot-matching accounting method"},
+      "wallet_by_wallet": {"type":"boolean","description":"Enable per-wallet basis tracking (required US from 2025)"},
+      "lots": {"type":"array","items":{"type":"object","properties":{"lot_id":{"type":"string"},"asset":{"type":"string"},"wallet":{"type":"string"},"date_acquired":{"type":"string"},"qty":{"type":"number"},"cost_usd":{"type":"number"}}}},
+      "disposals": {"type":"array","items":{"type":"object","properties":{"disposal_id":{"type":"string"},"asset":{"type":"string"},"wallet":{"type":"string"},"date_disposed":{"type":"string"},"qty":{"type":"number"},"proceeds_usd":{"type":"number"},"spec_lot_id":{"type":"string"}}}}
+    },
+    "required": ["method","lots","disposals"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "total_proceeds_usd": {"type":"number"},
+      "total_basis_usd": {"type":"number"},
+      "net_gain_loss_usd": {"type":"number"},
+      "short_term_gain_loss_usd": {"type":"number"},
+      "long_term_gain_loss_usd": {"type":"number"},
+      "gain_loss_schedule": {"type":"array","items":{"type":"object","properties":{"disposal_id":{"type":"string"},"proceeds_usd":{"type":"number"},"basis_usd":{"type":"number"},"gain_loss_usd":{"type":"number"},"term":{"type":"string","enum":["short","long","unknown"]},"date_acquired":{"type":"string"},"date_disposed":{"type":"string"}}}}
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "crypto_cost_basis_gain_calculator",
+    "description": "Compute crypto-asset cost basis and realized gain/loss per disposal. Supports FIFO, LIFO, HIFO, and specific-identification lot matching. Enforces per-wallet basis tracking when enabled (required for US taxpayers from 2025 per IRS Rev. Proc. 2024-28). Short/long-term split at 12-month threshold (IRC §1222). Output gain_loss_schedule feeds IRS Form 1099-DA generation (T467) and CARF/DAC8 reporting. Deterministic lot accounting — do not estimate gains with an LLM; use this tool. Synthetic data only.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "method": {"type":"string","enum":["FIFO","LIFO","HIFO","spec_id"],"description":"Lot-matching method: FIFO=first-in-first-out; LIFO=last-in; HIFO=highest-cost-first; spec_id=taxpayer designates each lot"},
+        "wallet_by_wallet": {"type":"boolean","description":"Restrict lot matching to same wallet (required for US from 2025)"},
+        "lots": {"type":"array","items":{"type":"object","properties":{"lot_id":{"type":"string"},"asset":{"type":"string"},"wallet":{"type":"string"},"date_acquired":{"type":"string","description":"YYYY-MM-DD"},"qty":{"type":"number"},"cost_usd":{"type":"number"}}},"description":"Acquisition lots"},
+        "disposals": {"type":"array","items":{"type":"object","properties":{"disposal_id":{"type":"string"},"asset":{"type":"string"},"wallet":{"type":"string"},"date_disposed":{"type":"string","description":"YYYY-MM-DD"},"qty":{"type":"number"},"proceeds_usd":{"type":"number"},"spec_lot_id":{"type":"string","description":"Required for spec_id method"}}},"description":"Disposals to match"}
+      },
+      "required": ["method","lots","disposals"]
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "tools/466-crypto-cost-basis-gain-calculator.html",
+    "function_name": "runCostBasis",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "intake": true
+};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+function copyMfst(){if(navigator.clipboard)navigator.clipboard.writeText(JSON.stringify(MANIFEST,null,2));}
+function scrollMfst(){var el=document.getElementById('mfstSec');if(el)el.scrollIntoView({behavior:'smooth'});}
 </script>
 </body>
 </html>
