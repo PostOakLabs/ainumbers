@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Mandate Regression Replayer · AINumbers.co</title>
+<meta name="description" content="Re-run any exported AINumbers Policy Mandate through its originating tool and compare the result. Detects payload drift, tool version changes, and non-determinism. Client-side. Zero PII. Zero network.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/guides/regression-replayer">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Mandate Regression Replayer · AINumbers.co">
+<meta property="og:description" content="Drop a Policy Mandate JSON, replay it through its originating tool, and see if the output still matches. Detects drift and version changes. Client-side. Zero PII.">
+<meta property="og:url" content="https://ainumbers.co/guides/regression-replayer">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"Mandate Regression Replayer","url":"https://ainumbers.co/guides/regression-replayer","applicationCategory":"FinanceApplication","operatingSystem":"Web browser","description":"Re-run exported AINumbers Policy Mandates through their originating tools and compare outputs. Detects payload drift and tool version changes. Client-side, zero PII, zero network.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.1);
+  --purple:#9B72F5;--radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:300;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-name .ai{color:var(--teal)}.logo-name .co{color:var(--muted);font-size:.8rem}
+.nav-links{display:flex;align-items:center;gap:18px}
+.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);transition:color .2s}
+.nav-links a:hover{color:var(--teal-lt)}
+.hero{padding:3rem 0 1.75rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.22em;text-transform:uppercase;color:var(--purple);margin-bottom:.8rem}
+.hero h1{font-size:2.1rem;color:var(--white);margin-bottom:.8rem}
+.hero p{max-width:760px;font-size:.92rem;color:var(--body)}
+.hero-badges{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.1rem}
+.hero-badge{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.3rem .7rem;border-radius:999px;border:1px solid var(--border-2);color:var(--body)}
+.hero-badge.b-purple{border-color:rgba(155,114,245,.4);color:var(--purple);background:var(--purple-dim,rgba(155,114,245,.1))}
+.how{border:1px dashed var(--border-2);border-radius:var(--radius-lg);background:rgba(255,255,255,.02);padding:1rem 1.25rem;margin:1.5rem 0 0;font-size:.78rem;color:var(--body)}
+.how strong{color:var(--text)}
+/* intake */
+.intake{margin:2rem 0 0;display:grid;grid-template-columns:1fr 1fr;gap:1.2rem}
+@media(max-width:700px){.intake{grid-template-columns:1fr}}
+.drop-zone{border:2px dashed var(--border-2);border-radius:var(--radius-lg);background:var(--bg-2);padding:2rem 1.5rem;text-align:center;transition:border-color .2s;cursor:pointer}
+.drop-zone.drag-over{border-color:var(--teal);background:var(--teal-dim)}
+.drop-zone-icon{font-size:2rem;margin-bottom:.6rem}
+.drop-zone-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.8rem}
+.drop-zone-sub{font-size:.72rem;color:var(--muted)}
+.paste-zone{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);padding:1rem 1.25rem;display:flex;flex-direction:column;gap:.6rem}
+.paste-zone label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.paste-zone textarea{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.6rem .8rem;resize:vertical;min-height:7rem;outline:none}
+.paste-zone textarea:focus{border-color:var(--teal)}
+/* queue */
+.queue-section{margin:2rem 0 0}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem}
+.section-head h2{font-size:1.1rem;color:var(--bright)}
+.ctl-btn{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1rem;border-radius:var(--radius);border:1px solid var(--border-2);background:transparent;color:var(--text);transition:all .2s}
+.ctl-btn:hover{border-color:var(--teal);color:var(--teal-lt)}
+.ctl-btn.primary{background:var(--teal);border-color:var(--teal);color:var(--bg);font-weight:500}
+.ctl-btn.primary:hover{background:var(--teal-lt)}
+.ctl-btn:disabled{opacity:.35;cursor:not-allowed}
+.queue-empty{border:1px dashed var(--border);border-radius:var(--radius-lg);padding:2rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted)}
+.queue-table{width:100%;border-collapse:collapse}
+.queue-table th{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left}
+.queue-table td{padding:.6rem .75rem;border-bottom:1px solid var(--border);font-size:.78rem;vertical-align:middle}
+.queue-table tr:last-child td{border-bottom:none}
+.queue-table tr.active-row td{background:var(--bg-3)}
+.verdict-badge{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.25rem .6rem;border-radius:999px;display:inline-block}
+.v-pending{color:var(--muted);border:1px solid var(--border-2)}
+.v-running{color:var(--gold);border:1px solid rgba(212,168,71,.4);background:var(--gold-dim);animation:pulse 1.2s ease-in-out infinite}
+.v-match{color:var(--green);border:1px solid rgba(34,197,94,.4);background:var(--green-dim)}
+.v-drift{color:var(--red);border:1px solid rgba(239,68,68,.4);background:var(--red-dim)}
+.v-version{color:var(--warn);border:1px solid rgba(245,158,11,.4);background:var(--warn-dim)}
+.v-failed{color:var(--red);border:1px solid rgba(239,68,68,.4);background:var(--red-dim)}
+.v-noreplay{color:var(--muted);border:1px solid var(--border-2)}
+.v-notfound{color:var(--muted);border:1px solid var(--border-2)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+/* replay area */
+.replay-area{margin:2rem 0;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);overflow:hidden;display:none}
+.replay-area.visible{display:block}
+.replay-head{display:flex;align-items:center;gap:1rem;padding:.8rem 1.25rem;background:var(--bg-3);border-bottom:1px solid var(--border)}
+.replay-title{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);flex:1}
+.replay-log{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);background:var(--bg);border-bottom:1px solid var(--border);padding:.5rem .9rem;min-height:1.8rem;white-space:pre-wrap}
+.replay-log .ok{color:var(--teal-lt)}.replay-log .warn{color:var(--warn)}.replay-log .err{color:var(--red)}
+.frame-wrap iframe{width:100%;height:680px;border:none;display:block;background:var(--bg)}
+/* diff panel */
+.diff-panel{margin:1.5rem 0;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);overflow:hidden;display:none}
+.diff-panel.visible{display:block}
+.diff-panel-head{padding:.7rem 1.25rem;background:var(--bg-3);border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;text-transform:uppercase}
+.diff-table{width:100%;border-collapse:collapse}
+.diff-table th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.45rem .75rem;border-bottom:1px solid var(--border);text-align:left}
+.diff-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.6rem;vertical-align:top;word-break:break-word}
+.diff-table tr:last-child td{border-bottom:none}
+.diff-key{color:var(--text)}
+.diff-old{color:var(--red)}
+.diff-new{color:var(--teal-lt)}
+/* results export */
+.export-panel{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg-2);margin:2rem 0;padding:1.4rem 1.5rem}
+.export-panel h2{color:var(--white);font-size:1.3rem;margin-bottom:.5rem}
+.export-panel p{font-size:.8rem;color:var(--body);margin-bottom:1rem;max-width:820px}
+.results-export-row{display:flex;flex-wrap:wrap;gap:.6rem}
+.results-export-row .ctl-btn .btn-subtitle{display:block;font-size:.46rem;letter-spacing:.06em;opacity:.7;text-transform:none}
+.summary-row{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}
+.sum-chip{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;padding:.3rem .65rem;border-radius:999px;border:1px solid var(--border-2);color:var(--body)}
+.sum-chip.sc-match{border-color:rgba(34,197,94,.4);color:var(--green);background:var(--green-dim)}
+.sum-chip.sc-drift{border-color:rgba(239,68,68,.4);color:var(--red);background:var(--red-dim)}
+.sum-chip.sc-warn{border-color:rgba(245,158,11,.4);color:var(--warn);background:var(--warn-dim)}
+.sum-chip.sc-muted{color:var(--muted)}
+.toast{position:fixed;bottom:1.4rem;left:50%;transform:translateX(-50%);background:var(--bg-4);border:1px solid var(--teal);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.6rem 1.1rem;border-radius:var(--radius);z-index:400;display:none}
+.toast.err{border-color:var(--red);color:var(--red)}
+footer{border-top:1px solid var(--border);padding:1.6rem 0 2.2rem;margin-top:3rem}
+.foot-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.foot-inner a:hover{color:var(--teal-lt)}
+input[type="file"]{display:none}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo-name"><span class="ai">AI</span>Numbers<span class="co">.co</span></a>
+    <div class="nav-links">
+      <a href="../index.html">Tools</a>
+      <a href="tool-chains.html">Chains</a>
+      <a href="dora-readiness-composer.html">DORA Composer</a>
+      <a href="https://postoaklabs.com" target="_blank" rel="noopener">Post Oak Labs</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="hero">
+    <div class="hero-eyebrow">Workflow Runner · Mandate Lifecycle · AIN Bridge v1.0</div>
+    <h1>Mandate Regression Replayer</h1>
+    <p>Every AINumbers Policy Mandate carries <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal-lt)">source_tool_inputs</code> and all tools are deterministic — so any historical mandate can be re-run and compared. Drop one or more <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal-lt)">.policy.json</code> files, hit Replay, and see if the output still matches.</p>
+    <div class="hero-badges">
+      <span class="hero-badge b-purple">Mandate Lifecycle Tool</span>
+      <span class="hero-badge">Detects Drift &amp; Version Changes</span>
+      <span class="hero-badge">Client-side · Zero PII · Zero network</span>
+      <span class="hero-badge">Tier 1 + CSV export</span>
+    </div>
+    <div class="how">
+      <strong>Verdicts:</strong>
+      <span style="color:var(--green)">MATCH</span> — payload identical (SHA-256 hash match) &nbsp;|&nbsp;
+      <span style="color:var(--red)">DRIFT</span> — payload changed; field-level diff shown &nbsp;|&nbsp;
+      <span style="color:var(--warn)">VERSION_CHANGED</span> — tool version differs from original &nbsp;|&nbsp;
+      <span style="color:var(--red)">REPLAY_FAILED</span> — tool did not return a mandate within 45 s &nbsp;|&nbsp;
+      <span style="color:var(--muted)">NOT_REPLAYABLE</span> — mandate has no <code style="font-family:'JetBrains Mono',monospace;font-size:.9em">source_tool_inputs</code> &nbsp;|&nbsp;
+      <span style="color:var(--muted)">TOOL_NOT_FOUND</span> — tool_id not in the inline catalog map (regenerate if tool was added after 2026-06-08).
+      <br><br>
+      <span style="color:var(--muted);font-size:.75rem">🔒 All processing is local. No files leave your browser. Do not use real personal data — synthetic or anonymised inputs only.</span>
+    </div>
+  </div>
+
+  <div class="intake">
+    <div class="drop-zone" id="dropZone" onclick="el('fileInput').click()"
+         ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+      <div class="drop-zone-icon">&#128229;</div>
+      <div class="drop-zone-label">Drop .policy.json files here</div>
+      <div class="drop-zone-sub">or click to choose files</div>
+      <input type="file" id="fileInput" accept=".json,.policy.json" multiple onchange="onFileInput(event)">
+    </div>
+    <div class="paste-zone">
+      <label for="pasteArea">Paste JSON mandate</label>
+      <textarea id="pasteArea" placeholder='{ "ap2_version": "1.0", "mandate_id": "...", ... }'></textarea>
+      <button class="ctl-btn" onclick="onPaste()">&#43; Add pasted mandate</button>
+    </div>
+  </div>
+
+  <div class="queue-section">
+    <div class="section-head">
+      <h2>Mandate queue (<span id="queueCount">0</span>)</h2>
+      <div style="display:flex;gap:.5rem">
+        <button class="ctl-btn" onclick="clearQueue()" id="clearBtn" disabled>&#215; Clear</button>
+        <button class="ctl-btn primary" onclick="startReplay()" id="replayBtn" disabled>&#9654; Run replay</button>
+      </div>
+    </div>
+    <div class="queue-empty" id="queueEmpty">No mandates loaded. Drop .policy.json files above or paste a mandate.</div>
+    <div id="queueWrap" style="display:none;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden">
+      <table class="queue-table">
+        <thead><tr>
+          <th>#</th><th>File / source</th><th>tool_id</th><th>issued_at</th><th>mandate_type</th><th>Status</th>
+        </tr></thead>
+        <tbody id="queueBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="replay-area" id="replayArea">
+    <div class="replay-head">
+      <span class="replay-title" id="replayTitle">Replaying...</span>
+      <span id="replayProgress" style="font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted)"></span>
+    </div>
+    <div class="replay-log" id="replayLog"></div>
+    <div class="frame-wrap">
+      <iframe id="replayFrame" title="Tool replay frame" src="about:blank"></iframe>
+    </div>
+  </div>
+
+  <div class="diff-panel" id="diffPanel">
+    <div class="diff-panel-head" id="diffPanelHead" style="color:var(--red)">Drift detected</div>
+    <table class="diff-table">
+      <thead><tr><th>Field path</th><th>Original value</th><th>Replayed value</th></tr></thead>
+      <tbody id="diffBody"></tbody>
+    </table>
+  </div>
+
+  <div class="export-panel" id="exportPanel" style="display:none">
+    <h2>Results</h2>
+    <div class="summary-row" id="summaryRow"></div>
+    <p>All mandates processed. Export the session as a Tier 1 Policy Mandate JSON (audit trail) or a Tier 2 CSV of all drift rows.</p>
+    <div class="results-export-row">
+      <button class="ctl-btn primary" onclick="exportAP2()">{} Export session mandate<span class="btn-subtitle">AP2 JSON · audit trail</span></button>
+      <button class="ctl-btn" onclick="exportCSV()">&#128196; Export drift CSV<span class="btn-subtitle">Tier 2 · tabular diff</span></button>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <span>© 2026 Post Oak Labs · CC BY 4.0</span>
+    <span>
+      <a href="tool-chains.html">All chains</a> ·
+      <a href="dora-readiness-composer.html">DORA Composer</a> ·
+      <a href="../llms.txt">llms.txt</a> ·
+      <a href="../mcp/server.json">MCP server</a>
+    </span>
+  </div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* Mandate Regression Replayer v1.0 -- AIN Bridge aware.
+   Re-runs Policy Mandates through their originating tools via the prefill deep-link.
+   tool_id->slug map embedded at build time from mcp/catalog.json (v1.1, 2026-06-08).
+   REGENERATE this map when new tools are added: grep tool_id + url pairs from catalog.json. */
+
+var TOOL_ID_TO_SLUG = {
+  '05-invoice-a2a-suite': '05-invoice-a2a-suite',
+  '06-fednow-lookup': '06-fednow-lookup',
+  '104-receivables-dso-optimizer': '104-receivables-dso-optimizer',
+  '105-fx-netting-simulator': '105-fx-netting-simulator',
+  '106-treasury-float-workbench': '106-treasury-float-workbench',
+  '107-monte-carlo-fire-simulator': '107-monte-carlo-fire-simulator',
+  '108-dlt-partition-recovery-sim': '108-dlt-partition-recovery-sim',
+  '109-cdd-edd-checklist': '109-cdd-edd-checklist',
+  '110-customer-risk-rating': '110-customer-risk-rating',
+  '111-kyb-ubo-mapper': '111-kyb-ubo-mapper',
+  '112-pep-sanctions-simulator': '112-pep-sanctions-simulator',
+  '113-adverse-media-profiler': '113-adverse-media-profiler',
+  '114-kyc-document-checklist': '114-kyc-document-checklist',
+  '115-correspondent-banking-matrix': '115-correspondent-banking-matrix',
+  '116-tm-rule-builder': '116-tm-rule-builder',
+  '117-structuring-pattern-detector': '117-structuring-pattern-detector',
+  '118-cross-border-wire-analyzer': '118-cross-border-wire-analyzer',
+  '119-ctr-sar-threshold-simulator': '119-ctr-sar-threshold-simulator',
+  '120-layering-typology-identifier': '120-layering-typology-identifier',
+  '121-sar-narrative-generator': '121-sar-narrative-generator',
+  '122-regulatory-reporting-calendar': '122-regulatory-reporting-calendar',
+  '123-aml-program-gap-auditor': '123-aml-program-gap-auditor',
+  '124-fatf-readiness-scorer': '124-fatf-readiness-scorer',
+  '125-sanctions-program-builder': '125-sanctions-program-builder',
+  '126-vasp-travel-rule-checker': '126-vasp-travel-rule-checker',
+  '127-crypto-transaction-risk-profiler': '127-crypto-transaction-risk-profiler',
+  '128-stablecoin-vasp-aml-mapper': '128-stablecoin-vasp-aml-mapper',
+  '129-defi-nft-risk-assessment': '129-defi-nft-risk-assessment',
+  '130-aml-scenario-training-lab': '130-aml-scenario-training-lab',
+  '131-ap2-aml-mandate-builder': '131-ap2-aml-mandate-builder',
+  '132-invoice-to-payment-orchestrator': '132-invoice-to-payment-orchestrator',
+  '133-virtual-card-program-cost-modeller': '133-virtual-card-program-cost-modeller',
+  '134-ap-automation-savings-calculator': '134-ap-automation-savings-calculator',
+  '135-supplier-payment-terms-optimiser': '135-supplier-payment-terms-optimiser',
+  '136-embedded-payments-margin-simulator': '136-embedded-payments-margin-simulator',
+  '137-payment-orchestration-vendor-scorecard': '137-payment-orchestration-vendor-scorecard',
+  '138-marketplace-fee-waterfall-designer': '138-marketplace-fee-waterfall-designer',
+  '139-erp-payment-integration-scorer': '139-erp-payment-integration-scorer',
+  '140-b2b-payment-fraud-detector': '140-b2b-payment-fraud-detector',
+  '141-cross-border-b2b-fee-calculator': '141-cross-border-b2b-fee-calculator',
+  '142-b2b-payment-terms-working-capital-impact': '142-b2b-payment-terms-working-capital-impact',
+  '143-commercial-card-spend-rebate-optimizer': '143-commercial-card-spend-rebate-optimizer',
+  '144-iso20022-remittance-validator': '144-iso20022-remittance-validator',
+  '145-supply-chain-finance-modeller': '145-supply-chain-finance-modeller',
+  '146-virtual-account-structure-simulator': '146-virtual-account-structure-simulator',
+  '147-payout-rail-cost-finality-modeller': '147-payout-rail-cost-finality-modeller',
+  '148-dac7-1099k-withholding-simulator': '148-dac7-1099k-withholding-simulator',
+  '149-seller-onboarding-classifier': '149-seller-onboarding-classifier',
+  '150-mtl-licensing-risk-mapper': '150-mtl-licensing-risk-mapper',
+  '151-split-payment-escrow-simulator': '151-split-payment-escrow-simulator',
+  '152-baas-provider-comparator': '152-baas-provider-comparator',
+  '153-fbo-account-structure-simulator': '153-fbo-account-structure-simulator',
+  '154-ledger-architecture-builder': '154-ledger-architecture-builder',
+  '155-bin-sponsorship-economics': '155-bin-sponsorship-economics',
+  '156-wallet-float-yield-estimator': '156-wallet-float-yield-estimator',
+  '157-settlement-orchestration-simulator': '157-settlement-orchestration-simulator',
+  '158-fintech-compliance-control-mapper': '158-fintech-compliance-control-mapper',
+  '159-marketplace-payout-flow-designer': '159-marketplace-payout-flow-designer',
+  '160-embedded-lending-unit-economics': '160-embedded-lending-unit-economics',
+  '161-programme-agreement-economics': '161-programme-agreement-economics',
+  '162-sponsor-bank-readiness-scorer': '162-sponsor-bank-readiness-scorer',
+  '163-card-programme-launch-readiness-checker': '163-card-programme-launch-readiness-checker',
+  '164-ap2-baas-mandate-builder': '164-ap2-baas-mandate-builder',
+  '175-cross-border-vat-treaty-lookup': '175-cross-border-vat-treaty-lookup',
+  '176-peppol-access-point-simulator': '176-peppol-access-point-simulator',
+  '177-vat-rate-regime-lookup': '177-vat-rate-regime-lookup',
+  '178-invoice-to-iso20022-bridge': '178-invoice-to-iso20022-bridge',
+  '179-vida-drr-readiness-scorer': '179-vida-drr-readiness-scorer',
+  '180-b2b-einvoice-compliance-scorer': '180-b2b-einvoice-compliance-scorer',
+  '181-einvoice-archiving-retention-mapper': '181-einvoice-archiving-retention-mapper',
+  '182-cross-border-vat-recovery-checker': '182-cross-border-vat-recovery-checker',
+  '183-digital-services-tax-calculator': '183-digital-services-tax-calculator',
+  '187-bnpl-fca-readiness-checker': '187-bnpl-fca-readiness-checker',
+  '188-merchant-bnpl-compliance-mapper': '188-merchant-bnpl-compliance-mapper',
+  '189-bnpl-late-fee-compliance-calculator': '189-bnpl-late-fee-compliance-calculator',
+  '190-bnpl-affordability-assessment-modeller': '190-bnpl-affordability-assessment-modeller',
+  '191-bnpl-disclosure-template-generator': '191-bnpl-disclosure-template-generator',
+  '192-bnpl-arrears-collections-checker': '192-bnpl-arrears-collections-checker',
+  '193-bnpl-apr-calculator': '193-bnpl-apr-calculator',
+  '194-b2b-bnpl-underwriting-sandbox': '194-b2b-bnpl-underwriting-sandbox',
+  '196-ifrs9-macro-overlay-calculator': '196-ifrs9-macro-overlay-calculator',
+  '197-credit-risk-rating-calculator': '197-credit-risk-rating-calculator',
+  '198-pd-lgd-ead-modeller': '198-pd-lgd-ead-modeller',
+  '199-financial-covenant-compliance-checker': '199-financial-covenant-compliance-checker',
+  '20-failure-analyser': '20-failure-analyser',
+  '200-cva-calculator': '200-cva-calculator',
+  '202-credit-stress-testing-workbench': '202-credit-stress-testing-workbench',
+  '203-raroc-loan-pricing-model': '203-raroc-loan-pricing-model',
+  '204-ifrs9-credit-migration-matrix': '204-ifrs9-credit-migration-matrix',
+  '209-fx-margin-cost-transparency': '209-fx-margin-cost-transparency',
+  '21-emerging-corridor-sheet': '21-emerging-corridor-sheet',
+  '210-cross-border-payment-failure-model': '210-cross-border-payment-failure-model',
+  '211-fx-hedging-instrument-comparison': '211-fx-hedging-instrument-comparison',
+  '212-swift-gpi-rail-comparator': '212-swift-gpi-rail-comparator',
+  '213-currency-risk-exposure-heatmap': '213-currency-risk-exposure-heatmap',
+  '214-ibor-transition-reference-checker': '214-ibor-transition-reference-checker',
+  '215-fx-settlement-fails-assessor': '215-fx-settlement-fails-assessor',
+  '216-corridor-cost-ranker': '216-corridor-cost-ranker',
+  '217-em-fx-risk-classifier': '217-em-fx-risk-classifier',
+  '218-pvp-settlement-sync-model': '218-pvp-settlement-sync-model',
+  '219-pacs008-cross-border-generator': '219-pacs008-cross-border-generator',
+  '22-decline-code-decoder': '22-decline-code-decoder',
+  '220-correspondent-derisking-modeler': '220-correspondent-derisking-modeler',
+  '221-cross-border-finality-comparator': '221-cross-border-finality-comparator',
+  '222-fatf-travel-rule-checker': '222-fatf-travel-rule-checker',
+  '23-corridor-savings-calc': '23-corridor-savings-calc',
+  '239-sme-credit-risk-scoring': '239-sme-credit-risk-scoring',
+  '24-churn-analyzer': '24-churn-analyzer',
+  '240-working-capital-gap-calculator': '240-working-capital-gap-calculator',
+  '241-business-loan-readiness-checker': '241-business-loan-readiness-checker',
+  '242-invoice-finance-eligibility': '242-invoice-finance-eligibility',
+  '243-open-finance-credit-signal-mapper': '243-open-finance-credit-signal-mapper',
+  '244-revenue-based-finance-calculator': '244-revenue-based-finance-calculator',
+  '245-government-funding-grant-mapper': '245-government-funding-grant-mapper',
+  '246-sme-cashflow-stress-test': '246-sme-cashflow-stress-test',
+  '247-lending-covenant-monitoring': '247-lending-covenant-monitoring',
+  '25-payment-reference-gen': '25-payment-reference-gen',
+  '254-iso20022-cross-rail-compatibility': '254-iso20022-cross-rail-compatibility',
+  '255-fednow-participation-readiness-scorer': '255-fednow-participation-readiness-scorer',
+  '256-rtp-fraud-velocity-rule-builder': '256-rtp-fraud-velocity-rule-builder',
+  '257-psr-reimbursement-workflow-builder': '257-psr-reimbursement-workflow-builder',
+  '258-intraday-credit-facility-sizer': '258-intraday-credit-facility-sizer',
+  '259-ap2-rtp-policy-builder': '259-ap2-rtp-policy-builder',
+  '26-app-fraud-matrix': '26-app-fraud-matrix',
+  '269-psp-safeguarding-assessment': '269-psp-safeguarding-assessment',
+  '27-settlement-finality': '27-settlement-finality',
+  '270-sepa-olo-readiness-checker': '270-sepa-olo-readiness-checker',
+  '271-alias-proxy-directory-readiness-assessor': '271-alias-proxy-directory-readiness-assessor',
+  '272-payment-surcharging-compliance-navigator': '272-payment-surcharging-compliance-navigator',
+  '300-dora-ict-risk-gap-analyser': '300-dora-ict-risk-gap-analyser',
+  '301-dora-roi-structure-builder': '301-dora-roi-structure-builder',
+  '302-dora-cif-identifier': '302-dora-cif-identifier',
+  '303-dora-incident-classification-engine': '303-dora-incident-classification-engine',
+  '304-dora-resilience-testing-designer': '304-dora-resilience-testing-designer',
+  '305-dora-third-party-contract-checker': '305-dora-third-party-contract-checker',
+  '306-dora-ict-concentration-risk-modeller': '306-dora-ict-concentration-risk-modeller',
+  '307-dora-proportionality-assessment': '307-dora-proportionality-assessment',
+  '308-dora-nca-submission-tracker': '308-dora-nca-submission-tracker',
+  '309-nis2-dora-overlap-mapper': '309-nis2-dora-overlap-mapper',
+  '310-ap2-dora-policy-mandate-builder': '310-ap2-dora-policy-mandate-builder',
+  '361-iso8583-message-decoder': '361-iso8583-message-decoder',
+  '362-payment-return-code-library': '362-payment-return-code-library',
+  '363-lei-bic-iban-decoder': '363-lei-bic-iban-decoder',
+  '364-tcfd-issb-climate-risk-builder': '364-tcfd-issb-climate-risk-builder',
+  '365-greenwashing-risk-assessor': '365-greenwashing-risk-assessor',
+  '366-sll-kpi-adequacy-checker': '366-sll-kpi-adequacy-checker',
+  '367-regulatory-acronym-reference': '367-regulatory-acronym-reference',
+  '368-csdr-settlement-fails-penalty-calculator': '368-csdr-settlement-fails-penalty-calculator',
+  '369-t1-post-trade-workflow-timing-assessor': '369-t1-post-trade-workflow-timing-assessor',
+  '37-bin-iin-intelligence-workbench': '37-bin-iin-intelligence-workbench',
+  '370-settlement-efficiency-rate-calculator': '370-settlement-efficiency-rate-calculator',
+  '371-securities-lending-recall-revenue-impact-modeler': '371-securities-lending-recall-revenue-impact-modeler',
+  '372-buyin-scope-classifier-cost-penalty-estimator': '372-buyin-scope-classifier-cost-penalty-estimator',
+  '373-non-dvp-retail-fund-settlement-impact-assessor': '373-non-dvp-retail-fund-settlement-impact-assessor',
+  '376-fca-operational-resilience-impact-tolerance-builder': '376-fca-operational-resilience-impact-tolerance-builder',
+  '377-open-finance-data-product-revenue-modeler': '377-open-finance-data-product-revenue-modeler',
+  '378-us-eu-settlement-mismatch-impact-estimator': '378-us-eu-settlement-mismatch-impact-estimator',
+  '379-cbdc-pilot-participation-readiness-assessor': '379-cbdc-pilot-participation-readiness-assessor',
+  '380-physical-climate-risk-assessor': '380-physical-climate-risk-assessor',
+  '380-physical-climate-risk-exposure-assessor': '380-physical-climate-risk-exposure-assessor',
+  '381-eu-green-bond-standard-eligibility-screener': '381-eu-green-bond-standard-eligibility-screener',
+  '381-eu-green-bond-standard-screener': '381-eu-green-bond-standard-screener',
+  '382-net-zero-alignment-scorer': '382-net-zero-alignment-scorer',
+  '383-tnfd-nature-biodiversity-assessor': '383-tnfd-nature-biodiversity-assessor',
+  '384-sfdr-pai-indicator-calculator': '384-sfdr-pai-indicator-calculator',
+  '385-transition-plan-adequacy-checker': '385-transition-plan-adequacy-checker',
+  '3ds-emv-compliance-checker': '228-3ds-emv-compliance-checker',
+  '41-chargeback-representment-builder': '41-chargeback-representment-builder',
+  '415-scheme-fee-analyzer': '415-scheme-fee-analyzer',
+  '416-issuer-card-portfolio-pl': '416-issuer-card-portfolio-pl',
+  '417-card-programme-unit-economics': '417-card-programme-unit-economics',
+  '418-pi-own-funds-calculator': '418-pi-own-funds-calculator',
+  '419-sca-exemption-classifier': '419-sca-exemption-classifier',
+  '42-cashflow-forecaster-stress-lab': '42-cashflow-forecaster-stress-lab',
+  '420-mt700-lc-field-validator': '420-mt700-lc-field-validator',
+  '421-supply-chain-finance-pricing': '421-supply-chain-finance-pricing',
+  '422-incoterms-2020-risk-mapper': '422-incoterms-2020-risk-mapper',
+  '423-dc-vs-lc-analyzer': '423-dc-vs-lc-analyzer',
+  '424-trade-credit-country-risk': '424-trade-credit-country-risk',
+  '425-forfaiting-factoring-economics': '425-forfaiting-factoring-economics',
+  '426-trade-sanctions-compliance-checker': '426-trade-sanctions-compliance-checker',
+  '427-bank-guarantee-structuring-tool': '427-bank-guarantee-structuring-tool',
+  '428-mifid-costs-charges-calculator': '428-mifid-costs-charges-calculator',
+  '429-model-portfolio-risk-analytics': '429-model-portfolio-risk-analytics',
+  '43-batch-sanctions-screening': '43-batch-sanctions-screening',
+  '430-mifid-suitability-assessment': '430-mifid-suitability-assessment',
+  '431-advisory-fee-disclosure-builder': '431-advisory-fee-disclosure-builder',
+  '432-portfolio-drift-rebalancing': '432-portfolio-drift-rebalancing',
+  '433-tax-wrapper-optimizer': '433-tax-wrapper-optimizer',
+  '434-fiduciary-duty-gap-assessor': '434-fiduciary-duty-gap-assessor',
+  '435-credit-facility-structuring': '435-credit-facility-structuring',
+  '436-loan-covenant-compliance-monitor': '436-loan-covenant-compliance-monitor',
+  '437-raroc-loan-pricing': '437-raroc-loan-pricing',
+  '438-dscr-interest-coverage-calculator': '438-dscr-interest-coverage-calculator',
+  '439-basel-credit-rwa-calculator': '439-basel-credit-rwa-calculator',
+  '440-loan-apr-aprc-disclosure': '440-loan-apr-aprc-disclosure',
+  '441-udaap-risk-assessor': '441-udaap-risk-assessor',
+  '442-reg-e-dispute-workflow-builder': '442-reg-e-dispute-workflow-builder',
+  '443-durbin-amendment-interchange-analyzer': '443-durbin-amendment-interchange-analyzer',
+  '444-hmda-reportability-checker': '444-hmda-reportability-checker',
+  '445-bsa-sar-filing-adequacy-checker': '445-bsa-sar-filing-adequacy-checker',
+  '446-embedded-insurance-pricing-modeller': '446-embedded-insurance-pricing-modeller',
+  '447-solvency-ii-scr-calculator': '447-solvency-ii-scr-calculator',
+  '45-subscription-dunning-optimizer': '45-subscription-dunning-optimizer',
+  '450-pcaf-retail-portfolio-carbon-footprint': '450-pcaf-retail-portfolio-carbon-footprint',
+  '451-sr11-7-model-risk-management-gap-assessor': '451-sr11-7-model-risk-management-gap-assessor',
+  '453-account-takeover-detection-policy-builder': '453-account-takeover-detection-policy-builder',
+  '454-first-party-fraud-mule-detection-framework': '454-first-party-fraud-mule-detection-framework',
+  '46-payment-roi-business-case': '46-payment-roi-business-case',
+  '47-options-pnl-analyzer': '47-options-pnl-analyzer',
+  '48-personal-finance-simulator': '48-personal-finance-simulator',
+  '49-portfolio-financed-emissions-pcaf': '49-portfolio-financed-emissions-pcaf',
+  '50-trade-finance-lc-analyser': '50-trade-finance-lc-analyser',
+  '51-vdcap-payload-auditor': '51-vdcap-payload-auditor',
+  '52-interchange-optimizer': '52-interchange-optimizer',
+  '53-cbdc-architecture-comparator': '53-cbdc-architecture-comparator',
+  '54-smart-contract-validator': '54-smart-contract-validator',
+  '55-dvp-reconciliation': '55-dvp-reconciliation',
+  '56-chain-config-auditor': '56-chain-config-auditor',
+  '57-iso20022-dlt-mapper': '57-iso20022-dlt-mapper',
+  '58-cbdc-interop-modeler': '58-cbdc-interop-modeler',
+  '59-fabric-ops-console': '59-fabric-ops-console',
+  '63-tokenized-asset-compliance': '63-tokenized-asset-compliance',
+  '64-chain-privacy-topology': '64-chain-privacy-topology',
+  '65-settlement-finality-auditor': '65-settlement-finality-auditor',
+  '66-rwa-tokenization-cost-model': '66-rwa-tokenization-cost-model',
+  '67-dlt-tco-calculator': '67-dlt-tco-calculator',
+  '68-dlt-platform-comparator': '68-dlt-platform-comparator',
+  '69-dlt-privacy-selector': '69-dlt-privacy-selector',
+  '70-node-topology-modeler': '70-node-topology-modeler',
+  '71-dlt-guardrail-builder': '71-dlt-guardrail-builder',
+  '72-dlt-readiness-checklist': '72-dlt-readiness-checklist',
+  '73-dlt-decision-lab': '73-dlt-decision-lab',
+  '74-dlt-settlement-verifier': '74-dlt-settlement-verifier',
+  '75-stablecoin-reserve-auditor': '75-stablecoin-reserve-auditor',
+  '76-fx-hedge-optimizer': '76-fx-hedge-optimizer',
+  '77-iso-truncation-auditor': '77-iso-truncation-auditor',
+  '79-dynamic-discounting': '79-dynamic-discounting',
+  '91-consent-dashboard-builder': '91-consent-dashboard-builder',
+  '92-sca-exemption-mapper': '92-sca-exemption-mapper',
+  '93-vrp-mandate-builder': '93-vrp-mandate-builder',
+  '94-ob-transaction-visualizer': '94-ob-transaction-visualizer',
+  '95-payment-corridor-optimizer': '95-payment-corridor-optimizer',
+  '96-consent-receipt-generator': '96-consent-receipt-generator',
+  '98-iso20022-validator': '98-iso20022-validator',
+  'a2a-agent-card-validator': '283-a2a-agent-card-validator',
+  'a2a-compliance-checklist': '18-a2a-compliance-checklist',
+  'a2a-fee-calculator': '01-a2a-fee-route-optimizer',
+  'a2a-liquidity-simulator': 'a2a-liquidity-simulator',
+  'a2a-migration-lab': '84-a2a-migration-lab',
+  'a2a-rail-command-center': '82-a2a-rail-command-center',
+  'a2a-reconciliation-workbench': '09-a2a-reconciliation-workbench',
+  'ach-nacha-validator': '07-ach-nacha-validator',
+  'acp-checkout-shared-payment-token-linter': '281-acp-checkout-shared-payment-token-linter',
+  'agentic-payments-protocol-comparator': '276-agentic-payments-protocol-comparator',
+  'amla-2027-readiness-gap-analyzer': '350-amla-2027-readiness-gap-analyzer',
+  'ap2-fraud-risk-policy-mandate-builder': '323-ap2-fraud-risk-policy-mandate-builder',
+  'ap2-mcp-policy-validator': '320-ap2-mcp-policy-validator',
+  'ap2-payment-ops-policy-mandate-builder': '326-ap2-payment-ops-policy-mandate-builder',
+  'ap2-payments-checker': '102-ap2-payments-checker',
+  'app-scam-risk-assessor': '322-app-scam-risk-assessor',
+  'baas-provider-comparison': '168-baas-provider-comparison',
+  'basel-iii-endgame-capital-impact-estimator': '341-basel-iii-endgame-capital-impact-estimator',
+  'basel-rwa-calculator': '201-basel-rwa-calculator',
+  'batch-payment-file-validator': 'batch-payment-file-validator',
+  'bcbs239-model-risk-readiness-scorer': '312-bcbs239-model-risk-readiness-scorer',
+  'card-dispute-reason-code-mapper': '227-card-dispute-reason-code-mapper',
+  'card-economics-optimizer': '85-card-economics-optimizer',
+  'card-scheme-fee-benchmarking': '233-card-scheme-fee-benchmarking',
+  'cfpb-1033-data-rights-scoper': '166-cfpb-1033-data-rights-scoper',
+  'cfpb-1033-institution-classifier': '165-cfpb-1033-institution-classifier',
+  'cfpb-1033-tppp-mapper': '167-cfpb-1033-tppp-mapper',
+  'clearcost-card-a2a-analyzer': 'clearcost-card-a2a-analyzer',
+  'compliance-readiness-assessment': '88-compliance-readiness',
+  'consent-compliance-auditor': '03-consent-compliance-auditor',
+  'consumer-duty-mi-framework-builder': '397-consumer-duty-mi-framework-builder',
+  'consumer-duty-price-value-assessment': '396-consumer-duty-price-value-assessment',
+  'consumer-duty-vulnerability-assessment-builder': '395-consumer-duty-vulnerability-assessment-builder',
+  'crd6-prudential-transition-plan-builder': '352-crd6-prudential-transition-plan-builder',
+  'crr3-output-floor-phase-in-calculator': '357-crr3-output-floor-phase-in-calculator',
+  'csrd-double-materiality-assessment-builder': '355-csrd-double-materiality-assessment-builder',
+  'cva-capital-framework-selector': '401-cva-capital-framework-selector',
+  'dora-ict-tpp-register-builder': '358-dora-ict-tpp-register-builder',
+  'dora-resilience-auditor': '100-dora-resilience-auditor',
+  'dora-tlpt-scope-assessor': '359-dora-tlpt-scope-assessor',
+  'eidas2-eudi-wallet-relying-party-readiness-scorer': '348-eidas2-eudi-wallet-relying-party-readiness-scorer',
+  'emi-capital-requirements-calculator': '405-emi-capital-requirements-calculator',
+  'eu-ai-act-article10-data-governance-mapper': '334-eu-ai-act-article10-data-governance-mapper',
+  'eu-ai-act-article9-risk-mgmt-builder': '333-eu-ai-act-article9-risk-mgmt-builder',
+  'eu-ai-act-provider-deployer-obligations-splitter': '335-eu-ai-act-provider-deployer-obligations-splitter',
+  'eu-ai-act-risk-class-mapper': '327-eu-ai-act-risk-class-mapper',
+  'eu-data-act-financial-services-scope-mapper': '413-eu-data-act-financial-services-scope-mapper',
+  'eu-ipr-iso20022-address-validator': '342-eu-ipr-iso20022-address-validator',
+  'eu-taxonomy-capex-revenue-alignment-scorer': '354-eu-taxonomy-capex-revenue-alignment-scorer',
+  'fair-lending-ai-bias-assessment': '452-fair-lending-ai-bias-assessment',
+  'fapi-security-validator': '97-fapi-security-validator',
+  'fca-consumer-duty-board-report-builder': '347-fca-consumer-duty-board-report-builder',
+  'fca-consumer-duty-dpc-mapper': '331-fca-consumer-duty-dpc-mapper',
+  'fca-consumer-duty-outcome-dashboard': '315-fca-consumer-duty-outcome-dashboard',
+  'fca-dpc-creditworthiness-builder': '330-fca-dpc-creditworthiness-assessment-builder',
+  'fca-dpc-scope-classifier': '329-fca-dpc-scope-classifier',
+  'fee-benchmark-report': '12-fee-benchmark-report',
+  'fida-cross-sector-data-scope-mapper': '410-fida-cross-sector-data-scope-mapper',
+  'fida-fip-authorisation-readiness-builder': '407-fida-fip-authorisation-readiness-builder',
+  'fida-open-finance-data-scope-mapper': '360-fida-open-finance-data-scope-mapper',
+  'fida-open-finance-readiness': '273-fida-open-finance-readiness',
+  'fida-permission-scheme-scope-checker': '408-fida-permission-scheme-scope-checker',
+  'fraud-investigation-lab': '80-fraud-investigation-lab',
+  'fraud-score-simulator': '04-fraud-score-simulator',
+  'frtb-ima-eligibility-checker': '340-frtb-internal-model-eligibility-checker',
+  'frtb-trading-desk-ima-eligibility-assessor': '398-frtb-trading-desk-ima-eligibility-assessor',
+  'gdpr-dsr-workflow-generator': '311-gdpr-dsr-workflow-generator',
+  'genius-act-aml-sanctions-scope-builder': '338-genius-act-aml-sanctions-scope-builder',
+  'genius-act-disclosure-reporting-builder': '389-genius-act-disclosure-reporting-builder',
+  'genius-act-issuer-classification-mapper': '336-genius-act-issuer-classification-mapper',
+  'genius-act-payment-stablecoin-compliance-checker': '386-genius-act-payment-stablecoin-compliance-checker',
+  'genius-act-reserve-attestation-checklist': '337-genius-act-reserve-attestation-checklist',
+  'genius-act-reserve-optimizer': '328-genius-act-reserve-optimizer',
+  'genius-act-state-federal-licensing-path-selector': '387-genius-act-state-federal-licensing-path-selector',
+  'google-ap2-mandate-builder': '285-google-ap2-mandate-builder',
+  'iban-bic-validator': '16-iban-bic-validator',
+  'incident-response-runbook-builder': 'incident-response-runbook-builder',
+  'instant-payment-limits': '17-instant-payment-limits',
+  'isa-lisa-eligibility-calculator': '449-isa-lisa-eligibility-calculator',
+  'iso20022-builder': '02-iso20022-builder',
+  'iso20022-message-validator': '248-iso20022-validator',
+  'iso20022-migration-navigator': '81-iso20022-migration-navigator',
+  'iso20022-migration-scorer': '101-iso20022-migration-scorer',
+  'iso20022-status-rejection-decoder': '319-iso20022-status-rejection-decoder',
+  'lei-lifecycle-gleif-validator': '317-lei-lifecycle-gleif-validator',
+  'mastercard-agentic-token-builder': '287-mastercard-agentic-token-builder',
+  'mcc-code-explorer': 'mcc-code-explorer',
+  'mcp-developer-readiness-scorecard': '288-mcp-developer-readiness-scorecard',
+  'mcp-oauth-authorization-auditor': '278-mcp-oauth-authorization-auditor',
+  'mcp-server-json-validator': '275-mcp-server-json-validator',
+  'mcp-spec-revision-compliance-scorer': '280-mcp-spec-revision-compliance-scorer',
+  'mcp-tool-definition-linter': '274-mcp-tool-definition-linter',
+  'mcp-tool-poisoning-scanner': '282-mcp-tool-poisoning-scanner',
+  'mcp-transport-dns-rebinding-auditor': '284-mcp-transport-dns-rebinding-auditor',
+  'mica-casp-authorization-checker': '332-mica-casp-authorization-checker',
+  'mica-casp-passporting-readiness-checker': '393-mica-casp-passporting-readiness-checker',
+  'mica-emt-reserve-compliance-calculator': '346-mica-emt-reserve-compliance-calculator',
+  'mica-market-abuse-surveillance-mapper': '392-mica-market-abuse-surveillance-mapper',
+  'mica-periodic-reporting-obligation-mapper': '394-mica-periodic-reporting-obligation-mapper',
+  'mica-significant-token-threshold-calculator': '391-mica-significant-token-threshold-calculator',
+  'mica-white-paper-builder': '390-mica-white-paper-builder',
+  'mifid2-transaction-reporting-checker': '313-mifid2-transaction-reporting-checker',
+  'mifid3-ifr-investment-firm-impact-assessor': '412-mifid3-ifr-investment-firm-impact-assessor',
+  'nacha-ach-rule-compliance-checker': '224-nacha-ach-rule-compliance-checker',
+  'network-rule-change-impact-assessor': '230-network-rule-change-impact-assessor',
+  'nostro-roi-memo': '19-nostro-roi-memo',
+  'open-banking-api-explorer': '10-open-banking-api-explorer',
+  'open-finance-api-monetisation-calculator': '409-open-finance-api-monetisation-calculator',
+  'open-finance-business-case-roi-modeller': '411-open-finance-business-case-roi-modeller',
+  'operational-resilience-self-assessment': '314-operational-resilience-self-assessment',
+  'pay-by-bank-prototyper': '08-pay-by-bank-prototyper',
+  'paycode-decoder': 'paycode-decoder',
+  'payment-cutoff-settlement-atlas': '325-payment-cutoff-settlement-atlas',
+  'payment-error-code-resolver': '403-payment-error-code-resolver',
+  'payment-institution-authorisation-readiness-checker': '404-payment-institution-authorisation-readiness-checker',
+  'payment-journey-mapper': '13-payment-journey-mapper',
+  'payment-method-optimizer': '103-payment-method-optimizer',
+  'pci-dss-v4-scope-wizard': '226-pci-dss-v4-scope-wizard',
+  'peppol-xml-auditor': '174-peppol-xml-auditor',
+  'pf-132-compound-interest-explorer': 'pf-132-compound-interest-explorer',
+  'pf-133-asset-allocation-heatmapper': 'pf-133-asset-allocation-heatmapper',
+  'pf-134-three-fund-portfolio-builder': 'pf-134-three-fund-portfolio-builder',
+  'pf-135-sequence-of-returns-risk': 'pf-135-sequence-of-returns-risk',
+  'pf-136-roth-vs-traditional-estimator': 'pf-136-roth-vs-traditional-estimator',
+  'pf-137-safe-withdrawal-calculator': 'pf-137-safe-withdrawal-calculator',
+  'pf-138-inflation-creep-destroyer': 'pf-138-inflation-creep-destroyer',
+  'pf-139-social-security-bridge': 'pf-139-social-security-bridge',
+  'pf-140-dividend-drag-vs-growth-simulator': 'pf-140-dividend-drag-vs-growth-simulator',
+  'pnl-attribution-test-simulator': '399-pnl-attribution-test-simulator',
+  'priips-kid-compliance-checker': '448-priips-kid-compliance-checker',
+  'psd3-psr2-transition-impact-assessor': '343-psd3-psr2-transition-impact-assessor',
+  'psd3-sca-transition-checker': '414-psd3-sca-transition-checker',
+  'psr-app-reimbursement-liability-splitter': '406-psr-app-reimbursement-liability-splitter',
+  'rbe-01-smb-treasury-tax': 'rbe-01-smb-treasury-tax',
+  'rbe-02-a2a-exception-triage': 'rbe-02-a2a-exception-triage',
+  'rbe-03-tokenized-ma-lens': 'rbe-03-tokenized-ma-lens',
+  'rbe-04-agent-guardrail-builder': 'rbe-04-agent-guardrail-builder',
+  'rbe-05-regulatory-doc-intel': 'rbe-05-regulatory-doc-intel',
+  'rbe-06-agentic-mandate-sandbox': 'rbe-06-agentic-mandate-sandbox',
+  'rbe-07-signal-auditor': 'rbe-07-signal-auditor',
+  'rbe-08-fee-schedule-engine': 'rbe-08-fee-schedule-engine',
+  'realtime-ops-dashboard': '14-realtime-ops-dashboard',
+  'realtime-rail-prefunding-scheduler': '324-realtime-rail-prefunding-scheduler',
+  'regulatory-change-impact-assessor': '318-regulatory-change-impact-assessor',
+  'rfc9421-signature-webbotauth': '279-rfc9421-signature-webbotauth',
+  'roth-traditional-conversion-estimator': '169-roth-traditional-conversion-estimator',
+  'rtp-network-participation-checker': '229-rtp-network-participation-checker',
+  'rwa-tokenized-asset-jurisdiction-mapper': '344-rwa-tokenized-asset-jurisdiction-mapper',
+  'sa-ccr-exposure-calculator': '400-sa-ccr-exposure-calculator',
+  'safe-withdrawal-rate-calculator': '170-safe-withdrawal-rate-calculator',
+  'sanctions-programme-health-checker': '316-sanctions-programme-health-checker',
+  'sepa-ipr-annual-report-builder': '349-sepa-ipr-annual-report-builder',
+  'sfdr-article89-fund-classification-checker': '353-sfdr-article89-fund-classification-checker',
+  'smart-routing-advisor': '78-smart-routing-advisor',
+  'sr2602-model-risk-mgmt-gap-analyzer': '339-sr2602-model-risk-mgmt-gap-analyzer',
+  'stablecoin-reserve-stress-test-modeller': '388-stablecoin-reserve-stress-test-modeller',
+  'startup-runway-simulator': '87-runway-simulator',
+  'swift-mt-mx-field-decoder': '402-swift-mt-mx-field-decoder',
+  'synthetic-identity-fraud-scorer': '321-synthetic-identity-fraud-scorer',
+  'synthetic-test-data-gen': '15-synthetic-test-data-gen',
+  't1-settlement-operational-readiness-assessor': '351-t1-settlement-operational-readiness-assessor',
+  'treasury-decision-lab': '83-treasury-decision-lab',
+  'uk-sdr-fund-labelling-readiness-checker': '356-uk-sdr-fund-labelling-readiness-checker',
+  'verification-of-payee-simulator': '289-verification-of-payee-simulator',
+  'vida-deemed-supplier-classifier': '345-vida-deemed-supplier-classifier',
+  'visa-agentic-ready-issuer-readiness-scorer': '375-visa-agentic-ready-issuer-readiness-scorer',
+  'visa-mc-interchange-qualification-tester': '225-visa-mc-interchange-qualification-tester',
+  'visa-trusted-agent-protocol-inspector': '286-visa-trusted-agent-protocol-inspector',
+  'visa-vic-agent-token-scope-builder': '374-visa-vic-agent-token-scope-builder',
+  'vrp-mandate-sepa-validator': '11-vrp-mandate-sepa-validator',
+  'working-capital-optimizer': '89-working-capital-optimizer',
+  'x402-payload-decoder-flow-simulator': '277-x402-payload-decoder-flow-simulator'
+};
+
+/* Required Policy Mandate fields for validation */
+var REQUIRED = ['ap2_version','mandate_id','issued_at','issued_by','tool_id','tool_version','mandate_type','jurisdiction','payload','audit_metadata'];
+/* Fields excluded from payload comparison (time-varying) */
+var SKIP_FIELDS = new Set(['mandate_id','issued_at','valid_from','valid_until','last_reviewed']);
+
+var queue = [];   // [{id, name, mandate, slug, verdict, diff, freshMandate}]
+var running = false;
+var replayFrame = null;
+var replayTimeout = null;
+var allDiffRows = [];   // for CSV export
+
+function el(id){ return document.getElementById(id); }
+function toast(msg, err){
+  var t=el('toast'); t.textContent=msg; t.className='toast'+(err?' err':'');
+  t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(function(){t.style.display='none';},3200);
+}
+function rlog(msg, cls){
+  var d=el('replayLog');
+  var s=document.createElement('span'); s.className=cls||''; s.textContent=msg+'\n';
+  d.appendChild(s); d.scrollTop=d.scrollHeight;
+}
+
+/* ── file intake ── */
+function onDragOver(e){ e.preventDefault(); el('dropZone').classList.add('drag-over'); }
+function onDragLeave(e){ el('dropZone').classList.remove('drag-over'); }
+function onDrop(e){
+  e.preventDefault(); el('dropZone').classList.remove('drag-over');
+  loadFiles(Array.from(e.dataTransfer.files));
+}
+function onFileInput(e){ loadFiles(Array.from(e.target.files)); e.target.value=''; }
+function onPaste(){
+  var text = el('pasteArea').value.trim();
+  if(!text){ toast('Paste area is empty', true); return; }
+  var m; try{ m=JSON.parse(text); }catch(e){ toast('Invalid JSON: '+e.message, true); return; }
+  addToQueue(m, 'pasted-mandate.policy.json');
+  el('pasteArea').value = '';
+  toast('Mandate added from paste');
+}
+function loadFiles(files){
+  files.forEach(function(f){
+    if(!f.name.endsWith('.json')){ toast('Skipped '+f.name+' (not .json)', true); return; }
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var m; try{ m=JSON.parse(e.target.result); }catch(err){ toast('JSON parse error in '+f.name, true); return; }
+      addToQueue(m, f.name);
+    };
+    reader.readAsText(f);
+  });
+}
+function addToQueue(m, name){
+  var errors = REQUIRED.filter(function(f){ return !(f in m); });
+  if(errors.length){ toast('Invalid mandate in "'+name+'": missing '+errors.join(', '), true); return; }
+  var slug = TOOL_ID_TO_SLUG[m.tool_id] || null;
+  var entry = { id: queue.length, name: name, mandate: m, slug: slug,
+    verdict: slug ? (m.source_tool_inputs && Object.keys(m.source_tool_inputs).length ? 'PENDING' : 'NOT_REPLAYABLE') : 'TOOL_NOT_FOUND',
+    diff: [], freshMandate: null };
+  queue.push(entry);
+  renderQueue();
+  toast('"'+name+'" added');
+}
+
+/* ── queue rendering ── */
+function renderQueue(){
+  var count = queue.length;
+  el('queueCount').textContent = count;
+  el('queueEmpty').style.display = count ? 'none' : 'block';
+  el('queueWrap').style.display = count ? 'block' : 'none';
+  el('clearBtn').disabled = running || !count;
+  el('replayBtn').disabled = running || !count;
+  var rows = queue.map(function(e){
+    var vc = verdictClass(e.verdict);
+    var issued = e.mandate.issued_at ? e.mandate.issued_at.slice(0,10) : '--';
+    return '<tr id="qrow-'+e.id+'">' +
+      '<td style="color:var(--muted);font-family:\'JetBrains Mono\',monospace;font-size:.62rem">'+(e.id+1)+'</td>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.6rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+e.name+'">'+e.name+'</td>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.62rem;color:var(--teal-lt)">'+e.mandate.tool_id+'</td>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.62rem">'+issued+'</td>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-size:.6rem">'+e.mandate.mandate_type+'</td>' +
+      '<td><span class="verdict-badge '+vc+'">'+e.verdict.replace('_',' ')+'</span></td>' +
+      '</tr>';
+  }).join('');
+  el('queueBody').innerHTML = rows;
+}
+function verdictClass(v){
+  if(v==='PENDING') return 'v-pending';
+  if(v==='RUNNING') return 'v-running';
+  if(v==='MATCH') return 'v-match';
+  if(v==='DRIFT'||v==='REPLAY_FAILED') return 'v-drift';
+  if(v==='TOOL_VERSION_CHANGED') return 'v-version';
+  return 'v-noreplay';
+}
+function clearQueue(){ if(running)return; queue=[]; allDiffRows=[]; el('exportPanel').style.display='none'; el('diffPanel').classList.remove('visible'); renderQueue(); }
+
+/* ── replay engine ── */
+function startReplay(){
+  if(running || !queue.length) return;
+  running = true;
+  el('replayBtn').disabled = true;
+  el('clearBtn').disabled = true;
+  el('diffPanel').classList.remove('visible');
+  el('exportPanel').style.display = 'none';
+  allDiffRows = [];
+  replayFrame = el('replayFrame');
+  processNext(0);
+}
+
+function processNext(idx){
+  if(idx >= queue.length){ onReplayComplete(); return; }
+  var entry = queue[idx];
+  el('replayProgress').textContent = (idx+1)+'/'+queue.length;
+
+  if(entry.verdict === 'NOT_REPLAYABLE' || entry.verdict === 'TOOL_NOT_FOUND'){
+    renderQueue();
+    setTimeout(function(){ processNext(idx+1); }, 200);
+    return;
+  }
+
+  entry.verdict = 'RUNNING';
+  renderQueue();
+
+  el('replayArea').classList.add('visible');
+  el('replayTitle').textContent = 'Replaying: '+entry.mandate.tool_id+' ('+entry.name+')';
+  el('replayLog').innerHTML = '';
+  rlog('Loading '+entry.slug+' with source_tool_inputs...', '');
+
+  var fields = entry.mandate.source_tool_inputs || {};
+  var b64 = b64uEnc(JSON.stringify(fields));
+  var url = '../tools/'+entry.slug+'.html#in='+b64+'&run=1';
+
+  /* message listener for this replay */
+  var done = false;
+  function onMsg(e){
+    if(e.source !== replayFrame.contentWindow) return;
+    var d = e.data || {};
+    if(d.type !== 'ain:mandate') return;
+    if(done) return;
+    done = true;
+    clearTimeout(replayTimeout);
+    window.removeEventListener('message', onMsg);
+    if(!d.mandate || !d.mandate.mandate_id){
+      rlog('Tool returned no mandate -- REPLAY_FAILED', 'err');
+      entry.verdict = 'REPLAY_FAILED';
+      renderQueue();
+      processNext(idx+1);
+      return;
+    }
+    entry.freshMandate = d.mandate;
+    rlog('Mandate received -- hashing payloads...', 'ok');
+    compareAndVerdict(entry, idx);
+  }
+  window.addEventListener('message', onMsg);
+
+  /* timeout */
+  replayTimeout = setTimeout(function(){
+    if(done) return;
+    done = true;
+    window.removeEventListener('message', onMsg);
+    rlog('Timeout (45 s) -- REPLAY_FAILED', 'err');
+    entry.verdict = 'REPLAY_FAILED';
+    renderQueue();
+    processNext(idx+1);
+  }, 45000);
+
+  replayFrame.src = url;
+
+  /* also send ain:getMandate after load as fallback */
+  replayFrame.onload = function(){
+    if(done) return;
+    rlog('Frame loaded -- sending ain:getMandate...', '');
+    var ro = (location.origin && location.origin !== 'null') ? location.origin : '*';
+    replayFrame.contentWindow.postMessage({type:'ain:getMandate'}, ro);
+  };
+}
+
+async function compareAndVerdict(entry, idx){
+  var orig = entry.mandate;
+  var fresh = entry.freshMandate;
+
+  /* version check */
+  var versionChanged = orig.tool_version && fresh.tool_version && orig.tool_version !== fresh.tool_version;
+
+  /* payload hash */
+  var origHash = await hashObj(orig.payload);
+  var freshHash = await hashObj(fresh.payload);
+  rlog('Original hash: '+origHash.slice(0,16)+'...', '');
+  rlog('Replayed hash: '+freshHash.slice(0,16)+'...', '');
+
+  if(origHash === freshHash && !versionChanged){
+    entry.verdict = 'MATCH';
+    rlog('MATCH -- payloads identical', 'ok');
+  } else {
+    /* compute diff */
+    entry.diff = diffObjects(orig.payload, fresh.payload, 'payload');
+    /* also diff top-level stable fields */
+    var topFields = ['mandate_type','jurisdiction','regulatory_frameworks','summary','agent_instructions'];
+    topFields.forEach(function(f){
+      if(JSON.stringify(orig[f]) !== JSON.stringify(fresh[f])){
+        entry.diff.push({key:f, orig:orig[f], fresh:fresh[f]});
+      }
+    });
+    if(versionChanged){
+      entry.verdict = 'TOOL_VERSION_CHANGED';
+      rlog('TOOL_VERSION_CHANGED: '+orig.tool_version+' -> '+fresh.tool_version, 'warn');
+    } else {
+      entry.verdict = 'DRIFT';
+    }
+    if(entry.diff.length){
+      rlog('DRIFT: '+entry.diff.length+' field(s) changed', entry.verdict==='DRIFT'?'err':'warn');
+      allDiffRows = allDiffRows.concat(entry.diff.map(function(r){
+        return {mandate:entry.mandate.mandate_id, tool:entry.mandate.tool_id, key:r.key, orig:r.orig, fresh:r.fresh};
+      }));
+      showDiff(entry.diff, entry.mandate.tool_id);
+    }
+  }
+
+  renderQueue();
+  setTimeout(function(){ processNext(idx+1); }, 600);
+}
+
+/* ── hashing ── */
+function stableStringify(obj){
+  if(typeof obj !== 'object' || obj === null) return JSON.stringify(obj);
+  if(Array.isArray(obj)) return '['+obj.map(stableStringify).join(',')+']';
+  var keys = Object.keys(obj).sort();
+  return '{'+keys.map(function(k){ return JSON.stringify(k)+':'+stableStringify(obj[k]); }).join(',') + '}';
+}
+async function hashObj(obj){
+  var enc = new TextEncoder().encode(stableStringify(obj));
+  var buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(function(b){return('00'+b.toString(16)).slice(-2);}).join('');
+}
+
+/* ── diff ── */
+function diffObjects(orig, fresh, path){
+  var diffs = [];
+  if(typeof orig !== 'object' || orig === null || typeof fresh !== 'object' || fresh === null){
+    if(JSON.stringify(orig) !== JSON.stringify(fresh)) diffs.push({key:path, orig:orig, fresh:fresh});
+    return diffs;
+  }
+  var keys = new Set(Object.keys(orig).concat(Object.keys(fresh)));
+  keys.forEach(function(k){
+    if(SKIP_FIELDS.has(k)) return;
+    var fullKey = path ? path+'.'+k : k;
+    var a = orig[k], b = fresh[k];
+    if(typeof a === 'object' && a !== null && typeof b === 'object' && b !== null && !Array.isArray(a) && !Array.isArray(b)){
+      diffs = diffs.concat(diffObjects(a, b, fullKey));
+    } else if(JSON.stringify(a) !== JSON.stringify(b)){
+      diffs.push({key:fullKey, orig:a, fresh:b});
+    }
+  });
+  return diffs;
+}
+
+/* ── diff table ── */
+function showDiff(rows, toolId){
+  el('diffPanel').classList.add('visible');
+  el('diffPanelHead').textContent = 'Drift — '+toolId+' ('+rows.length+' field'+(rows.length===1?'':'s')+' changed)';
+  el('diffBody').innerHTML = rows.map(function(r){
+    var oval = truncate(JSON.stringify(r.orig), 120);
+    var nval = truncate(JSON.stringify(r.fresh), 120);
+    return '<tr><td class="diff-key">'+r.key+'</td><td class="diff-old">'+esc(oval)+'</td><td class="diff-new">'+esc(nval)+'</td></tr>';
+  }).join('');
+}
+function truncate(s, n){ return s && s.length>n ? s.slice(0,n)+'...' : (s||''); }
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ── completion ── */
+function onReplayComplete(){
+  running = false;
+  el('replayBtn').disabled = false;
+  el('clearBtn').disabled = false;
+  el('replayProgress').textContent = 'Done';
+  rlog('All mandates processed.', 'ok');
+
+  var counts = {MATCH:0,DRIFT:0,TOOL_VERSION_CHANGED:0,REPLAY_FAILED:0,NOT_REPLAYABLE:0,TOOL_NOT_FOUND:0};
+  queue.forEach(function(e){ if(counts[e.verdict]!==undefined) counts[e.verdict]++; });
+
+  var chips = [];
+  if(counts.MATCH) chips.push('<span class="sum-chip sc-match">'+counts.MATCH+' match</span>');
+  if(counts.DRIFT) chips.push('<span class="sum-chip sc-drift">'+counts.DRIFT+' drift</span>');
+  if(counts.TOOL_VERSION_CHANGED) chips.push('<span class="sum-chip sc-warn">'+counts.TOOL_VERSION_CHANGED+' version changed</span>');
+  if(counts.REPLAY_FAILED) chips.push('<span class="sum-chip sc-drift">'+counts.REPLAY_FAILED+' failed</span>');
+  if(counts.NOT_REPLAYABLE) chips.push('<span class="sum-chip sc-muted">'+counts.NOT_REPLAYABLE+' not replayable</span>');
+  if(counts.TOOL_NOT_FOUND) chips.push('<span class="sum-chip sc-muted">'+counts.TOOL_NOT_FOUND+' tool not found</span>');
+  el('summaryRow').innerHTML = chips.join('');
+  el('exportPanel').style.display = 'block';
+  el('exportPanel').scrollIntoView({behavior:'smooth',block:'start'});
+  renderQueue();
+}
+
+/* ── exports ── */
+function uuid(){
+  var b=new Uint8Array(16);crypto.getRandomValues(b);b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;
+  var h=Array.prototype.map.call(b,function(x){return('0'+x.toString(16)).slice(-2);}).join('');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
+function ts14(){return new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);}
+function dl(content, name, type){
+  var url=URL.createObjectURL(new Blob([content],{type:type}));
+  var a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},800);
+}
+function exportAP2(){
+  var now = new Date().toISOString();
+  var results = queue.map(function(e){
+    return {
+      mandate_id: e.mandate.mandate_id,
+      tool_id: e.mandate.tool_id,
+      issued_at: e.mandate.issued_at,
+      verdict: e.verdict,
+      drift_fields: e.diff.length,
+      drift_detail: e.diff.map(function(r){return {key:r.key, orig:r.orig, fresh:r.fresh};})
+    };
+  });
+  var m = {
+    ap2_version:'1.0', mandate_id:uuid(), issued_at:now, issued_by:'ainumbers.co',
+    tool_id:'regression-replayer', tool_version:'1.0.0',
+    mandate_type:'compliance_control', jurisdiction:['ZZ'],
+    regulatory_frameworks:['AINumbers Policy Mandate v1.0 determinism guarantee'],
+    payload:{ replay_session:ts14(), mandates_processed:queue.length, results:results, all_drift_rows:allDiffRows },
+    summary:'Regression replay session: '+queue.length+' mandate(s) re-run. Verdicts: '+queue.map(function(e){return e.mandate.tool_id+'='+e.verdict;}).join(', ')+'.',
+    agent_instructions:[
+      'Any mandate with verdict DRIFT must be investigated before re-use in agentic pipelines.',
+      'TOOL_VERSION_CHANGED verdicts indicate the tool logic has been updated -- re-issue the mandate.',
+      'NOT_REPLAYABLE mandates lack source_tool_inputs; they cannot be automatically validated.'
+    ],
+    valid_from:now.slice(0,10),
+    valid_until:new Date(Date.now()+90*86400000).toISOString().slice(0,10),
+    last_reviewed:now.slice(0,10),
+    source_tool_inputs:{},
+    regulatory_citations:['ainumbers.co/guides/regression-replayer'],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  dl(JSON.stringify(m,null,2),'regression-replayer_'+ts14()+'.policy.json','application/json');
+  toast('Session Policy Mandate exported');
+}
+function exportCSV(){
+  if(!allDiffRows.length){ toast('No drift rows to export', true); return; }
+  var header = 'mandate_id,tool_id,field_path,original_value,replayed_value\n';
+  var rows = allDiffRows.map(function(r){
+    return [r.mandate,r.tool,r.key,JSON.stringify(r.orig),JSON.stringify(r.fresh)].map(function(v){
+      return '"'+String(v||'').replace(/"/g,'""')+'"';
+    }).join(',');
+  }).join('\n');
+  dl(header+rows, 'regression-drift_'+ts14()+'.csv', 'text/csv');
+  toast('Drift CSV exported');
+}
+
+/* ── utils ── */
+function b64uEnc(obj){
+  var json=JSON.stringify(obj);
+  var b64=btoa(unescape(encodeURIComponent(json)));
+  return b64.replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+</script>
+</body>
+</html>
