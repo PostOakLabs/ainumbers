@@ -2980,10 +2980,7 @@ kbd {
         </div>
       </a>
 
-      <a href="tools/89-working-capital-optimizer.html" class="tool-card"
-         data-cat="cat-6"
-         data-tags="treasury working capital ccc dso dpo model export simulator csv ap2"
-         data-name="Working Capital Cycle Optimizer &amp; CCC Stress Lab">
+      <a href="tools/89-working-capital-optimizer.html" class="tool-card" data-cat="cat-6" data-tags="treasury working capital ccc dso dpo model export simulator csv ap2" data-name="Working Capital Cycle Optimizer &amp; CCC Stress Lab">
         <div class="card-inner">
           <div class="card-top"><span class="card-num">Tool 89</span><span class="card-arrow">→</span></div>
           <div class="card-name">Working Capital Cycle Optimizer &amp; CCC Stress Lab</div>
@@ -8069,47 +8066,164 @@ kbd {
 </footer>
 
 <script>
-/* ── Count sync (anti-drift) ──────────────────────────────────────────────
-   All tool counts on this page are derived from the rendered .tool-card set
-   at load, so sidebar badges, section headers, the "Total Tools" stat and the
-   "Showing N tools" label can never drift out of sync with the actual tools.
-   Runs once, synchronously, reading the DOM only — no network, no storage. */
+/* ── AINumbers.co — Filter · Search · Sort · Count sync ────────────────────
+   Zero fetch · Zero storage · Deterministic · CONTRACT v1.1 compliant       */
 (function () {
-  var cards = document.querySelectorAll('.tool-card');
-  var total = cards.length;
-  var by = {};
-  cards.forEach(function (c) {
-    var k = c.getAttribute('data-cat');
-    if (k) by[k] = (by[k] || 0) + 1;
-  });
-  function set(el, v) { if (el) el.textContent = v; }
 
-  // Sidebar filter badges: id="fc-all" and id="fc-<data-cat>"
-  set(document.getElementById('fc-all'), total);
+  /* ── Gather cards once ─────────────────────────────────────────────────── */
+  var all   = Array.prototype.slice.call(document.querySelectorAll('.tool-card'));
+  var total = all.length;
+  var byCat = {};
+  all.forEach(function (c) {
+    var k = c.getAttribute('data-cat') || '';
+    byCat[k] = (byCat[k] || 0) + 1;
+  });
+  function setText(el, v) { if (el) el.textContent = v; }
+
+  /* ── Count-sync (anti-drift) ───────────────────────────────────────────── */
+  setText(document.getElementById('fc-all'), total);
   document.querySelectorAll('.filter-count').forEach(function (s) {
     if (!s.id || s.id === 'fc-all') return;
-    set(s, by[s.id.replace(/^fc-/, '')] || 0);
+    setText(s, byCat[s.id.replace(/^fc-/, '')] || 0);
   });
-
-  // "Showing N tools"
-  set(document.getElementById('visibleCount'), total);
-
-  // Hero "Total Tools" stat (match by adjacent label)
+  setText(document.getElementById('visibleCount'), total);
   document.querySelectorAll('.stat-n').forEach(function (n) {
     var l = n.parentElement && n.parentElement.querySelector('.stat-l');
-    if (l && /total tools/i.test(l.textContent)) set(n, total);
+    if (l && /total tools/i.test(l.textContent)) setText(n, total);
   });
-
-  // Section headers "<N> tools" (id="cat-N", "cat-mcp")
   document.querySelectorAll('.cat-heading').forEach(function (h) {
     var key = h.id === 'cat-mcp' ? 'mcp' : h.id;
-    var n = h.querySelector('.cat-n');
-    if (n && by[key] != null) set(n, by[key] + ' tools');
+    var n   = h.querySelector('.cat-n');
+    if (n && byCat[key] != null) setText(n, byCat[key] + ' tools');
+  });
+  var rbeEl = document.querySelector('#ai-suite .ai-meta-n');
+  if (rbeEl && byCat.rbe != null) setText(rbeEl, byCat.rbe);
+
+  /* ── Search input ref ──────────────────────────────────────────────────── */
+  var searchInput = document.getElementById('globalSearch');
+  if (searchInput) searchInput.placeholder = 'Search ' + total + '+ tools…';
+
+  /* ── State ─────────────────────────────────────────────────────────────── */
+  var activeFilter = 'all';
+  var searchQuery  = '';
+
+  /* Pre-cache per-card strings for fast filtering */
+  var cardData = all.map(function (c) {
+    return {
+      el:   c,
+      cat:  (c.getAttribute('data-cat')  || '').toLowerCase(),
+      name: (c.getAttribute('data-name') || '').toLowerCase(),
+      tags: (c.getAttribute('data-tags') || '').toLowerCase()
+    };
   });
 
-  // RBE suite banner meta count
-  var rbe = document.querySelector('#ai-suite .ai-meta-n');
-  if (rbe && by['rbe'] != null) set(rbe, by['rbe']);
+  /* Save original DOM order for sort-reset */
+  var origOrder = all.map(function (c) {
+    return { el: c, parent: c.parentNode, next: c.nextSibling };
+  });
+
+  /* ── Core filter + search engine ───────────────────────────────────────── */
+  function applyFilter() {
+    var q = searchQuery;
+    var f = activeFilter;
+    var visible     = 0;
+    var visibleCats = {};
+
+    cardData.forEach(function (d) {
+      var catOk    = f === 'all' || d.cat === f;
+      var searchOk = !q || d.name.indexOf(q) !== -1 || d.tags.indexOf(q) !== -1;
+      var show     = catOk && searchOk;
+      d.el.style.display = show ? '' : 'none';
+      if (show) { visible++; visibleCats[d.cat] = true; }
+    });
+
+    /* Showing N tools label */
+    setText(document.getElementById('visibleCount'), visible);
+
+    /* Search-count badge (shows only when a query is active) */
+    var sc = document.getElementById('searchCount');
+    if (sc) sc.textContent = q ? visible + ' match' + (visible !== 1 ? 'es' : '') : '';
+
+    /* Show/hide .cat-heading elements whose category has no visible cards */
+    document.querySelectorAll('.cat-heading').forEach(function (h) {
+      var key = h.id === 'cat-mcp' ? 'mcp' : h.id;
+      h.style.display = visibleCats[key] ? '' : 'none';
+    });
+
+    /* Show/hide any non-card element that carries data-cat (banners, callouts) */
+    document.querySelectorAll('[data-cat]:not(.tool-card)').forEach(function (el) {
+      var key = el.getAttribute('data-cat');
+      el.style.display = visibleCats[key] ? '' : 'none';
+    });
+  }
+
+  /* ── setFilter ─────────────────────────────────────────────────────────── */
+  window.setFilter = function (key) {
+    activeFilter = key;
+    searchQuery  = '';
+    if (searchInput) searchInput.value = '';
+    document.querySelectorAll('.filter-btn').forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-filter') === key);
+    });
+    applyFilter();
+  };
+
+  /* ── setSort ───────────────────────────────────────────────────────────── */
+  window.setSort = function (mode) {
+    document.querySelectorAll('.sort-btn').forEach(function (b) {
+      b.classList.toggle('active', b.id === 'sort-' + mode);
+    });
+
+    if (mode === 'alpha') {
+      /* Sort cards within each grid container independently */
+      var parents = [], groups = [];
+      cardData.forEach(function (d) {
+        var idx = parents.indexOf(d.el.parentNode);
+        if (idx === -1) { idx = parents.length; parents.push(d.el.parentNode); groups.push([]); }
+        groups[idx].push(d);
+      });
+      groups.forEach(function (items, i) {
+        items.sort(function (a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
+        items.forEach(function (d) { parents[i].appendChild(d.el); });
+      });
+    } else {
+      /* Restore original DOM order */
+      origOrder.forEach(function (o) {
+        if (o.next && o.next.parentNode === o.parent) {
+          o.parent.insertBefore(o.el, o.next);
+        } else {
+          o.parent.appendChild(o.el);
+        }
+      });
+    }
+  };
+
+  /* ── scrollToCat ───────────────────────────────────────────────────────── */
+  window.scrollToCat = function (id) {
+    var target = document.getElementById(id);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  /* ── Wire search input ─────────────────────────────────────────────────── */
+  if (searchInput) {
+    searchInput.addEventListener('input', function () {
+      searchQuery  = this.value.trim().toLowerCase();
+      activeFilter = 'all';
+      document.querySelectorAll('.filter-btn').forEach(function (b) {
+        b.classList.toggle('active', b.getAttribute('data-filter') === 'all');
+      });
+      applyFilter();
+    });
+
+    /* '/' shortcut focuses the search box */
+    document.addEventListener('keydown', function (e) {
+      if (e.key === '/' && document.activeElement !== searchInput) {
+        e.preventDefault();
+        searchInput.focus();
+      }
+    });
+  }
+
 })();
 </script>
 
