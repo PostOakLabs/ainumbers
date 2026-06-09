@@ -10,24 +10,13 @@
 
 ```
 ainumbers/
-├── CONTRACT.md              ← SSOT — read before any build
-├── index.html               ← Main dashboard (tool grid, category filters, search)
-├── sitemap.html             ← Human-readable sitemap
-├── contact.html             ← Contact page
-├── about.html               ← About page
-├── tools/                   ← 350+ standalone tool HTML files
-│   ├── 01-a2a-fee-route-optimizer.html
-│   ├── pf-132-compound-interest-explorer.html
-│   ├── rbe-01-smb-treasury-tax.html
-│   └── … (all numbered, pf-, rbe-, and named tools)
-├── guides/                  ← 35+ integration hub HTML files
-│   ├── open-banking-integration-hub.html
-│   └── … (all *-hub.html files)
-├── manifests/               ← MCP tool manifests (one per tool)
-├── sitemap.xml
-├── robots.txt
-├── llms.txt
-└── TOOLS_INDEX.md
+├── CONTRACT.md        ← SSOT — read before any build
+├── index.html         ← Main dashboard (tool grid, category filters, search)
+├── sitemap.html / contact.html / about.html
+├── tools/             ← standalone tool HTML files (numbered, pf-, rbe-, named)
+├── guides/            ← integration hub HTML files (*-hub.html)
+├── manifests/         ← MCP tool manifests (one per tool)
+├── sitemap.xml / robots.txt / llms.txt / TOOLS_INDEX.md
 ```
 
 **Canonical tool template:** `tools/152-baas-provider-comparator.html`  
@@ -67,7 +56,7 @@ ls tools/*.html | wc -l      # tools
 ls guides/*.html | wc -l     # hubs
 ls manifests/*.manifest.json | grep -v "DELETE ME" | wc -l  # manifests
 ```
-As of 2026-06-03: **351** tools · **35** guide hubs · **25** categories (run ls to verify — counts change each session)
+Run `ls` to verify — counts change each session.
 
 **Hard Stop:** If any constraint conflicts with legacy specs, follow `CONTRACT.md`.
 
