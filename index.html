@@ -638,7 +638,7 @@ kbd {
       <span class="sidebar-label">Categories</span>
       <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">
         <span class="filter-dot"></span> All Tools
-        <span class="filter-count" id="fc-all">406</span>
+        <span class="filter-count" id="fc-all">444</span>
       </button>
       <button class="filter-btn" data-filter="rbe" onclick="setFilter('rbe')">
         <span class="filter-dot" style="background:var(--purple)"></span> Rule-Based Suite
@@ -834,7 +834,7 @@ kbd {
         <a href="#all-tools" style="display:inline-flex;align-items:center;gap:.5rem;color:var(--teal);font-size:.82rem;padding:.6rem 1.1rem;border:1px solid var(--border);border-radius:var(--radius);transition:border-color .15s" onmouseover="this.style.borderColor='var(--teal)'" onmouseout="this.style.borderColor='var(--border)'">Browse all tools</a>
       </div>
       <div class="hero-stats">
-        <div class="stat"><div class="stat-n">404</div><div class="stat-l">Total Tools</div></div>
+        <div class="stat"><div class="stat-n">444</div><div class="stat-l">Total Tools</div></div>
         <div class="stat-div"></div>
         <div class="stat"><div class="stat-n">13</div><div class="stat-l">Rule-Based Engines</div></div>
         <div class="stat-div"></div>
@@ -8067,6 +8067,51 @@ kbd {
     </div>
   </div>
 </footer>
+
+<script>
+/* ── Count sync (anti-drift) ──────────────────────────────────────────────
+   All tool counts on this page are derived from the rendered .tool-card set
+   at load, so sidebar badges, section headers, the "Total Tools" stat and the
+   "Showing N tools" label can never drift out of sync with the actual tools.
+   Runs once, synchronously, reading the DOM only — no network, no storage. */
+(function () {
+  var cards = document.querySelectorAll('.tool-card');
+  var total = cards.length;
+  var by = {};
+  cards.forEach(function (c) {
+    var k = c.getAttribute('data-cat');
+    if (k) by[k] = (by[k] || 0) + 1;
+  });
+  function set(el, v) { if (el) el.textContent = v; }
+
+  // Sidebar filter badges: id="fc-all" and id="fc-<data-cat>"
+  set(document.getElementById('fc-all'), total);
+  document.querySelectorAll('.filter-count').forEach(function (s) {
+    if (!s.id || s.id === 'fc-all') return;
+    set(s, by[s.id.replace(/^fc-/, '')] || 0);
+  });
+
+  // "Showing N tools"
+  set(document.getElementById('visibleCount'), total);
+
+  // Hero "Total Tools" stat (match by adjacent label)
+  document.querySelectorAll('.stat-n').forEach(function (n) {
+    var l = n.parentElement && n.parentElement.querySelector('.stat-l');
+    if (l && /total tools/i.test(l.textContent)) set(n, total);
+  });
+
+  // Section headers "<N> tools" (id="cat-N", "cat-mcp")
+  document.querySelectorAll('.cat-heading').forEach(function (h) {
+    var key = h.id === 'cat-mcp' ? 'mcp' : h.id;
+    var n = h.querySelector('.cat-n');
+    if (n && by[key] != null) set(n, by[key] + ' tools');
+  });
+
+  // RBE suite banner meta count
+  var rbe = document.querySelector('#ai-suite .ai-meta-n');
+  if (rbe && by['rbe'] != null) set(rbe, by['rbe']);
+})();
+</script>
 
 </body>
 </html>
