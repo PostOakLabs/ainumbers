@@ -1300,6 +1300,18 @@ function ibanToNumeric(iban) {
   }).join('');
 }
 
+// ISO 7064 check-digit generation: given country code + BBAN, return the two
+// check digits that would make the IBAN valid (assumes the BBAN is correct).
+function suggestCheckDigits(cc, bban) {
+  const rearranged = bban + cc + '00';
+  const numeric = rearranged.split('').map(c => {
+    const n = c.charCodeAt(0);
+    return (n >= 65 && n <= 90) ? String(n - 55) : c;
+  }).join('');
+  const cd = 98 - mod97(numeric);
+  return cd < 10 ? '0' + cd : '' + cd;
+}
+
 function validateIBAN(raw) {
   const iban = cleanIBAN(raw);
   const result = { iban, raw, valid: false, errors: [], warnings: [], country: null, formatted: '' };
@@ -1333,7 +1345,15 @@ function validateIBAN(raw) {
   }
   const remainder = mod97(numeric);
   if (remainder !== 1) {
-    result.errors.push(`MOD-97 checksum failed (remainder: ${remainder}, expected: 1). The check digits "${checkDigits}" are incorrect or the IBAN has been mistyped.`);
+    let hint = '';
+    try {
+      const sugg = suggestCheckDigits(cc, bban);
+      if (sugg !== checkDigits) {
+        result.suggestion = cc + sugg + bban;
+        hint = ` If the rest of the IBAN is correct, the check digits should be "${sugg}" — did you mean ${cc}${sugg}${bban}?`;
+      }
+    } catch (e) { /* suggestion is best-effort only */ }
+    result.errors.push(`MOD-97 checksum failed (remainder: ${remainder}, expected: 1). The check digits "${checkDigits}" are incorrect or the IBAN has been mistyped.${hint}`);
     return result;
   }
 
