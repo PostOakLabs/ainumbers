@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>KYA Compliance Firewall · T478 · AINumbers.co</title>
+<meta name="description" content="Four-stage agentic compliance pipeline: scan for prompt injection → FATF customer risk → Visa TAP identity verification → AML mandate compile. Each stage output gates the next. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/478-kya-compliance-firewall">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"HowTo","name":"KYA Compliance Firewall Workflow","url":"https://ainumbers.co/tools/478-kya-compliance-firewall","description":"Four-stage KYA pipeline: T282 injection scan → T477 FATF risk → T286 TAP identity → T131 AML mandate. Each stage gates the next.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"step":[{"@type":"HowToStep","name":"Injection Scan","url":"https://ainumbers.co/tools/282-mcp-tool-poisoning-scanner.html"},{"@type":"HowToStep","name":"FATF Customer Risk Rating","url":"https://ainumbers.co/tools/477-fatf-customer-risk-rating.html"},{"@type":"HowToStep","name":"Visa TAP Signature Inspector","url":"https://ainumbers.co/tools/286-visa-trusted-agent-protocol-inspector.html"},{"@type":"HowToStep","name":"AML Mandate Builder","url":"https://ainumbers.co/tools/131-ap2-aml-mandate-builder.html"}]}
+</script>
+<!-- manifest.json
+{
+  "tool_id": "478-kya-compliance-firewall",
+  "version": "1.0.0",
+  "title": "KYA Compliance Firewall",
+  "description": "Four-stage Know-Your-Agent (KYA) agentic compliance firewall: prompt-injection scan (T282), FATF customer risk rating (T477), Visa TAP signature verification (T286), AML mandate compilation (T131). Each stage output gates the next. Outputs a composite KYA clearance record and chain-of-custody audit log.",
+  "category": "aml-kyc-compliance",
+  "tags": ["KYA","agentic","compliance","firewall","FATF","AML","Visa TAP","injection","MCP","workflow"],
+  "audience": ["compliance","mlro","fintech","baas","payments"],
+  "input_schema": {"type":"object","properties":{"transaction_context":{"type":"string"},"agent_identity":{"type":"string"}}},
+  "output_schema": {"type":"object","properties":{"clearance":{"type":"string","enum":["CLEARED","BLOCKED","ESCALATE"]},"stage_results":{"type":"array"},"mandate":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"kya_compliance_firewall","description":"Run the four-stage KYA compliance firewall: injection scan → FATF risk → TAP identity → AML mandate. Returns a clearance decision (CLEARED/BLOCKED/ESCALATE) and chain-of-custody audit log.","inputSchema":{"type":"object","properties":{"transaction_context":{"type":"string","description":"The transaction context or agent instruction text to scan"},"customer_risk_tier":{"type":"string","enum":["Low","Medium","High","Prohibited"],"description":"Pre-computed FATF risk tier (from T477) or omit to run T477 inline"},"tap_cleared":{"type":"boolean","description":"TAP identity verified (from T286) or omit to run T286 inline"}},"required":["transaction_context"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/478-kya-compliance-firewall.html","function_name":"runKyaFirewall","timeout_ms":5000},
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0"
+}
+-->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--s1:var(--teal);--s2:var(--gold);--s3:var(--purple);--s4:var(--green);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:960px;margin:0 auto;padding:0 2rem}
+/* lang toggle removed — CONTRACT §1.1 (2026-06-09) */
+nav{padding:0 2rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:300;backdrop-filter:blur(8px)}
+.nav-inner{max-width:960px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-name .ai{color:var(--teal)}.logo-name .co{color:var(--muted);font-size:.8rem}
+.nav-links{display:flex;align-items:center;gap:18px}
+.nav-links a{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);transition:color .2s}
+.nav-links a:hover{color:var(--teal-lt)}
+/* Flow bar */
+.flow-bar{background:rgba(13,22,39,.95);border-bottom:1px solid var(--border);position:sticky;top:52px;z-index:200;overflow-x:auto;backdrop-filter:blur(6px)}
+.flow-inner{max-width:960px;margin:0 auto;padding:0 2rem;display:flex;align-items:stretch}
+.flow-step{display:flex;align-items:center;gap:9px;padding:10px 16px;font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap;border-bottom:2px solid transparent;cursor:pointer;transition:all .15s;background:none;border-top:none;border-left:none;border-right:none}
+.flow-step:hover{color:var(--text)}
+.flow-step.active{color:var(--white);border-bottom-color:var(--s-col)}
+.flow-step.done{color:var(--body)}
+.flow-step.done .flow-num{background:rgba(34,197,94,.15);border-color:var(--green);color:var(--green)}
+.flow-num{width:20px;height:20px;border-radius:50%;border:1px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;transition:all .2s}
+.flow-step.s1{--s-col:var(--s1)}.flow-step.s2{--s-col:var(--s2)}.flow-step.s3{--s-col:var(--s3)}.flow-step.s4{--s-col:var(--s4)}
+.flow-step.active .flow-num{background:rgba(255,255,255,.07);border-color:var(--s-col);color:var(--s-col)}
+.flow-arrow{color:var(--border-2);padding:0 2px;font-size:12px;align-self:center}
+.flow-export{margin-left:auto;padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;transition:all .15s;white-space:nowrap}
+.flow-export:hover{color:var(--teal-lt);border-bottom-color:var(--teal)}
+/* Hero */
+.hero{padding:2.5rem 0 1.5rem;position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:inline-block;width:18px;height:1px;background:var(--teal);opacity:.6}
+.hero h1{font-family:'DM Serif Display',serif;font-size:2.2rem;color:var(--white);margin-bottom:.75rem;line-height:1.15}
+.hero h1 em{color:var(--teal);font-style:italic}
+.hero-desc{font-size:.85rem;color:var(--body);line-height:1.8;max-width:640px;margin-bottom:1.1rem}
+.hero-badges{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1.5rem}
+.hero-badge{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .6rem;border-radius:3px;border:1px solid}
+.b-teal{color:var(--teal);border-color:rgba(20,184,166,.3);background:rgba(20,184,166,.06)}
+.b-body{color:var(--body);border-color:var(--border)}
+.how-it-works{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;font-size:.78rem;color:var(--body);line-height:1.7;margin-bottom:2rem}
+.how-it-works strong{color:var(--text);font-weight:500}
+/* Stages */
+.stages{display:flex;flex-direction:column;gap:.75rem;position:relative;z-index:1;padding-bottom:1rem}
+.stage{border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--bg-2);overflow:hidden;transition:border-color .2s,box-shadow .2s}
+.stage.s1{--sc:var(--s1);--sc-dim:var(--teal-dim)}.stage.s2{--sc:var(--s2);--sc-dim:var(--gold-dim)}.stage.s3{--sc:var(--s3);--sc-dim:var(--purple-dim)}.stage.s4{--sc:var(--s4);--sc-dim:var(--green-dim)}
+.stage.open{border-color:var(--sc);box-shadow:0 0 0 1px rgba(255,255,255,.03) inset}
+.stage.done:not(.open){border-color:rgba(34,197,94,.25)}
+.stage.blocked{border-color:rgba(239,68,68,.3);opacity:.7}
+.stage-header{display:flex;align-items:center;gap:1.1rem;padding:1rem 1.25rem;cursor:pointer;user-select:none;border:none;background:none;width:100%;text-align:left;color:inherit}
+.stage-header:hover{background:rgba(255,255,255,.015)}
+.stage-num{font-family:'DM Serif Display',serif;font-size:2rem;line-height:1;min-width:32px;color:var(--sc);opacity:.7}
+.stage.open .stage-num{opacity:1}
+.stage-meta{flex:1}
+.stage-kicker{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:.2rem}
+.stage-title{font-family:'Sora',sans-serif;font-size:.95rem;font-weight:500;color:var(--text);line-height:1.3}
+.stage.open .stage-title{color:var(--white)}
+.stage-status{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;padding:.2rem .55rem;border-radius:3px;flex-shrink:0}
+.status-todo{color:var(--muted);border:1px solid var(--border)}
+.status-open{color:var(--sc);border:1px solid var(--sc);background:var(--sc-dim)}
+.status-done{color:var(--green);border:1px solid rgba(34,197,94,.3);background:rgba(34,197,94,.07)}
+.status-blocked{color:var(--red);border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.07)}
+.stage-chevron{color:var(--muted);font-size:.7rem;flex-shrink:0;transition:transform .2s}
+.stage.open .stage-chevron{transform:rotate(180deg);color:var(--sc)}
+.stage-body{display:none;padding:0 1.25rem 1.5rem}
+.stage.open .stage-body{display:block}
+.stage-desc{font-size:.82rem;color:var(--body);line-height:1.75;margin-bottom:1.1rem;padding-top:.25rem}
+.tool-launch{display:flex;align-items:center;gap:.75rem;padding:.85rem 1rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1.1rem;flex-wrap:wrap}
+.tool-tid{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;padding:.2rem .55rem;border:1px solid var(--sc);color:var(--sc);border-radius:3px;flex-shrink:0}
+.tool-name{font-size:.82rem;font-weight:500;color:var(--text);flex:1}
+.tool-btn{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--sc);padding:.38rem .85rem;border-radius:var(--radius);border:none;transition:opacity .2s;flex-shrink:0;text-decoration:none}
+.tool-btn:hover{opacity:.85}
+.capture-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.capture-hint{font-size:.75rem;color:var(--body);margin-bottom:.6rem;font-style:italic}
+.capture-area{width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .9rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text);line-height:1.6;resize:vertical;min-height:80px;outline:none;transition:border-color .2s}
+.capture-area:focus{border-color:var(--sc)}
+.capture-area.has-value{border-color:rgba(34,197,94,.3)}
+.gate-row{display:flex;align-items:center;gap:.65rem;padding:.55rem .9rem;border-radius:var(--radius);border:1px solid var(--border-2);font-size:.75rem;margin-bottom:.75rem}
+.gate-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.gate-pass{color:var(--green);font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:600}
+.gate-fail{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:600}
+.gate-pending{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.handoff{display:none;align-items:flex-start;gap:.7rem;padding:.7rem 1rem;border-radius:var(--radius);border:1px dashed var(--border-2);background:rgba(255,255,255,.02);font-size:.72rem;margin-top:.75rem}
+.handoff.visible{display:flex}
+.handoff-arrow{color:var(--sc);font-size:1rem;flex-shrink:0;margin-top:.05rem}
+.handoff-body{flex:1;min-width:0}
+.handoff-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.2rem}
+.handoff-preview{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.continue-btn{display:inline-flex;align-items:center;gap:.45rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--sc);padding:.42rem .95rem;border-radius:var(--radius);border:none;margin-top:1rem;transition:opacity .2s}
+.continue-btn:hover{opacity:.85}
+.continue-btn:disabled{opacity:.35;cursor:not-allowed}
+/* Export panel */
+.export-panel{background:linear-gradient(135deg,var(--teal-dim),var(--purple-dim));border:1px solid rgba(20,184,166,.2);border-radius:var(--radius-lg);padding:1.5rem 1.75rem;margin:1.5rem 0 3rem;position:relative;z-index:1}
+.export-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.6rem}
+.export-title{font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--white);margin-bottom:.75rem}
+.export-desc{font-size:.8rem;color:var(--body);line-height:1.75;margin-bottom:1rem}
+.export-area{width:100%;background:var(--bg);border:1px solid var(--border-2);border-radius:var(--radius);padding:.75rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.65;resize:vertical;min-height:120px;outline:none}
+.export-actions{display:flex;gap:.65rem;margin-top:.85rem;flex-wrap:wrap}
+.copy-btn{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.42rem .95rem;border-radius:var(--radius);border:none;transition:all .2s}
+.copy-btn.primary{color:var(--bg);background:var(--teal)}.copy-btn.primary:hover{background:var(--teal-lt)}
+.copy-btn.secondary{color:var(--teal);background:transparent;border:1px solid rgba(20,184,166,.3)}.copy-btn.secondary:hover{background:rgba(20,184,166,.08)}
+/* Related */
+.related{border-top:1px solid var(--border);padding-top:1.5rem;margin-bottom:2.5rem;position:relative;z-index:1}
+.related-label{font-family:'JetBrains Mono',monospace;font-size:.47rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.75rem}
+.related-links{display:flex;gap:.55rem;flex-wrap:wrap}
+.related-link{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.08em;text-transform:uppercase;padding:.28rem .75rem;border:1px solid var(--border);border-radius:var(--radius);color:var(--body);transition:all .15s}
+.related-link:hover{border-color:var(--teal);color:var(--teal)}
+.related-link.primary{border-color:rgba(20,184,166,.3);color:var(--teal);background:rgba(20,184,166,.05)}
+/* Manifest */
+.mfst-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:2rem;overflow:hidden;position:relative;z-index:1}
+.mfst-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;background:none;border:none;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:color .2s}
+.mfst-toggle:hover{color:var(--teal)}
+.mfst-arr{font-size:.6rem}
+.mfst-body{display:none;padding:0 1.25rem 1rem}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--text);line-height:1.6;white-space:pre-wrap;word-break:break-all}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:1.4rem 0}
+.footer-inner{max-width:960px;margin:0 auto;padding:0 2rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.8rem;font-weight:500;color:var(--bright)}
+.footer-ai{color:var(--teal)}.footer-co{color:var(--muted);font-size:.7rem}
+.footer-links{display:flex;gap:1.1rem;flex-wrap:wrap}
+.footer-links a{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);transition:color .2s}
+.footer-links a:hover{color:var(--teal)}
+@media(max-width:640px){.hero h1{font-size:1.75rem}.tool-launch{flex-direction:column;align-items:flex-start}.flow-step span:not(.flow-num){display:none}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html"><span class="logo-name"><span class="ai">AI</span>Numbers<span class="co">.co</span></span></a>
+    <div class="nav-links">
+      <a href="../index.html">Tools</a>
+      <a href="../guides/agentic-commerce-mcp-hub.html">MCP Hub</a>
+      <a href="../tools/479-b2b-micro-clearinghouse.html">T479 Clearinghouse</a>
+      <a href="../tools/480-baas-orchestrator.html">T480 BaaS Orch.</a>
+    </div>
+  </div>
+</nav>
+
+<div class="flow-bar">
+  <div class="flow-inner">
+    <button class="flow-step s1 active" id="fs1" onclick="scrollToStage(1)"><span class="flow-num">1</span><span>Injection Scan</span></button>
+    <span class="flow-arrow">→</span>
+    <button class="flow-step s2" id="fs2" onclick="scrollToStage(2)"><span class="flow-num">2</span><span>FATF Risk</span></button>
+    <span class="flow-arrow">→</span>
+    <button class="flow-step s3" id="fs3" onclick="scrollToStage(3)"><span class="flow-num">3</span><span>TAP Identity</span></button>
+    <span class="flow-arrow">→</span>
+    <button class="flow-step s4" id="fs4" onclick="scrollToStage(4)"><span class="flow-num">4</span><span>AML Mandate</span></button>
+    <button class="flow-export" onclick="exportAuditLog()">Export Audit Log</button>
+  </div>
+</div>
+
+<div class="container">
+  <section class="hero">
+    <div class="hero-eyebrow">T478 · KYA / Agentic Compliance</div>
+    <h1>KYA <em>Compliance Firewall</em></h1>
+    <p class="hero-desc">Four-stage Know-Your-Agent pipeline that intercepts an agentic transaction and gates it through: prompt-injection detection, FATF customer risk scoring, Visa TAP cryptographic identity verification, and AML mandate compilation. Any stage failure blocks the chain.</p>
+    <div class="hero-badges">
+      <span class="hero-badge b-teal">4-Stage Pipeline</span>
+      <span class="hero-badge b-body">T282 → T477 → T286 → T131</span>
+      <span class="hero-badge b-body">Chain-of-Custody Log</span>
+      <span class="hero-badge b-body">Zero PII · Client-Side</span>
+    </div>
+    <div class="how-it-works">
+      <strong>How it works:</strong> Open each stage in sequence. Run the linked tool, then paste the key output back into the capture field and click Continue. If any stage returns a risk score above threshold the pipeline halts and logs a BLOCKED decision. All-clear on all four stages emits a signed AML mandate you can forward to your payment rail.
+    </div>
+  </section>
+
+  <div class="stages">
+
+    <!-- STAGE 1 -->
+    <div class="stage s1 open" id="stage1">
+      <button class="stage-header" onclick="toggleStage(1)">
+        <span class="stage-num">1</span>
+        <div class="stage-meta">
+          <div class="stage-kicker">T282 · MCP Tool-Poisoning Scanner</div>
+          <div class="stage-title">Prompt-Injection &amp; Tool-Poisoning Scan</div>
+        </div>
+        <span class="stage-status status-open" id="ss1">Open</span>
+        <span class="stage-chevron">▼</span>
+      </button>
+      <div class="stage-body">
+        <p class="stage-desc">Scan the inbound agentic transaction context — the tool call text, mandate payload, or agent instruction — for prompt-injection and tool-poisoning smells. A risk score ≥ 60 blocks the pipeline.</p>
+        <div class="tool-launch">
+          <span class="tool-tid">T282</span>
+          <span class="tool-name">MCP Tool-Poisoning &amp; Prompt-Injection Scanner</span>
+          <a href="282-mcp-tool-poisoning-scanner.html" class="tool-btn" target="_blank">Open Tool →</a>
+        </div>
+        <div class="capture-label">Paste injection scan result</div>
+        <p class="capture-hint">Paste the JSON output from T282, or enter the risk score (0–100) manually.</p>
+        <textarea class="capture-area" id="cap1" placeholder='{"risk": 12, "findings": []}' oninput="onCapture(1)"></textarea>
+        <div class="gate-row" id="gate1">
+          <span class="gate-label">Gate 1</span>
+          <span class="gate-pending" id="gate1status">Awaiting result</span>
+        </div>
+        <div class="handoff" id="handoff1">
+          <span class="handoff-arrow">↓</span>
+          <div class="handoff-body">
+            <div class="handoff-label">Passing to Stage 2</div>
+            <div class="handoff-preview" id="handoff1preview"></div>
+          </div>
+        </div>
+        <button class="continue-btn" id="cont1" disabled onclick="continueStage(1)">Continue → FATF Risk</button>
+      </div>
+    </div>
+
+    <!-- STAGE 2 -->
+    <div class="stage s2" id="stage2">
+      <button class="stage-header" onclick="toggleStage(2)">
+        <span class="stage-num">2</span>
+        <div class="stage-meta">
+          <div class="stage-kicker">T477 · FATF Customer Risk Rating</div>
+          <div class="stage-title">FATF 6-Dimension Customer Risk Assessment</div>
+        </div>
+        <span class="stage-status status-todo" id="ss2">Pending</span>
+        <span class="stage-chevron">▼</span>
+      </button>
+      <div class="stage-body">
+        <p class="stage-desc">Score the customer or counterparty across 6 FATF Rec 10/12 dimensions. Risk tier High or Prohibited blocks the pipeline. Medium requires enhanced monitoring note in the final mandate.</p>
+        <div class="tool-launch">
+          <span class="tool-tid">T477</span>
+          <span class="tool-name">FATF Customer Risk Rating</span>
+          <a href="477-fatf-customer-risk-rating.html" class="tool-btn" target="_blank">Open Tool →</a>
+        </div>
+        <div class="capture-label">Paste FATF risk result</div>
+        <p class="capture-hint">Paste the Policy Mandate JSON from T477, or enter the risk tier manually: Low / Medium / High / Prohibited.</p>
+        <textarea class="capture-area" id="cap2" placeholder='{"risk_tier": "Low", "composite_score": 1.8, ...}' oninput="onCapture(2)"></textarea>
+        <div class="gate-row" id="gate2">
+          <span class="gate-label">Gate 2</span>
+          <span class="gate-pending" id="gate2status">Awaiting result</span>
+        </div>
+        <div class="handoff" id="handoff2">
+          <span class="handoff-arrow">↓</span>
+          <div class="handoff-body">
+            <div class="handoff-label">Passing to Stage 3</div>
+            <div class="handoff-preview" id="handoff2preview"></div>
+          </div>
+        </div>
+        <button class="continue-btn" id="cont2" disabled onclick="continueStage(2)">Continue → TAP Identity</button>
+      </div>
+    </div>
+
+    <!-- STAGE 3 -->
+    <div class="stage s3" id="stage3">
+      <button class="stage-header" onclick="toggleStage(3)">
+        <span class="stage-num">3</span>
+        <div class="stage-meta">
+          <div class="stage-kicker">T286 · Visa Trusted Agent Protocol Inspector</div>
+          <div class="stage-title">Cryptographic Agent Identity Verification</div>
+        </div>
+        <span class="stage-status status-todo" id="ss3">Pending</span>
+        <span class="stage-chevron">▼</span>
+      </button>
+      <div class="stage-body">
+        <p class="stage-desc">Inspect the Visa TAP HTTP Message Signature to cryptographically verify the agent's identity and TAP readiness score. A readiness score below 60 or a signature failure blocks the pipeline.</p>
+        <div class="tool-launch">
+          <span class="tool-tid">T286</span>
+          <span class="tool-name">Visa Trusted Agent Protocol Signature Inspector</span>
+          <a href="286-visa-trusted-agent-protocol-inspector.html" class="tool-btn" target="_blank">Open Tool →</a>
+        </div>
+        <div class="capture-label">Paste TAP inspection result</div>
+        <p class="capture-hint">Paste the JSON output from T286, or enter readiness score (0–100) manually.</p>
+        <textarea class="capture-area" id="cap3" placeholder='{"tap_readiness_score": 82, "parsed": {...}, "findings": []}' oninput="onCapture(3)"></textarea>
+        <div class="gate-row" id="gate3">
+          <span class="gate-label">Gate 3</span>
+          <span class="gate-pending" id="gate3status">Awaiting result</span>
+        </div>
+        <div class="handoff" id="handoff3">
+          <span class="handoff-arrow">↓</span>
+          <div class="handoff-body">
+            <div class="handoff-label">Passing to Stage 4</div>
+            <div class="handoff-preview" id="handoff3preview"></div>
+          </div>
+        </div>
+        <button class="continue-btn" id="cont3" disabled onclick="continueStage(3)">Continue → AML Mandate</button>
+      </div>
+    </div>
+
+    <!-- STAGE 4 -->
+    <div class="stage s4" id="stage4">
+      <button class="stage-header" onclick="toggleStage(4)">
+        <span class="stage-num">4</span>
+        <div class="stage-meta">
+          <div class="stage-kicker">T131 · AP2 AML Mandate Builder</div>
+          <div class="stage-title">AML Policy Mandate Compilation</div>
+        </div>
+        <span class="stage-status status-todo" id="ss4">Pending</span>
+        <span class="stage-chevron">▼</span>
+      </button>
+      <div class="stage-body">
+        <p class="stage-desc">Compile the final AML Policy Mandate JSON incorporating the gating decisions from stages 1–3. The mandate encodes agent_instructions, risk tier, TAP status, and an immutable audit chain for downstream payment rails.</p>
+        <div class="tool-launch">
+          <span class="tool-tid">T131</span>
+          <span class="tool-name">AP2 AML Mandate Builder</span>
+          <a href="131-ap2-aml-mandate-builder.html" class="tool-btn" target="_blank">Open Tool →</a>
+        </div>
+        <div class="capture-label">Paste AML mandate output</div>
+        <p class="capture-hint">Paste the Policy Mandate JSON from T131. This becomes the final KYA clearance record.</p>
+        <textarea class="capture-area" id="cap4" placeholder='{"mandate_id": "...", "mandate_type": "aml_programme", ...}' oninput="onCapture(4)"></textarea>
+        <div class="gate-row" id="gate4">
+          <span class="gate-label">Gate 4</span>
+          <span class="gate-pending" id="gate4status">Awaiting result</span>
+        </div>
+        <button class="continue-btn" id="cont4" disabled onclick="finalise()">Finalise → Export KYA Record</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Panel -->
+  <div class="export-panel" id="exportPanel" style="display:none">
+    <div class="export-label">KYA Clearance Record</div>
+    <div class="export-title" id="exportTitle">Pipeline Complete</div>
+    <p class="export-desc" id="exportDesc"></p>
+    <textarea class="export-area" id="exportArea" readonly></textarea>
+    <div class="export-actions">
+      <button class="copy-btn primary" onclick="copyExport()">Copy JSON</button>
+      <button class="copy-btn secondary" onclick="copyExportMd()">Copy Markdown</button>
+    </div>
+  </div>
+
+  <!-- Manifest Panel -->
+  <div class="mfst-panel">
+    <button class="mfst-toggle" onclick="toggleMfst()">
+      <span>MCP Tool Definition &amp; Manifest</span>
+      <span class="mfst-arr" id="mfstArr">▼</span>
+    </button>
+    <div class="mfst-body" id="mfstBody">
+      <pre class="mfst-code" id="mfstCode"></pre>
+      <button class="copy-btn primary" style="margin-top:.5rem;font-size:.5rem;padding:.3rem .75rem" onclick="copyMfst()">Copy JSON</button>
+    </div>
+  </div>
+
+  <div class="related">
+    <div class="related-label">Related Tools &amp; Workflows</div>
+    <div class="related-links">
+      <a href="282-mcp-tool-poisoning-scanner.html" class="related-link">T282 Injection Scanner</a>
+      <a href="477-fatf-customer-risk-rating.html" class="related-link primary">T477 FATF Risk</a>
+      <a href="286-visa-trusted-agent-protocol-inspector.html" class="related-link">T286 TAP Inspector</a>
+      <a href="131-ap2-aml-mandate-builder.html" class="related-link">T131 AML Mandate</a>
+      <a href="479-b2b-micro-clearinghouse.html" class="related-link">T479 Micro-Clearinghouse</a>
+      <a href="480-baas-orchestrator.html" class="related-link">T480 BaaS Orchestrator</a>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <a href="../index.html"><span class="footer-brand"><span class="footer-ai">AI</span>Numbers<span class="footer-co">.co</span></span></a>
+    <div class="footer-links">
+      <a href="../tools/477-fatf-customer-risk-rating.html">T477 FATF Risk</a>
+      <a href="../tools/479-b2b-micro-clearinghouse.html">T479 Clearinghouse</a>
+      <a href="../tools/480-baas-orchestrator.html">T480 BaaS Orch.</a>
+      <a href="../guides/agentic-commerce-mcp-hub.html">MCP Hub</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+var STATE = {stages:{1:{done:false,blocked:false,data:null},2:{done:false,blocked:false,data:null},3:{done:false,blocked:false,data:null},4:{done:false,blocked:false,data:null}}};
+var _exportJson = null;
+
+function toggleStage(n){
+  var el=document.getElementById('stage'+n);
+  var isOpen=el.classList.contains('open');
+  document.querySelectorAll('.stage').forEach(function(s){s.classList.remove('open');});
+  if(!isOpen)el.classList.add('open');
+  updateFlowBar();
+}
+
+function scrollToStage(n){
+  var el=document.getElementById('stage'+n);
+  if(el){el.scrollIntoView({behavior:'smooth',block:'start'});toggleStage(n);}
+}
+
+function extractScore(text, key){
+  try{var j=JSON.parse(text);if(j[key]!==undefined)return j[key];}catch(e){}
+  var m=text.match(/\b(\d+(\.\d+)?)\b/);return m?parseFloat(m[1]):null;
+}
+
+function extractTier(text){
+  var t=text.toUpperCase();
+  if(t.includes('PROHIBITED'))return'Prohibited';
+  if(t.includes('HIGH'))return'High';
+  if(t.includes('MEDIUM'))return'Medium';
+  if(t.includes('LOW'))return'Low';
+  return null;
+}
+
+function onCapture(n){
+  var val=document.getElementById('cap'+n).value.trim();
+  var cont=document.getElementById('cont'+n);
+  var gs=document.getElementById('gate'+n+'status');
+  var gate=document.getElementById('gate'+n);
+
+  if(!val){gs.className='gate-pending';gs.textContent='Awaiting result';cont.disabled=true;return;}
+
+  if(n===1){
+    var score=extractScore(val,'risk');
+    if(score===null)score=extractScore(val,'score');
+    if(score!==null){
+      var pass=score<60;
+      gs.className=pass?'gate-pass':'gate-fail';
+      gs.textContent=pass?'PASS — Risk '+score+'/100 (below threshold)':'BLOCKED — Risk '+score+'/100 (≥ 60 threshold)';
+      STATE.stages[1]={done:true,blocked:!pass,data:{injection_risk_score:score,passed:pass}};
+      if(pass){cont.disabled=false;showHandoff(1,'injection_risk_score: '+score+' → PASS');}
+      else{cont.disabled=true;markBlocked(2);markBlocked(3);markBlocked(4);}
+    } else {
+      gs.className='gate-pending';gs.textContent='Could not parse risk score — check format';cont.disabled=false;
+    }
+  }
+  if(n===2){
+    var tier=extractTier(val);
+    if(tier){
+      var pass=(tier==='Low'||tier==='Medium');
+      gs.className=pass?'gate-pass':'gate-fail';
+      gs.textContent=pass?'PASS — Tier: '+tier:'BLOCKED — Tier: '+tier+' (prohibited or too high)';
+      STATE.stages[2]={done:true,blocked:!pass,data:{fatf_tier:tier,passed:pass}};
+      if(pass){cont.disabled=false;showHandoff(2,'FATF risk_tier: '+tier+' → PASS');}
+      else{cont.disabled=true;markBlocked(3);markBlocked(4);}
+    } else {
+      gs.className='gate-pending';gs.textContent='Could not parse risk tier — enter Low/Medium/High/Prohibited';cont.disabled=false;
+    }
+  }
+  if(n===3){
+    var score2=extractScore(val,'tap_readiness_score');
+    if(score2===null)score2=extractScore(val,'readiness_score');
+    if(score2!==null){
+      var pass2=score2>=60;
+      gs.className=pass2?'gate-pass':'gate-fail';
+      gs.textContent=pass2?'PASS — TAP readiness '+score2+'/100':'BLOCKED — TAP readiness '+score2+'/100 (below 60)';
+      STATE.stages[3]={done:true,blocked:!pass2,data:{tap_readiness:score2,passed:pass2}};
+      if(pass2){cont.disabled=false;showHandoff(3,'TAP readiness: '+score2+' → PASS');}
+      else{cont.disabled=true;markBlocked(4);}
+    } else {
+      gs.className='gate-pending';gs.textContent='Could not parse TAP readiness score';cont.disabled=false;
+    }
+  }
+  if(n===4){
+    var hasMandateId=val.includes('mandate_id')||val.includes('mandate_type');
+    gs.className=hasMandateId?'gate-pass':'gate-pending';
+    gs.textContent=hasMandateId?'PASS — Mandate received':'Paste mandate JSON from T131';
+    STATE.stages[4]={done:hasMandateId,blocked:false,data:val};
+    cont.disabled=!hasMandateId;
+  }
+  document.getElementById('cap'+n).classList.toggle('has-value',val.length>0);
+}
+
+function showHandoff(n,preview){
+  var h=document.getElementById('handoff'+n);
+  if(h){h.classList.add('visible');document.getElementById('handoff'+n+'preview').textContent=preview;}
+}
+
+function markBlocked(n){
+  var el=document.getElementById('stage'+n);
+  if(el)el.classList.add('blocked');
+  var ss=document.getElementById('ss'+n);
+  if(ss){ss.className='stage-status status-blocked';ss.textContent='Blocked';}
+}
+
+function continueStage(n){
+  var ss=document.getElementById('ss'+n);
+  ss.className='stage-status status-done';ss.textContent='Done';
+  document.getElementById('stage'+n).classList.remove('open');
+  var next=document.getElementById('stage'+(n+1));
+  if(next){next.classList.add('open');document.getElementById('ss'+(n+1)).className='stage-status status-open';document.getElementById('ss'+(n+1)).textContent='Open';next.scrollIntoView({behavior:'smooth',block:'start'});}
+  updateFlowBar();
+}
+
+function finalise(){
+  continueStage(4);
+  document.getElementById('ss4').className='stage-status status-done';
+  document.getElementById('ss4').textContent='Done';
+
+  var s1=STATE.stages[1].data||{};
+  var s2=STATE.stages[2].data||{};
+  var s3=STATE.stages[3].data||{};
+  var s4raw=STATE.stages[4].data||'';
+  var allClear=!STATE.stages[1].blocked&&!STATE.stages[2].blocked&&!STATE.stages[3].blocked;
+  var clearance=allClear?'CLEARED':'BLOCKED';
+  var uuid='xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){var r=Math.random()*16|0,v=c==='x'?r:(r&0x3|0x8);return v.toString(16);});
+  var record={kya_clearance_id:uuid,clearance:clearance,timestamp:new Date().toISOString(),pipeline:'T282→T477→T286→T131',stages:{stage_1_injection_scan:s1,stage_2_fatf_risk:s2,stage_3_tap_identity:s3,stage_4_aml_mandate:'[see raw paste]'},agent_instructions:[clearance==='CLEARED'?'All KYA gates passed. Transaction may proceed to payment rail.':'KYA pipeline BLOCKED. Do not forward to payment rail. Review stage findings.']};
+  _exportJson=JSON.stringify(record,null,2);
+  var panel=document.getElementById('exportPanel');
+  panel.style.display='block';
+  document.getElementById('exportTitle').textContent=clearance==='CLEARED'?'✓ KYA Clearance: CLEARED':'⛔ KYA Decision: BLOCKED';
+  document.getElementById('exportDesc').textContent=clearance==='CLEARED'?'All four compliance gates passed. The record below serves as the chain-of-custody audit log.':'One or more compliance gates failed. Transaction blocked. See stage results for details.';
+  document.getElementById('exportArea').value=_exportJson;
+  panel.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function exportAuditLog(){finalise();}
+function copyExport(){if(_exportJson){navigator.clipboard.writeText(_exportJson);}}
+function copyExportMd(){
+  var md='# KYA Compliance Firewall — Audit Log\n\n**Clearance:** '+(document.getElementById('exportTitle').textContent)+'\n\n**Timestamp:** '+new Date().toISOString()+'\n\n**Pipeline:** T282 → T477 → T286 → T131\n\n```json\n'+(_exportJson||'')+'\n```';
+  navigator.clipboard.writeText(md);
+}
+
+function updateFlowBar(){
+  [1,2,3,4].forEach(function(n){
+    var fs=document.getElementById('fs'+n);
+    var st=STATE.stages[n];
+    var stageEl=document.getElementById('stage'+n);
+    if(stageEl.classList.contains('open'))fs.classList.add('active'); else fs.classList.remove('active');
+    if(st.done&&!st.blocked)fs.classList.add('done'); else fs.classList.remove('done');
+  });
+}
+</script>
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id":"478-kya-compliance-firewall","version":"1.0.0","title":"KYA Compliance Firewall","description":"Four-stage Know-Your-Agent agentic compliance firewall: prompt-injection scan (T282), FATF customer risk rating (T477), Visa TAP signature verification (T286), AML mandate compilation (T131). Each stage gates the next. Outputs a composite KYA clearance record and chain-of-custody audit log.","category":"aml-kyc-compliance","tags":["KYA","agentic","compliance","FATF","AML","Visa TAP","injection","MCP","workflow","firewall"],"audience":["compliance","mlro","fintech","baas","payments"],"mcp_tool_definition":{"name":"kya_compliance_firewall","description":"Run the four-stage KYA compliance firewall: injection scan → FATF risk → TAP identity → AML mandate. Returns a clearance decision (CLEARED/BLOCKED/ESCALATE) and chain-of-custody audit log.","inputSchema":{"type":"object","properties":{"transaction_context":{"type":"string","description":"The transaction context or agent instruction text to scan"},"customer_risk_tier":{"type":"string","enum":["Low","Medium","High","Prohibited"],"description":"Pre-computed FATF risk tier from T477"},"tap_cleared":{"type":"boolean","description":"TAP identity verified from T286"}},"required":["transaction_context"]}},"execution":{"type":"browser-javascript","entry":"tools/478-kya-compliance-firewall.html","function_name":"runKyaFirewall","timeout_ms":5000},"ap2_export":true,"prefill":true,"bridge_version":"1.0"}');
+  function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+  function copyMfst(){var s=JSON.stringify(MANIFEST,null,2);if(navigator.clipboard)navigator.clipboard.writeText(s);}
+</script>
+</body>
+</html>

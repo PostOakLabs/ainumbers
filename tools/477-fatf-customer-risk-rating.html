@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>FATF Customer Risk Rating · T477 · AINumbers.co</title>
+<meta name="description" content="Score a customer across 6 FATF risk dimensions (entity type, geography, product, channel, PEP/sanctions, transaction pattern) to derive a composite AML risk tier (Low/Medium/High/Prohibited) and required CDD level. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/tools/477-fatf-customer-risk-rating">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FATF Customer Risk Rating · T477","url":"https://ainumbers.co/tools/477-fatf-customer-risk-rating","description":"Score a customer across 6 FATF risk dimensions to derive a composite AML risk tier and required CDD level. Client-side. Zero PII.","applicationCategory":"FinancialApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}
+</script>
+<!-- manifest.json
+{
+  "tool_id": "477-fatf-customer-risk-rating",
+  "version": "1.0.0",
+  "title": "FATF Customer Risk Rating",
+  "description": "Score a customer across 6 FATF Recommendation 10/12 risk dimensions (entity type, geography, product/service, channel, PEP/sanctions exposure, transaction pattern) to derive a composite AML risk tier and required CDD level. Outputs per-dimension breakdown and Policy Mandate JSON.",
+  "category": "aml-kyc-compliance",
+  "tags": ["FATF","AML","KYC","CDD","EDD","customer risk","risk-based approach","KYA","compliance"],
+  "audience": ["compliance","risk","mlro","fintech","baas"],
+  "input_schema": {"type":"object","properties":{"entity_type":{"type":"string"},"geography":{"type":"string"},"product_service":{"type":"string"},"channel":{"type":"string"},"pep_sanctions":{"type":"string"},"transaction_pattern":{"type":"string"},"w_entity":{"type":"number"},"w_geo":{"type":"number"},"w_product":{"type":"number"},"w_channel":{"type":"number"},"w_pep":{"type":"number"},"w_txn":{"type":"number"}},"required":["entity_type","geography","product_service","channel","pep_sanctions","transaction_pattern"]},
+  "output_schema": {"type":"object","properties":{"composite_score":{"type":"number"},"risk_tier":{"type":"string","enum":["Low","Medium","High","Prohibited"]},"cdd_level":{"type":"string"},"dimensions":{"type":"array"},"ap2_mandate":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"customer_risk_rating","description":"Score a customer across 6 FATF Recommendation 10/12 risk dimensions and return a composite AML risk tier (Low/Medium/High/Prohibited), required CDD level, and per-dimension breakdown. Use when an agent needs to assess onboarding risk before routing to AML mandate or TAP identity verification.","inputSchema":{"type":"object","properties":{"entity_type":{"type":"string","enum":["individual_standard","corporate_standard","corporate_complex","charity_npo","pep_domestic","pep_foreign"],"description":"Customer/entity type"},"geography":{"type":"string","enum":["low_risk","standard","fatf_grey","sanctions","tax_haven"],"description":"Jurisdiction risk level"},"product_service":{"type":"string","enum":["standard_deposit","internet_banking","cash_intensive","crypto_dlt","private_banking","trade_finance","correspondent"],"description":"Product or service category"},"channel":{"type":"string","enum":["face_to_face","non_face_verified","digital_biometric","agent_intermediary","correspondent_nested","anonymous"],"description":"Onboarding/delivery channel"},"pep_sanctions":{"type":"string","enum":["none","distant_link","close_associate","domestic_pep","foreign_pep_or_sanctions"],"description":"PEP and sanctions exposure level"},"transaction_pattern":{"type":"string","enum":["low_velocity","moderate","elevated_cross_border","high_velocity_structuring","red_flag"],"description":"Observed or expected transaction risk pattern"},"w_entity":{"type":"number","description":"Weight for entity dimension (default 1)"},"w_geo":{"type":"number","description":"Weight for geography dimension (default 1)"},"w_product":{"type":"number","description":"Weight for product dimension (default 1)"},"w_channel":{"type":"number","description":"Weight for channel dimension (default 1)"},"w_pep":{"type":"number","description":"Weight for PEP/sanctions dimension (default 1)"},"w_txn":{"type":"number","description":"Weight for transaction pattern dimension (default 1)"}},"required":["entity_type","geography","product_service","channel","pep_sanctions","transaction_pattern"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/477-fatf-customer-risk-rating.html","function_name":"runFatfRisk","timeout_ms":3000},
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0"
+}
+-->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* lang toggle removed — CONTRACT §1.1 (2026-06-09) */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-cur{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}.nav-sep{color:var(--border-2)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1.5rem}
+.hb{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .6rem;border-radius:3px;border:1px solid}
+.hb-teal{color:var(--teal);border-color:rgba(20,184,166,.3);background:rgba(20,184,166,.06)}
+.hb-body{color:var(--body);border-color:var(--border)}
+.main-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;padding:2rem 0;position:relative;z-index:1}
+@media(max-width:768px){.main-grid{grid-template-columns:1fr}}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:16px;height:1px;background:var(--teal);opacity:.5}
+.field-group{margin-bottom:1rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);margin-bottom:.35rem;display:block}
+.field-note{font-size:.68rem;color:var(--muted);margin-bottom:.4rem;font-style:italic}
+select,input[type=number]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:.5rem .75rem;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.72rem;outline:none;transition:border-color .2s;-webkit-appearance:none}
+select:focus,input[type=number]:focus{border-color:var(--teal)}
+select option{background:var(--bg-2)}
+.weights-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.weight-field{display:flex;flex-direction:column;gap:.25rem}
+.weight-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.run-btn{width:100%;padding:.65rem;background:var(--teal);color:#080E1A;border:none;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-top:.75rem;transition:opacity .2s}
+.run-btn:hover{opacity:.85}
+.out-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;position:relative;z-index:1;margin-bottom:1.5rem}
+.out-header{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3)}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .65rem;border-radius:3px;border:1px solid var(--border);color:var(--muted);background:transparent;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.out-body{padding:1.25rem}
+.out-placeholder{font-size:.78rem;color:var(--muted);font-style:italic;text-align:center;padding:2rem 0}
+.tier-badge{display:inline-flex;align-items:center;gap:.6rem;padding:.55rem 1.1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.8rem;font-weight:600;letter-spacing:.05em;margin-bottom:1.25rem}
+.tier-low{background:var(--green-dim);border:1px solid rgba(34,197,94,.3);color:var(--green)}
+.tier-medium{background:var(--gold-dim);border:1px solid rgba(212,168,71,.3);color:var(--gold)}
+.tier-high{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red)}
+.tier-prohibited{background:rgba(239,68,68,.18);border:1px solid rgba(239,68,68,.5);color:#FF6B6B}
+.score-row{display:flex;justify-content:space-between;align-items:center;font-family:'JetBrains Mono',monospace;font-size:.7rem;margin-bottom:.5rem}
+.score-label{color:var(--body)}
+.score-val{color:var(--bright);font-weight:500}
+.dim-table{width:100%;border-collapse:collapse;font-size:.72rem;margin-bottom:1rem}
+.dim-table th{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:.5rem .6rem;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+.dim-table td{padding:.5rem .6rem;border-bottom:1px solid rgba(30,47,74,.6);vertical-align:middle}
+.dim-table tr:last-child td{border-bottom:none}
+.dim-name{color:var(--text);font-weight:500}
+.dim-val{font-family:'JetBrains Mono',monospace;color:var(--body);font-size:.68rem}
+.dim-score{font-family:'JetBrains Mono',monospace;font-weight:600;text-align:center}
+.ds-1,.ds-2{color:var(--green)}
+.ds-3{color:var(--gold)}
+.ds-4,.ds-5{color:var(--red)}
+.cdd-row{display:flex;align-items:center;gap:.75rem;padding:.7rem 1rem;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-3);margin-bottom:1rem}
+.cdd-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.cdd-val{font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:600;color:var(--bright)}
+.export-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre-wrap;word-break:break-all;max-height:320px;overflow-y:auto;margin-top:.5rem}
+.out-section{padding:1.25rem;border-top:1px solid var(--border)}
+.bridge-snip{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);line-height:1.5;margin-top:.5rem;white-space:pre-wrap}
+.mfst-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:2rem;position:relative;z-index:1;overflow:hidden}
+.mfst-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;background:none;border:none;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:color .2s}
+.mfst-toggle:hover{color:var(--teal)}
+.mfst-arr{font-size:.6rem;color:var(--muted)}
+.mfst-body{display:none;padding:0 1.25rem 1rem}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--text);line-height:1.6;white-space:pre-wrap;word-break:break-all}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:1.4rem 0;position:relative;z-index:1}
+.footer-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.8rem;font-weight:500;color:var(--bright)}
+.footer-ai{color:var(--teal)}.footer-co{color:var(--muted);font-size:.7rem}
+.footer-links{display:flex;gap:1.1rem;flex-wrap:wrap}
+.footer-links a{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);transition:color .2s}
+.footer-links a:hover{color:var(--teal)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <span class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></span>
+    </a>
+    <div class="nav-bc">
+      <a href="../index.html">Home</a>
+      <span class="nav-bc-sep">›</span>
+      <a href="../index.html#aml-kyc">AML / KYC</a>
+      <span class="nav-bc-sep">›</span>
+      <span class="nav-bc-cur">FATF Customer Risk Rating</span>
+    </div>
+    <div class="nav-right">
+      <a href="../tools/131-ap2-aml-mandate-builder.html" class="nav-pill">T131 AML Mandate</a>
+      <span class="nav-sep">·</span>
+      <a href="../tools/478-kya-compliance-firewall.html" class="nav-pill">T478 KYA Firewall →</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <section class="hero">
+    <div class="hero-eyebrow">T477 · AML / KYC</div>
+    <h1>FATF Customer <em>Risk Rating</em></h1>
+    <p class="hero-desc">Score a customer across 6 FATF Recommendation 10/12 risk dimensions to derive a composite AML risk tier and required CDD level. Use as the onboarding risk gate in KYA pipelines, BaaS sponsor-bank compliance checks, and agentic payment agent authorisation flows.</p>
+    <div class="hero-badges">
+      <span class="hb hb-teal">FATF Rec 10/12</span>
+      <span class="hb hb-body">6 Dimensions</span>
+      <span class="hb hb-body">Low / Medium / High / Prohibited</span>
+      <span class="hb hb-body">Policy Mandate JSON</span>
+      <span class="hb hb-body">Zero PII · Client-Side</span>
+    </div>
+    <div class="pii-notice">No customer data is transmitted or stored. All scoring runs locally in your browser. Do not enter real customer names, identifiers, or PII — use anonymised risk descriptors only.</div>
+  </section>
+
+  <div class="main-grid">
+    <!-- INPUT PANEL -->
+    <div>
+      <div class="panel">
+        <div class="panel-label">Customer Risk Inputs</div>
+
+        <div class="field-group">
+          <label class="field-label" for="entity_type">1 · Customer / Entity Type</label>
+          <div class="field-note">Structural complexity and inherent risk of the customer category.</div>
+          <select id="entity_type">
+            <option value="">— select —</option>
+            <option value="individual_standard|1">Individual — standard (1)</option>
+            <option value="corporate_standard|2">Corporate — standard structure (2)</option>
+            <option value="corporate_complex|3">Corporate — complex / multi-layer (3)</option>
+            <option value="charity_npo|3">Charity / NPO / VASP-adjacent (3)</option>
+            <option value="pep_domestic|4">PEP — domestic (4)</option>
+            <option value="pep_foreign|5">PEP — foreign / international organisation (5)</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="geography">2 · Geographic Risk</label>
+          <div class="field-note">Jurisdiction of residence, incorporation, or primary operations.</div>
+          <select id="geography">
+            <option value="">— select —</option>
+            <option value="low_risk|1">Low-risk jurisdiction — FATF full compliance (1)</option>
+            <option value="standard|2">Standard jurisdiction (2)</option>
+            <option value="fatf_grey|3">FATF grey-list / increased-monitoring jurisdiction (3)</option>
+            <option value="tax_haven|4">Tax haven / financial secrecy jurisdiction (4)</option>
+            <option value="sanctions|5">Sanctioned jurisdiction (OFAC / UN / EU) (5)</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="product_service">3 · Product / Service Risk</label>
+          <div class="field-note">Product or service the customer will access.</div>
+          <select id="product_service">
+            <option value="">— select —</option>
+            <option value="standard_deposit|1">Standard deposit / payment account (1)</option>
+            <option value="internet_banking|2">Internet banking / digital wallet (2)</option>
+            <option value="cash_intensive|3">Cash-intensive product (3)</option>
+            <option value="trade_finance|3">Trade finance / documentary credit (3)</option>
+            <option value="correspondent|4">Correspondent / nested account (4)</option>
+            <option value="crypto_dlt|4">Crypto / DLT / virtual asset service (4)</option>
+            <option value="private_banking|4">Private banking / complex structure (4)</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="channel">4 · Delivery Channel</label>
+          <div class="field-note">How the relationship is established and maintained.</div>
+          <select id="channel">
+            <option value="">— select —</option>
+            <option value="face_to_face|1">Face-to-face (1)</option>
+            <option value="non_face_verified|2">Non-face-to-face — verified digital (2)</option>
+            <option value="digital_biometric|2">Digital-only — biometric liveness (2)</option>
+            <option value="agent_intermediary|3">Agent / intermediary-introduced (3)</option>
+            <option value="correspondent_nested|4">Correspondent / nested relationship (4)</option>
+            <option value="anonymous|5">Anonymous / unverifiable channel (5)</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="pep_sanctions">5 · PEP &amp; Sanctions Exposure</label>
+          <div class="field-note">Level of PEP linkage or sanctions list proximity.</div>
+          <select id="pep_sanctions">
+            <option value="">— select —</option>
+            <option value="none|1">No exposure — clean screening (1)</option>
+            <option value="distant_link|2">Distant PEP link (family of family / former) (2)</option>
+            <option value="close_associate|3">Close associate of a PEP (3)</option>
+            <option value="domestic_pep|4">Domestic PEP — current position (4)</option>
+            <option value="foreign_pep_or_sanctions|5">Foreign PEP or partial sanctions match (5)</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="transaction_pattern">6 · Transaction Pattern</label>
+          <div class="field-note">Observed or expected transaction velocity and red-flag indicators.</div>
+          <select id="transaction_pattern">
+            <option value="">— select —</option>
+            <option value="low_velocity|1">Low velocity / amounts match stated profile (1)</option>
+            <option value="moderate|2">Moderate velocity — within expected range (2)</option>
+            <option value="elevated_cross_border|3">Elevated velocity / significant cross-border (3)</option>
+            <option value="high_velocity_structuring|4">High velocity / structuring indicators (4)</option>
+            <option value="red_flag|5">Red-flag patterns — SAR consideration (5)</option>
+          </select>
+        </div>
+
+        <div class="field-group" style="margin-top:1.25rem">
+          <div class="field-label">Dimension Weights (optional — default equal)</div>
+          <div class="weights-grid">
+            <div class="weight-field"><span class="weight-label">Entity</span><input type="number" id="w_entity" min="0.1" max="5" step="0.1" value="1" placeholder="1"></div>
+            <div class="weight-field"><span class="weight-label">Geography</span><input type="number" id="w_geo" min="0.1" max="5" step="0.1" value="1" placeholder="1"></div>
+            <div class="weight-field"><span class="weight-label">Product</span><input type="number" id="w_product" min="0.1" max="5" step="0.1" value="1" placeholder="1"></div>
+            <div class="weight-field"><span class="weight-label">Channel</span><input type="number" id="w_channel" min="0.1" max="5" step="0.1" value="1" placeholder="1"></div>
+            <div class="weight-field"><span class="weight-label">PEP / Sanctions</span><input type="number" id="w_pep" min="0.1" max="5" step="0.1" value="1" placeholder="1"></div>
+            <div class="weight-field"><span class="weight-label">Txn Pattern</span><input type="number" id="w_txn" min="0.1" max="5" step="0.1" value="1" placeholder="1"></div>
+          </div>
+        </div>
+
+        <button class="run-btn" onclick="runFatfRisk()">Run Risk Assessment →</button>
+      </div>
+    </div>
+
+    <!-- OUTPUT PANEL -->
+    <div>
+      <div class="out-panel">
+        <div class="out-header">
+          <span class="out-title">Risk Assessment Result</span>
+        </div>
+        <div class="out-body" id="resultBody">
+          <div class="out-placeholder">Complete all 6 dimensions and run assessment.</div>
+        </div>
+      </div>
+
+      <div class="out-panel">
+        <div class="out-header">
+          <span class="out-title">Policy Mandate JSON</span>
+          <button class="copy-btn" onclick="copyMandate()">Copy</button>
+        </div>
+        <div class="out-body" id="mandateBody">
+          <div class="out-placeholder">Run assessment to generate mandate.</div>
+        </div>
+      </div>
+
+      <div class="out-panel">
+        <div class="out-header">
+          <span class="out-title">Markdown Summary</span>
+          <button class="copy-btn" onclick="copyMd()">Copy</button>
+        </div>
+        <div class="out-body" id="mdBody">
+          <div class="out-placeholder">Run assessment to generate summary.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AIN Bridge Prefill Snippet -->
+  <div class="out-panel" style="margin-bottom:1.5rem">
+    <div class="out-header"><span class="out-title">AIN Bridge — Prefill Snippet</span><button class="copy-btn" id="copyBridgeBtn" onclick="copyBridge()">Copy</button></div>
+    <div class="out-body">
+      <p style="font-size:.72rem;color:var(--body);margin-bottom:.5rem">Use this to prefill T477 from another tool or MCP workflow (e.g. KYA Firewall):</p>
+      <div class="bridge-snip" id="bridgeSnip">Run assessment to generate bridge snippet.</div>
+    </div>
+  </div>
+
+  <!-- Manifest Panel -->
+  <div class="mfst-panel">
+    <button class="mfst-toggle" onclick="toggleMfst()">
+      <span>MCP Tool Definition &amp; Manifest</span>
+      <span class="mfst-arr" id="mfstArr">▼</span>
+    </button>
+    <div class="mfst-body" id="mfstBody">
+      <pre class="mfst-code" id="mfstCode"></pre>
+      <button class="copy-btn" style="margin-top:.5rem" onclick="copyMfst()">Copy JSON</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <a href="../index.html">
+      <span class="footer-brand"><span class="footer-ai">AI</span>Numbers<span class="footer-co">.co</span></span>
+    </a>
+    <div class="footer-links">
+      <a href="../tools/131-ap2-aml-mandate-builder.html">AML Mandate Builder</a>
+      <a href="../tools/282-mcp-tool-poisoning-scanner.html">Tool-Poisoning Scanner</a>
+      <a href="../tools/478-kya-compliance-firewall.html">KYA Firewall</a>
+      <a href="../guides/agentic-commerce-mcp-hub.html">MCP Hub</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+var _result = null;
+var _mandate = null;
+var _md = null;
+
+var DIM_LABELS = {
+  entity_type: 'Entity Type',
+  geography: 'Geography',
+  product_service: 'Product / Service',
+  channel: 'Channel',
+  pep_sanctions: 'PEP & Sanctions',
+  transaction_pattern: 'Txn Pattern'
+};
+
+var CDD_MAP = {
+  'Low': {level:'Simplified Due Diligence (SDD)', note:'Reduced verification — FATF Rec 10 simplified measures apply.'},
+  'Medium': {level:'Standard Customer Due Diligence (CDD)', note:'Full identity verification, ongoing monitoring at standard frequency.'},
+  'High': {level:'Enhanced Due Diligence (EDD)', note:'Senior management approval required. Enhanced monitoring, source of wealth/funds verification.'},
+  'Prohibited': {level:'Decline / Escalate to MLRO', note:'Onboarding not permitted without senior MLRO sign-off and documented exceptional approval.'}
+};
+
+function parseSelect(id) {
+  var el = document.getElementById(id);
+  if (!el || !el.value) return null;
+  var parts = el.value.split('|');
+  return {key: parts[0], score: parseFloat(parts[1]), label: el.options[el.selectedIndex].text};
+}
+
+function getWeight(id, def) {
+  var v = parseFloat(document.getElementById(id).value);
+  return (isNaN(v) || v <= 0) ? def : v;
+}
+
+function runFatfRisk() {
+  var dims = [
+    {id:'entity_type',   wid:'w_entity',  ...parseSelect('entity_type')   || {}},
+    {id:'geography',     wid:'w_geo',     ...parseSelect('geography')     || {}},
+    {id:'product_service',wid:'w_product',...parseSelect('product_service')|| {}},
+    {id:'channel',       wid:'w_channel', ...parseSelect('channel')       || {}},
+    {id:'pep_sanctions', wid:'w_pep',     ...parseSelect('pep_sanctions') || {}},
+    {id:'transaction_pattern',wid:'w_txn',...parseSelect('transaction_pattern')|| {}}
+  ];
+
+  for (var i=0;i<dims.length;i++) {
+    if (dims[i].score == null) {
+      alert('Please complete all 6 dimensions before running the assessment.');
+      return;
+    }
+  }
+
+  var totalWeight = 0, weightedSum = 0;
+  dims.forEach(function(d,i) {
+    var wid = ['w_entity','w_geo','w_product','w_channel','w_pep','w_txn'][i];
+    d.weight = getWeight(wid, 1);
+    weightedSum += d.score * d.weight;
+    totalWeight += d.weight;
+  });
+
+  var composite = +(weightedSum / totalWeight).toFixed(2);
+  var tier = composite <= 2.0 ? 'Low' : composite <= 3.4 ? 'Medium' : composite <= 4.4 ? 'High' : 'Prohibited';
+  var cdd = CDD_MAP[tier];
+
+  var dimKeys = ['entity_type','geography','product_service','channel','pep_sanctions','transaction_pattern'];
+  var dimDetails = dims.map(function(d,i){
+    return {dimension: DIM_LABELS[dimKeys[i]], key: d.key, label: d.label.replace(/\s*\(\d\)$/,''), raw_score: d.score, weight: d.weight, weighted: +(d.score*d.weight/totalWeight).toFixed(3)};
+  });
+
+  _result = {composite_score: composite, risk_tier: tier, cdd_level: cdd.level, cdd_note: cdd.note, dimensions: dimDetails};
+
+  renderResult(composite, tier, cdd, dimDetails);
+
+  var mandate = buildMandate(composite, tier, cdd, dimDetails);
+  _mandate = JSON.stringify(mandate, null, 2);
+  document.getElementById('mandateBody').innerHTML = '<div class="export-block">'+escHtml(_mandate)+'</div>';
+
+  _md = buildMd(composite, tier, cdd, dimDetails);
+  document.getElementById('mdBody').innerHTML = '<div class="export-block">'+escHtml(_md)+'</div>';
+
+  var bridge = buildBridge(dimDetails);
+  document.getElementById('bridgeSnip').textContent = bridge;
+}
+
+function renderResult(composite, tier, cdd, dims) {
+  var tierClass = {Low:'tier-low',Medium:'tier-medium',High:'tier-high',Prohibited:'tier-prohibited'}[tier];
+  var tierIcon = {Low:'✓ LOW RISK',Medium:'⚠ MEDIUM RISK',High:'⛔ HIGH RISK',Prohibited:'🚫 PROHIBITED'}[tier];
+  var html = '<div class="tier-badge '+tierClass+'">'+tierIcon+'</div>';
+  html += '<div class="score-row"><span class="score-label">Composite Score</span><span class="score-val">'+composite+' / 5.0</span></div>';
+  html += '<div class="cdd-row"><span class="cdd-label">Required CDD</span><span class="cdd-val">'+cdd.level+'</span></div>';
+  html += '<p style="font-size:.72rem;color:var(--body);margin-bottom:1rem">'+cdd.note+'</p>';
+  html += '<table class="dim-table"><thead><tr><th>Dimension</th><th>Selection</th><th style="text-align:center">Score</th><th style="text-align:center">Weight</th></tr></thead><tbody>';
+  dims.forEach(function(d){
+    var sc = Math.round(d.raw_score);
+    html += '<tr><td class="dim-name">'+d.dimension+'</td><td class="dim-val">'+d.label+'</td>';
+    html += '<td class="dim-score ds-'+sc+'">'+d.raw_score+'</td>';
+    html += '<td style="text-align:center;font-family:\'JetBrains Mono\',monospace;font-size:.65rem;color:var(--muted)">×'+d.weight+'</td></tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('resultBody').innerHTML = html;
+}
+
+function buildMandate(composite, tier, cdd, dims) {
+  var now = new Date().toISOString();
+  var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){var r=Math.random()*16|0,v=c==='x'?r:(r&0x3|0x8);return v.toString(16);});
+  return {
+    mandate_id: uuid,
+    mandate_type: 'aml_customer_risk_assessment',
+    version: '1.0.0',
+    created_at: now,
+    tool_id: '477-fatf-customer-risk-rating',
+    fatf_basis: 'FATF Recommendations 10 and 12 — Risk-Based Approach',
+    result: {
+      composite_score: composite,
+      risk_tier: tier,
+      cdd_level: cdd.level
+    },
+    dimensions: dims,
+    agent_instructions: [
+      'Risk tier: '+tier+' — apply '+cdd.level,
+      cdd.note,
+      tier === 'Prohibited' ? 'BLOCK onboarding. Escalate to MLRO immediately.' : tier === 'High' ? 'REQUIRE senior management approval before proceeding. Obtain source-of-wealth documentation.' : tier === 'Medium' ? 'PROCEED with standard CDD. Set monitoring frequency: quarterly.' : 'PROCEED with simplified CDD measures per FATF Rec 10.',
+      'Composite FATF risk score: '+composite+'/5.0',
+      'Next step: pipe this mandate to T131 ap2_aml_mandate_builder or T478 kya-compliance-firewall.'
+    ],
+    audit_metadata: {generated_by:'T477 FATF Customer Risk Rating',client_side_only:true,pii_transmitted:false,data_version:'FATF-R10-R12-2023'}
+  };
+}
+
+function buildMd(composite, tier, cdd, dims) {
+  var lines = ['# FATF Customer Risk Assessment','','**Risk Tier:** '+tier+'  ','**Composite Score:** '+composite+' / 5.0  ','**Required CDD:** '+cdd.level+'  ','','> '+cdd.note,'','## Dimension Scores','','| Dimension | Selection | Score | Weight |','|---|---|---|---|'];
+  dims.forEach(function(d){lines.push('| '+d.dimension+' | '+d.label+' | '+d.raw_score+' | ×'+d.weight+' |');});
+  lines.push('','---','*Generated by AINumbers T477 · FATF Customer Risk Rating · Client-side · Zero PII*');
+  return lines.join('\n');
+}
+
+function buildBridge(dims) {
+  var params = {};
+  ['entity_type','geography','product_service','channel','pep_sanctions','transaction_pattern'].forEach(function(k,i){params[k]=dims[i].key;});
+  return '<!-- AIN Bridge prefill -->\n<a href="477-fatf-customer-risk-rating.html\n  ?prefill=true&bridge_version=1.0\n  &entity_type='+dims[0].key+'\n  &geography='+dims[1].key+'\n  &product_service='+dims[2].key+'\n  &channel='+dims[3].key+'\n  &pep_sanctions='+dims[4].key+'\n  &transaction_pattern='+dims[5].key+'">Launch pre-filled T477</a>';
+}
+
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function copyMandate(){if(_mandate){navigator.clipboard.writeText(_mandate).then(function(){var b=document.querySelector('.out-panel:nth-of-type(2) .copy-btn');if(b){b.textContent='Copied ✓';setTimeout(function(){b.textContent='Copy';},2000);}});}}
+function copyMd(){if(_md){navigator.clipboard.writeText(_md).then(function(){var b=document.querySelector('.out-panel:nth-of-type(3) .copy-btn');if(b){b.textContent='Copied ✓';setTimeout(function(){b.textContent='Copy';},2000);}});}}
+function copyBridge(){var t=document.getElementById('bridgeSnip').textContent;if(t&&t!=='Run assessment to generate bridge snippet.'){navigator.clipboard.writeText(t).then(function(){var b=document.getElementById('copyBridgeBtn');if(b){b.textContent='Copied ✓';setTimeout(function(){b.textContent='Copy';},2000);}});}}
+
+// URL prefill (AIN Bridge)
+(function(){
+  try{
+    var p=new URLSearchParams(window.location.search);
+    if(p.get('prefill')==='true'){
+      ['entity_type','geography','product_service','channel','pep_sanctions','transaction_pattern'].forEach(function(k){
+        var v=p.get(k); if(!v)return;
+        var el=document.getElementById(k); if(!el)return;
+        for(var i=0;i<el.options.length;i++){if(el.options[i].value.startsWith(v)){el.selectedIndex=i;break;}}
+      });
+      ['w_entity','w_geo','w_product','w_channel','w_pep','w_txn'].forEach(function(k){
+        var v=p.get(k); if(!v)return;
+        var el=document.getElementById(k); if(el)el.value=v;
+      });
+    }
+  }catch(e){}
+})();
+</script>
+<!-- PHASE12-MFST-SCRIPT (canonical §11.2) -->
+<script>
+  var MANIFEST = JSON.parse('{"tool_id":"477-fatf-customer-risk-rating","version":"1.0.0","title":"FATF Customer Risk Rating","description":"Score a customer across 6 FATF Recommendation 10/12 risk dimensions (entity type, geography, product/service, channel, PEP/sanctions exposure, transaction pattern) to derive a composite AML risk tier (Low/Medium/High/Prohibited) and required CDD level. Outputs per-dimension breakdown and Policy Mandate JSON. Client-side. Zero PII.","category":"aml-kyc-compliance","tags":["FATF","AML","KYC","CDD","EDD","customer risk","risk-based approach","KYA","compliance"],"audience":["compliance","risk","mlro","fintech","baas"],"input_schema":{"type":"object","properties":{"entity_type":{"type":"string"},"geography":{"type":"string"},"product_service":{"type":"string"},"channel":{"type":"string"},"pep_sanctions":{"type":"string"},"transaction_pattern":{"type":"string"},"w_entity":{"type":"number"},"w_geo":{"type":"number"},"w_product":{"type":"number"},"w_channel":{"type":"number"},"w_pep":{"type":"number"},"w_txn":{"type":"number"}},"required":["entity_type","geography","product_service","channel","pep_sanctions","transaction_pattern"]},"output_schema":{"type":"object","properties":{"composite_score":{"type":"number"},"risk_tier":{"type":"string","enum":["Low","Medium","High","Prohibited"]},"cdd_level":{"type":"string"},"dimensions":{"type":"array"},"ap2_mandate":{"type":"object"}}},"mcp_tool_definition":{"name":"customer_risk_rating","description":"Score a customer across 6 FATF Recommendation 10/12 risk dimensions and return a composite AML risk tier (Low/Medium/High/Prohibited), required CDD level, and per-dimension breakdown. Use when an agent needs to assess onboarding risk before routing to AML mandate or TAP identity verification.","inputSchema":{"type":"object","properties":{"entity_type":{"type":"string","enum":["individual_standard","corporate_standard","corporate_complex","charity_npo","pep_domestic","pep_foreign"]},"geography":{"type":"string","enum":["low_risk","standard","fatf_grey","tax_haven","sanctions"]},"product_service":{"type":"string","enum":["standard_deposit","internet_banking","cash_intensive","trade_finance","correspondent","crypto_dlt","private_banking"]},"channel":{"type":"string","enum":["face_to_face","non_face_verified","digital_biometric","agent_intermediary","correspondent_nested","anonymous"]},"pep_sanctions":{"type":"string","enum":["none","distant_link","close_associate","domestic_pep","foreign_pep_or_sanctions"]},"transaction_pattern":{"type":"string","enum":["low_velocity","moderate","elevated_cross_border","high_velocity_structuring","red_flag"]},"w_entity":{"type":"number"},"w_geo":{"type":"number"},"w_product":{"type":"number"},"w_channel":{"type":"number"},"w_pep":{"type":"number"},"w_txn":{"type":"number"}},"required":["entity_type","geography","product_service","channel","pep_sanctions","transaction_pattern"]}},"execution":{"type":"browser-javascript","entry":"tools/477-fatf-customer-risk-rating.html","function_name":"runFatfRisk","timeout_ms":3000},"ap2_export":true,"prefill":true,"bridge_version":"1.0","pii_transmitted":false,"execution_context":"client_side_browser"}');
+  function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+  function copyMfst(){var s=JSON.stringify(MANIFEST,null,2);if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(s);}}
+</script>
+</body>
+</html>
