@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>ACH Fraud Monitoring Procedure Builder · AINumbers.co</title>
+<meta name="description" content="Nacha Phase 2 (effective 2026-06-22): role-based credit-entry fraud monitoring procedure builder. Select your ACH role(s), generate required monitoring procedures, risk-tiering worksheet, and annual-review schedule. Policy Mandate export.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/492-ach-fraud-monitoring-procedure-builder.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"ACH Fraud Monitoring Procedure Builder","url":"https://ainumbers.co/tools/492-ach-fraud-monitoring-procedure-builder.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "ach-fraud-monitoring-procedure-builder",
+  "version": "1.0.0",
+  "title": "ACH Fraud Monitoring Procedure Builder",
+  "description": "Nacha Phase 2 (effective 2026-06-22): generates role-specific credit-entry fraud monitoring procedures, risk-based tiering worksheet, and annual-review schedule for Originators, TPSPs, TPSs, ODFIs, and RDFIs. Policy Mandate export. Zero PII.",
+  "category": "cat-19",
+  "tags": ["nacha","ach","fraud monitoring","phase 2","credit entry","odfi","rdfi","originator","tpsp","tps","compliance","2026"],
+  "audience": ["compliance","risk","operations","payments"],
+  "input_schema": {"type":"object","properties":{"roles":{"type":"array","items":{"type":"string"}},"volume_tier":{"type":"string"},"annual_credit_volume":{"type":"number"},"risk_appetite":{"type":"string"}},"required":["roles"]},
+  "output_schema": {"type":"object","properties":{"required_procedures":{"type":"array"},"risk_tier":{"type":"string"},"review_schedule":{"type":"object"},"mandate":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"build_ach_fraud_monitoring_procedures","description":"Generates Nacha Phase 2 credit-entry fraud monitoring procedures and risk-tiering worksheet by ACH participant role.","inputSchema":{"type":"object","properties":{"roles":{"type":"array","description":"ACH participant roles: Originator, TPSP, TPS, ODFI, RDFI"},"volume_tier":{"type":"string","description":"Annual credit entry volume tier: low (<$1M), mid ($1M–$50M), high (>$50M)"},"annual_credit_volume":{"type":"number","description":"Annual credit entry dollar volume"},"risk_appetite":{"type":"string","description":"Risk appetite: conservative, moderate, aggressive"}},"required":["roles"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/492-ach-fraud-monitoring-procedure-builder.html","function_name":"runProcedureBuilder","timeout_ms":3000},
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-name .ai{color:var(--teal)}.logo-name .co{color:var(--muted);font-size:.8rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--purple);color:var(--purple)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.15em;text-transform:uppercase;color:var(--purple);margin-bottom:.9rem}
+.panel-row{display:flex;flex-direction:column;gap:.35rem;margin-bottom:.85rem}
+.panel-row:last-child{margin-bottom:0}
+.panel-row label{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;color:var(--muted)}
+.role-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.5rem;margin-top:.35rem}
+.role-check{display:flex;align-items:flex-start;gap:.5rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .75rem;cursor:pointer;transition:all .2s}
+.role-check:hover{border-color:var(--purple)}
+.role-check input{margin-top:.1rem;accent-color:var(--purple);flex-shrink:0}
+.role-check-label{display:flex;flex-direction:column;gap:.15rem}
+.role-check-name{font-size:.7rem;color:var(--bright);font-weight:500}
+.role-check-sub{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+input[type="number"],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.4rem .65rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+input[type="number"]:focus,select:focus{border-color:var(--purple)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.run-btn{display:block;width:100%;padding:.75rem 1rem;background:var(--purple);border:none;border-radius:var(--radius);color:var(--white);font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;font-weight:500;margin-top:1.25rem;transition:background .2s}
+.run-btn:hover{background:#b794f4}
+.results-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.4rem;margin-top:1.5rem;display:none}
+.results-panel.visible{display:block}
+.results-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white);margin-bottom:.75rem}
+.risk-tier-bar{display:flex;align-items:center;gap:.75rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;margin-bottom:1rem}
+.risk-tier-label{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.risk-tier-val{font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:500}
+.tier-high{color:var(--red)}.tier-mid{color:var(--warn)}.tier-low{color:var(--green)}
+.proc-section{margin-bottom:1.25rem}
+.proc-section h3{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.6rem;border-bottom:1px solid var(--border);padding-bottom:.4rem}
+.proc-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.proc-table th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border)}
+.proc-table td{padding:.5rem .6rem;border-bottom:1px solid rgba(30,47,74,.5);vertical-align:top;color:var(--text)}
+.proc-table tr:last-child td{border-bottom:none}
+.proc-table td:first-child{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--bright);white-space:nowrap;font-weight:500}
+.req-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .4rem;border-radius:2px}
+.req-mandatory{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.req-conditional{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.3)}
+.schedule-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1rem}
+@media(max-width:600px){.schedule-grid{grid-template-columns:1fr}}
+.schedule-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem .9rem}
+.schedule-card-freq{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;color:var(--purple);margin-bottom:.3rem}
+.schedule-card-items{font-size:.68rem;color:var(--body);list-style:none}
+.schedule-card-items li{padding:.15rem 0}
+.schedule-card-items li::before{content:'· ';color:var(--muted)}
+.citation{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);margin-bottom:.35rem;line-height:1.5}
+.citation a{color:var(--body)}.citation a:hover{color:var(--teal)}
+sup{font-size:.6em;color:var(--muted)}
+.results-export-row{display:flex;flex-wrap:wrap;gap:.55rem;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border)}
+.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;border:1px solid;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-ghost{background:transparent;border-color:var(--border-2);color:var(--text)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal-lt)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-ghost:disabled:hover{border-color:var(--border-2);color:var(--text)}
+.btn-subtitle{display:block;font-size:.44rem;letter-spacing:.04em;color:inherit;opacity:.65;text-transform:none;margin-top:.1rem}
+.toast{position:fixed;bottom:1.4rem;left:50%;transform:translateX(-50%);background:var(--bg-4);border:1px solid var(--teal);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.6rem 1.1rem;border-radius:var(--radius);z-index:400;display:none;white-space:nowrap}
+.toast.err{border-color:var(--red);color:var(--red)}
+footer{border-top:1px solid var(--border);padding:1.6rem 0 2.2rem;margin-top:3rem;position:relative;z-index:1}
+.foot-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.foot-inner a{color:var(--body);transition:color .2s}.foot-inner a:hover{color:var(--teal-lt)}
+@media(max-width:600px){.role-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo-name"><span class="ai">AI</span>Numbers<span class="co">.co</span></a>
+    <div class="nav-bc">
+      <a href="../index.html">Tools</a>
+      <span class="nav-bc-sep">›</span>
+      <a href="../guides/payment-scheme-hub.html">Payment Scheme &amp; Network</a>
+      <span class="nav-bc-sep">›</span>
+      <span class="nav-bc-current">T492</span>
+    </div>
+    <div class="nav-right">
+      <a class="nav-pill" href="../guides/ach-fraud-monitoring-composer.html">Workflow ↗</a>
+      <a class="nav-pill" href="224-nacha-ach-rule-compliance-checker.html">T224 ACH Rules</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="hero">
+    <div class="hero-eyebrow">T492 · Cat-19 · Payment Scheme &amp; Network</div>
+    <h1>ACH Fraud Monitoring <em style="font-style:italic;color:#b794f4">Procedure Builder</em></h1>
+    <p class="hero-desc">Nacha's credit-entry fraud monitoring rule (Phase 2 effective <strong style="color:var(--red)">2026-06-22</strong>) removes the $5M volume threshold — every RDFI, non-consumer Originator, TPSP, TPS, and ODFI must have risk-based monitoring in place. Select your role(s) to generate the required procedures, risk-tiering worksheet, and annual-review schedule.</p>
+    <div class="hero-badges">
+      <span class="badge badge-red">Deadline: 2026-06-22</span>
+      <span class="badge badge-warn">Nacha Phase 2 · All volumes</span>
+      <span class="badge badge-purple">All ACH participant roles</span>
+      <span class="badge badge-green">Policy Mandate export</span>
+      <span class="badge badge-muted">Client-side · Zero PII</span>
+    </div>
+  </div>
+
+  <div class="tool-body">
+
+    <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+    <div class="panel">
+      <div class="panel-label">ACH Participant Role(s)</div>
+      <p style="font-size:.72rem;color:var(--body);margin-bottom:.7rem">Select all roles that apply to your organisation. Procedures are generated for each selected role.<sup>[1]</sup></p>
+      <div class="role-grid" id="roleGrid">
+        <label class="role-check">
+          <input type="checkbox" id="role_originator" value="Originator">
+          <span class="role-check-label">
+            <span class="role-check-name">Originator</span>
+            <span class="role-check-sub">Non-consumer credit entries</span>
+          </span>
+        </label>
+        <label class="role-check">
+          <input type="checkbox" id="role_tpsp" value="TPSP">
+          <span class="role-check-label">
+            <span class="role-check-name">TPSP</span>
+            <span class="role-check-sub">Third-Party Service Provider</span>
+          </span>
+        </label>
+        <label class="role-check">
+          <input type="checkbox" id="role_tps" value="TPS">
+          <span class="role-check-label">
+            <span class="role-check-name">TPS</span>
+            <span class="role-check-sub">Third-Party Sender</span>
+          </span>
+        </label>
+        <label class="role-check">
+          <input type="checkbox" id="role_odfi" value="ODFI">
+          <span class="role-check-label">
+            <span class="role-check-name">ODFI</span>
+            <span class="role-check-sub">Originating Depository FI</span>
+          </span>
+        </label>
+        <label class="role-check">
+          <input type="checkbox" id="role_rdfi" value="RDFI">
+          <span class="role-check-label">
+            <span class="role-check-name">RDFI</span>
+            <span class="role-check-sub">Receiving Depository FI</span>
+          </span>
+        </label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-label">Volume &amp; Risk Profile</div>
+      <div class="panel-row">
+        <label for="annualVolume">Annual credit entry volume (USD)</label>
+        <input type="number" id="annualVolume" min="0" step="1000000" value="10000000" placeholder="e.g. 10000000">
+      </div>
+      <div class="panel-row">
+        <label for="riskAppetite">Risk appetite</label>
+        <select id="riskAppetite">
+          <option value="conservative">Conservative — enhanced monitoring, lower thresholds</option>
+          <option value="moderate" selected>Moderate — standard Nacha-baseline monitoring</option>
+          <option value="aggressive">Aggressive — focused on high-risk vectors only</option>
+        </select>
+      </div>
+      <div class="panel-row">
+        <label for="institutionType">Institution type</label>
+        <select id="institutionType">
+          <option value="bank">Bank / Credit Union</option>
+          <option value="fintech">Fintech / Non-bank</option>
+          <option value="corporate">Corporate (Originator)</option>
+          <option value="tpa">Third-party Administrator</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="run-btn" onclick="runProcedureBuilder()">Generate Monitoring Procedures</button>
+
+    <div class="results-panel" id="resultsPanel">
+      <div class="results-title" id="resultsTitle">Monitoring Procedure Output</div>
+
+      <div class="risk-tier-bar">
+        <span class="risk-tier-label">Risk Tier</span>
+        <span class="risk-tier-val" id="tierVal">—</span>
+        <span style="flex:1"></span>
+        <span class="risk-tier-label" id="tierBasis">—</span>
+      </div>
+
+      <div id="procOutput"></div>
+
+      <div class="proc-section">
+        <h3>Annual Review Schedule</h3>
+        <div class="schedule-grid" id="scheduleGrid"></div>
+      </div>
+
+      <div class="proc-section">
+        <h3>Regulatory Citations</h3>
+        <div id="citations">
+          <p class="citation">[1] Nacha Operating Rules — Supplemental Fraud Monitoring Rules, effective 2026-06-22 (Phase 2: removal of $5M volume threshold). <a href="https://www.nacha.org/rules/risk-management-topics-fraud-monitoring-phase-2" target="_blank" rel="noopener">nacha.org</a></p>
+          <p class="citation">[2] Nacha Rules — Risk Management &amp; Fraud Monitoring: Role-specific obligations for Originators, TPSPs, TPSs, ODFIs, and RDFIs re: credit-entry fraud.</p>
+          <p class="citation">[3] Unit21 — "Nacha 2026 Rule Changes: What ACH Participants Actually Need to Do" (2026). <a href="https://www.unit21.ai/blog/nacha-2026-rule-changes-what-ach-participants-actually-need-to-do" target="_blank" rel="noopener">unit21.ai</a></p>
+        </div>
+      </div>
+
+      <div class="results-export-row">
+        <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()" title="Run the analysis above to generate a Policy Mandate">
+          {} Export Policy Mandate
+          <span class="btn-subtitle">API · audit trail</span>
+        </button>
+        <button class="btn btn-ghost" id="mdExportBtn" disabled onclick="exportMarkdown()">
+          📄 Export Markdown
+          <span class="btn-subtitle">Procedure binder</span>
+        </button>
+      </div>
+    </div>
+
+  </div><!-- /tool-body -->
+</div><!-- /container -->
+
+<footer>
+  <div class="foot-inner">
+    <span>© 2026 Post Oak Labs · CC BY 4.0 · v1.0.0</span>
+    <span>
+      <a href="../guides/payment-scheme-hub.html">Payment Scheme Hub</a> ·
+      <a href="../guides/ach-fraud-monitoring-composer.html">ACH Fraud Monitoring Composer</a> ·
+      <a href="224-nacha-ach-rule-compliance-checker.html">T224 NACHA ACH Rules</a> ·
+      <a href="../index.html">All Tools</a>
+    </span>
+  </div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ═══ ACH Fraud Monitoring Procedure Builder (T492) v1.0
+   Nacha Phase 2 effective 2026-06-22.
+   Deterministic, synchronous, zero network, zero storage. ═══ */
+
+/* ── Role procedure data ── */
+var ROLE_PROCS = {
+  Originator: {
+    label: 'Originator (Non-consumer credit entries)',
+    accent: 'var(--red)',
+    required: [
+      { proc: 'Fraud Monitoring Policy', req: 'Mandatory', desc: 'Written policy for detecting fraudulent non-consumer credit entries, updated at least annually. Must address fraud vectors specific to your industry and entry class (CCD, CTX, PPD).' },
+      { proc: 'Velocity & Anomaly Controls', req: 'Mandatory', desc: 'Monitor credit entry volumes, frequency, and counterparty patterns. Define thresholds for unusual entry volumes or beneficiary concentration. Document false-pretenses risk indicators (vendor impersonation, payroll redirect, BEC).' },
+      { proc: 'Receiver Verification', req: 'Mandatory', desc: 'Validate that receiving account information matches expected beneficiaries. Pre-note or micro-deposit verification for new ACH relationships before large credits.' },
+      { proc: 'Dual Authorization', req: 'Conditional', desc: 'Required for high-risk Originators (>$10M annual credits) or where BEC is elevated: dual authorization for ACH credit batches above internal dollar thresholds.' },
+      { proc: 'Employee Training', req: 'Mandatory', desc: 'Annual training on ACH credit-entry fraud scenarios (BEC, impersonation, payroll redirect). Document completion records for Nacha audit evidence.' }
+    ]
+  },
+  TPSP: {
+    label: 'Third-Party Service Provider (TPSP)',
+    accent: 'var(--warn)',
+    required: [
+      { proc: 'Monitoring Program Documentation', req: 'Mandatory', desc: 'Written credit-entry fraud monitoring program covering all ODFI customers and Originators for whom the TPSP initiates ACH entries. Includes program scope, review cadence, and escalation path.' },
+      { proc: 'Originator Fraud Risk Assessment', req: 'Mandatory', desc: 'Risk-tier all Originator customers. Higher-risk Originators (large volumes, BEC-exposed industries) require enhanced monitoring controls and more frequent review.' },
+      { proc: 'Anomalous Batch Detection', req: 'Mandatory', desc: 'Automated or systematic review of credit batches for off-pattern activity — unusual time-of-day, new receivers, volume spikes, and entry-class mismatches.' },
+      { proc: 'ODFI Reporting Procedures', req: 'Mandatory', desc: 'Define when and how to report suspected fraudulent credit entries to the ODFI, including data to be provided and escalation SLAs.' },
+      { proc: 'Annual Audit', req: 'Mandatory', desc: 'At least annual independent or internal audit of the monitoring program. Retain documentation for Nacha review on request.' }
+    ]
+  },
+  TPS: {
+    label: 'Third-Party Sender (TPS)',
+    accent: 'var(--gold)',
+    required: [
+      { proc: 'Fraud Monitoring Policy', req: 'Mandatory', desc: 'Written policy covering detection of fraudulent credit entries for all Originators the TPS acts on behalf of. Must define monitoring scope, controls, and review cycle.' },
+      { proc: 'Originator Vetting & Tiering', req: 'Mandatory', desc: 'On-board and periodically re-vet each Originator. Assign risk tiers — standard (periodic monitoring), elevated (enhanced monitoring), and high (continuous monitoring). Document the tiering methodology.' },
+      { proc: 'Credit-Entry Pattern Analysis', req: 'Mandatory', desc: 'Systematic analysis of credit-entry patterns per Originator: volume trends, new receiver concentration, entry class drift. Flag and investigate anomalies before settlement where possible.' },
+      { proc: 'ODFI Notification', req: 'Mandatory', desc: 'Notify the ODFI promptly of suspected fraudulent or false-pretenses credit entries. Maintain audit log of notifications.' },
+      { proc: 'Annual Review', req: 'Mandatory', desc: 'Annual review of the monitoring program with documented findings and any remediation actions.' }
+    ]
+  },
+  ODFI: {
+    label: 'Originating Depository Financial Institution (ODFI)',
+    accent: 'var(--teal)',
+    required: [
+      { proc: 'Credit-Entry Fraud Monitoring Framework', req: 'Mandatory', desc: 'Comprehensive written framework for monitoring credit entries originated through the ODFI. Must address monitoring at entry, batch, and Originator level. Review and update at least annually.' },
+      { proc: 'Originator & TPS Risk Tiering', req: 'Mandatory', desc: 'Risk-tier all Originators, TPSPs, and TPSs. Define monitoring intensity, threshold levels, and escalation criteria per tier. Document the tiering methodology and scoring logic.' },
+      { proc: 'Automated Monitoring Controls', req: 'Mandatory', desc: 'Deploy automated controls to flag anomalous credit entry activity — sudden volume increases, new receiver populations, unusual time patterns, or mismatched return rates. Minimum: daily batch-level review.' },
+      { proc: 'Return Rate Monitoring', req: 'Mandatory', desc: 'Monitor credit-entry return rates (R02, R03, R04 — account closed, no account, invalid account; R06, R07, R14, R16 — unauthorized). Elevated returns are a lagging fraud indicator.' },
+      { proc: 'Suspicious Activity Reporting', req: 'Mandatory', desc: 'Establish SAR-filing procedures for suspected ACH credit fraud meeting BSA thresholds, with internal escalation pathway to BSA/AML team. Reference BSA 12 CFR 21.11 (banks) or FinCEN requirements.' },
+      { proc: 'Third-Party Oversight', req: 'Mandatory', desc: 'Oversight program for TPSPs and TPSs covering on-boarding due diligence, periodic review, and monitoring of their compliance with Nacha fraud rules.' }
+    ]
+  },
+  RDFI: {
+    label: 'Receiving Depository Financial Institution (RDFI)',
+    accent: 'var(--purple)',
+    required: [
+      { proc: 'Credit-Entry Fraud Monitoring Policy', req: 'Mandatory', desc: 'Written policy for detecting fraudulent or false-pretenses credit entries received by the RDFI. Phase 2 removes the volume threshold — every RDFI must have this in place regardless of credit-entry volume.' },
+      { proc: 'Receiver Account Screening', req: 'Mandatory', desc: 'Monitor received credit entries for accounts exhibiting mule-account patterns: rapid depletion of new credits, new-account credit spikes, credit/debit cycling. Tie into AML transaction monitoring where applicable.' },
+      { proc: 'False-Pretenses Indicator Monitoring', req: 'Mandatory', desc: 'Monitor for indicators of false-pretenses credits: credits to accounts with no prior debit relationship with the originating company, credits following wire-redirect or payroll-change requests, anomalous industry-code or company-name patterns.' },
+      { proc: 'Funds-Recovery Procedures', req: 'Conditional', desc: 'When fraudulent credit entries are identified post-settlement: documented procedure for RDFI-to-ODFI return (R06/R39 where applicable), freeze/hold protocols, and customer notification requirements under Reg E (consumer accounts only).' },
+      { proc: 'Annual Review', req: 'Mandatory', desc: 'Review and update the fraud monitoring policy and controls at least annually. Document the review with findings, threshold adjustments, and any control enhancements.' }
+    ]
+  }
+};
+
+/* ── Review schedule items ── */
+var SCHEDULE_ITEMS = {
+  Daily:   ['Review credit-entry batch exception reports','Check return rate dashboards (R02/R03/R04)','Escalate high-volume anomalies'],
+  Monthly: ['Originator/Receiver risk-tier review','False-pretenses scenario count vs. baseline','Control effectiveness metrics'],
+  Annual:  ['Full policy and procedure review','Staff training refresh','External audit or self-assessment','Nacha documentation package update']
+};
+
+/* ── Risk tier determination ── */
+function calcTier(vol, appetite, roles) {
+  /* High tier: ODFI or TPS/TPSP with any role, OR vol > $50M */
+  if (roles.indexOf('ODFI') >= 0 || vol > 50000000) return 'High';
+  if (roles.indexOf('TPSP') >= 0 || roles.indexOf('TPS') >= 0 || vol > 10000000) return 'Mid';
+  return 'Low';
+}
+
+/* ── State ── */
+var _lastMandate = null;
+
+/* ── Main run function ── */
+function runProcedureBuilder() {
+  /* Collect roles */
+  var roles = [];
+  ['role_originator','role_tpsp','role_tps','role_odfi','role_rdfi'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el && el.checked) roles.push(el.value);
+  });
+  if (roles.length === 0) {
+    showToast('Select at least one ACH participant role.', true); return;
+  }
+  var vol = parseFloat(document.getElementById('annualVolume').value) || 0;
+  var appetite = document.getElementById('riskAppetite').value;
+  var instType = document.getElementById('institutionType').value;
+  var tier = calcTier(vol, appetite, roles);
+
+  /* Build procedure output HTML */
+  var html = '';
+  roles.forEach(function(role) {
+    var rd = ROLE_PROCS[role];
+    if (!rd) return;
+    html += '<div class="proc-section">';
+    html += '<h3 style="color:' + rd.accent + '">' + rd.label + '</h3>';
+    html += '<table class="proc-table"><thead><tr><th>Procedure</th><th>Requirement</th><th>Description</th></tr></thead><tbody>';
+    rd.required.forEach(function(p) {
+      var badgeCls = p.req === 'Mandatory' ? 'req-mandatory' : 'req-conditional';
+      html += '<tr><td>' + p.proc + '</td><td><span class="req-badge ' + badgeCls + '">' + p.req + '</span></td><td>' + p.desc + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+  });
+  document.getElementById('procOutput').innerHTML = html;
+
+  /* Risk tier */
+  var tierEl = document.getElementById('tierVal');
+  tierEl.textContent = tier + ' Risk';
+  tierEl.className = 'risk-tier-val ' + (tier === 'High' ? 'tier-high' : tier === 'Mid' ? 'tier-mid' : 'tier-low');
+  document.getElementById('tierBasis').textContent =
+    (vol > 50000000 ? 'Volume >$50M' : vol > 10000000 ? 'Volume >$10M' : 'Volume <$10M') +
+    ' · Roles: ' + roles.join(', ') + ' · ' + appetite.charAt(0).toUpperCase() + appetite.slice(1) + ' appetite';
+
+  /* Review schedule */
+  var sg = document.getElementById('scheduleGrid');
+  sg.innerHTML = '';
+  Object.keys(SCHEDULE_ITEMS).forEach(function(freq) {
+    var items = SCHEDULE_ITEMS[freq];
+    var card = document.createElement('div');
+    card.className = 'schedule-card';
+    card.innerHTML = '<div class="schedule-card-freq">' + freq + '</div>' +
+      '<ul class="schedule-card-items">' +
+      items.map(function(i){ return '<li>' + i + '</li>'; }).join('') +
+      '</ul>';
+    sg.appendChild(card);
+  });
+
+  /* Show results */
+  document.getElementById('resultsPanel').classList.add('visible');
+  document.getElementById('resultsTitle').textContent = 'Monitoring Procedures — ' + roles.join(' + ') + ' · ' + tier + ' Risk Tier';
+
+  /* Build mandate payload */
+  var now = new Date().toISOString();
+  var procs = [];
+  roles.forEach(function(role) {
+    var rd = ROLE_PROCS[role];
+    if (rd) rd.required.forEach(function(p) {
+      procs.push({ role: role, procedure: p.proc, requirement: p.req });
+    });
+  });
+  _lastMandate = {
+    ap2_version: '1.0',
+    mandate_id: uuid(),
+    issued_at: now,
+    issued_by: 'ainumbers.co',
+    tool_id: 'ach-fraud-monitoring-procedure-builder',
+    tool_version: '1.0.0',
+    mandate_type: 'compliance_control',
+    jurisdiction: ['US'],
+    regulatory_frameworks: ['Nacha Operating Rules — Credit-Entry Fraud Monitoring Phase 2 (effective 2026-06-22)', 'BSA/AML FinCEN SAR requirements', 'Reg E (12 CFR 1005)'],
+    payload: {
+      roles: roles,
+      risk_tier: tier,
+      annual_credit_volume_usd: vol,
+      risk_appetite: appetite,
+      institution_type: instType,
+      required_procedures: procs,
+      effective_date: '2026-06-22',
+      review_schedule: SCHEDULE_ITEMS
+    },
+    summary: 'ACH fraud monitoring procedures for ' + roles.join(', ') + ' under Nacha Phase 2 (effective 2026-06-22). Risk tier: ' + tier + '. Annual credit volume: $' + vol.toLocaleString() + '. Includes ' + procs.length + ' required procedure items with mandatory/conditional classification and annual review schedule.',
+    agent_instructions: [
+      'Implement all Mandatory procedures before 2026-06-22; Conditional procedures should be assessed against risk tier and implemented where applicable.',
+      'Conduct at-least-annual review of all listed procedures; document findings and remediation.',
+      'Retain procedure documentation and review records for Nacha audit response readiness.',
+      'Escalate anomalies identified by monitoring controls through the defined internal escalation pathway within one business day.'
+    ],
+    valid_from: now.slice(0,10),
+    valid_until: new Date(Date.now() + 365*86400000).toISOString().slice(0,10),
+    last_reviewed: now.slice(0,10),
+    source_tool_inputs: { roles: roles, annual_credit_volume_usd: vol, risk_appetite: appetite, institution_type: instType },
+    regulatory_citations: [
+      'Nacha Operating Rules — Supplemental Fraud Monitoring (effective 2026-06-22)',
+      'nacha.org/rules/risk-management-topics-fraud-monitoring-phase-2',
+      'unit21.ai/blog/nacha-2026-rule-changes-what-ach-participants-actually-need-to-do'
+    ],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+
+  enableExportBtns();
+}
+
+/* ── Exports ── */
+function enableExportBtns() {
+  var ab = document.getElementById('ap2ExportBtn');
+  var mb = document.getElementById('mdExportBtn');
+  if (ab) { ab.disabled = false; ab.classList.add('ready'); ab.title = 'For API integration · audit trail'; }
+  if (mb) { mb.disabled = false; }
+}
+function uuid() {
+  var b = new Uint8Array(16); crypto.getRandomValues(b);
+  b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
+  var h = Array.prototype.map.call(b, function(x){ return ('0'+x.toString(16)).slice(-2); }).join('');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
+var AP2Schema = {
+  required: ['ap2_version','mandate_id','issued_at','issued_by','tool_id','tool_version','mandate_type','jurisdiction','payload','audit_metadata'],
+  validate: function(m) {
+    return this.required.filter(function(f){ return !(f in m) || m[f] === null; });
+  }
+};
+function dl(content, name, type) {
+  var url = URL.createObjectURL(new Blob([content], { type: type }));
+  var a = document.createElement('a'); a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 800);
+}
+function ts14() { return new Date().toISOString().replace(/[-:T]/g,'').slice(0,14); }
+function exportAP2() {
+  if (!_lastMandate) { showToast('Run the builder first.', true); return; }
+  var missing = AP2Schema.validate(_lastMandate);
+  if (missing.length) { showToast('Validation failed: missing ' + missing.join(', '), true); return; }
+  dl(JSON.stringify(_lastMandate, null, 2), 'ach-fraud-monitoring-procedure-builder_' + ts14() + '.policy.json', 'application/json');
+  showToast('Policy Mandate exported.');
+}
+function exportMarkdown() {
+  if (!_lastMandate) { showToast('Run the builder first.', true); return; }
+  var p = _lastMandate.payload;
+  var lines = [
+    '# ACH Fraud Monitoring Procedure Binder',
+    '',
+    '_Generated ' + _lastMandate.issued_at + ' · ainumbers.co/tools/492-ach-fraud-monitoring-procedure-builder · client-side, zero PII_',
+    '',
+    '## Overview',
+    '',
+    '| Field | Value |',
+    '|---|---|',
+    '| Roles | ' + p.roles.join(', ') + ' |',
+    '| Risk Tier | ' + p.risk_tier + ' |',
+    '| Annual Credit Volume | $' + (p.annual_credit_volume_usd||0).toLocaleString() + ' |',
+    '| Risk Appetite | ' + p.risk_appetite + ' |',
+    '| Effective Date | ' + p.effective_date + ' |',
+    '',
+    '## Required Procedures',
+    ''
+  ];
+  var grouped = {};
+  (p.required_procedures || []).forEach(function(proc) {
+    if (!grouped[proc.role]) grouped[proc.role] = [];
+    grouped[proc.role].push(proc);
+  });
+  Object.keys(grouped).forEach(function(role) {
+    lines.push('### ' + role);
+    lines.push('');
+    grouped[role].forEach(function(proc) {
+      lines.push('- **[' + proc.requirement + ']** ' + proc.procedure);
+      var rd = ROLE_PROCS[role];
+      if (rd) {
+        var detail = rd.required.find(function(r){ return r.proc === proc.procedure; });
+        if (detail) lines.push('  ' + detail.desc);
+      }
+    });
+    lines.push('');
+  });
+  lines.push('## Annual Review Schedule', '');
+  Object.keys(p.review_schedule).forEach(function(freq) {
+    lines.push('### ' + freq);
+    p.review_schedule[freq].forEach(function(item) { lines.push('- ' + item); });
+    lines.push('');
+  });
+  lines.push('## Regulatory Citations', '');
+  (_lastMandate.regulatory_citations || []).forEach(function(c) { lines.push('- ' + c); });
+  dl(lines.join('\n'), 'ach-fraud-monitoring-procedures_' + ts14() + '.md', 'text/markdown');
+  showToast('Markdown binder exported.');
+}
+function showToast(msg, err) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast' + (err ? ' err' : '');
+  t.style.display = 'block';
+  clearTimeout(t._h); t._h = setTimeout(function(){ t.style.display='none'; }, 3200);
+}
+
+/* ── Expose for AIN Bridge / Composer capture ── */
+window.AIN_BUILD_MANDATE = function() { return _lastMandate; };
+</script>
+
+<!-- AIN Bridge v1.0 — prefill + mandate capture for Composer runner -->
+<script>
+(function(){
+  'use strict';
+  var CFG = { runFn: 'runProcedureBuilder', intake: false };
+  window.AIN_BRIDGE_CFG = CFG;
+  function applyPrefill(fields) {
+    if (!fields || typeof fields !== 'object') return 0;
+    var applied = 0;
+    Object.keys(fields).forEach(function(k) {
+      var el = document.getElementById(k);
+      if (!el) return;
+      if (el.type === 'checkbox') { el.checked = !!fields[k]; applied++; }
+      else { el.value = fields[k]; applied++; }
+    });
+    /* Also handle roles array */
+    if (Array.isArray(fields.roles)) {
+      fields.roles.forEach(function(r) {
+        var map = {Originator:'role_originator',TPSP:'role_tpsp',TPS:'role_tps',ODFI:'role_odfi',RDFI:'role_rdfi'};
+        var id = map[r]; if (id) { var el2 = document.getElementById(id); if (el2) { el2.checked = true; applied++; } }
+      });
+    }
+    return applied;
+  }
+  window.addEventListener('message', function(e) {
+    if (e.origin && e.origin !== 'null' && window.location.origin && window.location.origin !== 'null' && e.origin !== window.location.origin) return;
+    var d = e.data || {};
+    var ro = (e.origin && e.origin !== 'null') ? e.origin : '*';
+    if (d.type === 'ain:prefill') {
+      var fields = d.fields || {};
+      var applied = applyPrefill(fields);
+      e.source && e.source.postMessage({ type:'ain:prefilled', applied: applied }, ro);
+    } else if (d.type === 'ain:run') {
+      try { window[CFG.runFn] && window[CFG.runFn](); e.source && e.source.postMessage({ type:'ain:ran', ok:true }, ro); }
+      catch(ex) { e.source && e.source.postMessage({ type:'ain:ran', ok:false, error:ex.message }, ro); }
+    } else if (d.type === 'ain:getMandate') {
+      var m = (typeof window.AIN_BUILD_MANDATE === 'function') ? window.AIN_BUILD_MANDATE() : null;
+      e.source && e.source.postMessage({ type:'ain:mandate', mandate: m }, ro);
+    }
+  });
+})();
+</script>
+
+</body>
+</html>

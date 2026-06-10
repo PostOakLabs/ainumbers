@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>ACH False-Pretenses Credit-Entry Simulator · AINumbers.co</title>
+<meta name="description" content="Nacha Phase 2 (2026-06-22): simulate false-pretenses ACH credit-entry fraud scenarios — vendor impersonation, payroll redirect, BEC — and map which rule obligations trigger for Originators, ODFIs, and RDFIs, with funds-recovery path analysis.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/493-ach-false-pretenses-credit-entry-simulator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"ACH False-Pretenses Credit-Entry Simulator","url":"https://ainumbers.co/tools/493-ach-false-pretenses-credit-entry-simulator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "ach-false-pretenses-credit-entry-simulator",
+  "version": "1.0.0",
+  "title": "ACH False-Pretenses Credit-Entry Simulator",
+  "description": "Simulates Nacha Phase 2 false-pretenses credit-entry fraud scenarios (vendor impersonation, payroll redirect, BEC), maps triggered rule obligations by role, and models the funds-recovery path. Zero PII.",
+  "category": "cat-19",
+  "tags": ["nacha","ach","false pretenses","credit entry","bec","vendor impersonation","payroll redirect","fraud","odfi","rdfi","phase 2","2026"],
+  "audience": ["compliance","fraud","risk","operations"],
+  "input_schema": {"type":"object","properties":{"scenario":{"type":"string"},"entry_class":{"type":"string"},"amount_usd":{"type":"number"},"roles_involved":{"type":"array"},"discovered_timing":{"type":"string"}},"required":["scenario"]},
+  "output_schema": {"type":"object","properties":{"obligations":{"type":"array"},"recovery_path":{"type":"object"},"timeline":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"simulate_ach_false_pretenses_scenario","description":"Simulates a Nacha false-pretenses credit-entry fraud scenario and maps triggered rule obligations and funds-recovery path by role.","inputSchema":{"type":"object","properties":{"scenario":{"type":"string","description":"Fraud scenario: vendor_impersonation, payroll_redirect, bec_wire_redirect, account_takeover, insider_credit_fraud"},"entry_class":{"type":"string","description":"ACH entry class: CCD, CTX, PPD, WEB"},"amount_usd":{"type":"number","description":"Credit entry amount in USD"},"roles_involved":{"type":"array","description":"Roles involved: Originator, ODFI, RDFI, TPSP, TPS"},"discovered_timing":{"type":"string","description":"When fraud discovered: same_day, next_day, t2_t5, after_t5"}},"required":["scenario"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/493-ach-false-pretenses-credit-entry-simulator.html","function_name":"runSimulator","timeout_ms":3000},
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(239,68,68,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(239,68,68,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-name .ai{color:var(--teal)}.logo-name .co{color:var(--muted);font-size:.8rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--red);color:var(--red)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--red),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--red);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--red)}
+.hero h1{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.15em;text-transform:uppercase;color:var(--red);margin-bottom:.9rem}
+.panel-row{display:flex;flex-direction:column;gap:.35rem;margin-bottom:.85rem}
+.panel-row:last-child{margin-bottom:0}
+.panel-row label{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;color:var(--muted)}
+select,input[type="number"]{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.4rem .65rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+select:focus,input[type="number"]:focus{border-color:var(--red)}
+.scenario-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:.6rem;margin-top:.4rem}
+.scenario-card{background:var(--bg-3);border:2px solid var(--border);border-radius:var(--radius-lg);padding:.75rem;cursor:pointer;transition:all .2s;text-align:left;position:relative}
+.scenario-card:hover{border-color:var(--red)}
+.scenario-card.selected{border-color:var(--red);background:rgba(239,68,68,.06)}
+.scenario-card.selected::after{content:'✓';position:absolute;top:.5rem;right:.65rem;color:var(--red);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.sc-name{font-size:.72rem;color:var(--bright);font-weight:500;margin-bottom:.25rem}
+.sc-desc{font-size:.62rem;color:var(--body);line-height:1.5}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.run-btn{display:block;width:100%;padding:.75rem 1rem;background:var(--red);border:none;border-radius:var(--radius);color:var(--white);font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;font-weight:500;margin-top:1.25rem;transition:background .2s}
+.run-btn:hover{background:#f87171}
+.results-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.4rem;margin-top:1.5rem;display:none}
+.results-panel.visible{display:block}
+.results-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white);margin-bottom:1rem}
+.scenario-banner{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.25);border-radius:var(--radius);padding:.8rem 1rem;margin-bottom:1.1rem}
+.scenario-banner-name{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--red);margin-bottom:.3rem}
+.scenario-banner-desc{font-size:.78rem;color:var(--text)}
+.oblig-section{margin-bottom:1.25rem}
+.oblig-section h3{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:.65rem;border-bottom:1px solid var(--border);padding-bottom:.4rem}
+.oblig-list{display:flex;flex-direction:column;gap:.5rem}
+.oblig-item{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .85rem}
+.oblig-item-head{display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem}
+.oblig-role{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;padding:.15rem .45rem;border-radius:3px}
+.role-orig{color:var(--red);background:var(--red-dim);border:1px solid rgba(239,68,68,.2)}
+.role-odfi{color:var(--teal);background:var(--teal-dim);border:1px solid rgba(20,184,166,.2)}
+.role-rdfi{color:var(--purple);background:var(--purple-dim);border:1px solid rgba(155,114,245,.2)}
+.role-tpsp{color:var(--warn);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2)}
+.role-tps{color:var(--gold);background:var(--gold-dim);border:1px solid rgba(212,168,71,.2)}
+.oblig-trigger{font-size:.64rem;color:var(--bright);font-weight:500}
+.oblig-desc{font-size:.68rem;color:var(--body);line-height:1.55}
+.recovery-panel{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:1rem;margin-bottom:1.25rem}
+.recovery-panel h3{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--warn);margin-bottom:.7rem}
+.timeline-steps{display:flex;flex-direction:column;gap:.4rem}
+.tl-step{display:flex;gap:.75rem;align-items:flex-start}
+.tl-day{font-family:'JetBrains Mono',monospace;font-size:.54rem;color:var(--muted);flex-shrink:0;width:3rem;text-align:right;padding-top:.1rem}
+.tl-content{flex:1;min-width:0}
+.tl-label{font-size:.68rem;color:var(--bright);margin-bottom:.1rem}
+.tl-detail{font-size:.6rem;color:var(--body)}
+.recovery-outcome{display:flex;gap:.75rem;margin-top:.7rem;flex-wrap:wrap}
+.ro-card{background:var(--bg-4);border:1px solid var(--border);border-radius:var(--radius);padding:.5rem .8rem;flex:1;min-width:120px}
+.ro-card-label{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.ro-card-val{font-size:.72rem;font-weight:500}
+.val-red{color:var(--red)}.val-warn{color:var(--warn)}.val-green{color:var(--green)}
+.citation{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);margin-bottom:.3rem;line-height:1.5}
+.citation a{color:var(--body)}.citation a:hover{color:var(--teal)}
+.results-export-row{display:flex;flex-wrap:wrap;gap:.55rem;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border)}
+.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;border:1px solid;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-ghost{background:transparent;border-color:var(--border-2);color:var(--text)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal-lt)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-ghost:disabled:hover{border-color:var(--border-2);color:var(--text)}
+.btn-subtitle{display:block;font-size:.44rem;letter-spacing:.04em;color:inherit;opacity:.65;text-transform:none;margin-top:.1rem}
+.toast{position:fixed;bottom:1.4rem;left:50%;transform:translateX(-50%);background:var(--bg-4);border:1px solid var(--teal);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.6rem 1.1rem;border-radius:var(--radius);z-index:400;display:none;white-space:nowrap}
+.toast.err{border-color:var(--red);color:var(--red)}
+footer{border-top:1px solid var(--border);padding:1.6rem 0 2.2rem;margin-top:3rem;position:relative;z-index:1}
+.foot-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.foot-inner a{color:var(--body);transition:color .2s}.foot-inner a:hover{color:var(--teal-lt)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo-name"><span class="ai">AI</span>Numbers<span class="co">.co</span></a>
+    <div class="nav-bc">
+      <a href="../index.html">Tools</a>
+      <span class="nav-bc-sep">›</span>
+      <a href="../guides/payment-scheme-hub.html">Payment Scheme &amp; Network</a>
+      <span class="nav-bc-sep">›</span>
+      <span class="nav-bc-current">T493</span>
+    </div>
+    <div class="nav-right">
+      <a class="nav-pill" href="../guides/ach-fraud-monitoring-composer.html">Workflow ↗</a>
+      <a class="nav-pill" href="492-ach-fraud-monitoring-procedure-builder.html">T492</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="hero">
+    <div class="hero-eyebrow">T493 · Cat-19 · Payment Scheme &amp; Network</div>
+    <h1>ACH False-Pretenses <em style="font-style:italic;color:#f87171">Credit-Entry Simulator</em></h1>
+    <p class="hero-desc">Select a Nacha false-pretenses credit-entry fraud scenario — vendor impersonation, payroll redirect, BEC wire redirect, account takeover, or insider credit fraud — to map which Nacha Phase 2 rule obligations trigger by role and model the funds-recovery path.</p>
+    <div class="hero-badges">
+      <span class="badge badge-red">Nacha Phase 2 · 2026-06-22</span>
+      <span class="badge badge-warn">5 fraud scenarios</span>
+      <span class="badge badge-muted">Role-mapped obligations</span>
+      <span class="badge badge-teal">Funds-recovery path</span>
+      <span class="badge badge-muted">Client-side · Zero PII</span>
+    </div>
+  </div>
+
+  <div class="tool-body">
+
+    <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+    <div class="panel">
+      <div class="panel-label">Select Fraud Scenario</div>
+      <div class="scenario-cards" id="scenarioCards">
+        <button class="scenario-card" data-scenario="vendor_impersonation" onclick="selectScenario('vendor_impersonation',this)">
+          <div class="sc-name">Vendor Impersonation</div>
+          <div class="sc-desc">Fraudster impersonates a legitimate vendor, submits false ACH credit to their own account. Classic "change of bank details" scam.</div>
+        </button>
+        <button class="scenario-card" data-scenario="payroll_redirect" onclick="selectScenario('payroll_redirect',this)">
+          <div class="sc-name">Payroll Redirect</div>
+          <div class="sc-desc">Employee or external actor diverts payroll ACH direct deposits to a fraudulent account via false change-of-account request.</div>
+        </button>
+        <button class="scenario-card" data-scenario="bec_wire_redirect" onclick="selectScenario('bec_wire_redirect',this)">
+          <div class="sc-name">BEC / ACH Redirect</div>
+          <div class="sc-desc">Business email compromise leads to fraudulent ACH credit instruction — executive impersonation, compromised email, or spoofed domain.</div>
+        </button>
+        <button class="scenario-card" data-scenario="account_takeover" onclick="selectScenario('account_takeover',this)">
+          <div class="sc-name">Account Takeover</div>
+          <div class="sc-desc">Fraudster takes over a legitimate Originator's banking credentials and initiates fraudulent credit entries to mule accounts.</div>
+        </button>
+        <button class="scenario-card" data-scenario="insider_credit_fraud" onclick="selectScenario('insider_credit_fraud',this)">
+          <div class="sc-name">Insider Credit Fraud</div>
+          <div class="sc-desc">Internal employee with system access creates or manipulates ACH credit entries for personal gain or on behalf of external conspirators.</div>
+        </button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-label">Entry &amp; Discovery Parameters</div>
+      <div class="panel-row">
+        <label for="entryClass">ACH entry class</label>
+        <select id="entryClass">
+          <option value="CCD">CCD — Corporate credit or debit</option>
+          <option value="CTX">CTX — Corporate trade exchange</option>
+          <option value="PPD" selected>PPD — Prearranged payment &amp; deposit (consumer)</option>
+          <option value="WEB">WEB — Internet-initiated</option>
+        </select>
+      </div>
+      <div class="panel-row">
+        <label for="amountUSD">Credit entry amount (USD)</label>
+        <input type="number" id="amountUSD" min="0" step="1000" value="45000" placeholder="e.g. 45000">
+      </div>
+      <div class="panel-row">
+        <label for="discoveredTiming">Fraud discovery timing</label>
+        <select id="discoveredTiming">
+          <option value="same_day">Same business day as settlement</option>
+          <option value="next_day" selected>Next business day (T+1)</option>
+          <option value="t2_t5">T+2 to T+5 (within 5 business days)</option>
+          <option value="after_t5">After T+5 (beyond 5 business days)</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="run-btn" onclick="runSimulator()">Simulate Scenario &amp; Map Obligations</button>
+
+    <div class="results-panel" id="resultsPanel">
+      <div class="results-title" id="resultsTitle">Scenario Analysis</div>
+      <div class="scenario-banner" id="scenarioBanner"></div>
+      <div id="obligationsOutput"></div>
+      <div class="recovery-panel" id="recoveryPanel"></div>
+      <div class="oblig-section">
+        <h3 style="color:var(--muted)">Regulatory Citations</h3>
+        <p class="citation">[1] Nacha Operating Rules — False Pretenses Credit Entry definition and Originator/ODFI/RDFI obligations under the Supplemental Fraud Monitoring Rules (Phase 2, effective 2026-06-22).</p>
+        <p class="citation">[2] Nacha Risk Management — <a href="https://www.nacha.org/rules/risk-management-topics-fraud-monitoring-phase-2" target="_blank" rel="noopener">fraud-monitoring-phase-2</a></p>
+        <p class="citation">[3] Unit21 — <a href="https://www.unit21.ai/blog/nacha-2026-rule-changes-what-ach-participants-actually-need-to-do" target="_blank" rel="noopener">"Nacha 2026 Rule Changes"</a></p>
+        <p class="citation">[4] OCC — Retail Payments FAQ (ACH fraud return codes R06, R39); FinCEN SAR guidance for ACH credit fraud.</p>
+      </div>
+      <div class="results-export-row">
+        <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()" title="Run the analysis above to generate a Policy Mandate">
+          {} Export Policy Mandate
+          <span class="btn-subtitle">API · audit trail</span>
+        </button>
+        <button class="btn btn-ghost" id="mdExportBtn" disabled onclick="exportMarkdown()">
+          📄 Export Markdown
+          <span class="btn-subtitle">Scenario report</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <span>© 2026 Post Oak Labs · CC BY 4.0 · v1.0.0</span>
+    <span>
+      <a href="../guides/ach-fraud-monitoring-composer.html">ACH Fraud Monitoring Composer</a> ·
+      <a href="492-ach-fraud-monitoring-procedure-builder.html">T492 Procedure Builder</a> ·
+      <a href="494-ach-fraud-monitoring-audit-pack-generator.html">T494 Audit Pack</a> ·
+      <a href="../index.html">All Tools</a>
+    </span>
+  </div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ═══ ACH False-Pretenses Credit-Entry Simulator (T493) v1.0
+   Nacha Phase 2 effective 2026-06-22.
+   Deterministic, synchronous, zero network, zero storage. ═══ */
+
+/* ── Scenario data ── */
+var SCENARIOS = {
+  vendor_impersonation: {
+    name: 'Vendor Impersonation',
+    desc: 'Fraudster impersonates a legitimate vendor and redirects an ACH credit to their account by submitting fraudulent "change of bank details" documentation to the Originator.',
+    nacha_rule_ref: 'Nacha Supplemental Fraud Monitoring — false-pretenses credit entry (impersonating legitimate payee)',
+    obligations: [
+      { role:'Originator', roleClass:'role-orig', trigger:'Primary fraud obligation', desc:'Originator bears primary Nacha obligation: fraudulent credit was initiated under false pretenses at Originator level. Must demonstrate that monitoring controls were in place. Review beneficiary-change procedures; implement dual verification (callback to verified number or signed authorization) for payee account changes before initiating credits. Document the fraud event and remediation.' },
+      { role:'ODFI', roleClass:'role-odfi', trigger:'Warranty and return rights', desc:'ODFI has originated a credit entry that constitutes a false-pretenses entry. ODFI warrants to the ACH network that the entry is authorized. ODFI must work with Originator to identify the fraudulent credit, initiate recovery (contact RDFI, Request for Return), and assess whether its own monitoring controls identified the anomaly.' },
+      { role:'RDFI', roleClass:'role-rdfi', trigger:'Return and hold rights', desc:'RDFI received a credit to a mule account. RDFI should monitor for rapid depletion of newly credited funds (a key mule-account indicator). RDFI may be asked to freeze funds by ODFI or law enforcement. Return code R39 (improper source document) or coordinator return may apply if within return window; beyond return window, civil recovery required.' }
+    ],
+    recovery: {
+      same_day: { likelihood:'High', method:'R39/R06 return same-day; ODFI contacts RDFI immediately; funds likely still available.', returnCode:'R06 or R39' },
+      next_day: { likelihood:'Moderate', method:'ODFI requests voluntary return from RDFI (ACH Return R39 if within window). RDFI checks account balance; mule may have withdrawn.', returnCode:'R39' },
+      t2_t5:   { likelihood:'Low', method:'Beyond standard return window. ODFI must make verbal/written request to RDFI for voluntary return. Civil litigation or law enforcement referral likely required.', returnCode:'Voluntary return only' },
+      after_t5: { likelihood:'Very low', method:'Funds almost certainly withdrawn. Civil litigation, potential FBI Internet Crime Complaint (IC3), FinCEN SAR filing recommended.', returnCode:'No ACH remedy; civil/criminal' }
+    }
+  },
+  payroll_redirect: {
+    name: 'Payroll Redirect',
+    desc: 'An employee (or external actor using compromised credentials) submits a false change-of-account request, diverting payroll ACH direct deposits to a fraudulent account.',
+    nacha_rule_ref: 'Nacha Supplemental Fraud Monitoring — false-pretenses credit entry (PPD payroll misdirection)',
+    obligations: [
+      { role:'Originator', roleClass:'role-orig', trigger:'HR/payroll change controls', desc:'Originator (employer) must have controls to authenticate employee payroll-change requests. Nacha Phase 2 requires monitoring of credit-entry patterns including payroll. Red flags: new account added shortly before payroll run, multiple account changes in short window, request via email only. Dual-channel verification required for high-risk changes.' },
+      { role:'ODFI', roleClass:'role-odfi', trigger:'Payroll batch monitoring', desc:'ODFI should monitor for payroll batch anomalies: sudden increase in number of direct-deposit receivers, new routing/account combinations added shortly before batch submission, volume spikes. Nacha expects ODFI to have controls that would flag or at minimum detect these patterns for review.' },
+      { role:'RDFI', roleClass:'role-rdfi', trigger:'Mule-account indicators', desc:'RDFI receiving payroll credits to mule accounts should flag rapid, full withdrawal of newly received PPD credits. Reg E dispute rights apply to consumer receivers — the legitimate employee may file an unauthorized-transaction claim with their original RDFI if funds were redirected away from their account. The mule-account RDFI should apply fraud monitoring to rapid-depletion patterns.' }
+    ],
+    recovery: {
+      same_day: { likelihood:'High', method:'Identify and flag before batch settles; ODFI blocks or reverses batch. Originator contacts ODFI immediately. Nacha R06 (return per ODFI request) available same day.', returnCode:'R06' },
+      next_day: { likelihood:'Moderate', method:'R06 or R39 return within next-day window. RDFI must agree to reverse; mule may have partially withdrawn.', returnCode:'R06 / R39' },
+      t2_t5:   { likelihood:'Low', method:'Voluntary return request; FinCEN SAR likely required ($5k+ threshold). Law enforcement referral.', returnCode:'Voluntary return' },
+      after_t5: { likelihood:'Very low', method:'Civil and criminal remedies. Employee victim files Reg E unauthorized-transaction claim against Originator (if applicable); Originator bears loss.', returnCode:'Civil/Reg E' }
+    }
+  },
+  bec_wire_redirect: {
+    name: 'BEC / ACH Redirect',
+    desc: 'Business email compromise (BEC) — fraudster uses compromised or spoofed email to instruct ACH operations staff to redirect a credit entry to a fraudulent account.',
+    nacha_rule_ref: 'Nacha Supplemental Fraud Monitoring — false-pretenses credit entry; BEC is the leading ACH fraud vector by dollar value (FinCEN 2025 SARs)',
+    obligations: [
+      { role:'Originator', roleClass:'role-orig', trigger:'BEC primary target', desc:'Originator is the primary target in BEC scenarios. Nacha Phase 2 monitoring must address BEC-specific vectors: fraudulent instructions via email, executive impersonation, last-minute account change requests. Controls required: out-of-band verification for account changes above threshold, transaction-signing protocols, and employee awareness training documented annually.' },
+      { role:'ODFI', roleClass:'role-odfi', trigger:'Anomaly detection on batch submission', desc:'ODFI should detect BEC-pattern anomalies: credit batch with a new beneficiary submitted under urgency or outside business hours, unusually large CCD/CTX credit to an unfamiliar account. ODFI callback procedures to verified Originator contacts for high-value or anomalous batches are a key Nacha-recommended control.' },
+      { role:'TPSP', roleClass:'role-tpsp', trigger:'Fraud pattern monitoring for client originators', desc:'Where a TPSP initiates ACH entries on behalf of the Originator, the TPSP must have its own controls to detect BEC patterns in client instructions — including email-instruction verification, dual-authorization controls, and monitoring of last-minute routing changes.' }
+    ],
+    recovery: {
+      same_day: { likelihood:'High', method:'Freeze at ODFI before settlement confirmation. Notify receiving RDFI immediately. R06 return or batch pull before processing window closes.', returnCode:'R06 / batch hold' },
+      next_day: { likelihood:'Moderate', method:'R39 or R06 return if within window. ODFI-to-RDFI voluntary return request. FBI IC3 complaint recommended for amounts ≥$10k.', returnCode:'R06 / R39' },
+      t2_t5:   { likelihood:'Low', method:'Funds likely withdrawn. FinCEN SAR. Law enforcement (FBI — Internet Crime). Civil demand letter to RDFI requesting voluntary return.', returnCode:'Voluntary' },
+      after_t5: { likelihood:'Very low', method:'No ACH remedy. Civil litigation; potential FDIC/OCC referral if RDFI negligence in mule account onboarding.', returnCode:'Civil/criminal' }
+    }
+  },
+  account_takeover: {
+    name: 'Account Takeover',
+    desc: 'Fraudster compromises a legitimate Originator\'s online banking credentials and initiates fraudulent ACH credit entries to mule accounts before detection.',
+    nacha_rule_ref: 'Nacha Supplemental Fraud Monitoring — false-pretenses credit entry; credential theft leading to unauthorized ACH origination',
+    obligations: [
+      { role:'Originator', roleClass:'role-orig', trigger:'ATO prevention and notification', desc:'Originator has obligations to maintain secure credential management (FFIEC guidance). Must notify ODFI promptly upon discovery of ATO. Nacha monitoring controls should include user-session anomalies and device fingerprinting as supplementary signals. Originator\'s own monitoring must detect unusual login location, time, or volume patterns.' },
+      { role:'ODFI', roleClass:'role-odfi', trigger:'Behavioral authentication and ATO detection', desc:'ODFI must monitor for ATO indicators: anomalous login behavior, new device, unusual file submission time, sudden volume change, or beneficiary population that doesn\'t match the Originator\'s historical pattern. Nacha expects ODFIs to have controls that would flag or detect ATO-driven batch anomalies. ODFI may also have indemnification rights against the Originator for unauthorized origination.' },
+      { role:'RDFI', roleClass:'role-rdfi', trigger:'Mule-account rapid-depletion detection', desc:'RDFI receives credits to mule accounts. Rapid, full-balance withdrawal immediately post-credit is the key mule indicator. RDFI fraud monitoring must flag this pattern. RDFI may be asked to place a hold or freeze by ODFI; cooperation with fraud recovery requests is consistent with Nacha return-request procedures.' }
+    ],
+    recovery: {
+      same_day: { likelihood:'High', method:'ODFI detects anomaly before settlement; blocks batch. R06 return if already submitted. Credential reset and audit required.', returnCode:'R06 / batch hold' },
+      next_day: { likelihood:'Moderate', method:'ODFI contacts RDFI immediately. R39 return request if within window. Law enforcement notification.', returnCode:'R39' },
+      t2_t5:   { likelihood:'Low', method:'Voluntary return request; FinCEN SAR. Law enforcement. Cyber incident reporting if ODFI or Originator is a regulated institution (DORA/FFIEC).', returnCode:'Voluntary return' },
+      after_t5: { likelihood:'Very low', method:'Civil remedies only; cyber incident post-mortem; regulatory notification obligations may apply.', returnCode:'Civil' }
+    }
+  },
+  insider_credit_fraud: {
+    name: 'Insider Credit Fraud',
+    desc: 'An employee with ACH system access creates, modifies, or approves fraudulent credit entries for personal gain or in collusion with external parties.',
+    nacha_rule_ref: 'Nacha Supplemental Fraud Monitoring — false-pretenses credit entry; insider threat vector',
+    obligations: [
+      { role:'Originator', roleClass:'role-orig', trigger:'Segregation of duties and privileged access controls', desc:'Originator has primary obligation to prevent insider ACH fraud through segregation of duties: no single employee should create, approve, and transmit an ACH file. Dual-authorization above defined thresholds. Periodic reconciliation of ACH credits to approved payee master list. Access reviews and rotation of credentials with ACH system access.' },
+      { role:'ODFI', roleClass:'role-odfi', trigger:'Client monitoring and anomaly detection', desc:'ODFI should monitor Originator ACH submissions for insider-fraud patterns: credits to new beneficiaries not in historical payee list, credits with amounts just below internal approval thresholds, credits submitted outside normal business hours or by unusual user IDs. Strong ODFI monitoring controls may detect insider fraud the Originator\'s own controls miss.' },
+      { role:'TPSP', roleClass:'role-tpsp', trigger:'Privileged access oversight', desc:'TPSPs with access to Originator ACH capabilities must implement the same segregation-of-duties controls. Any TPSP employee who can create and release an ACH credit without a second control is an insider-fraud risk. Mandatory: dual authorization, audit logging, and anomaly alerts on privileged actions.' }
+    ],
+    recovery: {
+      same_day: { likelihood:'High', method:'Internal detection; batch blocked before settlement. HR and legal involvement. R06 return.', returnCode:'R06' },
+      next_day: { likelihood:'Moderate', method:'Internal audit identifies fraud; ODFI contacted. R39 return request. Employee suspension. Potential criminal referral.', returnCode:'R39' },
+      t2_t5:   { likelihood:'Low', method:'FinCEN SAR mandatory if $25k+ (CCD). Civil action against employee; bonding/insurance claim. ODFI voluntary return.', returnCode:'Voluntary / bonding' },
+      after_t5: { likelihood:'Very low', method:'Criminal prosecution, civil recovery, D&O/fidelity insurance claim. Regulatory notification if material.', returnCode:'Civil/criminal/insurance' }
+    }
+  }
+};
+
+/* ── State ── */
+var _selectedScenario = null;
+var _lastMandate = null;
+
+function selectScenario(key, el) {
+  _selectedScenario = key;
+  document.querySelectorAll('.scenario-card').forEach(function(c){ c.classList.remove('selected'); });
+  el.classList.add('selected');
+}
+
+/* ── Main ── */
+function runSimulator() {
+  if (!_selectedScenario) { showToast('Select a fraud scenario first.', true); return; }
+  var scen = SCENARIOS[_selectedScenario];
+  var entryClass = document.getElementById('entryClass').value;
+  var amountUSD = parseFloat(document.getElementById('amountUSD').value) || 0;
+  var timing = document.getElementById('discoveredTiming').value;
+
+  /* Scenario banner */
+  document.getElementById('scenarioBanner').innerHTML =
+    '<div class="scenario-banner-name">' + scen.name + ' · ' + entryClass + ' · $' + amountUSD.toLocaleString() + '</div>' +
+    '<div class="scenario-banner-desc">' + scen.desc + '</div>';
+
+  /* Obligations */
+  var oblHtml = '<div class="oblig-section"><h3 style="color:var(--red)">Triggered Rule Obligations by Role</h3><div class="oblig-list">';
+  scen.obligations.forEach(function(ob) {
+    oblHtml += '<div class="oblig-item">' +
+      '<div class="oblig-item-head"><span class="oblig-role ' + ob.roleClass + '">' + ob.role + '</span>' +
+      '<span class="oblig-trigger">' + ob.trigger + '</span></div>' +
+      '<div class="oblig-desc">' + ob.desc + '</div></div>';
+  });
+  oblHtml += '</div></div>';
+  document.getElementById('obligationsOutput').innerHTML = oblHtml;
+
+  /* Recovery path */
+  var rec = scen.recovery[timing];
+  var timingLabel = { same_day:'Same day', next_day:'T+1', t2_t5:'T+2–T+5', after_t5:'After T+5' }[timing];
+  var rp = document.getElementById('recoveryPanel');
+  rp.innerHTML = '<h3>Funds-Recovery Path · Discovery: ' + timingLabel + '</h3>' +
+    '<div class="timeline-steps">' +
+    '<div class="tl-step"><span class="tl-day">T+0</span><div class="tl-content"><div class="tl-label">Fraud identified</div><div class="tl-detail">Fraudulent ' + entryClass + ' credit entry of $' + amountUSD.toLocaleString() + ' confirmed as ' + scen.name.toLowerCase() + '.</div></div></div>' +
+    '<div class="tl-step"><span class="tl-day">' + timingLabel + '</span><div class="tl-content"><div class="tl-label">Recovery action initiated</div><div class="tl-detail">' + rec.method + '</div></div></div>' +
+    '<div class="tl-step"><span class="tl-day">Ongoing</span><div class="tl-content"><div class="tl-label">SAR & law enforcement</div><div class="tl-detail">FinCEN SAR filing recommended for credit fraud ≥$5,000 (banks) or ≥$25,000 (non-banks). FBI IC3 complaint for internet-facilitated fraud.</div></div></div>' +
+    '</div>' +
+    '<div class="recovery-outcome">' +
+    '<div class="ro-card"><div class="ro-card-label">Recovery likelihood</div><div class="ro-card-val ' +
+      ({'High':'val-green','Moderate':'val-warn','Low':'val-red','Very low':'val-red'}[rec.likelihood]||'val-red') + '">' + rec.likelihood + '</div></div>' +
+    '<div class="ro-card"><div class="ro-card-label">ACH return code</div><div class="ro-card-val">' + rec.returnCode + '</div></div>' +
+    '<div class="ro-card"><div class="ro-card-label">Entry amount</div><div class="ro-card-val">$' + amountUSD.toLocaleString() + '</div></div>' +
+    '</div>';
+
+  /* Show results */
+  document.getElementById('resultsPanel').classList.add('visible');
+  document.getElementById('resultsTitle').textContent = scen.name + ' — Role Obligations & Recovery Path';
+
+  /* Build mandate */
+  var now = new Date().toISOString();
+  _lastMandate = {
+    ap2_version: '1.0',
+    mandate_id: uuid(),
+    issued_at: now,
+    issued_by: 'ainumbers.co',
+    tool_id: 'ach-false-pretenses-credit-entry-simulator',
+    tool_version: '1.0.0',
+    mandate_type: 'compliance_control',
+    jurisdiction: ['US'],
+    regulatory_frameworks: ['Nacha Operating Rules — False Pretenses Credit Entry Supplemental Rules (Phase 2, effective 2026-06-22)', 'FinCEN SAR guidance — ACH credit fraud', 'Reg E 12 CFR 1005'],
+    payload: {
+      scenario: _selectedScenario,
+      scenario_name: scen.name,
+      entry_class: entryClass,
+      amount_usd: amountUSD,
+      discovered_timing: timing,
+      triggered_obligations: scen.obligations.map(function(o){ return { role:o.role, trigger:o.trigger }; }),
+      recovery_likelihood: rec.likelihood,
+      recovery_method: rec.method,
+      return_code: rec.returnCode,
+      nacha_rule_ref: scen.nacha_rule_ref
+    },
+    summary: 'False-pretenses credit-entry simulation for ' + scen.name + ' (' + entryClass + ', $' + amountUSD.toLocaleString() + '). Fraud discovered: ' + timingLabel + '. Recovery likelihood: ' + rec.likelihood + '. Triggered obligations mapped for ' + scen.obligations.length + ' roles. Return path: ' + rec.returnCode + '.',
+    agent_instructions: [
+      'Implement all triggered role obligations as mandatory controls under Nacha Phase 2 (effective 2026-06-22).',
+      'Initiate funds-recovery procedures immediately upon fraud identification — recovery likelihood declines sharply beyond T+1.',
+      'File FinCEN SAR for ACH credit fraud ≥$5,000 (bank) or ≥$25,000 (non-bank) within required timeframe.',
+      'Document the simulation output as evidence of fraud-scenario awareness training for Nacha annual review requirements.'
+    ],
+    valid_from: now.slice(0,10),
+    valid_until: new Date(Date.now() + 90*86400000).toISOString().slice(0,10),
+    last_reviewed: now.slice(0,10),
+    source_tool_inputs: { scenario:_selectedScenario, entry_class:entryClass, amount_usd:amountUSD, discovered_timing:timing },
+    regulatory_citations: [
+      'Nacha Operating Rules — Supplemental Fraud Monitoring Phase 2 (effective 2026-06-22)',
+      'FinCEN SARs for ACH credit fraud (12 CFR 1020.320)',
+      'nacha.org/rules/risk-management-topics-fraud-monitoring-phase-2'
+    ],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+
+  enableExportBtns();
+}
+
+function enableExportBtns() {
+  var ab = document.getElementById('ap2ExportBtn');
+  var mb = document.getElementById('mdExportBtn');
+  if (ab) { ab.disabled=false; ab.classList.add('ready'); ab.title='For API integration · audit trail'; }
+  if (mb) mb.disabled = false;
+}
+function uuid() {
+  var b = new Uint8Array(16); crypto.getRandomValues(b);
+  b[6]=(b[6]&15)|64; b[8]=(b[8]&63)|128;
+  var h=Array.prototype.map.call(b,function(x){return('0'+x.toString(16)).slice(-2);}).join('');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
+var AP2Schema={required:['ap2_version','mandate_id','issued_at','issued_by','tool_id','tool_version','mandate_type','jurisdiction','payload','audit_metadata'],validate:function(m){return this.required.filter(function(f){return!(f in m)||m[f]===null;});}};
+function dl(content,name,type){var url=URL.createObjectURL(new Blob([content],{type:type}));var a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(url);},800);}
+function ts14(){return new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);}
+function exportAP2() {
+  if(!_lastMandate){showToast('Run the simulator first.',true);return;}
+  var missing=AP2Schema.validate(_lastMandate);
+  if(missing.length){showToast('Validation failed: missing '+missing.join(', '),true);return;}
+  dl(JSON.stringify(_lastMandate,null,2),'ach-false-pretenses-credit-entry-simulator_'+ts14()+'.policy.json','application/json');
+  showToast('Policy Mandate exported.');
+}
+function exportMarkdown() {
+  if(!_lastMandate){showToast('Run the simulator first.',true);return;}
+  var p=_lastMandate.payload;
+  var scen=SCENARIOS[p.scenario];
+  var timing={same_day:'Same day',next_day:'T+1',t2_t5:'T+2–T+5',after_t5:'After T+5'}[p.discovered_timing];
+  var lines=['# ACH False-Pretenses Credit-Entry Scenario Report','','_Generated '+_lastMandate.issued_at+' · ainumbers.co/tools/493 · client-side, zero PII_','','## Scenario: '+p.scenario_name,'',scen.desc,'','## Parameters','','| Field | Value |','|---|---|','| Entry Class | '+p.entry_class+' |','| Amount | $'+p.amount_usd.toLocaleString()+' |','| Discovery Timing | '+timing+' |','| Nacha Rule | '+p.nacha_rule_ref+' |','','## Triggered Rule Obligations',''];
+  scen.obligations.forEach(function(o){lines.push('### '+o.role+' — '+o.trigger,'',o.desc,'');});
+  var rec=scen.recovery[p.discovered_timing];
+  lines.push('## Funds-Recovery Path','','**Recovery Likelihood:** '+rec.likelihood,'**Method:** '+rec.method,'**Return Code(s):** '+rec.returnCode,'','## Regulatory Citations','');
+  (_lastMandate.regulatory_citations||[]).forEach(function(c){lines.push('- '+c);});
+  dl(lines.join('\n'),'ach-false-pretenses-scenario-report_'+ts14()+'.md','text/markdown');
+  showToast('Markdown report exported.');
+}
+function showToast(msg,err){var t=document.getElementById('toast');t.textContent=msg;t.className='toast'+(err?' err':'');t.style.display='block';clearTimeout(t._h);t._h=setTimeout(function(){t.style.display='none';},3200);}
+
+window.AIN_BUILD_MANDATE=function(){return _lastMandate;};
+</script>
+
+<script>
+(function(){
+  'use strict';
+  var CFG={runFn:'runSimulator',intake:false};
+  window.AIN_BRIDGE_CFG=CFG;
+  function applyPrefill(fields){
+    if(!fields||typeof fields!=='object')return 0;
+    var applied=0;
+    /* Map upstream payload fields to select elements */
+    var map={scenario:'_selectedScenario',entry_class:'entryClass',amount_usd:'amountUSD',discovered_timing:'discoveredTiming'};
+    Object.keys(fields).forEach(function(k){
+      if(k==='scenario'||k==='scenario_name'){
+        var s=fields[k];
+        /* Find scenario key from name */
+        if(SCENARIOS[s]){_selectedScenario=s;document.querySelectorAll('.scenario-card').forEach(function(c){c.classList.remove('selected');var sc=document.querySelector('[data-scenario="'+s+'"]');if(sc)sc.classList.add('selected');});applied++;}
+      } else {
+        var elId=map[k]||k;
+        var el=document.getElementById(elId);
+        if(el){el.value=fields[k];applied++;}
+      }
+    });
+    return applied;
+  }
+  window.addEventListener('message',function(e){
+    if(e.origin&&e.origin!=='null'&&window.location.origin&&window.location.origin!=='null'&&e.origin!==window.location.origin)return;
+    var d=e.data||{};
+    var ro=(e.origin&&e.origin!=='null')?e.origin:'*';
+    if(d.type==='ain:prefill'){var applied=applyPrefill(d.fields||{});e.source&&e.source.postMessage({type:'ain:prefilled',applied:applied},ro);}
+    else if(d.type==='ain:run'){try{window[CFG.runFn]&&window[CFG.runFn]();e.source&&e.source.postMessage({type:'ain:ran',ok:true},ro);}catch(ex){e.source&&e.source.postMessage({type:'ain:ran',ok:false,error:ex.message},ro);}}
+    else if(d.type==='ain:getMandate'){var m=(typeof window.AIN_BUILD_MANDATE==='function')?window.AIN_BUILD_MANDATE():null;e.source&&e.source.postMessage({type:'ain:mandate',mandate:m},ro);}
+  });
+})();
+</script>
+
+</body>
+</html>

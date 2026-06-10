@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>ACH Fraud Monitoring Audit Pack Generator · AINumbers.co</title>
+<meta name="description" content="Nacha Phase 2 (2026-06-22): generate a fraud-monitoring evidence checklist and Markdown audit binder for the 'at least annually' ACH fraud monitoring review requirement. Policy Mandate and Markdown export.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/494-ach-fraud-monitoring-audit-pack-generator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"ACH Fraud Monitoring Audit Pack Generator","url":"https://ainumbers.co/tools/494-ach-fraud-monitoring-audit-pack-generator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "ach-fraud-monitoring-audit-pack-generator",
+  "version": "1.0.0",
+  "title": "ACH Fraud Monitoring Audit Pack Generator",
+  "description": "Generates a role-specific Nacha Phase 2 fraud monitoring evidence checklist and Markdown audit binder for the 'at least annually' review requirement (effective 2026-06-22). Policy Mandate export.",
+  "category": "cat-19",
+  "tags": ["nacha","ach","fraud monitoring","audit","annual review","evidence","phase 2","compliance","2026","odfi","rdfi"],
+  "audience": ["compliance","audit","risk","operations"],
+  "input_schema": {"type":"object","properties":{"roles":{"type":"array"},"review_date":{"type":"string"},"reviewer_type":{"type":"string"},"prior_gaps":{"type":"string"},"control_status":{"type":"object"}},"required":["roles"]},
+  "output_schema": {"type":"object","properties":{"checklist":{"type":"array"},"gaps_identified":{"type":"array"},"audit_binder_md":{"type":"string"},"mandate":{"type":"object"}}},
+  "mcp_tool_definition": {"name":"generate_ach_fraud_monitoring_audit_pack","description":"Generates a Nacha Phase 2 ACH fraud monitoring evidence checklist and audit binder for the annual review requirement.","inputSchema":{"type":"object","properties":{"roles":{"type":"array","description":"ACH participant roles: Originator, TPSP, TPS, ODFI, RDFI"},"reviewer_type":{"type":"string","description":"Reviewer type: internal_audit, compliance_team, external_auditor, self_assessment"},"prior_gaps":{"type":"string","description":"Prior year gaps or N/A"}},"required":["roles"]}},
+  "execution": {"type":"browser-javascript","entry":"tools/494-ach-fraud-monitoring-audit-pack-generator.html","function_name":"runAuditPack","timeout_ms":3000},
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-name .ai{color:var(--teal)}.logo-name .co{color:var(--muted);font-size:.8rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.15em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem}
+.panel-row{display:flex;flex-direction:column;gap:.35rem;margin-bottom:.85rem}
+.panel-row:last-child{margin-bottom:0}
+.panel-row label{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.08em;color:var(--muted)}
+select,input,textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.4rem .65rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+select:focus,input:focus,textarea:focus{border-color:var(--teal)}
+textarea{resize:vertical;min-height:60px;font-size:.68rem}
+.role-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.5rem;margin-top:.35rem}
+.role-check{display:flex;align-items:center;gap:.5rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.55rem .75rem;cursor:pointer;transition:all .2s}
+.role-check:hover{border-color:var(--teal)}
+.role-check input{accent-color:var(--teal)}
+.role-check-name{font-size:.68rem;color:var(--bright)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.run-btn{display:block;width:100%;padding:.75rem 1rem;background:var(--teal);border:none;border-radius:var(--radius);color:var(--bg);font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;margin-top:1.25rem;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.results-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.4rem;margin-top:1.5rem;display:none}
+.results-panel.visible{display:block}
+.results-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white);margin-bottom:.75rem}
+.score-bar{display:flex;align-items:center;gap:1rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;margin-bottom:1.1rem}
+.score-label{font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.score-val{font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:500}
+.score-green{color:var(--green)}.score-warn{color:var(--warn)}.score-red{color:var(--red)}
+.checklist-section{margin-bottom:1.25rem}
+.checklist-section h3{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:.65rem;border-bottom:1px solid var(--border);padding-bottom:.4rem}
+.checklist-item{display:flex;gap:.75rem;align-items:flex-start;padding:.5rem 0;border-bottom:1px solid rgba(30,47,74,.4)}
+.checklist-item:last-child{border-bottom:none}
+.check-status{flex-shrink:0;width:20px;height:20px;border-radius:3px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;font-family:'JetBrains Mono',monospace;font-size:.6rem;margin-top:.05rem}
+.check-status.checked{background:var(--teal-dim);border-color:var(--teal);color:var(--teal)}
+.check-status.gap{background:var(--red-dim);border-color:var(--red);color:var(--red)}
+.check-content{flex:1;min-width:0}
+.check-title{font-size:.72rem;color:var(--bright);margin-bottom:.15rem}
+.check-detail{font-size:.62rem;color:var(--body);line-height:1.5}
+.check-controls{display:flex;gap:.4rem;margin-top:.35rem;flex-wrap:wrap}
+.check-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;padding:.18rem .5rem;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .2s}
+.check-btn:hover,.check-btn.active{border-color:var(--teal);color:var(--teal)}
+.check-btn.gap-btn:hover,.check-btn.gap-btn.active{border-color:var(--red);color:var(--red)}
+.gaps-panel{background:var(--bg-3);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);padding:1rem;margin-bottom:1.25rem;display:none}
+.gaps-panel.visible{display:block}
+.gaps-panel h3{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--red);margin-bottom:.6rem}
+.gap-item{font-size:.72rem;color:var(--text);padding:.3rem 0;border-bottom:1px solid rgba(239,68,68,.1)}
+.gap-item:last-child{border-bottom:none}
+.gap-item::before{content:'⚠ ';color:var(--red);font-size:.7rem}
+.citation{font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);margin-bottom:.3rem;line-height:1.5}
+.citation a{color:var(--body)}.citation a:hover{color:var(--teal)}
+.results-export-row{display:flex;flex-wrap:wrap;gap:.55rem;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border)}
+.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;border:1px solid;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-ghost{background:transparent;border-color:var(--border-2);color:var(--text)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--teal-lt)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-ghost:disabled:hover{border-color:var(--border-2);color:var(--text)}
+.btn-subtitle{display:block;font-size:.44rem;letter-spacing:.04em;color:inherit;opacity:.65;text-transform:none;margin-top:.1rem}
+.toast{position:fixed;bottom:1.4rem;left:50%;transform:translateX(-50%);background:var(--bg-4);border:1px solid var(--teal);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.6rem 1.1rem;border-radius:var(--radius);z-index:400;display:none;white-space:nowrap}
+.toast.err{border-color:var(--red);color:var(--red)}
+footer{border-top:1px solid var(--border);padding:1.6rem 0 2.2rem;margin-top:3rem;position:relative;z-index:1}
+.foot-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.foot-inner a{color:var(--body);transition:color .2s}.foot-inner a:hover{color:var(--teal-lt)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo-name"><span class="ai">AI</span>Numbers<span class="co">.co</span></a>
+    <div class="nav-bc">
+      <a href="../index.html">Tools</a>
+      <span class="nav-bc-sep">›</span>
+      <a href="../guides/payment-scheme-hub.html">Payment Scheme &amp; Network</a>
+      <span class="nav-bc-sep">›</span>
+      <span class="nav-bc-current">T494</span>
+    </div>
+    <div class="nav-right">
+      <a class="nav-pill" href="../guides/ach-fraud-monitoring-composer.html">Workflow ↗</a>
+      <a class="nav-pill" href="492-ach-fraud-monitoring-procedure-builder.html">T492</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="hero">
+    <div class="hero-eyebrow">T494 · Cat-19 · Payment Scheme &amp; Network</div>
+    <h1>ACH Fraud Monitoring <em style="font-style:italic;color:var(--teal-lt)">Audit Pack Generator</em></h1>
+    <p class="hero-desc">Nacha Phase 2 requires ACH fraud monitoring procedures to be reviewed <strong>at least annually</strong>. This tool generates a role-specific evidence checklist and Markdown audit binder you can complete in-browser, mark items as satisfied or gap, and export as your annual review documentation package.</p>
+    <div class="hero-badges">
+      <span class="badge badge-teal">Annual review requirement</span>
+      <span class="badge badge-red">Deadline: 2026-06-22</span>
+      <span class="badge badge-green">Evidence checklist</span>
+      <span class="badge badge-muted">Client-side · Zero PII</span>
+    </div>
+  </div>
+
+  <div class="tool-body">
+
+    <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+    <div class="panel">
+      <div class="panel-label">Review Scope</div>
+      <div class="panel-row">
+        <label>ACH participant roles to audit (select all that apply)</label>
+        <div class="role-grid">
+          <label class="role-check"><input type="checkbox" id="ar_originator" value="Originator"><span class="role-check-name">Originator</span></label>
+          <label class="role-check"><input type="checkbox" id="ar_tpsp" value="TPSP"><span class="role-check-name">TPSP</span></label>
+          <label class="role-check"><input type="checkbox" id="ar_tps" value="TPS"><span class="role-check-name">TPS</span></label>
+          <label class="role-check"><input type="checkbox" id="ar_odfi" value="ODFI"><span class="role-check-name">ODFI</span></label>
+          <label class="role-check"><input type="checkbox" id="ar_rdfi" value="RDFI" checked><span class="role-check-name">RDFI</span></label>
+        </div>
+      </div>
+      <div class="panel-row">
+        <label for="reviewDate">Review date</label>
+        <input type="date" id="reviewDate">
+      </div>
+      <div class="panel-row">
+        <label for="reviewerType">Reviewer type</label>
+        <select id="reviewerType">
+          <option value="internal_audit">Internal audit</option>
+          <option value="compliance_team" selected>Compliance team</option>
+          <option value="external_auditor">External auditor</option>
+          <option value="self_assessment">Self-assessment (management)</option>
+        </select>
+      </div>
+      <div class="panel-row">
+        <label for="priorGaps">Prior year gaps or open items (optional)</label>
+        <textarea id="priorGaps" placeholder="e.g. Threshold documentation incomplete, annual training not yet recorded…"></textarea>
+      </div>
+    </div>
+
+    <button class="run-btn" onclick="runAuditPack()">Generate Audit Pack</button>
+
+    <div class="results-panel" id="resultsPanel">
+      <div class="results-title" id="resultsTitle">Annual Review Evidence Checklist</div>
+
+      <div class="score-bar">
+        <span class="score-label">Items satisfied</span>
+        <span class="score-val" id="scoreVal">0 / 0</span>
+        <span style="flex:1"></span>
+        <span class="score-label">Gaps identified</span>
+        <span class="score-val score-red" id="gapVal">0</span>
+      </div>
+
+      <div id="checklistOutput"></div>
+
+      <div class="gaps-panel" id="gapsPanel">
+        <h3>Identified Gaps</h3>
+        <div id="gapsList"></div>
+      </div>
+
+      <div class="checklist-section">
+        <h3 style="color:var(--muted)">Regulatory Citations</h3>
+        <p class="citation">[1] Nacha Operating Rules — Annual review requirement for fraud monitoring procedures under Supplemental Fraud Monitoring (Phase 2, effective 2026-06-22).</p>
+        <p class="citation">[2] Nacha Risk Management — <a href="https://www.nacha.org/rules/risk-management-topics-fraud-monitoring-phase-2" target="_blank" rel="noopener">nacha.org/rules/risk-management-topics-fraud-monitoring-phase-2</a></p>
+        <p class="citation">[3] Unit21 — <a href="https://www.unit21.ai/blog/nacha-2026-rule-changes-what-ach-participants-actually-need-to-do" target="_blank" rel="noopener">"Nacha 2026 Rule Changes"</a></p>
+      </div>
+
+      <div class="results-export-row">
+        <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()" title="Run the generator first">
+          {} Export Policy Mandate
+          <span class="btn-subtitle">API · audit trail</span>
+        </button>
+        <button class="btn btn-ghost" id="mdExportBtn" disabled onclick="exportMarkdown()">
+          📄 Export Audit Binder
+          <span class="btn-subtitle">Markdown · Nacha evidence</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <span>© 2026 Post Oak Labs · CC BY 4.0 · v1.0.0</span>
+    <span>
+      <a href="../guides/ach-fraud-monitoring-composer.html">ACH Fraud Monitoring Composer</a> ·
+      <a href="492-ach-fraud-monitoring-procedure-builder.html">T492 Procedure Builder</a> ·
+      <a href="493-ach-false-pretenses-credit-entry-simulator.html">T493 Scenario Simulator</a> ·
+      <a href="../index.html">All Tools</a>
+    </span>
+  </div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ═══ ACH Fraud Monitoring Audit Pack Generator (T494) v1.0
+   Nacha Phase 2 — annual review evidence checklist.
+   Deterministic, synchronous, zero network, zero storage. ═══ */
+
+/* ── Checklist data by role ── */
+var CHECKLIST = {
+  Originator: [
+    { id:'orig_1', title:'Written fraud monitoring policy exists', detail:'A documented, dated policy covering detection of fraudulent non-consumer credit entries is on file and has been updated within the past 12 months.' },
+    { id:'orig_2', title:'Velocity and anomaly thresholds documented', detail:'Dollar and volume thresholds for flagging unusual credit-entry activity are documented, with rationale for threshold levels.' },
+    { id:'orig_3', title:'Receiver verification procedures documented', detail:'Process for verifying ACH credit beneficiary account details (pre-note, micro-deposit, or callback) is documented and consistently applied.' },
+    { id:'orig_4', title:'Dual authorization applied to high-value credits', detail:'Dual-authorization control for credit batches above the defined dollar threshold is implemented and evidenced (approval logs, workflow screenshots, or system configuration documentation).' },
+    { id:'orig_5', title:'Annual staff training completed and documented', detail:'Fraud awareness training covering ACH credit-entry fraud vectors (BEC, vendor impersonation, payroll redirect) completed for relevant staff; completion records on file.' },
+    { id:'orig_6', title:'False-pretenses incident log maintained', detail:'Log of suspected or confirmed false-pretenses credit-entry incidents (including near-misses) from the review period is maintained.' }
+  ],
+  TPSP: [
+    { id:'tpsp_1', title:'Written monitoring program for all Originator clients', detail:'A documented monitoring program covers all Originator clients for whom the TPSP initiates credit entries. Program scope and review cadence are specified.' },
+    { id:'tpsp_2', title:'Originator risk-tiering methodology documented', detail:'Risk-tiering criteria and methodology for Originator clients (standard, elevated, high) are documented with scoring rationale.' },
+    { id:'tpsp_3', title:'Anomalous batch detection controls in place', detail:'Controls (automated or manual) for detecting off-pattern credit batches — time-of-day anomalies, new receivers, volume spikes — are documented and tested.' },
+    { id:'tpsp_4', title:'ODFI notification procedures defined', detail:'Written procedure specifying when and how suspected fraudulent credit entries are reported to the ODFI (SLA, data to provide, escalation contacts).' },
+    { id:'tpsp_5', title:'Annual audit completed and documented', detail:'Annual audit of the monitoring program — internal or external — completed with findings documented and any remediation tracked.' }
+  ],
+  TPS: [
+    { id:'tps_1', title:'Written fraud monitoring policy in place', detail:'Documented, dated fraud monitoring policy covering all Originators the TPS acts on behalf of; updated within the past 12 months.' },
+    { id:'tps_2', title:'Originator vetting and re-vetting documented', detail:'On-boarding and periodic re-vetting records for each Originator exist. Risk tier assigned to each Originator with documented rationale.' },
+    { id:'tps_3', title:'Credit-entry pattern analysis performed', detail:'Systematic analysis of per-Originator credit-entry patterns (volume trends, new receiver concentration, entry class drift) is performed and documented at defined intervals.' },
+    { id:'tps_4', title:'ODFI notification log maintained', detail:'Log of notifications made to the ODFI for suspected fraudulent credit entries is maintained, with dates, amounts, and outcomes.' },
+    { id:'tps_5', title:'Annual review completed', detail:'Annual review of monitoring program completed; findings and any remediation actions documented.' }
+  ],
+  ODFI: [
+    { id:'odfi_1', title:'Credit-entry fraud monitoring framework documented', detail:'Comprehensive written framework addresses monitoring at entry, batch, and Originator level; reviewed and updated within the past 12 months.' },
+    { id:'odfi_2', title:'Originator and TPS/TPSP risk-tiering methodology documented', detail:'Risk-tiering criteria, scoring logic, and resulting tier assignments for all Originators, TPSPs, and TPSs are documented.' },
+    { id:'odfi_3', title:'Automated monitoring controls deployed and tested', detail:'Automated controls (batch-level review, volume spike detection, new-receiver alerts) are deployed and tested. Testing evidence on file.' },
+    { id:'odfi_4', title:'Return rate monitoring thresholds defined', detail:'Thresholds for elevated return rates (R02, R03, R04, R06, R07, R14, R16) are defined and monitored; escalation procedures documented.' },
+    { id:'odfi_5', title:'SAR-filing procedures documented for ACH credit fraud', detail:'Internal procedure for ACH credit-fraud SAR referral to BSA/AML team is documented; threshold and timing requirements addressed.' },
+    { id:'odfi_6', title:'Third-party (TPSP/TPS) oversight program documented', detail:'Oversight program covering on-boarding due diligence, periodic review, and fraud-rule compliance for TPSPs and TPSs is documented and applied.' }
+  ],
+  RDFI: [
+    { id:'rdfi_1', title:'Credit-entry fraud monitoring policy in place', detail:'Written policy for detecting fraudulent or false-pretenses credit entries is documented and updated within the past 12 months. Policy explicitly addresses Phase 2 volume-threshold removal.' },
+    { id:'rdfi_2', title:'Receiver account screening controls documented', detail:'Controls to detect mule-account patterns (rapid credit depletion, new-account credit spikes, credit/debit cycling) are documented. Integration with AML transaction monitoring noted where applicable.' },
+    { id:'rdfi_3', title:'False-pretenses credit indicators defined', detail:'List of monitoring indicators for false-pretenses credits is documented — new-counterparty credits, post-redirect patterns, anomalous company-name/industry-code combinations.' },
+    { id:'rdfi_4', title:'Funds-recovery procedure documented', detail:'Procedure for post-settlement recovery (freeze/hold protocols, ODFI return request, customer notification under Reg E for consumer accounts) is documented.' },
+    { id:'rdfi_5', title:'Annual review completed', detail:'Annual review of fraud monitoring policy and controls completed; threshold adjustments, control enhancements, and findings documented.' }
+  ]
+};
+
+/* ── State ── */
+var _itemStatus = {};   /* item_id → 'satisfied' | 'gap' | null */
+var _roles = [];
+var _allItems = [];
+var _lastMandate = null;
+
+/* ── Build checklist ── */
+function runAuditPack() {
+  _roles = [];
+  ['ar_originator','ar_tpsp','ar_tps','ar_odfi','ar_rdfi'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el && el.checked) _roles.push(el.value);
+  });
+  if (_roles.length === 0) { showToast('Select at least one role to audit.', true); return; }
+
+  var reviewDate = document.getElementById('reviewDate').value || new Date().toISOString().slice(0,10);
+  var reviewerType = document.getElementById('reviewerType').value;
+  var priorGaps = document.getElementById('priorGaps').value.trim();
+
+  /* Collect all items */
+  _allItems = [];
+  _roles.forEach(function(role) {
+    (CHECKLIST[role] || []).forEach(function(item) {
+      _allItems.push({ role: role, item: item });
+      if (!_itemStatus[item.id]) _itemStatus[item.id] = null;
+    });
+  });
+
+  /* Render checklist */
+  var html = '';
+  var grouped = {};
+  _allItems.forEach(function(ai) {
+    if (!grouped[ai.role]) grouped[ai.role] = [];
+    grouped[ai.role].push(ai.item);
+  });
+  Object.keys(grouped).forEach(function(role) {
+    html += '<div class="checklist-section">';
+    html += '<h3>' + role + '</h3>';
+    grouped[role].forEach(function(item) {
+      var status = _itemStatus[item.id];
+      html += '<div class="checklist-item" id="ci-' + item.id + '">' +
+        '<div class="check-status ' + (status==='satisfied'?'checked':status==='gap'?'gap':'') + '" id="cs-' + item.id + '">' +
+          (status==='satisfied'?'✓':status==='gap'?'✕':'') +
+        '</div>' +
+        '<div class="check-content">' +
+          '<div class="check-title">' + item.title + '</div>' +
+          '<div class="check-detail">' + item.detail + '</div>' +
+          '<div class="check-controls">' +
+            '<button class="check-btn ' + (status==='satisfied'?'active':'') + '" onclick="setItem(\'' + item.id + '\',\'satisfied\')">✓ Satisfied</button>' +
+            '<button class="check-btn gap-btn ' + (status==='gap'?'active':'') + '" onclick="setItem(\'' + item.id + '\',\'gap\')">✕ Gap</button>' +
+            '<button class="check-btn" onclick="setItem(\'' + item.id + '\',null)">Clear</button>' +
+          '</div>' +
+        '</div></div>';
+    });
+    html += '</div>';
+  });
+
+  if (priorGaps) {
+    html += '<div class="checklist-section"><h3 style="color:var(--warn)">Prior Year Open Items</h3>' +
+      '<div style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;font-size:.72rem;color:var(--body)">' +
+      priorGaps.replace(/\n/g,'<br>') + '</div></div>';
+  }
+
+  document.getElementById('checklistOutput').innerHTML = html;
+  document.getElementById('resultsPanel').classList.add('visible');
+  document.getElementById('resultsTitle').textContent = 'Annual Review Checklist — ' + _roles.join(' + ') + ' · ' + reviewDate;
+
+  refreshScore();
+  buildMandate(reviewDate, reviewerType, priorGaps);
+}
+
+function setItem(id, status) {
+  _itemStatus[id] = status || null;
+  /* Update DOM */
+  var cs = document.getElementById('cs-' + id);
+  if (cs) {
+    cs.className = 'check-status ' + (status==='satisfied'?'checked':status==='gap'?'gap':'');
+    cs.textContent = status==='satisfied'?'✓':status==='gap'?'✕':'';
+  }
+  refreshScore();
+  buildMandate(
+    document.getElementById('reviewDate').value || new Date().toISOString().slice(0,10),
+    document.getElementById('reviewerType').value,
+    document.getElementById('priorGaps').value.trim()
+  );
+}
+
+function refreshScore() {
+  var total = _allItems.length;
+  var satisfied = 0; var gaps = [];
+  _allItems.forEach(function(ai) {
+    var s = _itemStatus[ai.item.id];
+    if (s === 'satisfied') satisfied++;
+    else if (s === 'gap') gaps.push({ role: ai.role, title: ai.item.title });
+  });
+  var sv = document.getElementById('scoreVal');
+  var gv = document.getElementById('gapVal');
+  if (sv) { sv.textContent = satisfied + ' / ' + total; sv.className = 'score-val ' + (satisfied===total?'score-green':satisfied>total/2?'score-warn':'score-red'); }
+  if (gv) { gv.textContent = gaps.length; }
+  /* Gaps panel */
+  var gp = document.getElementById('gapsPanel');
+  var gl = document.getElementById('gapsList');
+  if (gaps.length > 0) {
+    gl.innerHTML = gaps.map(function(g){ return '<div class="gap-item"><strong>' + g.role + ':</strong> ' + g.title + '</div>'; }).join('');
+    gp.classList.add('visible');
+  } else {
+    gp.classList.remove('visible');
+  }
+}
+
+function buildMandate(reviewDate, reviewerType, priorGaps) {
+  var total = _allItems.length;
+  var satisfied = 0; var gaps = [];
+  _allItems.forEach(function(ai) {
+    var s = _itemStatus[ai.item.id];
+    if (s === 'satisfied') satisfied++;
+    else if (s === 'gap') gaps.push(ai.role + ': ' + ai.item.title);
+  });
+  var now = new Date().toISOString();
+  _lastMandate = {
+    ap2_version: '1.0',
+    mandate_id: uuid(),
+    issued_at: now,
+    issued_by: 'ainumbers.co',
+    tool_id: 'ach-fraud-monitoring-audit-pack-generator',
+    tool_version: '1.0.0',
+    mandate_type: 'compliance_control',
+    jurisdiction: ['US'],
+    regulatory_frameworks: ['Nacha Operating Rules — Annual Review Requirement for Fraud Monitoring (Phase 2, effective 2026-06-22)'],
+    payload: {
+      roles: _roles,
+      review_date: reviewDate,
+      reviewer_type: reviewerType,
+      total_items: total,
+      items_satisfied: satisfied,
+      gaps_identified: gaps,
+      prior_gaps: priorGaps || null,
+      completeness_pct: total > 0 ? Math.round(satisfied / total * 100) : 0
+    },
+    summary: 'ACH fraud monitoring annual review for ' + _roles.join(', ') + ' on ' + reviewDate + '. ' + satisfied + ' of ' + total + ' evidence items satisfied; ' + gaps.length + ' gap(s) identified. Reviewer: ' + reviewerType.replace(/_/g,' ') + '.',
+    agent_instructions: [
+      'Remediate all identified gaps before next Nacha audit or examination.',
+      'Retain this audit binder and the completed checklist as evidence for Nacha compliance review readiness.',
+      'Schedule next annual review no later than 12 months from ' + reviewDate + '.',
+      'Address prior year open items before close of current review cycle.'
+    ],
+    valid_from: reviewDate,
+    valid_until: new Date(new Date(reviewDate).getTime() + 365*86400000).toISOString().slice(0,10),
+    last_reviewed: reviewDate,
+    source_tool_inputs: { roles:_roles, review_date:reviewDate, reviewer_type:reviewerType },
+    regulatory_citations: [
+      'Nacha Operating Rules — Supplemental Fraud Monitoring Phase 2 (effective 2026-06-22)',
+      'nacha.org/rules/risk-management-topics-fraud-monitoring-phase-2'
+    ],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  enableExportBtns();
+}
+
+function enableExportBtns() {
+  var ab = document.getElementById('ap2ExportBtn');
+  var mb = document.getElementById('mdExportBtn');
+  if (ab) { ab.disabled = false; ab.classList.add('ready'); ab.title = 'For API integration · audit trail'; }
+  if (mb) mb.disabled = false;
+}
+function uuid() {
+  var b = new Uint8Array(16); crypto.getRandomValues(b);
+  b[6]=(b[6]&15)|64; b[8]=(b[8]&63)|128;
+  var h=Array.prototype.map.call(b,function(x){return('0'+x.toString(16)).slice(-2);}).join('');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
+var AP2Schema={required:['ap2_version','mandate_id','issued_at','issued_by','tool_id','tool_version','mandate_type','jurisdiction','payload','audit_metadata'],validate:function(m){return this.required.filter(function(f){return!(f in m)||m[f]===null;});}};
+function dl(content,name,type){var url=URL.createObjectURL(new Blob([content],{type:type}));var a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(url);},800);}
+function ts14(){return new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);}
+function exportAP2() {
+  if (!_lastMandate) { showToast('Generate the audit pack first.', true); return; }
+  var missing = AP2Schema.validate(_lastMandate);
+  if (missing.length) { showToast('Validation failed: missing ' + missing.join(', '), true); return; }
+  dl(JSON.stringify(_lastMandate,null,2),'ach-fraud-monitoring-audit-pack_'+ts14()+'.policy.json','application/json');
+  showToast('Policy Mandate exported.');
+}
+function exportMarkdown() {
+  if (!_lastMandate) { showToast('Generate the audit pack first.', true); return; }
+  var p = _lastMandate.payload;
+  var lines = [
+    '# ACH Fraud Monitoring Annual Review — Audit Binder',
+    '',
+    '_Review date: ' + p.review_date + ' · Reviewer: ' + (p.reviewer_type||'').replace(/_/g,' ') + ' · Generated via ainumbers.co/tools/494 · client-side, zero PII_',
+    '',
+    '## Review Scope',
+    '',
+    '| Field | Value |',
+    '|---|---|',
+    '| Roles | ' + (p.roles||[]).join(', ') + ' |',
+    '| Review Date | ' + p.review_date + ' |',
+    '| Reviewer | ' + (p.reviewer_type||'').replace(/_/g,' ') + ' |',
+    '| Items Satisfied | ' + p.items_satisfied + ' / ' + p.total_items + ' (' + p.completeness_pct + '%) |',
+    '| Gaps Identified | ' + (p.gaps_identified||[]).length + ' |',
+    ''
+  ];
+  if (p.prior_gaps) { lines.push('## Prior Year Open Items','',p.prior_gaps,''); }
+  /* Checklist per role */
+  var grouped = {};
+  _allItems.forEach(function(ai) {
+    if (!grouped[ai.role]) grouped[ai.role] = [];
+    grouped[ai.role].push({ item: ai.item, status: _itemStatus[ai.item.id] });
+  });
+  lines.push('## Evidence Checklist','');
+  Object.keys(grouped).forEach(function(role) {
+    lines.push('### ' + role,'');
+    grouped[role].forEach(function(r) {
+      var mark = r.status==='satisfied'?'[x]':r.status==='gap'?'[!]':'[ ]';
+      lines.push(mark + ' **' + r.item.title + '**');
+      lines.push('  > ' + r.item.detail);
+      lines.push('');
+    });
+  });
+  if ((p.gaps_identified||[]).length > 0) {
+    lines.push('## Identified Gaps','');
+    p.gaps_identified.forEach(function(g){ lines.push('- ⚠ ' + g); });
+    lines.push('');
+  }
+  lines.push('## Regulatory Citations','',
+    '- Nacha Operating Rules — Supplemental Fraud Monitoring Phase 2 (effective 2026-06-22)',
+    '- nacha.org/rules/risk-management-topics-fraud-monitoring-phase-2',
+    '- unit21.ai/blog/nacha-2026-rule-changes-what-ach-participants-actually-need-to-do',
+    '',
+    '---',
+    '_This binder was generated by AINumbers.co T494 · CC BY 4.0 · Post Oak Labs_'
+  );
+  dl(lines.join('\n'),'ach-fraud-monitoring-audit-binder_'+ts14()+'.md','text/markdown');
+  showToast('Audit binder exported.');
+}
+function showToast(msg,err){var t=document.getElementById('toast');t.textContent=msg;t.className='toast'+(err?' err':'');t.style.display='block';clearTimeout(t._h);t._h=setTimeout(function(){t.style.display='none';},3200);}
+
+window.AIN_BUILD_MANDATE = function() { return _lastMandate; };
+
+/* Set today's date as default */
+(function(){ var d=document.getElementById('reviewDate'); if(d) d.value=new Date().toISOString().slice(0,10); })();
+</script>
+
+<script>
+(function(){
+  'use strict';
+  var CFG={runFn:'runAuditPack',intake:false};
+  window.AIN_BRIDGE_CFG=CFG;
+  function applyPrefill(fields){
+    if(!fields||typeof fields!=='object')return 0;
+    var applied=0;
+    var roleMap={Originator:'ar_originator',TPSP:'ar_tpsp',TPS:'ar_tps',ODFI:'ar_odfi',RDFI:'ar_rdfi'};
+    if(Array.isArray(fields.roles)){fields.roles.forEach(function(r){var id=roleMap[r];if(id){var el=document.getElementById(id);if(el){el.checked=true;applied++;}}});}
+    ['reviewDate','reviewerType','priorGaps'].forEach(function(k){var el=document.getElementById(k);if(el&&fields[k]!==undefined){el.value=fields[k];applied++;}});
+    return applied;
+  }
+  window.addEventListener('message',function(e){
+    if(e.origin&&e.origin!=='null'&&window.location.origin&&window.location.origin!=='null'&&e.origin!==window.location.origin)return;
+    var d=e.data||{};
+    var ro=(e.origin&&e.origin!=='null')?e.origin:'*';
+    if(d.type==='ain:prefill'){var applied=applyPrefill(d.fields||{});e.source&&e.source.postMessage({type:'ain:prefilled',applied:applied},ro);}
+    else if(d.type==='ain:run'){try{window[CFG.runFn]&&window[CFG.runFn]();e.source&&e.source.postMessage({type:'ain:ran',ok:true},ro);}catch(ex){e.source&&e.source.postMessage({type:'ain:ran',ok:false,error:ex.message},ro);}}
+    else if(d.type==='ain:getMandate'){var m=(typeof window.AIN_BUILD_MANDATE==='function')?window.AIN_BUILD_MANDATE():null;e.source&&e.source.postMessage({type:'ain:mandate',mandate:m},ro);}
+  });
+})();
+</script>
+
+</body>
+</html>
