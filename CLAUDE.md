@@ -16,7 +16,7 @@ ainumbers/
 ├── tools/             ← standalone tool HTML files (numbered, pf-, rbe-, named)
 ├── guides/            ← integration hub HTML files (*-hub.html)
 ├── manifests/         ← MCP tool manifests (one per tool)
-├── sitemap.xml / robots.txt / llms.txt / TOOLS_INDEX.md
+├── sitemap.xml / robots.txt / llms.txt
 ```
 
 **Canonical tool template:** `tools/152-baas-provider-comparator.html`  
@@ -47,6 +47,17 @@ ainumbers/
 5. Add card entry to `index.html` tool grid (correct `data-cat`, `data-tags`, `data-name`).
 6. Update category tool count in `index.html` cat-heading `<span class="cat-n">`.
 7. Add `<url>` entry to `sitemap.xml` under `<!-- Tools -->`.
+
+## ✅ Wave Completion Checklist
+
+Run after every batch of new tools, before committing:
+
+1. **Manifests** — one per new tool: `manifests/{number}-{slug}.manifest.json`. No short-form `{number}-manifest.json` variants.
+2. **Catalog** — `python scripts/regen_catalog.py` — regenerates `catalog.json` + `data/catalog.json`.
+3. **Sitemap** — `python scripts/regen_sitemap.py --apply` — regenerates `sitemap.xml` from filesystem.
+4. **PII banners** — every new tool must have the canonical `<div class="pii-notice">` with exact CONTRACT §1.3 text. Verify: `grep -rL "pii-notice" tools/*.html` (expect: no output).
+5. **AP2 export** — tools whose title/function involves policy, rule, mandate, routing, compliance, risk, AML, or KYC must have `id="ap2ExportBtn"`. Check each new in-scope tool.
+6. **index.html** — card entry present with correct `data-cat`, `data-tags`, `data-name`, and updated `<span class="cat-n">` count.
 
 ## 📊 Current Scale
 
