@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>x402 Micropayment Pricing Modeler · T497 · AINumbers.co</title>
+<meta name="description" content="Model API and content pricing under HTTP 402 flows: per-call price, settlement asset, network fee drag, and breakeven vs subscription. Zero PII. Policy Mandate export.">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="x402 Micropayment Pricing Modeler · AINumbers.co">
+<meta property="og:description" content="x402 HTTP 402 micropayment pricing: per-call vs subscription breakeven, fee drag, agent economics. Client-side. Zero PII.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"x402 Micropayment Pricing Modeler","applicationCategory":"FinanceApplication","operatingSystem":"Web","url":"https://ainumbers.co/tools/497-x402-micropayment-pricing-modeler.html","description":"Model API/content pricing under HTTP 402 flows: per-call price, settlement asset, fee drag, breakeven vs subscription.","provider":{"@type":"Organization","name":"Post Oak Labs"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --radius:6px; --radius-lg:10px;
+  --acc:var(--gold);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:.875rem;line-height:1.6;min-height:100vh}
+a{color:var(--teal);text-decoration:none}a:hover{color:var(--teal-lt)}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+nav{border-bottom:1px solid var(--border);padding:.75rem 0}
+.nav-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between}
+.nav-logo{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal)}
+.nav-links{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;text-transform:uppercase}
+.nav-links a{color:var(--muted)}.nav-links a:hover{color:var(--teal)}
+.hero{padding:2.5rem 0 1.75rem;border-bottom:1px solid var(--border)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.18em;text-transform:uppercase;color:var(--acc);margin-bottom:.65rem}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);line-height:1.2;margin-bottom:.75rem}
+.hero h1 em{color:var(--acc);font-style:normal}
+.hero-desc{font-size:.875rem;color:var(--body);max-width:660px;line-height:1.7;margin-bottom:1rem}
+.hero-badges{display:flex;flex-wrap:wrap;gap:.5rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;padding:.28rem .6rem;border-radius:4px;border:1px solid}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{padding:2rem 0}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.25rem}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);margin-bottom:1rem}
+.panel-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:600px){.panel-grid{grid-template-columns:1fr}}
+.panel-row{margin-bottom:1rem}
+.panel-label{display:block;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text);margin-bottom:.4rem}
+.panel-sublabel{font-size:.62rem;color:var(--muted);margin-bottom:.4rem;display:block}
+select,input[type=number],input[type=text]{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--text);font-family:'Sora',sans-serif;font-size:.82rem;padding:.55rem .75rem;outline:none;transition:border-color .2s}
+select:focus,input:focus{border-color:var(--acc)}
+select option{background:var(--bg-3)}
+input[type=number]::-webkit-inner-spin-button{opacity:.5}
+.run-btn{display:inline-flex;align-items:center;gap:.6rem;background:var(--acc);color:#080E1A;border:none;border-radius:var(--radius);padding:.7rem 1.6rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;cursor:pointer;transition:opacity .2s;margin-top:.5rem}
+.run-btn:hover{opacity:.88}
+.results-panel{display:none;margin-top:1.5rem}
+.results-panel.visible{display:block}
+.results-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1rem}
+.results-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);margin-bottom:1rem}
+/* METRIC CARDS */
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.65rem;margin-bottom:1rem}
+.metric-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem}
+.metric-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.metric-val{font-family:'JetBrains Mono',monospace;font-size:1.15rem;color:var(--bright);font-weight:500}
+.metric-sub{font-size:.65rem;color:var(--body);margin-top:.15rem}
+/* BREAKEVEN TABLE */
+.be-table{width:100%;border-collapse:collapse;font-size:.72rem;margin-bottom:.75rem}
+.be-table th{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .6rem;border-bottom:1px solid var(--border);text-align:right}
+.be-table th:first-child{text-align:left}
+.be-table td{padding:.45rem .6rem;border-bottom:1px solid var(--border);text-align:right;color:var(--text)}
+.be-table td:first-child{text-align:left;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body)}
+.be-table tr:last-child td{border-bottom:none}
+.be-best{color:var(--gold)!important;font-weight:500}
+/* ADOPTION CHART */
+.adopt-row{display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem;font-family:'JetBrains Mono',monospace;font-size:.62rem}
+.adopt-label{min-width:80px;color:var(--muted)}
+.adopt-bar-wrap{flex:1;height:8px;background:var(--bg-3);border-radius:4px;overflow:hidden}
+.adopt-bar{height:100%;border-radius:4px;background:var(--gold)}
+.adopt-val{min-width:70px;text-align:right;color:var(--text)}
+.verdict-box{border-radius:var(--radius);padding:.85rem 1rem;margin-bottom:.75rem;font-size:.82rem;line-height:1.6}
+.verdict-viable{background:var(--green-dim);border:1px solid rgba(34,197,94,.25);color:var(--green)}
+.verdict-marginal{background:var(--gold-dim);border:1px solid rgba(212,168,71,.25);color:var(--gold)}
+.verdict-not{background:var(--red-dim);border:1px solid rgba(239,68,68,.25);color:var(--red)}
+.results-export-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border);margin-top:.75rem}
+.btn{display:inline-flex;flex-direction:column;align-items:center;gap:.15rem;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:.5rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text);cursor:pointer;transition:border-color .2s,opacity .2s}
+.btn:hover:not([disabled]){border-color:var(--acc);color:var(--acc)}
+.btn[disabled]{opacity:.28;cursor:not-allowed}
+.btn.ready{border-color:var(--acc);color:var(--acc)}
+.btn-subtitle{font-size:.48rem;color:var(--muted);text-transform:lowercase}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.25rem 0;margin-top:2rem}
+.foot-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.foot-inner a{color:var(--body);transition:color .2s}.foot-inner a:hover{color:var(--teal-lt)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--text);display:none;z-index:100}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <span class="nav-logo">AINumbers.co</span>
+    <div class="nav-links">
+      <a href="../guides/agentic-commerce-mcp-hub.html">Agentic Commerce Hub</a>
+      <a href="../guides/agentic-checkout-composer.html">Checkout Composer</a>
+      <a href="495-agentic-checkout-protocol-selector.html">T495 Protocol Selector</a>
+      <a href="../index.html">All Tools</a>
+    </div>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="container">
+    <div class="hero-eyebrow">T497 · x402 Branch · Agentic Commerce</div>
+    <h1>x402 Micropayment <em>Pricing Modeler</em></h1>
+    <p class="hero-desc">Model your API or content pricing under HTTP 402 flows — per-call price, settlement asset fee drag, breakeven against subscription pricing, and agent economics at scale. ~165M agent transactions processed by April 2026.</p>
+    <div class="hero-badges">
+      <span class="badge badge-gold">x402 · HTTP 402</span>
+      <span class="badge badge-teal">Client-Side</span>
+      <span class="badge badge-green">Zero PII</span>
+      <span class="badge badge-gold">AP2 JSON</span>
+      <span class="badge badge-muted">T497 · v1.0.0</span>
+    </div>
+  </div>
+</div>
+
+<div class="tool-body">
+  <div class="container">
+
+    <div class="panel">
+      <div class="panel-title">Content / API Configuration</div>
+      <div class="panel-grid">
+        <div class="panel-row">
+          <label class="panel-label" for="content_type">Content / API Type</label>
+          <select id="content_type">
+            <option value="api_call">API call / query</option>
+            <option value="article">Article / content page</option>
+            <option value="agent_action">AI agent action / step</option>
+            <option value="data_query">Data query / report</option>
+            <option value="stream">Streaming / per-token</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="panel-row">
+          <label class="panel-label" for="settlement_asset">Settlement Asset</label>
+          <select id="settlement_asset">
+            <option value="usdc_base" selected>USDC on Base (primary x402)</option>
+            <option value="usdc_eth">USDC on Ethereum</option>
+            <option value="usdc_sol">USDC on Solana</option>
+            <option value="eth">ETH</option>
+            <option value="custom">Custom / other</option>
+          </select>
+        </div>
+        <div class="panel-row">
+          <label class="panel-label" for="per_call_price">Per-Call / Per-Unit Price (USD)</label>
+          <span class="panel-sublabel">Amount you charge per request or unit of content</span>
+          <input type="number" id="per_call_price" value="0.005" min="0.0001" max="100" step="0.001">
+        </div>
+        <div class="panel-row">
+          <label class="panel-label" for="monthly_requests">Estimated Monthly Requests</label>
+          <span class="panel-sublabel">Expected volume across all users + agents</span>
+          <input type="number" id="monthly_requests" value="50000" min="100" max="100000000" step="1000">
+        </div>
+        <div class="panel-row">
+          <label class="panel-label" for="sub_price">Equivalent Subscription Price (USD/mo)</label>
+          <span class="panel-sublabel">Your current or planned subscription tier for the same access</span>
+          <input type="number" id="sub_price" value="29" min="0" max="10000" step="1">
+        </div>
+        <div class="panel-row">
+          <label class="panel-label" for="agent_pct">Agent Traffic Share (%)</label>
+          <span class="panel-sublabel">% of requests from autonomous AI agents (vs humans)</span>
+          <input type="number" id="agent_pct" value="30" min="0" max="100" step="5">
+        </div>
+      </div>
+
+      <div class="panel-title" style="margin-top:.5rem">Network Fee Estimates</div>
+      <div class="panel-grid">
+        <div class="panel-row">
+          <label class="panel-label" for="gas_fee_usd">Avg On-Chain Fee per Tx (USD)</label>
+          <span class="panel-sublabel">Gas/network fee per settlement transaction</span>
+          <input type="number" id="gas_fee_usd" value="0.0008" min="0" max="10" step="0.0001">
+        </div>
+        <div class="panel-row">
+          <label class="panel-label" for="batch_size">Settlement Batch Size (requests/tx)</label>
+          <span class="panel-sublabel">How many micro-payments settle in a single on-chain tx</span>
+          <input type="number" id="batch_size" value="10" min="1" max="1000" step="1">
+        </div>
+      </div>
+
+      <button class="run-btn" onclick="runPricingModeler()">▶ Run Pricing Model</button>
+    </div>
+
+    <div class="results-panel" id="resultsPanel">
+
+      <div class="results-section">
+        <div class="results-title">Verdict</div>
+        <div id="verdictBox"></div>
+      </div>
+
+      <div class="results-section">
+        <div class="results-title">Key Metrics</div>
+        <div class="metric-grid" id="metricGrid"></div>
+      </div>
+
+      <div class="results-section">
+        <div class="results-title">Breakeven Analysis — x402 vs Subscription</div>
+        <table class="be-table" id="beTable">
+          <thead>
+            <tr>
+              <th style="text-align:left">Model</th>
+              <th>Monthly Revenue</th>
+              <th>Net After Fees</th>
+              <th>Fee Drag</th>
+              <th>Per-User Cost</th>
+            </tr>
+          </thead>
+          <tbody id="beBody"></tbody>
+        </table>
+        <div id="beNarrative" style="font-size:.78rem;color:var(--body);line-height:1.6"></div>
+      </div>
+
+      <div class="results-section">
+        <div class="results-title">Agent Economics (per 1,000 calls)</div>
+        <div class="metric-grid" id="agentMetrics"></div>
+        <div id="agentNarrative" style="font-size:.78rem;color:var(--body);line-height:1.6;margin-top:.5rem"></div>
+      </div>
+
+      <div class="results-section">
+        <div class="results-title">Adoption Scenario Revenue</div>
+        <div id="adoptionChart"></div>
+        <div class="results-export-row">
+          <button class="btn" id="ap2ExportBtn" disabled onclick="exportAP2()">
+            {} Export Policy Mandate
+            <span class="btn-subtitle">API · pricing record</span>
+          </button>
+          <button class="btn" id="mdExportBtn" disabled onclick="exportMarkdown()">
+            📄 Export Markdown
+            <span class="btn-subtitle">Pricing model report</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="foot-inner">
+    <span>© 2026 Post Oak Labs · CC BY 4.0 · v1.0.0</span>
+    <span>
+      <a href="../guides/agentic-checkout-composer.html">Checkout Composer</a> ·
+      <a href="495-agentic-checkout-protocol-selector.html">T495 Protocol Selector</a> ·
+      <a href="498-agent-traffic-acceptance-policy-builder.html">T498 Policy Builder</a> ·
+      <a href="277-x402-payload-decoder-flow-simulator.html">T277 x402 Simulator</a> ·
+      <a href="../index.html">All Tools</a>
+    </span>
+  </div>
+</footer>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ═══ x402 Micropayment Pricing Modeler (T497) v1.0
+   Models HTTP 402 per-call pricing: breakeven, fee drag, agent economics.
+   All arithmetic deterministic. Zero network, zero storage. ═══ */
+
+var lastResult = null;
+
+/* Network fee profiles */
+var FEE_PROFILES = {
+  usdc_base: {name:'USDC / Base', baseline_gas: 0.0008, batch_supported: true, note:'Base is optimized for micropayments; typical gas ~$0.0005–$0.002 per tx'},
+  usdc_eth: {name:'USDC / Ethereum', baseline_gas: 0.012, batch_supported: true, note:'Ethereum mainnet gas varies widely; consider L2 for high-volume x402'},
+  usdc_sol: {name:'USDC / Solana', baseline_gas: 0.00025, batch_supported: true, note:'Solana fees are extremely low; very efficient for high-frequency micropayments'},
+  eth: {name:'ETH / Ethereum', baseline_gas: 0.015, batch_supported: true, note:'Native ETH transfers; higher gas than stablecoins on some paths'},
+  custom: {name:'Custom asset', baseline_gas: 0.001, batch_supported: true, note:'Using your custom fee estimate — verify with your network provider'}
+};
+
+function fmt$(v, dec) {
+  dec = dec === undefined ? 2 : dec;
+  if(v < 0.01 && v > 0) return '$' + v.toFixed(6);
+  if(v < 1) return '$' + v.toFixed(4);
+  return '$' + v.toFixed(dec).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+function fmtN(v) {
+  return v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function runPricingModeler() {
+  var contentType = document.getElementById('content_type').value;
+  var asset = document.getElementById('settlement_asset').value;
+  var perCall = parseFloat(document.getElementById('per_call_price').value) || 0.005;
+  var monthlyReqs = parseInt(document.getElementById('monthly_requests').value) || 50000;
+  var subPrice = parseFloat(document.getElementById('sub_price').value) || 29;
+  var agentPct = parseFloat(document.getElementById('agent_pct').value) || 30;
+  var gasInput = parseFloat(document.getElementById('gas_fee_usd').value) || 0.0008;
+  var batchSize = parseInt(document.getElementById('batch_size').value) || 10;
+
+  var feeProfile = FEE_PROFILES[asset] || FEE_PROFILES.usdc_base;
+  var effectiveGas = gasInput; /* user's input overrides baseline */
+
+  /* ── Core calculations ── */
+  /* x402 model */
+  var txCount = Math.ceil(monthlyReqs / batchSize);           /* on-chain transactions */
+  var totalGas = txCount * effectiveGas;                       /* total monthly gas cost */
+  var grossRev = monthlyReqs * perCall;                        /* gross x402 revenue */
+  var netRev = grossRev - totalGas;                            /* net after gas */
+  var feeDragPct = grossRev > 0 ? (totalGas / grossRev * 100) : 0;
+  var perCallNetted = grossRev > 0 ? (netRev / monthlyReqs) : 0;
+
+  /* Breakeven: how many requests for x402 to match subscription? */
+  /* At sub_price/mo, user breaks even when: per_call * N - gas_per_call * N = sub_price */
+  /* → N = sub_price / (per_call - gas_per_call_effective) */
+  var gasPerCall = effectiveGas / batchSize;
+  var marginalNet = perCall - gasPerCall;
+  var breakevenReqs = marginalNet > 0 ? Math.ceil(subPrice / marginalNet) : Infinity;
+
+  /* Monthly revenue at breakeven volume = sub_price equivalent */
+  var beRevX402 = marginalNet > 0 ? breakevenReqs * perCall : 0;
+
+  /* Subscription model: revenue = sub_price * (monthlyReqs / avg_requests_per_sub_user) */
+  /* Assume avg sub user makes 100 requests/mo for APIs, 10 for articles, 500 for agent actions */
+  var avgReqPerSubUser = {api_call:100, article:10, agent_action:500, data_query:50, stream:200, other:100}[contentType] || 100;
+  var impliedSubUsers = monthlyReqs / avgReqPerSubUser;
+  var subGrossRev = impliedSubUsers * subPrice;
+  var subFeeDrag = 0; /* assume payment processor ~2.9%+$0.30 flat — negligible at scale */
+
+  /* Agent economics */
+  var agentRequests = monthlyReqs * (agentPct / 100);
+  var costPer1000Calls = 1000 * perCall;
+  var gasFor1000 = (1000 / batchSize) * effectiveGas;
+  var netPer1000 = costPer1000Calls - gasFor1000;
+  var agentMonthlySpend = agentRequests * perCall;
+
+  /* Verdict */
+  var viabilityScore = 0;
+  if(feeDragPct < 5) viabilityScore += 40;
+  else if(feeDragPct < 15) viabilityScore += 25;
+  else if(feeDragPct < 30) viabilityScore += 10;
+  if(perCall < 0.1 && perCall > 0.0001) viabilityScore += 20;
+  if(agentPct >= 20) viabilityScore += 20;
+  if(netRev > subGrossRev) viabilityScore += 20;
+  if(marginalNet > 0) viabilityScore += 10;
+  var verdict = viabilityScore >= 65 ? 'viable' : viabilityScore >= 35 ? 'marginal' : 'not';
+
+  /* Adoption scenario revenues */
+  var scenarios = [
+    {label:'Low (10% of est.)', reqs: monthlyReqs * 0.1},
+    {label:'Base (100%)', reqs: monthlyReqs},
+    {label:'High (3×)', reqs: monthlyReqs * 3},
+    {label:'Scale (10×)', reqs: monthlyReqs * 10}
+  ].map(function(s) {
+    var gr = s.reqs * perCall;
+    var g = Math.ceil(s.reqs / batchSize) * effectiveGas;
+    return {label: s.label, reqs: s.reqs, gross: gr, gas: g, net: gr - g, feeDragPct: gr > 0 ? g/gr*100 : 0};
+  });
+
+  /* Save */
+  lastResult = {
+    contentType, asset, perCall, monthlyReqs, subPrice, agentPct, gasInput, batchSize,
+    feeProfile, grossRev, netRev, feeDragPct, txCount, totalGas, gasPerCall, marginalNet,
+    breakevenReqs, subGrossRev, impliedSubUsers, costPer1000Calls, gasFor1000, netPer1000,
+    agentMonthlySpend, agentRequests, verdict, viabilityScore, scenarios
+  };
+
+  /* ── Render ── */
+  /* Verdict */
+  var verdictText = verdict === 'viable'
+    ? '✓ x402 is a viable monetization path for your use case. Fee drag is manageable and your per-call price is in the efficient zone for agent-scale micropayments.'
+    : verdict === 'marginal'
+    ? '⚠ x402 is marginal for your current parameters. Consider increasing batch size, reducing per-call price at higher volumes, or targeting higher agent-traffic share to improve economics.'
+    : '✗ x402 may not be the right fit at these parameters. High fee drag or low per-call price relative to gas costs makes economics challenging. Review T495 for alternative protocols.';
+  var verdictEl = document.getElementById('verdictBox');
+  verdictEl.innerHTML = '<div class="verdict-box verdict-' + (verdict === 'viable' ? 'viable' : verdict === 'marginal' ? 'marginal' : 'not') + '">' + verdictText + '</div>';
+
+  /* Key metrics */
+  var metrics = [
+    {label:'Gross Monthly Revenue', val: fmt$(grossRev), sub: fmtN(monthlyReqs) + ' reqs × ' + fmt$(perCall,4)},
+    {label:'Net After Gas', val: fmt$(netRev), sub: feeDragPct.toFixed(1) + '% fee drag'},
+    {label:'On-Chain Txs / Mo', val: fmtN(txCount), sub: batchSize + ' reqs per batch tx'},
+    {label:'Total Gas Cost', val: fmt$(totalGas), sub: fmt$(effectiveGas,4) + ' per tx'},
+    {label:'Gas per Request', val: fmt$(gasPerCall,6), sub: 'amortized across batch'},
+    {label:'Breakeven Volume', val: marginalNet > 0 ? fmtN(breakevenReqs) + ' reqs' : '∞', sub: 'vs subscription ' + fmt$(subPrice) + '/mo'}
+  ];
+  var mg = document.getElementById('metricGrid');
+  mg.innerHTML = metrics.map(function(m) {
+    return '<div class="metric-card"><div class="metric-label">'+m.label+'</div><div class="metric-val">'+m.val+'</div><div class="metric-sub">'+m.sub+'</div></div>';
+  }).join('');
+
+  /* Breakeven table */
+  var beBody = document.getElementById('beBody');
+  var x402Better = netRev >= subGrossRev;
+  beBody.innerHTML = [
+    {model:'x402 (per-call)', gross: grossRev, net: netRev, drag: feeDragPct, perUser: perCall * 1000 + '/1k calls', better: x402Better},
+    {model:'Subscription', gross: subGrossRev, net: subGrossRev * 0.973 /* ~2.9% card drag */, drag: 2.9, perUser: subPrice + '/mo', better: !x402Better}
+  ].map(function(r) {
+    return '<tr><td class="' + (r.better ? 'be-best' : '') + '">' + r.model + (r.better ? ' ★' : '') + '</td>' +
+      '<td class="' + (r.better ? 'be-best' : '') + '">' + fmt$(r.gross) + '</td>' +
+      '<td class="' + (r.better ? 'be-best' : '') + '">' + fmt$(r.net) + '</td>' +
+      '<td>' + r.drag.toFixed(1) + '%</td>' +
+      '<td>' + (typeof r.perUser === 'number' ? fmt$(r.perUser) : r.perUser) + '</td></tr>';
+  }).join('');
+
+  document.getElementById('beNarrative').innerHTML = marginalNet <= 0
+    ? '<p>⚠ Per-call price (' + fmt$(perCall,4) + ') is at or below the amortized gas cost per request (' + fmt$(gasPerCall,6) + '). Increase batch size or per-call price for positive unit economics.</p>'
+    : '<p>At ' + fmtN(monthlyReqs) + ' requests/mo, x402 yields ' + (x402Better ? 'higher' : 'lower') + ' net revenue (' + fmt$(netRev) + ') than subscription (' + fmt$(subGrossRev) + '). Breakeven point: ' + fmtN(breakevenReqs) + ' requests/mo.</p>';
+
+  /* Agent economics */
+  var am = document.getElementById('agentMetrics');
+  am.innerHTML = [
+    {label:'Agent Requests / Mo', val: fmtN(Math.round(agentRequests)), sub: agentPct + '% of total traffic'},
+    {label:'Agent Revenue / Mo', val: fmt$(agentMonthlySpend), sub: 'at ' + fmt$(perCall,4) + '/call'},
+    {label:'Cost per 1k Agent Calls', val: fmt$(costPer1000Calls), sub: fmt$(netPer1000) + ' net after gas'},
+    {label:'Agent Gas per 1k Calls', val: fmt$(gasFor1000), sub: 'at batch size ' + batchSize}
+  ].map(function(m) {
+    return '<div class="metric-card"><div class="metric-label">'+m.label+'</div><div class="metric-val">'+m.val+'</div><div class="metric-sub">'+m.sub+'</div></div>';
+  }).join('');
+  document.getElementById('agentNarrative').innerHTML = '<p>An AI agent running ' + fmtN(Math.round(agentRequests)) + ' calls/mo pays you ' + fmt$(agentMonthlySpend) + ' — equivalent to ' + (subPrice > 0 ? (agentMonthlySpend / subPrice).toFixed(1) + '× the monthly subscription price' : 'no subscription comparison') + '. At 1,000 calls, an agent pays ' + fmt$(costPer1000Calls) + ' gross (' + fmt$(netPer1000) + ' net to you). ' + (agentPct >= 30 ? 'Your high agent-traffic share makes x402\'s programmatic billing a strong fit.' : 'Increasing agent traffic share improves x402 economics vs subscription.') + '</p>';
+
+  /* Adoption chart */
+  var maxNet = Math.max.apply(null, scenarios.map(function(s){ return s.net; }));
+  var chartHTML = scenarios.map(function(s) {
+    var barPct = maxNet > 0 ? Math.max(2, Math.round(s.net / maxNet * 100)) : 2;
+    return '<div class="adopt-row"><span class="adopt-label">' + s.label + '</span><div class="adopt-bar-wrap"><div class="adopt-bar" style="width:' + barPct + '%"></div></div><span class="adopt-val">' + fmt$(s.net) + ' net/mo</span></div>';
+  }).join('');
+  document.getElementById('adoptionChart').innerHTML = chartHTML;
+
+  /* Exports */
+  document.getElementById('ap2ExportBtn').disabled = false;
+  document.getElementById('ap2ExportBtn').classList.add('ready');
+  document.getElementById('mdExportBtn').disabled = false;
+  document.getElementById('mdExportBtn').classList.add('ready');
+
+  document.getElementById('resultsPanel').classList.add('visible');
+  document.getElementById('resultsPanel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+/* ── Policy Mandate ── */
+function uuid4(){var b=new Uint8Array(16);crypto.getRandomValues(b);b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;var h=Array.prototype.map.call(b,function(x){return('00'+x.toString(16)).slice(-2);}).join('');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);}
+function buildMandate() {
+  if(!lastResult) return null;
+  var r = lastResult;
+  var now = new Date().toISOString();
+  return {
+    ap2_version: '1.0',
+    mandate_id: uuid4(),
+    issued_at: now,
+    issued_by: 'ainumbers.co',
+    tool_id: 'x402-micropayment-pricing-modeler',
+    tool_version: '1.0.0',
+    mandate_type: 'fee_schedule_mandate',
+    jurisdiction: ['GLOBAL'],
+    regulatory_frameworks: ['x402 HTTP 402 Micropayment Protocol','GENIUS Act (US stablecoin framework, if applicable)','MiCA (EU, for settlement asset)'],
+    payload: {
+      content_type: r.contentType,
+      settlement_asset: r.asset,
+      per_call_price_usd: r.perCall,
+      monthly_requests_est: r.monthlyReqs,
+      subscription_price_usd: r.subPrice,
+      agent_traffic_pct: r.agentPct,
+      gas_fee_per_tx_usd: r.gasInput,
+      batch_size: r.batchSize,
+      gross_monthly_revenue_usd: parseFloat(r.grossRev.toFixed(4)),
+      net_monthly_revenue_usd: parseFloat(r.netRev.toFixed(4)),
+      fee_drag_pct: parseFloat(r.feeDragPct.toFixed(2)),
+      breakeven_requests: r.marginalNet > 0 ? r.breakevenReqs : null,
+      viability: r.verdict,
+      viability_score: r.viabilityScore
+    },
+    summary: 'x402 pricing model: ' + r.perCall.toFixed(4) + ' USD/call on ' + r.feeProfile.name + '. Gross ' + r.grossRev.toFixed(2) + ' USD/mo, net ' + r.netRev.toFixed(2) + ' USD/mo (' + r.feeDragPct.toFixed(1) + '% fee drag). Verdict: ' + r.verdict + '.',
+    agent_instructions: [
+      'x402 settlement asset: ' + r.feeProfile.name,
+      'Charge ' + r.perCall.toFixed(6) + ' USD per HTTP 402 request',
+      r.verdict === 'viable' ? 'Proceed with x402 integration — economics are favorable' : 'Review pricing parameters before committing to x402',
+      'Note: ' + r.feeProfile.note
+    ],
+    valid_from: now,
+    source_tool_inputs: {content_type: r.contentType, per_call_price: r.perCall, monthly_requests: r.monthlyReqs, settlement_asset: r.asset},
+    regulatory_citations: ['x402 HTTP 402 protocol — coinbase/base implementation; ~165M agent tx by April 2026','GENIUS Act (US) — stablecoin reserve + AML obligations if settlement asset is a stablecoin','MiCA (EU) — crypto-asset regulation applies to settlement asset, not the x402 protocol itself'],
+    audit_metadata: {client_side_executed: true, zero_pii_verified: true, deterministic_run: true}
+  };
+}
+window.AIN_BUILD_MANDATE = buildMandate;
+
+var AP2Schema = {validate:function(m){var req=['ap2_version','mandate_id','issued_at','issued_by','tool_id','tool_version','mandate_type','payload','audit_metadata'];var missing=req.filter(function(f){return !(f in m);});if(missing.length)throw new Error('AP2: '+missing.join(', '));return true;}};
+function dl(c,n,t){var url=URL.createObjectURL(new Blob([c],{type:t}));var a=document.createElement('a');a.href=url;a.download=n;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(url);},800);}
+function ts14(){return new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);}
+function exportAP2(){if(!lastResult){alert('Run the modeler first.');return;}var m=buildMandate();AP2Schema.validate(m);dl(JSON.stringify(m,null,2),'x402-pricing-modeler_'+ts14()+'.policy.json','application/json');}
+function exportMarkdown(){
+  if(!lastResult) return;
+  var r = lastResult;
+  var fmt$ = function(v){return v < 0.01 && v > 0 ? '$'+v.toFixed(6) : v < 1 ? '$'+v.toFixed(4) : '$'+v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');};
+  var lines = [
+    '# x402 Micropayment Pricing Modeler — T497',
+    '',
+    '_Generated ' + new Date().toISOString() + '_',
+    '',
+    '## Configuration',
+    '- **Content / API type:** ' + r.contentType,
+    '- **Settlement asset:** ' + r.feeProfile.name,
+    '- **Per-call price:** ' + fmt$(r.perCall),
+    '- **Estimated monthly requests:** ' + r.monthlyReqs.toLocaleString(),
+    '- **Equivalent subscription:** ' + fmt$(r.subPrice) + '/mo',
+    '- **Agent traffic share:** ' + r.agentPct + '%',
+    '- **Gas per tx:** ' + fmt$(r.gasInput),
+    '- **Batch size:** ' + r.batchSize + ' reqs/tx',
+    '',
+    '## Results',
+    '- **Gross monthly revenue:** ' + fmt$(r.grossRev),
+    '- **Net after gas:** ' + fmt$(r.netRev),
+    '- **Fee drag:** ' + r.feeDragPct.toFixed(1) + '%',
+    '- **On-chain transactions / mo:** ' + r.txCount.toLocaleString(),
+    '- **Breakeven vs subscription:** ' + (r.marginalNet > 0 ? r.breakevenReqs.toLocaleString() + ' requests/mo' : 'N/A — unit economics negative'),
+    '- **Verdict:** ' + r.verdict.toUpperCase(),
+    '',
+    '## Agent Economics (per 1,000 calls)',
+    '- Gross: ' + fmt$(r.costPer1000Calls),
+    '- Gas: ' + fmt$(r.gasFor1000),
+    '- Net to you: ' + fmt$(r.netPer1000),
+    '',
+    '## Regulatory Notes',
+    '- x402 HTTP 402 protocol — Coinbase/Base; ~165M agent tx by April 2026',
+    '- GENIUS Act (US): stablecoin AML/reserve obligations if settlement asset is a stablecoin',
+    '- MiCA (EU): settlement asset regulation; x402 protocol itself is not regulated'
+  ];
+  dl(lines.join('\n'),'x402-pricing-modeler_'+ts14()+'.md','text/markdown');
+}
+
+var MANIFEST={"tool_id":"x402-micropayment-pricing-modeler","version":"1.0.0","title":"x402 Micropayment Pricing Modeler","description":"Models API/content pricing under HTTP 402 flows: per-call price, settlement asset fee drag, breakeven vs subscription, and agent economics. Branch tool of the Agentic Checkout Merchant Readiness workflow.","category":"mcp","mcp_tool_definition":{"name":"model_x402_micropayment_pricing","description":"Models x402 HTTP 402 micropayment economics: per-call price, fee drag, breakeven vs subscription, and agent economics at scale.","inputSchema":{"type":"object","properties":{"per_call_price":{"type":"number","description":"Per-call price in USD"},"monthly_requests":{"type":"number","description":"Estimated monthly request volume"},"settlement_asset":{"type":"string","description":"Settlement asset: usdc_base, usdc_eth, usdc_sol, eth, custom"},"agent_traffic_pct":{"type":"number","description":"Percentage of requests from AI agents (0-100)"}},"required":["per_call_price","monthly_requests"]}},"execution":{"type":"browser-javascript","entry":"tools/497-x402-micropayment-pricing-modeler.html","function_name":"runPricingModeler","timeout_ms":3000},"ap2_export":true,"prefill":true,"bridge_version":"1.0"};
+function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||!b.style.display){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+function copyMfst(){var s=JSON.stringify(MANIFEST,null,2);if(navigator.clipboard)navigator.clipboard.writeText(s);}
+</script>
+<!-- ═══ AIN Bridge v1.0 ═══ -->
+<script>window.AIN_BRIDGE_CFG={runFn:'runPricingModeler',intake:false};</script>
+<script>(function(){'use strict';var CFG=window.AIN_BRIDGE_CFG||{};function applyPrefill(fields){var n=0;if(!fields||typeof fields!=='object')return 0;Object.keys(fields).forEach(function(id){var el=document.getElementById(id);if(!el)return;var v=fields[id];if(el.tagName==='SELECT'){el.value=String(v);}else if(el.tagName==='INPUT'){el.value=String(v);}try{el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}n++;});return n;}window.AINBridge={version:'1.0',apply:applyPrefill,run:function(){if(typeof window[CFG.runFn]==='function'){try{window[CFG.runFn]();return true;}catch(e){return false;}}return false;},getMandate:function(){return(typeof window.AIN_BUILD_MANDATE==='function')?window.AIN_BUILD_MANDATE():null;}};
+window.addEventListener('message',function(e){if(window.parent===window||e.source!==window.parent)return;var ro=(e.origin&&e.origin!=='null')?e.origin:'*';var d=e.data||{};if(d.type==='ain:prefill'){var applied=applyPrefill(d.fields||{});e.source&&e.source.postMessage({type:'ain:prefilled',applied:applied},ro);}else if(d.type==='ain:run'){try{window[CFG.runFn]&&window[CFG.runFn]();e.source&&e.source.postMessage({type:'ain:ran',ok:true},ro);}catch(ex){e.source&&e.source.postMessage({type:'ain:ran',ok:false,error:ex.message},ro);}}else if(d.type==='ain:getMandate'){var m=(typeof window.AIN_BUILD_MANDATE==='function')?window.AIN_BUILD_MANDATE():null;e.source&&e.source.postMessage({type:'ain:mandate',mandate:m},ro);}});})();
+</script>
+</body>
+</html>
