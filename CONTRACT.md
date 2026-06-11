@@ -1,5 +1,5 @@
-# 📜 AINumbers.co — Unified Build Contract v1.1
-**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.1 (Amendment A1 folded):** June 2026  
+# 📜 AINumbers.co — Unified Build Contract v1.2
+**Maintainer:** Post Oak Labs · **Status:** Production-Ready · **Effective:** May 2026 · **v1.2 (Amendments A1–A2 folded):** June 2026  
 **License:** CC BY 4.0 · **Scope:** All browser-based financial tools, hubs, and MCP integrations  
 **Target Audience:** AI Build Instances (Claude/LLMs), Frontend Engineers, Compliance QA  
 
@@ -29,6 +29,8 @@ The lang toggle (`.lang-bar` / `setLang()`) has been **removed from all new buil
 **Do not add a lang toggle to new tools or hubs.** Do not include `.lang-bar` CSS, `setLang()`, `TRANSLATIONS` objects, or `sessionStorage` `ain_lang` writes in any new file.
 
 When bandwidth allows, a proper implementation (translated metadata layer for ES/FR/PT with AR/中文 stubs) is fully specced in **`../I18N-SPEC.md`** (Option B). That spec is the source of truth for any future re-implementation.
+
+**Grandfathered state (existing tools):** ~187 tools built before this amendment retain `.lang-bar` HTML and `TRANSLATIONS` JS in their source. This is a held state — the toggles were cosmetic and do no harm. The AIN Bridge `t()` function in these tools has been pinned to English-only (sessionStorage read removed, Amendment A2). Do not strip their `TRANSLATIONS` blocks until I18N-SPEC.md Option B is ready to replace them; use `scripts/strip_lang_toggle.py --write` at that point.
 
 ### 1.2 Mandatory UI Components
 | Component | Selector/Pattern | Notes |
@@ -111,6 +113,9 @@ tools/{slug}.html#in=<base64url(JSON of {element_id: value})>[&run=1]
 - Inputs travel in the URL hash fragment — never transmitted to a server. Zero-PII rules apply (synthetic values only).
 - Values are assigned via `.value`/`.checked` only (never innerHTML); run functions are limited to the per-tool CFG whitelist.
 
+### 2.6 MCP Registry & Directory Registrations (Amendment A2.1)
+The MCP Apps server (`https://mcp.ainumbers.co/mcp`) is registered in the official MCP registry (`co.ainumbers/tools`) and multiple directories (Anthropic Connectors, PulseMCP, Glama, mcp.so, awesome-mcp-servers). Current submission status, Track A domain-key steps, and Track B form fill-in data are tracked in **`../REGISTRY-LOG.md`** (workspace root, outside `repo/`). Update that file and republish Track A (`mcp-publisher.exe publish` with a bumped `version` in `mcp-apps-poc/server.json`) whenever the MCP server materially changes.
+
 ### 2.5 MCP Workflow-Chain Integrity (Amendment A1.5)
 The MCP server (`mcp-apps-poc/worker.mjs`) exposes the `build_workflow_links` tool, backed by a `NAMED_CHAINS` map. Each chain MUST satisfy:
 - Every `steps[].slug` corresponds to a real `tools/<slug>.html` (or `rbe-*`) — a missing file means the server hands out **404 deep-links**.
@@ -185,6 +190,8 @@ Prevents client-side bloat & enforces deterministic guarantees.
 
 *Implementation:* All exports MUST use `URL.createObjectURL(new Blob([content], {type:'...'}))` + `<a download>`. No external libraries (jsPDF, etc.) unless explicitly approved & bundled inline.
 
+**Wave-5 tools (Amendment A2.2):** T465–T468 (CARF/DAC8/1099-DA crypto-tax) and T472, T475–T476 (Basel LCR/NSFR/Pillar 3, Pillar Two GloBE safe harbour) carry Tier 1 export obligation — their outputs are policy and compliance assessments covered by `compliance_control`, `risk_parameter`, and `disclosure_template` mandate types (§3.1).
+
 ---
 
 ## 🔢 5. Tool Numbering & Hub Architecture
@@ -216,6 +223,7 @@ A fourth valid page architecture (rubric-scored with its own profile): a guide-l
 **Rules:**
 - Never reset, never reuse RESERVED numbers.
 - T300 deliberate architectural break from T268 is documented and permitted.
+- T380/T381 disambiguation (2026-06-11): T380 (`physical-climate-risk-assessor`) and T381 (`eu-green-bond-standard-screener`) are confirmed distinct tools. An earlier duplicate file state was resolved; both are live and valid. Do not merge or renumber.
 - Cross-link, don't clone. Use Journey Track/Quick-Start for workflow routing.
 - Drop tools marked DROPPED/CONSOLIDATED in the Overlap Registry.
 
@@ -239,6 +247,7 @@ A fourth valid page architecture (rubric-scored with its own profile): a guide-l
 - [ ] Input validation covers empty, negative, non-numeric, malformed
 - [ ] Export output matches Tier system contract
 - [ ] Complex logic & payments math are inline-commented
+- [ ] `python scripts/regen_sitemap.py --apply` run after adding any new tool or guide (Amendment A2.3)
 
 ### 6.2 Pre-Merge Validation Pipeline
 ```bash
