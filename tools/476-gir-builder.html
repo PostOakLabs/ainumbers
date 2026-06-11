@@ -145,6 +145,14 @@ footer{border-top:1px solid var(--border);padding:1.4rem 0 2rem;margin-top:3rem}
   </div>
 </div>
 
+<div id="ap2ExportRow" style="display:flex;flex-wrap:wrap;gap:.55rem;margin:1.5rem 0 .5rem;padding-top:1rem;border-top:1px solid var(--border,#1E2F4A)">
+  <button id="ap2ExportBtn" disabled onclick="exportAP2()"
+    style="display:inline-flex;align-items:center;gap:.45rem;padding:.5rem 1rem;border-radius:var(--radius,6px);font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--border-2,#263855);color:var(--muted,#3A5270);background:transparent;cursor:not-allowed;opacity:.32;white-space:nowrap;transition:all .2s"
+    title="Run the tool first to enable Policy Mandate export">
+    &#123;&#125; Export Policy Mandate
+    <span style="display:block;font-size:.44rem;letter-spacing:.04em;opacity:.7;text-transform:none;margin-top:.1rem">API &#xb7; audit trail</span>
+  </button>
+</div>
 <section id="mfstSec" style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem">
   <div style="max-width:900px;margin:0 auto;padding:0 1.5rem">
     <button onclick="toggleMfst()" style="width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:6px;cursor:pointer;margin-bottom:1px">
@@ -328,6 +336,117 @@ var MANIFEST = {"tool_id":"476-gir-builder","version":"1.0.0","title":"GloBE Inf
 function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
 function copyMfst(){if(navigator.clipboard)navigator.clipboard.writeText(JSON.stringify(MANIFEST,null,2));}
 function scrollMfst(){var el=document.getElementById('mfstSec');if(el)el.scrollIntoView({behavior:'smooth'});}
+</script>
+<div id="ainToast" style="position:fixed;bottom:1.4rem;left:50%;transform:translateX(-50%);background:var(--bg-4,#162340);border:1px solid var(--teal,#14B8A6);color:var(--bright,#D4E8F8);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.6rem 1.1rem;border-radius:var(--radius,6px);z-index:9999;display:none;white-space:nowrap;pointer-events:none"></div>
+<style>#ap2ExportBtn.ready{opacity:1!important;cursor:pointer!important;border-color:var(--teal,#14B8A6)!important;color:var(--bright,#D4E8F8)!important}#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)!important}</style>
+<script>
+/* AP2 export — injected by add_ap2_export.py */
+(function(){
+  'use strict';
+
+  function uuid4(){
+    var b=new Uint8Array(16);crypto.getRandomValues(b);
+    b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;
+    var h=Array.prototype.map.call(b,function(x){return('0'+x.toString(16)).slice(-2);}).join('');
+    return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+  }
+
+  function showToast(msg,err){
+    var t=document.getElementById('ainToast');
+    if(!t)return;
+    t.textContent=msg;
+    t.style.borderColor=err?'var(--red,#EF4444)':'var(--teal,#14B8A6)';
+    t.style.color=err?'var(--red,#EF4444)':'var(--bright,#D4E8F8)';
+    t.style.display='block';
+    clearTimeout(t._h);
+    t._h=setTimeout(function(){t.style.display='none';},3200);
+  }
+
+  function dl(content,name){
+    var url=URL.createObjectURL(new Blob([content],{type:'application/json'}));
+    var a=document.createElement('a');a.href=url;a.download=name;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    setTimeout(function(){URL.revokeObjectURL(url);},800);
+  }
+
+  window.exportAP2=function(){
+    var m=window._lastMandate;
+    if(!m){showToast('Run the tool first.',true);return;}
+    var slug=location.pathname.split('/').pop().replace('.html','');
+    var ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+    dl(JSON.stringify(m,null,2),slug+'_'+ts+'.policy.json');
+    showToast('Policy Mandate exported ✓');
+  };
+
+  function enableAP2Btn(){
+    var ab=document.getElementById('ap2ExportBtn');
+    if(!ab||ab.classList.contains('ready'))return;
+    ab.disabled=false;
+    ab.classList.add('ready');
+    ab.title='Download Policy Mandate JSON';
+  }
+
+  function buildFallbackMandate(){
+    /* Grab text from the first visible results panel as payload */
+    var sel='.results-panel,.result-panel,.output-panel,#resultsPanel,#results,'+
+            '[id*="result"]:not(button):not(input):not(label):not(script)';
+    var panels=document.querySelectorAll(sel);
+    var snap='';
+    for(var i=0;i<panels.length;i++){
+      if(panels[i].offsetParent!==null&&panels[i].innerText.trim()){
+        snap=panels[i].innerText.slice(0,3000);break;
+      }
+    }
+    return {
+      ap2_version:'1.0',
+      mandate_id:uuid4(),
+      issued_at:new Date().toISOString(),
+      issued_by:'ainumbers.co',
+      tool_id:location.pathname.split('/').pop().replace('.html',''),
+      tool_version:'1.0',
+      mandate_type:'compliance_assessment',
+      jurisdiction:'see_payload',
+      payload:{output_snapshot:snap||'run tool to populate'},
+      audit_metadata:{client_side:true,pii_transmitted:false}
+    };
+  }
+
+  function tryWrap(){
+    var cfg=window.AIN_BRIDGE_CFG;
+    if(!cfg||!cfg.runFn)return false;
+    var fn=window[cfg.runFn];
+    if(typeof fn!=='function'||fn._ap2Wrapped)return true;
+    window[cfg.runFn]=function(){
+      var r=fn.apply(this,arguments);
+      setTimeout(function(){
+        /* Priority: tool-specific _lastMandate > _mandate string (T477) > DOM fallback */
+        if(!window._lastMandate){
+          if(window._mandate&&typeof window._mandate==='string'){
+            try{window._lastMandate=JSON.parse(window._mandate);}catch(e){}
+          }
+        }
+        if(!window._lastMandate){
+          window._lastMandate=buildFallbackMandate();
+        }
+        enableAP2Btn();
+      },150);
+      return r;
+    };
+    window[cfg.runFn]._ap2Wrapped=true;
+    return true;
+  }
+
+  /* Wrap immediately if bridge already loaded; retry after DOM ready otherwise */
+  if(!tryWrap()){
+    var ready=document.readyState;
+    if(ready==='loading'){
+      document.addEventListener('DOMContentLoaded',function(){tryWrap();setTimeout(tryWrap,300);});
+    } else {
+      setTimeout(function(){tryWrap();setTimeout(tryWrap,300);},0);
+    }
+  }
+
+})();
 </script>
 </body>
 </html>
