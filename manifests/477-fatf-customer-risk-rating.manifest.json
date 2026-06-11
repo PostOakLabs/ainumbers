@@ -1,0 +1,63 @@
+{
+  "tool_id": "477-fatf-customer-risk-rating",
+  "version": "1.0.0",
+  "title": "FATF Customer Risk Rating",
+  "description": "Score a customer across 6 FATF Recommendation 10/12 risk dimensions (entity type, geography, product/service, channel, PEP/sanctions exposure, transaction pattern) to derive a composite AML risk tier and required CDD level. Outputs per-dimension breakdown and Policy Mandate JSON.",
+  "category": "aml-kyc-compliance",
+  "tags": ["FATF","AML","KYC","CDD","EDD","customer risk","risk-based approach","KYA","compliance"],
+  "audience": ["compliance","risk","mlro","fintech","baas"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "entity_type": {"type": "string"},
+      "geography": {"type": "string"},
+      "product_service": {"type": "string"},
+      "channel": {"type": "string"},
+      "pep_sanctions": {"type": "string"},
+      "transaction_pattern": {"type": "string"},
+      "w_entity": {"type": "number"},
+      "w_geo": {"type": "number"},
+      "w_product": {"type": "number"},
+      "w_channel": {"type": "number"},
+      "w_pep": {"type": "number"},
+      "w_txn": {"type": "number"}
+    },
+    "required": ["entity_type","geography","product_service","channel","pep_sanctions","transaction_pattern"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "composite_score": {"type": "number"},
+      "risk_tier": {"type": "string", "enum": ["Low","Medium","High","Prohibited"]},
+      "cdd_level": {"type": "string"},
+      "dimensions": {"type": "array"},
+      "ap2_mandate": {"type": "object"}
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "fatf_customer_risk_rating",
+    "description": "Score a customer across 6 FATF Recommendation 10/12 risk dimensions and return a composite AML risk tier (Low/Medium/High/Prohibited), required CDD level, and per-dimension breakdown. Use when an agent needs to assess onboarding risk before routing to AML mandate or TAP identity verification.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "entity_type": {"type": "string", "enum": ["individual_standard","corporate_standard","corporate_complex","charity_npo","pep_domestic","pep_foreign"], "description": "Customer/entity type"},
+        "geography": {"type": "string", "enum": ["low_risk","standard","fatf_grey","sanctions","tax_haven"], "description": "Jurisdiction risk level"},
+        "product_service": {"type": "string", "enum": ["standard_deposit","internet_banking","cash_intensive","crypto_dlt","private_banking","trade_finance","correspondent"], "description": "Product or service category"},
+        "channel": {"type": "string", "enum": ["face_to_face","non_face_verified","digital_biometric","agent_intermediary","correspondent_nested","anonymous"], "description": "Onboarding/delivery channel"},
+        "pep_sanctions": {"type": "string", "enum": ["none","distant_link","close_associate","domestic_pep","foreign_pep_or_sanctions"], "description": "PEP and sanctions exposure level"},
+        "transaction_pattern": {"type": "string", "enum": ["low_velocity","moderate","elevated_cross_border","high_velocity_structuring","red_flag"], "description": "Observed or expected transaction risk pattern"},
+        "w_entity": {"type": "number", "description": "Weight for entity dimension (default 1)"},
+        "w_geo": {"type": "number", "description": "Weight for geography dimension (default 1)"},
+        "w_product": {"type": "number", "description": "Weight for product dimension (default 1)"},
+        "w_channel": {"type": "number", "description": "Weight for channel dimension (default 1)"},
+        "w_pep": {"type": "number", "description": "Weight for PEP/sanctions dimension (default 1)"},
+        "w_txn": {"type": "number", "description": "Weight for transaction pattern dimension (default 1)"}
+      },
+      "required": ["entity_type","geography","product_service","channel","pep_sanctions","transaction_pattern"]
+    }
+  },
+  "execution": {"type": "browser-javascript", "entry": "tools/477-fatf-customer-risk-rating.html", "function_name": "runFatfRisk", "timeout_ms": 3000},
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0"
+}
