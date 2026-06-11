@@ -44,6 +44,25 @@ TARGETS = [
     # 2 borderline
     "42-cashflow-forecaster-stress-lab.html",
     "427-bank-guarantee-structuring-tool.html",
+    # Round-2: manifests declared ap2_export:true but button was missing (caught by verify_repo.py 2026-06-11)
+    "328-genius-act-reserve-optimizer.html",
+    "332-mica-casp-authorization-checker.html",
+    "333-eu-ai-act-article9-risk-mgmt-builder.html",
+    "334-eu-ai-act-article10-data-governance-mapper.html",
+    "335-eu-ai-act-provider-deployer-obligations-splitter.html",
+    "336-genius-act-issuer-classification-mapper.html",
+    "337-genius-act-reserve-attestation-checklist.html",
+    "338-genius-act-aml-sanctions-scope-builder.html",
+    "342-eu-ipr-iso20022-address-validator.html",
+    "343-psd3-psr2-transition-impact-assessor.html",
+    "344-rwa-tokenized-asset-jurisdiction-mapper.html",
+    "419-sca-exemption-classifier.html",
+    "466-crypto-cost-basis-gain-calculator.html",
+    "469-lcr-calculator.html",
+    "470-nsfr-calculator.html",
+    "471-leverage-ratio-calculator.html",
+    "473-globe-etr-jurisdiction-calculator.html",
+    "474-topup-tax-qdmtt-calculator.html",
 ]
 
 # ── Injected HTML: export button ─────────────────────────────────────────────

@@ -62,6 +62,16 @@ TARGETS = [
     "498-agent-traffic-acceptance-policy-builder.html",
     # Group B: has pii-notice div with wrong text
     "477-fatf-customer-risk-rating.html",
+    # Group B round-2 (caught by verify_repo.py 2026-06-11)
+    "375-visa-agentic-ready-issuer-readiness-scorer.html",
+    "380-physical-climate-risk-assessor.html",
+    "385-transition-plan-adequacy-checker.html",
+    "415-scheme-fee-analyzer.html",
+    "441-udaap-risk-assessor.html",
+    "442-reg-e-dispute-workflow-builder.html",
+    "445-bsa-sar-filing-adequacy-checker.html",
+    "451-sr11-7-model-risk-management-gap-assessor.html",
+    "459-insurance-ratemaking-adequacy.html",
     # Group C: pii text embedded elsewhere (scope-note span, hero p, etc.)
     "20-failure-analyser.html",
     "21-emerging-corridor-sheet.html",
