@@ -252,7 +252,10 @@ A fourth valid page architecture (rubric-scored with its own profile): a guide-l
 - [ ] `python scripts/regen_sitemap.py --apply` run after adding any new tool or guide (Amendment A2.3)
 
 ### 6.2 Pre-Merge Validation Pipeline
+**`node scripts/check_tools.js` is the BLOCKING first gate** — it parses every tool's inline JavaScript and exits non-zero if any `<script>` has a syntax error. NEVER commit or merge tool HTML while it reports a failure; run `node scripts/locate_errors.js` to pinpoint each break. (Added 2026-06-11 after a structural JS edit silently deleted live code in dozens of tools — syntax errors are invisible until a user hits them.)
 ```bash
+# 0. JS syntax gate — MUST exit 0 (blocking; no tool may ship with a broken inline <script>)
+node scripts/check_tools.js
 # Validate all manifests against schema
 npm run lint:manifests
 # Verify Policy Mandate schema compliance on generated payloads
