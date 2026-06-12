@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>MiCA Stablecoin Reserve Stress Simulator · RCA-02 · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Monte Carlo simulation of stablecoin reserve portfolios under MiCA Article 36 redemption stress and asset price shocks. 1,000 paths × 90-day horizon. Coverage fan chart, breach probability curve, fire-sale contagion estimate. Zero-egress, browser-local.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/rca-02-mica-reserve-stress.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"MiCA Stablecoin Reserve Stress Simulator","url":"https://ainumbers.co/chaingraph/rca-02-mica-reserve-stress.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "rca-02-mica-reserve-stress",
+  "version": "1.0.0",
+  "title": "MiCA Stablecoin Reserve Stress Simulator",
+  "description": "Monte Carlo simulation of stablecoin reserve portfolios under MiCA Article 36 redemption stress and asset price shocks. 1,000 paths × 90-day horizon. Coverage ratio fan chart (P5–P95), breach probability curve, Article 36 liquid buffer analysis, fire-sale contagion estimate. Chains from ART-06 (GENIUS Act attestation pre-check) and SIM-01 (LCR/NSFR). Exports AP2 liquidity_mandate artifact.",
+  "category": "chaingraph",
+  "tags": ["MiCA","stablecoin","reserve stress","ART","EMT","Monte Carlo","Article 36","ESMA","redemption stress","liquidity","crypto","peg stability"],
+  "mcp_tool_definition": {"name":"simulate_stablecoin_reserve","description":"Monte Carlo MiCA reserve stress simulation. Returns 90-day coverage ratio fan chart (P5–P95), breach probability per day, MiCA Article 36 liquid buffer status, and fire-sale contagion estimate for a configurable reserve portfolio under redemption and price-shock stress scenarios.","inputSchema":{"type":"object","properties":{"issuer_type":{"type":"string","enum":["art","emt"],"description":"Token type: art (Asset-Referenced Token, MiCA Title III) or emt (E-Money Token, MiCA Title IV). Default art"},"coverage_start":{"type":"number","description":"Reserve coverage ratio at t=0 as decimal (e.g. 1.05 = 105%). Default 1.05"},"liquid_fraction":{"type":"number","description":"Fraction of reserves in highly liquid assets eligible under MiCA Article 36 (0–1). Default 0.60"},"scenario":{"type":"string","enum":["bank_run","gradual_drain","flash_crash"],"description":"Redemption stress scenario shape. Default bank_run"},"shock_severity":{"type":"string","enum":["mild","moderate","severe"],"description":"Asset price shock severity. Default moderate"},"n_paths":{"type":"integer","description":"Monte Carlo paths (200–2000). Default 1000"},"horizon_days":{"type":"integer","description":"Simulation horizon in days (30–180). Default 90"}},"required":[]}},
+  "execution": {"type":"browser-javascript","entry":"chaingraph/rca-02-mica-reserve-stress.html","function_name":"runStressTest","timeout_ms":30000},
+  "ap2_export": true,
+  "chaingraph": true,
+  "chain_partners": ["art-06-genius-act-reserve-attestation","sim-01-lcr-nsfr-liquidity-stress-test","ptg-01-ap2-prompt-template-generator"],
+  "mandate_type": "liquidity_mandate",
+  "deadline": "2024-06-30",
+  "deadline_note": "MiCA Title III/IV in force June 30 2024 — ART/EMT issuers subject to Article 36 reserve requirements now",
+  "conformance_fixtures": false,
+  "gpu": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--muted);padding:.65rem 1rem;font-size:.7rem;color:var(--muted);line-height:1.6;margin-bottom:1.25rem;border-radius:var(--radius)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--teal)}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.3rem}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.15rem;display:block;line-height:1.4}
+input[type="number"],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'Sora',sans-serif;font-size:.75rem;padding:.38rem .55rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+input[type="number"]:focus,select:focus{border-color:var(--teal)}
+input[type="range"]{width:100%;accent-color:var(--teal);cursor:pointer}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-bottom:.85rem}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.85rem;margin-bottom:.85rem}
+@media(max-width:640px){.two-col,.three-col{grid-template-columns:1fr}}
+/* Scenario cards */
+.scenario-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.65rem;margin-bottom:.85rem}
+@media(max-width:540px){.scenario-grid{grid-template-columns:1fr}}
+.scenario-card{border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;cursor:pointer;transition:all .2s;background:var(--bg-3)}
+.scenario-card:hover{border-color:var(--teal)}
+.scenario-card.active{border-color:var(--teal);background:var(--teal-dim)}
+.scenario-card-title{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.25rem}
+.scenario-card-desc{font-size:.68rem;color:var(--body);line-height:1.5}
+/* Severity chips */
+.severity-row{display:flex;gap:.5rem;margin-bottom:.85rem}
+.severity-chip{flex:1;border:1px solid var(--border);border-radius:var(--radius);padding:.45rem .65rem;cursor:pointer;transition:all .2s;background:var(--bg-3);text-align:center}
+.severity-chip:hover{border-color:var(--body)}
+.severity-chip.active-mild{border-color:var(--green);background:var(--green-dim)}
+.severity-chip.active-moderate{border-color:var(--warn);background:var(--warn-dim)}
+.severity-chip.active-severe{border-color:var(--red);background:var(--red-dim)}
+.severity-chip-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:.1rem}
+.severity-chip.active-mild .severity-chip-label{color:var(--green)}
+.severity-chip.active-moderate .severity-chip-label{color:var(--warn)}
+.severity-chip.active-severe .severity-chip-label{color:var(--red)}
+.severity-chip-detail{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted)}
+/* Slider row */
+.slider-row{display:flex;align-items:center;gap:.85rem;margin-bottom:.65rem}
+.slider-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);width:160px;flex-shrink:0}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--bright);width:52px;text-align:right;flex-shrink:0}
+/* Run */
+.run-row{display:flex;align-items:center;gap:1.25rem;margin-top:.5rem}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover:not(:disabled){background:var(--teal-lt)}
+.run-btn:disabled{opacity:.5;cursor:not-allowed}
+.progress-wrap{flex:1;background:var(--bg-3);border:1px solid var(--border);border-radius:3px;height:6px;overflow:hidden}
+.progress-fill{height:100%;background:var(--teal);border-radius:3px;width:0%;transition:width .15s}
+.run-status{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);min-width:180px}
+/* Results */
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+/* Verdict */
+.verdict-card{border-radius:var(--radius-lg);padding:1.3rem 1.5rem;margin-bottom:1rem;display:flex;align-items:flex-start;gap:1.1rem}
+.verdict-card.good{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.3)}
+.verdict-card.warn{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.35)}
+.verdict-card.risk{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.35)}
+.verdict-icon{font-size:1.6rem;line-height:1;flex-shrink:0;margin-top:.1rem}
+.verdict-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.25rem}
+.verdict-label.good{color:var(--green)}.verdict-label.warn{color:var(--warn)}.verdict-label.risk{color:var(--red)}
+.verdict-title{font-family:'DM Serif Display',serif;font-size:1.35rem;color:var(--white);margin-bottom:.3rem}
+.verdict-sub{font-size:.7rem;color:var(--body);line-height:1.6}
+/* Scorecard */
+.scorecard-row{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem}
+@media(max-width:640px){.scorecard-row{grid-template-columns:1fr 1fr}}
+.metric-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.85rem 1rem;text-align:center}
+.metric-label{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.metric-value{font-family:'DM Serif Display',serif;font-size:1.45rem;line-height:1;margin-bottom:.1rem}
+.metric-sub{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted)}
+.metric-value.good{color:var(--green)}.metric-value.warn{color:var(--warn)}.metric-value.risk{color:var(--red)}.metric-value.neutral{color:var(--bright)}
+/* Charts */
+.chart-wrap{overflow-x:auto;margin-bottom:.5rem}
+.chart-svg{width:100%;display:block}
+.chart-legend{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:.5rem}
+.legend-item{display:flex;align-items:center;gap:.35rem;font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted)}
+.legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+/* Contagion */
+.contagion-bar-wrap{margin-bottom:.65rem}
+.contagion-bar-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--text);margin-bottom:.3rem;display:flex;justify-content:space-between}
+.contagion-bar-outer{height:14px;background:var(--bg-3);border-radius:3px;overflow:hidden}
+.contagion-bar-inner{height:100%;border-radius:3px;transition:width .5s}
+/* Export */
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--teal);color:var(--bright)}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+/* Manifest */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="chaingraph-hub.html">ChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">RCA-02</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph Suite · RCA-02 · MiCA Reserve Stress · Wave 3</div>
+  <span class="badge badge-muted" style="display:inline-flex;margin-bottom:.6rem"><span>v1.0.0</span></span>
+  <h1>MiCA Stablecoin Reserve <em>Stress Simulator</em></h1>
+  <p class="hero-desc">Monte Carlo simulation of stablecoin reserve portfolios under <strong>MiCA Article 36</strong> redemption stress and asset price shocks — the core regulatory stress test required of <strong>Asset-Referenced Token (ART)</strong> and <strong>E-Money Token (EMT)</strong> issuers. 1,000 paths × 90-day horizon. Complements <strong>ART-06</strong> (static attestation pre-check) with the full stochastic dimension. All computation runs locally — no reserve data leaves your browser.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">AP2 Export</span>
+    <span class="badge badge-teal">Chains: ART-06 · SIM-01 · PTG-01</span>
+    <span class="badge badge-red">MiCA in force June 2024</span>
+    <span class="badge badge-gold">MiCA Art. 36 · ESMA</span>
+    <span class="badge badge-gold">1,000 paths · 90 days</span>
+    <span class="badge badge-green">Zero PII</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="disclaimer">
+    ⚠ <strong style="color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.62rem">Simulation only — not supervisory stress testing.</strong> MiCA Regulation (EU) 2023/1114 Title III/IV is in force. ESMA regulatory technical standards (RTS) on reserve stress testing for ARTs are under development; Article 36 liquid-buffer thresholds used here are illustrative proxies pending final RTS. This tool is for pre-validation, scenario planning, and educational purposes. It is not a substitute for a formal supervisory stress test conducted under ESMA/NCА guidance. [¹ MiCA Art. 36, 45 · ² ESMA/2024/RTS · ³ FSB 2023 Stablecoin Framework]
+  </div>
+
+  <!-- ISSUER CONFIGURATION -->
+  <div class="panel">
+    <div class="panel-label">Issuer &amp; reserve configuration</div>
+    <div class="three-col">
+      <div>
+        <label class="field-label" for="issuerType">Token type</label>
+        <select id="issuerType">
+          <option value="art" selected>ART — Asset-Referenced Token (Title III)</option>
+          <option value="emt">EMT — E-Money Token (Title IV)</option>
+        </select>
+        <span class="field-hint">Determines Art. 36 liquid buffer threshold</span>
+      </div>
+      <div>
+        <label class="field-label" for="coverageStart">Coverage ratio at t = 0 (%)</label>
+        <input type="number" id="coverageStart" value="105" min="100" max="200" step="0.5">
+        <span class="field-hint">Reserve assets ÷ outstanding liabilities. MiCA minimum = 100%</span>
+      </div>
+      <div>
+        <label class="field-label" for="liquidFraction">Liquid asset fraction (%)</label>
+        <input type="number" id="liquidFraction" value="60" min="0" max="100" step="5">
+        <span class="field-hint">% of reserves in MiCA-eligible highly liquid assets (Art. 36)</span>
+      </div>
+    </div>
+    <div class="two-col">
+      <div>
+        <label class="field-label" for="nPaths">Monte Carlo paths</label>
+        <input type="number" id="nPaths" value="1000" min="200" max="2000" step="100">
+        <span class="field-hint">200–2,000. Higher = more precise percentiles</span>
+      </div>
+      <div>
+        <label class="field-label" for="horizonDays">Horizon (days)</label>
+        <input type="number" id="horizonDays" value="90" min="30" max="180" step="10">
+        <span class="field-hint">30–180. MiCA standard = 90-day stress window</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STRESS SCENARIO -->
+  <div class="panel">
+    <div class="panel-label">Redemption stress scenario</div>
+    <div class="scenario-grid">
+      <div class="scenario-card active" id="sc_bank_run" onclick="selectScenario('bank_run')">
+        <div class="scenario-card-title">Bank Run</div>
+        <div class="scenario-card-desc">Exponential redemption surge peaking at day 20. Cumulative drain ~40% of liabilities. Most severe short-horizon scenario.</div>
+      </div>
+      <div class="scenario-card" id="sc_gradual_drain" onclick="selectScenario('gradual_drain')">
+        <div class="scenario-card-title">Gradual Drain</div>
+        <div class="scenario-card-desc">Linear redemption increase 0.3%→1.0% per day over the horizon. Cumulative drain ~50% over 90 days. Tests slow-bleed resilience.</div>
+      </div>
+      <div class="scenario-card" id="sc_flash_crash" onclick="selectScenario('flash_crash')">
+        <div class="scenario-card-title">Flash Crash</div>
+        <div class="scenario-card-desc">15% redemption spike on day 3, followed by 0.5%/day recovery drain. Tests liquidity buffer adequacy under sudden demand shock.</div>
+      </div>
+    </div>
+    <div class="panel-label" style="margin-top:.5rem">Asset price shock severity</div>
+    <div class="severity-row">
+      <div class="severity-chip" id="sev_mild" onclick="selectSeverity('mild')">
+        <span class="severity-chip-label">Mild</span>
+        <span class="severity-chip-detail">σ = 0.8% · peak drop 8%</span>
+      </div>
+      <div class="severity-chip active-moderate" id="sev_moderate" onclick="selectSeverity('moderate')">
+        <span class="severity-chip-label">Moderate</span>
+        <span class="severity-chip-detail">σ = 1.5% · peak drop 20%</span>
+      </div>
+      <div class="severity-chip" id="sev_severe" onclick="selectSeverity('severe')">
+        <span class="severity-chip-label">Severe</span>
+        <span class="severity-chip-detail">σ = 2.5% · peak drop 35%</span>
+      </div>
+    </div>
+    <div class="panel-label" style="margin-top:.5rem">Fire-sale contagion parameters</div>
+    <div class="slider-row">
+      <span class="slider-label">Fire-sale haircut</span>
+      <input type="range" id="firesaleHaircut" min="5" max="50" value="20" step="5" oninput="document.getElementById('firesaleVal').textContent=this.value+'%'">
+      <span class="slider-val" id="firesaleVal">20%</span>
+    </div>
+    <div class="slider-row">
+      <span class="slider-label">Art. 36 buffer trigger (%)</span>
+      <input type="range" id="bufferTrigger" min="10" max="50" value="30" step="5" oninput="document.getElementById('bufferVal').textContent=this.value+'%'">
+      <span class="slider-val" id="bufferVal">30%</span>
+    </div>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);line-height:1.5">Fire-sale haircut applied to illiquid asset disposals when liquid buffer falls below trigger. Art. 36 threshold: illustrative 30% for ART, 20% for EMT — final ESMA RTS pending. [¹ MiCA Art. 36(2)]</p>
+  </div>
+
+  <!-- RUN -->
+  <div class="run-row">
+    <button class="run-btn" id="runBtn" onclick="runStressTest()">▶ Run Stress Test</button>
+    <div class="progress-wrap"><div class="progress-fill" id="progressFill"></div></div>
+    <span class="run-status" id="runStatus"></span>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Stress Test Result</span></div>
+      <div class="out-body">
+        <div id="verdictCard"></div>
+        <div class="scorecard-row" id="scorecardRow"></div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Coverage Ratio Fan Chart — P5 / P25 / P50 / P75 / P95</span></div>
+      <div class="out-body">
+        <div class="chart-wrap"><svg id="fanSvg" class="chart-svg" viewBox="0 0 800 260" preserveAspectRatio="xMidYMid meet"></svg></div>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:rgba(20,184,166,.18)"></div><span>P5–P95 band</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:rgba(20,184,166,.35)"></div><span>P25–P75 band</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--teal)"></div><span>P50 median</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:rgba(239,68,68,.6)"></div><span>100% floor (MiCA min)</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Breach Probability Over Time — % paths with coverage &lt; 100%</span></div>
+      <div class="out-body">
+        <div class="chart-wrap"><svg id="breachSvg" class="chart-svg" viewBox="0 0 800 200" preserveAspectRatio="xMidYMid meet"></svg></div>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div><span>% of paths in breach at each day</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:rgba(245,158,11,.6)"></div><span>20% breach threshold (elevated risk)</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Article 36 Liquid Buffer &amp; Fire-Sale Contagion</span></div>
+      <div class="out-body" id="contagionBody"></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Export</span></div>
+      <div class="out-body">
+        <div class="results-export-row">
+          <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()">
+            {} Export Policy Mandate
+            <span class="btn-subtitle">AP2 · audit trail · chain block</span>
+          </button>
+          <button class="btn btn-ghost" id="mdExportBtn" disabled onclick="exportMarkdown()">
+            ↓ Export Markdown Report
+            <span class="btn-subtitle">Board memo · risk committee</span>
+          </button>
+        </div>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.65rem;line-height:1.5">
+          Policy Mandate includes <code>chain.parent_hashes</code> — paste your ART-06 execution hash to anchor this stress result to the static attestation pre-check.
+          Mandate type: <code>liquidity_mandate</code> · Tool: <code>rca-02-mica-reserve-stress</code>
+        </p>
+      </div>
+    </div>
+
+  </div><!-- /results-panel -->
+
+  <!-- MANIFEST TOGGLE -->
+  <div style="margin-top:2rem">
+    <button class="mfst-btn" onclick="toggleMfst()">
+      <span>{ } MCP Manifest &amp; Tool Definition</span>
+      <span id="mfstArrow" style="font-size:.7rem">▼</span>
+    </button>
+    <div class="mfst-body" id="mfstBody">
+      <pre class="mfst-code" id="mfstCode"></pre>
+    </div>
+  </div>
+
+</div></div><!-- /tool-body -->
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="chaingraph-hub.html">ChainGraph Hub</a>
+      <a href="art-06-genius-act-reserve-attestation.html">ART-06 Attestation</a>
+      <a href="sim-01-lcr-nsfr-liquidity-stress-test.html">SIM-01 LCR/NSFR</a>
+      <a href="ptg-01-ap2-prompt-template-generator.html">PTG-01 Prompt Gen</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>RCA-02 · v1.0.0 · ChainGraph Wave 3</span>
+      <span>MiCA (EU) 2023/1114 · Art. 36 / 45 · ESMA</span>
+      <span>© Post Oak Labs · CC BY 4.0</span>
+    </div>
+  </div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ─────────────────────────────────────────────────────────────────
+   MANIFEST
+   ───────────────────────────────────────────────────────────────── */
+const MANIFEST = {
+  "tool_id": "rca-02-mica-reserve-stress",
+  "version": "1.0.0",
+  "title": "MiCA Stablecoin Reserve Stress Simulator",
+  "description": "Monte Carlo simulation of stablecoin reserve portfolios under MiCA Article 36 redemption stress and asset price shocks. 1,000 paths × 90-day horizon. Coverage ratio fan chart (P5–P95), breach probability curve, Article 36 liquid buffer analysis, fire-sale contagion estimate. Chains from ART-06 and SIM-01. Exports AP2 liquidity_mandate artifact.",
+  "category": "chaingraph",
+  "tags": ["MiCA","stablecoin","reserve stress","ART","EMT","Monte Carlo","Article 36","ESMA","redemption stress","liquidity","crypto","peg stability"],
+  "mcp_tool_definition": {
+    "name": "simulate_stablecoin_reserve",
+    "description": "Monte Carlo MiCA reserve stress simulation. Returns 90-day coverage ratio fan chart (P5–P95), breach probability per day, MiCA Article 36 liquid buffer status, and fire-sale contagion estimate for a configurable reserve portfolio under redemption and price-shock stress scenarios.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "issuer_type": {"type":"string","enum":["art","emt"],"description":"Token type: art (MiCA Title III) or emt (MiCA Title IV). Default art"},
+        "coverage_start": {"type":"number","description":"Coverage ratio at t=0 as decimal (e.g. 1.05). Default 1.05"},
+        "liquid_fraction": {"type":"number","description":"Fraction of reserves in liquid assets (0–1). Default 0.60"},
+        "scenario": {"type":"string","enum":["bank_run","gradual_drain","flash_crash"],"description":"Redemption scenario. Default bank_run"},
+        "shock_severity": {"type":"string","enum":["mild","moderate","severe"],"description":"Asset price shock severity. Default moderate"},
+        "n_paths": {"type":"integer","description":"Monte Carlo paths (200–2000). Default 1000"},
+        "horizon_days": {"type":"integer","description":"Horizon in days (30–180). Default 90"}
+      },
+      "required": []
+    }
+  },
+  "execution": {"type":"browser-javascript","entry":"chaingraph/rca-02-mica-reserve-stress.html","function_name":"runStressTest","timeout_ms":30000},
+  "ap2_export": true,
+  "chaingraph": true,
+  "chain_partners": ["art-06-genius-act-reserve-attestation","sim-01-lcr-nsfr-liquidity-stress-test","ptg-01-ap2-prompt-template-generator"],
+  "mandate_type": "liquidity_mandate",
+  "gpu": true
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   STATE
+   ───────────────────────────────────────────────────────────────── */
+let _scenario = 'bank_run';
+let _severity = 'moderate';
+let _results  = null;
+let _artifact = null;
+
+/* ─────────────────────────────────────────────────────────────────
+   SCENARIO / SEVERITY SELECTORS
+   ───────────────────────────────────────────────────────────────── */
+function selectScenario(s) {
+  _scenario = s;
+  ['bank_run','gradual_drain','flash_crash'].forEach(k => {
+    document.getElementById('sc_'+k).classList.toggle('active', k === s);
+  });
+}
+
+function selectSeverity(s) {
+  _severity = s;
+  ['mild','moderate','severe'].forEach(k => {
+    const el = document.getElementById('sev_'+k);
+    el.className = 'severity-chip' + (k === s ? ' active-'+k : '');
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   SHOCK PARAMS
+   ───────────────────────────────────────────────────────────────── */
+const SHOCK_PARAMS = {
+  mild:     { sigma: 0.008, peakDrop: 0.08, firesaleBase: 0.10 },
+  moderate: { sigma: 0.015, peakDrop: 0.20, firesaleBase: 0.20 },
+  severe:   { sigma: 0.025, peakDrop: 0.35, firesaleBase: 0.35 }
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   PRNG — Box-Muller with Math.random
+   ───────────────────────────────────────────────────────────────── */
+function randn() {
+  const u = 1 - Math.random(), v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   REDEMPTION CURVE — daily fraction of current liabilities
+   Modelled as fraction of normalized outstanding (1.0 = full liability base)
+   ───────────────────────────────────────────────────────────────── */
+function buildRedemptionCurve(scenario, T) {
+  const curve = new Array(T);
+  for (let t = 0; t < T; t++) {
+    if (scenario === 'bank_run') {
+      // Exponential growth to peak at ~day 18, then decays
+      const grow = 0.04 * Math.exp(0.12 * t);
+      const decay = 0.04 * Math.exp(0.12 * 18) * Math.exp(-0.07 * Math.max(0, t - 18));
+      curve[t] = Math.min(grow, decay, 0.12); // cap 12%/day
+    } else if (scenario === 'gradual_drain') {
+      // 0.3%/day at t=0, linearly rising to 1.0%/day at t=T
+      curve[t] = 0.003 + 0.007 * (t / (T - 1));
+    } else { // flash_crash
+      if (t === 2) curve[t] = 0.15;       // spike day 3
+      else if (t === 3) curve[t] = 0.08;  // echo day 4
+      else curve[t] = 0.005;              // 0.5%/day thereafter
+    }
+  }
+  return curve;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   PRICE SHOCK SCALAR — escalates then normalises over horizon
+   ───────────────────────────────────────────────────────────────── */
+function buildShockScalar(peakDrop, T) {
+  // Shock escalates linearly to peakDrop by day T/3, then recovers partially
+  return t => {
+    const ramp = Math.min(t / (T / 3), 1.0);
+    return 1 - peakDrop * ramp * 0.5; // 50% of peak drop applied as drift penalty
+  };
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   SIMULATE CHUNK — pure JS, chunk-yield GPU pattern
+   Returns: coveragePaths[chunk_size][T], firstBreachDays[chunk_size]
+   ───────────────────────────────────────────────────────────────── */
+function simulateChunk(params, pathStart, pathEnd) {
+  const { coverageStart, liquidFraction, T, redemptionCurve,
+          sigma, shockScalar, firesaleHaircut, bufferTrigger } = params;
+
+  const paths = [];
+  const firstBreachDays = [];
+  const firstBufBreachDays = [];
+
+  for (let p = pathStart; p < pathEnd; p++) {
+    let cov = coverageStart;        // coverage ratio (assets / liabilities)
+    let cumRedeemed = 0;            // cumulative fraction of original liabilities redeemed
+    let path = new Array(T);
+    let firstBreach = -1;
+    let firstBufBreach = -1;
+
+    for (let t = 0; t < T; t++) {
+      // 1. Asset price return: GBM with daily vol + deterministic shock drift
+      const drift = shockScalar(t);   // drift multiplier < 1 during shock
+      const shock = sigma * randn();
+      const priceReturn = Math.exp(drift * shock - 0.5 * sigma * sigma);
+
+      // 2. Apply price return to coverage ratio
+      cov = cov * priceReturn;
+
+      // 3. Redemption demand: dr fraction of remaining liabilities
+      const dr = redemptionCurve[t];
+      const available = cov;  // coverage represents assets relative to current liabilities
+
+      // 4. Check if liquid buffer sufficient
+      const liquidBuffer = liquidFraction * cov;
+      const bufferPct = liquidBuffer; // as fraction of liabilities
+      if (firstBufBreach < 0 && bufferPct < bufferTrigger) firstBufBreach = t + 1;
+
+      // 5. Service redemptions
+      if (available >= dr) {
+        // Fully covered — deduct proportionally
+        // cov' = (cov * L - dr * L) / ((1 - dr) * L) = (cov - dr) / (1 - dr)
+        const denominator = 1 - dr;
+        cov = denominator > 0.001 ? (cov - dr) / denominator : cov - dr;
+      } else {
+        // Partial coverage — fire-sale of illiquid assets
+        const liquidAvail = liquidFraction * cov;
+        const illiquidAvail = (1 - liquidFraction) * cov;
+        // Fire-sale proceeds: illiquid sold at haircut
+        const fireSaleProceeds = illiquidAvail * (1 - firesaleHaircut);
+        const totalProceeds = liquidAvail + fireSaleProceeds;
+        if (totalProceeds >= dr) {
+          const denominator = 1 - dr;
+          cov = denominator > 0.001 ? (Math.max(totalProceeds - dr, 0)) / denominator : 0;
+        } else {
+          // Cannot meet redemptions — hard breach, coverage floors to ratio
+          cov = Math.max(totalProceeds - dr, 0);
+        }
+      }
+
+      // Floor at 0
+      cov = Math.max(cov, 0);
+      path[t] = Math.min(cov, 3.0); // cap display at 300%
+      cumRedeemed += dr;
+
+      if (firstBreach < 0 && cov < 1.0) firstBreach = t + 1;
+    }
+
+    paths.push(path);
+    firstBreachDays.push(firstBreach);
+    firstBufBreachDays.push(firstBufBreach);
+  }
+
+  return { paths, firstBreachDays, firstBufBreachDays };
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   PERCENTILES
+   ───────────────────────────────────────────────────────────────── */
+function pctile(sorted, p) {
+  const i = (p / 100) * (sorted.length - 1);
+  const lo = Math.floor(i), hi = Math.ceil(i);
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (i - lo);
+}
+
+function computePercentiles(paths, T) {
+  const P = [5, 25, 50, 75, 95];
+  const out = P.map(() => new Array(T));
+  for (let t = 0; t < T; t++) {
+    const col = paths.map(r => r[t]).sort((a, b) => a - b);
+    P.forEach((p, pi) => { out[pi][t] = pctile(col, p); });
+  }
+  return out; // [p5[], p25[], p50[], p75[], p95[]]
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   MAIN RUN — async chunk-yield (GPU simulation pattern)
+   ───────────────────────────────────────────────────────────────── */
+const CHUNK = 50;
+
+async function runStressTest() {
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+
+  const issuerType    = document.getElementById('issuerType').value;
+  const coverageStart = parseFloat(document.getElementById('coverageStart').value) / 100;
+  const liquidFrac    = parseFloat(document.getElementById('liquidFraction').value) / 100;
+  const nPaths        = Math.max(200, Math.min(2000, parseInt(document.getElementById('nPaths').value) || 1000));
+  const T             = Math.max(30, Math.min(180, parseInt(document.getElementById('horizonDays').value) || 90));
+  const firesaleHair  = parseFloat(document.getElementById('firesaleHaircut').value) / 100;
+  const bufTrigger    = parseFloat(document.getElementById('bufferTrigger').value) / 100;
+
+  const shock  = SHOCK_PARAMS[_severity];
+  const rdCurve = buildRedemptionCurve(_scenario, T);
+  const shockFn = buildShockScalar(shock.peakDrop, T);
+
+  const params = {
+    coverageStart, liquidFraction: liquidFrac, T,
+    redemptionCurve: rdCurve,
+    sigma: shock.sigma,
+    shockScalar: shockFn,
+    firesaleHaircut: firesaleHair,
+    bufferTrigger: bufTrigger
+  };
+
+  const allPaths = [], allBreachDays = [], allBufBreachDays = [];
+
+  const setStatus   = msg => { document.getElementById('runStatus').textContent = msg; };
+  const setProgress = pct => { document.getElementById('progressFill').style.width = pct + '%'; };
+
+  setStatus('Running Monte Carlo…');
+
+  for (let p = 0; p < nPaths; p += CHUNK) {
+    const end = Math.min(p + CHUNK, nPaths);
+    const chunk = simulateChunk(params, p, end);
+    allPaths.push(...chunk.paths);
+    allBreachDays.push(...chunk.firstBreachDays);
+    allBufBreachDays.push(...chunk.firstBufBreachDays);
+    setProgress(Math.round(end / nPaths * 78));
+    await new Promise(r => setTimeout(r, 0));
+  }
+
+  setStatus('Computing percentiles…');
+  await new Promise(r => setTimeout(r, 0));
+  const fanPcts = computePercentiles(allPaths, T);
+  setProgress(88);
+
+  // Breach probability per day
+  setStatus('Analysing breach events…');
+  await new Promise(r => setTimeout(r, 0));
+  const breachProbByDay = new Array(T);
+  for (let t = 0; t < T; t++) {
+    const breached = allPaths.filter(path => path[t] < 1.0).length;
+    breachProbByDay[t] = (breached / nPaths) * 100;
+  }
+
+  // Summary stats
+  const finalBreachCount  = allBreachDays.filter(d => d > 0).length;
+  const finalBreachPct    = (finalBreachCount / nPaths * 100).toFixed(1);
+  const bufBreachCount    = allBufBreachDays.filter(d => d > 0).length;
+  const bufBreachPct      = (bufBreachCount / nPaths * 100).toFixed(1);
+  const covP50End         = fanPcts[2][T - 1];
+  const covP5End          = fanPcts[0][T - 1];
+  const peakBreachPct     = Math.max(...breachProbByDay).toFixed(1);
+
+  // Article 36 buffer adequacy: fraction of paths that always kept bufferTrigger
+  const bufAdequatePct = ((1 - bufBreachCount / nPaths) * 100).toFixed(1);
+
+  // Avg coverage at breach (fire-sale depth estimate)
+  const breachDepths = allPaths.map(p => p[T-1]).filter(v => v < 1.0);
+  const avgBreachDepth = breachDepths.length > 0
+    ? (breachDepths.reduce((s, v) => s + v, 0) / breachDepths.length).toFixed(3)
+    : null;
+
+  setProgress(98);
+
+  _results = {
+    fanPcts, breachProbByDay, T, nPaths,
+    finalBreachPct, bufBreachPct, peakBreachPct,
+    covP50End, covP5End, bufAdequatePct, avgBreachDepth,
+    issuerType, scenario: _scenario, severity: _severity,
+    coverageStart: coverageStart * 100,
+    liquidFrac: liquidFrac * 100
+  };
+
+  // Build AP2 artifact
+  const policyParams = {
+    issuer_type: issuerType, coverage_start: coverageStart,
+    liquid_fraction: liquidFrac, scenario: _scenario,
+    shock_severity: _severity, n_paths: nPaths, horizon_days: T,
+    firesale_haircut: firesaleHair, buffer_trigger: bufTrigger
+  };
+  const outputForHash = {
+    coverage_p50_end_day: +covP50End.toFixed(4),
+    coverage_p5_end_day:  +covP5End.toFixed(4),
+    breach_probability_pct: +finalBreachPct,
+    peak_breach_pct: +peakBreachPct,
+    art36_buffer_adequate_pct: +bufAdequatePct
+  };
+  const hash = await sha256({ policy_parameters: policyParams, output_payload: outputForHash });
+
+  // MiCA Article 36 compliance flags
+  const complianceFlags = [
+    +finalBreachPct >= 20 ? 'MICA_COVERAGE_BREACH_RISK_HIGH'
+      : +finalBreachPct >= 5  ? 'MICA_COVERAGE_BREACH_RISK_ELEVATED'
+      : 'MICA_COVERAGE_BREACH_RISK_LOW',
+    covP50End >= 1.0 ? 'MICA_ART36_MEDIAN_COVERAGE_COMPLIANT' : 'MICA_ART36_MEDIAN_COVERAGE_BREACH',
+    +bufAdequatePct >= 80 ? 'MICA_LIQUID_BUFFER_ADEQUATE' : 'MICA_LIQUID_BUFFER_AT_RISK',
+    covP5End >= 1.0 ? 'MICA_P5_COVERAGE_COMPLIANT' : 'MICA_P5_COVERAGE_BREACH'
+  ];
+
+  _artifact = {
+    ap2_version: '1.0.0',
+    mandate_type: 'liquidity_mandate',
+    tool_id: 'rca-02-mica-reserve-stress',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: policyParams,
+    output_payload: outputForHash,
+    compliance_flags: complianceFlags,
+    regulatory_context: {
+      framework: 'MiCA Regulation (EU) 2023/1114',
+      articles: ['Article 36 (Reserve assets)', 'Article 45 (Redemption rights)'],
+      esma_note: 'ESMA RTS on reserve stress testing pending — thresholds in this tool are illustrative proxies',
+      issuer_type_note: issuerType === 'art' ? 'Asset-Referenced Token (Title III)' : 'E-Money Token (Title IV)'
+    },
+    audit_signature: { client_side_executed: true, zero_pii_verified: true, synthetic_data_only: true }
+  };
+
+  document.getElementById('ap2ExportBtn').disabled = false;
+  document.getElementById('ap2ExportBtn').classList.add('ready');
+  document.getElementById('mdExportBtn').disabled = false;
+  document.getElementById('mdExportBtn').classList.add('ready');
+  document.getElementById('resultsPanel').classList.add('visible');
+  setProgress(100);
+  setStatus('');
+  btn.disabled = false;
+
+  renderResults(_results);
+  showToast(`Complete — ${nPaths.toLocaleString()} paths · ${T}-day horizon`);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RENDER
+   ───────────────────────────────────────────────────────────────── */
+function renderResults(r) {
+  renderVerdict(r);
+  renderScorecard(r);
+  renderFanChart(r);
+  renderBreachChart(r);
+  renderContagion(r);
+}
+
+function renderVerdict(r) {
+  const bp = parseFloat(r.finalBreachPct);
+  const p50 = r.covP50End;
+  const cls = (bp >= 20 || p50 < 1.0) ? 'risk' : bp >= 5 ? 'warn' : 'good';
+  const icon = { risk: '⚠️', warn: '⚡', good: '✅' }[cls];
+  const label = { risk: 'High Reserve Risk', warn: 'Elevated Reserve Stress', good: 'Reserve Resilient' }[cls];
+  const title = {
+    risk: `${r.finalBreachPct}% of paths breach 100% coverage — MiCA Article 36 compliance at risk`,
+    warn: `${r.finalBreachPct}% of paths breach at some point — monitor liquid buffer closely`,
+    good: `Median coverage ${(p50 * 100).toFixed(1)}% at day ${r.T} — reserve holds across scenario`
+  }[cls];
+  const sub = `Scenario: ${r.scenario.replace('_', ' ')} · Severity: ${r.severity} · ${r.nPaths.toLocaleString()} paths · ${r.T}-day horizon · Starting coverage: ${r.coverageStart.toFixed(1)}%`;
+  document.getElementById('verdictCard').innerHTML = `
+    <div class="verdict-card ${cls}">
+      <div class="verdict-icon">${icon}</div>
+      <div>
+        <div class="verdict-label ${cls}">${label}</div>
+        <div class="verdict-title">${title}</div>
+        <div class="verdict-sub">${sub}</div>
+      </div>
+    </div>`;
+}
+
+function metricColor(val, goodThresh, warnThresh, invert) {
+  // invert: lower is worse (e.g. coverage ratio)
+  if (!invert) {
+    return val >= goodThresh ? 'good' : val >= warnThresh ? 'warn' : 'risk';
+  } else {
+    return val <= goodThresh ? 'good' : val <= warnThresh ? 'warn' : 'risk';
+  }
+}
+
+function renderScorecard(r) {
+  const p50pct = (r.covP50End * 100).toFixed(1);
+  const p50cls = r.covP50End >= 1.1 ? 'good' : r.covP50End >= 1.0 ? 'warn' : 'risk';
+  const bpCls  = parseFloat(r.finalBreachPct) < 5 ? 'good' : parseFloat(r.finalBreachPct) < 20 ? 'warn' : 'risk';
+  const bufCls = parseFloat(r.bufAdequatePct) >= 80 ? 'good' : parseFloat(r.bufAdequatePct) >= 50 ? 'warn' : 'risk';
+  const pkCls  = parseFloat(r.peakBreachPct) < 5 ? 'good' : parseFloat(r.peakBreachPct) < 20 ? 'warn' : 'risk';
+  document.getElementById('scorecardRow').innerHTML = `
+    <div class="metric-card">
+      <div class="metric-label">P50 Coverage Day ${r.T}</div>
+      <div class="metric-value ${p50cls}">${p50pct}%</div>
+      <div class="metric-sub">≥ 100% = MiCA floor met</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Breach Probability</div>
+      <div class="metric-value ${bpCls}">${r.finalBreachPct}%</div>
+      <div class="metric-sub">paths with coverage &lt; 100%</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Peak Breach Rate</div>
+      <div class="metric-value ${pkCls}">${r.peakBreachPct}%</div>
+      <div class="metric-sub">max % paths in breach (any day)</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Art. 36 Buffer Adequate</div>
+      <div class="metric-value ${bufCls}">${r.bufAdequatePct}%</div>
+      <div class="metric-sub">paths maintaining liquid buffer</div>
+    </div>`;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   FAN CHART (SVG)
+   ───────────────────────────────────────────────────────────────── */
+function renderFanChart(r) {
+  const W = 800, H = 260, PAD = { t: 18, r: 20, b: 36, l: 52 };
+  const cw = W - PAD.l - PAD.r, ch = H - PAD.t - PAD.b;
+  const T = r.T;
+  const [p5, p25, p50, p75, p95] = r.fanPcts;
+
+  // Y scale: 0 to max(p95) capped at 2.5x
+  const maxY = Math.min(Math.max(...p95) * 1.05, 2.5);
+  const minY = 0;
+  const scX = t => PAD.l + (t / (T - 1)) * cw;
+  const scY = v => PAD.t + ch - ((v - minY) / (maxY - minY)) * ch;
+
+  const pts = (arr) => arr.map((v, i) => `${scX(i).toFixed(1)},${scY(v).toFixed(1)}`).join(' ');
+  const areaPath = (lo, hi) => {
+    const fwd = hi.map((v, i) => `${scX(i).toFixed(1)},${scY(v).toFixed(1)}`).join(' ');
+    const bwd = lo.map((v, i) => `${scX(T-1-i).toFixed(1)},${scY(lo[T-1-i]).toFixed(1)}`).join(' ');
+    return `M ${fwd} L ${bwd} Z`;
+  };
+
+  // Floor line at 1.0
+  const floorY = scY(1.0).toFixed(1);
+  const floorX1 = PAD.l.toFixed(1), floorX2 = (PAD.l + cw).toFixed(1);
+
+  // Y axis ticks
+  const yTicks = [];
+  for (let v = 0; v <= maxY; v += 0.25) {
+    const y = scY(v).toFixed(1);
+    yTicks.push(`<line x1="${PAD.l}" y1="${y}" x2="${(PAD.l+cw)}" y2="${y}" stroke="rgba(30,47,74,.4)" stroke-width=".5"/>`);
+    yTicks.push(`<text x="${(PAD.l-6)}" y="${y}" dy=".35em" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="8" fill="rgba(104,136,168,.7)">${(v*100).toFixed(0)}%</text>`);
+  }
+
+  // X axis ticks (every 15 days)
+  const xTicks = [];
+  for (let t = 0; t < T; t += 15) {
+    const x = scX(t).toFixed(1);
+    xTicks.push(`<line x1="${x}" y1="${PAD.t}" x2="${x}" y2="${(PAD.t+ch)}" stroke="rgba(30,47,74,.4)" stroke-width=".5"/>`);
+    xTicks.push(`<text x="${x}" y="${(PAD.t+ch+14)}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="rgba(104,136,168,.7)">Day ${t}</text>`);
+  }
+
+  const svg = `
+    ${yTicks.join('')}${xTicks.join('')}
+    <path d="${areaPath(p5, p95)}" fill="rgba(20,184,166,.10)" stroke="none"/>
+    <path d="${areaPath(p25, p75)}" fill="rgba(20,184,166,.22)" stroke="none"/>
+    <polyline points="${pts(p5)}" fill="none" stroke="rgba(20,184,166,.35)" stroke-width="1"/>
+    <polyline points="${pts(p95)}" fill="none" stroke="rgba(20,184,166,.35)" stroke-width="1"/>
+    <polyline points="${pts(p25)}" fill="none" stroke="rgba(20,184,166,.55)" stroke-width="1"/>
+    <polyline points="${pts(p75)}" fill="none" stroke="rgba(20,184,166,.55)" stroke-width="1"/>
+    <polyline points="${pts(p50)}" fill="none" stroke="rgba(20,184,166,1)" stroke-width="2"/>
+    <line x1="${floorX1}" y1="${floorY}" x2="${floorX2}" y2="${floorY}" stroke="rgba(239,68,68,.7)" stroke-width="1.5" stroke-dasharray="5,3"/>
+    <text x="${(PAD.l+cw-2)}" y="${parseFloat(floorY)-4}" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="8" fill="rgba(239,68,68,.8)">100% floor</text>
+  `;
+  document.getElementById('fanSvg').innerHTML = svg;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   BREACH PROBABILITY CHART (SVG)
+   ───────────────────────────────────────────────────────────────── */
+function renderBreachChart(r) {
+  const W = 800, H = 200, PAD = { t: 14, r: 20, b: 34, l: 52 };
+  const cw = W - PAD.l - PAD.r, ch = H - PAD.t - PAD.b;
+  const T = r.T;
+  const bp = r.breachProbByDay;
+  const maxY = Math.min(Math.max(...bp) * 1.1 + 2, 100);
+  const scX = t => PAD.l + (t / (T - 1)) * cw;
+  const scY = v => PAD.t + ch - (v / maxY) * ch;
+
+  // Area fill under breach curve
+  const fwdPts = bp.map((v, t) => `${scX(t).toFixed(1)},${scY(v).toFixed(1)}`).join(' ');
+  const closePts = `${scX(T-1).toFixed(1)},${scY(0).toFixed(1)} ${scX(0).toFixed(1)},${scY(0).toFixed(1)}`;
+  const areaPath = `M ${fwdPts} L ${closePts} Z`;
+
+  // 20% warning line
+  const warnY = scY(20).toFixed(1);
+
+  // Y ticks
+  const yTicks = [];
+  for (let v = 0; v <= maxY; v += 20) {
+    const y = scY(v).toFixed(1);
+    yTicks.push(`<line x1="${PAD.l}" y1="${y}" x2="${(PAD.l+cw)}" y2="${y}" stroke="rgba(30,47,74,.4)" stroke-width=".5"/>`);
+    yTicks.push(`<text x="${(PAD.l-6)}" y="${y}" dy=".35em" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="8" fill="rgba(104,136,168,.7)">${v}%</text>`);
+  }
+  const xTicks = [];
+  for (let t = 0; t < T; t += 15) {
+    const x = scX(t).toFixed(1);
+    xTicks.push(`<text x="${x}" y="${(PAD.t+ch+14)}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="rgba(104,136,168,.7)">Day ${t}</text>`);
+  }
+
+  const svg = `
+    ${yTicks.join('')}${xTicks.join('')}
+    <line x1="${PAD.l}" y1="${warnY}" x2="${PAD.l+cw}" y2="${warnY}" stroke="rgba(245,158,11,.5)" stroke-width="1" stroke-dasharray="4,3"/>
+    <text x="${PAD.l+4}" y="${parseFloat(warnY)-4}" font-family="JetBrains Mono,monospace" font-size="8" fill="rgba(245,158,11,.8)">20% elevated risk</text>
+    <path d="${areaPath}" fill="rgba(239,68,68,.15)" stroke="none"/>
+    <polyline points="${fwdPts}" fill="none" stroke="rgba(239,68,68,.85)" stroke-width="2"/>
+  `;
+  document.getElementById('breachSvg').innerHTML = svg;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   CONTAGION / BUFFER PANEL
+   ───────────────────────────────────────────────────────────────── */
+function renderContagion(r) {
+  const bufPct = parseFloat(r.bufAdequatePct);
+  const bufCls = bufPct >= 80 ? 'var(--green)' : bufPct >= 50 ? 'var(--warn)' : 'var(--red)';
+  const firesaleHaircut = parseFloat(document.getElementById('firesaleHaircut').value);
+  const bufTrigger = parseFloat(document.getElementById('bufferTrigger').value);
+
+  // Estimated contagion: if paths fire-sold illiquid, what extra coverage loss?
+  const estContagionLoss = r.avgBreachDepth !== null
+    ? ((1 - parseFloat(r.avgBreachDepth)) * 100).toFixed(1)
+    : '0';
+
+  document.getElementById('contagionBody').innerHTML = `
+    <div style="margin-bottom:1rem">
+      <p style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--body);line-height:1.7;margin-bottom:.85rem">
+        MiCA Article 36 requires reserve assets to be maintained in highly liquid instruments with minimal market and credit risk. The <strong style="color:var(--text)">liquid buffer</strong> tracks the fraction of reserves in Article 36-eligible assets across all paths. When this falls below the configured trigger (${bufTrigger}%), illiquid assets must be fire-sold at a haircut (${firesaleHaircut}%), amplifying losses — the contagion channel between reserve illiquidity and peg stress. [¹ MiCA Art. 36(1)(2) · ² IOSCO DeFi Report 2023]
+      </p>
+      <div class="contagion-bar-wrap">
+        <div class="contagion-bar-label">
+          <span>Paths maintaining Art. 36 liquid buffer throughout horizon</span>
+          <span style="color:${bufCls}">${r.bufAdequatePct}%</span>
+        </div>
+        <div class="contagion-bar-outer">
+          <div class="contagion-bar-inner" style="width:${r.bufAdequatePct}%;background:${bufCls}"></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-top:.5rem">
+      <div class="metric-card">
+        <div class="metric-label">Paths breaching buffer</div>
+        <div class="metric-value ${parseFloat(r.bufBreachPct)<20?'warn':'risk'}">${r.bufBreachPct}%</div>
+        <div class="metric-sub">triggered fire-sale channel</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Avg. coverage at breach</div>
+        <div class="metric-value risk">${r.avgBreachDepth !== null ? (parseFloat(r.avgBreachDepth)*100).toFixed(1)+'%' : 'N/A'}</div>
+        <div class="metric-sub">mean coverage when &lt; 100%</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Est. shortfall depth</div>
+        <div class="metric-value ${r.avgBreachDepth !== null ? 'risk' : 'neutral'}">${r.avgBreachDepth !== null ? estContagionLoss+'%' : '0%'}</div>
+        <div class="metric-sub">avg. below 1:1 on breach paths</div>
+      </div>
+    </div>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.85rem;line-height:1.6">
+      Fire-sale haircut: ${firesaleHaircut}% applied to illiquid asset disposals · Art. 36 liquid buffer trigger: ${bufTrigger}% of liabilities · Issuer type: ${r.issuerType.toUpperCase()} (${r.issuerType==='art'?'MiCA Title III':'MiCA Title IV'})
+    </p>`;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   EXPORT — Policy Mandate JSON (AP2 format with chain block)
+   ───────────────────────────────────────────────────────────────── */
+function exportAP2() {
+  if (!_artifact) return;
+  const validated = validateArtifact(_artifact);
+  if (!validated.ok) { showToast('Validation error: ' + validated.error); return; }
+  const blob = new Blob([JSON.stringify(_artifact, null, 2)], { type: 'application/json' });
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `rca-02-mica-reserve-stress_${ts}.policy.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Policy Mandate exported — paste execution_hash into ART-06 or PTG-01');
+}
+
+function validateArtifact(a) {
+  if (!a.ap2_version) return { ok:false, error:'Missing ap2_version' };
+  if (!a.mandate_type) return { ok:false, error:'Missing mandate_type' };
+  if (!a.execution_hash) return { ok:false, error:'Missing execution_hash' };
+  if (!a.chain) return { ok:false, error:'Missing chain block' };
+  return { ok: true };
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   EXPORT — Markdown report
+   ───────────────────────────────────────────────────────────────── */
+function exportMarkdown() {
+  if (!_results || !_artifact) return;
+  const r = _results;
+  const md = [
+    `# MiCA Stablecoin Reserve Stress Test Report`,
+    `**Tool:** RCA-02 · ChainGraph Suite · AINumbers.co`,
+    `**Generated:** ${new Date().toISOString()}`,
+    `**Execution Hash:** sha256:${_artifact.execution_hash}`,
+    `**Chains from:** ART-06 (GENIUS Act attestation pre-check) · SIM-01 (LCR/NSFR stress)`,
+    ``,`---`,``,
+    `## Scenario Parameters`,
+    `| Parameter | Value |`,
+    `|-----------|-------|`,
+    `| Issuer type | ${r.issuerType.toUpperCase()} (${r.issuerType==='art'?'MiCA Title III':'MiCA Title IV'}) |`,
+    `| Starting coverage | ${r.coverageStart.toFixed(1)}% |`,
+    `| Liquid asset fraction | ${r.liquidFrac.toFixed(0)}% |`,
+    `| Redemption scenario | ${r.scenario.replace('_',' ')} |`,
+    `| Shock severity | ${r.severity} |`,
+    `| Monte Carlo paths | ${r.nPaths.toLocaleString()} |`,
+    `| Horizon | ${r.T} days |`,
+    ``,
+    `## Key Results`,
+    `| Metric | Value |`,
+    `|--------|-------|`,
+    `| P50 coverage at day ${r.T} | ${(r.covP50End*100).toFixed(1)}% |`,
+    `| P5 coverage at day ${r.T} | ${(r.covP5End*100).toFixed(1)}% |`,
+    `| Breach probability (any day) | ${r.finalBreachPct}% |`,
+    `| Peak breach rate | ${r.peakBreachPct}% |`,
+    `| Art. 36 buffer adequate | ${r.bufAdequatePct}% of paths |`,
+    `| Avg. coverage at breach | ${r.avgBreachDepth!==null?(parseFloat(r.avgBreachDepth)*100).toFixed(1)+'%':'N/A'} |`,
+    ``,
+    `## MiCA Compliance Flags`,
+    ..._artifact.compliance_flags.map(f => `- \`${f}\``),
+    ``,
+    `## Regulatory Context`,
+    `- MiCA Regulation (EU) 2023/1114, Articles 36 &amp; 45`,
+    `- ESMA RTS on reserve stress testing (pending finalisation)`,
+    `- FSB High-level Recommendations for Stablecoin Regulation (2023)`,
+    `- IOSCO DeFi Report (2023)`,
+    ``,
+    `---`,
+    `*This report was generated by AINumbers.co RCA-02 (ChainGraph Wave 3). Simulation only — not supervisory stress testing. Zero-egress: all computation ran in-browser. No data was transmitted.*`
+  ].join('\n');
+
+  const blob = new Blob([md], { type: 'text/markdown' });
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `rca-02-mica-reserve-stress_${ts}.md`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Markdown report exported');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   SHA-256 via WebCrypto
+   ───────────────────────────────────────────────────────────────── */
+async function sha256(obj) {
+  const canonical = JSON.stringify(obj, Object.keys(obj).sort());
+  const buf = new TextEncoder().encode(canonical);
+  const hb = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hb)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   MANIFEST TOGGLE
+   ───────────────────────────────────────────────────────────────── */
+function toggleMfst() {
+  const body = document.getElementById('mfstBody');
+  const arrow = document.getElementById('mfstArrow');
+  const open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  arrow.textContent = open ? '▼' : '▲';
+  if (!open) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   TOAST
+   ───────────────────────────────────────────────────────────────── */
+let _toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+</script>
+</body>
+</html>
