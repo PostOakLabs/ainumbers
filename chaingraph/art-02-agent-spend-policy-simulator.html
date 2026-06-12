@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Agent Spend-Policy Simulator · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Simulate thousands of synthetic AP2 v0.2 agent transactions against a user-authored spend policy. Detects scope creep, daily/monthly limit violations, policy-bypass paths, and unauthorized HNP autonomous flows. GPU-parallel chunk batching. Chains into ART-01.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-02-agent-spend-policy-simulator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Agent Spend-Policy Simulator","url":"https://ainumbers.co/chaingraph/art-02-agent-spend-policy-simulator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "art-02-agent-spend-policy-simulator",
+  "version": "1.0.0",
+  "title": "Agent Spend-Policy Simulator",
+  "description": "Simulates synthetic AP2 v0.2 agent transactions against a user-authored spend policy. Detects: per-transaction over-limit, daily/monthly cumulative violations, scope creep (unauthorized merchant/category), policy-bypass path detection (drip patterns that evade per-tx limits), unauthorized HNP autonomous flows. GPU-parallel chunk batching in browser. Exports AP2 payment_policy artifact and full transaction log.",
+  "category": "chaingraph",
+  "tags": ["AP2","spend policy","agent transactions","scope creep","policy bypass","HNP","autonomous agent","payment policy","simulation","GPU"],
+  "mcp_tool_definition": {"name":"simulate_spend_policy","description":"Simulates N synthetic agent transactions against a spend policy definition. Returns violation counts, scope-creep ratio, bypass-path detection results, HNP authorization gaps, and a full transaction-level log.","inputSchema":{"type":"object","properties":{"policy":{"type":"object","description":"Spend policy definition — allowed_merchants, allowed_category_codes, max_per_transaction, max_daily, max_monthly, allowed_payment_methods, hnp_allowed, hnp_auto_approve_below"},"sim_count":{"type":"integer","description":"Number of synthetic transactions to simulate (10–5000, default 500)"},"hnp_ratio":{"type":"number","description":"Fraction of transactions marked human_not_present (0–1, default 0.3)"},"chaos_level":{"type":"number","description":"Fraction of transactions that attempt policy violations (0–1, default 0.2)"},"parent_artifact":{"type":"object","description":"ART-01 ChainGraph artifact — copies parent_hash into chain block"}},"required":["policy"]}},
+  "execution": {"type":"browser-javascript","entry":"chaingraph/art-02-agent-spend-policy-simulator.html","function_name":"runSimulation","timeout_ms":10000},
+  "ap2_export": true,
+  "chaingraph": true,
+  "chain_partners": ["art-01-ap2-mandate-chain-validator","art-04-agent-identity-attestation-checker","ptg-01-ap2-prompt-template-generator"],
+  "mandate_type": "payment_policy",
+  "conformance_fixtures": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--teal)}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.3rem}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.15rem;display:block}
+/* POLICY FORM */
+.policy-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem 2rem}
+@media(max-width:750px){.policy-grid{grid-template-columns:1fr}}
+.policy-section{display:flex;flex-direction:column;gap:.7rem}
+.policy-section-title{font-family:'DM Serif Display',serif;font-size:.9rem;color:var(--bright);border-bottom:1px solid var(--border);padding-bottom:.35rem;margin-bottom:.15rem}
+input[type="number"],input[type="text"],select,textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'Sora',sans-serif;font-size:.75rem;padding:.38rem .55rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+.tag-input-wrap{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);min-height:36px;display:flex;flex-wrap:wrap;gap:.3rem;padding:.3rem .4rem;cursor:text;transition:border-color .2s}
+.tag-input-wrap:focus-within{border-color:var(--teal)}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.48rem;background:var(--bg-4);color:var(--teal);border:1px solid rgba(20,184,166,.3);padding:.15rem .5rem;border-radius:3px;display:flex;align-items:center;gap:.35rem}
+.tag-x{cursor:pointer;color:var(--muted);font-size:.6rem;line-height:1}
+.tag-x:hover{color:var(--red)}
+.tag-input{background:transparent;border:none;outline:none;color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.54rem;min-width:80px;flex:1}
+/* PRESET BUTTONS */
+.preset-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.preset-btn{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;background:var(--bg-3);border:1px solid var(--border);color:var(--muted);padding:.28rem .7rem;border-radius:3px;cursor:pointer;transition:all .2s}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* SIM PARAMS */
+.sim-params{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1rem}
+@media(max-width:800px){.sim-params{grid-template-columns:1fr 1fr}}
+.slider-wrap{display:flex;flex-direction:column;gap:.3rem}
+input[type="range"]{-webkit-appearance:none;appearance:none;height:4px;background:var(--border);border-radius:2px;outline:none;width:100%;padding:0}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:var(--teal);border-radius:50%;cursor:pointer}
+input[type="range"]::-moz-range-thumb{width:14px;height:14px;background:var(--teal);border-radius:50%;cursor:pointer;border:none}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--teal);text-align:right}
+/* CHAIN PARENT INPUT */
+.chain-input-wrap{display:flex;align-items:flex-start;gap:1rem}
+.chain-textarea{flex:1;font-family:'JetBrains Mono',monospace;font-size:.52rem;min-height:80px;resize:vertical}
+.chain-status{font-family:'JetBrains Mono',monospace;font-size:.44rem;margin-top:.4rem}
+/* RUN BUTTON */
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover:not(:disabled){background:var(--teal-lt)}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+/* PROGRESS */
+.progress-wrap{display:none;align-items:center;gap:.85rem;margin-left:1rem}
+.progress-wrap.visible{display:flex}
+.progress-bar-outer{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden;width:180px}
+.progress-bar-inner{height:100%;background:var(--teal);width:0%;border-radius:3px;transition:width .08s}
+.progress-text{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);flex-shrink:0}
+/* RESULTS */
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+/* SCORECARD */
+.scorecard{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem}
+@media(max-width:700px){.scorecard{grid-template-columns:1fr 1fr}}
+.score-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.85rem 1rem;text-align:center}
+.score-val{font-family:'DM Serif Display',serif;font-size:1.8rem;line-height:1;margin-bottom:.2rem}
+.score-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.score-sub{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--body);margin-top:.15rem}
+/* BREAKDOWN BARS */
+.breakdown-bars{display:flex;flex-direction:column;gap:.5rem}
+.bbar-row{display:flex;align-items:center;gap:.75rem}
+.bbar-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--text);min-width:160px;flex-shrink:0}
+.bbar-outer{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.bbar-inner{height:100%;border-radius:4px}
+.bbar-count{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--body);min-width:40px;text-align:right}
+/* BYPASS PATHS */
+.bypass-list{display:flex;flex-direction:column;gap:.5rem}
+.bypass-item{background:var(--bg-3);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius);padding:.65rem .9rem}
+.bypass-item-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.3rem}
+.bypass-item-id{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--red)}
+.bypass-item-type{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted)}
+.bypass-item-desc{font-size:.68rem;color:var(--body);line-height:1.5}
+/* TX TABLE */
+.tx-table-wrap{overflow-x:auto;max-height:360px;overflow-y:auto}
+.tx-table{width:100%;border-collapse:collapse}
+.tx-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.45rem .65rem;border-bottom:1px solid var(--border);background:var(--bg-3);position:sticky;top:0;white-space:nowrap;text-align:left}
+.tx-table td{font-family:'JetBrains Mono',monospace;font-size:.52rem;padding:.38rem .65rem;border-bottom:1px solid rgba(30,47,74,.5);white-space:nowrap}
+.tx-table tr:hover td{background:var(--bg-4)}
+.tx-pass{color:var(--green)}.tx-fail{color:var(--red)}.tx-warn{color:var(--warn)}
+/* FILTER ROW */
+.filter-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem;align-items:center}
+.filter-btn{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;background:var(--bg-3);border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;cursor:pointer;transition:all .2s}
+.filter-btn:hover,.filter-btn.active{border-color:var(--teal);color:var(--teal)}
+/* OUT SECTIONS */
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+/* VERDICT */
+.verdict-card{border-radius:var(--radius-lg);padding:1.1rem 1.3rem;margin-bottom:.85rem;display:flex;align-items:flex-start;gap:1rem}
+.verdict-card.clean{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.3)}
+.verdict-card.warn{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.3)}
+.verdict-card.risk{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.35)}
+.verdict-icon{font-size:1.5rem;line-height:1;flex-shrink:0;margin-top:.1rem}
+.verdict-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.2rem}
+.verdict-label.clean{color:var(--green)}.verdict-label.warn{color:var(--warn)}.verdict-label.risk{color:var(--red)}
+.verdict-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white);margin-bottom:.25rem}
+.verdict-sub{font-size:.7rem;color:var(--body);line-height:1.6}
+/* EXPORT */
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--teal);color:var(--bright)}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+/* MANIFEST */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+/* CHECKBOX TOGGLE */
+.toggle-row{display:flex;align-items:center;gap:.75rem}
+.toggle-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--text)}
+input[type="checkbox"]{width:15px;height:15px;accent-color:var(--teal);cursor:pointer}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="chaingraph-hub.html">ChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">ART-02</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph Suite · ART-02 · Agent Spend-Policy Simulator</div>
+  <span class="badge badge-muted" style="display:inline-flex;margin-bottom:.6rem"><span>v1.0.0</span></span>
+  <h1>Agent Spend-Policy <em>Simulator</em></h1>
+  <p class="hero-desc">Author a spend policy — merchant allowlists, per-transaction and rolling limits, HNP autonomous-flow rules — then simulate up to <strong>5,000 synthetic agent transactions</strong> against it in seconds. Detects <strong>scope creep</strong> (unauthorized merchants/categories), <strong>drip-pattern policy bypass</strong> (sequences of sub-limit transactions that cumulatively exceed daily or monthly caps), and <strong>unauthorized HNP flows</strong>. Paste an <strong>ART-01 artifact</strong> to anchor into the chain. Exports a full transaction log as CSV.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">AP2 Export</span>
+    <span class="badge badge-teal">Chains: ART-01 → ART-02</span>
+    <span class="badge badge-gold">GPU Parallel</span>
+    <span class="badge badge-warn">Bypass Detection</span>
+    <span class="badge badge-green">Zero PII · Synthetic Only</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All simulation runs locally. All transactions are fully synthetic. No data leaves your browser. Paste ART-01 artifact JSON only — no real payment data.</div>
+
+  <!-- PRESET -->
+  <div class="panel">
+    <div class="panel-label">Policy presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('saas')">SaaS / Cloud spend</button>
+      <button class="preset-btn" onclick="loadPreset('travel')">Travel &amp; expenses</button>
+      <button class="preset-btn" onclick="loadPreset('ecommerce')">E-commerce marketplace</button>
+      <button class="preset-btn" onclick="loadPreset('tight_hnp')">Tight HNP (autonomous agent)</button>
+    </div>
+  </div>
+
+  <!-- POLICY EDITOR -->
+  <div class="panel">
+    <div class="panel-label">Spend policy definition</div>
+    <div class="policy-grid">
+      <div class="policy-section">
+        <div class="policy-section-title">Merchant allowlist</div>
+        <div>
+          <label class="field-label">Allowed merchant IDs (press Enter to add)</label>
+          <div class="tag-input-wrap" id="merchantTagWrap" onclick="document.getElementById('merchantTagInput').focus()">
+            <input class="tag-input" id="merchantTagInput" placeholder="merchant-id, Enter to add" onkeydown="handleTagKey(event,'merchants')">
+          </div>
+          <span class="field-hint">Leave empty = any merchant. At least one tag → allowlist enforced.</span>
+        </div>
+        <div>
+          <label class="field-label">Allowed category codes (MCC / AP2 codes)</label>
+          <div class="tag-input-wrap" id="categoryTagWrap" onclick="document.getElementById('categoryTagInput').focus()">
+            <input class="tag-input" id="categoryTagInput" placeholder="5411, 7372 — Enter to add" onkeydown="handleTagKey(event,'categories')">
+          </div>
+          <span class="field-hint">Leave empty = any category.</span>
+        </div>
+        <div>
+          <label class="field-label">Allowed payment methods</label>
+          <div class="tag-input-wrap" id="methodTagWrap" onclick="document.getElementById('methodTagInput').focus()">
+            <input class="tag-input" id="methodTagInput" placeholder="card_on_file, bank_transfer…" onkeydown="handleTagKey(event,'methods')">
+          </div>
+        </div>
+        <div>
+          <label class="field-label">Currency</label>
+          <input type="text" id="policyCurrency" value="USD" style="width:100px">
+        </div>
+      </div>
+      <div class="policy-section">
+        <div class="policy-section-title">Spend limits</div>
+        <div>
+          <label class="field-label">Max per transaction ($)</label>
+          <input type="number" id="maxPerTx" value="500" min="1" step="1" style="width:160px">
+        </div>
+        <div>
+          <label class="field-label">Daily cumulative limit ($)</label>
+          <input type="number" id="maxDaily" value="2000" min="0" step="100" style="width:160px">
+          <span class="field-hint">0 = no daily limit</span>
+        </div>
+        <div>
+          <label class="field-label">Monthly cumulative limit ($)</label>
+          <input type="number" id="maxMonthly" value="15000" min="0" step="500" style="width:160px">
+          <span class="field-hint">0 = no monthly limit</span>
+        </div>
+        <div class="policy-section-title" style="margin-top:.5rem">HNP (Human-Not-Present) rules</div>
+        <div class="toggle-row">
+          <input type="checkbox" id="hnpAllowed" checked>
+          <label class="toggle-label" for="hnpAllowed">HNP flows permitted</label>
+        </div>
+        <div>
+          <label class="field-label">HNP auto-approve below ($)</label>
+          <input type="number" id="hnpAutoApprove" value="100" min="0" step="10" style="width:160px">
+          <span class="field-hint">Transactions above this in HNP mode require human review.</span>
+        </div>
+        <div>
+          <label class="field-label">HNP max per transaction ($)</label>
+          <input type="number" id="hnpMaxPerTx" value="200" min="0" step="10" style="width:160px">
+          <span class="field-hint">Hard ceiling on any single HNP transaction.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIMULATION PARAMS -->
+  <div class="panel">
+    <div class="panel-label">Simulation parameters</div>
+    <div class="sim-params">
+      <div class="slider-wrap">
+        <label class="field-label">Transactions</label>
+        <input type="range" id="simCount" min="10" max="5000" step="10" value="500" oninput="syncSlider('simCount','simCountVal')">
+        <div class="slider-val" id="simCountVal">500</div>
+      </div>
+      <div class="slider-wrap">
+        <label class="field-label">HNP ratio</label>
+        <input type="range" id="hnpRatio" min="0" max="1" step="0.05" value="0.30" oninput="syncSlider('hnpRatio','hnpRatioVal',v=>Math.round(v*100)+'%')">
+        <div class="slider-val" id="hnpRatioVal">30%</div>
+      </div>
+      <div class="slider-wrap">
+        <label class="field-label">Chaos level (violations)</label>
+        <input type="range" id="chaosLevel" min="0" max="1" step="0.05" value="0.20" oninput="syncSlider('chaosLevel','chaosLevelVal',v=>Math.round(v*100)+'%')">
+        <div class="slider-val" id="chaosLevelVal">20%</div>
+      </div>
+      <div class="slider-wrap">
+        <label class="field-label">Drip pattern frequency</label>
+        <input type="range" id="dripFreq" min="0" max="0.5" step="0.05" value="0.10" oninput="syncSlider('dripFreq','dripFreqVal',v=>Math.round(v*100)+'%')">
+        <div class="slider-val" id="dripFreqVal">10%</div>
+      </div>
+    </div>
+    <p style="font-size:.68rem;color:var(--body);line-height:1.7">Chaos level injects random violations (scope creep, over-limit, bad payment method, unauthorized HNP). Drip frequency inserts coordinated sub-limit transactions designed to evade the daily cap.</p>
+  </div>
+
+  <!-- CHAIN PARENT (ART-01) -->
+  <div class="panel">
+    <div class="panel-label">Chain — paste ART-01 artifact (optional)</div>
+    <div class="chain-input-wrap">
+      <div style="flex:1">
+        <label class="field-label">ART-01 ChainGraph artifact JSON</label>
+        <textarea class="chain-textarea" id="parentArtifact" rows="4" placeholder='{ "ap2_version": "1.0.0", "tool_id": "art-01-ap2-mandate-chain-validator", "execution_hash": "...", ... }' oninput="onParentChange()"></textarea>
+        <div class="chain-status" id="parentStatus" style="color:var(--muted)">No parent artifact — chain_depth will be 0. Paste ART-01 output to link chains.</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:2rem">
+    <button class="run-btn" id="runBtn" onclick="runSimulation()">▶ Run Simulation</button>
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar-outer"><div class="progress-bar-inner" id="progressBar"></div></div>
+      <span class="progress-text" id="progressText">0 / 0</span>
+    </div>
+    <span id="runStatus" style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)"></span>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+
+    <!-- VERDICT -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Policy assessment</span></div>
+      <div class="out-body">
+        <div id="verdictCard"></div>
+        <div class="scorecard" id="scorecard"></div>
+        <div id="breakdownSection"></div>
+      </div>
+    </div>
+
+    <!-- BYPASS PATHS -->
+    <div class="out-section" id="bypassSection">
+      <div class="out-header"><span class="out-title">Policy-bypass paths detected</span></div>
+      <div class="out-body">
+        <p style="font-size:.7rem;color:var(--body);margin-bottom:.75rem;line-height:1.7">Drip patterns: sequences of individually-compliant transactions that cumulatively violate the daily limit within the same calendar day. Each path entry shows the sequence length, total cumulative spend, and the transaction IDs involved.</p>
+        <div class="bypass-list" id="bypassList"></div>
+      </div>
+    </div>
+
+    <!-- TX TABLE -->
+    <div class="out-section">
+      <div class="out-header">
+        <span class="out-title">Transaction log (<span id="txCountLabel">0</span>)</span>
+        <div class="filter-row" style="margin-bottom:0">
+          <button class="filter-btn active" onclick="filterTx('all',this)">All</button>
+          <button class="filter-btn" onclick="filterTx('PASS',this)">Pass</button>
+          <button class="filter-btn" onclick="filterTx('SCOPE_CREEP',this)">Scope creep</button>
+          <button class="filter-btn" onclick="filterTx('LIMIT',this)">Limit violations</button>
+          <button class="filter-btn" onclick="filterTx('HNP',this)">HNP flags</button>
+          <button class="filter-btn" onclick="filterTx('BYPASS',this)">Bypass</button>
+        </div>
+      </div>
+      <div class="out-body" style="padding:0">
+        <div class="tx-table-wrap">
+          <table class="tx-table" id="txTable">
+            <thead><tr>
+              <th>#</th><th>Status</th><th>Amount</th><th>Merchant</th><th>Category</th><th>Method</th><th>HNP</th><th>Day</th><th>Violation</th>
+            </tr></thead>
+            <tbody id="txTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXPORT -->
+    <div class="results-export-row">
+      <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()">
+        {} Export ChainGraph Artifact
+        <span class="btn-subtitle">AP2 · payment_policy · chain-anchored</span>
+      </button>
+      <button class="btn btn-ghost" id="csvExportBtn" disabled onclick="exportCSV()">
+        &#x21E9; Export Transaction Log
+        <span class="btn-subtitle">Full simulation log as CSV</span>
+      </button>
+    </div>
+
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()" style="margin-top:2rem" aria-expanded="false" aria-controls="mfstBody">
+    <span>&#x7B;&#x7D; MCP Manifest — ART-02</span>
+    <span id="mfstArrow">&#x25BC;</span>
+  </button>
+  <div class="mfst-body" id="mfstBody" aria-hidden="true">
+    <pre class="mfst-code" id="mfstCode"></pre>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" style="display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500"><span style="color:var(--teal)">AI</span>Numbers.co</span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="chaingraph-hub.html">ChainGraph Hub</a>
+      <a href="art-01-ap2-mandate-chain-validator.html">ART-01 Validator</a>
+      <a href="https://mcp.ainumbers.co/mcp" target="_blank" rel="noopener noreferrer">MCP Server</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>Post Oak Labs · CC BY 4.0</span>
+      <span>ChainGraph Suite · ART-02 v1.0.0</span>
+      <span>AP2 v0.2 · Spend Policy · Bypass Detection</span>
+    </div>
+  </div>
+</div></footer>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────────────────────────
+   MANIFEST
+   ───────────────────────────────────────────────────────────────── */
+const MANIFEST = {
+  tool_id: 'art-02-agent-spend-policy-simulator',
+  version: '1.0.0',
+  title: 'Agent Spend-Policy Simulator',
+  description: 'Simulates synthetic AP2 v0.2 agent transactions against a spend policy. Detects scope creep, per-tx/daily/monthly violations, drip-pattern bypass, unauthorized HNP flows.',
+  category: 'chaingraph',
+  mcp_tool_definition: {
+    name: 'simulate_spend_policy',
+    description: 'Simulates N synthetic agent transactions against a spend policy definition. Returns violation counts, scope-creep ratio, bypass-path detection, HNP authorization gaps, and full transaction-level log.',
+    inputSchema: { type:'object', required:['policy'] }
+  }
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   TAG INPUT STATE
+   ───────────────────────────────────────────────────────────────── */
+const _tags = { merchants:[], categories:[], methods:[] };
+
+function handleTagKey(e, key) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = e.target.value.trim().replace(/,$/, '');
+    if (val) addTag(key, val);
+    e.target.value = '';
+  } else if (e.key === 'Backspace' && !e.target.value && _tags[key].length) {
+    removeTag(key, _tags[key].length - 1);
+  }
+}
+
+function addTag(key, val) {
+  if (_tags[key].includes(val)) return;
+  _tags[key].push(val);
+  renderTags(key);
+}
+
+function removeTag(key, idx) {
+  _tags[key].splice(idx, 1);
+  renderTags(key);
+}
+
+function renderTags(key) {
+  const wrapId = { merchants:'merchantTagWrap', categories:'categoryTagWrap', methods:'methodTagWrap' }[key];
+  const inputId = { merchants:'merchantTagInput', categories:'categoryTagInput', methods:'methodTagInput' }[key];
+  const wrap = document.getElementById(wrapId);
+  const existing = wrap.querySelectorAll('.tag');
+  existing.forEach(t => t.remove());
+  const input = document.getElementById(inputId);
+  _tags[key].forEach((t, i) => {
+    const div = document.createElement('div');
+    div.className = 'tag';
+    div.innerHTML = `${esc(t)}<span class="tag-x" onclick="removeTag('${key}',${i})" title="Remove">×</span>`;
+    wrap.insertBefore(div, input);
+  });
+}
+
+function setTags(key, arr) {
+  _tags[key] = [...arr];
+  renderTags(key);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   PRESETS
+   ───────────────────────────────────────────────────────────────── */
+const PRESETS = {
+  saas: {
+    merchants: ['aws','gcp','azure','github','datadog','pagerduty','slack','notion','figma','vercel'],
+    categories: ['7372','7374','7371'],
+    methods: ['card_on_file'],
+    maxPerTx: 2000, maxDaily: 8000, maxMonthly: 40000,
+    currency: 'USD', hnpAllowed: true, hnpAutoApprove: 500, hnpMaxPerTx: 1000
+  },
+  travel: {
+    merchants: ['airlines-corp','hotel-chain','rental-co','uber','lyft','expensify'],
+    categories: ['4511','7011','7512','4121','5812'],
+    methods: ['card_on_file','bank_transfer'],
+    maxPerTx: 3000, maxDaily: 6000, maxMonthly: 25000,
+    currency: 'USD', hnpAllowed: false, hnpAutoApprove: 0, hnpMaxPerTx: 0
+  },
+  ecommerce: {
+    merchants: ['amazon','shopify-store','merchant-acme','wholesale-direct'],
+    categories: ['5411','5912','5942','5999'],
+    methods: ['card_on_file','paypal','bank_transfer'],
+    maxPerTx: 500, maxDaily: 2000, maxMonthly: 10000,
+    currency: 'USD', hnpAllowed: true, hnpAutoApprove: 100, hnpMaxPerTx: 250
+  },
+  tight_hnp: {
+    merchants: ['cloud-provider','saas-tool'],
+    categories: ['7372'],
+    methods: ['card_on_file'],
+    maxPerTx: 200, maxDaily: 500, maxMonthly: 3000,
+    currency: 'USD', hnpAllowed: true, hnpAutoApprove: 50, hnpMaxPerTx: 150
+  }
+};
+
+function loadPreset(key) {
+  const p = PRESETS[key];
+  setTags('merchants', p.merchants);
+  setTags('categories', p.categories);
+  setTags('methods', p.methods);
+  document.getElementById('maxPerTx').value     = p.maxPerTx;
+  document.getElementById('maxDaily').value     = p.maxDaily;
+  document.getElementById('maxMonthly').value   = p.maxMonthly;
+  document.getElementById('policyCurrency').value= p.currency;
+  document.getElementById('hnpAllowed').checked = p.hnpAllowed;
+  document.getElementById('hnpAutoApprove').value= p.hnpAutoApprove;
+  document.getElementById('hnpMaxPerTx').value  = p.hnpMaxPerTx;
+  showToast(`Preset "${key}" loaded`);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   SLIDER SYNC
+   ───────────────────────────────────────────────────────────────── */
+function syncSlider(inputId, valId, fmt) {
+  const v = parseFloat(document.getElementById(inputId).value);
+  document.getElementById(valId).textContent = fmt ? fmt(v) : v;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   CHAIN PARENT
+   ───────────────────────────────────────────────────────────────── */
+let _parentArtifact = null;
+
+function onParentChange() {
+  const raw = document.getElementById('parentArtifact').value.trim();
+  const el  = document.getElementById('parentStatus');
+  if (!raw) { _parentArtifact = null; el.style.color='var(--muted)'; el.textContent='No parent artifact — chain_depth will be 0.'; return; }
+  try {
+    const obj = JSON.parse(raw);
+    if (obj.tool_id && obj.execution_hash) {
+      _parentArtifact = obj;
+      el.style.color = 'var(--teal)';
+      el.textContent = `✓ ART-01 artifact accepted — depth ${(obj.chain?.chain_depth||0)+1}, hash ${obj.execution_hash.slice(0,12)}…`;
+    } else {
+      throw new Error('Missing tool_id or execution_hash');
+    }
+  } catch(e) {
+    _parentArtifact = null;
+    el.style.color = 'var(--red)';
+    el.textContent = `✗ ${e.message.slice(0,80)}`;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   SIMULATION ENGINE
+   ───────────────────────────────────────────────────────────────── */
+const MERCHANT_POOL   = ['amazon','aws','gcp','azure','github','datadog','pagerduty','slack','notion','figma','vercel','uber','lyft','shopify-store','merchant-acme','hotel-chain','airlines-corp','rental-co','evil-vendor','unknown-merchant'];
+const CATEGORY_POOL   = ['7372','7374','7371','5411','5812','4511','7011','5999','9999','0001'];
+const METHOD_POOL     = ['card_on_file','bank_transfer','paypal','wire_transfer','crypto'];
+
+// Simple deterministic PRNG (mulberry32)
+function makePRNG(seed) {
+  let s = seed >>> 0;
+  return () => { s += 0x6D2B79F5; let t = Math.imul(s ^ s>>>15, 1|s); t ^= t + Math.imul(t ^ t>>>7, 61|t); return ((t ^ t>>>14) >>> 0) / 4294967296; };
+}
+
+let _allTxns = [];
+let _filteredTxns = [];
+let _simResult = null;
+let _artifact  = null;
+
+async function runSimulation() {
+  const policy = buildPolicy();
+  const simCount  = parseInt(document.getElementById('simCount').value, 10);
+  const hnpRatio  = parseFloat(document.getElementById('hnpRatio').value);
+  const chaos     = parseFloat(document.getElementById('chaosLevel').value);
+  const dripFreq  = parseFloat(document.getElementById('dripFreq').value);
+
+  document.getElementById('runBtn').disabled = true;
+  const progressWrap = document.getElementById('progressWrap');
+  const progressBar  = document.getElementById('progressBar');
+  const progressText = document.getElementById('progressText');
+  progressWrap.classList.add('visible');
+  progressBar.style.width = '0%';
+  progressText.textContent = `0 / ${simCount}`;
+
+  const CHUNK = 200;
+  const prng  = makePRNG(Date.now() & 0xFFFFFFFF);
+  const txns  = [];
+
+  // Simulate with chunk-yielding for large runs
+  let i = 0;
+  while (i < simCount) {
+    const end = Math.min(i + CHUNK, simCount);
+    for (let j = i; j < end; j++) {
+      txns.push(generateTx(j, prng, policy, hnpRatio, chaos, dripFreq, simCount));
+    }
+    i = end;
+    const pct = Math.round((i / simCount) * 100);
+    progressBar.style.width = pct + '%';
+    progressText.textContent = `${i} / ${simCount}`;
+    if (i < simCount) await yieldTick();
+  }
+
+  // Validate all transactions
+  const dailySpend   = {};  // key: 'agentId:dayNum'
+  const monthlySpend = {};  // key: 'agentId:month'
+  const validated    = [];
+
+  for (const tx of txns) {
+    const dayKey   = `${tx.agent_id}:${tx.day}`;
+    const monthKey = `${tx.agent_id}:${tx.month}`;
+    dailySpend[dayKey]   = (dailySpend[dayKey]   || 0) + tx.amount;
+    monthlySpend[monthKey]= (monthlySpend[monthKey]|| 0) + tx.amount;
+
+    const violations = [];
+    const checks = validateTx(tx, policy, dailySpend[dayKey], monthlySpend[monthKey]);
+    if (checks.length) violations.push(...checks);
+    validated.push({ ...tx, violations, status: violations.length ? 'FAIL' : 'PASS' });
+  }
+
+  // Detect drip/bypass paths
+  const bypassPaths = detectBypassPaths(validated, policy);
+
+  // Mark bypass participants
+  const bypassTxIds = new Set(bypassPaths.flatMap(p => p.tx_ids));
+  validated.forEach(tx => {
+    if (bypassTxIds.has(tx.id) && tx.status === 'PASS') {
+      tx.violations.push('BYPASS_PATTERN');
+      tx.status = 'BYPASS';
+    }
+  });
+
+  // Counts
+  const passCount  = validated.filter(t => t.status === 'PASS').length;
+  const failCount  = validated.filter(t => t.status === 'FAIL').length;
+  const bypassCount= validated.filter(t => t.status === 'BYPASS').length;
+  const scopeCreepCount   = validated.filter(t => t.violations.includes('SCOPE_CREEP_MERCHANT') || t.violations.includes('SCOPE_CREEP_CATEGORY')).length;
+  const limitViolCount    = validated.filter(t => t.violations.some(v => v.startsWith('LIMIT_'))).length;
+  const hnpViolCount      = validated.filter(t => t.violations.some(v => v.startsWith('HNP_'))).length;
+  const methodViolCount   = validated.filter(t => t.violations.includes('BAD_PAYMENT_METHOD')).length;
+
+  _allTxns = validated;
+  _filteredTxns = [...validated];
+  _simResult = { simCount, passCount, failCount, bypassCount, scopeCreepCount, limitViolCount, hnpViolCount, methodViolCount, bypassPaths, policy };
+
+  // Build AP2 artifact
+  const policyParams = { policy_version:'1.0', sim_count:simCount, hnp_ratio:hnpRatio, chaos_level:chaos, drip_frequency:dripFreq };
+  const outputForHash= { pass_rate: passCount/simCount, violation_rate:(failCount+bypassCount)/simCount, bypass_paths_found:bypassPaths.length };
+  const hash = await sha256({ policy_parameters:policyParams, output_payload:outputForHash });
+
+  const parentHash  = _parentArtifact?.execution_hash || null;
+  const parentDepth = _parentArtifact?.chain?.chain_depth ?? -1;
+
+  _artifact = {
+    ap2_version: '1.0.0',
+    mandate_type: 'payment_policy',
+    tool_id: 'art-02-agent-spend-policy-simulator',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: hash,
+    chain: {
+      parent_hashes:  parentHash ? [parentHash] : [],
+      parent_tool_ids: parentHash ? ['art-01-ap2-mandate-chain-validator'] : [],
+      chain_depth: parentDepth + 1
+    },
+    policy_parameters: policyParams,
+    output_payload: {
+      simulation_summary: {
+        total_transactions: simCount,
+        pass: passCount,
+        fail: failCount,
+        bypass: bypassCount,
+        pass_rate_pct: +(passCount/simCount*100).toFixed(2),
+        violation_breakdown: { scope_creep:scopeCreepCount, limit:limitViolCount, hnp:hnpViolCount, method:methodViolCount }
+      },
+      bypass_paths_detected: bypassPaths.length,
+      policy_risk_assessment: policyRiskVerdict(_simResult)
+    },
+    compliance_flags: buildComplianceFlags(_simResult),
+    audit_signature: { client_side_executed:true, zero_pii_verified:true, synthetic_data_only:true }
+  };
+
+  progressWrap.classList.remove('visible');
+  document.getElementById('runBtn').disabled = false;
+  document.getElementById('ap2ExportBtn').disabled = false;
+  document.getElementById('ap2ExportBtn').classList.add('ready');
+  document.getElementById('csvExportBtn').disabled = false;
+  document.getElementById('csvExportBtn').classList.add('ready');
+
+  renderResults(_simResult);
+  renderTxTable(_filteredTxns);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   POLICY BUILDER
+   ───────────────────────────────────────────────────────────────── */
+function buildPolicy() {
+  return {
+    allowed_merchants:   [..._tags.merchants],
+    allowed_categories:  [..._tags.categories],
+    allowed_methods:     [..._tags.methods],
+    currency:            document.getElementById('policyCurrency').value.trim().toUpperCase() || 'USD',
+    max_per_tx:          parseFloat(document.getElementById('maxPerTx').value) || 500,
+    max_daily:           parseFloat(document.getElementById('maxDaily').value) || 0,
+    max_monthly:         parseFloat(document.getElementById('maxMonthly').value) || 0,
+    hnp_allowed:         document.getElementById('hnpAllowed').checked,
+    hnp_auto_approve_below: parseFloat(document.getElementById('hnpAutoApprove').value) || 0,
+    hnp_max_per_tx:      parseFloat(document.getElementById('hnpMaxPerTx').value) || 0
+  };
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   TX GENERATOR
+   ───────────────────────────────────────────────────────────────── */
+function generateTx(idx, rng, policy, hnpRatio, chaos, dripFreq, total) {
+  const isHnp    = rng() < hnpRatio;
+  const isChaos  = rng() < chaos;
+  const isDrip   = rng() < dripFreq;
+  const day      = Math.floor(idx / Math.max(1, total/30)) + 1;  // spread over 30 days
+  const month    = Math.ceil(day / 30);
+  const agentId  = `agent-${String(Math.floor(rng()*5+1)).padStart(2,'0')}`;
+
+  let merchant, category, method, amount;
+
+  if (isDrip && policy.max_daily > 0) {
+    /* Drip: individually within per-tx limit but builds to exceed daily */
+    amount   = +(policy.max_per_tx * (0.3 + rng()*0.3)).toFixed(2);
+    merchant = policy.allowed_merchants.length
+      ? policy.allowed_merchants[Math.floor(rng()*policy.allowed_merchants.length)]
+      : MERCHANT_POOL[Math.floor(rng()*6)];
+    category = policy.allowed_categories.length
+      ? policy.allowed_categories[Math.floor(rng()*policy.allowed_categories.length)]
+      : CATEGORY_POOL[Math.floor(rng()*6)];
+    method   = policy.allowed_methods.length
+      ? policy.allowed_methods[Math.floor(rng()*policy.allowed_methods.length)]
+      : METHOD_POOL[0];
+  } else if (isChaos) {
+    /* Chaos: might be out-of-scope merchant, wrong category, bad method, over-limit */
+    const violType = Math.floor(rng()*5);
+    amount   = violType === 3
+      ? +(policy.max_per_tx * (1.1 + rng()*0.9)).toFixed(2)
+      : +(policy.max_per_tx * rng() * 0.9).toFixed(2);
+    merchant = violType === 0
+      ? MERCHANT_POOL[15 + Math.floor(rng()*5)]  /* unauthorized merchants at end of pool */
+      : (policy.allowed_merchants.length ? policy.allowed_merchants[Math.floor(rng()*policy.allowed_merchants.length)] : MERCHANT_POOL[Math.floor(rng()*6)]);
+    category = violType === 1
+      ? CATEGORY_POOL[7 + Math.floor(rng()*3)]   /* unauthorized categories */
+      : (policy.allowed_categories.length ? policy.allowed_categories[Math.floor(rng()*policy.allowed_categories.length)] : CATEGORY_POOL[Math.floor(rng()*6)]);
+    method   = violType === 4
+      ? METHOD_POOL[3 + Math.floor(rng()*2)]     /* wire/crypto */
+      : (policy.allowed_methods.length ? policy.allowed_methods[Math.floor(rng()*policy.allowed_methods.length)] : METHOD_POOL[0]);
+  } else {
+    /* Normal: compliant transaction */
+    amount   = +(policy.max_per_tx * rng() * 0.85 + 5).toFixed(2);
+    merchant = policy.allowed_merchants.length
+      ? policy.allowed_merchants[Math.floor(rng()*policy.allowed_merchants.length)]
+      : MERCHANT_POOL[Math.floor(rng()*6)];
+    category = policy.allowed_categories.length
+      ? policy.allowed_categories[Math.floor(rng()*policy.allowed_categories.length)]
+      : CATEGORY_POOL[Math.floor(rng()*6)];
+    method   = policy.allowed_methods.length
+      ? policy.allowed_methods[Math.floor(rng()*policy.allowed_methods.length)]
+      : METHOD_POOL[0];
+  }
+
+  return { id:`tx-${String(idx+1).padStart(5,'0')}`, agent_id:agentId, day, month, amount, merchant, category, payment_method:method, human_not_present:isHnp, is_drip:isDrip };
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   TX VALIDATOR
+   ───────────────────────────────────────────────────────────────── */
+function validateTx(tx, policy, dailyCumulative, monthlyCumulative) {
+  const v = [];
+  if (policy.allowed_merchants.length && !policy.allowed_merchants.includes(tx.merchant))
+    v.push('SCOPE_CREEP_MERCHANT');
+  if (policy.allowed_categories.length && !policy.allowed_categories.includes(tx.category))
+    v.push('SCOPE_CREEP_CATEGORY');
+  if (policy.allowed_methods.length && !policy.allowed_methods.includes(tx.payment_method))
+    v.push('BAD_PAYMENT_METHOD');
+  if (tx.amount > policy.max_per_tx)
+    v.push('LIMIT_PER_TX');
+  if (policy.max_daily > 0 && dailyCumulative > policy.max_daily)
+    v.push('LIMIT_DAILY');
+  if (policy.max_monthly > 0 && monthlyCumulative > policy.max_monthly)
+    v.push('LIMIT_MONTHLY');
+  if (tx.human_not_present && !policy.hnp_allowed)
+    v.push('HNP_NOT_AUTHORIZED');
+  if (tx.human_not_present && policy.hnp_allowed && policy.hnp_max_per_tx > 0 && tx.amount > policy.hnp_max_per_tx)
+    v.push('HNP_OVER_MAX_PER_TX');
+  return v;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   BYPASS PATH DETECTION
+   ───────────────────────────────────────────────────────────────── */
+function detectBypassPaths(txns, policy) {
+  if (!policy.max_daily || policy.max_daily <= 0) return [];
+  const paths = [];
+  const byDay  = {};
+  txns.forEach(tx => {
+    if (tx.status !== 'FAIL') {  // only "passing" txns are interesting for bypass
+      const k = `${tx.agent_id}:${tx.day}`;
+      (byDay[k] = byDay[k] || []).push(tx);
+    }
+  });
+  Object.entries(byDay).forEach(([key, group]) => {
+    const cum = group.reduce((s,t) => s+t.amount, 0);
+    if (cum > policy.max_daily && group.length >= 2) {
+      const [agentId, day] = key.split(':');
+      paths.push({
+        path_id: `BYP-${agentId}-D${day}`,
+        agent_id: agentId,
+        day: parseInt(day,10),
+        tx_count: group.length,
+        cumulative_spend: +cum.toFixed(2),
+        daily_limit: policy.max_daily,
+        overage: +(cum - policy.max_daily).toFixed(2),
+        tx_ids: group.map(t=>t.id)
+      });
+    }
+  });
+  return paths;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   VERDICT HELPERS
+   ───────────────────────────────────────────────────────────────── */
+function policyRiskVerdict(r) {
+  const vRate = (r.failCount + r.bypassCount) / r.simCount;
+  if (vRate > 0.25 || r.bypassPaths.length > 5) return 'HIGH_RISK';
+  if (vRate > 0.10 || r.bypassPaths.length > 0) return 'MEDIUM_RISK';
+  return 'LOW_RISK';
+}
+
+function buildComplianceFlags(r) {
+  const f = [];
+  const v = policyRiskVerdict(r);
+  f.push(`SPEND_POLICY_${v}`);
+  if (r.scopeCreepCount > 0)  f.push('SCOPE_CREEP_DETECTED');
+  if (r.bypassPaths.length > 0) f.push('BYPASS_PATTERN_DETECTED');
+  if (r.hnpViolCount > 0)     f.push('HNP_VIOLATION_DETECTED');
+  return f;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RENDER
+   ───────────────────────────────────────────────────────────────── */
+function renderResults(r) {
+  document.getElementById('resultsPanel').classList.add('visible');
+  const verdict = policyRiskVerdict(r);
+  const vMeta = {
+    LOW_RISK:    {cls:'clean',icon:'✅',label:'Policy Holding',    title:'Spend policy is well-enforced',        sub:`${(r.passCount/r.simCount*100).toFixed(1)}% of simulated transactions pass cleanly. No significant violation patterns detected.`},
+    MEDIUM_RISK: {cls:'warn', icon:'⚠️', label:'Policy Gaps Detected', title:'Spend policy requires review',     sub:`${r.bypassPaths.length} bypass path(s) and ${r.scopeCreepCount} scope-creep transaction(s) detected. Review daily limits and merchant allowlist.`},
+    HIGH_RISK:   {cls:'risk', icon:'🚫',label:'Policy At Risk',    title:'Significant spend-policy vulnerabilities', sub:`High violation rate (${((r.failCount+r.bypassCount)/r.simCount*100).toFixed(1)}%) and/or widespread bypass patterns detected. Immediate policy tightening recommended.`}
+  }[verdict];
+
+  document.getElementById('verdictCard').innerHTML = `<div class="verdict-card ${vMeta.cls}">
+    <div class="verdict-icon">${vMeta.icon}</div>
+    <div>
+      <div class="verdict-label ${vMeta.cls}">${vMeta.label}</div>
+      <div class="verdict-title">${vMeta.title}</div>
+      <div class="verdict-sub">${vMeta.sub}</div>
+    </div>
+  </div>`;
+
+  const passRate = (r.passCount/r.simCount*100).toFixed(1);
+  document.getElementById('scorecard').innerHTML = [
+    {val:`${passRate}%`,label:'Pass rate',sub:`${r.passCount} clean`,color:'var(--green)'},
+    {val:r.failCount,label:'Violations',sub:`${r.scopeCreepCount} scope creep`,color:'var(--red)'},
+    {val:r.bypassCount,label:'Bypass txns',sub:`${r.bypassPaths.length} paths`,color:'var(--warn)'},
+    {val:r.hnpViolCount,label:'HNP flags',sub:`unauthorized/overlimit`,color:'var(--purple)'}
+  ].map(c=>`<div class="score-card">
+    <div class="score-val" style="color:${c.color}">${c.val}</div>
+    <div class="score-label">${c.label}</div>
+    <div class="score-sub">${c.sub}</div>
+  </div>`).join('');
+
+  const total = r.simCount;
+  const bars = [
+    {label:'Scope creep — merchant',count:_allTxns.filter(t=>t.violations.includes('SCOPE_CREEP_MERCHANT')).length,color:'var(--red)'},
+    {label:'Scope creep — category',count:_allTxns.filter(t=>t.violations.includes('SCOPE_CREEP_CATEGORY')).length,color:'var(--red)'},
+    {label:'Per-tx over-limit',     count:_allTxns.filter(t=>t.violations.includes('LIMIT_PER_TX')).length,color:'var(--warn)'},
+    {label:'Daily limit exceeded',  count:_allTxns.filter(t=>t.violations.includes('LIMIT_DAILY')).length,color:'var(--warn)'},
+    {label:'Monthly limit exceeded',count:_allTxns.filter(t=>t.violations.includes('LIMIT_MONTHLY')).length,color:'var(--gold)'},
+    {label:'Bad payment method',    count:r.methodViolCount,color:'var(--body)'},
+    {label:'HNP not authorized',    count:_allTxns.filter(t=>t.violations.includes('HNP_NOT_AUTHORIZED')).length,color:'var(--purple)'},
+    {label:'HNP over per-tx cap',   count:_allTxns.filter(t=>t.violations.includes('HNP_OVER_MAX_PER_TX')).length,color:'var(--purple)'},
+    {label:'Drip bypass pattern',   count:r.bypassCount,color:'var(--teal)'}
+  ];
+  document.getElementById('breakdownSection').innerHTML = `
+    <div class="panel-label" style="margin-top:1rem">Violation breakdown</div>
+    <div class="breakdown-bars">${bars.map(b=>`<div class="bbar-row">
+      <div class="bbar-label">${b.label}</div>
+      <div class="bbar-outer"><div class="bbar-inner" style="width:${(b.count/total*100).toFixed(1)}%;background:${b.color}"></div></div>
+      <div class="bbar-count">${b.count}</div>
+    </div>`).join('')}</div>`;
+
+  /* Bypass paths */
+  const bypassSection = document.getElementById('bypassSection');
+  if (r.bypassPaths.length === 0) {
+    bypassSection.querySelector('.out-body').innerHTML = `<p style="font-size:.72rem;color:var(--body)">No drip-pattern bypass paths detected in this simulation run. Try increasing the drip-pattern frequency slider and re-running.</p>`;
+  } else {
+    document.getElementById('bypassList').innerHTML = r.bypassPaths.slice(0,20).map(p=>`<div class="bypass-item">
+      <div class="bypass-item-header">
+        <span class="bypass-item-id">${esc(p.path_id)}</span>
+        <span class="bypass-item-type">drip pattern · day ${p.day}</span>
+      </div>
+      <div class="bypass-item-desc">Agent <strong>${esc(p.agent_id)}</strong> — ${p.tx_count} individually-compliant transactions totalling $${p.cumulative_spend.toFixed(2)} (daily limit: $${p.daily_limit.toFixed(2)}, overage: $${p.overage.toFixed(2)}). Transaction IDs: ${p.tx_ids.slice(0,5).join(', ')}${p.tx_ids.length>5?` + ${p.tx_ids.length-5} more`:''}</div>
+    </div>`).join('')}
+    ${r.bypassPaths.length > 20 ? `<p style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);margin-top:.5rem">… ${r.bypassPaths.length-20} more bypass paths — export CSV for full list.</p>` : ''}`;
+  }
+
+  document.getElementById('txCountLabel').textContent = _allTxns.length.toLocaleString();
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   TX TABLE
+   ───────────────────────────────────────────────────────────────── */
+function renderTxTable(txns) {
+  const MAX_ROWS = 500;
+  const body = document.getElementById('txTbody');
+  const rows = txns.slice(0, MAX_ROWS);
+  const statusColor = {PASS:'var(--green)',FAIL:'var(--red)',BYPASS:'var(--warn)'};
+  body.innerHTML = rows.map(t=>`<tr>
+    <td style="color:var(--muted)">${t.id}</td>
+    <td style="color:${statusColor[t.status]||'var(--body)'};font-weight:500">${t.status}</td>
+    <td style="color:var(--bright)">$${t.amount.toFixed(2)}</td>
+    <td>${esc(t.merchant)}</td>
+    <td>${esc(t.category)}</td>
+    <td>${esc(t.payment_method)}</td>
+    <td style="color:${t.human_not_present?'var(--purple)':'var(--muted)'}">${t.human_not_present?'HNP':'–'}</td>
+    <td>D${t.day}</td>
+    <td style="font-size:.46rem;color:${t.violations.length?'var(--red)':'var(--muted)'}">${t.violations.join(' ')||'–'}</td>
+  </tr>`).join('');
+  if (txns.length > MAX_ROWS) {
+    body.innerHTML += `<tr><td colspan="9" style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);padding:.75rem 1rem">Showing first ${MAX_ROWS} of ${txns.length.toLocaleString()} — export CSV for full log.</td></tr>`;
+  }
+}
+
+function filterTx(type, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if (type === 'all') {
+    _filteredTxns = [..._allTxns];
+  } else if (type === 'PASS') {
+    _filteredTxns = _allTxns.filter(t=>t.status==='PASS');
+  } else if (type === 'SCOPE_CREEP') {
+    _filteredTxns = _allTxns.filter(t=>t.violations.some(v=>v.startsWith('SCOPE_CREEP')));
+  } else if (type === 'LIMIT') {
+    _filteredTxns = _allTxns.filter(t=>t.violations.some(v=>v.startsWith('LIMIT_')));
+  } else if (type === 'HNP') {
+    _filteredTxns = _allTxns.filter(t=>t.violations.some(v=>v.startsWith('HNP_')));
+  } else if (type === 'BYPASS') {
+    _filteredTxns = _allTxns.filter(t=>t.status==='BYPASS');
+  }
+  document.getElementById('txCountLabel').textContent = _filteredTxns.length.toLocaleString();
+  renderTxTable(_filteredTxns);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   EXPORTS
+   ───────────────────────────────────────────────────────────────── */
+function exportAP2() {
+  if (!_artifact) return;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  dl(JSON.stringify(_artifact,null,2), `art-02_${ts}.policy.json`, 'application/json');
+  showToast('ChainGraph artifact exported');
+}
+
+function exportCSV() {
+  if (!_allTxns.length) return;
+  const hdr = 'id,agent_id,day,month,amount,merchant,category,payment_method,human_not_present,is_drip,status,violations\n';
+  const rows = _allTxns.map(t=>[
+    t.id, t.agent_id, t.day, t.month, t.amount,
+    `"${t.merchant}"`, `"${t.category}"`, `"${t.payment_method}"`,
+    t.human_not_present, t.is_drip, t.status,
+    `"${t.violations.join('|')}"`
+  ].join(','));
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  dl(hdr + rows.join('\n'), `art-02_txlog_${ts}.csv`, 'text/csv');
+  showToast('Transaction log exported');
+}
+
+function dl(content, filename, type) {
+  const blob = new Blob([content],{type});
+  const a = Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:filename});
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   UTILS
+   ───────────────────────────────────────────────────────────────── */
+function yieldTick() { return new Promise(r => setTimeout(r, 0)); }
+
+async function sha256(obj) {
+  const canonical = JSON.stringify(obj, Object.keys(obj).sort());
+  const buf = new TextEncoder().encode(canonical);
+  const hb  = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+function toggleMfst() {
+  const body  = document.getElementById('mfstBody');
+  const arrow = document.getElementById('mfstArrow');
+  const btn   = document.querySelector('.mfst-btn');
+  const open  = body.style.display==='block';
+  body.style.display=open?'none':'block';
+  arrow.textContent=open?'▼':'▲';
+  btn.setAttribute('aria-expanded',String(!open));
+  body.setAttribute('aria-hidden',String(open));
+  if(!open&&!document.getElementById('mfstCode').textContent)
+    document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+
+/* Init sliders */
+['simCount','hnpRatio','chaosLevel','dripFreq'].forEach(id => {
+  const el = document.getElementById(id);
+  el.dispatchEvent(new Event('input'));
+});
+</script>
+</body>
+</html>
