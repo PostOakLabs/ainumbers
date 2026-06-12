@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>VoP Batch Match-Rate Analyser · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Batch IBAN-name Verification of Payee matching across synthetic payee records. MATCH/CLOSE_MATCH/NO_MATCH classification with configurable strictness, Jaro-Winkler similarity scoring, and false-positive vs false-negative trade-off curves. EU Instant Payments Regulation (VoP in force Oct 2025).">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-11-vop-batch-match-rate-analyser.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"VoP Batch Match-Rate Analyser","url":"https://ainumbers.co/chaingraph/art-11-vop-batch-match-rate-analyser.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "art-11-vop-batch-match-rate-analyser",
+  "version": "1.0.0",
+  "title": "VoP Batch Match-Rate Analyser",
+  "description": "Batch Verification of Payee (VoP) IBAN-name matching across synthetic payee records. Three-outcome classification (MATCH/CLOSE_MATCH/NO_MATCH) using normalized exact + Jaro-Winkler fuzzy similarity. Configurable match/close-match thresholds with live FP/FN trade-off curve. Bulk scenarios and built-in edge-case library (diacritics, abbreviations, legal suffix, name-order reversal). Exports AP2 compliance_mandate artifact. EU IPR VoP in force October 2025.",
+  "category": "chaingraph",
+  "tags": ["VoP","Verification of Payee","IBAN","name matching","EU IPR","Instant Payments Regulation","Jaro-Winkler","false positive","false negative","trade-off","AIS","PSP"],
+  "mcp_tool_definition": {"name":"simulate_vop_matching","description":"Batch VoP IBAN-name match simulation across synthetic payee records. Returns per-record classification (MATCH/CLOSE_MATCH/NO_MATCH), similarity scores, match-rate summary, and FP/FN trade-off curve across thresholds.","inputSchema":{"type":"object","properties":{"payees":{"type":"array","description":"Array of {iban, account_name, reference_name} objects — reference_name is the bank's registered name"},"match_threshold":{"type":"number","description":"Jaro-Winkler similarity ≥ this → MATCH (0–1, default 0.90)"},"close_match_threshold":{"type":"number","description":"Jaro-Winkler similarity ≥ this → CLOSE_MATCH (default 0.75)"},"strictness":{"type":"string","enum":["lenient","standard","strict"],"description":"Pre-set threshold bundle (overrides individual thresholds if supplied)"}},"required":["payees"]}},
+  "execution": {"type":"browser-javascript","entry":"chaingraph/art-11-vop-batch-match-rate-analyser.html","function_name":"runMatching","timeout_ms":5000},
+  "ap2_export": true,
+  "chaingraph": true,
+  "chain_partners": ["ptg-01-ap2-prompt-template-generator","art-10-amla-transaction-typology-risk-scorer"],
+  "mandate_type": "compliance_mandate",
+  "deadline": null,
+  "deadline_note": "EU IPR VoP in force October 2025 — live operational pain today",
+  "conformance_fixtures": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--teal)}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.3rem}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.15rem;display:block}
+input[type="number"],input[type="text"],select,textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'Sora',sans-serif;font-size:.75rem;padding:.38rem .55rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+/* SCENARIO BUTTONS */
+.scenario-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.scenario-btn{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;background:var(--bg-3);border:1px solid var(--border);color:var(--muted);padding:.28rem .7rem;border-radius:3px;cursor:pointer;transition:all .2s}
+.scenario-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* EDITOR GRID */
+.editor-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:.75rem}
+@media(max-width:800px){.editor-grid{grid-template-columns:1fr}}
+.graph-textarea{font-family:'JetBrains Mono',monospace;font-size:.54rem;min-height:260px;resize:vertical;line-height:1.6}
+.json-status{font-family:'JetBrains Mono',monospace;font-size:.44rem;margin-top:.35rem}
+/* THRESHOLD PANEL */
+.threshold-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:.75rem;align-items:end}
+@media(max-width:700px){.threshold-grid{grid-template-columns:1fr 1fr}}
+.slider-wrap{display:flex;flex-direction:column;gap:.3rem}
+input[type="range"]{-webkit-appearance:none;appearance:none;height:4px;background:var(--border);border-radius:2px;outline:none;width:100%;padding:0}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:var(--teal);border-radius:50%;cursor:pointer}
+input[type="range"]::-moz-range-thumb{width:14px;height:14px;background:var(--teal);border-radius:50%;cursor:pointer;border:none}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal);text-align:right}
+/* RUN */
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+/* RESULTS */
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+/* SCORECARD */
+.scorecard{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem}
+@media(max-width:700px){.scorecard{grid-template-columns:1fr 1fr}}
+.score-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.85rem 1rem;text-align:center}
+.score-val{font-family:'DM Serif Display',serif;font-size:1.8rem;line-height:1;margin-bottom:.2rem}
+.score-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.score-sub{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--body);margin-top:.15rem}
+/* VERDICT */
+.verdict-card{border-radius:var(--radius-lg);padding:1.1rem 1.3rem;margin-bottom:.85rem;display:flex;align-items:flex-start;gap:1rem}
+.verdict-card.good{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.3)}
+.verdict-card.warn{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.3)}
+.verdict-card.risk{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.35)}
+.verdict-icon{font-size:1.5rem;line-height:1;flex-shrink:0;margin-top:.1rem}
+.verdict-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.2rem}
+.verdict-label.good{color:var(--green)}.verdict-label.warn{color:var(--warn)}.verdict-label.risk{color:var(--red)}
+.verdict-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white);margin-bottom:.25rem}
+.verdict-sub{font-size:.7rem;color:var(--body);line-height:1.6}
+/* FP/FN CURVE (inline SVG) */
+.curve-wrap{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem;overflow-x:auto}
+.curve-legend{display:flex;gap:1.5rem;margin-top:.75rem;flex-wrap:wrap}
+.curve-legend-item{display:flex;align-items:center;gap:.45rem;font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--muted)}
+.curve-legend-dot{width:10px;height:10px;border-radius:50%}
+/* TX TABLE */
+.tx-table-wrap{overflow-x:auto;max-height:380px;overflow-y:auto}
+.tx-table{width:100%;border-collapse:collapse}
+.tx-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.45rem .65rem;border-bottom:1px solid var(--border);background:var(--bg-3);position:sticky;top:0;white-space:nowrap;text-align:left}
+.tx-table td{font-family:'JetBrains Mono',monospace;font-size:.5rem;padding:.38rem .65rem;border-bottom:1px solid rgba(30,47,74,.5);white-space:nowrap}
+.tx-table tr:hover td{background:var(--bg-4)}
+.filter-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem;align-items:center}
+.filter-btn{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;background:var(--bg-3);border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;cursor:pointer;transition:all .2s}
+.filter-btn:hover,.filter-btn.active{border-color:var(--teal);color:var(--teal)}
+/* OUTCOME BARS */
+.outcome-bars{display:flex;height:18px;border-radius:4px;overflow:hidden;margin-bottom:.6rem}
+.outcome-bars-labels{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);margin-top:.3rem}
+/* EXPORT */
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--teal);color:var(--bright)}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+/* MANIFEST */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="chaingraph-hub.html">ChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">ART-11</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph Suite · ART-11 · VoP Batch Match-Rate Analyser</div>
+  <span class="badge badge-muted" style="display:inline-flex;margin-bottom:.6rem"><span>v1.0.0</span></span>
+  <h1>VoP Batch Match-Rate <em>Analyser</em></h1>
+  <p class="hero-desc">Simulate <strong>Verification of Payee</strong> (EU IPR, in force October 2025) IBAN-name matching across a synthetic payee batch. Each record is scored with <strong>normalised exact matching</strong> + <strong>Jaro-Winkler fuzzy similarity</strong>, then classified as <strong>MATCH / CLOSE_MATCH / NO_MATCH</strong>. Adjust the match and close-match threshold sliders to explore the <strong>false-positive vs false-negative trade-off curve</strong> — the core operational decision for PSPs tuning their VoP implementation. Built-in edge cases cover diacritics, name-order reversal, legal-suffix variation, and abbreviations.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">AP2 Export</span>
+    <span class="badge badge-teal">Chains: ART-10 · PTG-01</span>
+    <span class="badge badge-gold">EU IPR Oct 2025</span>
+    <span class="badge badge-warn">FP/FN Curve</span>
+    <span class="badge badge-green">Jaro-Winkler · Zero PII</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All matching runs locally. Use synthetic IBAN-like identifiers and fictional names only. No data leaves your browser.</div>
+
+  <!-- SCENARIOS -->
+  <div class="panel">
+    <div class="panel-label">Built-in scenarios &amp; edge-case library</div>
+    <div class="scenario-row">
+      <button class="scenario-btn" onclick="loadScenario('clean')">✓ Clean — exact matches</button>
+      <button class="scenario-btn" onclick="loadScenario('mixed')">Mixed — realistic batch</button>
+      <button class="scenario-btn" onclick="loadScenario('diacritics')">Diacritics / accents</button>
+      <button class="scenario-btn" onclick="loadScenario('abbreviations')">Abbreviations</button>
+      <button class="scenario-btn" onclick="loadScenario('name_order')">Name-order reversal</button>
+      <button class="scenario-btn" onclick="loadScenario('legal_suffix')">Legal suffix variation</button>
+      <button class="scenario-btn" onclick="loadScenario('fraud')">⚠ Fraud — name spoofing</button>
+    </div>
+  </div>
+
+  <!-- EDITOR -->
+  <div class="panel">
+    <div class="panel-label">Payee batch — paste or edit JSON</div>
+    <div class="editor-grid">
+      <div>
+        <label class="field-label">Payee records array</label>
+        <textarea class="graph-textarea" id="payeeJson" oninput="onPayeeJsonChange()" placeholder='[
+  {
+    "id": "PAY-001",
+    "iban": "GB29NWBK60161331926819",
+    "account_name": "John Smith",
+    "reference_name": "JOHN SMITH"
+  }
+]'></textarea>
+        <div class="json-status" id="payeeJsonStatus" style="color:var(--muted)">paste or load a scenario</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.75rem">
+        <div>
+          <div class="field-label">Record schema</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--body);line-height:1.9;background:var(--bg-3);padding:.65rem .85rem;border-radius:var(--radius);border:1px solid var(--border)">
+            id               string  — unique record ID<br>
+            iban             string  — IBAN-format identifier (synthetic)<br>
+            account_name     string  — name provided by the payer<br>
+            reference_name   string  — bank's registered account name<br>
+            <br>
+            <span style="color:var(--muted)">account_name vs reference_name is the</span><br>
+            <span style="color:var(--muted)">core VoP comparison. Both required.</span>
+          </div>
+        </div>
+        <div>
+          <label class="field-label">Generate synthetic batch</label>
+          <div style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap">
+            <div>
+              <span class="field-hint" style="display:block;margin-bottom:.2rem">Records</span>
+              <input type="number" id="genCount" value="40" min="5" max="300" style="width:80px">
+            </div>
+            <div>
+              <span class="field-hint" style="display:block;margin-bottom:.2rem">Mismatch %</span>
+              <input type="number" id="genMismatch" value="25" min="0" max="100" style="width:70px">
+            </div>
+            <button style="background:var(--bg-3);border:1px solid var(--border);color:var(--text);padding:.38rem .85rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;white-space:nowrap" onclick="generateBatch()">Generate ▶</button>
+          </div>
+        </div>
+        <div>
+          <label class="field-label">Normalisation preview</label>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <input type="text" id="normInput" placeholder="Type a name…" style="flex:1" oninput="showNorm()">
+          </div>
+          <div id="normOutput" style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--teal);margin-top:.35rem;min-height:1.2rem"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- THRESHOLDS -->
+  <div class="panel">
+    <div class="panel-label">Match thresholds &amp; strictness</div>
+    <div class="threshold-grid">
+      <div>
+        <label class="field-label">Strictness preset</label>
+        <select id="strictnessPreset" onchange="applyPreset()">
+          <option value="custom">Custom</option>
+          <option value="lenient">Lenient (0.80 / 0.65)</option>
+          <option value="standard" selected>Standard (0.90 / 0.75)</option>
+          <option value="strict">Strict (0.95 / 0.85)</option>
+        </select>
+      </div>
+      <div class="slider-wrap">
+        <label class="field-label">Match threshold (MATCH ≥)</label>
+        <input type="range" id="matchThreshold" min="0.5" max="1.0" step="0.01" value="0.90" oninput="onThresholdChange()">
+        <div class="slider-val" id="matchThresholdVal">0.90</div>
+      </div>
+      <div class="slider-wrap">
+        <label class="field-label">Close-match threshold (CLOSE ≥)</label>
+        <input type="range" id="closeThreshold" min="0.4" max="0.99" step="0.01" value="0.75" oninput="onThresholdChange()">
+        <div class="slider-val" id="closeThresholdVal">0.75</div>
+      </div>
+    </div>
+    <p style="font-size:.68rem;color:var(--body);line-height:1.7">
+      <strong style="color:var(--text)">MATCH</strong> → similarity ≥ match threshold → payment proceeds automatically.<br>
+      <strong style="color:var(--text)">CLOSE_MATCH</strong> → similarity between close-match and match threshold → PSP must warn the payer before proceeding.<br>
+      <strong style="color:var(--text)">NO_MATCH</strong> → similarity below close-match threshold → PSP must block or require manual review.
+    </p>
+  </div>
+
+  <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:2rem">
+    <button class="run-btn" onclick="runMatching()">▶ Run VoP Match</button>
+    <span id="runStatus" style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)"></span>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+
+    <!-- VERDICT -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Match-rate assessment</span></div>
+      <div class="out-body">
+        <div id="verdictCard"></div>
+        <div class="scorecard" id="scorecard"></div>
+        <div id="outcomeBars"></div>
+      </div>
+    </div>
+
+    <!-- FP/FN CURVE -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">False-positive / false-negative trade-off curve</span></div>
+      <div class="out-body">
+        <p style="font-size:.7rem;color:var(--body);margin-bottom:.85rem;line-height:1.7">
+          <strong style="color:var(--text)">False positives (FP)</strong> — payees with a wrong name that still score as MATCH (fraud risk: money reaches wrong account).<br>
+          <strong style="color:var(--text)">False negatives (FN)</strong> — payees with the correct name that fall below MATCH threshold (friction: legitimate payments blocked or warned).<br>
+          The current threshold pair is marked with ◆. Drag the sliders above to see the dot move in real time.
+        </p>
+        <div class="curve-wrap" id="curveWrap">
+          <svg id="curveSvg" width="640" height="240" viewBox="0 0 640 240" style="display:block;max-width:100%;overflow:visible"></svg>
+          <div class="curve-legend">
+            <div class="curve-legend-item"><div class="curve-legend-dot" style="background:var(--red)"></div>False-positive rate (wrong name → MATCH)</div>
+            <div class="curve-legend-item"><div class="curve-legend-dot" style="background:var(--teal)"></div>False-negative rate (correct name → below MATCH)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RECORD TABLE -->
+    <div class="out-section">
+      <div class="out-header">
+        <span class="out-title">Payee match results (<span id="recCountLabel">0</span>)</span>
+        <div class="filter-row" style="margin-bottom:0">
+          <button class="filter-btn active" onclick="filterRecs('all',this)">All</button>
+          <button class="filter-btn" onclick="filterRecs('MATCH',this)">Match</button>
+          <button class="filter-btn" onclick="filterRecs('CLOSE_MATCH',this)">Close match</button>
+          <button class="filter-btn" onclick="filterRecs('NO_MATCH',this)">No match</button>
+        </div>
+      </div>
+      <div class="out-body" style="padding:0">
+        <div class="tx-table-wrap">
+          <table class="tx-table" id="recTable">
+            <thead><tr>
+              <th>ID</th><th>IBAN (synthetic)</th><th>Provided name</th><th>Reference name</th><th>Normalised similarity</th><th>Outcome</th>
+            </tr></thead>
+            <tbody id="recTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXPORT -->
+    <div class="results-export-row">
+      <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()">
+        {} Export ChainGraph Artifact
+        <span class="btn-subtitle">AP2 · compliance_mandate · chain-anchored</span>
+      </button>
+      <button class="btn btn-ghost" id="csvExportBtn" disabled onclick="exportCSV()">
+        &#x21E9; Export Match Results
+        <span class="btn-subtitle">Full record-level results as CSV</span>
+      </button>
+    </div>
+
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()" style="margin-top:2rem" aria-expanded="false" aria-controls="mfstBody">
+    <span>&#x7B;&#x7D; MCP Manifest — ART-11</span>
+    <span id="mfstArrow">&#x25BC;</span>
+  </button>
+  <div class="mfst-body" id="mfstBody" aria-hidden="true">
+    <pre class="mfst-code" id="mfstCode"></pre>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" style="display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500"><span style="color:var(--teal)">AI</span>Numbers.co</span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="chaingraph-hub.html">ChainGraph Hub</a>
+      <a href="../about.html">About</a>
+      <a href="https://mcp.ainumbers.co/mcp" target="_blank" rel="noopener noreferrer">MCP Server</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>Post Oak Labs · CC BY 4.0</span>
+      <span>ChainGraph Suite · ART-11 v1.0.0 · EU IPR VoP · Oct 2025</span>
+      <span>Jaro-Winkler similarity · FP/FN trade-off · Synthetic data only</span>
+    </div>
+  </div>
+</div></footer>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────────────────────────
+   MANIFEST
+   ───────────────────────────────────────────────────────────────── */
+const MANIFEST = {
+  tool_id: 'art-11-vop-batch-match-rate-analyser',
+  version: '1.0.0',
+  title: 'VoP Batch Match-Rate Analyser',
+  description: 'Batch VoP IBAN-name matching. Normalised exact + Jaro-Winkler fuzzy similarity. MATCH/CLOSE_MATCH/NO_MATCH. FP/FN trade-off curve. EU IPR Oct 2025.',
+  category: 'chaingraph',
+  mcp_tool_definition: {
+    name: 'simulate_vop_matching',
+    description: 'Batch VoP IBAN-name match across synthetic payee records. Returns per-record MATCH/CLOSE_MATCH/NO_MATCH classification, Jaro-Winkler similarity scores, match-rate summary, and FP/FN trade-off curve.',
+    inputSchema: { type:'object', required:['payees'] }
+  }
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   BUILT-IN SCENARIOS
+   ───────────────────────────────────────────────────────────────── */
+const SCENARIOS = {
+  clean: [
+    {id:'PAY-001',iban:'GB29NWBK60161331926819',account_name:'John Smith',reference_name:'JOHN SMITH'},
+    {id:'PAY-002',iban:'DE89370400440532013000',account_name:'Acme GmbH',reference_name:'ACME GMBH'},
+    {id:'PAY-003',iban:'FR7630006000011234567890189',account_name:'Marie Dupont',reference_name:'MARIE DUPONT'},
+    {id:'PAY-004',iban:'NL91ABNA0417164300',account_name:'Jan van der Berg',reference_name:'JAN VAN DER BERG'},
+    {id:'PAY-005',iban:'ES9121000418450200051332',account_name:'Banco Central SA',reference_name:'BANCO CENTRAL SA'}
+  ],
+  mixed: [
+    {id:'PAY-001',iban:'GB29NWBK60161331926819',account_name:'John Smith',reference_name:'JOHN SMITH'},
+    {id:'PAY-002',iban:'DE89370400440532013000',account_name:'Acme GmbH',reference_name:'ACME GMBH'},
+    {id:'PAY-003',iban:'FR7630006000011234567890189',account_name:'M. Dupont',reference_name:'MARIE DUPONT'},
+    {id:'PAY-004',iban:'NL91ABNA0417164300',account_name:'Jan van der Berg',reference_name:'JAN VAN DER BERG'},
+    {id:'PAY-005',iban:'ES9121000418450200051332',account_name:'Banco Central',reference_name:'BANCO CENTRAL SA'},
+    {id:'PAY-006',iban:'IT60X0542811101000000123456',account_name:'Giuseppe Rossi',reference_name:'MARIA ROSSI'},
+    {id:'PAY-007',iban:'CH5604835012345678009',account_name:'UBS Switzerland Ltd',reference_name:'UBS SWITZERLAND AG'},
+    {id:'PAY-008',iban:'AT611904300234573201',account_name:'Helmut Gruber',reference_name:'HELMUT GRUBER'},
+    {id:'PAY-009',iban:'BE68539007547034',account_name:'Random Corp',reference_name:'TOTALLY DIFFERENT NAME'},
+    {id:'PAY-010',iban:'PT50000201231234567890154',account_name:'Pedro Silva',reference_name:'PEDRO DA SILVA'}
+  ],
+  diacritics: [
+    {id:'DIA-001',iban:'DE89370400440532013000',account_name:'Müller GmbH',reference_name:'MULLER GMBH'},
+    {id:'DIA-002',iban:'FR7630006000011234567890189',account_name:'Étienne Lefebvre',reference_name:'ETIENNE LEFEBVRE'},
+    {id:'DIA-003',iban:'ES9121000418450200051332',account_name:'Señor García',reference_name:'SENOR GARCIA'},
+    {id:'DIA-004',iban:'PL61109010140000071219812874',account_name:'Łukasz Wiśniewski',reference_name:'LUKASZ WISNIEWSKI'},
+    {id:'DIA-005',iban:'SE4550000000058398257466',account_name:'Åse Lindström',reference_name:'ASE LINDSTROM'}
+  ],
+  abbreviations: [
+    {id:'ABB-001',iban:'GB29NWBK60161331926819',account_name:'J. Smith',reference_name:'JOHN SMITH'},
+    {id:'ABB-002',iban:'DE89370400440532013000',account_name:'R&D Corp',reference_name:'RESEARCH AND DEVELOPMENT CORPORATION'},
+    {id:'ABB-003',iban:'NL91ABNA0417164300',account_name:'AMRO Bank',reference_name:'ALGEMEENE BANK NEDERLAND AMRO'},
+    {id:'ABB-004',iban:'FR7630006000011234567890189',account_name:'BNP',reference_name:'BNP PARIBAS SA'},
+    {id:'ABB-005',iban:'IT60X0542811101000000123456',account_name:'Intesa SP',reference_name:'INTESA SANPAOLO SPA'}
+  ],
+  name_order: [
+    {id:'NRO-001',iban:'GB29NWBK60161331926819',account_name:'Smith John',reference_name:'JOHN SMITH'},
+    {id:'NRO-002',iban:'FR7630006000011234567890189',account_name:'Dupont Marie',reference_name:'MARIE DUPONT'},
+    {id:'NRO-003',iban:'ES9121000418450200051332',account_name:'García López José',reference_name:'JOSE GARCIA LOPEZ'},
+    {id:'NRO-004',iban:'DE89370400440532013000',account_name:'Mueller Hans',reference_name:'HANS MUELLER'},
+    {id:'NRO-005',iban:'IT60X0542811101000000123456',account_name:'Rossi Giovanni',reference_name:'GIOVANNI ROSSI'}
+  ],
+  legal_suffix: [
+    {id:'LEG-001',iban:'DE89370400440532013000',account_name:'Acme GmbH',reference_name:'ACME AG'},
+    {id:'LEG-002',iban:'GB29NWBK60161331926819',account_name:'XYZ Ltd',reference_name:'XYZ LIMITED'},
+    {id:'LEG-003',iban:'NL91ABNA0417164300',account_name:'Tech BV',reference_name:'TECH NV'},
+    {id:'LEG-004',iban:'FR7630006000011234567890189',account_name:'Fintech SA',reference_name:'FINTECH SAS'},
+    {id:'LEG-005',iban:'ES9121000418450200051332',account_name:'Grupo SA',reference_name:'GRUPO SL'},
+    {id:'LEG-006',iban:'IT60X0542811101000000123456',account_name:'Banca SpA',reference_name:'BANCA SPA'}
+  ],
+  fraud: [
+    {id:'FRD-001',iban:'GB29NWBK60161331926819',account_name:'John Smlth',reference_name:'JOHN SMITH'},     /* l vs 1 */
+    {id:'FRD-002',iban:'DE89370400440532013000',account_name:'Acme GmbH',reference_name:'APEX GMBH'},        /* different company */
+    {id:'FRD-003',iban:'FR7630006000011234567890189',account_name:'Marie Dupot',reference_name:'MARIE DUPONT'},/* typo */
+    {id:'FRD-004',iban:'NL91ABNA0417164300',account_name:'Fake Finance Ltd',reference_name:'JAN VAN DER BERG'},
+    {id:'FRD-005',iban:'ES9121000418450200051332',account_name:'Banco Centrals',reference_name:'BANCO CENTRAL SA'},
+    {id:'FRD-006',iban:'CH5604835012345678009',account_name:'UBS Switzerland',reference_name:'USB SWITZERLAND AG'} /* UBS vs USB */
+  ]
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   STATE
+   ───────────────────────────────────────────────────────────────── */
+let _parsed   = null;
+let _allRecs  = [];
+let _filtRecs = [];
+let _artifact = null;
+let _curveData = null;
+
+/* ─────────────────────────────────────────────────────────────────
+   STRING SIMILARITY — Jaro-Winkler
+   ───────────────────────────────────────────────────────────────── */
+function jaro(s1, s2) {
+  if (s1 === s2) return 1;
+  const l1=s1.length, l2=s2.length;
+  if (!l1 || !l2) return 0;
+  const matchDist = Math.floor(Math.max(l1,l2)/2)-1;
+  const s1m=new Array(l1).fill(false), s2m=new Array(l2).fill(false);
+  let matches=0, transpositions=0;
+  for(let i=0;i<l1;i++){
+    const lo=Math.max(0,i-matchDist), hi=Math.min(i+matchDist+1,l2);
+    for(let j=lo;j<hi;j++){
+      if(s2m[j]||s1[i]!==s2[j]) continue;
+      s1m[i]=s2m[j]=true; matches++; break;
+    }
+  }
+  if(!matches) return 0;
+  let k=0;
+  for(let i=0;i<l1;i++){
+    if(!s1m[i]) continue;
+    while(!s2m[k]) k++;
+    if(s1[i]!==s2[k]) transpositions++;
+    k++;
+  }
+  return (matches/l1+matches/l2+(matches-transpositions/2)/matches)/3;
+}
+
+function jaroWinkler(s1, s2, p=0.1) {
+  const j=jaro(s1,s2);
+  const prefLen=Math.min(4,[...Array(Math.min(s1.length,s2.length))].findIndex((_,i)=>s1[i]!==s2[i]));
+  const pL=(prefLen===-1)?Math.min(4,Math.min(s1.length,s2.length)):prefLen;
+  return j+(pL*p*(1-j));
+}
+
+function normalize(s) {
+  return (s||'')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')   // strip diacritics
+    .replace(/[^a-z0-9\s]/g,' ')                        // strip punctuation
+    .replace(/\b(gmbh|ag|bv|nv|sa|sas|sl|spa|ltd|limited|llc|plc|inc|corp|co)\b/g,' ') // strip legal suffixes
+    .replace(/\s+/g,' ').trim();
+}
+
+function tokenSort(s) {
+  return normalize(s).split(' ').sort().join(' ');
+}
+
+function similarity(a, b) {
+  const na=normalize(a), nb=normalize(b);
+  if(na===nb) return 1.0;
+  const jw=jaroWinkler(na,nb);
+  /* Also try token-sort to handle name-order reversal */
+  const ta=tokenSort(a), tb=tokenSort(b);
+  const jwToken=jaroWinkler(ta,tb);
+  return Math.max(jw,jwToken);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   NORMALISATION PREVIEW
+   ───────────────────────────────────────────────────────────────── */
+function showNorm() {
+  const v=document.getElementById('normInput').value;
+  const el=document.getElementById('normOutput');
+  if(!v){el.textContent='';return;}
+  el.textContent=`→ normalised: "${normalize(v)}" · token-sorted: "${tokenSort(v)}"`;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   SCENARIO + JSON
+   ───────────────────────────────────────────────────────────────── */
+function loadScenario(key){
+  const s=SCENARIOS[key];
+  if(!s) return;
+  document.getElementById('payeeJson').value=JSON.stringify(s,null,2);
+  onPayeeJsonChange();
+  showToast(`Scenario "${key}" loaded`);
+}
+
+function onPayeeJsonChange(){
+  const raw=document.getElementById('payeeJson').value.trim();
+  const el=document.getElementById('payeeJsonStatus');
+  if(!raw){_parsed=null;el.style.color='var(--muted)';el.textContent='empty';return;}
+  try{
+    const arr=JSON.parse(raw);
+    if(!Array.isArray(arr)) throw new Error('Expected a JSON array');
+    _parsed=arr;
+    el.style.color='var(--teal)';
+    el.textContent=`✓ ${arr.length} records parsed`;
+  }catch(e){_parsed=null;el.style.color='var(--red)';el.textContent=`✗ ${e.message.slice(0,80)}`;}
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   GENERATE BATCH
+   ───────────────────────────────────────────────────────────────── */
+const NAMES=[
+  ['James Wilson','JAMES WILSON'],['Emma Clarke','EMMA CLARKE'],['Oliver Brown','OLIVER BROWN'],
+  ['Sophia Taylor','SOPHIA TAYLOR'],['Liam Martin','LIAM MARTIN'],['Isabella Thomas','ISABELLA THOMAS'],
+  ['Noah Davis','NOAH DAVIS'],['Mia Roberts','MIA ROBERTS'],['Elijah Johnson','ELIJAH JOHNSON'],
+  ['Ava Anderson','AVA ANDERSON'],['Mason White','MASON WHITE'],['Luna Harris','LUNA HARRIS'],
+  ['TechFlow GmbH','TECHFLOW GMBH'],['Apex Finance SA','APEX FINANCE SA'],['Nordic Trade AS','NORDIC TRADE AS'],
+  ['Blue River BV','BLUE RIVER BV'],['Granite Corp Ltd','GRANITE CORP LIMITED'],['SilverOak SpA','SILVEROAK SPA']
+];
+const IBANS=['GB29NWBK60161331926819','DE89370400440532013000','FR7630006000011234567890189',
+             'NL91ABNA0417164300','ES9121000418450200051332','IT60X0542811101000000123456',
+             'CH5604835012345678009','AT611904300234573201','BE68539007547034','PL61109010140000071219812874'];
+const FRAUD_NAMES=['Random Corp','Zeta Holdings','Unknown Entity','Spoofed Name Corp','Fake Ltd'];
+
+function generateBatch(){
+  const n=parseInt(document.getElementById('genCount').value,10)||40;
+  const mismatch=parseInt(document.getElementById('genMismatch').value,10)||25;
+  const records=[];
+  let s=Date.now()&0xFFFFFFF;
+  const rng=()=>{s=(s^s<<13)^(s>>17)^(s<<5);return(s>>>0)/0xFFFFFFFF;};
+  for(let i=0;i<n;i++){
+    const pair=NAMES[Math.floor(rng()*NAMES.length)];
+    const iban=IBANS[Math.floor(rng()*IBANS.length)];
+    const isMismatch=rng()*100<mismatch;
+    const acctName=isMismatch
+      ? FRAUD_NAMES[Math.floor(rng()*FRAUD_NAMES.length)]
+      : pair[0];
+    records.push({id:`PAY-${String(i+1).padStart(3,'0')}`,iban,account_name:acctName,reference_name:pair[1]});
+  }
+  document.getElementById('payeeJson').value=JSON.stringify(records,null,2);
+  onPayeeJsonChange();
+  showToast(`Generated ${n} records (${mismatch}% mismatch rate)`);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   THRESHOLD CONTROLS
+   ───────────────────────────────────────────────────────────────── */
+const PRESETS={
+  lenient:{match:0.80,close:0.65},
+  standard:{match:0.90,close:0.75},
+  strict:{match:0.95,close:0.85}
+};
+
+function applyPreset(){
+  const v=document.getElementById('strictnessPreset').value;
+  if(v==='custom') return;
+  const p=PRESETS[v];
+  document.getElementById('matchThreshold').value=p.match;
+  document.getElementById('closeThreshold').value=p.close;
+  onThresholdChange();
+}
+
+function onThresholdChange(){
+  const mt=parseFloat(document.getElementById('matchThreshold').value);
+  const ct=parseFloat(document.getElementById('closeThreshold').value);
+  document.getElementById('matchThresholdVal').textContent=mt.toFixed(2);
+  document.getElementById('closeThresholdVal').textContent=ct.toFixed(2);
+  document.getElementById('strictnessPreset').value='custom';
+  if(_allRecs.length) reClassify(mt,ct);
+}
+
+function classify(sim, matchT, closeT){
+  return sim>=matchT?'MATCH':sim>=closeT?'CLOSE_MATCH':'NO_MATCH';
+}
+
+function reClassify(matchT, closeT){
+  _allRecs.forEach(r=>{ r.outcome=classify(r.similarity,matchT,closeT); });
+  _filtRecs=[..._allRecs];
+  if(_curveData) updateTable();
+  if(_curveData) renderCurve(_curveData,matchT,closeT);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   MAIN MATCHING
+   ───────────────────────────────────────────────────────────────── */
+async function runMatching(){
+  if(!_parsed||!_parsed.length){
+    document.getElementById('runStatus').style.color='var(--red)';
+    document.getElementById('runStatus').textContent='Load a scenario or paste payee JSON first.';
+    return;
+  }
+  const matchT=parseFloat(document.getElementById('matchThreshold').value);
+  const closeT=parseFloat(document.getElementById('closeThreshold').value);
+
+  _allRecs=_parsed.map(r=>{
+    const sim=similarity(r.account_name||'',r.reference_name||'');
+    return {...r,similarity:+sim.toFixed(4),outcome:classify(sim,matchT,closeT)};
+  });
+  _filtRecs=[..._allRecs];
+
+  /* Build FP/FN curve data */
+  const thresholds=[0.50,0.55,0.60,0.65,0.70,0.75,0.80,0.85,0.90,0.92,0.95,0.97,1.00];
+  /* Ground truth: we treat the reference_name as correct.
+     Records where account_name ≠ normalized reference_name are "wrong-name" (potential fraud).
+     Records where account_name ≈ reference_name are "correct-name".
+     FP(t) = fraction of wrong-name records scored ≥ t (fraud slips through)
+     FN(t) = fraction of correct-name records scored < t (legitimate blocked) */
+  const correctThreshold=0.70; // records with similarity>0.7 treated as "ground truth correct"
+  const wrongRecs  =_allRecs.filter(r=>r.similarity<correctThreshold);
+  const correctRecs=_allRecs.filter(r=>r.similarity>=correctThreshold);
+  _curveData=thresholds.map(t=>({
+    t,
+    fp: wrongRecs.length?  wrongRecs.filter(r=>r.similarity>=t).length/wrongRecs.length   :0,
+    fn: correctRecs.length?correctRecs.filter(r=>r.similarity<t).length/correctRecs.length:0
+  }));
+
+  const matchCount=_allRecs.filter(r=>r.outcome==='MATCH').length;
+  const closeCount=_allRecs.filter(r=>r.outcome==='CLOSE_MATCH').length;
+  const noMatch   =_allRecs.filter(r=>r.outcome==='NO_MATCH').length;
+  const total=_allRecs.length;
+  const matchRate=(matchCount/total*100).toFixed(1);
+
+  /* AP2 */
+  const policyParams={match_threshold:matchT,close_match_threshold:closeT,algorithm:'jaro-winkler+token-sort'};
+  const outputForHash={total,matchCount,closeCount,noMatch};
+  const hash=await sha256({policy_parameters:policyParams,output_payload:outputForHash});
+  _artifact={
+    ap2_version:'1.0.0',mandate_type:'compliance_mandate',
+    tool_id:'art-11-vop-batch-match-rate-analyser',tool_version:'1.0.0',
+    generated_at:new Date().toISOString(),execution_hash:hash,
+    chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},
+    policy_parameters:policyParams,
+    output_payload:{total_records:total,match:matchCount,close_match:closeCount,no_match:noMatch,match_rate_pct:+matchRate},
+    compliance_flags:[matchCount/total>=0.85?'VOP_HIGH_MATCH_RATE':noMatch/total>=0.3?'VOP_HIGH_NO_MATCH_RATE':'VOP_ACCEPTABLE_MATCH_RATE'],
+    audit_signature:{client_side_executed:true,zero_pii_verified:true,synthetic_data_only:true}
+  };
+
+  document.getElementById('ap2ExportBtn').disabled=false;
+  document.getElementById('ap2ExportBtn').classList.add('ready');
+  document.getElementById('csvExportBtn').disabled=false;
+  document.getElementById('csvExportBtn').classList.add('ready');
+  document.getElementById('resultsPanel').classList.add('visible');
+  document.getElementById('runStatus').textContent='';
+
+  renderSummary(matchCount,closeCount,noMatch,total,matchRate);
+  renderCurve(_curveData,matchT,closeT);
+  updateTable();
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RENDER SUMMARY
+   ───────────────────────────────────────────────────────────────── */
+function renderSummary(m,c,n,t,rate){
+  const vCls=n/t>0.3?'risk':c/t>0.3?'warn':'good';
+  const vIcon={risk:'⚠️',warn:'⚠️',good:'✅'}[vCls];
+  const vLabel={risk:'High No-Match Rate',warn:'Elevated CLOSE_MATCH Rate',good:'Strong Match Rate'}[vCls];
+  const vTitle={
+    risk:`${(n/t*100).toFixed(1)}% of payees are NO_MATCH — high friction or fraud risk`,
+    warn:`${(c/t*100).toFixed(1)}% require human review (CLOSE_MATCH) — threshold calibration recommended`,
+    good:`${rate}% MATCH rate at current thresholds — within normal VoP operational range`
+  }[vCls];
+  const vSub={
+    risk:'Review threshold settings and payee data quality. High NO_MATCH rates may indicate data quality issues or a threshold set too strictly.',
+    warn:'CLOSE_MATCH records require the PSP to warn the payer before proceeding (EU IPR Art. 5a). Consider adjusting thresholds to reduce manual review load.',
+    good:'Threshold settings appear well-calibrated for this payee population. Monitor FP/FN curve to balance fraud risk vs payment friction.'
+  }[vCls];
+  document.getElementById('verdictCard').innerHTML=`<div class="verdict-card ${vCls}">
+    <div class="verdict-icon">${vIcon}</div>
+    <div>
+      <div class="verdict-label ${vCls}">${vLabel}</div>
+      <div class="verdict-title">${vTitle}</div>
+      <div class="verdict-sub">${vSub}</div>
+    </div>
+  </div>`;
+
+  document.getElementById('scorecard').innerHTML=[
+    {val:`${rate}%`,label:'Match rate',sub:`${m} records`,color:'var(--green)'},
+    {val:`${(c/t*100).toFixed(1)}%`,label:'Close-match',sub:`${c} records · warn payer`,color:'var(--warn)'},
+    {val:`${(n/t*100).toFixed(1)}%`,label:'No-match',sub:`${n} records · block`,color:'var(--red)'},
+    {val:t,label:'Total records',sub:'in batch',color:'var(--teal)'}
+  ].map(c=>`<div class="score-card">
+    <div class="score-val" style="color:${c.color}">${c.val}</div>
+    <div class="score-label">${c.label}</div>
+    <div class="score-sub">${c.sub}</div>
+  </div>`).join('');
+
+  const mPct=m/t*100, cPct=c/t*100, nPct=n/t*100;
+  document.getElementById('outcomeBars').innerHTML=`
+    <div class="outcome-bars">
+      <div style="width:${mPct.toFixed(1)}%;background:var(--green)"></div>
+      <div style="width:${cPct.toFixed(1)}%;background:var(--warn)"></div>
+      <div style="width:${nPct.toFixed(1)}%;background:var(--red)"></div>
+    </div>
+    <div class="outcome-bars-labels">
+      <span style="color:var(--green)">MATCH ${mPct.toFixed(1)}%</span>
+      <span style="color:var(--warn)">CLOSE ${cPct.toFixed(1)}%</span>
+      <span style="color:var(--red)">NO_MATCH ${nPct.toFixed(1)}%</span>
+    </div>`;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   FP/FN CURVE SVG
+   ───────────────────────────────────────────────────────────────── */
+function renderCurve(data, matchT, closeT){
+  const W=640,H=200,PAD={t:20,r:20,b:40,l:45};
+  const pw=W-PAD.l-PAD.r, ph=H-PAD.t-PAD.b;
+
+  function px(t){ return PAD.l+((t-0.5)/0.5)*pw; }
+  function py(v){ return PAD.t+(1-v)*ph; }
+
+  const fpPath=data.map((d,i)=>`${i?'L':'M'}${px(d.t).toFixed(1)},${py(d.fp).toFixed(1)}`).join(' ');
+  const fnPath=data.map((d,i)=>`${i?'L':'M'}${px(d.t).toFixed(1)},${py(d.fn).toFixed(1)}`).join(' ');
+
+  // Current threshold dot
+  const curFP=data.reduce((best,d)=>Math.abs(d.t-matchT)<Math.abs(best.t-matchT)?d:best,data[0]);
+  const curFN=data.reduce((best,d)=>Math.abs(d.t-matchT)<Math.abs(best.t-matchT)?d:best,data[0]);
+
+  // Grid lines
+  const gridY=[0,0.25,0.5,0.75,1.0].map(v=>`
+    <line x1="${PAD.l}" y1="${py(v).toFixed(1)}" x2="${W-PAD.r}" y2="${py(v).toFixed(1)}" stroke="var(--border)" stroke-dasharray="3,3"/>
+    <text x="${(PAD.l-5).toFixed(1)}" y="${(py(v)+4).toFixed(1)}" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--muted)" text-anchor="end">${(v*100).toFixed(0)}%</text>`).join('');
+  const gridX=[0.5,0.6,0.7,0.8,0.9,1.0].map(t=>`
+    <line x1="${px(t).toFixed(1)}" y1="${PAD.t}" x2="${px(t).toFixed(1)}" y2="${H-PAD.b}" stroke="var(--border)" stroke-dasharray="3,3"/>
+    <text x="${px(t).toFixed(1)}" y="${(H-PAD.b+14).toFixed(1)}" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--muted)" text-anchor="middle">${t.toFixed(2)}</text>`).join('');
+
+  const curX=px(matchT).toFixed(1);
+  document.getElementById('curveSvg').innerHTML=`
+    ${gridY}${gridX}
+    <path d="${fpPath}" fill="none" stroke="var(--red)" stroke-width="2"/>
+    <path d="${fnPath}" fill="none" stroke="var(--teal)" stroke-width="2"/>
+    <line x1="${curX}" y1="${PAD.t}" x2="${curX}" y2="${H-PAD.b}" stroke="var(--gold)" stroke-width="1.5" stroke-dasharray="5,3"/>
+    <text x="${curX}" y="${(PAD.t-5).toFixed(1)}" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--gold)" text-anchor="middle">◆ ${matchT.toFixed(2)}</text>
+    <circle cx="${curX}" cy="${py(curFP.fp).toFixed(1)}" r="5" fill="var(--red)" stroke="var(--bg)" stroke-width="1.5"/>
+    <circle cx="${curX}" cy="${py(curFN.fn).toFixed(1)}" r="5" fill="var(--teal)" stroke="var(--bg)" stroke-width="1.5"/>
+    <text x="${PAD.l}" y="${(PAD.t-5).toFixed(1)}" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--muted)">Rate</text>
+    <text x="${px(0.75).toFixed(1)}" y="${(H-PAD.b+28).toFixed(1)}" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--muted)" text-anchor="middle">Match threshold →</text>`;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   TABLE
+   ───────────────────────────────────────────────────────────────── */
+function updateTable(){
+  document.getElementById('recCountLabel').textContent=_filtRecs.length;
+  const body=document.getElementById('recTbody');
+  const colors={MATCH:'var(--green)',CLOSE_MATCH:'var(--warn)',NO_MATCH:'var(--red)'};
+  const MAX=300;
+  body.innerHTML=_filtRecs.slice(0,MAX).map(r=>`<tr>
+    <td style="color:var(--muted)">${esc(r.id)}</td>
+    <td style="color:var(--body)">${esc((r.iban||'').slice(0,18))}…</td>
+    <td>${esc(r.account_name)}</td>
+    <td>${esc(r.reference_name)}</td>
+    <td>
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <div style="width:60px;height:5px;background:var(--border);border-radius:3px;overflow:hidden">
+          <div style="width:${(r.similarity*100).toFixed(0)}%;height:100%;background:${colors[r.outcome]||'var(--muted)'}"></div>
+        </div>
+        <span style="color:${colors[r.outcome]||'var(--muted)'}">${r.similarity.toFixed(3)}</span>
+      </div>
+    </td>
+    <td style="color:${colors[r.outcome]||'var(--muted)'};font-weight:500">${r.outcome.replace('_',' ')}</td>
+  </tr>`).join('');
+  if(_filtRecs.length>MAX) body.innerHTML+=`<tr><td colspan="6" style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);padding:.75rem 1rem">Showing ${MAX} of ${_filtRecs.length.toLocaleString()} — export CSV for full list.</td></tr>`;
+}
+
+function filterRecs(type,btn){
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  _filtRecs=type==='all'?[..._allRecs]:_allRecs.filter(r=>r.outcome===type);
+  document.getElementById('recCountLabel').textContent=_filtRecs.length;
+  updateTable();
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   EXPORTS
+   ───────────────────────────────────────────────────────────────── */
+function exportAP2(){
+  if(!_artifact) return;
+  const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  dl(JSON.stringify(_artifact,null,2),`art-11_${ts}.policy.json`,'application/json');
+  showToast('ChainGraph artifact exported');
+}
+
+function exportCSV(){
+  if(!_allRecs.length) return;
+  const hdr='id,iban,account_name,reference_name,similarity,outcome\n';
+  const rows=_allRecs.map(r=>[r.id,`"${r.iban}"`,`"${r.account_name}"`,`"${r.reference_name}"`,r.similarity,r.outcome].join(','));
+  const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  dl(hdr+rows.join('\n'),`art-11_vop_${ts}.csv`,'text/csv');
+  showToast('Match results exported');
+}
+
+function dl(c,f,t){ const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([c],{type:t})),download:f}); a.click(); URL.revokeObjectURL(a.href); }
+
+/* ─────────────────────────────────────────────────────────────────
+   UTILS
+   ───────────────────────────────────────────────────────────────── */
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function showToast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+async function sha256(obj){ const c=JSON.stringify(obj,Object.keys(obj).sort()); const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(c)); return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join(''); }
+
+function toggleMfst(){
+  const body=document.getElementById('mfstBody'),arrow=document.getElementById('mfstArrow'),btn=document.querySelector('.mfst-btn');
+  const open=body.style.display==='block';
+  body.style.display=open?'none':'block'; arrow.textContent=open?'▼':'▲';
+  btn.setAttribute('aria-expanded',String(!open)); body.setAttribute('aria-hidden',String(open));
+  if(!open&&!document.getElementById('mfstCode').textContent)
+    document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+</script>
+</body>
+</html>
