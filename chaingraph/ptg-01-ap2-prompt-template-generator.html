@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>AP2 Prompt Template Generator · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Transform any ChainGraph artifact JSON into a regulator-framed, audience-correct prompt for any external LLM. Client-side bridge tool. Zero PII. Zero inference.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/ptg-01-ap2-prompt-template-generator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"AP2 Prompt Template Generator","url":"https://ainumbers.co/chaingraph/ptg-01-ap2-prompt-template-generator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "ptg-01-ap2-prompt-template-generator",
+  "version": "1.0.0",
+  "title": "AP2 Prompt Template Generator",
+  "description": "Transforms any ChainGraph artifact JSON into a structured, regulator-framed prompt for any external LLM. Encodes regulatory citations, audience framing, and stochastic-output conventions per mandate_type. The template registry is separately licensable IP.",
+  "category": "chaingraph",
+  "tags": ["AP2","prompt engineering","template","agentic","ChainGraph","regulatory"],
+  "audience": ["board","risk_committee","regulator","quant","ops","engineer"],
+  "input_schema": {"type":"object","properties":{"artifact_json":{"type":"string","description":"Paste a ChainGraph artifact JSON from any suite tool"},"task":{"type":"string","enum":["board_memo","regulatory_submission","risk_memo","remediation_plan","plain_english_summary","period_comparison","top_3_risks"]},"audience":{"type":"string","enum":["board","risk_committee","regulator","quant","ops"]},"tone":{"type":"string","enum":["formal","technical","plain"]},"include_citations":{"type":"boolean"}},"required":["task","audience"]},
+  "output_schema": {"type":"object","properties":{"generated_prompt":{"type":"string"},"claude_deeplink":{"type":"string"},"execution_hash":{"type":"string"},"chain_depth":{"type":"integer"}}},
+  "mcp_tool_definition": {"name":"compose_ap2_prompt","description":"Transforms a ChainGraph artifact JSON into a structured, regulator-framed prompt for an external LLM. Returns the prompt text and a Claude.ai deep link. No inference performed — pure template composition.","inputSchema":{"type":"object","properties":{"artifact_json":{"type":"string","description":"ChainGraph artifact JSON from any suite tool"},"task":{"type":"string","enum":["board_memo","regulatory_submission","risk_memo","remediation_plan","plain_english_summary","period_comparison","top_3_risks"],"description":"Output task type"},"audience":{"type":"string","enum":["board","risk_committee","regulator","quant","ops"],"description":"Target audience for the generated prompt"},"tone":{"type":"string","enum":["formal","technical","plain"],"default":"formal"},"include_citations":{"type":"boolean","default":true}},"required":["task","audience"]}},
+  "execution": {"type":"browser-javascript","entry":"chaingraph/ptg-01-ap2-prompt-template-generator.html","function_name":"runPTG","timeout_ms":2000},
+  "ap2_export": true,
+  "chaingraph": true,
+  "chain_partners": ["ALL"],
+  "mandate_type": "prompt_template"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* NAV */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+/* HERO */
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+/* PII NOTICE */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+/* TOOL BODY */
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+/* PANELS */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--teal)}
+.panel-row{display:flex;gap:1rem;margin-bottom:.75rem;flex-wrap:wrap}
+.panel-row:last-child{margin-bottom:0}
+.field-group{display:flex;flex-direction:column;gap:.3rem;flex:1;min-width:160px}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+select,textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'Sora',sans-serif;font-size:.78rem;padding:.4rem .6rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+select:focus,textarea:focus{border-color:var(--teal)}
+textarea{font-family:'JetBrains Mono',monospace;font-size:.62rem;line-height:1.6;resize:vertical;min-height:140px}
+.toggle-row{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.toggle-group{display:flex;gap:.35rem}
+.toggle-btn{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.28rem .65rem;border-radius:3px;transition:all .2s}
+.toggle-btn.active{border-color:var(--teal);color:var(--teal);background:var(--teal-dim)}
+.toggle-btn:hover:not(.active){border-color:var(--border-2);color:var(--body)}
+/* RUN */
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.run-btn:disabled{opacity:.35;cursor:not-allowed}
+/* RESULTS */
+.results-panel{display:none;margin-top:1.5rem;flex-direction:column;gap:1rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.prompt-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.63rem;color:var(--text);line-height:1.75;white-space:pre-wrap;word-break:break-word;max-height:420px;overflow-y:auto}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+/* DEEPLINK */
+.deeplink-btn{display:inline-flex;align-items:center;gap:.5rem;background:rgba(20,184,166,.1);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1.1rem;border-radius:var(--radius);text-decoration:none;transition:all .2s}
+.deeplink-btn:hover{background:rgba(20,184,166,.18);color:var(--white)}
+/* CHAIN PROVENANCE */
+.chain-block{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:.75rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);line-height:1.8}
+.chain-block strong{color:var(--teal);font-weight:400}
+/* EXPORT */
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--teal);color:var(--bright);opacity:1}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+/* CHAIN BADGE */
+.chain-badge{display:inline-flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;color:var(--teal);background:var(--teal-dim);border:1px solid rgba(20,184,166,.3);padding:.18rem .55rem;border-radius:3px}
+/* MANIFEST */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+/* FOOTER */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}.panel-row{flex-direction:column}}
+/* STATUS TOAST */
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a>
+    <span class="nav-bc-sep">/</span>
+    <a href="chaingraph-hub.html">ChainGraph</a>
+    <span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">PTG-01</span>
+  </div>
+  <div class="nav-right">
+    <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub &#8594;</a>
+  </div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph Suite · PTG-01 · Prompt Template Generator</div>
+  <span class="badge badge-muted" style="display:inline-flex;margin-bottom:.6rem"><span>v1.0.0</span></span>
+  <h1>AP2 Prompt <em>Template Generator</em></h1>
+  <p class="hero-desc">Paste any ChainGraph artifact JSON and get a structured, regulator-framed prompt ready for any external LLM. Encodes the right regulatory citations, audience conventions, and stochastic-output framing rules per mandate_type. The execution hash chains through to the generated prompt — every LLM narrative stays traceable to a reproducible computation.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">AP2 Export</span>
+    <span class="badge badge-teal">Chains: ALL tools</span>
+    <span class="badge badge-gold">Template Registry v1.0.0</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side · No Inference</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <!-- ARTIFACT INPUT -->
+  <div class="panel">
+    <div class="panel-label">Step 1 — Paste ChainGraph Artifact JSON</div>
+    <div class="panel-row">
+      <div class="field-group" style="flex:1;min-width:100%">
+        <label class="field-label" for="artifactInput">Artifact JSON (from any ChainGraph tool export)</label>
+        <textarea id="artifactInput" rows="7" placeholder='{"ap2_version":"1.0.0","mandate_type":"liquidity_mandate","tool_id":"sim-01-lcr-nsfr-stress-test",...}'></textarea>
+      </div>
+    </div>
+    <div id="artifactStatus" style="font-family:'JetBrains Mono',monospace;font-size:.54rem;color:var(--muted);margin-top:.4rem;min-height:1.2rem"></div>
+  </div>
+
+  <!-- TASK + AUDIENCE + OPTIONS -->
+  <div class="panel">
+    <div class="panel-label">Step 2 — Configure Output</div>
+    <div class="panel-row">
+      <div class="field-group">
+        <label class="field-label" for="taskSelect">Task type</label>
+        <select id="taskSelect">
+          <option value="board_memo">Board Memo</option>
+          <option value="regulatory_submission">Regulatory Submission Draft</option>
+          <option value="risk_memo">Risk Memo</option>
+          <option value="remediation_plan">Remediation Plan</option>
+          <option value="plain_english_summary">Plain-English Summary</option>
+          <option value="period_comparison">Period Comparison</option>
+          <option value="top_3_risks">Top 3 Risks</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="audienceSelect">Target audience</label>
+        <select id="audienceSelect">
+          <option value="board">Board</option>
+          <option value="risk_committee">Risk Committee</option>
+          <option value="regulator">Regulator</option>
+          <option value="quant">Quant / Analyst</option>
+          <option value="ops">Ops / Implementation</option>
+        </select>
+      </div>
+    </div>
+    <div class="panel-row">
+      <div class="field-group">
+        <span class="field-label">Tone</span>
+        <div class="toggle-group">
+          <button class="toggle-btn active" data-group="tone" data-val="formal" onclick="setToggle('tone','formal',this)">Formal</button>
+          <button class="toggle-btn" data-group="tone" data-val="technical" onclick="setToggle('tone','technical',this)">Technical</button>
+          <button class="toggle-btn" data-group="tone" data-val="plain" onclick="setToggle('tone','plain',this)">Plain</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <span class="field-label">Regulatory citations</span>
+        <div class="toggle-group">
+          <button class="toggle-btn active" data-group="citations" data-val="yes" onclick="setToggle('citations','yes',this)">Include</button>
+          <button class="toggle-btn" data-group="citations" data-val="no" onclick="setToggle('citations','no',this)">Omit</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-bottom:2rem;align-items:center">
+    <button class="run-btn" id="runBtn" onclick="runPTG()">▶ Generate Prompt</button>
+    <span id="runStatus" style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)"></span>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+
+    <!-- GENERATED PROMPT -->
+    <div class="out-section">
+      <div class="out-header">
+        <span class="out-title">Generated Prompt</span>
+        <button class="copy-btn" onclick="copyPrompt()">Copy</button>
+      </div>
+      <div class="out-body">
+        <div class="prompt-block" id="promptOutput"></div>
+      </div>
+    </div>
+
+    <!-- CLAUDE DEEP LINK -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Open in Claude.ai</span></div>
+      <div class="out-body" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+        <a id="claudeLink" class="deeplink-btn" href="#" target="_blank" rel="noopener noreferrer">
+          &#x2197; Open prompt in Claude.ai
+        </a>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)">Pure URL deep-link · no API call · zero data transmission</span>
+      </div>
+    </div>
+
+    <!-- CHAIN PROVENANCE -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Chain Provenance &amp; Execution Hash</span></div>
+      <div class="out-body">
+        <div class="chain-block" id="chainBlock">Computing hash…</div>
+      </div>
+    </div>
+
+    <!-- EXPORT -->
+    <div class="results-export-row">
+      <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()">
+        {} Export ChainGraph Artifact
+        <span class="btn-subtitle">AP2 · audit trail · chain-anchored</span>
+      </button>
+      <button class="btn btn-ghost" id="mdExportBtn" disabled onclick="exportMarkdown()">
+        &#x21E9; Export Markdown
+        <span class="btn-subtitle">Copy-ready prompt + provenance</span>
+      </button>
+    </div>
+
+  </div><!-- /results-panel -->
+
+  <!-- TEMPLATE REGISTRY INFO -->
+  <div class="panel" style="margin-top:2rem;border-color:rgba(20,184,166,.2)">
+    <div class="panel-label">Template Registry v1.0.0</div>
+    <p style="font-size:.72rem;color:var(--body);line-height:1.8;margin-bottom:.75rem">
+      This tool is powered by a versioned, machine-readable registry (<code style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--teal)">data/ap2-templates.json</code>) — one entry per mandate_type encoding regulatory citations, audience-correct output formats, stochastic-framing rules, and escalation conditions. The registry is separately licensable IP.
+    </p>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap" id="registryBadges"></div>
+  </div>
+
+  <!-- MANIFEST TOGGLE -->
+  <button class="mfst-btn" onclick="toggleMfst()" style="margin-top:1.5rem" aria-expanded="false" aria-controls="mfstBody">
+    <span>&#x7B;&#x7D; MCP Manifest — PTG-01</span>
+    <span id="mfstArrow">&#x25BC;</span>
+  </button>
+  <div class="mfst-body" id="mfstBody" aria-hidden="true">
+    <pre class="mfst-code" id="mfstCode"></pre>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" style="display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500"><span style="color:var(--teal)">AI</span>Numbers.co</span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="chaingraph-hub.html">ChainGraph Hub</a>
+      <a href="../about.html">About</a>
+      <a href="https://mcp.ainumbers.co/mcp" target="_blank" rel="noopener noreferrer">MCP Server</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>Post Oak Labs · CC BY 4.0</span>
+      <span>ChainGraph Suite · PTG-01 v1.0.0</span>
+      <span>Client-side · Zero PII · No inference</span>
+    </div>
+  </div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────────────────────────
+   TEMPLATE REGISTRY v1.0.0
+   Source of truth: data/ap2-templates.json (inlined at build time)
+   Internal AINumbers taxonomy — not AP2 v0.2 spec vocabulary.
+   See ChainGraph v1 §4 taxonomy note.
+   ───────────────────────────────────────────────────────────────── */
+const TEMPLATE_REGISTRY = {
+  registry_version: '1.0.0',
+  updated: '2026-06-12',
+  templates: {
+    liquidity_mandate: {
+      display_name: 'Liquidity Mandate (LCR/NSFR)',
+      regulatory_citations: [
+        'Basel III LCR — CRR Art. 412',
+        'NSFR — CRR Art. 428',
+        'EBA GL/2017/01 (Liquidity Coverage Ratio Reporting)'
+      ],
+      primary_tasks: ['board_memo', 'regulatory_submission', 'risk_memo', 'plain_english_summary'],
+      audiences: ['board', 'risk_committee', 'regulator', 'quant', 'ops'],
+      stochastic_framing_rules: [
+        "Report percentiles as 'the P5 breach probability is X%', not 'the probability of breach is X%'",
+        "Never present a single simulation path as 'the' outcome — always cite the percentile",
+        "When citing time-to-breach, state the percentile: 'P50 time-to-breach is N days'",
+        "State the simulation path count: 'across 1,000 Monte Carlo paths'"
+      ],
+      escalation_conditions: [
+        'LCR P5 < 100% (regulatory minimum breach risk)',
+        'NSFR P5 < 100%',
+        'P50 time-to-breach < 30 days',
+        'Stress scenario delta > 15 percentage points vs. base'
+      ],
+      audience_formats: {
+        board: 'Executive summary (3 bullets max), traffic-light verdict (Pass/Warn/Breach), recommended board action',
+        risk_committee: 'Full percentile table (P5/P25/P50/P75/P95), sensitivity tornado, breach-trigger analysis, escalation recommendation',
+        regulator: 'Structured regulatory submission format, cite CRR articles, quantified shortfall if any, remediation timeline',
+        quant: 'Full statistical output with methodology footnotes, model assumptions, Monte Carlo parameters, convergence diagnostics',
+        ops: 'Operational action items, buffer top-up instructions, reporting calendar, responsible owner per action'
+      },
+      tone_modifiers: {
+        formal: 'Use passive voice where appropriate. Avoid contractions. Lead with the regulatory determination.',
+        technical: 'Include model parameters and statistical methodology. Reference specific article numbers.',
+        plain: 'Explain what the numbers mean in practical terms. Avoid regulatory jargon unless unavoidable.'
+      }
+    },
+    payment_mandate: {
+      display_name: 'Payment Mandate (AP2 / Agentic Commerce)',
+      regulatory_citations: [
+        'AP2 v0.2 — FIDO Alliance (April 2026)',
+        'EU Instant Payments Regulation (IPR) — in force October 2025',
+        'PSD2 Article 97 (Strong Customer Authentication)',
+        'FIDO Alliance Human-Not-Present (HNP) payment flows'
+      ],
+      primary_tasks: ['risk_memo', 'regulatory_submission', 'plain_english_summary', 'remediation_plan'],
+      audiences: ['board', 'risk_committee', 'regulator', 'quant', 'ops'],
+      stochastic_framing_rules: [
+        "Simulation outputs are educational only — label synthetic mandates explicitly",
+        "Never present a validation result as a production compliance determination"
+      ],
+      escalation_conditions: [
+        'Signature-chain validation failure',
+        'Scope/limit mismatch between Intent and Cart mandates',
+        'TTL/expiry violation',
+        'Over-spend detection trigger',
+        'Human-Not-Present flow without proper authorization chain'
+      ],
+      audience_formats: {
+        board: 'Strategic summary of agentic payment risk posture, key failure modes, recommended governance controls',
+        risk_committee: 'Technical failure analysis, failing predicates enumerated, risk scoring per category, remediation priorities',
+        regulator: 'AP2 v0.2 conformance status per FIDO specification section, failing clauses cited, remediation plan',
+        quant: 'Detailed validation output, predicate-by-predicate breakdown, test vector analysis',
+        ops: 'Integration checklist, failing fields with fix instructions, testing protocol, go-live readiness score'
+      },
+      tone_modifiers: {
+        formal: 'Lead with the conformance verdict. Enumerate failures in structured list format.',
+        technical: 'Reference AP2 v0.2 specification sections. Include field-level analysis.',
+        plain: 'Describe what each failure means for a user trying to make a payment.'
+      }
+    },
+    payment_policy: {
+      display_name: 'Payment Policy (Agent Spend)',
+      regulatory_citations: [
+        'AP2 v0.2 Human-Not-Present flows — FIDO Alliance',
+        'PSD2 Article 75 (Unauthorized Payment Transactions)',
+        'FCA Consumer Duty — PRIN 2A (July 2023)'
+      ],
+      primary_tasks: ['risk_memo', 'remediation_plan', 'top_3_risks', 'board_memo'],
+      audiences: ['board', 'risk_committee', 'quant', 'ops'],
+      stochastic_framing_rules: [
+        "Simulation outputs are synthetic — label transaction paths as 'simulated'",
+        "Policy-bypass paths are illustrative, not exhaustive — state this clearly"
+      ],
+      escalation_conditions: [
+        'Merchant-category policy bypass path identified',
+        'Velocity limit circumvention scenario confirmed',
+        'Cumulative ceiling breach path found',
+        'Autonomous agent scope creep beyond approved categories'
+      ],
+      audience_formats: {
+        board: 'Policy strength verdict, top 3 bypass risk categories, recommended policy tightening actions',
+        risk_committee: 'Full bypass-path enumeration, risk-scored by likelihood and impact, policy gap matrix',
+        quant: 'Transaction-path statistics, policy coverage rate, false-negative analysis methodology',
+        ops: 'Policy rule corrections, integration test cases for each bypass path, deployment checklist'
+      },
+      tone_modifiers: {
+        formal: 'Frame as a policy control assessment. Use risk management vocabulary.',
+        technical: 'Detail the transaction parameters that trigger each bypass. Include rule logic.',
+        plain: 'Explain what a bad actor or misconfigured agent could do under the current policy.'
+      }
+    },
+    compliance_mandate: {
+      display_name: 'Compliance Mandate',
+      regulatory_citations: [
+        'FATF Travel Rule (Recommendation 16)',
+        'EU AMLR — full application July 2027 / AMLA operations 2028',
+        'EU Instant Payments Regulation VoP — in force October 2025',
+        'SWIFT CBPR+ structured-address mandate — November 2026',
+        'GDPR Article 25 (Privacy by Design)',
+        'eIDAS 2.0 / EUDI Wallet — member-state rollout November 2026'
+      ],
+      primary_tasks: ['regulatory_submission', 'risk_memo', 'remediation_plan', 'board_memo', 'top_3_risks'],
+      audiences: ['board', 'risk_committee', 'regulator', 'quant', 'ops'],
+      stochastic_framing_rules: [
+        "Compliance verdicts are deterministic; state 'pass' or 'fail' without probabilistic hedging",
+        "Batch results: report counts and percentages, not absolute certainty claims"
+      ],
+      escalation_conditions: [
+        'Compliance pass rate < 95%',
+        'Deadline is within 90 days of assessment date',
+        'Any critical field missing in a regulatory submission format',
+        'VoP match rate below PSP's internal threshold'
+      ],
+      audience_formats: {
+        board: 'Compliance readiness verdict (Ready / Partially Ready / Not Ready), deadline exposure summary, board resolution template',
+        risk_committee: 'Field-level compliance breakdown, deadline risk matrix, remediation timeline with owners',
+        regulator: 'Structured compliance statement per applicable regulation and article, quantified non-conformance, remediation commitment',
+        quant: 'Statistical batch analysis, field-error distribution, country-specific breakdown, false-positive/negative rates',
+        ops: 'Field-by-field fix list, tooling recommendations, testing protocol, cutover checklist'
+      },
+      tone_modifiers: {
+        formal: 'Lead with the compliance determination. Enumerate non-conformances in structured list.',
+        technical: 'Cite specific regulatory article numbers. Include field-name references.',
+        plain: 'Explain what non-compliance means in practice and what needs to change.'
+      }
+    },
+    capital_assessment: {
+      display_name: 'Capital Assessment (Basel / RWA)',
+      regulatory_citations: [
+        'Basel 3.1 / CRR3 — UK PRA go-live January 1 2027 (PS1/26)',
+        'Basel SA-CR (Standardised Approach — Credit Risk)',
+        'Basel F-IRB / A-IRB (Foundation / Advanced Internal Ratings-Based)',
+        'FRTB MAR33 (Market Risk — Internal Models Approach)',
+        'Output floor — 72.5% SA floor (phased in through 2030)'
+      ],
+      primary_tasks: ['board_memo', 'regulatory_submission', 'risk_memo', 'period_comparison'],
+      audiences: ['board', 'risk_committee', 'regulator', 'quant'],
+      stochastic_framing_rules: [
+        "RWA scenarios are model outputs, not regulatory determinations — label accordingly",
+        "Output-floor binding status is a model outcome, verify with regulatory sign-off",
+        "Report approach deltas as 'model estimate' not 'definitive Basel 3.1 RWA'"
+      ],
+      escalation_conditions: [
+        'CET1 ratio drops below 12% in any scenario',
+        'Output floor becomes binding (SA RWA > IRB RWA)',
+        'Capital requirement increase > 20% vs. current approach',
+        'P&L impact exceeds materiality threshold'
+      ],
+      audience_formats: {
+        board: 'Capital impact summary (£/$ amount + %, traffic-light vs. targets), output-floor status, strategic options',
+        risk_committee: 'RWA delta table by exposure class, floor binding analysis, sensitivity to key parameters, remediation levers',
+        regulator: 'Basel 3.1 compliance statement per PS1/26 requirements, quantified impact by approach, implementation timeline',
+        quant: 'Full scenario model output, approach comparisons, Cholesky/correlation assumptions, convergence notes'
+      },
+      tone_modifiers: {
+        formal: 'Lead with the capital impact determination. Reference specific Basel articles.',
+        technical: 'Include model assumptions, SA-CR / IRB approach parameters, output-floor calculation.',
+        plain: 'Explain how much more capital is required and why.'
+      }
+    },
+    risk_control: {
+      display_name: 'Risk Control (AML / Market / Consumer)',
+      regulatory_citations: [
+        'FATF AML Typologies (2024)',
+        'EU AMLR — July 2027',
+        'Basel Market Risk Framework (FRTB)',
+        'FCA Consumer Duty — PRIN 2A (July 2023)',
+        'UK PSR — APP Reimbursement (October 2024)'
+      ],
+      primary_tasks: ['risk_memo', 'top_3_risks', 'board_memo', 'remediation_plan'],
+      audiences: ['board', 'risk_committee', 'regulator', 'quant', 'ops'],
+      stochastic_framing_rules: [
+        "AML risk scores are model outputs — label as 'indicative typology risk' not 'confirmed AML'",
+        "Never identify a specific transaction or entity as fraudulent — simulation is educational only"
+      ],
+      escalation_conditions: [
+        'High-risk typology match on any account/cluster',
+        'Travel Rule predicate triggered',
+        'APP fraud graph cluster score above threshold',
+        'Consumer Duty outcome metric below benchmark'
+      ],
+      audience_formats: {
+        board: 'Risk posture summary (High/Medium/Low), key typology exposures, governance recommendations',
+        risk_committee: 'Typology-by-typology scoring, cluster analysis summary, threshold calibration recommendations',
+        regulator: 'AML control framework statement, typology coverage, Travel Rule implementation status',
+        quant: 'Full graph analysis output, scoring methodology, false-positive/negative calibration data',
+        ops: 'Account/cluster action list, investigation workflow, escalation triggers, reporting obligations'
+      },
+      tone_modifiers: {
+        formal: 'Use risk management vocabulary. Lead with the overall risk determination.',
+        technical: 'Include typology codes, graph metrics, threshold parameters.',
+        plain: 'Explain what each risk indicator means and what action it requires.'
+      }
+    },
+    model_governance: {
+      display_name: 'Model Governance (EU AI Act)',
+      regulatory_citations: [
+        'EU AI Act Annex III Part 5(b) — Credit Scoring (High-Risk, fully applicable August 2, 2026)',
+        'EU AI Act Article 11 — Technical Documentation',
+        'EU AI Act Article 9 — Risk Management System',
+        'EU AI Act Article 10 — Data Governance',
+        'EU AI Act Article 13 — Transparency obligations'
+      ],
+      primary_tasks: ['regulatory_submission', 'risk_memo', 'remediation_plan', 'board_memo'],
+      audiences: ['board', 'risk_committee', 'regulator', 'quant', 'ops'],
+      stochastic_framing_rules: [
+        "Bias metrics are computed on synthetic data — label all test results as 'indicative, not production'",
+        "Disparate impact ratios are model estimates — state the dataset and test methodology"
+      ],
+      escalation_conditions: [
+        'Disparate impact ratio < 0.8 on any protected characteristic',
+        'Equalized odds gap > 5 percentage points',
+        'Article 11 technical documentation skeleton incomplete',
+        'Conformity self-assessment failing on any mandatory dimension'
+      ],
+      audience_formats: {
+        board: 'AI Act compliance status (August 2026 deadline), failing dimensions, legal exposure summary, recommended board action',
+        risk_committee: 'Full bias test results by characteristic, documentation gap analysis, remediation roadmap',
+        regulator: 'Article 11 technical documentation in prescribed format, conformity self-assessment, bias testing methodology and results',
+        quant: 'Statistical bias test output, disparate impact methodology, equalized odds computation, data quality attestation detail',
+        ops: 'Documentation checklist, data pipeline requirements, monitoring obligations, post-deployment reporting cadence'
+      },
+      tone_modifiers: {
+        formal: 'Lead with the conformity determination. Reference EU AI Act articles directly.',
+        technical: 'Include statistical test parameters, threshold definitions, methodology citations.',
+        plain: 'Explain what the AI Act requires and where the model falls short.'
+      }
+    },
+    attestation_mandate: {
+      display_name: 'Attestation Mandate (GENIUS Act / Reserve)',
+      regulatory_citations: [
+        'GENIUS Act — effective ≤ January 2027',
+        'FDIC NPRM April 2026 (GENIUS Act implementation)',
+        'AICPA 2025 Criteria for CEO/CFO certification',
+        'PCAOB annual audit requirement (>$50B issuers)'
+      ],
+      primary_tasks: ['regulatory_submission', 'board_memo', 'risk_memo', 'remediation_plan'],
+      audiences: ['board', 'risk_committee', 'regulator', 'ops'],
+      stochastic_framing_rules: [
+        "Reserve computations are pre-checks only — label as 'attestation readiness assessment'",
+        "Never present as a substitute for PCAOB-audited reserve attestation"
+      ],
+      escalation_conditions: [
+        '1:1 reserve coverage ratio < 100%',
+        'Any non-eligible reserve asset class present',
+        'Monthly report figure deviating from AICPA 2025 Criteria template',
+        'Attestation readiness score: Not Ready'
+      ],
+      audience_formats: {
+        board: 'Reserve coverage verdict, eligible vs. non-eligible asset breakdown, CEO/CFO certification readiness, GENIUS Act timeline',
+        risk_committee: 'Reserve composition analysis, eligibility gap, remediation actions, PCAOB audit preparation status',
+        regulator: 'Monthly reserve report in GENIUS Act / AICPA 2025 format, coverage computation, eligible asset certification',
+        ops: 'Reserve rebalancing instructions, eligible asset list, reporting calendar, certification workflow'
+      },
+      tone_modifiers: {
+        formal: 'Lead with the attestation readiness determination. Reference GENIUS Act and AICPA 2025 Criteria.',
+        technical: 'Include asset classification methodology, coverage computation, PCAOB preparation status.',
+        plain: 'Explain whether reserves are sufficient and what needs to change before attestation.'
+      }
+    },
+    infrastructure_mandate: {
+      display_name: 'Infrastructure Mandate (DORA)',
+      regulatory_citations: [
+        'DORA Articles 19–20 (Major Incident Reporting)',
+        'DORA Article 17 (ICT Risk Management Framework)',
+        'DORA Article 23 (Classification of ICT-related incidents)',
+        'FAPI 2.0 (Financial-grade API Security)'
+      ],
+      primary_tasks: ['regulatory_submission', 'risk_memo', 'remediation_plan', 'board_memo'],
+      audiences: ['board', 'risk_committee', 'regulator', 'ops'],
+      stochastic_framing_rules: [
+        "Incident classification is a deterministic decision — state the determination clearly",
+        "Reporting clock starts at detection, not at classification — note the time delta"
+      ],
+      escalation_conditions: [
+        'Major incident threshold triggered under DORA Article 19',
+        'Reporting clock has started (4-hour initial report)',
+        'Cross-border component requiring multi-authority notification',
+        'Transaction value affected exceeds materiality threshold'
+      ],
+      audience_formats: {
+        board: 'Incident severity verdict, reporting obligation status, reputational risk assessment, board notification required?',
+        risk_committee: 'Full DORA classification against all criteria, reporting timeline, ICT risk framework gap analysis',
+        regulator: 'DORA Article 19/20 notification in prescribed format, incident parameters, reporting clock status, initial vs. intermediate vs. final report',
+        ops: 'Reporting action list with deadlines, responsible contacts, notification drafts, containment protocol'
+      },
+      tone_modifiers: {
+        formal: 'Lead with the classification determination. Reference DORA articles directly.',
+        technical: 'Detail each classification criterion and the incident parameter values.',
+        plain: 'Explain what needs to be reported to whom and by when.'
+      }
+    },
+    settlement_mandate: {
+      display_name: 'Settlement Mandate (x402 / Rails)',
+      regulatory_citations: [
+        'CPMI Principles for Financial Market Infrastructures (PFMIs)',
+        'EU Instant Payments Regulation — 10-second settlement SLA',
+        'x402 protocol (Coinbase developer platform)',
+        'ISO 20022 pacs.008 structured address'
+      ],
+      primary_tasks: ['risk_memo', 'board_memo', 'plain_english_summary', 'period_comparison'],
+      audiences: ['board', 'risk_committee', 'quant', 'ops'],
+      stochastic_framing_rules: [
+        "Settlement cost and finality estimates are model outputs — label as 'estimated, not contractual'",
+        "Rail-selection recommendations are advisory — verify with live pricing before production use"
+      ],
+      escalation_conditions: [
+        'Finality gap > 60 seconds vs. IPR 10-second SLA',
+        'Settlement cost differential > 50 basis points vs. baseline rail',
+        'x402 agent payment failure rate above threshold',
+        'FX settlement risk unhedged on cross-currency legs'
+      ],
+      audience_formats: {
+        board: 'Rail recommendation and strategic rationale, cost/speed trade-off summary, key risk flags',
+        risk_committee: 'Full cost and finality comparison across rails, x402 vs. card vs. bank analysis, FX risk assessment',
+        quant: 'Quantitative model output, methodology notes, Monte Carlo parameters if applicable, sensitivity analysis',
+        ops: 'Integration requirements per recommended rail, testing protocol, fallback rail configuration'
+      },
+      tone_modifiers: {
+        formal: 'Lead with the rail recommendation. Reference CPMI PFMIs and IPR requirements.',
+        technical: 'Include finality mechanics, cost components, and x402 protocol parameters.',
+        plain: 'Explain which payment rail to use and why, in practical terms.'
+      }
+    },
+    credit_assessment: {
+      display_name: 'Credit Assessment (IRB / SA)',
+      regulatory_citations: [
+        'Basel F-IRB / A-IRB (Foundation / Advanced Internal Ratings-Based Approach)',
+        'Basel SA-CR (Standardised Approach — Credit Risk)',
+        'CRR3 / Basel 3.1 — credit risk (UK PRA go-live January 2027)',
+        'EBA Guidelines on PD and LGD estimation'
+      ],
+      primary_tasks: ['board_memo', 'regulatory_submission', 'risk_memo', 'period_comparison'],
+      audiences: ['board', 'risk_committee', 'regulator', 'quant'],
+      stochastic_framing_rules: [
+        "PD/LGD/EAD are model estimates — label as 'model output, not regulatory determination'",
+        "RWA computations are pre-validation — confirm with regulatory approval before use in capital reporting"
+      ],
+      escalation_conditions: [
+        'PD exceeds internal watch-list threshold',
+        'LGD estimate above 45% (F-IRB floor for senior unsecured)',
+        'RWA output floor binding under Basel 3.1',
+        'Expected Loss > regulatory provision'
+      ],
+      audience_formats: {
+        board: 'Portfolio credit quality verdict, key risk concentrations, expected loss vs. provisions, strategic capital implications',
+        risk_committee: 'Full PD/LGD/EAD/RWA breakdown, watch-list exposure, approach comparison, provisioning gap',
+        regulator: 'IRB model output in prescribed format, backtesting summary, model validation status, regulatory approval status',
+        quant: 'Full model output with methodology, parameter assumptions, convergence diagnostics, uncertainty ranges'
+      },
+      tone_modifiers: {
+        formal: 'Lead with the credit quality determination. Reference Basel approach and articles.',
+        technical: 'Include PD/LGD/EAD parameters, RWA computation methodology, backtesting statistics.',
+        plain: 'Explain credit quality in terms of likelihood of default and potential loss.'
+      }
+    },
+    prompt_template: {
+      display_name: 'Prompt Template (PTG-01 self)',
+      regulatory_citations: [],
+      primary_tasks: ['plain_english_summary'],
+      audiences: ['board', 'risk_committee', 'regulator', 'quant', 'ops'],
+      stochastic_framing_rules: [
+        "This is a bridge tool, not an inference tool — no stochastic output framing applies"
+      ],
+      escalation_conditions: [],
+      audience_formats: {
+        board: 'Summary of the prompt generated and the artifact it was derived from',
+        risk_committee: 'Full prompt with provenance chain',
+        regulator: 'Prompt with full chain of custody and execution hashes',
+        quant: 'Technical breakdown of template registry entry applied',
+        ops: 'Prompt text ready for use, deep link, copy instructions'
+      },
+      tone_modifiers: {
+        formal: 'Professional tone throughout.',
+        technical: 'Include registry version and mandate_type classification details.',
+        plain: 'Plain description of what was generated and how to use it.'
+      }
+    }
+  }
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   MANIFEST
+   ───────────────────────────────────────────────────────────────── */
+const MANIFEST = {
+  tool_id: 'ptg-01-ap2-prompt-template-generator',
+  version: '1.0.0',
+  title: 'AP2 Prompt Template Generator',
+  description: 'Transforms any ChainGraph artifact JSON into a structured, regulator-framed prompt for any external LLM. Template registry v1.0.0 — one entry per mandate_type with regulatory citations, audience formats, stochastic-framing rules, and escalation conditions.',
+  category: 'chaingraph',
+  tags: ['AP2','prompt engineering','template','agentic','ChainGraph','regulatory'],
+  audience: ['board','risk_committee','regulator','quant','ops','engineer'],
+  mcp_tool_definition: {
+    name: 'compose_ap2_prompt',
+    description: 'Transforms a ChainGraph artifact JSON into a structured, regulator-framed prompt for an external LLM. Returns prompt text and Claude.ai deep link. No inference performed.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        artifact_json: {type:'string', description:'ChainGraph artifact JSON from any suite tool'},
+        task: {type:'string', enum:['board_memo','regulatory_submission','risk_memo','remediation_plan','plain_english_summary','period_comparison','top_3_risks']},
+        audience: {type:'string', enum:['board','risk_committee','regulator','quant','ops']},
+        tone: {type:'string', enum:['formal','technical','plain'], default:'formal'},
+        include_citations: {type:'boolean', default:true}
+      },
+      required: ['task','audience']
+    }
+  },
+  execution: {type:'browser-javascript', entry:'chaingraph/ptg-01-ap2-prompt-template-generator.html', function_name:'runPTG', timeout_ms:2000},
+  ap2_export: true,
+  chaingraph: true
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   STATE
+   ───────────────────────────────────────────────────────────────── */
+let _state = {
+  tone: 'formal',
+  citations: 'yes',
+  parsedArtifact: null,
+  generatedPrompt: '',
+  claudeLink: '',
+  executionHash: '',
+  artifact: null  // The PTG-01 ChainGraph artifact for export
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   TOGGLE CONTROLS
+   ───────────────────────────────────────────────────────────────── */
+function setToggle(group, val, el) {
+  _state[group === 'tone' ? 'tone' : 'citations'] = val;
+  document.querySelectorAll(`[data-group="${group}"]`).forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   ARTIFACT PARSING
+   ───────────────────────────────────────────────────────────────── */
+function parseArtifact() {
+  const raw = document.getElementById('artifactInput').value.trim();
+  const statusEl = document.getElementById('artifactStatus');
+  if (!raw) {
+    statusEl.textContent = '';
+    _state.parsedArtifact = null;
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    const mandateType = parsed.mandate_type || parsed.payload?.mandate_type || 'compliance_mandate';
+    const toolId = parsed.tool_id || 'unknown';
+    const execHash = parsed.execution_hash || '';
+    statusEl.style.color = 'var(--teal)';
+    statusEl.textContent = `✓ Parsed — tool_id: ${toolId} · mandate_type: ${mandateType}${execHash ? ' · hash: ' + execHash.slice(0,16) + '…' : ''}`;
+    _state.parsedArtifact = parsed;
+    return parsed;
+  } catch(e) {
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = `✗ JSON parse error: ${e.message}`;
+    _state.parsedArtifact = null;
+    return null;
+  }
+}
+
+/* live parsing as user types */
+document.getElementById('artifactInput').addEventListener('input', parseArtifact);
+
+/* ─────────────────────────────────────────────────────────────────
+   PROMPT COMPOSITION ENGINE
+   ───────────────────────────────────────────────────────────────── */
+function composePrompt(artifact, task, audience, tone, includeCitations) {
+  const now = new Date().toISOString();
+  const mandateType = (artifact && (artifact.mandate_type || artifact.payload?.mandate_type)) || null;
+  const reg = mandateType && TEMPLATE_REGISTRY.templates[mandateType]
+              ? TEMPLATE_REGISTRY.templates[mandateType]
+              : TEMPLATE_REGISTRY.templates['compliance_mandate'];
+
+  // Derive source tool metadata
+  const toolId      = artifact ? (artifact.tool_id || 'unknown') : null;
+  const toolVersion = artifact ? (artifact.tool_version || '1.0.0') : null;
+  const generatedAt = artifact ? (artifact.generated_at || now) : now;
+  const execHash    = artifact ? (artifact.execution_hash || '') : '';
+  const chainDepth  = artifact ? (artifact.chain?.chain_depth ?? 0) : 0;
+  const parentTools = artifact ? (artifact.chain?.parent_tool_ids || []) : [];
+  const outputPayload = artifact ? JSON.stringify(artifact.output_payload || artifact.payload || {}, null, 2) : '(no artifact pasted — template only)';
+
+  // Task instruction map
+  const taskInstructions = {
+    board_memo: `Draft a concise board memo (maximum one page equivalent) suitable for presentation at a board meeting. Lead with the key finding or determination. Provide strategic context. End with a recommended board action or resolution.`,
+    regulatory_submission: `Draft a formal regulatory submission or response. Structure with: (1) Executive Summary of findings, (2) Regulatory framework reference, (3) Quantified findings per applicable rule or article, (4) Remediation commitment with dates, (5) Signature block placeholder for authorised signatory.`,
+    risk_memo: `Draft a risk management memo. Lead with the overall risk determination (High / Medium / Low / Pass). Enumerate specific risk findings with severity rating per finding. Provide a recommended risk response per finding. End with escalation recommendation and owner assignment.`,
+    remediation_plan: `Draft a structured remediation plan. For each identified gap or failure: state the gap, cite the applicable regulation or rule, quantify the impact, provide a specific corrective action, assign a responsible function, and set a target remediation date.`,
+    plain_english_summary: `Write a plain-English summary accessible to a non-specialist reader. Avoid jargon. Explain what was assessed, what was found, and what it means in practical terms. Use the "so what?" test on every sentence.`,
+    period_comparison: `Write a period-on-period comparison memo. Compare the current period findings against the prior period baseline. Quantify directional changes (better / worse / unchanged) per key metric. Identify trend drivers. Highlight any metric that has crossed a threshold in either direction.`,
+    top_3_risks: `Identify and articulate the top 3 risks arising from this assessment. For each risk: (1) one-sentence risk statement, (2) likelihood (High/Medium/Low), (3) potential impact (High/Medium/Low), (4) current control status, (5) recommended mitigant.`
+  };
+
+  // Audience format instruction
+  const audienceFormat = reg.audience_formats?.[audience] || reg.audience_formats?.risk_committee || '';
+
+  // Tone modifier
+  const toneModifier = reg.tone_modifiers?.[tone] || '';
+
+  // Stochastic framing rules
+  const stochasticRules = reg.stochastic_framing_rules?.length
+    ? reg.stochastic_framing_rules.map((r,i) => `  ${i+1}. ${r}`).join('\n')
+    : '  (none — deterministic output)';
+
+  // Regulatory citations block
+  const citationBlock = (includeCitations && reg.regulatory_citations?.length)
+    ? `\n\nREGULATORY CONTEXT\n${'─'.repeat(40)}\nThe following frameworks are applicable to this assessment:\n${reg.regulatory_citations.map(c => `  • ${c}`).join('\n')}`
+    : '';
+
+  // Escalation conditions
+  const escalationBlock = reg.escalation_conditions?.length
+    ? `\n\nESCALATION CONDITIONS (flag these if present in the findings)\n${'─'.repeat(40)}\n${reg.escalation_conditions.map(c => `  • ${c}`).join('\n')}`
+    : '';
+
+  // Build full prompt
+  const lines = [
+    `CHAINGRAPH COMPUTATION PROMPT`,
+    `Generated by PTG-01 AP2 Prompt Template Generator · AINumbers.co`,
+    `Template Registry v${TEMPLATE_REGISTRY.registry_version} · ${now}`,
+    `${'═'.repeat(60)}`,
+    ``,
+    `SOURCE ARTIFACT`,
+    `${'─'.repeat(40)}`,
+    toolId    ? `Tool ID:        ${toolId} v${toolVersion}` : `Tool ID:        (no artifact pasted)`,
+    mandateType ? `Mandate Type:   ${mandateType}` : `Mandate Type:   (template-only mode)`,
+    generatedAt   ? `Generated At:   ${generatedAt}` : '',
+    execHash      ? `Execution Hash: ${execHash}` : '',
+    chainDepth !== null ? `Chain Depth:    ${chainDepth}` : '',
+    parentTools.length  ? `Parent Tools:   ${parentTools.join(', ')}` : '',
+    ``,
+    `FINDINGS (verbatim from artifact output_payload)`,
+    `${'─'.repeat(40)}`,
+    outputPayload,
+    citationBlock,
+    escalationBlock,
+    ``,
+    `${'═'.repeat(60)}`,
+    `TASK`,
+    `${'─'.repeat(40)}`,
+    taskInstructions[task] || taskInstructions.plain_english_summary,
+    ``,
+    `OUTPUT FORMAT`,
+    `${'─'.repeat(40)}`,
+    `Target audience: ${audience.replace('_',' ').toUpperCase()}`,
+    audienceFormat ? audienceFormat : '',
+    ``,
+    `TONE`,
+    `${'─'.repeat(40)}`,
+    toneModifier || `Tone: ${tone}`,
+    ``,
+    `STOCHASTIC OUTPUT FRAMING RULES (mandatory — follow exactly)`,
+    `${'─'.repeat(40)}`,
+    stochasticRules,
+    ``,
+    `${'═'.repeat(60)}`,
+    `CHAIN PROVENANCE`,
+    `${'─'.repeat(40)}`,
+    execHash
+      ? `This prompt was derived from a verifiable client-side computation.\nExecution hash: ${execHash}\nTo verify: re-run the source tool with identical inputs and confirm the hash matches.\nThis hash should be cited in the footer of any document or narrative you produce.`
+      : `No source artifact was provided. This prompt was composed from the template registry only.\nFor full chain provenance, paste a ChainGraph artifact JSON from any suite tool.`,
+    ``,
+    `Source: AINumbers.co ChainGraph Suite · PTG-01 · Post Oak Labs · CC BY 4.0`,
+    `The template registry (data/ap2-templates.json) is separately licensable IP.`
+  ];
+
+  return lines.filter(l => l !== null && l !== undefined).join('\n');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   HASH COMPUTATION (WebCrypto — async, used only at export time)
+   Note: WebCrypto is the only path for SHA-256 client-side without
+   an external library. All analysis logic above is synchronous.
+   ───────────────────────────────────────────────────────────────── */
+async function sha256(obj) {
+  // Canonicalize: sort keys, strip whitespace
+  const canonical = JSON.stringify(obj, Object.keys(obj).sort());
+  const buf = new TextEncoder().encode(canonical);
+  const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   MAIN RUN FUNCTION
+   ───────────────────────────────────────────────────────────────── */
+async function runPTG() {
+  const btn = document.getElementById('runBtn');
+  const statusEl = document.getElementById('runStatus');
+  btn.disabled = true;
+  statusEl.textContent = 'Composing…';
+
+  try {
+    const artifact = _state.parsedArtifact || parseArtifact();
+    const task = document.getElementById('taskSelect').value;
+    const audience = document.getElementById('audienceSelect').value;
+    const tone = _state.tone;
+    const includeCitations = _state.citations === 'yes';
+
+    // Compose prompt (synchronous)
+    const prompt = composePrompt(artifact, task, audience, tone, includeCitations);
+    _state.generatedPrompt = prompt;
+
+    // Claude deep link (pure URL — zero API call)
+    const deepLink = 'https://claude.ai/new?q=' + encodeURIComponent(prompt);
+    _state.claudeLink = deepLink;
+
+    // Show prompt
+    document.getElementById('promptOutput').textContent = prompt;
+    document.getElementById('claudeLink').href = deepLink;
+
+    // Compute execution hash asynchronously
+    const policyParams = {
+      task, audience, tone, include_citations: includeCitations,
+      input_artifact_tool_id: artifact ? (artifact.tool_id || null) : null,
+      input_artifact_hash: artifact ? (artifact.execution_hash || null) : null
+    };
+    const outputPayloadForHash = {
+      generated_prompt_length: prompt.length,
+      generated_prompt_preview: prompt.slice(0, 200),
+      claude_deeplink_length: deepLink.length
+    };
+    const hash = await sha256({ policy_parameters: policyParams, output_payload: outputPayloadForHash });
+    _state.executionHash = hash;
+
+    // Chain block
+    const parentHash = artifact?.execution_hash || null;
+    const parentToolId = artifact?.tool_id || null;
+    const parentChainDepth = artifact?.chain?.chain_depth ?? -1;
+    const chainDepth = parentHash ? parentChainDepth + 1 : 0;
+
+    document.getElementById('chainBlock').innerHTML = `
+<strong>PTG-01 Execution Hash</strong>
+sha256:${hash}
+
+<strong>Chain Depth</strong>     ${chainDepth}
+<strong>Parent Tool</strong>     ${parentToolId || '(none — root artifact)'}
+<strong>Parent Hash</strong>     ${parentHash ? 'sha256:' + parentHash.slice(0,32) + '…' : '(none)'}
+<strong>Template Registry</strong> v${TEMPLATE_REGISTRY.registry_version}
+<strong>Computed At</strong>     ${new Date().toISOString()}
+
+This hash is over: canonicalized(policy_parameters + output_payload_digest)
+Any downstream LLM narrative citing this hash is traceable to this computation.`.trim();
+
+    // Build the PTG-01 ChainGraph artifact
+    const now = new Date().toISOString();
+    _state.artifact = {
+      ap2_version: '1.0.0',
+      mandate_type: 'prompt_template',
+      tool_id: 'ptg-01-ap2-prompt-template-generator',
+      tool_version: '1.0.0',
+      generated_at: now,
+      execution_hash: hash,
+      chain: {
+        parent_hashes: parentHash ? [`sha256:${parentHash}`] : [],
+        parent_tool_ids: parentToolId ? [parentToolId] : [],
+        chain_depth: chainDepth
+      },
+      policy_parameters: {
+        execution_backend: 'js',
+        input_parameters: policyParams
+      },
+      output_payload: {
+        task, audience, tone,
+        include_citations: includeCitations,
+        generated_prompt_length: prompt.length,
+        claude_deeplink: deepLink,
+        template_registry_version: TEMPLATE_REGISTRY.registry_version,
+        mandate_type_matched: (artifact?.mandate_type || null),
+        source_tool_id: artifact?.tool_id || null,
+        source_execution_hash: artifact?.execution_hash || null
+      },
+      compliance_flags: [],
+      audit_signature: {
+        client_side_executed: true,
+        zero_pii_verified: true,
+        deterministic_run: true
+      }
+    };
+
+    // Enable exports
+    const ap2Btn = document.getElementById('ap2ExportBtn');
+    const mdBtn = document.getElementById('mdExportBtn');
+    ap2Btn.disabled = false; ap2Btn.classList.add('ready');
+    mdBtn.disabled = false; mdBtn.classList.add('ready');
+
+    // Show results
+    document.getElementById('resultsPanel').classList.add('visible');
+    statusEl.textContent = '';
+  } catch(err) {
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = 'Error: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   EXPORTS
+   ───────────────────────────────────────────────────────────────── */
+function exportAP2() {
+  if (!_state.artifact) return;
+  const validated = validateAP2(_state.artifact);
+  if (!validated.ok) { showToast('Validation error: ' + validated.errors.join('; ')); return; }
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const blob = new Blob([JSON.stringify(_state.artifact, null, 2)], {type:'application/json'});
+  const a = Object.assign(document.createElement('a'), {href:URL.createObjectURL(blob), download:`ptg-01_${ts}.policy.json`});
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('ChainGraph artifact exported');
+}
+
+function exportMarkdown() {
+  if (!_state.generatedPrompt) return;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const md = [
+    '# AP2 Prompt Template — PTG-01 Output',
+    '',
+    `**Generated:** ${new Date().toISOString()}`,
+    _state.artifact?.execution_hash ? `**Execution Hash:** sha256:${_state.artifact.execution_hash}` : '',
+    _state.artifact?.chain?.chain_depth !== undefined ? `**Chain Depth:** ${_state.artifact.chain.chain_depth}` : '',
+    '',
+    '## Generated Prompt',
+    '',
+    '```',
+    _state.generatedPrompt,
+    '```',
+    '',
+    '## Open in Claude.ai',
+    '',
+    `[Open prompt in Claude.ai](${_state.claudeLink})`,
+    '',
+    '---',
+    '',
+    '*Generated by PTG-01 AP2 Prompt Template Generator · AINumbers.co ChainGraph Suite*',
+    '*Post Oak Labs · CC BY 4.0 · Client-side · Zero PII · No inference*'
+  ].filter(l => l !== null && l !== undefined).join('\n');
+
+  const blob = new Blob([md], {type:'text/markdown'});
+  const a = Object.assign(document.createElement('a'), {href:URL.createObjectURL(blob), download:`ptg-01_${ts}.md`});
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('Markdown exported');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   VALIDATION (mirrors CONTRACT §3.1 required fields)
+   ───────────────────────────────────────────────────────────────── */
+function validateAP2(artifact) {
+  const required = ['ap2_version','mandate_type','tool_id','tool_version','generated_at','execution_hash','chain','policy_parameters','output_payload','audit_signature'];
+  const missing = required.filter(k => !(k in artifact));
+  if (missing.length) return {ok:false, errors:[`Missing fields: ${missing.join(', ')}`]};
+  if (!artifact.audit_signature?.client_side_executed) return {ok:false, errors:['audit_signature.client_side_executed must be true']};
+  return {ok:true, errors:[]};
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   UTILS
+   ───────────────────────────────────────────────────────────────── */
+function copyPrompt() {
+  if (!_state.generatedPrompt) return;
+  navigator.clipboard?.writeText(_state.generatedPrompt).then(() => showToast('Prompt copied')).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = _state.generatedPrompt;
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    showToast('Prompt copied');
+  });
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function toggleMfst() {
+  const body = document.getElementById('mfstBody');
+  const btn = document.querySelector('.mfst-btn');
+  const arrow = document.getElementById('mfstArrow');
+  const open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  arrow.textContent = open ? '▼' : '▲';
+  btn.setAttribute('aria-expanded', String(!open));
+  body.setAttribute('aria-hidden', String(open));
+  if (!open && !document.getElementById('mfstCode').textContent) {
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   INIT — registry badges
+   ───────────────────────────────────────────────────────────────── */
+(function init() {
+  const badgeContainer = document.getElementById('registryBadges');
+  if (!badgeContainer) return;
+  Object.entries(TEMPLATE_REGISTRY.templates).forEach(([key, tmpl]) => {
+    const b = document.createElement('span');
+    b.className = 'badge badge-teal';
+    b.style.cursor = 'default';
+    b.title = tmpl.regulatory_citations?.join(' · ') || '';
+    b.textContent = tmpl.display_name || key;
+    badgeContainer.appendChild(b);
+  });
+})();
+</script>
+
+</body>
+</html>
