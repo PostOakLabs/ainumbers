@@ -1,16 +1,24 @@
 {
-  "registry_version": "1.0.0",
+  "$schema": "https://ainumbers.co/schema/ap2-templates-v1.1.json",
+  "registry_version": "1.1.0",
   "updated": "2026-06-12",
   "maintainer": "Post Oak Labs",
-  "description": "AINumbers ChainGraph template registry — one entry per mandate_type. Internal AINumbers taxonomy; not AP2 v0.2 spec vocabulary. See ChainGraph v1 §4 taxonomy note.",
   "license": "CC BY 4.0",
+  "description": "AINumbers ChainGraph AP2 template registry. One entry per mandate_type. Describes regulatory citations, primary tasks, target audiences, stochastic framing rules, escalation conditions, and the prompt template_body used to translate a ChainGraph execution artifact into a regulator-grade LLM prompt. Internal mandate_type taxonomy — not AP2 v0.2 FIDO Alliance spec vocabulary.",
+  "separately_licensable": true,
+  "licensing_contact": "tim@postoaklabs.com",
+  "llmeo_note": "This registry is the data layer for PTG-01 (compose_ap2_prompt) and is the primary LLMEO surface for compliance orchestrators. Each template_body is designed to be injected into an LLM system prompt alongside a ChainGraph artifact JSON, producing a regulator-grade narrative anchored to the execution_hash.",
+  "template_body_usage": "In template_body, double-curly-brace tokens (e.g. {{execution_hash}}) are populated by PTG-01 from the source artifact. The execution_hash anchor footer is mandatory in every narrative — it is the audit traceability claim that makes ChainGraph outputs verifiable.",
   "templates": {
     "liquidity_mandate": {
       "display_name": "Liquidity Mandate (LCR/NSFR)",
+      "tool_ids": ["sim-01-lcr-nsfr-liquidity-stress-test"],
       "regulatory_citations": [
-        "Basel III LCR — CRR Art. 412",
-        "NSFR — CRR Art. 428",
-        "EBA GL/2017/01 (Liquidity Coverage Ratio Reporting)"
+        "Basel III LCR — CRR Art. 412 (minimum 100%)",
+        "Basel III NSFR — CRR Art. 428 (minimum 100%)",
+        "EBA GL/2017/01 (LCR supervisory reporting)",
+        "ECB/2016/17 (SSM LCR supervisory expectations)",
+        "BCBS 238 (LCR final rule)"
       ],
       "primary_tasks": ["board_memo", "regulatory_submission", "risk_memo", "plain_english_summary"],
       "audiences": ["board", "risk_committee", "regulator", "quant", "ops"],
@@ -18,10 +26,10 @@
         "Report percentiles as 'the P5 breach probability is X%', not 'the probability of breach is X%'",
         "Never present a single simulation path as 'the' outcome — always cite the percentile",
         "When citing time-to-breach, state the percentile: 'P50 time-to-breach is N days'",
-        "State the simulation path count: 'across 1,000 Monte Carlo paths'"
+        "State the simulation path count: 'across {{policy_parameters.num_paths}} Monte Carlo paths'"
       ],
       "escalation_conditions": [
-        "LCR P5 < 100% (regulatory minimum breach risk)",
+        "LCR P5 < 100% — regulatory minimum breach risk",
         "NSFR P5 < 100%",
         "P50 time-to-breach < 30 days",
         "Stress scenario delta > 15 percentage points vs. base"
@@ -37,28 +45,34 @@
         "formal": "Use passive voice where appropriate. Avoid contractions. Lead with the regulatory determination.",
         "technical": "Include model parameters and statistical methodology. Reference specific article numbers.",
         "plain": "Explain what the numbers mean in practical terms. Avoid regulatory jargon unless unavoidable."
-      }
+      },
+      "template_body": "You are a treasury risk officer reviewing a Basel III liquidity stress simulation (execution_hash: {{execution_hash}}, tool: {{tool_id}}, N={{policy_parameters.num_paths}} Monte Carlo paths × {{policy_parameters.num_steps}} time steps).\n\nKey results:\n- LCR at P50: {{output_payload.lcr_p50}}% | P5: {{output_payload.lcr_p5}}% | P95: {{output_payload.lcr_p95}}%\n- NSFR at P50: {{output_payload.nsfr_p50}}% | P5: {{output_payload.nsfr_p5}}% | P95: {{output_payload.nsfr_p95}}%\n- LCR breach probability: {{output_payload.lcr_breach_prob}}%\n- Median time-to-breach: {{output_payload.median_ttb}} days\n- Top sensitivity driver: {{output_payload.top_sensitivity_driver}}\n\nYour task: write an ALCO-ready liquidity risk memo (max 400 words). Structure: (1) Regulatory compliance status (cite CRR Art. 412/428), (2) Breach probability interpretation, (3) Top sensitivity findings, (4) Recommended management actions with urgency flags.\n\nNever present a single simulation path as 'the' outcome — always cite the percentile band.\n\nAudit anchor: This analysis is anchored to execution_hash {{execution_hash}}. To verify, re-run {{tool_id}} with the same policy_parameters and confirm the SHA-256 hash over sorted-key JSON of policy_parameters + output_payload."
     },
     "payment_mandate": {
-      "display_name": "Payment Mandate (AP2 / Agentic Commerce)",
+      "display_name": "Payment Mandate (AP2 / ACP / Agentic Commerce)",
+      "tool_ids": ["art-01-ap2-mandate-chain-validator", "art-12-acp-checkout-conformance-validator"],
       "regulatory_citations": [
-        "AP2 v0.2 — FIDO Alliance (April 2026)",
-        "EU Instant Payments Regulation (IPR) — in force October 2025",
-        "PSD2 Article 97 (Strong Customer Authentication)",
-        "FIDO Alliance Human-Not-Present (HNP) payment flows"
+        "AP2 v0.2 — FIDO Alliance (April 2026) — Intent/Cart/Payment mandate schema",
+        "OpenAI/Stripe ACP (Agentic Commerce Protocol, 2026) — CheckoutRequest/Response schema",
+        "PSD2 Art. 4(5) (payment mandate definitions)",
+        "PSD3 (proposed) — AI-initiated payment agent obligations",
+        "EU Instant Payments Regulation (IPR) — in force October 2025"
       ],
       "primary_tasks": ["risk_memo", "regulatory_submission", "plain_english_summary", "remediation_plan"],
       "audiences": ["board", "risk_committee", "regulator", "quant", "ops"],
       "stochastic_framing_rules": [
-        "Simulation outputs are educational only — label synthetic mandates explicitly",
-        "Never present a validation result as a production compliance determination"
+        "Payment mandate verdicts are DETERMINISTIC — never frame as probabilistic",
+        "Use CONFORMANT / NON-CONFORMANT / PARTIAL verdicts only — no hedged language",
+        "If over-spend is detected, state the exact delta in the mandate's declared currency",
+        "Cite the specific AP2 or ACP clause violated, not a general statement"
       ],
       "escalation_conditions": [
-        "Signature-chain validation failure",
+        "Signature-chain validation failure — suspend mandate immediately",
         "Scope/limit mismatch between Intent and Cart mandates",
-        "TTL/expiry violation",
-        "Over-spend detection trigger",
-        "Human-Not-Present flow without proper authorization chain"
+        "TTL/expiry violation — mandate must be re-issued",
+        "Over-spend detection trigger — block settlement pending review",
+        "Human-Not-Present flow on mandate > €1,000 — require explicit human authorisation",
+        "ACP token signature prefix invalid — reject checkout, log for security review"
       ],
       "audience_formats": {
         "board": "Strategic summary of agentic payment risk posture, key failure modes, recommended governance controls",
@@ -69,28 +83,34 @@
       },
       "tone_modifiers": {
         "formal": "Lead with the conformance verdict. Enumerate failures in structured list format.",
-        "technical": "Reference AP2 v0.2 specification sections. Include field-level analysis.",
+        "technical": "Reference AP2 v0.2 specification sections and ACP schema definitions. Include field-level analysis.",
         "plain": "Describe what each failure means for a user trying to make a payment."
-      }
+      },
+      "template_body": "You are a payment compliance officer reviewing a ChainGraph payment mandate audit artifact (execution_hash: {{execution_hash}}, tool: {{tool_id}}).\n\nVerdict summary:\n- Overall conformance: {{output_payload.overall_verdict}}\n- AP2 mandate chain: {{output_payload.mandate_chain_status}}\n- Violations: {{output_payload.violations}}\n- ACP conformance (if present): {{output_payload.acp_verdict}}\n- compliance_flags: {{compliance_flags}}\n\nYour task: draft a one-page payment mandate audit memo. Structure: (1) Executive verdict, (2) Clause-level findings (cite AP2/ACP clause numbers — AP2 v0.2 §section or ACP field name), (3) Required remediation steps, (4) Audit anchor.\n\nDo NOT frame deterministic verdicts as probabilistic. Use CONFORMANT / NON-CONFORMANT / PARTIAL only.\n\nAudit anchor: This analysis is anchored to execution_hash {{execution_hash}}. To verify, re-run {{tool_id}} with the same policy_parameters and confirm the SHA-256 hash over sorted-key JSON of policy_parameters + output_payload."
     },
     "payment_policy": {
       "display_name": "Payment Policy (Agent Spend)",
+      "tool_ids": ["art-02-agent-spend-policy-simulator"],
       "regulatory_citations": [
         "AP2 v0.2 Human-Not-Present flows — FIDO Alliance",
         "PSD2 Article 75 (Unauthorized Payment Transactions)",
-        "FCA Consumer Duty — PRIN 2A (July 2023)"
+        "PSD2 Article 10 (spending limit controls for payment initiation)",
+        "FCA Consumer Duty — PRIN 2A (July 2023)",
+        "CFPB Open Banking Rule §1033 (agent-initiated payment data access)"
       ],
       "primary_tasks": ["risk_memo", "remediation_plan", "top_3_risks", "board_memo"],
       "audiences": ["board", "risk_committee", "quant", "ops"],
       "stochastic_framing_rules": [
-        "Simulation outputs are synthetic — label transaction paths as 'simulated'",
+        "Simulation outputs are synthetic — label transaction paths as 'simulated across {{policy_parameters.num_transactions}} synthetic transactions'",
+        "Cite the simulation seed and transaction count so results are reproducible",
+        "P5/P95 intervals must be reported alongside median — never report a single point estimate for breach rates",
         "Policy-bypass paths are illustrative, not exhaustive — state this clearly"
       ],
       "escalation_conditions": [
-        "Merchant-category policy bypass path identified",
-        "Velocity limit circumvention scenario confirmed",
-        "Cumulative ceiling breach path found",
-        "Autonomous agent scope creep beyond approved categories"
+        "P95 breach rate > 5% — escalate to risk committee before agent deployment",
+        "Human-Not-Present bypass path detected — mandatory human-in-the-loop gate required",
+        "Cumulative ceiling breach detected in > 1% of simulated trajectories — tighten velocity controls",
+        "Autonomous agent scope creep beyond approved categories confirmed"
       ],
       "audience_formats": {
         "board": "Policy strength verdict, top 3 bypass risk categories, recommended policy tightening actions",
@@ -102,29 +122,45 @@
         "formal": "Frame as a policy control assessment. Use risk management vocabulary.",
         "technical": "Detail the transaction parameters that trigger each bypass. Include rule logic.",
         "plain": "Explain what a bad actor or misconfigured agent could do under the current policy."
-      }
+      },
+      "template_body": "You are a treasury risk analyst reviewing an agent spend-policy simulation (execution_hash: {{execution_hash}}, tool: {{tool_id}}, N={{policy_parameters.num_transactions}} synthetic transactions, seed={{policy_parameters.seed}}).\n\nKey simulation results:\n- Median breach rate: {{output_payload.median_breach_rate}}%\n- P95 breach rate: {{output_payload.p95_breach_rate}}%\n- Human-Not-Present bypass paths: {{output_payload.hnp_bypass_count}}\n- Top violation category: {{output_payload.top_violation_category}}\n- compliance_flags: {{compliance_flags}}\n\nYour task: write an executive risk memo (max 300 words). Structure: (1) Policy health verdict, (2) Top three breach scenarios with AP2 clause citations, (3) Recommended policy tightening steps, (4) Board escalation recommendation if P95 > 5%.\n\nAlways prefix simulation results with 'Simulated estimate:' — never 'The system concludes'. Report P5/P95 intervals, not single point estimates.\n\nAudit anchor: This analysis is anchored to execution_hash {{execution_hash}}. To verify, re-run {{tool_id}} with the same policy_parameters and confirm the SHA-256 hash over sorted-key JSON of policy_parameters + output_payload."
     },
     "compliance_mandate": {
       "display_name": "Compliance Mandate",
+      "tool_ids": [
+        "art-04-agent-identity-attestation-checker",
+        "art-08-en16931-einvoice-batch-validator",
+        "art-11-vop-batch-match-rate-analyser",
+        "art-12-acp-checkout-conformance-validator",
+        "art-13-eudi-wallet-credential-readiness-checker",
+        "cry-01-zk-compliance-proof-generator",
+        "rca-03-iso20022-address-migration-verifier"
+      ],
       "regulatory_citations": [
         "FATF Travel Rule (Recommendation 16)",
-        "EU AMLR — full application July 2027 / AMLA operations 2028",
+        "EU AMLR 2024/1624 — full application July 2027 / AMLA operations 2028",
         "EU Instant Payments Regulation VoP — in force October 2025",
         "SWIFT CBPR+ structured-address mandate — November 2026",
-        "GDPR Article 25 (Privacy by Design)",
-        "eIDAS 2.0 / EUDI Wallet — member-state rollout November 2026"
+        "EN 16931-1:2017 / EU ViDA — structured e-invoicing mandate (France large/medium Sep 2026)",
+        "GDPR Article 25 (Privacy by Design and by Default)",
+        "eIDAS 2.0 / EUDI Wallet ARF v1.4 — member-state rollout November 2026",
+        "EU AI Act (2024/1689) Annex III — high-risk AI system obligations"
       ],
       "primary_tasks": ["regulatory_submission", "risk_memo", "remediation_plan", "board_memo", "top_3_risks"],
       "audiences": ["board", "risk_committee", "regulator", "quant", "ops"],
       "stochastic_framing_rules": [
-        "Compliance verdicts are deterministic; state 'pass' or 'fail' without probabilistic hedging",
-        "Batch results: report counts and percentages, not absolute certainty claims"
+        "Field-level validation verdicts are DETERMINISTIC — use PASS/FAIL/PARTIAL only",
+        "Match-rate outputs (VoP, address validation) are statistical — cite sample size and confidence interval",
+        "ZK proof tokens (CRY-01) are synthetic and explicitly educational — always include the disclaimer in any narrative",
+        "Countdown to hard regulatory deadlines must be derived from today's date, not hardcoded"
       ],
       "escalation_conditions": [
-        "Compliance pass rate < 95%",
+        "Compliance pass rate < 95% — escalate to operations before reprocessing",
         "Deadline is within 90 days of assessment date",
-        "Any critical field missing in a regulatory submission format",
-        "VoP match rate below PSP's internal threshold"
+        "Credential chain depth > 4 hops (ART-04) — security architecture review required",
+        "EUDI readiness score < 60% with < 90 days to deadline — immediate compliance programme escalation",
+        "ISO 20022 batch readiness < 70% with < 60 days to SWIFT CBPR+ mandate — emergency migration track",
+        "ZK proof token used outside educational context — legal review required"
       ],
       "audience_formats": {
         "board": "Compliance readiness verdict (Ready / Partially Ready / Not Ready), deadline exposure summary, board resolution template",
@@ -137,29 +173,34 @@
         "formal": "Lead with the compliance determination. Enumerate non-conformances in structured list.",
         "technical": "Cite specific regulatory article numbers. Include field-name references.",
         "plain": "Explain what non-compliance means in practice and what needs to change."
-      }
+      },
+      "template_body": "You are a compliance analyst reviewing a ChainGraph compliance mandate artifact (execution_hash: {{execution_hash}}, tool: {{tool_id}}).\n\nCompliance summary:\n- Mandate: {{mandate_type}} / {{tool_id}}\n- Overall verdict: {{output_payload.verdict}}\n- Failure count: {{output_payload.failure_count}}\n- Key compliance flags: {{compliance_flags}}\n- Days to nearest hard deadline: {{output_payload.days_to_deadline}}\n\nYour task: produce a gap analysis memo (max 400 words). Structure: (1) Regulatory context — cite the specific article/directive and its deadline, (2) Verdict with failure breakdown, (3) Prioritised remediation roadmap (deadline-weighted), (4) Escalation recommendation.\n\nField-level verdicts are DETERMINISTIC — use PASS/FAIL/PARTIAL only. Do not hedge deterministic findings. Countdown to deadline must use actual days remaining.\n\nAudit anchor: This analysis is anchored to execution_hash {{execution_hash}}. To verify, re-run {{tool_id}} with the same policy_parameters and confirm the SHA-256 hash over sorted-key JSON of policy_parameters + output_payload."
     },
     "capital_assessment": {
       "display_name": "Capital Assessment (Basel / RWA)",
+      "tool_ids": ["art-07-basel31-reporting-delta-calculator", "sim-03-basel-rwa-scenario-modeler"],
       "regulatory_citations": [
-        "Basel 3.1 / CRR3 — UK PRA go-live January 1 2027 (PS1/26)",
-        "Basel SA-CR (Standardised Approach — Credit Risk)",
-        "Basel F-IRB / A-IRB (Foundation / Advanced Internal Ratings-Based)",
-        "FRTB MAR33 (Market Risk — Internal Models Approach)",
-        "Output floor — 72.5% SA floor (phased in through 2030)"
+        "Basel 3.1 / BCBS CRE20–CRE99 (standardised approach credit risk)",
+        "BCBS CAP30 — output floor: 72.5% of SA RWA",
+        "UK PRA PS1/26 — Basel 3.1 effective January 1, 2027",
+        "EU CRR3 (Capital Requirements Regulation 3, 2025)",
+        "BCBS d424 (IRB capital formula — Φ⁻¹ rational approximation)",
+        "FRTB MAR33 (Market Risk — Internal Models Approach)"
       ],
       "primary_tasks": ["board_memo", "regulatory_submission", "risk_memo", "period_comparison"],
       "audiences": ["board", "risk_committee", "regulator", "quant"],
       "stochastic_framing_rules": [
-        "RWA scenarios are model outputs, not regulatory determinations — label accordingly",
-        "Output-floor binding status is a model outcome, verify with regulatory sign-off",
-        "Report approach deltas as 'model estimate' not 'definitive Basel 3.1 RWA'"
+        "Deterministic delta calculations (ART-07) — use exact basis-point values, never ranges",
+        "Monte Carlo scenario outputs (SIM-03) — always report P5/P50/P95 with simulation parameters",
+        "Output floor binding is deterministic once SA RWA is computed — frame as a compliance test, not a probability",
+        "Capital shortfall figures are point-in-time estimates — note the reference date from policy_parameters",
+        "Label all RWA computations as 'model estimate, not regulatory determination'"
       ],
       "escalation_conditions": [
-        "CET1 ratio drops below 12% in any scenario",
-        "Output floor becomes binding (SA RWA > IRB RWA)",
-        "Capital requirement increase > 20% vs. current approach",
-        "P&L impact exceeds materiality threshold"
+        "CET1 drops below 12% in any scenario — immediate capital planning escalation",
+        "Output floor becomes binding (SA RWA > IRB RWA) — A-IRB model utility review required",
+        "Capital requirement increase > 20% vs. current approach — material impact ICAAP review",
+        "P5 RWA scenario exceeds current capital buffer — stress buffer adequacy review"
       ],
       "audience_formats": {
         "board": "Capital impact summary (£/$ amount + %, traffic-light vs. targets), output-floor status, strategic options",
@@ -171,62 +212,79 @@
         "formal": "Lead with the capital impact determination. Reference specific Basel articles.",
         "technical": "Include model assumptions, SA-CR / IRB approach parameters, output-floor calculation.",
         "plain": "Explain how much more capital is required and why."
-      }
+      },
+      "template_body": "You are a capital adequacy analyst reviewing a ChainGraph Basel 3.1 capital assessment (execution_hash: {{execution_hash}}, tools: art-07 + sim-03).\n\nCapital assessment summary:\n- Current CET1: {{output_payload.current_cet1}}% | Post-Basel 3.1: {{output_payload.post_b31_cet1}}%\n- CET1 delta: {{output_payload.cet1_delta}} bps\n- Output floor binding: {{output_payload.floor_binds}} (72.5% of SA RWA = {{output_payload.floor_rwa}})\n- Capital shortfall vs 12.5% total requirement: {{output_payload.capital_shortfall}}\n- Highest RWA delta asset class: {{output_payload.top_delta_asset_class}} (+{{output_payload.top_delta_bps}} bps)\n\nYour task: write an ICAAP-ready capital adequacy memo (max 500 words). Structure: (1) Regulatory context (cite BCBS CAP30 and UK PRA PS1/26, deadline 2027-01-01), (2) RWA delta analysis by asset class, (3) Output floor impact, (4) CET1 trajectory and remediation options, (5) Board escalation flag if shortfall detected.\n\nDeterministic delta results use exact values. Monte Carlo scenario results cite P5/P50/P95. Never present model output as a regulatory determination.\n\nAudit anchor: This analysis is anchored to execution_hash {{execution_hash}}. To verify, re-run {{tool_id}} with the same policy_parameters and confirm the SHA-256 hash over sorted-key JSON of policy_parameters + output_payload."
     },
     "risk_control": {
       "display_name": "Risk Control (AML / Market / Consumer)",
+      "tool_ids": ["art-10-amla-transaction-typology-risk-scorer", "qfa-02-portfolio-var-engine"],
       "regulatory_citations": [
         "FATF AML Typologies (2024)",
-        "EU AMLR — July 2027",
-        "Basel Market Risk Framework (FRTB)",
+        "FATF Recommendation 15 (new technologies — AI-assisted risk assessment)",
+        "FATF Travel Rule (Recommendation 16)",
+        "EU AMLR 2024/1624 Art. 19 (transaction monitoring obligations) — July 2027",
+        "Basel III FRTB (BCBS d352/d457) — IMA VaR/ES requirements",
+        "ESMA Guidelines on performance scenarios (PRIIPs KID)",
         "FCA Consumer Duty — PRIN 2A (July 2023)",
         "UK PSR — APP Reimbursement (October 2024)"
       ],
       "primary_tasks": ["risk_memo", "top_3_risks", "board_memo", "remediation_plan"],
       "audiences": ["board", "risk_committee", "regulator", "quant", "ops"],
       "stochastic_framing_rules": [
-        "AML risk scores are model outputs — label as 'indicative typology risk' not 'confirmed AML'",
-        "Never identify a specific transaction or entity as fraudulent — simulation is educational only"
+        "AML typology scores are synthetic simulation outputs — label as 'indicative typology risk', never 'confirmed AML'",
+        "Never identify a specific transaction or entity as fraudulent — simulation is educational only",
+        "VaR and ES are model-dependent estimates — always cite the method (Historical/Parametric/Monte Carlo) and confidence level",
+        "AML risk scores feed SAR triage pre-screening only — human investigator review is mandatory before filing"
       ],
       "escalation_conditions": [
-        "High-risk typology match on any account/cluster",
-        "Travel Rule predicate triggered",
+        "AML risk score ≥ HIGH on any account cluster — mandatory human investigator review",
+        "FATF Travel Rule predicate triggered (amount ≥ $1,000 threshold)",
+        "VaR breach in back-test > 5 exceedances in 250 days — FRTB capital model review required",
+        "Expected Shortfall at 97.5% exceeds stressed VaR — risk model audit",
         "APP fraud graph cluster score above threshold",
         "Consumer Duty outcome metric below benchmark"
       ],
       "audience_formats": {
         "board": "Risk posture summary (High/Medium/Low), key typology exposures, governance recommendations",
-        "risk_committee": "Typology-by-typology scoring, cluster analysis summary, threshold calibration recommendations",
+        "risk_committee": "Typology-by-typology scoring, cluster analysis summary, VaR methodology and results, threshold calibration",
         "regulator": "AML control framework statement, typology coverage, Travel Rule implementation status",
-        "quant": "Full graph analysis output, scoring methodology, false-positive/negative calibration data",
+        "quant": "Full graph analysis output, scoring methodology, VaR parameters, false-positive/negative calibration",
         "ops": "Account/cluster action list, investigation workflow, escalation triggers, reporting obligations"
       },
       "tone_modifiers": {
         "formal": "Use risk management vocabulary. Lead with the overall risk determination.",
-        "technical": "Include typology codes, graph metrics, threshold parameters.",
+        "technical": "Include typology codes, graph metrics, VaR parameters, threshold definitions.",
         "plain": "Explain what each risk indicator means and what action it requires."
-      }
+      },
+      "template_body": "You are a risk officer reviewing a ChainGraph risk control artifact (execution_hash: {{execution_hash}}, tool: {{tool_id}}).\n\nRisk summary:\n- Risk determination: {{output_payload.risk_determination}}\n- Key findings: {{output_payload.key_findings}}\n- Compliance flags: {{compliance_flags}}\n\nFor AML tools (ART-10): Draft a SAR triage pre-screening memo citing FATF Recommendation 15 and EU AMLR Art. 19. CRITICAL: label all outputs as 'indicative typology risk' — this is a model output; human investigator review is mandatory before any SAR filing.\n\nFor VaR tools (QFA-02): Draft a risk management report noting method ({{policy_parameters.var_method}}), confidence level ({{policy_parameters.confidence_level}}%), and any back-test exceedances. Report P5/P50/P95 ES alongside VaR — never a single point estimate.\n\nAudit anchor: This analysis is anchored to execution_hash {{execution_hash}}. To verify, re-run {{tool_id}} with the same policy_parameters and confirm the SHA-256 hash over sorted-key JSON of policy_parameters + output_payload."
     },
     "model_governance": {
       "display_name": "Model Governance (EU AI Act)",
+      "tool_ids": ["art-05-eu-ai-act-credit-scoring-conformity"],
       "regulatory_citations": [
-        "EU AI Act Annex III Part 5(b) — Credit Scoring (High-Risk, fully applicable August 2, 2026)",
-        "EU AI Act Article 11 — Technical Documentation",
-        "EU AI Act Article 9 — Risk Management System",
-        "EU AI Act Article 10 — Data Governance",
-        "EU AI Act Article 13 — Transparency obligations"
+        "EU AI Act (2024/1689) Annex III Part 5(b) — credit-scoring high-risk (fully applicable August 2, 2026)",
+        "EU AI Act Art. 9 (risk management system requirements)",
+        "EU AI Act Art. 10 (data governance requirements)",
+        "EU AI Act Art. 11 (technical documentation — Annex IV skeleton)",
+        "EU AI Act Art. 13 (transparency and provision of information to users)",
+        "EU AI Act Art. 14 (human oversight requirements)",
+        "EU AI Act Art. 15 (accuracy, robustness and cybersecurity)",
+        "EBA GL/2020/06 (model risk management — supervisory expectations)"
       ],
       "primary_tasks": ["regulatory_submission", "risk_memo", "remediation_plan", "board_memo"],
       "audiences": ["board", "risk_committee", "regulator", "quant", "ops"],
       "stochastic_framing_rules": [
+        "Disparate impact ratios and equalized odds gaps are deterministic calculations given the input dataset statistics",
         "Bias metrics are computed on synthetic data — label all test results as 'indicative, not production'",
-        "Disparate impact ratios are model estimates — state the dataset and test methodology"
+        "Conformity self-assessment is a structured determination, not a legal opinion — flag for qualified counsel review",
+        "Hard deadline August 2, 2026 is absolute — state countdown in days, not quarters"
       ],
       "escalation_conditions": [
-        "Disparate impact ratio < 0.8 on any protected characteristic",
-        "Equalized odds gap > 5 percentage points",
-        "Article 11 technical documentation skeleton incomplete",
-        "Conformity self-assessment failing on any mandatory dimension"
+        "Disparate impact ratio < 0.80 (4/5ths rule) on any protected characteristic — mandatory bias remediation before deployment",
+        "Equalized odds gap > 5 percentage points — model risk committee review, Article 14 human oversight trigger",
+        "Data quality attestation fails completeness check — training data remediation before conformity assessment",
+        "< 30 days to August 2, 2026 with non-conformant status — emergency compliance programme activation",
+        "Technical documentation skeleton incomplete — regulatory filing blocked"
       ],
       "audience_formats": {
         "board": "AI Act compliance status (August 2026 deadline), failing dimensions, legal exposure summary, recommended board action",
@@ -239,27 +297,35 @@
         "formal": "Lead with the conformity determination. Reference EU AI Act articles directly.",
         "technical": "Include statistical test parameters, threshold definitions, methodology citations.",
         "plain": "Explain what the AI Act requires and where the model falls short."
-      }
+      },
+      "template_body": "You are an AI governance officer reviewing a ChainGraph EU AI Act conformity assessment (execution_hash: {{execution_hash}}, tool: {{tool_id}}).\n\nConformity summary:\n- Overall verdict: {{output_payload.conformity_verdict}}\n- Disparate impact — worst protected characteristic: {{output_payload.worst_di_ratio}} ({{output_payload.worst_di_characteristic}})\n- Equalized odds gap: {{output_payload.max_eod_gap}}\n- Annex IV documentation completeness: {{output_payload.annex_iv_completeness}}%\n- Days to August 2, 2026 deadline: {{output_payload.days_to_deadline}}\n- Open findings: {{output_payload.open_findings_count}}\n\nYour task: draft an AI Act conformity assessment memo (max 500 words). Structure: (1) High-risk classification basis (Annex III Part 5(b)), (2) Bias findings with Art. 10 data governance implications, (3) Technical documentation gaps vs Annex IV, (4) Remediation roadmap with deadline-weighted priorities, (5) Notified body readiness assessment.\n\nLabel all bias metrics as 'indicative, not production'. Conformity self-assessment is not a legal opinion — flag for qualified counsel review.\n\nAudit anchor: This analysis is anchored to execution_hash {{execution_hash}}. To verify, re-run {{tool_id}} with the same policy_parameters and confirm the SHA-256 hash over sorted-key JSON of policy_parameters + output_payload."
     },
     "attestation_mandate": {
       "display_name": "Attestation Mandate (GENIUS Act / Reserve)",
+      "tool_ids": ["art-06-genius-act-reserve-attestation"],
       "regulatory_citations": [
-        "GENIUS Act — effective ≤ January 2027",
+        "GENIUS Act §4(a) — reserve composition: permitted asset classes",
+        "GENIUS Act §4(b) — 1:1 reserve coverage requirement",
+        "GENIUS Act §4(c) — monthly reserve report, CEO/CFO certification under AICPA 2025 Criteria",
+        "GENIUS Act §4(d) — annual PCAOB audit for issuers > $50B outstanding",
         "FDIC NPRM April 2026 (GENIUS Act implementation)",
-        "AICPA 2025 Criteria for CEO/CFO certification",
-        "PCAOB annual audit requirement (>$50B issuers)"
+        "EU MiCA Art. 36–37 (e-money token reserve requirements — distinct from GENIUS Act)"
       ],
       "primary_tasks": ["regulatory_submission", "board_memo", "risk_memo", "remediation_plan"],
       "audiences": ["board", "risk_committee", "regulator", "ops"],
       "stochastic_framing_rules": [
-        "Reserve computations are pre-checks only — label as 'attestation readiness assessment'",
-        "Never present as a substitute for PCAOB-audited reserve attestation"
+        "Reserve coverage is a deterministic calculation given input figures — state exact coverage ratio, not a range",
+        "Asset composition eligibility is rule-based — use ELIGIBLE/INELIGIBLE per GENIUS Act permitted-asset taxonomy",
+        "CEO/CFO certification readiness is a pre-check only — actual certification requires qualified legal counsel",
+        "PCAOB threshold is a binary test at $50B — state REQUIRED/NOT-REQUIRED with current outstanding amount",
+        "Label all outputs as 'attestation readiness assessment' — not a substitute for PCAOB-audited reserve attestation"
       ],
       "escalation_conditions": [
-        "1:1 reserve coverage ratio < 100%",
-        "Any non-eligible reserve asset class present",
-        "Monthly report figure deviating from AICPA 2025 Criteria template",
-        "Attestation readiness score: Not Ready"
+        "Reserve coverage < 100% — immediate board escalation, regulatory notification obligation triggered",
+        "Ineligible asset detected in reserve composition — divestiture required before next monthly report",
+        "Outstanding > $50B and no PCAOB audit engaged — urgent audit engagement required",
+        "CEO/CFO certification criteria not met — monthly report submission blocked",
+        "FDIC NPRM interaction detected — legal review of deposit insurance implications required"
       ],
       "audience_formats": {
         "board": "Reserve coverage verdict, eligible vs. non-eligible asset breakdown, CEO/CFO certification readiness, GENIUS Act timeline",
@@ -271,59 +337,76 @@
         "formal": "Lead with the attestation readiness determination. Reference GENIUS Act and AICPA 2025 Criteria.",
         "technical": "Include asset classification methodology, coverage computation, PCAOB preparation status.",
         "plain": "Explain whether reserves are sufficient and what needs to change before attestation."
-      }
+      },
+      "template_body": "You are a stablecoin compliance officer reviewing a ChainGraph GENIUS Act reserve attestation pre-check (execution_hash: {{execution_hash}}, tool: {{tool_id}}).\n\nReserve attestation summary:\n- Reserve coverage ratio: {{output_payload.reserve_coverage_ratio}} (requirement: 100%)\n- Coverage verdict: {{output_payload.coverage_verdict}}\n- Ineligible assets detected: {{output_payload.ineligible_asset_count}}\n- CEO/CFO certification readiness: {{output_payload.cert_readiness_verdict}}\n- PCAOB audit required: {{output_payload.pcaob_required}}\n- Days to next monthly report deadline: {{output_payload.days_to_report}}\n\nYour task: draft a monthly reserve attestation readiness memo (max 400 words). Structure: (1) Coverage compliance determination (cite GENIUS Act §4(a)–(b)), (2) Asset composition findings with ELIGIBLE/INELIGIBLE classifications, (3) CEO/CFO certification checklist status (AICPA 2025 Criteria), (4) PCAOB audit obligation, (5) Pre-submission remediation actions.\n\nThis is a pre-check only — label as 'attestation readiness assessment', not a substitute for PCAOB-audited reserve attestation.\n\nAudit anchor: This analysis is anchored to execution_hash {{execution_hash}}. To verify, re-run {{tool_id}} with the same policy_parameters and confirm the SHA-256 hash over sorted-key JSON of policy_parameters + output_payload."
     },
     "infrastructure_mandate": {
       "display_name": "Infrastructure Mandate (DORA)",
+      "tool_ids": ["art-09-dora-incident-classifier"],
       "regulatory_citations": [
-        "DORA Articles 19–20 (Major Incident Reporting)",
-        "DORA Article 17 (ICT Risk Management Framework)",
-        "DORA Article 23 (Classification of ICT-related incidents)",
+        "DORA (EU) 2022/2554 Art. 19 (major ICT incident classification criteria)",
+        "DORA Art. 20 (initial notification 4h; intermediate 72h; final 1 month)",
+        "DORA Art. 17 (ICT Risk Management Framework)",
+        "DORA Art. 23 (classification of ICT-related incidents)",
+        "DORA Art. 28 (critical third-party ICT providers — CTPP designation)",
+        "EBA/GL/2023/07 (guidelines on ICT risk management under DORA)",
+        "NIS2 Directive (EU 2022/2555) — cross-reference for significant incident thresholds",
         "FAPI 2.0 (Financial-grade API Security)"
       ],
       "primary_tasks": ["regulatory_submission", "risk_memo", "remediation_plan", "board_memo"],
       "audiences": ["board", "risk_committee", "regulator", "ops"],
       "stochastic_framing_rules": [
-        "Incident classification is a deterministic decision — state the determination clearly",
-        "Reporting clock starts at detection, not at classification — note the time delta"
+        "DORA incident classification is DETERMINISTIC — use MAJOR/SIGNIFICANT/BELOW-THRESHOLD only",
+        "Reporting clock deadlines are deterministic calendar calculations — state exact datetime, not ranges",
+        "Incident parameters are user inputs — classify based on inputs, do not independently estimate impact",
+        "Do not qualify the classification with hedged language — regulators expect a clear determination"
       ],
       "escalation_conditions": [
-        "Major incident threshold triggered under DORA Article 19",
-        "Reporting clock has started (4-hour initial report deadline)",
-        "Cross-border component requiring multi-authority notification",
-        "Transaction value affected exceeds materiality threshold"
+        "Major incident classification — immediate CISO and board escalation, regulatory notification within 4 hours",
+        "Cross-border component detected — notify all relevant competent authorities simultaneously",
+        "CTPP involvement — additional DORA Art. 28 oversight obligations apply",
+        "Transaction value > €100M affected — board-level notification alongside regulatory filing",
+        "Downtime > 24h — activate full business continuity plan"
       ],
       "audience_formats": {
         "board": "Incident severity verdict, reporting obligation status, reputational risk assessment, board notification required?",
-        "risk_committee": "Full DORA classification against all criteria, reporting timeline, ICT risk framework gap analysis",
-        "regulator": "DORA Article 19/20 notification in prescribed format, incident parameters, reporting clock status, initial vs. intermediate vs. final report",
+        "risk_committee": "Full DORA classification against all Art. 19 criteria, reporting timeline, ICT risk framework gap analysis",
+        "regulator": "DORA Art. 19/20 notification in prescribed format, incident parameters, reporting clock status",
         "ops": "Reporting action list with deadlines, responsible contacts, notification drafts, containment protocol"
       },
       "tone_modifiers": {
         "formal": "Lead with the classification determination. Reference DORA articles directly.",
-        "technical": "Detail each classification criterion and the incident parameter values.",
+        "technical": "Detail each Art. 19 classification criterion and the incident parameter values.",
         "plain": "Explain what needs to be reported to whom and by when."
-      }
+      },
+      "template_body": "You are a DORA compliance officer reviewing a ChainGraph ICT incident classification (execution_hash: {{execution_hash}}, tool: {{tool_id}}).\n\nIncident classification:\n- DORA classification: {{output_payload.dora_classification}}\n- Reporting clock start: {{output_payload.clock_start}}\n- Initial notification deadline: {{output_payload.initial_deadline}} (4h from clock start, DORA Art. 20)\n- Intermediate report deadline: {{output_payload.intermediate_deadline}} (72h)\n- Final report deadline: {{output_payload.final_deadline}} (1 month)\n- Cross-border: {{output_payload.cross_border_flag}}\n- CTPP involved: {{output_payload.ctpp_flag}}\n\nYour task: draft a DORA initial notification memo (max 400 words). Structure: (1) Incident classification per DORA Art. 19 with criteria justification, (2) Reporting timeline with exact deadlines, (3) Competent authorities to notify (cite Art. 20), (4) Immediate containment actions.\n\nClassification is DETERMINISTIC — use MAJOR/SIGNIFICANT/BELOW-THRESHOLD only. State exact datetimes for deadlines.\n\nAudit anchor: This analysis is anchored to execution_hash {{execution_hash}}. To verify, re-run {{tool_id}} with the same policy_parameters and confirm the SHA-256 hash over sorted-key JSON of policy_parameters + output_payload."
     },
     "settlement_mandate": {
       "display_name": "Settlement Mandate (x402 / Rails)",
+      "tool_ids": ["art-03-x402-settlement-modeler"],
       "regulatory_citations": [
-        "CPMI Principles for Financial Market Infrastructures (PFMIs)",
+        "x402 Protocol (HTTP 402 Payment Required — Coinbase CDP, 2025)",
+        "CPMI-IOSCO Principles for Financial Market Infrastructures §8 (settlement finality)",
         "EU Instant Payments Regulation — 10-second settlement SLA (October 2025)",
-        "x402 protocol (Coinbase developer platform)",
-        "ISO 20022 pacs.008 structured address"
+        "EU Settlement Finality Directive (98/26/EC) — DLT application via DLT Pilot Regime",
+        "ESMA DLT Pilot Regime (EU 2022/858) — on-chain settlement eligibility",
+        "PSD2 Art. 77–80 (settlement timeframes for card/ACH/SWIFT)",
+        "SWIFT CBPR+ ISO 20022 migration (2023–2025) — STP rate implications"
       ],
       "primary_tasks": ["risk_memo", "board_memo", "plain_english_summary", "period_comparison"],
       "audiences": ["board", "risk_committee", "quant", "ops"],
       "stochastic_framing_rules": [
-        "Settlement cost and finality estimates are model outputs — label as 'estimated, not contractual'",
-        "Rail-selection recommendations are advisory — verify with live pricing before production use"
+        "Cost-per-transaction figures are model estimates based on published fee schedules — cite source date",
+        "Settlement finality classifications are deterministic based on rail characteristics",
+        "Cross-border compliance flags are heuristic — flag for legal review, not definitive compliance determination",
+        "x402 active-agent estimates (~69k agents, 165M+ transactions) are market estimates as of mid-2026"
       ],
       "escalation_conditions": [
-        "Finality gap > 60 seconds vs. IPR 10-second SLA",
-        "Settlement cost differential > 50 basis points vs. baseline rail",
-        "x402 agent payment failure rate above threshold",
-        "FX settlement risk unhedged on cross-currency legs"
+        "No rail achieves < 5% total cost for the requested corridor — escalate to treasury for bespoke FX negotiation",
+        "All rails flag cross-border compliance concerns — legal review required before transaction execution",
+        "Micropayment amount < $0.01 and only card/ACH eligible — transaction economically unviable",
+        "x402 selected for transaction > $10,000 — Travel Rule threshold monitoring flag",
+        "Finality gap > 60 seconds vs. IPR 10-second SLA"
       ],
       "audience_formats": {
         "board": "Rail recommendation and strategic rationale, cost/speed trade-off summary, key risk flags",
@@ -335,10 +418,46 @@
         "formal": "Lead with the rail recommendation. Reference CPMI PFMIs and IPR requirements.",
         "technical": "Include finality mechanics, cost components, and x402 protocol parameters.",
         "plain": "Explain which payment rail to use and why, in practical terms."
-      }
+      },
+      "template_body": "You are a treasury operations analyst reviewing a ChainGraph settlement rail recommendation (execution_hash: {{execution_hash}}, tool: {{tool_id}}).\n\nRail recommendation:\n- Recommended rail: {{output_payload.recommended_rail}}\n- Estimated cost: {{output_payload.cost_estimate}}\n- Finality classification: {{output_payload.finality_classification}}\n- Cross-border flags: {{output_payload.cross_border_flags}}\n- x402 eligible: {{output_payload.x402_eligible}}\n\nYour task: write a treasury operations memo (max 300 words). Structure: (1) Rail recommendation with cost/finality rationale (cite CPMI-IOSCO PFMIs §8 and applicable directive), (2) Regulatory compliance flags, (3) Cross-border compliance checklist, (4) Implementation steps.\n\nCost estimates are model outputs based on published fee schedules — label as 'estimated, not contractual'. Finality classifications are deterministic.\n\nAudit anchor: This analysis is anchored to execution_hash {{execution_hash}}. To verify, re-run {{tool_id}} with the same policy_parameters and confirm the SHA-256 hash over sorted-key JSON of policy_parameters + output_payload."
+    },
+    "prompt_template": {
+      "display_name": "Prompt Template (PTG-01)",
+      "tool_ids": ["ptg-01-ap2-prompt-template-generator"],
+      "regulatory_citations": [
+        "EU AI Act Annex IV (technical documentation requirements)",
+        "ISO/IEC 42001:2023 §6.1 (AI risk management documentation)",
+        "NIST AI RMF Govern 1.1 (AI governance documentation)"
+      ],
+      "primary_tasks": ["plain_english_summary"],
+      "audiences": ["board", "risk_committee", "regulator", "quant", "ops"],
+      "stochastic_framing_rules": [
+        "This is a bridge tool — no stochastic output framing applies",
+        "ALWAYS cite the execution_hash from the source artifact in the prompt footer",
+        "Distinguish between rule-based determinations (deterministic) and simulation results (stochastic) in system prompt framing"
+      ],
+      "escalation_conditions": [
+        "Source artifact execution_hash cannot be verified — prompt the operator to re-run the source tool",
+        "chain_depth > 3 — flag for human-in-the-loop review before narrative is submitted to regulator",
+        "compliance_flags array is non-empty — escalate narrative review to qualified compliance officer"
+      ],
+      "audience_formats": {
+        "board": "Summary of the prompt generated and the artifact it was derived from",
+        "risk_committee": "Full prompt with provenance chain",
+        "regulator": "Prompt with full chain of custody and execution hashes",
+        "quant": "Technical breakdown of template registry entry applied",
+        "ops": "Prompt text ready for use, deep link, copy instructions"
+      },
+      "tone_modifiers": {
+        "formal": "Professional tone throughout.",
+        "technical": "Include registry version and mandate_type classification details.",
+        "plain": "Plain description of what was generated and how to use it."
+      },
+      "template_body": "You are a regulator-grade compliance narrative assistant operating under {{mandate_type}} framing. You have received a verified ChainGraph artifact with execution_hash {{execution_hash}} generated by {{tool_id}} v{{tool_version}} at {{generated_at}}.\n\nYour task: produce a concise, accurate compliance narrative from the attached artifact. Rules:\n1. Never hallucinate regulatory text. Cite only the regulatory references provided in the artifact's policy_parameters.\n2. Distinguish deterministic verdicts (rule-based) from probabilistic estimates (simulation-based).\n3. End every narrative with: 'This analysis is anchored to execution_hash {{execution_hash}}. To verify, re-run {{tool_id}} with the same policy_parameters and confirm the SHA-256 hash over sorted-key JSON of policy_parameters + output_payload.'\n4. If compliance_flags is non-empty, list each flag as a numbered escalation item before the narrative body.\n5. Do not summarise input parameters — focus on the output_payload interpretation and its regulatory implications.\n\nArtifact: {{artifact_json}}"
     },
     "credit_assessment": {
       "display_name": "Credit Assessment (IRB / SA)",
+      "tool_ids": [],
       "regulatory_citations": [
         "Basel F-IRB / A-IRB (Foundation / Advanced Internal Ratings-Based Approach)",
         "Basel SA-CR (Standardised Approach — Credit Risk)",
@@ -367,10 +486,12 @@
         "formal": "Lead with the credit quality determination. Reference Basel approach and articles.",
         "technical": "Include PD/LGD/EAD parameters, RWA computation methodology, backtesting statistics.",
         "plain": "Explain credit quality in terms of likelihood of default and potential loss."
-      }
+      },
+      "template_body": "You are a credit risk analyst reviewing a ChainGraph credit assessment artifact (execution_hash: {{execution_hash}}, tool: {{tool_id}}).\n\nCredit assessment summary:\n- Portfolio credit quality: {{output_payload.credit_quality_verdict}}\n- PD range: {{output_payload.pd_min}}% – {{output_payload.pd_max}}%\n- LGD estimate: {{output_payload.lgd_estimate}}%\n- RWA vs. regulatory floor: {{output_payload.rwa_vs_floor}}\n- Expected Loss vs. provisions: {{output_payload.el_vs_provisions}}\n\nYour task: write an ICAAP credit risk section (max 400 words). Structure: (1) Portfolio credit quality determination (cite Basel approach used), (2) PD/LGD/EAD parameter analysis, (3) Output floor binding assessment (Basel 3.1, deadline 2027-01-01), (4) Expected loss vs. provisioning gap, (5) Watch-list escalation flags.\n\nLabel all outputs as 'model output, not regulatory determination'.\n\nAudit anchor: This analysis is anchored to execution_hash {{execution_hash}}. To verify, re-run {{tool_id}} with the same policy_parameters and confirm the SHA-256 hash over sorted-key JSON of policy_parameters + output_payload."
     },
     "treasury_mandate": {
       "display_name": "Treasury Mandate",
+      "tool_ids": [],
       "regulatory_citations": [
         "CPMI Principles for Financial Market Infrastructures",
         "FX settlement finality — CLS Group standards",
@@ -397,10 +518,12 @@
         "formal": "Lead with the treasury position determination.",
         "technical": "Include model parameters, hedge ratios, settlement mechanics.",
         "plain": "Explain the treasury position and what action is needed."
-      }
+      },
+      "template_body": "You are a treasury risk officer reviewing a ChainGraph treasury mandate artifact (execution_hash: {{execution_hash}}, tool: {{tool_id}}).\n\nTreasury summary:\n- Position verdict: {{output_payload.position_verdict}}\n- FX exposure: {{output_payload.fx_exposure}}\n- Settlement finality: {{output_payload.settlement_finality}}\n- Liquidity buffer: {{output_payload.liquidity_buffer}}\n\nYour task: write a treasury risk memo (max 300 words). Structure: (1) Position determination (cite CPMI PFMIs), (2) FX exposure and hedging gap, (3) Settlement finality assessment, (4) Required actions with urgency flags.\n\nLabel FX and rate estimates as 'indicative'. Settlement finality times are corridor estimates.\n\nAudit anchor: This analysis is anchored to execution_hash {{execution_hash}}. To verify, re-run {{tool_id}} with the same policy_parameters and confirm the SHA-256 hash over sorted-key JSON of policy_parameters + output_payload."
     },
     "account_mandate": {
       "display_name": "Account Mandate",
+      "tool_ids": [],
       "regulatory_citations": [
         "GDPR Article 25 (Privacy by Design and by Default)",
         "SEPA Direct Debit Scheme Rulebook",
@@ -425,29 +548,8 @@
         "formal": "Lead with the account compliance determination.",
         "technical": "Reference GDPR articles and PSD2 provisions explicitly.",
         "plain": "Explain the account status and what needs to be done."
-      }
-    },
-    "prompt_template": {
-      "display_name": "Prompt Template (PTG-01)",
-      "regulatory_citations": [],
-      "primary_tasks": ["plain_english_summary"],
-      "audiences": ["board", "risk_committee", "regulator", "quant", "ops"],
-      "stochastic_framing_rules": [
-        "This is a bridge tool — no stochastic output framing applies"
-      ],
-      "escalation_conditions": [],
-      "audience_formats": {
-        "board": "Summary of the prompt generated and the artifact it was derived from",
-        "risk_committee": "Full prompt with provenance chain",
-        "regulator": "Prompt with full chain of custody and execution hashes",
-        "quant": "Technical breakdown of template registry entry applied",
-        "ops": "Prompt text ready for use, deep link, copy instructions"
       },
-      "tone_modifiers": {
-        "formal": "Professional tone throughout.",
-        "technical": "Include registry version and mandate_type classification details.",
-        "plain": "Plain description of what was generated and how to use it."
-      }
+      "template_body": "You are a compliance officer reviewing a ChainGraph account mandate artifact (execution_hash: {{execution_hash}}, tool: {{tool_id}}).\n\nAccount mandate summary:\n- Compliance verdict: {{output_payload.compliance_verdict}}\n- GDPR Art. 25 status: {{output_payload.gdpr_status}}\n- SDD mandate validity: {{output_payload.sdd_validity}}\n- PSD2 access scope: {{output_payload.psd2_scope_verdict}}\n\nYour task: write a compliance memo (max 300 words). Structure: (1) Account compliance determination (cite GDPR Art. 25 and PSD2 provisions), (2) SDD mandate status, (3) Remediation actions required.\n\nAll account data is synthetic — label all references as test data.\n\nAudit anchor: This analysis is anchored to execution_hash {{execution_hash}}. To verify, re-run {{tool_id}} with the same policy_parameters and confirm the SHA-256 hash over sorted-key JSON of policy_parameters + output_payload."
     }
   }
 }
