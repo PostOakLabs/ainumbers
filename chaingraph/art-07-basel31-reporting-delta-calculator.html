@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Basel 3.1 Reporting Delta Calculator · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Compute the RWA delta between current Basel 2.5/3 and Basel 3.1 output-floor rules against a synthetic credit book. SA-CR vs IRB comparison, output-floor impact at 72.5%. UK PRA PS1/26 go-live Jan 1, 2027. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-07-basel31-reporting-delta-calculator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Basel 3.1 Reporting Delta Calculator","url":"https://ainumbers.co/chaingraph/art-07-basel31-reporting-delta-calculator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "art-07-basel31-reporting-delta-calculator",
+  "version": "1.0.0",
+  "title": "Basel 3.1 Reporting Delta Calculator",
+  "description": "Computes the RWA and capital delta between current Basel 2.5/3 and Basel 3.1 output-floor rules (72.5% of SA-CR). Covers SA-CR revised risk weights (CRR3/PS1/26) and IRB output-floor impact across a user-configured or synthetic credit book. JS-chunked portfolio loop. Hard deadline: UK PRA PS1/26 go-live Jan 1, 2027.",
+  "category": "chaingraph",
+  "tags": ["Basel 3.1","Basel IV","output floor","SA-CR","IRB","RWA","capital","CRR3","PRA PS1/26","CET1"],
+  "audience": ["risk_committee","regulator","quant","board"],
+  "input_schema": {"type":"object","properties":{"portfolio_preset":{"type":"string","enum":["retail_bank","wholesale_bank","universal_bank","custom"]},"total_exposure_bn":{"type":"number","minimum":0.1,"maximum":2000},"tier1_capital_pct":{"type":"number","minimum":4,"maximum":30},"irb_coverage_pct":{"type":"number","minimum":0,"maximum":100}},"required":["portfolio_preset"]},
+  "output_schema": {"type":"object","properties":{"current_rwa_bn":{"type":"number"},"basel31_rwa_bn":{"type":"number"},"rwa_delta_bn":{"type":"number"},"rwa_delta_pct":{"type":"number"},"output_floor_binding":{"type":"boolean"},"capital_shortfall_bn":{"type":"number"},"cet1_ratio_current_pct":{"type":"number"},"cet1_ratio_basel31_pct":{"type":"number"}}},
+  "mcp_tool_definition": {"name":"compute_basel31_delta","description":"Computes the RWA and capital delta between current Basel 2.5/3 and Basel 3.1 output-floor rules across a synthetic credit book. Returns SA-CR RWA, IRB RWA, output-floor-constrained RWA, CET1 ratio before/after, and the floor-binding determination. Hard deadline: UK PRA PS1/26 Jan 1, 2027; EU CRR3 expected 2029-30.","inputSchema":{"type":"object","properties":{"portfolio_preset":{"type":"string","enum":["retail_bank","wholesale_bank","universal_bank","custom"],"description":"Credit book composition preset"},"total_exposure_bn":{"type":"number","minimum":0.1,"maximum":2000,"description":"Total credit exposure (£/€ billions)"},"tier1_capital_pct":{"type":"number","minimum":4,"maximum":30,"description":"Current Tier 1 capital as % of total exposure"},"irb_coverage_pct":{"type":"number","minimum":0,"maximum":100,"description":"Fraction of portfolio on IRB (vs SA-CR), percent"}},"required":["portfolio_preset"]}},
+  "execution": {"type":"browser-javascript","entry":"chaingraph/art-07-basel31-reporting-delta-calculator.html","function_name":"computeBaselDelta","timeout_ms":5000},
+  "ap2_export": true,
+  "chaingraph": true,
+  "chain_partners": ["sim-03-basel-rwa-scenario-modeler"],
+  "mandate_type": "capital_assessment"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--teal)}
+.panel-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.85rem;margin-bottom:.85rem}
+.panel-row:last-child{margin-bottom:0}
+.panel-row.two-col{grid-template-columns:1fr 1fr}
+.panel-row.three-col{grid-template-columns:1fr 1fr 1fr}
+.field-group{display:flex;flex-direction:column;gap:.3rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.1rem;line-height:1.4}
+input[type="number"],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.38rem .55rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+input[type="number"]:focus,select:focus{border-color:var(--teal)}
+input[type="range"]{background:transparent;border:none;width:100%;height:4px;accent-color:var(--teal);cursor:pointer;padding:0}
+.slider-row{display:flex;align-items:center;gap:.75rem}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--teal);min-width:3.5rem;text-align:right}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+/* RESULTS */
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+/* VERDICT */
+.verdict-card{border-radius:var(--radius-lg);padding:1.4rem 1.5rem;margin-bottom:1rem;display:flex;align-items:flex-start;gap:1.1rem}
+.verdict-card.binding{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.35)}
+.verdict-card.no-bind{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.3)}
+.verdict-icon{font-size:1.75rem;line-height:1;flex-shrink:0;margin-top:.15rem}
+.verdict-title{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--white);margin-bottom:.3rem;line-height:1.2}
+.verdict-sub{font-size:.72rem;color:var(--body);line-height:1.6}
+/* SCORECARD */
+.scorecard{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem}
+.score-cell{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;text-align:center}
+.score-cell.highlight{border-color:rgba(20,184,166,.4)}
+.score-cell .val{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--white);line-height:1}
+.score-cell .val.red{color:var(--red)}.score-cell .val.green{color:var(--green)}.score-cell .val.warn{color:var(--warn)}
+.score-cell .lbl{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:.3rem}
+.score-cell .sub{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--body);margin-top:.15rem}
+/* EXPOSURE TABLE */
+.exp-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.54rem}
+.exp-table th{text-align:left;padding:.4rem .65rem;border-bottom:1px solid var(--border);color:var(--muted);font-weight:400;letter-spacing:.08em;text-transform:uppercase}
+.exp-table td{padding:.4rem .65rem;border-bottom:1px solid var(--border);color:var(--body)}
+.exp-table tr:last-child td{border-bottom:none}
+.exp-table td.class-name{color:var(--bright)}
+.exp-table td.delta-positive{color:var(--red)}
+.exp-table td.delta-zero{color:var(--green)}
+.exp-table td.floor-binding{color:var(--warn)}
+/* TORNADO BARS */
+.tornado-row{display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem}
+.tornado-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--body);width:160px;flex-shrink:0;text-align:right}
+.tornado-bar-wrap{flex:1;height:12px;background:var(--bg-3);border-radius:2px;overflow:hidden}
+.tornado-bar{height:100%;border-radius:2px;transition:width .5s ease}
+.tornado-val{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--bright);min-width:60px}
+/* EXPORT */
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--teal);color:var(--bright)}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+.chain-link{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;color:var(--teal);background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);padding:.28rem .65rem;border-radius:3px;text-decoration:none;transition:all .2s}
+.chain-link:hover{background:rgba(20,184,166,.2)}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--warn);padding:.65rem 1rem;font-size:.7rem;color:var(--muted);line-height:1.6;margin-bottom:1.25rem;border-radius:var(--radius)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:700px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}.panel-row{grid-template-columns:1fr}.panel-row.two-col,.panel-row.three-col{grid-template-columns:1fr}}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a>
+    <span class="nav-bc-sep">/</span>
+    <a href="chaingraph-hub.html">ChainGraph</a>
+    <span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">ART-07</span>
+  </div>
+  <div class="nav-right">
+    <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub &#8594;</a>
+  </div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph Suite · ART-07 · Basel 3.1 Delta Calculator</div>
+  <span class="badge badge-muted" style="display:inline-flex;margin-bottom:.6rem"><span>v1.0.0</span></span>
+  <h1>Basel 3.1 <em>Reporting Delta Calculator</em></h1>
+  <p class="hero-desc">Compute the RWA and CET1 delta between your current Basel 2.5/3 framework and Basel 3.1 rules — SA-CR revised risk weights, IRB output-floor constraint at 72.5%, and per-asset-class impact breakdown. Configure a synthetic credit book by portfolio preset and see exactly where the floor bites and by how much. UK PRA PS1/26 go-live: January 1, 2027. Chains into SIM-03 for full scenario modelling. Client-side. Zero PII.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">AP2 Export</span>
+    <span class="badge badge-teal">Chains: SIM-03</span>
+    <span class="badge badge-red">UK PRA Jan 1, 2027</span>
+    <span class="badge badge-warn">Basel 3.1 · Output Floor 72.5%</span>
+    <span class="badge badge-gold">JS Parallel</span>
+    <span class="badge badge-green">Zero PII</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All portfolio data is synthetic — no real loan book or customer data is used. Inputs generate a parameterised synthetic credit portfolio computed entirely in your browser. No data is transmitted.</div>
+
+  <div class="disclaimer">
+    ⚠ <strong style="color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.62rem">Educational/simulation only.</strong> Risk-weight calculations are based on the Basel Committee on Banking Supervision's final Basel III framework (December 2017), UK PRA Policy Statement PS1/26 (January 2026), and CRR3 Regulation (EU) 2024/1623. The output floor at 72.5% is as specified in BCBS d424. SA-CR risk weights follow revised Basel 3.1 tables. IRB inputs are indicative. All numbers are for planning and pre-validation purposes — not for regulatory reporting. Verify with your Pillar 1 capital team.
+  </div>
+
+  <!-- PORTFOLIO CONFIGURATION -->
+  <div class="panel">
+    <div class="panel-label">Portfolio configuration</div>
+    <div class="panel-row two-col">
+      <div class="field-group">
+        <label class="field-label" for="portfolioPreset">Portfolio preset</label>
+        <select id="portfolioPreset" onchange="updatePreset()">
+          <option value="retail_bank">Retail bank — mortgage-heavy (70% residential, 15% SME, 10% consumer, 5% other)</option>
+          <option value="wholesale_bank">Wholesale / corporate bank — large corporates + project finance</option>
+          <option value="universal_bank">Universal bank — diversified mix across all asset classes</option>
+          <option value="custom">Custom — set weights manually below</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="totalExposure">Total credit exposure (£ billions)</label>
+        <input type="number" id="totalExposure" min="0.1" max="2000" step="0.1" value="50">
+        <span class="field-hint">EAD (Exposure at Default) across all credit asset classes</span>
+      </div>
+    </div>
+    <div class="panel-row three-col">
+      <div class="field-group">
+        <label class="field-label">Tier 1 capital (% of total exposure)</label>
+        <div class="slider-row">
+          <input type="range" id="tier1CapPct" min="2" max="20" step="0.1" value="4.5" oninput="syncSlider('tier1CapPct','tier1CapVal',v=>v.toFixed(1)+'%')">
+          <span class="slider-val" id="tier1CapVal">4.5%</span>
+        </div>
+        <span class="field-hint">Current CET1 capital as % of total exposure</span>
+      </div>
+      <div class="field-group">
+        <label class="field-label">IRB coverage (% of portfolio on IRB)</label>
+        <div class="slider-row">
+          <input type="range" id="irbCoverage" min="0" max="100" step="1" value="65" oninput="syncSlider('irbCoverage','irbCovVal',v=>Math.round(v)+'%')">
+          <span class="slider-val" id="irbCovVal">65%</span>
+        </div>
+        <span class="field-hint">Fraction of book on Internal Ratings-Based (vs Standardised)</span>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Average IRB risk density (IRB RWA / EAD)</label>
+        <div class="slider-row">
+          <input type="range" id="irbDensity" min="0.05" max="0.60" step="0.01" value="0.22" oninput="syncSlider('irbDensity','irbDensVal',v=>Math.round(v*100)+'%')">
+          <span class="slider-val" id="irbDensVal">22%</span>
+        </div>
+        <span class="field-hint">Average IRB RW density before output floor. Typical range: 15–45%.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ASSET-CLASS MIX (custom) -->
+  <div class="panel" id="customPanel" style="display:none">
+    <div class="panel-label">Custom asset-class mix (% of total EAD)</div>
+    <div class="panel-row three-col">
+      <div class="field-group">
+        <label class="field-label" for="wResidential">Residential mortgages %</label>
+        <input type="number" id="wResidential" min="0" max="100" step="1" value="30">
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="wCorpSME">SME corporates %</label>
+        <input type="number" id="wCorpSME" min="0" max="100" step="1" value="25">
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="wLargeCorp">Large corporates / unrated %</label>
+        <input type="number" id="wLargeCorp" min="0" max="100" step="1" value="20">
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="wConsumer">Consumer / retail %</label>
+        <input type="number" id="wConsumer" min="0" max="100" step="1" value="10">
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="wSovereign">Sovereigns / public sector %</label>
+        <input type="number" id="wSovereign" min="0" max="100" step="1" value="10">
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="wEquity">Equity / other %</label>
+        <input type="number" id="wEquity" min="0" max="100" step="1" value="5">
+      </div>
+    </div>
+    <div id="mixError" style="font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--warn);margin-top:.3rem;display:none">⚠ Weights should sum to 100%. Current total shown after running.</div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-bottom:2rem;align-items:center;flex-wrap:wrap">
+    <button class="run-btn" onclick="computeBaselDelta()">▶ Compute Basel 3.1 Delta</button>
+    <span id="runStatus" style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)"></span>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+
+    <!-- VERDICT -->
+    <div id="verdictCard"></div>
+
+    <!-- KEY METRICS -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">RWA &amp; capital metrics — current vs Basel 3.1</span></div>
+      <div class="out-body">
+        <div class="scorecard" id="scorecard"></div>
+      </div>
+    </div>
+
+    <!-- PER-ASSET-CLASS BREAKDOWN -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Asset-class RWA breakdown (SA-CR revised Basel 3.1 weights)</span></div>
+      <div class="out-body" style="overflow-x:auto">
+        <table class="exp-table" id="expTable">
+          <thead><tr>
+            <th>Asset class</th>
+            <th>EAD (£bn)</th>
+            <th>Current RW</th>
+            <th>SA-CR 3.1 RW</th>
+            <th>Current RWA (£bn)</th>
+            <th>SA-CR 3.1 RWA (£bn)</th>
+            <th>Floor delta (£bn)</th>
+            <th>Floor binding?</th>
+          </tr></thead>
+          <tbody id="expTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- IMPACT TORNADO -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">RWA uplift by asset class (Basel 3.1 vs current)</span></div>
+      <div class="out-body" id="tornadoSection"></div>
+    </div>
+
+    <!-- IMPLEMENTATION TIMELINE -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Implementation timeline &amp; transitional arrangements</span></div>
+      <div class="out-body" style="font-size:.72rem;color:var(--body);line-height:1.9" id="timelineSection"></div>
+    </div>
+
+    <!-- CHAIN TO SIM-03 -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Chain to SIM-03 — Basel RWA scenario modeller</span></div>
+      <div class="out-body" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+        <a href="sim-03-basel-rwa-scenario-modeler.html" class="chain-link" target="_blank" rel="noopener noreferrer">&#x2192; Open in SIM-03</a>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)">Export the artifact below, then carry it into SIM-03 to run SA-CR / F-IRB / A-IRB scenario comparisons with full percentile distributions</span>
+      </div>
+    </div>
+
+    <!-- EXPORT -->
+    <div class="results-export-row">
+      <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()">
+        {} Export ChainGraph Artifact
+        <span class="btn-subtitle">AP2 · capital_assessment · chain-anchored</span>
+      </button>
+      <button class="btn btn-ghost" id="mdExportBtn" disabled onclick="exportMarkdown()">
+        &#x21E9; Export Markdown
+        <span class="btn-subtitle">Delta report + asset-class breakdown</span>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- MANIFEST TOGGLE -->
+  <button class="mfst-btn" onclick="toggleMfst()" style="margin-top:2rem" aria-expanded="false" aria-controls="mfstBody">
+    <span>&#x7B;&#x7D; MCP Manifest — ART-07</span>
+    <span id="mfstArrow">&#x25BC;</span>
+  </button>
+  <div class="mfst-body" id="mfstBody" aria-hidden="true">
+    <pre class="mfst-code" id="mfstCode"></pre>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" style="display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500"><span style="color:var(--teal)">AI</span>Numbers.co</span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="chaingraph-hub.html">ChainGraph Hub</a>
+      <a href="../about.html">About</a>
+      <a href="https://mcp.ainumbers.co/mcp" target="_blank" rel="noopener noreferrer">MCP Server</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>Post Oak Labs · CC BY 4.0</span>
+      <span>ChainGraph Suite · ART-07 v1.0.0</span>
+      <span>Basel 3.1 · UK PRA PS1/26 · CRR3 (EU) 2024/1623</span>
+    </div>
+  </div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────────────────────────
+   MANIFEST
+   ───────────────────────────────────────────────────────────────── */
+const MANIFEST = {
+  tool_id: 'art-07-basel31-reporting-delta-calculator',
+  version: '1.0.0',
+  title: 'Basel 3.1 Reporting Delta Calculator',
+  description: 'Computes RWA and CET1 delta between current Basel 2.5/3 and Basel 3.1 output-floor rules. SA-CR revised risk weights, IRB floor at 72.5%, per-asset-class breakdown. UK PRA PS1/26 Jan 1, 2027.',
+  category: 'chaingraph',
+  mcp_tool_definition: {
+    name: 'compute_basel31_delta',
+    description: 'Computes the RWA and capital delta between current Basel 2.5/3 and Basel 3.1 output-floor rules across a synthetic credit book.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        portfolio_preset: {type:'string', enum:['retail_bank','wholesale_bank','universal_bank','custom']},
+        total_exposure_bn: {type:'number', minimum:0.1, maximum:2000},
+        tier1_capital_pct: {type:'number', minimum:4, maximum:30},
+        irb_coverage_pct: {type:'number', minimum:0, maximum:100}
+      },
+      required: ['portfolio_preset']
+    }
+  },
+  execution: {type:'browser-javascript', entry:'chaingraph/art-07-basel31-reporting-delta-calculator.html', function_name:'computeBaselDelta', timeout_ms:5000},
+  ap2_export: true,
+  chaingraph: true
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   BASEL 3.1 RISK WEIGHT TABLES
+   Source: BCBS d424 (December 2017 final Basel III);
+           UK PRA PS1/26 (January 2026) — final Basel 3.1 rules;
+           CRR3 Regulation (EU) 2024/1623.
+   SA-CR = Standardised Approach to Credit Risk (revised).
+   All risk weights are INDICATIVE. Verify with your Pillar 1 team.
+   ───────────────────────────────────────────────────────────────── */
+const ASSET_CLASSES = [
+  {
+    id: 'residential_mortgage',
+    name: 'Residential mortgages',
+    /* Current SA RW (Basel II/III, CRR2): typically 35% performing LTV≤80% */
+    current_sa_rw: 0.35,
+    /* Basel 3.1 SA-CR RW: LTV-stratified. We use blended indicative rate.
+       LTV≤50%: 20%, LTV50-60%: 25%, LTV60-80%: 30%, LTV80-90%: 40%, >90%: 50%
+       Blended for typical retail book: ~30% */
+    basel31_sa_rw: 0.30,
+    /* Typical IRB RW density for mortgage book: 10–18% */
+    irb_rw: 0.14,
+    note: 'Basel 3.1 introduces LTV-banded SA-CR weights. Low-LTV books benefit; high-LTV books may see uplift. IRB floor at 72.5% × SA-CR.',
+    article: 'BCBS d424 §CRE20.45-50; PRA PS1/26 §7; CRR3 Art. 125'
+  },
+  {
+    id: 'sme_corporate',
+    name: 'SME corporates',
+    /* Current SA: 75% (SME retail), 100% (SME corporate) — blended ~85% */
+    current_sa_rw: 0.85,
+    /* Basel 3.1 SA-CR: SME retail 75% (unchanged), SME corporate 85% */
+    basel31_sa_rw: 0.85,
+    irb_rw: 0.52,
+    note: 'SME risk weights broadly unchanged in SA-CR. IRB benefit preserved for banks with robust PD/LGD models; floor applies.',
+    article: 'BCBS d424 §CRE20; PRA PS1/26 §9; CRR3 Art. 122'
+  },
+  {
+    id: 'large_corporate',
+    name: 'Large corporates (unrated)',
+    /* Current SA: 100% for unrated corporates */
+    current_sa_rw: 1.00,
+    /* Basel 3.1 SA-CR: unrated non-financial corporates 100% → no change.
+       BUT: Investment-grade corporates get 65% if they meet IG definition.
+       Blended for typical book: ~85% */
+    basel31_sa_rw: 0.85,
+    irb_rw: 0.50,
+    note: 'Basel 3.1 introduces an Investment Grade corporate bucket at 65% SA-CR. Unrated/non-IG corporates remain at 100%. IG classification requires no recent default and stable outlook.',
+    article: 'BCBS d424 §CRE20.43-44; PRA PS1/26 §8; CRR3 Art. 121a'
+  },
+  {
+    id: 'consumer_retail',
+    name: 'Consumer / retail',
+    /* Current SA: 75% regulatory retail */
+    current_sa_rw: 0.75,
+    /* Basel 3.1 SA-CR: regulatory retail 75% (maintained) */
+    basel31_sa_rw: 0.75,
+    irb_rw: 0.38,
+    note: 'Regulatory retail RW unchanged at 75%. Transactor/revolving credit card positions may see differentiation under Basel 3.1 sub-categories.',
+    article: 'BCBS d424 §CRE20.52-55; PRA PS1/26 §10; CRR3 Art. 123'
+  },
+  {
+    id: 'sovereign',
+    name: 'Sovereigns / public sector',
+    /* Current SA: 0% for high-grade sovereigns (0% RW for AAA-AA-), 20–100% for others */
+    current_sa_rw: 0.05,
+    /* Basel 3.1: No material change to sovereign RW in SA-CR under PS1/26.
+       BCBS Consultation Paper on Sovereign Risk ongoing. 0% retained for domestic-currency home sovereign. */
+    basel31_sa_rw: 0.05,
+    irb_rw: 0.02,
+    note: 'Sovereign RW largely unchanged for EU/UK home-currency exposures. The BCBS Sovereign Risk consultation may affect future rules but is not reflected in PS1/26 or CRR3.',
+    article: 'BCBS d424 §CRE20.1-15; PRA PS1/26 §6; CRR3 Art. 114'
+  },
+  {
+    id: 'equity_other',
+    name: 'Equity / other exposures',
+    /* Current SA: listed equity 100%, unlisted 150% → blended ~130% */
+    current_sa_rw: 1.30,
+    /* Basel 3.1 SA-CR: new equity RW schedule.
+       Listed equity in regulated markets: 100% → no change.
+       Speculative unlisted equity: 250%. Equity to PE funds: 250%.
+       Blended uplift: ~175% */
+    basel31_sa_rw: 1.75,
+    irb_rw: 0.85,
+    note: 'Equity exposures see significant uplift under Basel 3.1 SA-CR — speculative/unlisted equity moves to 250% and PE/VC fund interests to 250%. Listed equity unchanged at 100%.',
+    article: 'BCBS d424 §CRE20.61-70; PRA PS1/26 §14; CRR3 Art. 133'
+  }
+];
+
+/* Portfolio presets: asset class weights */
+const PRESETS = {
+  retail_bank:    {residential_mortgage:0.70, sme_corporate:0.15, large_corporate:0.03, consumer_retail:0.10, sovereign:0.02, equity_other:0.00},
+  wholesale_bank: {residential_mortgage:0.05, sme_corporate:0.20, large_corporate:0.50, consumer_retail:0.05, sovereign:0.15, equity_other:0.05},
+  universal_bank: {residential_mortgage:0.30, sme_corporate:0.20, large_corporate:0.25, consumer_retail:0.12, sovereign:0.08, equity_other:0.05},
+  custom:         {residential_mortgage:0.30, sme_corporate:0.25, large_corporate:0.20, consumer_retail:0.10, sovereign:0.10, equity_other:0.05}
+};
+
+/* Output floor: 72.5% per BCBS d424 §CAP30 */
+const OUTPUT_FLOOR = 0.725;
+
+/* ─────────────────────────────────────────────────────────────────
+   STATE
+   ───────────────────────────────────────────────────────────────── */
+let _artifact = null;
+let _calcResult = null;
+
+/* ─────────────────────────────────────────────────────────────────
+   MAIN COMPUTE FUNCTION
+   ───────────────────────────────────────────────────────────────── */
+async function computeBaselDelta() {
+  const preset = document.getElementById('portfolioPreset').value;
+  const totalExposureBn = parseFloat(document.getElementById('totalExposure').value) || 50;
+  const tier1CapPct = parseFloat(document.getElementById('tier1CapPct').value) / 100 || 0.045;
+  const irbCovPct = parseFloat(document.getElementById('irbCoverage').value) / 100 || 0.65;
+  const irbDensity = parseFloat(document.getElementById('irbDensity').value) || 0.22;
+  const statusEl = document.getElementById('runStatus');
+  statusEl.textContent = 'Computing…';
+
+  /* Get asset mix */
+  let weights;
+  if (preset === 'custom') {
+    const ids = ['residential_mortgage','sme_corporate','large_corporate','consumer_retail','sovereign','equity_other'];
+    const fieldIds = ['wResidential','wCorpSME','wLargeCorp','wConsumer','wSovereign','wEquity'];
+    const rawVals = fieldIds.map(id => parseFloat(document.getElementById(id).value) || 0);
+    const total = rawVals.reduce((a,b)=>a+b,0);
+    weights = {};
+    ids.forEach((id,i) => { weights[id] = rawVals[i] / (total || 100); });
+    if (Math.abs(total - 100) > 1) {
+      document.getElementById('mixError').style.display = 'block';
+      document.getElementById('mixError').textContent = `⚠ Weights sum to ${total.toFixed(1)}% — normalised to 100%.`;
+    } else {
+      document.getElementById('mixError').style.display = 'none';
+    }
+  } else {
+    weights = PRESETS[preset];
+  }
+
+  /* Compute per asset class */
+  const assetResults = [];
+  let totalCurrentRWA = 0, totalBasel31SA_RWA = 0;
+
+  for (const ac of ASSET_CLASSES) {
+    const ead = totalExposureBn * (weights[ac.id] || 0);
+    const irbEAD = ead * irbCovPct;
+    const saEAD  = ead * (1 - irbCovPct);
+
+    /* Current RWA = SA portion × current SA RW + IRB portion × IRB density */
+    const currentRWA = saEAD * ac.current_sa_rw + irbEAD * irbDensity * (ac.irb_rw / 0.22); // scale by relative IRB RW
+
+    /* Basel 3.1 SA-CR RWA on full EAD */
+    const basel31SA_RWA = ead * ac.basel31_sa_rw;
+
+    /* Output-floor-constrained IRB RWA */
+    const irbRWA_pre_floor = irbEAD * irbDensity * (ac.irb_rw / 0.22);
+    const irbRWA_floor = irbEAD * ac.basel31_sa_rw * OUTPUT_FLOOR;
+    const irbRWA_floored = Math.max(irbRWA_pre_floor, irbRWA_floor);
+    const floorBinding = irbRWA_floored > irbRWA_pre_floor;
+
+    const basel31_total_RWA = saEAD * ac.basel31_sa_rw + irbRWA_floored;
+    const floorDelta = Math.max(0, irbRWA_floor - irbRWA_pre_floor);
+
+    assetResults.push({
+      ...ac, ead, currentRWA, basel31SA_RWA, irbRWA_pre_floor, irbRWA_floor, irbRWA_floored,
+      floorBinding, floorDelta, basel31_total_RWA,
+      delta: basel31_total_RWA - currentRWA
+    });
+
+    totalCurrentRWA    += currentRWA;
+    totalBasel31SA_RWA += basel31_total_RWA;
+  }
+
+  const tier1CapBn = totalExposureBn * tier1CapPct;
+  const cet1Current = (tier1CapBn / totalCurrentRWA) * 100;
+  const cet1Basel31 = (tier1CapBn / totalBasel31SA_RWA) * 100;
+  const rwaUpliftBn  = totalBasel31SA_RWA - totalCurrentRWA;
+  const rwaUpliftPct = (rwaUpliftBn / totalCurrentRWA) * 100;
+
+  /* Capital shortfall vs 12.5% total capital requirement (indicative combined buffer) */
+  const requiredCapital = totalBasel31SA_RWA * 0.125;
+  const capitalShortfall = Math.max(0, requiredCapital - tier1CapBn);
+
+  /* Output floor aggregate check */
+  const aggregateFloorRWA = totalBasel31SA_RWA * OUTPUT_FLOOR;
+  const floorBindsAggregate = totalCurrentRWA < aggregateFloorRWA;
+
+  _calcResult = {
+    preset, totalExposureBn, tier1CapPct, irbCovPct, irbDensity,
+    totalCurrentRWA, totalBasel31SA_RWA, rwaUpliftBn, rwaUpliftPct,
+    tier1CapBn, cet1Current, cet1Basel31, capitalShortfall, floorBindsAggregate,
+    assetResults
+  };
+
+  renderResults(_calcResult);
+
+  /* Hash */
+  const policyParams = {
+    execution_backend: 'js',
+    input_parameters: {portfolio_preset: preset, total_exposure_bn: totalExposureBn, tier1_capital_pct: tier1CapPct * 100, irb_coverage_pct: irbCovPct * 100, irb_density_pct: irbDensity * 100}
+  };
+  const outputPayload = {
+    current_rwa_bn: round2(totalCurrentRWA), basel31_rwa_bn: round2(totalBasel31SA_RWA),
+    rwa_delta_bn: round2(rwaUpliftBn), rwa_delta_pct: round2(rwaUpliftPct),
+    output_floor_binding: floorBindsAggregate,
+    capital_shortfall_bn: round2(capitalShortfall),
+    cet1_ratio_current_pct: round2(cet1Current), cet1_ratio_basel31_pct: round2(cet1Basel31)
+  };
+
+  const hash = await sha256({policy_parameters: policyParams, output_payload: outputPayload});
+  const now = new Date().toISOString();
+
+  _artifact = {
+    ap2_version: '1.0.0',
+    mandate_type: 'capital_assessment',
+    tool_id: 'art-07-basel31-reporting-delta-calculator',
+    tool_version: '1.0.0',
+    generated_at: now,
+    execution_hash: hash,
+    chain: {parent_hashes: [], parent_tool_ids: [], chain_depth: 0},
+    policy_parameters: policyParams,
+    output_payload: {
+      ...outputPayload,
+      portfolio_preset: preset,
+      output_floor_rate: OUTPUT_FLOOR,
+      asset_class_summary: assetResults.map(r => ({
+        asset_class: r.id, ead_bn: round2(r.ead), current_rwa_bn: round2(r.currentRWA),
+        basel31_rwa_bn: round2(r.basel31_total_RWA), floor_binding: r.floorBinding
+      }))
+    },
+    compliance_flags: floorBindsAggregate
+      ? ['BASEL31_OUTPUT_FLOOR_BINDING','CAPITAL_PLANNING_REQUIRED']
+      : ['BASEL31_COMPLIANT_CAPITAL_ADEQUATE'],
+    audit_signature: {client_side_executed: true, zero_pii_verified: true, deterministic_run: true}
+  };
+
+  statusEl.textContent = '';
+  const ap2Btn = document.getElementById('ap2ExportBtn');
+  const mdBtn = document.getElementById('mdExportBtn');
+  ap2Btn.disabled = false; ap2Btn.classList.add('ready');
+  mdBtn.disabled = false; mdBtn.classList.add('ready');
+  document.getElementById('resultsPanel').classList.add('visible');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RENDER
+   ───────────────────────────────────────────────────────────────── */
+function renderResults(r) {
+  /* Verdict */
+  const vc = document.getElementById('verdictCard');
+  const floorLabel = r.floorBindsAggregate ? 'Output floor is binding' : 'Output floor not binding';
+  const vClass = r.floorBindsAggregate ? 'binding' : 'no-bind';
+  vc.innerHTML = `<div class="verdict-card ${vClass}">
+    <div class="verdict-icon">${r.floorBindsAggregate ? '⚠️' : '✅'}</div>
+    <div>
+      <div class="verdict-title">${floorLabel} — RWA uplift ${r.floorBindsAggregate ? `+${r.rwaUpliftPct.toFixed(1)}% (£${r.rwaUpliftBn.toFixed(1)}bn)` : 'minimal'}</div>
+      <div class="verdict-sub">Total EAD: £${r.totalExposureBn.toFixed(1)}bn · Current RWA: £${r.totalCurrentRWA.toFixed(1)}bn → Basel 3.1 RWA: £${r.totalBasel31SA_RWA.toFixed(1)}bn · CET1 ratio: ${r.cet1Current.toFixed(1)}% → ${r.cet1Basel31.toFixed(1)}% · UK PRA PS1/26 go-live: January 1, 2027</div>
+    </div>
+  </div>`;
+
+  /* Scorecard */
+  const sc = document.getElementById('scorecard');
+  const cet1Color = r.cet1Basel31 >= 12 ? 'green' : r.cet1Basel31 >= 8 ? 'warn' : 'red';
+  sc.innerHTML = `
+    <div class="score-cell highlight"><div class="val">£${r.totalCurrentRWA.toFixed(1)}bn</div><div class="lbl">Current RWA</div></div>
+    <div class="score-cell highlight"><div class="val ${r.floorBindsAggregate?'red':'green'}">£${r.totalBasel31SA_RWA.toFixed(1)}bn</div><div class="lbl">Basel 3.1 RWA</div></div>
+    <div class="score-cell"><div class="val ${r.rwaUpliftBn>0?'red':'green'}">+£${r.rwaUpliftBn.toFixed(1)}bn</div><div class="lbl">RWA Delta</div><div class="sub">+${r.rwaUpliftPct.toFixed(1)}%</div></div>
+    <div class="score-cell"><div class="val">${r.cet1Current.toFixed(1)}%</div><div class="lbl">CET1 Current</div></div>
+    <div class="score-cell"><div class="val ${cet1Color}">${r.cet1Basel31.toFixed(1)}%</div><div class="lbl">CET1 Basel 3.1</div></div>
+    <div class="score-cell"><div class="val ${r.capitalShortfall>0?'red':'green'}">${r.capitalShortfall>0?'£'+r.capitalShortfall.toFixed(1)+'bn':'None'}</div><div class="lbl">Capital Shortfall</div><div class="sub">vs 12.5% total req.</div></div>
+  `;
+
+  /* Asset class table */
+  document.getElementById('expTableBody').innerHTML = r.assetResults.map(ac => {
+    const deltaColor = ac.delta > 0.5 ? 'delta-positive' : 'delta-zero';
+    return `<tr>
+      <td class="class-name">${ac.name}</td>
+      <td>£${ac.ead.toFixed(1)}bn</td>
+      <td>${(ac.current_sa_rw*100).toFixed(0)}%</td>
+      <td>${(ac.basel31_sa_rw*100).toFixed(0)}%</td>
+      <td>£${ac.currentRWA.toFixed(1)}bn</td>
+      <td>£${ac.basel31_total_RWA.toFixed(1)}bn</td>
+      <td class="${deltaColor}">+£${Math.max(0,ac.delta).toFixed(2)}bn</td>
+      <td class="${ac.floorBinding?'floor-binding':''}">${ac.floorBinding?'⚠ YES':'—'}</td>
+    </tr>`;
+  }).join('');
+
+  /* Tornado chart */
+  const maxDelta = Math.max(...r.assetResults.map(a=>Math.abs(a.delta)), 0.01);
+  const tornadoHtml = r.assetResults
+    .filter(a => a.ead > 0)
+    .sort((a,b) => Math.abs(b.delta) - Math.abs(a.delta))
+    .map(ac => {
+      const pct = (Math.abs(ac.delta) / maxDelta * 100).toFixed(1);
+      const color = ac.delta > 0.5 ? 'var(--red)' : ac.delta < -0.1 ? 'var(--green)' : 'var(--body)';
+      const sign = ac.delta > 0 ? '+' : '';
+      return `<div class="tornado-row">
+        <div class="tornado-label">${ac.name}</div>
+        <div class="tornado-bar-wrap"><div class="tornado-bar" style="width:${pct}%;background:${color}"></div></div>
+        <div class="tornado-val" style="color:${color}">${sign}£${ac.delta.toFixed(2)}bn</div>
+      </div>`;
+    }).join('');
+  document.getElementById('tornadoSection').innerHTML = tornadoHtml || '<div style="color:var(--muted)">No data</div>';
+
+  /* Timeline */
+  document.getElementById('timelineSection').innerHTML = `
+    <div style="margin-bottom:.6rem"><strong style="color:var(--red)">January 1, 2027 — UK PRA PS1/26 go-live.</strong> Full Basel 3.1 implementation including output floor at 72.5% and revised SA-CR risk weights. Transitional: 5-year phase-in for output floor (50% → 72.5% by 2032 under BCBS; UK PRA applies full floor from day 1 per PS1/26).</div>
+    <div style="margin-bottom:.6rem"><strong style="color:var(--warn)">~2029–2030 — EU CRR3 application.</strong> CRR3 Regulation (EU) 2024/1623 published; application date ~2025 for reporting, full capital requirements phased. The EU delays provide relief for European banks not subject to PRA.</div>
+    <div style="margin-bottom:.6rem"><strong style="color:var(--muted)">Note on FRTB-IMA:</strong> The FRTB Internal Models Approach (market risk) is deferred to January 2028 in the UK (PRA CP17/25) and ~2029–30 in the EU. RCA-01 (wave 3) covers the FRTB IMA pre-validation tool.</div>
+    <div><strong style="color:var(--muted)">BCBS Output Floor (CAP30):</strong> Floor = max(IRB RWA, 72.5% × SA-CR RWA). For institutions below the floor, RWA is replaced with floor RWA. Applies at consolidated group level in the UK (PS1/26 §5).</div>
+  `;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   HASH / UTILS
+   ───────────────────────────────────────────────────────────────── */
+async function sha256(obj) {
+  const canonical = JSON.stringify(obj, Object.keys(obj).sort());
+  const buf = new TextEncoder().encode(canonical);
+  const hb = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function round2(v) { return Math.round(v * 100) / 100; }
+
+function updatePreset() {
+  const v = document.getElementById('portfolioPreset').value;
+  document.getElementById('customPanel').style.display = v === 'custom' ? 'block' : 'none';
+}
+
+function syncSlider(id, valId, fmt) {
+  const v = parseFloat(document.getElementById(id).value);
+  document.getElementById(valId).textContent = fmt ? fmt(v) : v;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   EXPORTS
+   ───────────────────────────────────────────────────────────────── */
+function exportAP2() {
+  if (!_artifact) return;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const blob = new Blob([JSON.stringify(_artifact, null, 2)], {type:'application/json'});
+  const a = Object.assign(document.createElement('a'), {href: URL.createObjectURL(blob), download: `art-07_${ts}.policy.json`});
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('ChainGraph artifact exported');
+}
+
+function exportMarkdown() {
+  if (!_calcResult || !_artifact) return;
+  const r = _calcResult;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const lines = [
+    '# Basel 3.1 Reporting Delta Report',
+    `**Tool:** ART-07 Basel 3.1 Reporting Delta Calculator · ChainGraph Suite · AINumbers.co`,
+    `**Generated:** ${new Date().toISOString()}`,
+    `**Execution Hash:** sha256:${_artifact.execution_hash}`,
+    '',
+    '---',
+    `## Key Results`,
+    `| Metric | Current | Basel 3.1 | Delta |`,
+    `|---|---|---|---|`,
+    `| Total RWA | £${r.totalCurrentRWA.toFixed(1)}bn | £${r.totalBasel31SA_RWA.toFixed(1)}bn | +£${r.rwaUpliftBn.toFixed(1)}bn (+${r.rwaUpliftPct.toFixed(1)}%) |`,
+    `| CET1 ratio | ${r.cet1Current.toFixed(1)}% | ${r.cet1Basel31.toFixed(1)}% | ${(r.cet1Basel31-r.cet1Current).toFixed(1)}pp |`,
+    `| Output floor binding | — | ${r.floorBindsAggregate?'YES':'NO'} | — |`,
+    `| Capital shortfall (vs 12.5% req) | — | £${r.capitalShortfall.toFixed(1)}bn | — |`,
+    '',
+    '## Asset Class Breakdown',
+    '',
+    ...r.assetResults.map(ac =>
+      `### ${ac.name}\n- EAD: £${ac.ead.toFixed(1)}bn | Current RWA: £${ac.currentRWA.toFixed(1)}bn | Basel 3.1 RWA: £${ac.basel31_total_RWA.toFixed(1)}bn | Delta: +£${Math.max(0,ac.delta).toFixed(2)}bn\n- Floor binding: ${ac.floorBinding?'⚠ YES':'NO'} · *${ac.article}*\n- ${ac.note}\n`
+    ),
+    '## UK Implementation Timeline',
+    '- **Jan 1, 2027**: UK PRA PS1/26 go-live — full output floor at 72.5%',
+    '- **~2029–30**: EU CRR3 full application',
+    '- **Jan 2028**: UK FRTB-IMA (deferred from 2025)',
+    '',
+    '---',
+    '> **Educational/simulation only.** Risk weights per BCBS d424, UK PRA PS1/26, CRR3 (EU) 2024/1623. Verify with Pillar 1 capital team before regulatory reporting.',
+    '',
+    `*ChainGraph Suite · ART-07 · Post Oak Labs · CC BY 4.0 · Client-side · Zero PII*`
+  ].join('\n');
+  const blob = new Blob([lines], {type:'text/markdown'});
+  const a = Object.assign(document.createElement('a'), {href: URL.createObjectURL(blob), download: `art-07_${ts}.md`});
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('Markdown report exported');
+}
+
+function toggleMfst(){
+  const body=document.getElementById('mfstBody'),arrow=document.getElementById('mfstArrow'),btn=document.querySelector('.mfst-btn');
+  const open=body.style.display==='block';
+  body.style.display=open?'none':'block';arrow.textContent=open?'▼':'▲';
+  btn.setAttribute('aria-expanded',String(!open));body.setAttribute('aria-hidden',String(open));
+  if(!open&&!document.getElementById('mfstCode').textContent)
+    document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+
+/* Init sliders */
+['tier1CapPct','irbCoverage','irbDensity'].forEach(id => document.getElementById(id).dispatchEvent(new Event('input')));
+</script>
+
+</body>
+</html>

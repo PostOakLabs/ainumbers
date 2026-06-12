@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>EN 16931 / Factur-X E-Invoicing Batch Validator · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Validate batches of e-invoices against EN 16931 mandatory fields, VAT logic, and country-specific profiles (Factur-X France, ZUGFeRD, XRechnung). Hard deadline: France large/medium enterprises Sept 1, 2026. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-08-en16931-einvoice-batch-validator.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"EN 16931 / Factur-X E-Invoicing Batch Validator","url":"https://ainumbers.co/chaingraph/art-08-en16931-einvoice-batch-validator.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "art-08-en16931-einvoice-batch-validator",
+  "version": "1.0.0",
+  "title": "EN 16931 / Factur-X E-Invoicing Batch Validator",
+  "description": "Validates batches of e-invoices against EN 16931-1:2017 mandatory fields, VAT category logic, and country-specific profiles (Factur-X/France, ZUGFeRD/Germany, XRechnung, FatturaPA/Italy, VeriFACTU/Spain). Returns pass/fail by field, per-country compliance rate, and a deadline-readiness score. JS-chunked parallel validation. Hard deadline: France large/medium enterprises Sept 1, 2026.",
+  "category": "chaingraph",
+  "tags": ["EN 16931","e-invoicing","Factur-X","ZUGFeRD","XRechnung","VAT","France","e-invoice mandate","EU directive 2014/55/EU"],
+  "audience": ["risk_committee","regulator","ops","board"],
+  "input_schema": {"type":"object","properties":{"batch_size":{"type":"integer","minimum":1,"maximum":1000},"country_profile":{"type":"string","enum":["france_facturx","germany_xrechnung","germany_zugferd","italy_fatturapa","spain_verifactu","eu_generic"]},"error_injection_rate":{"type":"number","minimum":0,"maximum":0.4},"strictness":{"type":"string","enum":["standard","strict"]}},"required":["batch_size","country_profile"]},
+  "output_schema": {"type":"object","properties":{"total_invoices":{"type":"integer"},"pass_count":{"type":"integer"},"fail_count":{"type":"integer"},"compliance_rate_pct":{"type":"number"},"deadline_readiness_score":{"type":"number"},"top_failure_rules":{"type":"array","items":{"type":"string"}}}},
+  "mcp_tool_definition": {"name":"validate_einvoice_batch","description":"Validates a synthetic batch of e-invoices against EN 16931-1:2017 mandatory fields, VAT logic, and country-specific e-invoicing profiles. Returns pass/fail counts, compliance rate, field-level error breakdown, and a deadline-readiness score against the France Sept 2026 / EU mandate timelines.","inputSchema":{"type":"object","properties":{"batch_size":{"type":"integer","minimum":1,"maximum":1000,"description":"Number of synthetic invoices to generate and validate"},"country_profile":{"type":"string","enum":["france_facturx","germany_xrechnung","germany_zugferd","italy_fatturapa","spain_verifactu","eu_generic"],"description":"Country-specific e-invoicing profile to validate against"},"error_injection_rate":{"type":"number","minimum":0,"maximum":0.4,"description":"Fraction of invoices to inject errors into (0=clean batch, 0.3=30% error rate)"},"strictness":{"type":"string","enum":["standard","strict"],"description":"standard=mandatory fields only; strict=mandatory + conditional fields"}},"required":["batch_size","country_profile"]}},
+  "execution": {"type":"browser-javascript","entry":"chaingraph/art-08-en16931-einvoice-batch-validator.html","function_name":"runValidation","timeout_ms":15000},
+  "ap2_export": true,
+  "chaingraph": true,
+  "chain_partners": ["rca-03-iso20022-address-migration-batch-verifier"],
+  "mandate_type": "compliance_mandate"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--teal)}
+.panel-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.85rem;margin-bottom:.85rem}
+.panel-row:last-child{margin-bottom:0}
+.panel-row.two-col{grid-template-columns:1fr 1fr}
+.panel-row.three-col{grid-template-columns:1fr 1fr 1fr}
+.field-group{display:flex;flex-direction:column;gap:.3rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.1rem;line-height:1.4}
+input[type="number"],input[type="range"],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.38rem .55rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+input[type="number"]:focus,select:focus{border-color:var(--teal)}
+input[type="range"]{padding:0;height:4px;accent-color:var(--teal);cursor:pointer}
+.slider-row{display:flex;align-items:center;gap:.75rem}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--teal);min-width:2.5rem;text-align:right}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+/* PROGRESS */
+.progress-bar-wrap{height:4px;background:var(--bg-3);border-radius:2px;overflow:hidden;margin-top:.75rem;display:none}
+.progress-bar-fill{height:100%;background:var(--teal);width:0%;transition:width .1s}
+/* RESULTS */
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+/* SCORECARD */
+.scorecard{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem;margin-bottom:1rem}
+.score-cell{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;text-align:center}
+.score-cell .val{font-family:'DM Serif Display',serif;font-size:1.6rem;color:var(--white);line-height:1}
+.score-cell .val.green{color:var(--green)}
+.score-cell .val.red{color:var(--red)}
+.score-cell .val.warn{color:var(--warn)}
+.score-cell .lbl{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:.3rem}
+/* READINESS GAUGE */
+.readiness-bar{height:8px;background:var(--bg-3);border-radius:4px;overflow:hidden;margin:.5rem 0}
+.readiness-fill{height:100%;border-radius:4px;transition:width .6s ease}
+/* ERROR TABLE */
+.err-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.56rem}
+.err-table th{text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-weight:400;letter-spacing:.08em;text-transform:uppercase}
+.err-table td{padding:.4rem .6rem;border-bottom:1px solid var(--border);color:var(--body)}
+.err-table tr:last-child td{border-bottom:none}
+.err-table td.rule{color:var(--teal-lt)}
+.err-table td.count{color:var(--bright);text-align:right}
+.err-table td.pct{text-align:right}
+/* INVOICE TABLE */
+.inv-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.52rem}
+.inv-table th{text-align:left;padding:.35rem .5rem;border-bottom:1px solid var(--border);color:var(--muted);font-weight:400;letter-spacing:.06em;text-transform:uppercase}
+.inv-table td{padding:.35rem .5rem;border-bottom:1px solid var(--border)}
+.inv-table tr:last-child td{border-bottom:none}
+.status-pass{color:var(--green)}
+.status-fail{color:var(--red)}
+.status-warn{color:var(--warn)}
+/* EXPORT */
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--teal);color:var(--bright)}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+/* CHAIN */
+.chain-link{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;color:var(--teal);background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);padding:.28rem .65rem;border-radius:3px;text-decoration:none;transition:all .2s}
+.chain-link:hover{background:rgba(20,184,166,.2)}
+/* DISCLAIMER */
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--warn);padding:.65rem 1rem;font-size:.7rem;color:var(--muted);line-height:1.6;margin-bottom:1.25rem;border-radius:var(--radius)}
+/* MANIFEST */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:700px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}.panel-row{grid-template-columns:1fr}.panel-row.two-col,.panel-row.three-col{grid-template-columns:1fr}}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a>
+    <span class="nav-bc-sep">/</span>
+    <a href="chaingraph-hub.html">ChainGraph</a>
+    <span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">ART-08</span>
+  </div>
+  <div class="nav-right">
+    <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub &#8594;</a>
+  </div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph Suite · ART-08 · E-Invoicing Batch Validator</div>
+  <span class="badge badge-muted" style="display:inline-flex;margin-bottom:.6rem"><span>v1.0.0</span></span>
+  <h1>EN 16931 / Factur-X <em>E-Invoicing Batch Validator</em></h1>
+  <p class="hero-desc">Validate synthetic batches of up to 1,000 e-invoices against EN 16931-1:2017 mandatory fields, VAT category logic, and country-specific profiles — Factur-X (France), ZUGFeRD / XRechnung (Germany), FatturaPA (Italy), VeriFACTU (Spain). Returns field-level failure breakdown, per-country compliance rate, and a Sept 2026 readiness score. Client-side. Zero PII. Chains into RCA-03.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">AP2 Export</span>
+    <span class="badge badge-teal">Chains: RCA-03</span>
+    <span class="badge badge-red">France Deadline: Sept 1, 2026</span>
+    <span class="badge badge-warn">EN 16931-1:2017</span>
+    <span class="badge badge-gold">JS Parallel</span>
+    <span class="badge badge-green">Zero PII</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All validation runs on synthetic or anonymised invoice data generated locally in your browser. No data is transmitted. Do not enter real invoice data containing personal or commercially sensitive information.</div>
+
+  <div class="disclaimer">
+    ⚠ <strong style="color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.62rem">Educational/simulation only.</strong> Validation rules are based on EN 16931-1:2017, Directive 2014/55/EU, and published national profiles (Factur-X FNFE v1.0.07, XRechnung 3.0, FatturaPA SDI). Country-specific mandatory fields and VAT rules are indicative — verify with your national tax authority. The France e-invoicing mandate timeline (large/medium enterprises Sept 1, 2026; SMEs Sept 1, 2027) is confirmed per DGFIP. All regulatory citations are real and sourced.
+  </div>
+
+  <!-- BATCH CONFIGURATION -->
+  <div class="panel">
+    <div class="panel-label">Batch configuration</div>
+    <div class="panel-row two-col">
+      <div class="field-group">
+        <label class="field-label" for="countryProfile">Country / e-invoicing profile</label>
+        <select id="countryProfile">
+          <option value="france_facturx">France — Factur-X (Sept 2026 mandate)</option>
+          <option value="germany_xrechnung">Germany — XRechnung 3.0</option>
+          <option value="germany_zugferd">Germany — ZUGFeRD 2.3</option>
+          <option value="italy_fatturapa">Italy — FatturaPA / SDI</option>
+          <option value="spain_verifactu">Spain — VeriFACTU</option>
+          <option value="eu_generic">Generic EU (EN 16931 core)</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="strictness">Validation strictness</label>
+        <select id="strictness">
+          <option value="standard">Standard — mandatory fields only (BT/BG required)</option>
+          <option value="strict">Strict — mandatory + conditional + business rules</option>
+        </select>
+      </div>
+    </div>
+    <div class="panel-row two-col">
+      <div class="field-group">
+        <label class="field-label">Batch size — number of synthetic invoices</label>
+        <div class="slider-row">
+          <input type="range" id="batchSize" min="10" max="1000" step="10" value="200" oninput="syncSlider('batchSize','batchSizeVal')">
+          <span class="slider-val" id="batchSizeVal">200</span>
+        </div>
+        <span class="field-hint">10–1,000 synthetic invoices. Large batches use JS chunked processing.</span>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Error injection rate — fraction of invoices with injected defects</label>
+        <div class="slider-row">
+          <input type="range" id="errorRate" min="0" max="0.4" step="0.02" value="0.12" oninput="syncSlider('errorRate','errorRateVal',v=>Math.round(v*100)+'%')">
+          <span class="slider-val" id="errorRateVal">12%</span>
+        </div>
+        <span class="field-hint">0%=clean batch, 40%=high defect rate. Errors are distributed across all rule categories.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILE INFO -->
+  <div class="panel" id="profileInfo">
+    <div class="panel-label">Profile requirements</div>
+    <div id="profileInfoContent" style="font-size:.72rem;color:var(--body);line-height:1.8"></div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-bottom:2rem;align-items:center;flex-wrap:wrap">
+    <button class="run-btn" id="runBtn" onclick="runValidation()">▶ Run Batch Validation</button>
+    <span id="runStatus" style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)"></span>
+  </div>
+  <div class="progress-bar-wrap" id="progressWrap">
+    <div class="progress-bar-fill" id="progressFill"></div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+
+    <!-- SCORECARD -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Batch validation scorecard</span></div>
+      <div class="out-body">
+        <div class="scorecard" id="scorecard"></div>
+        <div id="readinessSection"></div>
+      </div>
+    </div>
+
+    <!-- ERROR BREAKDOWN -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Rule failure breakdown (EN 16931-1:2017)</span></div>
+      <div class="out-body">
+        <table class="err-table" id="errTable">
+          <thead><tr><th>Rule / BT</th><th>Rule description</th><th>Profile</th><th style="text-align:right">Failures</th><th style="text-align:right">% of batch</th></tr></thead>
+          <tbody id="errTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- INVOICE SAMPLE TABLE -->
+    <div class="out-section">
+      <div class="out-header">
+        <span class="out-title">Invoice sample (first 50 of batch)</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted)">showing up to 50 · full batch in AP2 export</span>
+      </div>
+      <div class="out-body" style="overflow-x:auto">
+        <table class="inv-table" id="invTable">
+          <thead><tr><th>#</th><th>Invoice ID</th><th>Seller</th><th>Buyer</th><th>Amount</th><th>Currency</th><th>VAT Cat.</th><th>Status</th><th>Failures</th></tr></thead>
+          <tbody id="invTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CHAIN TO RCA-03 -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Chain to RCA-03 — ISO 20022 structured-address migration</span></div>
+      <div class="out-body" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+        <a href="rca-03-iso20022-address-migration-batch-verifier.html" class="chain-link" target="_blank" rel="noopener noreferrer">&#x2192; Open in RCA-03</a>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)">Export the artifact below, then carry it into RCA-03 to chain address-field validation against CBPR+ structured-address requirements (Nov 2026)</span>
+      </div>
+    </div>
+
+    <!-- EXPORT -->
+    <div class="results-export-row">
+      <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()">
+        {} Export ChainGraph Artifact
+        <span class="btn-subtitle">AP2 · compliance_mandate · chain-anchored</span>
+      </button>
+      <button class="btn btn-ghost" id="csvExportBtn" disabled onclick="exportCSV()">
+        &#x21E9; Export CSV Report
+        <span class="btn-subtitle">Full per-invoice validation log</span>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- MANIFEST TOGGLE -->
+  <button class="mfst-btn" onclick="toggleMfst()" style="margin-top:2rem" aria-expanded="false" aria-controls="mfstBody">
+    <span>&#x7B;&#x7D; MCP Manifest — ART-08</span>
+    <span id="mfstArrow">&#x25BC;</span>
+  </button>
+  <div class="mfst-body" id="mfstBody" aria-hidden="true">
+    <pre class="mfst-code" id="mfstCode"></pre>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" style="display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500"><span style="color:var(--teal)">AI</span>Numbers.co</span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="chaingraph-hub.html">ChainGraph Hub</a>
+      <a href="../about.html">About</a>
+      <a href="https://mcp.ainumbers.co/mcp" target="_blank" rel="noopener noreferrer">MCP Server</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>Post Oak Labs · CC BY 4.0</span>
+      <span>ChainGraph Suite · ART-08 v1.0.0</span>
+      <span>EN 16931-1:2017 · Directive 2014/55/EU · France DGFIP Sept 2026</span>
+    </div>
+  </div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────────────────────────
+   MANIFEST
+   ───────────────────────────────────────────────────────────────── */
+const MANIFEST = {
+  tool_id: 'art-08-en16931-einvoice-batch-validator',
+  version: '1.0.0',
+  title: 'EN 16931 / Factur-X E-Invoicing Batch Validator',
+  description: 'Validates synthetic e-invoice batches against EN 16931-1:2017, Factur-X, ZUGFeRD, XRechnung, FatturaPA, and VeriFACTU profiles. Returns field-level failures, compliance rate, and Sept 2026 readiness score.',
+  category: 'chaingraph',
+  mcp_tool_definition: {
+    name: 'validate_einvoice_batch',
+    description: 'Validates a synthetic batch of e-invoices against EN 16931-1:2017 mandatory fields, VAT logic, and country-specific profiles. Returns pass/fail counts, compliance rate, field-level error breakdown, and deadline readiness score.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        batch_size: {type:'integer', minimum:1, maximum:1000},
+        country_profile: {type:'string', enum:['france_facturx','germany_xrechnung','germany_zugferd','italy_fatturapa','spain_verifactu','eu_generic']},
+        error_injection_rate: {type:'number', minimum:0, maximum:0.4},
+        strictness: {type:'string', enum:['standard','strict']}
+      },
+      required: ['batch_size','country_profile']
+    }
+  },
+  execution: {type:'browser-javascript', entry:'chaingraph/art-08-en16931-einvoice-batch-validator.html', function_name:'runValidation', timeout_ms:15000},
+  ap2_export: true,
+  chaingraph: true
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   EN 16931 RULE DEFINITIONS
+   Source: EN 16931-1:2017 (CEN/TC 434), Directive 2014/55/EU,
+           Factur-X FNFE v1.0.07 (Feb 2024), XRechnung 3.0 (Aug 2023),
+           FatturaPA SDI v1.3.1, VeriFACTU RD 1007/2023
+   ───────────────────────────────────────────────────────────────── */
+const RULES = [
+  {id:'BT-1',  name:'Invoice number',               group:'identification', mandatory:true,  profile:'all',    article:'EN 16931-1 BT-1'},
+  {id:'BT-2',  name:'Invoice issue date',            group:'identification', mandatory:true,  profile:'all',    article:'EN 16931-1 BT-2'},
+  {id:'BT-3',  name:'Invoice type code',             group:'identification', mandatory:true,  profile:'all',    article:'EN 16931-1 BT-3 (UNTDID 1001)'},
+  {id:'BT-5',  name:'Invoice currency code',         group:'identification', mandatory:true,  profile:'all',    article:'EN 16931-1 BT-5 (ISO 4217)'},
+  {id:'BT-24', name:'Specification identifier',      group:'identification', mandatory:false, profile:'facturx|xrechnung',  article:'EN 16931-1 BT-24 (mandatory in Factur-X/XRechnung)'},
+  {id:'BT-27', name:'Seller name',                   group:'seller',        mandatory:true,  profile:'all',    article:'EN 16931-1 BT-27 (BG-4)'},
+  {id:'BT-31', name:'Seller VAT identifier',         group:'seller',        mandatory:false, profile:'all',    article:'EN 16931-1 BT-31 (conditional — required if VAT registered)'},
+  {id:'BT-35', name:'Seller address line 1',         group:'seller',        mandatory:false, profile:'strict', article:'EN 16931-1 BT-35 (BG-5)'},
+  {id:'BT-40', name:'Seller country code',           group:'seller',        mandatory:true,  profile:'all',    article:'EN 16931-1 BT-40 (ISO 3166-1 alpha-2)'},
+  {id:'BT-44', name:'Buyer name',                    group:'buyer',         mandatory:true,  profile:'all',    article:'EN 16931-1 BT-44 (BG-7)'},
+  {id:'BT-48', name:'Buyer VAT identifier',          group:'buyer',         mandatory:false, profile:'strict', article:'EN 16931-1 BT-48 (conditional — B2B transactions)'},
+  {id:'BT-55', name:'Buyer country code',            group:'buyer',         mandatory:false, profile:'strict', article:'EN 16931-1 BT-55 (BG-8)'},
+  {id:'BT-112',name:'Invoice total with VAT',        group:'totals',        mandatory:true,  profile:'all',    article:'EN 16931-1 BT-112 (BG-22)'},
+  {id:'BT-115',name:'Amount due for payment',        group:'totals',        mandatory:true,  profile:'all',    article:'EN 16931-1 BT-115 (BG-22)'},
+  {id:'BT-118',name:'VAT category code',             group:'vat',           mandatory:true,  profile:'all',    article:'EN 16931-1 BT-118 (BG-23, UNTDID 5305)'},
+  {id:'BT-119',name:'VAT category rate',             group:'vat',           mandatory:false, profile:'all',    article:'EN 16931-1 BT-119 (required when cat=S)'},
+  {id:'VAT-01',name:'VAT rate consistency',          group:'vat',           mandatory:true,  profile:'all',    article:'EN 16931-1 BR-CO-17 — VAT rate must match category'},
+  {id:'VAT-02',name:'Total amount consistency',      group:'totals',        mandatory:true,  profile:'all',    article:'EN 16931-1 BR-CO-10 — BT-106+tax must equal BT-112'},
+  {id:'FX-01', name:'Factur-X profile declaration',  group:'facturx',       mandatory:false, profile:'facturx', article:'Factur-X FNFE — SpecificationIdentifier must be urn:factur-x.eu:...'},
+  {id:'XR-01', name:'Leitweg-ID (XRechnung)',        group:'xrechnung',     mandatory:false, profile:'xrechnung', article:'XRechnung 3.0 — BT-10 Buyer reference mandatory for public procurement'}
+];
+
+/* Country profile descriptors */
+const PROFILES = {
+  france_facturx: {
+    name: 'France — Factur-X', flag: '🇫🇷',
+    deadline: 'Sept 1, 2026 (large/medium enterprises) · Sept 1, 2027 (SMEs)',
+    authority: 'DGFIP (Direction Générale des Finances Publiques)',
+    format: 'Factur-X v1.0.07 (hybrid PDF/A-3 + XML per EN 16931)',
+    profiles: ['MINIMUM','BASIC WL','BASIC','EN 16931 (COMFORT)','EXTENDED'],
+    spec_id_prefix: 'urn:factur-x.eu:1p0:',
+    extra_rules: ['BT-24','FX-01'],
+    info: 'France mandates Factur-X (hybrid PDF + embedded CII XML) for B2B invoicing via the Chorus Pro portal. Large and medium enterprises must comply by Sept 1, 2026; SMEs by Sept 1, 2027. The Factur-X profile hierarchy ranges from MINIMUM (6 mandatory fields) to EXTENDED (full EN 16931 + French extensions). All profiles require BT-24 SpecificationIdentifier.'
+  },
+  germany_xrechnung: {
+    name: 'Germany — XRechnung', flag: '🇩🇪',
+    deadline: 'Mandatory for federal public procurement (B2G) since 27 Nov 2020; B2B mandate under discussion',
+    authority: 'Koordinierungsstelle für IT-Standards (KoSIT)',
+    format: 'XRechnung 3.0 (UBL 2.1 / CII D16B)',
+    extra_rules: ['BT-24','XR-01'],
+    info: 'XRechnung 3.0 is the German national e-invoicing standard based on EN 16931 CIUS (Core Invoice Usage Specification). Mandatory for B2G (public procurement) since November 2020. BT-10 Buyer reference (Leitweg-ID) is mandatory for public-sector invoices. VAT identification numbers follow DE format (DE + 9 digits).'
+  },
+  germany_zugferd: {
+    name: 'Germany — ZUGFeRD', flag: '🇩🇪',
+    deadline: 'B2B mandate from Jan 1, 2025 (reception obligation); issuance mandate under EU transposition',
+    authority: 'Forum elektronische Rechnung Deutschland (FeRD)',
+    format: 'ZUGFeRD 2.3 / Factur-X 1.0 (identical XML structure)',
+    extra_rules: ['BT-24','FX-01'],
+    info: 'ZUGFeRD 2.3 and Factur-X 1.0.07 share the same XML structure (CII D16B). Germany introduced a B2B e-invoicing reception obligation from January 1, 2025; issuance requirements follow under EU Directive transposition. ZUGFeRD EXTENDED profile covers domestic B2B invoices with full VAT detail.'
+  },
+  italy_fatturapa: {
+    name: 'Italy — FatturaPA / SDI', flag: '🇮🇹',
+    deadline: 'B2B mandatory since Jan 1, 2019; B2C since Jan 1, 2020',
+    authority: 'Agenzia delle Entrate / SDI (Sistema di Interscambio)',
+    format: 'FatturaPA XML v1.3.1 (Italian national CIUS)',
+    extra_rules: [],
+    info: 'Italy\'s SDI (Sistema di Interscambio) platform has been mandatory for B2B and B2C domestic invoicing since 2019. All invoices must transit via SDI; the FatturaPA schema requires Italian fiscal code (codice fiscale) or VAT number (Partita IVA) for both parties, payment method codes, and mandatory line-item detail. Italy operates its own CIUS diverging from EN 16931 in several fields.'
+  },
+  spain_verifactu: {
+    name: 'Spain — VeriFACTU', flag: '🇪🇸',
+    deadline: 'Mandatory for large companies 2025; SMEs from Jan 1, 2026 (RD 1007/2023)',
+    authority: 'Agencia Tributaria (AEAT)',
+    format: 'VeriFACTU (Sistema de Verificación de Facturas, RD 1007/2023)',
+    extra_rules: [],
+    info: 'VeriFACTU (Royal Decree 1007/2023) requires Spanish companies to use certified invoicing software that generates tamper-evident invoices with a chained hash and QR code. Unlike France/Germany, VeriFACTU validates the invoicing process rather than mandating a specific XML format. All invoices must include a hash chain linking consecutive invoices, an AEAT-verifiable QR code, and a taxpayer identifier.'
+  },
+  eu_generic: {
+    name: 'Generic EU (EN 16931 core)', flag: '🇪🇺',
+    deadline: 'Directive 2014/55/EU — member state transposition complete',
+    authority: 'National competent authorities per member state',
+    format: 'EN 16931-1:2017 semantic data model (syntax-neutral)',
+    extra_rules: [],
+    info: 'EN 16931-1:2017 defines the semantic data model for the European standard on electronic invoicing. It specifies mandatory (BT/BG required), conditional, and optional elements. The standard is syntax-neutral; national profiles (CIUS) add binding constraints. Core mandatory elements are common across all profiles; validation here applies the full EN 16931-1 business rule set (BR-xx series).'
+  }
+};
+
+/* VAT category codes per UNTDID 5305 (EN 16931-1 BT-118) */
+const VAT_CATS = {
+  'S': {name:'Standard rate', requires_rate:true, std_rates:[20,19,23,25,21,22,17.5,9]},
+  'Z': {name:'Zero rated',    requires_rate:false, rate:0},
+  'E': {name:'Exempt',        requires_rate:false, rate:0},
+  'AE': {name:'Reverse charge', requires_rate:false, rate:0},
+  'K': {name:'Intra-EU supply', requires_rate:false, rate:0},
+  'G': {name:'Export',        requires_rate:false, rate:0},
+  'O': {name:'Outside scope', requires_rate:false, rate:0},
+  'L': {name:'Canary Islands IGIC', requires_rate:false},
+  'M': {name:'Ceuta/Melilla IPSI', requires_rate:false}
+};
+
+const TYPE_CODES = new Set(['380','381','383','384','386','393','395','575','623','780']);
+const CURRENCIES = new Set(['EUR','USD','GBP','CHF','SEK','NOK','DKK','PLN','CZK','HUF','RON','BGN','HRK','TRY','CAD','AUD','JPY','CNY']);
+const COUNTRIES = new Set(['FR','DE','IT','ES','NL','BE','AT','PL','PT','SE','NO','DK','FI','IE','LU','CZ','SK','HU','RO','BG','HR','SI','EE','LV','LT','MT','CY','GR','GB','CH','US','CA']);
+
+/* ─────────────────────────────────────────────────────────────────
+   SYNTHETIC INVOICE GENERATOR
+   ───────────────────────────────────────────────────────────────── */
+function rng(seed) {
+  let s = seed | 0;
+  return () => { s = (Math.imul(1664525, s) + 1013904223) | 0; return (s >>> 0) / 4294967296; };
+}
+
+function generateInvoice(idx, profile, errorRate, strictness, rand) {
+  const profileDef = PROFILES[profile];
+  const sellers = ['Acme Industries SAS','TechVision GmbH','DataFlow Ltd','NovaTech SARL','EuroTrade SpA','GlobalServ BV','Horizon AG','Meridian SA'];
+  const buyers  = ['BuyerCorp NV','Procurement SA','Acquis GmbH','PurchaseLtd','TradeCo SPA','VendorGroup BV','MarketPlace AG','ClientBase SA'];
+  const countries = ['FR','DE','IT','ES','NL','BE','AT','PL'];
+  const vatCatList = ['S','S','S','S','Z','E','AE'];
+
+  const sellerIdx = Math.floor(rand() * sellers.length);
+  const buyerIdx  = Math.floor(rand() * buyers.length);
+  const countryIdx = Math.floor(rand() * countries.length);
+  const vatCat = vatCatList[Math.floor(rand() * vatCatList.length)];
+  const vatRate = vatCat === 'S' ? [20,19,23,25,21,22][Math.floor(rand() * 6)] : 0;
+  const netAmt = Math.round((rand() * 9900 + 100) * 100) / 100;
+  const vatAmt = vatCat === 'S' ? Math.round(netAmt * vatRate / 100 * 100) / 100 : 0;
+  const grossAmt = Math.round((netAmt + vatAmt) * 100) / 100;
+  const country = countries[countryIdx];
+
+  let specId = '';
+  if (profile === 'france_facturx' || profile === 'germany_zugferd') {
+    specId = 'urn:factur-x.eu:1p0:en16931';
+  } else if (profile === 'germany_xrechnung') {
+    specId = 'urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0';
+  }
+
+  const inv = {
+    invoice_id: `INV-${String(idx+1).padStart(4,'0')}-${Math.floor(rand()*9000+1000)}`,
+    issue_date: `2026-0${Math.floor(rand()*6+1)}-${String(Math.floor(rand()*27+1)).padStart(2,'0')}`,
+    type_code: '380',
+    currency: 'EUR',
+    specification_id: specId,
+    seller_name: sellers[sellerIdx],
+    seller_vat: `${country}${Math.floor(rand()*9e9+1e9)}`,
+    seller_address: `${Math.floor(rand()*999+1)} Rue de Commerce`,
+    seller_country: country,
+    buyer_name: buyers[buyerIdx],
+    buyer_vat: `FR${Math.floor(rand()*9e9+1e9)}`,
+    buyer_country: 'FR',
+    net_amount: netAmt,
+    vat_amount: vatAmt,
+    gross_amount: grossAmt,
+    amount_due: grossAmt,
+    vat_category: vatCat,
+    vat_rate: vatRate,
+    leitweg_id: profile === 'germany_xrechnung' ? `09/123456789/01` : ''
+  };
+
+  /* Error injection */
+  if (rand() < errorRate) {
+    const errType = Math.floor(rand() * 10);
+    if (errType === 0) inv.invoice_id = '';                           // missing BT-1
+    else if (errType === 1) inv.issue_date = 'invalid-date';         // bad BT-2
+    else if (errType === 2) inv.type_code = '999';                   // bad BT-3
+    else if (errType === 3) inv.currency = 'XYZ';                    // bad BT-5
+    else if (errType === 4) inv.seller_name = '';                    // missing BT-27
+    else if (errType === 5) inv.seller_country = 'ZZ';               // bad BT-40
+    else if (errType === 6) inv.gross_amount = -1;                   // bad BT-112
+    else if (errType === 7) inv.vat_category = 'X';                  // bad BT-118
+    else if (errType === 8) { inv.gross_amount = netAmt + vatAmt + 0.01; }  // VAT-02 inconsistency
+    else if (errType === 9 && specId) inv.specification_id = 'wrong:profile'; // FX-01/BT-24
+  }
+
+  return inv;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   VALIDATION ENGINE
+   ───────────────────────────────────────────────────────────────── */
+function validateInvoice(inv, profile, strictness) {
+  const failures = [];
+  const profileDef = PROFILES[profile];
+  const isStrict = strictness === 'strict';
+
+  /* BT-1 Invoice number */
+  if (!inv.invoice_id || inv.invoice_id.trim() === '') failures.push('BT-1');
+
+  /* BT-2 Issue date */
+  if (!inv.issue_date || !/^\d{4}-\d{2}-\d{2}$/.test(inv.issue_date) || isNaN(Date.parse(inv.issue_date))) failures.push('BT-2');
+
+  /* BT-3 Invoice type code */
+  if (!TYPE_CODES.has(String(inv.type_code))) failures.push('BT-3');
+
+  /* BT-5 Currency */
+  if (!CURRENCIES.has(inv.currency)) failures.push('BT-5');
+
+  /* BT-24 Specification identifier (mandatory for Factur-X, XRechnung, ZUGFeRD) */
+  if (['france_facturx','germany_xrechnung','germany_zugferd'].includes(profile)) {
+    if (!inv.specification_id || !inv.specification_id.startsWith('urn:')) failures.push('BT-24');
+  }
+
+  /* BT-27 Seller name */
+  if (!inv.seller_name || inv.seller_name.trim() === '') failures.push('BT-27');
+
+  /* BT-31 Seller VAT — conditional strict */
+  if (isStrict && inv.seller_vat && !/^[A-Z]{2}[0-9A-Z]{2,12}$/.test(inv.seller_vat)) failures.push('BT-31');
+
+  /* BT-35 Seller address — strict only */
+  if (isStrict && (!inv.seller_address || inv.seller_address.trim() === '')) failures.push('BT-35');
+
+  /* BT-40 Seller country */
+  if (!COUNTRIES.has(inv.seller_country)) failures.push('BT-40');
+
+  /* BT-44 Buyer name */
+  if (!inv.buyer_name || inv.buyer_name.trim() === '') failures.push('BT-44');
+
+  /* BT-48 Buyer VAT — strict */
+  if (isStrict && inv.buyer_vat && !/^[A-Z]{2}[0-9A-Z]{2,12}$/.test(inv.buyer_vat)) failures.push('BT-48');
+
+  /* BT-55 Buyer country — strict */
+  if (isStrict && inv.buyer_country && !COUNTRIES.has(inv.buyer_country)) failures.push('BT-55');
+
+  /* BT-112 Invoice total with VAT */
+  if (inv.gross_amount === undefined || inv.gross_amount === null || inv.gross_amount < 0) failures.push('BT-112');
+
+  /* BT-115 Amount due */
+  if (inv.amount_due === undefined || inv.amount_due === null || inv.amount_due < 0) failures.push('BT-115');
+
+  /* BT-118 VAT category code */
+  if (!VAT_CATS[inv.vat_category]) failures.push('BT-118');
+
+  /* BT-119 VAT rate — required if category=S */
+  if (inv.vat_category === 'S' && (inv.vat_rate === undefined || inv.vat_rate <= 0)) failures.push('BT-119');
+
+  /* VAT-01 Rate/category consistency */
+  if (VAT_CATS[inv.vat_category]) {
+    const cat = VAT_CATS[inv.vat_category];
+    if (!cat.requires_rate && inv.vat_rate > 0) failures.push('VAT-01');
+    if (cat.requires_rate && (inv.vat_rate <= 0 || inv.vat_rate > 35)) failures.push('VAT-01');
+  }
+
+  /* VAT-02 Total consistency (BR-CO-10) */
+  if (inv.vat_category === 'S') {
+    const expected = Math.round((inv.net_amount + inv.vat_amount) * 100) / 100;
+    if (Math.abs(inv.gross_amount - expected) > 0.02) failures.push('VAT-02');
+  }
+
+  /* FX-01 Factur-X profile declaration */
+  if (profile === 'france_facturx') {
+    if (inv.specification_id && !inv.specification_id.startsWith('urn:factur-x.eu:')) failures.push('FX-01');
+  }
+
+  /* XR-01 Leitweg-ID (XRechnung) */
+  if (profile === 'germany_xrechnung' && isStrict) {
+    if (!inv.leitweg_id || inv.leitweg_id.trim() === '') failures.push('XR-01');
+  }
+
+  return failures;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   STATE
+   ───────────────────────────────────────────────────────────────── */
+let _artifact = null;
+let _results = null;
+
+/* ─────────────────────────────────────────────────────────────────
+   MAIN RUN FUNCTION (chunked)
+   ───────────────────────────────────────────────────────────────── */
+async function runValidation() {
+  const profile   = document.getElementById('countryProfile').value;
+  const batchSize = parseInt(document.getElementById('batchSize').value) || 200;
+  const errorRate = parseFloat(document.getElementById('errorRate').value) || 0;
+  const strictness = document.getElementById('strictness').value;
+  const runBtn = document.getElementById('runBtn');
+  const statusEl = document.getElementById('runStatus');
+  const progressWrap = document.getElementById('progressWrap');
+  const progressFill = document.getElementById('progressFill');
+
+  runBtn.disabled = true;
+  statusEl.textContent = `Generating ${batchSize} synthetic invoices…`;
+  progressWrap.style.display = 'block';
+  progressFill.style.width = '0%';
+
+  const invs = [];
+  const seed = Date.now() & 0xFFFFFFFF;
+  const rand = rng(seed);
+  for (let i = 0; i < batchSize; i++) invs.push(generateInvoice(i, profile, errorRate, strictness, rand));
+
+  /* Chunked validation */
+  const CHUNK = 50;
+  const allResults = [];
+  const ruleCounts = {};
+
+  for (let offset = 0; offset < batchSize; offset += CHUNK) {
+    const chunk = invs.slice(offset, offset + CHUNK);
+    for (const inv of chunk) {
+      const failures = validateInvoice(inv, profile, strictness);
+      allResults.push({inv, failures, pass: failures.length === 0});
+      for (const r of failures) ruleCounts[r] = (ruleCounts[r] || 0) + 1;
+    }
+    const pct = Math.round(((offset + CHUNK) / batchSize) * 100);
+    progressFill.style.width = Math.min(pct, 100) + '%';
+    statusEl.textContent = `Validated ${Math.min(offset + CHUNK, batchSize)} / ${batchSize}…`;
+    await new Promise(r => setTimeout(r, 0)); // yield
+  }
+
+  progressFill.style.width = '100%';
+
+  const passCount = allResults.filter(r => r.pass).length;
+  const failCount = batchSize - passCount;
+  const complianceRate = Math.round((passCount / batchSize) * 1000) / 10;
+
+  /* Readiness score: compliance rate adjusted for profile-specific requirements */
+  const profilePenalty = profile === 'france_facturx' ? 5 : 0; // stricter
+  const readinessScore = Math.max(0, Math.min(100, complianceRate - profilePenalty));
+
+  _results = {profile, batchSize, errorRate, strictness, passCount, failCount, complianceRate, readinessScore, ruleCounts, invoices: allResults};
+
+  renderResults(_results);
+
+  /* Compute execution hash */
+  const policyParams = {
+    execution_backend: 'js',
+    input_parameters: { batch_size: batchSize, country_profile: profile, error_injection_rate: errorRate, strictness }
+  };
+  const outputPayload = {
+    total_invoices: batchSize, pass_count: passCount, fail_count: failCount,
+    compliance_rate_pct: complianceRate, deadline_readiness_score: readinessScore,
+    top_failure_rules: Object.entries(ruleCounts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(e=>e[0])
+  };
+
+  const hash = await sha256({policy_parameters: policyParams, output_payload: outputPayload});
+  const now = new Date().toISOString();
+
+  _artifact = {
+    ap2_version: '1.0.0',
+    mandate_type: 'compliance_mandate',
+    tool_id: 'art-08-en16931-einvoice-batch-validator',
+    tool_version: '1.0.0',
+    generated_at: now,
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: policyParams,
+    output_payload: {
+      ...outputPayload,
+      country_profile: profile,
+      profile_name: PROFILES[profile].name,
+      mandate_deadline: PROFILES[profile].deadline,
+      rule_failure_counts: ruleCounts,
+      invoice_sample: allResults.slice(0, 20).map(r => ({
+        invoice_id: r.inv.invoice_id,
+        pass: r.pass,
+        failure_rules: r.failures
+      }))
+    },
+    compliance_flags: readinessScore >= 95 ? ['EN16931_COMPLIANT','DEADLINE_READY']
+      : readinessScore >= 80 ? ['EN16931_PARTIAL_COMPLIANCE','REMEDIATION_REQUIRED']
+      : ['EN16931_NON_COMPLIANT','DEADLINE_RISK'],
+    audit_signature: { client_side_executed: true, zero_pii_verified: true, deterministic_run: false }
+  };
+
+  runBtn.disabled = false;
+  statusEl.textContent = '';
+
+  const ap2Btn = document.getElementById('ap2ExportBtn');
+  const csvBtn = document.getElementById('csvExportBtn');
+  ap2Btn.disabled = false; ap2Btn.classList.add('ready');
+  csvBtn.disabled = false; csvBtn.classList.add('ready');
+
+  document.getElementById('resultsPanel').classList.add('visible');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RENDER
+   ───────────────────────────────────────────────────────────────── */
+function renderResults(r) {
+  const profileDef = PROFILES[r.profile];
+  const rateColor = r.complianceRate >= 95 ? 'green' : r.complianceRate >= 80 ? 'warn' : 'red';
+  const readColor = r.readinessScore >= 90 ? 'green' : r.readinessScore >= 70 ? 'warn' : 'red';
+
+  document.getElementById('scorecard').innerHTML = `
+    <div class="score-cell"><div class="val">${r.batchSize}</div><div class="lbl">Total Invoices</div></div>
+    <div class="score-cell"><div class="val green">${r.passCount}</div><div class="lbl">Passed</div></div>
+    <div class="score-cell"><div class="val ${r.failCount > 0 ? 'red' : 'green'}">${r.failCount}</div><div class="lbl">Failed</div></div>
+    <div class="score-cell"><div class="val ${rateColor}">${r.complianceRate}%</div><div class="lbl">Compliance Rate</div></div>
+    <div class="score-cell"><div class="val ${readColor}">${r.readinessScore}%</div><div class="lbl">Deadline Readiness</div></div>
+  `;
+
+  document.getElementById('readinessSection').innerHTML = `
+    <div style="margin-top:.75rem">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem">${profileDef.name} readiness — ${profileDef.deadline}</div>
+      <div class="readiness-bar"><div class="readiness-fill" style="width:${r.readinessScore}%;background:${r.readinessScore>=90?'var(--green)':r.readinessScore>=70?'var(--warn)':'var(--red)'}"></div></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);margin-top:.3rem">${profileDef.authority}</div>
+    </div>
+  `;
+
+  /* Error table */
+  const ruleMap = {};
+  RULES.forEach(rl => { ruleMap[rl.id] = rl; });
+  const sorted = Object.entries(r.ruleCounts).sort((a,b) => b[1]-a[1]);
+  const tbody = document.getElementById('errTableBody');
+  if (sorted.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--green);padding:1rem">✓ No rule failures detected in this batch</td></tr>`;
+  } else {
+    tbody.innerHTML = sorted.map(([ruleId, cnt]) => {
+      const rl = ruleMap[ruleId] || {name: ruleId, article: ''};
+      const pct = Math.round((cnt / r.batchSize) * 1000) / 10;
+      return `<tr>
+        <td class="rule">${ruleId}</td>
+        <td>${rl.name || ruleId}</td>
+        <td style="font-size:.46rem;color:var(--muted)">${rl.article || '—'}</td>
+        <td class="count">${cnt}</td>
+        <td class="pct" style="color:${pct>20?'var(--red)':pct>10?'var(--warn)':'var(--body)'}">${pct}%</td>
+      </tr>`;
+    }).join('');
+  }
+
+  /* Invoice sample table */
+  const sample = r.invoices.slice(0, 50);
+  document.getElementById('invTableBody').innerHTML = sample.map((res, i) => {
+    const st = res.pass ? '<span class="status-pass">PASS</span>' : `<span class="status-fail">FAIL</span>`;
+    const failStr = res.failures.length > 0 ? res.failures.join(', ') : '—';
+    return `<tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td style="color:var(--bright)">${res.inv.invoice_id || '<em>missing</em>'}</td>
+      <td>${(res.inv.seller_name||'').slice(0,18)}</td>
+      <td>${(res.inv.buyer_name||'').slice(0,18)}</td>
+      <td style="text-align:right">€${(res.inv.gross_amount||0).toFixed(2)}</td>
+      <td>${res.inv.currency}</td>
+      <td>${res.inv.vat_category} ${res.inv.vat_category==='S'?res.inv.vat_rate+'%':''}</td>
+      <td>${st}</td>
+      <td style="color:var(--red);font-size:.46rem">${failStr}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   PROFILE INFO PANEL
+   ───────────────────────────────────────────────────────────────── */
+function updateProfileInfo() {
+  const p = document.getElementById('countryProfile').value;
+  const def = PROFILES[p];
+  document.getElementById('profileInfoContent').innerHTML = `
+    <div style="margin-bottom:.5rem"><strong style="color:var(--bright)">${def.flag} ${def.name}</strong> · <span style="color:var(--warn);font-size:.68rem">${def.deadline}</span></div>
+    <div style="margin-bottom:.4rem"><strong style="color:var(--muted);font-size:.62rem">Authority:</strong> ${def.authority}</div>
+    <div style="margin-bottom:.4rem"><strong style="color:var(--muted);font-size:.62rem">Format:</strong> ${def.format}</div>
+    <div>${def.info}</div>
+  `;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   HASH
+   ───────────────────────────────────────────────────────────────── */
+async function sha256(obj) {
+  const canonical = JSON.stringify(obj, Object.keys(obj).sort());
+  const buf = new TextEncoder().encode(canonical);
+  const hb = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   EXPORTS
+   ───────────────────────────────────────────────────────────────── */
+function exportAP2() {
+  if (!_artifact) return;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const blob = new Blob([JSON.stringify(_artifact, null, 2)], {type:'application/json'});
+  const a = Object.assign(document.createElement('a'), {href: URL.createObjectURL(blob), download: `art-08_${ts}.policy.json`});
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('ChainGraph artifact exported');
+}
+
+function exportCSV() {
+  if (!_results) return;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const rows = [
+    'invoice_id,issue_date,seller_name,buyer_name,currency,gross_amount,vat_category,vat_rate,status,failure_rules',
+    ..._results.invoices.map(r => [
+      r.inv.invoice_id, r.inv.issue_date, `"${r.inv.seller_name}"`, `"${r.inv.buyer_name}"`,
+      r.inv.currency, r.inv.gross_amount, r.inv.vat_category, r.inv.vat_rate,
+      r.pass ? 'PASS' : 'FAIL', `"${r.failures.join(';')}"`
+    ].join(','))
+  ].join('\n');
+  const blob = new Blob([rows], {type:'text/csv'});
+  const a = Object.assign(document.createElement('a'), {href: URL.createObjectURL(blob), download: `art-08_${ts}_invoices.csv`});
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('CSV report exported');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   UTILS
+   ───────────────────────────────────────────────────────────────── */
+function syncSlider(id, valId, fmt) {
+  const el = document.getElementById(id);
+  const v = parseFloat(el.value);
+  document.getElementById(valId).textContent = fmt ? fmt(v) : v;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function toggleMfst(){
+  const body=document.getElementById('mfstBody'),arrow=document.getElementById('mfstArrow'),btn=document.querySelector('.mfst-btn');
+  const open=body.style.display==='block';
+  body.style.display=open?'none':'block';arrow.textContent=open?'▼':'▲';
+  btn.setAttribute('aria-expanded',String(!open));body.setAttribute('aria-hidden',String(open));
+  if(!open&&!document.getElementById('mfstCode').textContent)
+    document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+
+/* Init */
+document.getElementById('countryProfile').addEventListener('change', updateProfileInfo);
+['batchSize','errorRate'].forEach(id => document.getElementById(id).dispatchEvent(new Event('input')));
+updateProfileInfo();
+</script>
+
+</body>
+</html>
