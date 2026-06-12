@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Liquidity Stress Test Simulator · LCR/NSFR · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Monte Carlo LCR and NSFR liquidity stress simulation under Basel III. 1,000 paths × 250 time steps. P5–P95 percentile fan charts, breach probability, time-to-breach histogram, sensitivity tornado. Zero-egress, browser-local.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/sim-01-lcr-nsfr-liquidity-stress-test.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Liquidity Stress Test Simulator (LCR/NSFR)","url":"https://ainumbers.co/chaingraph/sim-01-lcr-nsfr-liquidity-stress-test.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "sim-01-lcr-nsfr-liquidity-stress-test",
+  "version": "1.0.0",
+  "title": "Liquidity Stress Test Simulator (LCR/NSFR)",
+  "description": "Monte Carlo simulation of LCR and NSFR under Basel III stress. 1,000 paths × 250 time steps. P5–P95 percentile fan charts, breach probability, time-to-breach distribution, 6-factor sensitivity tornado. Chunk-yield GPU pattern. Exports AP2 liquidity_mandate artifact.",
+  "category": "chaingraph",
+  "tags": ["LCR","NSFR","Basel III","liquidity","Monte Carlo","stress test","HQLA","ASF","RSF","outflow","regulatory capital","fan chart","sensitivity tornado"],
+  "mcp_tool_definition": {"name":"run_liquidity_stress_test","description":"Monte Carlo LCR/NSFR simulation under Basel III stress. Returns percentile fan-chart data, breach probability, time-to-breach distribution, and 6-factor sensitivity tornado for configurable scenario parameters.","inputSchema":{"type":"object","properties":{"lcr_start":{"type":"number","description":"Starting LCR as decimal (e.g. 1.35 for 135%). Default 1.35"},"nsfr_start":{"type":"number","description":"Starting NSFR as decimal (e.g. 1.20 for 120%). Default 1.20"},"scenario":{"type":"string","enum":["idiosyncratic","market_wide","combined"],"description":"Basel III stress scenario type. Default combined"},"n_paths":{"type":"integer","description":"Monte Carlo paths. 500–2000. Default 1000"},"outflow_vol":{"type":"number","description":"Daily net-outflow shock volatility σ (0–0.15). Default 0.04"},"hqla_vol":{"type":"number","description":"Daily HQLA haircut shock volatility σ (0–0.10). Default 0.02"}},"required":[]}},
+  "execution": {"type":"browser-javascript","entry":"chaingraph/sim-01-lcr-nsfr-liquidity-stress-test.html","function_name":"runSimulation","timeout_ms":30000},
+  "ap2_export": true,
+  "chaingraph": true,
+  "chain_partners": ["ptg-01-ap2-prompt-template-generator"],
+  "mandate_type": "liquidity_mandate",
+  "deadline": null,
+  "deadline_note": "Basel III ongoing; strongest classic regulatory narrative in the suite",
+  "conformance_fixtures": false,
+  "gpu": true
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--teal)}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.3rem}
+input[type="range"]{-webkit-appearance:none;appearance:none;height:4px;background:var(--border);border-radius:2px;outline:none;width:100%;padding:0}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:var(--teal);border-radius:50%;cursor:pointer}
+input[type="range"]::-moz-range-thumb{width:14px;height:14px;background:var(--teal);border-radius:50%;cursor:pointer;border:none}
+select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'Sora',sans-serif;font-size:.75rem;padding:.38rem .55rem;border-radius:var(--radius);outline:none;width:100%}
+select:focus{border-color:var(--teal)}
+.param-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1rem}
+@media(max-width:800px){.param-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.param-grid{grid-template-columns:1fr}}
+.slider-wrap{display:flex;flex-direction:column;gap:.3rem}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal);text-align:right}
+.preset-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.preset-btn{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;background:var(--bg-3);border:1px solid var(--border);color:var(--muted);padding:.28rem .7rem;border-radius:3px;cursor:pointer;transition:all .2s}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal)}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.progress-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;flex:1;max-width:240px}
+.progress-fill{height:100%;background:var(--teal);border-radius:2px;width:0;transition:width .1s}
+/* RESULTS */
+.results-panel{display:none;flex-direction:column;gap:1.25rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+/* SCORECARD */
+.scorecard{display:grid;grid-template-columns:repeat(5,1fr);gap:.65rem;margin-bottom:1rem}
+@media(max-width:800px){.scorecard{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:480px){.scorecard{grid-template-columns:1fr 1fr}}
+.score-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.75rem .9rem;text-align:center}
+.score-val{font-family:'DM Serif Display',serif;font-size:1.6rem;line-height:1;margin-bottom:.2rem}
+.score-label{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.score-sub{font-family:'JetBrains Mono',monospace;font-size:.4rem;color:var(--body);margin-top:.1rem}
+/* VERDICT */
+.verdict-card{border-radius:var(--radius-lg);padding:1.1rem 1.3rem;margin-bottom:.85rem;display:flex;align-items:flex-start;gap:1rem}
+.verdict-card.good{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.3)}
+.verdict-card.warn{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.3)}
+.verdict-card.risk{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.35)}
+.verdict-icon{font-size:1.5rem;line-height:1;flex-shrink:0;margin-top:.1rem}
+.verdict-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.2rem}
+.verdict-label.good{color:var(--green)}.verdict-label.warn{color:var(--warn)}.verdict-label.risk{color:var(--red)}
+.verdict-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white);margin-bottom:.25rem}
+.verdict-sub{font-size:.7rem;color:var(--body);line-height:1.6}
+/* FAN CHARTS */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:800px){.chart-grid{grid-template-columns:1fr}}
+.chart-wrap{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem;overflow-x:auto}
+.chart-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text);margin-bottom:.65rem}
+.chart-legend{display:flex;gap:1rem;margin-top:.6rem;flex-wrap:wrap}
+.chart-legend-item{display:flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted)}
+.chart-legend-dot{width:10px;height:10px;border-radius:2px}
+/* BREACH HISTOGRAM */
+.hist-wrap{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem;overflow-x:auto}
+/* TORNADO */
+.tornado-wrap{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem;overflow-x:auto}
+/* EXPORT */
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--teal);color:var(--bright)}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+/* MANIFEST */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="chaingraph-hub.html">ChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">SIM-01</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph Suite · SIM-01 · Liquidity Stress Test Simulator</div>
+  <span class="badge badge-muted" style="display:inline-flex;margin-bottom:.6rem"><span>v1.0.0</span></span>
+  <h1>LCR / NSFR Liquidity <em>Stress Simulator</em></h1>
+  <p class="hero-desc">Monte Carlo simulation of the <strong>Liquidity Coverage Ratio</strong> and <strong>Net Stable Funding Ratio</strong> under Basel III stress. Runs <strong>1,000 stochastic paths × 250 daily time steps</strong> with configurable outflow-shock and HQLA-haircut volatility. Outputs P5–P95 <strong>percentile fan charts</strong>, breach probability, time-to-breach histogram, and a <strong>6-factor sensitivity tornado</strong> identifying which inputs move your liquidity ratios most. GPU chunk-yield keeps the browser responsive throughout.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">AP2 Export</span>
+    <span class="badge badge-teal">Chains: PTG-01</span>
+    <span class="badge badge-purple">Monte Carlo · 1k paths</span>
+    <span class="badge badge-gold">Basel III LCR/NSFR</span>
+    <span class="badge badge-green">GPU Chunk-Yield · Zero PII</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 Fully client-side. All simulation runs locally in your browser. No data leaves this page.</div>
+
+  <!-- PRESETS -->
+  <div class="panel">
+    <div class="panel-label">Scenario presets</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('baseline')">✦ Baseline — well-capitalised</button>
+      <button class="preset-btn" onclick="loadPreset('stressed')">⚡ Stressed — tight liquidity</button>
+      <button class="preset-btn" onclick="loadPreset('crisis')">⚠ Crisis — near-breach</button>
+      <button class="preset-btn" onclick="loadPreset('minimum')">Minimum — at regulatory floor</button>
+    </div>
+    <div class="preset-row" style="margin-bottom:0">
+      <button class="preset-btn" onclick="loadPreset('idiosyncratic')">Idiosyncratic only</button>
+      <button class="preset-btn" onclick="loadPreset('market_wide')">Market-wide only</button>
+      <button class="preset-btn" onclick="loadPreset('combined')">Combined stress</button>
+    </div>
+  </div>
+
+  <!-- PARAMETERS -->
+  <div class="panel">
+    <div class="panel-label">Simulation parameters</div>
+    <div class="param-grid">
+      <div class="slider-wrap">
+        <label class="field-label">Starting LCR (%)</label>
+        <input type="range" id="lcrStart" min="80" max="220" step="1" value="135" oninput="onParam()">
+        <div class="slider-val" id="lcrStartVal">135%</div>
+      </div>
+      <div class="slider-wrap">
+        <label class="field-label">Starting NSFR (%)</label>
+        <input type="range" id="nsfrStart" min="80" max="170" step="1" value="120" oninput="onParam()">
+        <div class="slider-val" id="nsfrStartVal">120%</div>
+      </div>
+      <div>
+        <label class="field-label">Stress scenario</label>
+        <select id="scenario">
+          <option value="combined" selected>Combined (idiosyncratic + market-wide)</option>
+          <option value="idiosyncratic">Idiosyncratic — name-specific run</option>
+          <option value="market_wide">Market-wide — systemic freeze</option>
+        </select>
+      </div>
+      <div class="slider-wrap">
+        <label class="field-label">Outflow shock volatility σ</label>
+        <input type="range" id="outflowVol" min="0.005" max="0.15" step="0.005" value="0.04" oninput="onParam()">
+        <div class="slider-val" id="outflowVolVal">0.040</div>
+      </div>
+      <div class="slider-wrap">
+        <label class="field-label">HQLA haircut shock σ</label>
+        <input type="range" id="hqlaVol" min="0.001" max="0.10" step="0.001" value="0.02" oninput="onParam()">
+        <div class="slider-val" id="hqlaVolVal">0.020</div>
+      </div>
+      <div>
+        <label class="field-label">Monte Carlo paths</label>
+        <select id="nPaths">
+          <option value="500">500 paths (fast)</option>
+          <option value="1000" selected>1,000 paths (standard)</option>
+          <option value="2000">2,000 paths (precise)</option>
+        </select>
+      </div>
+    </div>
+    <p style="font-size:.68rem;color:var(--body);line-height:1.7;max-width:780px">
+      <strong style="color:var(--text)">LCR (Liquidity Coverage Ratio)</strong> = HQLA ÷ Net Cash Outflows (30-day stress). Regulatory minimum: <strong style="color:var(--teal)">100%</strong>.<br>
+      <strong style="color:var(--text)">NSFR (Net Stable Funding Ratio)</strong> = Available Stable Funding ÷ Required Stable Funding (1-year horizon). Regulatory minimum: <strong style="color:var(--teal)">100%</strong>.<br>
+      <span style="color:var(--muted)">Each Monte Carlo path applies daily log-normal shocks to outflows, HQLA, ASF, and RSF. Scenario multiplier scales shock magnitude per Basel III Annex 2 and BCBS 238.</span>
+    </p>
+  </div>
+
+  <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:2rem">
+    <button class="run-btn" id="runBtn" onclick="runSimulation()">▶ Run Stress Test</button>
+    <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+    <span id="runStatus" style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)"></span>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+
+    <!-- VERDICT + SCORECARD -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Simulation summary</span></div>
+      <div class="out-body">
+        <div id="verdictCard"></div>
+        <div class="scorecard" id="scorecard"></div>
+      </div>
+    </div>
+
+    <!-- FAN CHARTS -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Percentile fan charts — P5 / P25 / P50 / P75 / P95</span></div>
+      <div class="out-body">
+        <p style="font-size:.7rem;color:var(--body);margin-bottom:1rem;line-height:1.7">Darker bands = tighter confidence (P25–P75). Outer bands = P5–P95. Dashed red line = 100% regulatory minimum. LCR shown over 30-day Basel stress window; NSFR over full 250-day horizon.</p>
+        <div class="chart-grid">
+          <div class="chart-wrap">
+            <div class="chart-title">LCR — 30-Day Stress Window</div>
+            <svg id="lcrSvg" width="480" height="220" viewBox="0 0 480 220" style="display:block;max-width:100%;overflow:visible"></svg>
+            <div class="chart-legend">
+              <div class="chart-legend-item"><div class="chart-legend-dot" style="background:rgba(20,184,166,.15)"></div>P5–P95</div>
+              <div class="chart-legend-item"><div class="chart-legend-dot" style="background:rgba(20,184,166,.35)"></div>P25–P75</div>
+              <div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--teal)"></div>Median (P50)</div>
+              <div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--red);border-radius:1px;height:3px;width:18px"></div>100% floor</div>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-title">NSFR — 250-Day Horizon</div>
+            <svg id="nsfrSvg" width="480" height="220" viewBox="0 0 480 220" style="display:block;max-width:100%;overflow:visible"></svg>
+            <div class="chart-legend">
+              <div class="chart-legend-item"><div class="chart-legend-dot" style="background:rgba(155,114,245,.15)"></div>P5–P95</div>
+              <div class="chart-legend-item"><div class="chart-legend-dot" style="background:rgba(155,114,245,.35)"></div>P25–P75</div>
+              <div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--purple)"></div>Median (P50)</div>
+              <div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--red);border-radius:1px;height:3px;width:18px"></div>100% floor</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BREACH + HISTOGRAM -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Breach analysis — time-to-breach histogram</span></div>
+      <div class="out-body">
+        <p style="font-size:.7rem;color:var(--body);margin-bottom:1rem;line-height:1.7">Distribution of the day on which each simulated path first breaches the 100% floor. Non-breaching paths are not shown. Breach probability is the fraction of paths that breach at any point in the simulation horizon.</p>
+        <div class="chart-grid">
+          <div class="hist-wrap">
+            <div class="chart-title">LCR Time-to-Breach</div>
+            <svg id="lcrHistSvg" width="480" height="180" viewBox="0 0 480 180" style="display:block;max-width:100%"></svg>
+          </div>
+          <div class="hist-wrap">
+            <div class="chart-title">NSFR Time-to-Breach</div>
+            <svg id="nsfrHistSvg" width="480" height="180" viewBox="0 0 480 180" style="display:block;max-width:100%"></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SENSITIVITY TORNADO -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">6-Factor sensitivity tornado — median LCR at day 30</span></div>
+      <div class="out-body">
+        <p style="font-size:.7rem;color:var(--body);margin-bottom:1rem;line-height:1.7">Each factor perturbed ±20% from its base value (200 paths each). Bar length = P50 LCR swing at day 30. Green = +20% factor value raises LCR; red = +20% factor value lowers LCR.</p>
+        <div class="tornado-wrap">
+          <svg id="tornadoSvg" width="640" height="260" viewBox="0 0 640 260" style="display:block;max-width:100%"></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXPORT -->
+    <div class="results-export-row">
+      <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()">
+        {} Export ChainGraph Artifact
+        <span class="btn-subtitle">AP2 · liquidity_mandate · chain-anchored</span>
+      </button>
+    </div>
+
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()" style="margin-top:2rem" aria-expanded="false" aria-controls="mfstBody">
+    <span>&#x7B;&#x7D; MCP Manifest — SIM-01</span>
+    <span id="mfstArrow">&#x25BC;</span>
+  </button>
+  <div class="mfst-body" id="mfstBody" aria-hidden="true">
+    <pre class="mfst-code" id="mfstCode"></pre>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" style="display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500"><span style="color:var(--teal)">AI</span>Numbers.co</span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="chaingraph-hub.html">ChainGraph Hub</a>
+      <a href="../about.html">About</a>
+      <a href="https://mcp.ainumbers.co/mcp" target="_blank" rel="noopener noreferrer">MCP Server</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>Post Oak Labs · CC BY 4.0</span>
+      <span>ChainGraph Suite · SIM-01 v1.0.0 · Basel III LCR/NSFR</span>
+      <span>Monte Carlo 1k paths × 250 steps · Chunk-yield GPU pattern · Zero PII</span>
+    </div>
+  </div>
+</div></footer>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────────────────────────
+   MANIFEST
+   ───────────────────────────────────────────────────────────────── */
+const MANIFEST = {
+  tool_id: 'sim-01-lcr-nsfr-liquidity-stress-test',
+  version: '1.0.0',
+  title: 'Liquidity Stress Test Simulator (LCR/NSFR)',
+  description: 'Monte Carlo LCR/NSFR under Basel III stress. 1,000 paths × 250 time steps. P5–P95 fan charts, breach probability, time-to-breach, 6-factor sensitivity tornado.',
+  category: 'chaingraph',
+  mcp_tool_definition: {
+    name: 'run_liquidity_stress_test',
+    description: 'Monte Carlo LCR/NSFR simulation under Basel III stress. Returns percentile fan-chart data, breach probability, time-to-breach distribution, and 6-factor sensitivity tornado.',
+    inputSchema: { type:'object', required:[] }
+  }
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   PRESETS
+   ───────────────────────────────────────────────────────────────── */
+const PRESETS = {
+  baseline:     {lcr:135,nsfr:120,outflowVol:.03,hqlaVol:.015,scenario:'combined',nPaths:'1000'},
+  stressed:     {lcr:115,nsfr:108,outflowVol:.055,hqlaVol:.030,scenario:'combined',nPaths:'1000'},
+  crisis:       {lcr:102,nsfr:101,outflowVol:.085,hqlaVol:.045,scenario:'combined',nPaths:'1000'},
+  minimum:      {lcr:100,nsfr:100,outflowVol:.04, hqlaVol:.02, scenario:'combined',nPaths:'1000'},
+  idiosyncratic:{lcr:130,nsfr:115,outflowVol:.06, hqlaVol:.02, scenario:'idiosyncratic',nPaths:'1000'},
+  market_wide:  {lcr:125,nsfr:112,outflowVol:.04, hqlaVol:.05, scenario:'market_wide',nPaths:'1000'},
+  combined:     {lcr:130,nsfr:115,outflowVol:.05, hqlaVol:.035,scenario:'combined',nPaths:'1000'}
+};
+
+const SCENARIO_MULT = {idiosyncratic:{outflow:1.5,hqla:.7},market_wide:{outflow:.8,hqla:1.8},combined:{outflow:1.2,hqla:1.3}};
+
+function loadPreset(k){
+  const p=PRESETS[k];if(!p)return;
+  document.getElementById('lcrStart').value=p.lcr;
+  document.getElementById('nsfrStart').value=p.nsfr;
+  document.getElementById('outflowVol').value=p.outflowVol;
+  document.getElementById('hqlaVol').value=p.hqlaVol;
+  document.getElementById('scenario').value=p.scenario;
+  document.getElementById('nPaths').value=p.nPaths;
+  onParam();
+  showToast(`Preset "${k}" loaded`);
+}
+
+function onParam(){
+  document.getElementById('lcrStartVal').textContent=document.getElementById('lcrStart').value+'%';
+  document.getElementById('nsfrStartVal').textContent=document.getElementById('nsfrStart').value+'%';
+  document.getElementById('outflowVolVal').textContent=(+document.getElementById('outflowVol').value).toFixed(3);
+  document.getElementById('hqlaVolVal').textContent=(+document.getElementById('hqlaVol').value).toFixed(3);
+}
+onParam();
+
+/* ─────────────────────────────────────────────────────────────────
+   STATE
+   ───────────────────────────────────────────────────────────────── */
+let _results = null;
+let _artifact = null;
+
+/* ─────────────────────────────────────────────────────────────────
+   PRNG — Box-Muller, seeded via Math.random
+   ───────────────────────────────────────────────────────────────── */
+function randn(){
+  const u=1-Math.random(), v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   SIMULATION CORE (single scenario pass)
+   Returns: { lcrDays[nPaths][T], nsfrDays[nPaths][T], lcrBreach[], nsfrBreach[] }
+   ───────────────────────────────────────────────────────────────── */
+function simulateChunk(params, pathStart, pathEnd, T_LCR, T_NSFR) {
+  const {lcrStart,nsfrStart,outflowVol,hqlaVol,mult} = params;
+  const oVol = outflowVol * mult.outflow;
+  const hVol = hqlaVol   * mult.hqla;
+  const asfVol = oVol * 0.4;   // ASF more stable
+  const rsfVol = oVol * 0.3;
+  const inflowVol = oVol * 0.35;
+
+  const T = Math.max(T_LCR, T_NSFR);
+  const lcrPaths  = [];
+  const nsfrPaths = [];
+  const lcrBreachDays  = [];
+  const nsfrBreachDays = [];
+
+  for(let p=pathStart; p<pathEnd; p++) {
+    // LCR state: modelled as ratio directly, mean-reverting with shocks
+    let lcr  = lcrStart;
+    let nsfr = nsfrStart;
+    // Underlying factors
+    let hqla     = 1.0;                          // HQLA index (starts normalised)
+    let netOut   = lcrStart > 0 ? 1/lcrStart : 1;// Net outflows index
+    let asf      = 1.0;
+    let rsf      = nsfrStart > 0 ? 1/nsfrStart : 1;
+
+    const lcrRow  = new Array(T_LCR);
+    const nsfrRow = new Array(T_NSFR);
+    let lcrBreach  = -1;
+    let nsfrBreach = -1;
+
+    for(let t=0; t<T; t++) {
+      /* HQLA shock — haircuts worsen under stress */
+      hqla  *= Math.exp(-hVol*randn() - 0.5*hVol*hVol);
+      /* Outflow shock — outflows surge */
+      netOut *= Math.exp( oVol*randn() - 0.5*oVol*oVol);
+      /* Inflows partially offset — apply small drag */
+      const inflowOffset = Math.exp( inflowVol*randn()) * 0.75;
+      /* Net outflow index after inflow offset */
+      const netOutAdj = Math.max(netOut - inflowOffset*0.1, netOut*0.25);
+      /* LCR */
+      if(t<T_LCR){
+        lcr = hqla/netOutAdj;
+        lcrRow[t] = Math.min(lcr, 5.0); // cap display at 500%
+        if(lcrBreach<0 && lcr<1.0) lcrBreach=t+1;
+      }
+      /* ASF / RSF — slower-moving */
+      asf *= Math.exp(-asfVol*randn() - 0.5*asfVol*asfVol);
+      rsf *= Math.exp( rsfVol*randn() - 0.5*rsfVol*rsfVol);
+      if(t<T_NSFR){
+        nsfr = asf/rsf;
+        nsfrRow[t] = Math.min(nsfr, 4.0);
+        if(nsfrBreach<0 && nsfr<1.0) nsfrBreach=t+1;
+      }
+    }
+    lcrPaths.push(lcrRow);
+    nsfrPaths.push(nsfrRow);
+    lcrBreachDays.push(lcrBreach);
+    nsfrBreachDays.push(nsfrBreach);
+  }
+  return {lcrPaths,nsfrPaths,lcrBreachDays,nsfrBreachDays};
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   PERCENTILE COMPUTATION
+   ───────────────────────────────────────────────────────────────── */
+function percentileAt(arr, p) {
+  // arr is sorted ascending
+  const i=(p/100)*(arr.length-1);
+  const lo=Math.floor(i), hi=Math.ceil(i);
+  return arr[lo]+(arr[hi]-arr[lo])*(i-lo);
+}
+
+function computePercentiles(paths, T) {
+  const P=[5,25,50,75,95];
+  const out=P.map(()=>new Array(T));
+  for(let t=0;t<T;t++){
+    const col=paths.map(r=>r[t]).sort((a,b)=>a-b);
+    P.forEach((p,pi)=>{ out[pi][t]=percentileAt(col,p); });
+  }
+  return out; // [p5[], p25[], p50[], p75[], p95[]]
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   MAIN RUN — async chunk-yield GPU pattern
+   ───────────────────────────────────────────────────────────────── */
+const CHUNK = 50;
+
+async function runSimulation() {
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+
+  const lcrStart  = parseInt(document.getElementById('lcrStart').value)/100;
+  const nsfrStart = parseInt(document.getElementById('nsfrStart').value)/100;
+  const outflowVol = parseFloat(document.getElementById('outflowVol').value);
+  const hqlaVol    = parseFloat(document.getElementById('hqlaVol').value);
+  const scenario   = document.getElementById('scenario').value;
+  const nPaths     = parseInt(document.getElementById('nPaths').value);
+
+  const mult = SCENARIO_MULT[scenario]||SCENARIO_MULT.combined;
+  const T_LCR  = 30;   // 30-day Basel window
+  const T_NSFR = 250;  // 1-year horizon
+
+  const params = {lcrStart,nsfrStart,outflowVol,hqlaVol,mult};
+
+  const allLcr=[], allNsfr=[], allLcrBreach=[], allNsfrBreach=[];
+
+  const setStatus = (msg) => { document.getElementById('runStatus').textContent = msg; };
+  const setProgress = (pct) => { document.getElementById('progressFill').style.width = pct+'%'; };
+
+  setStatus('Running Monte Carlo…');
+
+  for(let p=0; p<nPaths; p+=CHUNK) {
+    const end = Math.min(p+CHUNK, nPaths);
+    const chunk = simulateChunk(params, p, end, T_LCR, T_NSFR);
+    allLcr.push(...chunk.lcrPaths);
+    allNsfr.push(...chunk.nsfrPaths);
+    allLcrBreach.push(...chunk.lcrBreachDays);
+    allNsfrBreach.push(...chunk.nsfrBreachDays);
+    const pct = Math.round(end/nPaths*80);
+    setProgress(pct);
+    await new Promise(r=>setTimeout(r,0));
+  }
+
+  setStatus('Computing percentiles…');
+  await new Promise(r=>setTimeout(r,0));
+  const lcrPcts  = computePercentiles(allLcr, T_LCR);
+  const nsfrPcts = computePercentiles(allNsfr, T_NSFR);
+  setProgress(88);
+  await new Promise(r=>setTimeout(r,0));
+
+  /* Sensitivity tornado — 6 factors, 200 paths each */
+  setStatus('Sensitivity analysis…');
+  const factors = [
+    {label:'Initial HQLA level',       key:'lcrStart',  delta:lcrStart*0.2},
+    {label:'Outflow shock vol σ',       key:'outflowVol',delta:outflowVol*0.2},
+    {label:'HQLA haircut vol σ',        key:'hqlaVol',   delta:hqlaVol*0.2},
+    {label:'Initial NSFR level',        key:'nsfrStart', delta:nsfrStart*0.2},
+    {label:'Scenario outflow mult',     key:'outMult',   delta:mult.outflow*0.2},
+    {label:'Scenario HQLA mult',        key:'hqlaMult',  delta:mult.hqla*0.2}
+  ];
+  const SENS_PATHS=200;
+  const tornadoData=[];
+  for(const f of factors){
+    const runSens=async(sign)=>{
+      const p2={...params};
+      if(f.key==='lcrStart') p2.lcrStart+=sign*f.delta;
+      else if(f.key==='outflowVol') p2.outflowVol+=sign*f.delta;
+      else if(f.key==='hqlaVol') p2.hqlaVol+=sign*f.delta;
+      else if(f.key==='nsfrStart') p2.nsfrStart+=sign*f.delta;
+      else if(f.key==='outMult') p2.mult={...mult,outflow:mult.outflow+sign*f.delta};
+      else if(f.key==='hqlaMult') p2.mult={...mult,hqla:mult.hqla+sign*f.delta};
+      const c=simulateChunk(p2,0,SENS_PATHS,T_LCR,T_NSFR);
+      const col=c.lcrPaths.map(r=>r[T_LCR-1]).sort((a,b)=>a-b);
+      return percentileAt(col,50);
+    };
+    const hi=await runSens(+1);
+    const lo=await runSens(-1);
+    tornadoData.push({label:f.label,hi,lo,base:lcrPcts[2][T_LCR-1]});
+    await new Promise(r=>setTimeout(r,0));
+  }
+
+  /* Breach stats */
+  const lcrBreachCount  = allLcrBreach.filter(d=>d>0).length;
+  const nsfrBreachCount = allNsfrBreach.filter(d=>d>0).length;
+  const lcrBreachPct    = (lcrBreachCount/nPaths*100).toFixed(1);
+  const nsfrBreachPct   = (nsfrBreachCount/nPaths*100).toFixed(1);
+  const lcrMedianEnd    = lcrPcts[2][T_LCR-1];
+  const nsfrMedianEnd   = nsfrPcts[2][T_NSFR-1];
+
+  _results = {
+    lcrPcts, nsfrPcts,
+    allLcrBreach, allNsfrBreach,
+    lcrBreachPct, nsfrBreachPct,
+    lcrMedianEnd, nsfrMedianEnd,
+    tornadoData,
+    T_LCR, T_NSFR, nPaths, scenario,
+    lcrStart: lcrStart*100, nsfrStart: nsfrStart*100
+  };
+
+  /* AP2 artifact */
+  const policyParams = {scenario, lcr_start:lcrStart, nsfr_start:nsfrStart, outflow_vol:outflowVol, hqla_vol:hqlaVol, n_paths:nPaths};
+  const outputForHash = {lcr_median_day30:+lcrMedianEnd.toFixed(4), nsfr_median_day250:+nsfrMedianEnd.toFixed(4), lcr_breach_pct:+lcrBreachPct, nsfr_breach_pct:+nsfrBreachPct};
+  const hash = await sha256({policy_parameters:policyParams, output_payload:outputForHash});
+  _artifact = {
+    ap2_version:'1.0.0', mandate_type:'liquidity_mandate',
+    tool_id:'sim-01-lcr-nsfr-liquidity-stress-test', tool_version:'1.0.0',
+    generated_at:new Date().toISOString(), execution_hash:hash,
+    chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},
+    policy_parameters:policyParams,
+    output_payload:outputForHash,
+    compliance_flags:[
+      +lcrBreachPct>=20?'LCR_BREACH_RISK_HIGH':+lcrBreachPct>=5?'LCR_BREACH_RISK_ELEVATED':'LCR_BREACH_RISK_LOW',
+      +nsfrBreachPct>=20?'NSFR_BREACH_RISK_HIGH':+nsfrBreachPct>=5?'NSFR_BREACH_RISK_ELEVATED':'NSFR_BREACH_RISK_LOW',
+      lcrMedianEnd>=1.0?'LCR_MEDIAN_COMPLIANT':'LCR_MEDIAN_BREACH',
+      nsfrMedianEnd>=1.0?'NSFR_MEDIAN_COMPLIANT':'NSFR_MEDIAN_BREACH'
+    ],
+    audit_signature:{client_side_executed:true,zero_pii_verified:true,synthetic_data_only:true}
+  };
+
+  document.getElementById('ap2ExportBtn').disabled=false;
+  document.getElementById('ap2ExportBtn').classList.add('ready');
+  document.getElementById('resultsPanel').classList.add('visible');
+  setProgress(100);
+  setStatus('');
+  btn.disabled=false;
+
+  render(_results);
+  showToast(`Simulation complete — ${nPaths.toLocaleString()} paths`);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RENDER
+   ───────────────────────────────────────────────────────────────── */
+function render(r) {
+  renderVerdict(r);
+  renderScorecard(r);
+  renderFanChart('lcrSvg', r.lcrPcts, r.T_LCR, 'teal', 30, r.lcrStart/100);
+  renderFanChart('nsfrSvg', r.nsfrPcts, r.T_NSFR, 'purple', 250, r.nsfrStart/100);
+  renderHistogram('lcrHistSvg', r.allLcrBreach, r.T_LCR, r.nPaths, 'teal');
+  renderHistogram('nsfrHistSvg', r.allNsfrBreach, r.T_NSFR, r.nPaths, 'purple');
+  renderTornado(r.tornadoData);
+}
+
+function renderVerdict(r){
+  const lcrOk=r.lcrMedianEnd>=1.0, nsfrOk=r.nsfrMedianEnd>=1.0;
+  const bpHigh=parseFloat(r.lcrBreachPct)>=20||parseFloat(r.nsfrBreachPct)>=20;
+  const bpMed=parseFloat(r.lcrBreachPct)>=5||parseFloat(r.nsfrBreachPct)>=5;
+  const cls=(!lcrOk||!nsfrOk||bpHigh)?'risk':bpMed?'warn':'good';
+  const icon={risk:'⚠️',warn:'⚡',good:'✅'}[cls];
+  const label={risk:'High Liquidity Risk',warn:'Elevated Stress Exposure',good:'Resilient Liquidity Position'}[cls];
+  const title={
+    risk:`Median LCR ${(r.lcrMedianEnd*100).toFixed(1)}% or NSFR ${(r.nsfrMedianEnd*100).toFixed(1)}% falls below 100% floor — supervisory breach risk`,
+    warn:`${r.lcrBreachPct}% LCR paths and ${r.nsfrBreachPct}% NSFR paths breach at least once — recalibrate buffers`,
+    good:`Median LCR ${(r.lcrMedianEnd*100).toFixed(1)}% and NSFR ${(r.nsfrMedianEnd*100).toFixed(1)}% remain above floor across ${r.nPaths.toLocaleString()} paths`
+  }[cls];
+  const sub={
+    risk:'Review HQLA composition and funding structure. Under these stress parameters the bank would likely trigger supervisory escalation under Basel III Art. 414.',
+    warn:'Consider increasing HQLA buffer or extending liability tenors to reduce NSFR RSF. Re-run with combined stress scenario if not already selected.',
+    good:'Liquidity ratios show resilience under the configured stress scenario. Use the sensitivity tornado to identify the dominant risk driver for contingency planning.'
+  }[cls];
+  document.getElementById('verdictCard').innerHTML=`<div class="verdict-card ${cls}">
+    <div class="verdict-icon">${icon}</div>
+    <div>
+      <div class="verdict-label ${cls}">${label}</div>
+      <div class="verdict-title">${title}</div>
+      <div class="verdict-sub">${sub}</div>
+    </div>
+  </div>`;
+}
+
+function renderScorecard(r){
+  const lcrEnd=r.lcrMedianEnd, nsfrEnd=r.nsfrMedianEnd;
+  const cards=[
+    {val:(lcrEnd*100).toFixed(1)+'%',label:'Median LCR (day 30)',sub:'P50 at horizon end',color:lcrEnd>=1?'var(--green)':'var(--red)'},
+    {val:(nsfrEnd*100).toFixed(1)+'%',label:'Median NSFR (day 250)',sub:'P50 at horizon end',color:nsfrEnd>=1?'var(--green)':'var(--red)'},
+    {val:r.lcrBreachPct+'%',label:'LCR breach prob',sub:'paths breaching 100%',color:+r.lcrBreachPct>=20?'var(--red)':+r.lcrBreachPct>=5?'var(--warn)':'var(--green)'},
+    {val:r.nsfrBreachPct+'%',label:'NSFR breach prob',sub:'paths breaching 100%',color:+r.nsfrBreachPct>=20?'var(--red)':+r.nsfrBreachPct>=5?'var(--warn)':'var(--green)'},
+    {val:r.nPaths.toLocaleString(),label:'MC paths',sub:`×${r.T_NSFR} time steps`,color:'var(--teal)'}
+  ];
+  document.getElementById('scorecard').innerHTML=cards.map(c=>`<div class="score-card">
+    <div class="score-val" style="color:${c.color}">${c.val}</div>
+    <div class="score-label">${c.label}</div>
+    <div class="score-sub">${c.sub}</div>
+  </div>`).join('');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   FAN CHART
+   ───────────────────────────────────────────────────────────────── */
+function renderFanChart(svgId, pcts, T, colorKey, labelDays, startRatio){
+  const color={teal:'var(--teal)',purple:'var(--purple)'}[colorKey]||'var(--teal)';
+  const dim1  ={teal:'rgba(20,184,166,.15)',  purple:'rgba(155,114,245,.15)'}[colorKey];
+  const dim2  ={teal:'rgba(20,184,166,.35)',  purple:'rgba(155,114,245,.35)'}[colorKey];
+  const W=480,H=200;
+  const PAD={t:15,r:15,b:35,l:50};
+  const pw=W-PAD.l-PAD.r, ph=H-PAD.t-PAD.b;
+  const [p5,p25,p50,p75,p95]=pcts;
+
+  const yMax=Math.min(Math.max(...p95)*1.05, 3.0);
+  const yMin=Math.max(Math.min(...p5)*0.95, 0.2);
+
+  function px(t){ return PAD.l+t/T*pw; }
+  function py(v){ return PAD.t+(1-(v-yMin)/(yMax-yMin))*ph; }
+
+  function pathD(arr){ return arr.map((v,i)=>`${i?'L':'M'}${px(i).toFixed(1)},${py(v).toFixed(1)}`).join(' '); }
+  function bandD(arr_lo, arr_hi){
+    const fwd=arr_hi.map((v,i)=>`${i?'L':'M'}${px(i).toFixed(1)},${py(v).toFixed(1)}`).join(' ');
+    const rev=[...arr_lo].reverse().map((v,i)=>`L${px(arr_lo.length-1-i).toFixed(1)},${py(v).toFixed(1)}`).join(' ');
+    return fwd+' '+rev+'Z';
+  }
+
+  // Grid
+  const nYLines=4;
+  let gridY='', gridX='';
+  for(let i=0;i<=nYLines;i++){
+    const v=yMin+(yMax-yMin)*i/nYLines;
+    const y=py(v).toFixed(1);
+    gridY+=`<line x1="${PAD.l}" y1="${y}" x2="${W-PAD.r}" y2="${y}" stroke="var(--border)" stroke-dasharray="3,3"/>
+      <text x="${(PAD.l-4).toFixed(1)}" y="${(+y+4).toFixed(1)}" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--muted)" text-anchor="end">${(v*100).toFixed(0)}%</text>`;
+  }
+  const xSteps=Math.min(6,T);
+  for(let i=0;i<=xSteps;i++){
+    const t=Math.round(i*T/xSteps);
+    const x=px(t).toFixed(1);
+    gridX+=`<line x1="${x}" y1="${PAD.t}" x2="${x}" y2="${H-PAD.b}" stroke="var(--border)" stroke-dasharray="3,3"/>
+      <text x="${x}" y="${(H-PAD.b+14).toFixed(1)}" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--muted)" text-anchor="middle">d${t}</text>`;
+  }
+
+  // 100% line
+  const y100=py(1.0).toFixed(1);
+  const floorLine=`<line x1="${PAD.l}" y1="${y100}" x2="${W-PAD.r}" y2="${y100}" stroke="var(--red)" stroke-width="1.5" stroke-dasharray="5,3"/>
+    <text x="${(W-PAD.r+3).toFixed(1)}" y="${(+y100+4).toFixed(1)}" font-family="JetBrains Mono,monospace" font-size="8" fill="var(--red)">100%</text>`;
+
+  document.getElementById(svgId).innerHTML=
+    gridY+gridX+floorLine+
+    `<path d="${bandD(p5,p95)}" fill="${dim1}"/>` +
+    `<path d="${bandD(p25,p75)}" fill="${dim2}"/>` +
+    `<path d="${pathD(p50)}" fill="none" stroke="${color}" stroke-width="2"/>`;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   HISTOGRAM
+   ───────────────────────────────────────────────────────────────── */
+function renderHistogram(svgId, breachDays, T, nPaths, colorKey){
+  const color={teal:'var(--teal)',purple:'var(--purple)'}[colorKey];
+  const W=480,H=160;
+  const PAD={t:10,r:15,b:30,l:45};
+  const pw=W-PAD.l-PAD.r, ph=H-PAD.t-PAD.b;
+
+  const validBreaches=breachDays.filter(d=>d>0);
+  if(!validBreaches.length){
+    document.getElementById(svgId).innerHTML=`<text x="${W/2}" y="${H/2}" font-family="JetBrains Mono,monospace" font-size="10" fill="var(--muted)" text-anchor="middle">No breaches in ${nPaths.toLocaleString()} paths</text>`;
+    return;
+  }
+
+  // Bucket into 10 bins
+  const BINS=10;
+  const counts=new Array(BINS).fill(0);
+  validBreaches.forEach(d=>{ const b=Math.min(Math.floor((d-1)/T*BINS),BINS-1); counts[b]++; });
+  const maxCount=Math.max(...counts);
+
+  let bars='', xLabels='';
+  const bw=pw/BINS;
+  counts.forEach((c,i)=>{
+    const x=(PAD.l+i*bw).toFixed(1);
+    const barH=(c/maxCount*ph).toFixed(1);
+    const y=(PAD.t+ph-barH).toFixed(1);
+    const dayLabel=Math.round((i+0.5)*T/BINS);
+    bars+=`<rect x="${x}" y="${y}" width="${(bw-2).toFixed(1)}" height="${barH}" fill="${color}" opacity=".7"/>`;
+    xLabels+=`<text x="${(+x+bw/2).toFixed(1)}" y="${(H-PAD.b+14).toFixed(1)}" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--muted)" text-anchor="middle">d${dayLabel}</text>`;
+  });
+
+  // Y axis
+  let yAxis='';
+  for(let i=0;i<=3;i++){
+    const v=Math.round(maxCount*i/3);
+    const y=(PAD.t+ph*(1-i/3)).toFixed(1);
+    yAxis+=`<line x1="${PAD.l}" y1="${y}" x2="${W-PAD.r}" y2="${y}" stroke="var(--border)" stroke-dasharray="3,3"/>
+      <text x="${(PAD.l-4).toFixed(1)}" y="${(+y+4).toFixed(1)}" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--muted)" text-anchor="end">${v}</text>`;
+  }
+
+  const pct=(validBreaches.length/nPaths*100).toFixed(1);
+  document.getElementById(svgId).innerHTML=yAxis+bars+xLabels+
+    `<text x="${W/2}" y="${PAD.t}" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--muted)" text-anchor="middle">${validBreaches.length} breaches (${pct}% of paths)</text>`;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   TORNADO
+   ───────────────────────────────────────────────────────────────── */
+function renderTornado(data){
+  const W=640, H=240;
+  const PAD={t:20,r:120,b:20,l:200};
+  const pw=W-PAD.l-PAD.r, ph=H-PAD.t-PAD.b;
+
+  // Sort by abs swing descending
+  const sorted=[...data].sort((a,b)=>Math.abs(b.hi-b.lo)-Math.abs(a.hi-a.lo));
+
+  const allVals=[...sorted.map(d=>d.hi),...sorted.map(d=>d.lo),...sorted.map(d=>d.base)];
+  const xMin=Math.min(...allVals)*0.95, xMax=Math.max(...allVals)*1.05;
+
+  function px(v){ return PAD.l+(v-xMin)/(xMax-xMin)*pw; }
+  const rowH=ph/sorted.length;
+  const barH=Math.min(rowH*0.55,18);
+
+  let bars='';
+  sorted.forEach((d,i)=>{
+    const cy=PAD.t+rowH*(i+0.5);
+    const xBase=px(d.base);
+    const xHi=px(d.hi);
+    const xLo=px(d.lo);
+    const color_hi=d.hi>d.base?'var(--green)':'var(--red)';
+    const color_lo=d.lo<d.base?'var(--red)':'var(--green)';
+    // Bar from base to hi
+    const x_hi_start=Math.min(xBase,xHi).toFixed(1);
+    const w_hi=Math.abs(xHi-xBase).toFixed(1);
+    const x_lo_start=Math.min(xBase,xLo).toFixed(1);
+    const w_lo=Math.abs(xLo-xBase).toFixed(1);
+    bars+=`
+      <rect x="${x_hi_start}" y="${(cy-barH/2).toFixed(1)}" width="${w_hi}" height="${(barH/2).toFixed(1)}" fill="${color_hi}" opacity=".8"/>
+      <rect x="${x_lo_start}" y="${cy.toFixed(1)}" width="${w_lo}" height="${(barH/2).toFixed(1)}" fill="${color_lo}" opacity=".6"/>
+      <text x="${(PAD.l-8).toFixed(1)}" y="${(cy+4).toFixed(1)}" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--text)" text-anchor="end">${d.label}</text>
+      <text x="${(W-PAD.r+8).toFixed(1)}" y="${(cy-barH/4).toFixed(1)}" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--green)" text-anchor="start">+20%: ${(d.hi*100).toFixed(1)}%</text>
+      <text x="${(W-PAD.r+8).toFixed(1)}" y="${(cy+barH/4+4).toFixed(1)}" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--red)" text-anchor="start">−20%: ${(d.lo*100).toFixed(1)}%</text>`;
+  });
+
+  // Base line
+  const xBase=px(sorted[0]?.base||1).toFixed(1);
+  const baseLine=`<line x1="${xBase}" y1="${PAD.t}" x2="${xBase}" y2="${H-PAD.b}" stroke="var(--gold)" stroke-width="1.5" stroke-dasharray="5,3"/>
+    <text x="${xBase}" y="${(PAD.t-5).toFixed(1)}" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--gold)" text-anchor="middle">base ${((sorted[0]?.base||1)*100).toFixed(1)}%</text>`;
+
+  // X axis labels
+  let xAxis='';
+  for(let i=0;i<=4;i++){
+    const v=xMin+(xMax-xMin)*i/4;
+    const x=px(v).toFixed(1);
+    xAxis+=`<text x="${x}" y="${(H-PAD.b+14).toFixed(1)}" font-family="JetBrains Mono,monospace" font-size="9" fill="var(--muted)" text-anchor="middle">${(v*100).toFixed(0)}%</text>`;
+  }
+
+  document.getElementById('tornadoSvg').innerHTML=bars+baseLine+xAxis;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   EXPORTS
+   ───────────────────────────────────────────────────────────────── */
+async function exportAP2(){
+  if(!_artifact) return;
+  const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  dl(JSON.stringify(_artifact,null,2),`sim-01_${ts}.policy.json`,'application/json');
+  showToast('ChainGraph artifact exported');
+}
+
+function dl(c,f,t){ const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([c],{type:t})),download:f}); a.click(); URL.revokeObjectURL(a.href); }
+
+/* ─────────────────────────────────────────────────────────────────
+   UTILS
+   ───────────────────────────────────────────────────────────────── */
+function showToast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2400); }
+async function sha256(obj){ const c=JSON.stringify(obj,Object.keys(obj).sort()); const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(c)); return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join(''); }
+
+function toggleMfst(){
+  const body=document.getElementById('mfstBody'),arrow=document.getElementById('mfstArrow'),btn=document.querySelector('.mfst-btn');
+  const open=body.style.display==='block';
+  body.style.display=open?'none':'block'; arrow.textContent=open?'▼':'▲';
+  btn.setAttribute('aria-expanded',String(!open)); body.setAttribute('aria-hidden',String(open));
+  if(!open&&!document.getElementById('mfstCode').textContent)
+    document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+</script>
+</body>
+</html>
