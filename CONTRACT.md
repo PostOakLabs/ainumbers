@@ -39,8 +39,10 @@ When bandwidth allows, a proper implementation (translated metadata layer for ES
 | Run Button | `.run-btn` | Disabled loading state during sync calculation |
 | Results Container | `.results-panel` | Hidden by default, revealed post-calculation |
 | Export Container | `.results-export-row` | Legacy alias: `.arow { @extend .results-export-row; }` |
-| MCP Panel | `.mcp-toggle` / `.mcp-panel` | Embedded `manifest.json` block |
+| MCP / manifest disclosure | `.mfst-btn` (or inline-styled equiv.) → `#mfstBody` / `#mfstCode`, wired by `toggleMfst()` | **Exactly one** collapsible toggle per tool, placed before the footer; lazy-renders the tool's `MANIFEST` object as formatted JSON. Legacy `.mcp-toggle` / `.mcp-panel` / `toggleMCP()` patterns are prohibited. |
 | PII Banner | `.pii-notice` | Placed on identifier inputs (IBAN, BIC, LEI, etc.) |
+
+> **MCP / manifest disclosure (standardized 2026-06-11).** Tools expose `manifest.json` through a single `mfst` toggle: `.mfst-btn` (or an inline-styled equivalent) placed before the footer, controlling `#mfstBody` / `#mfstCode`, opened by `toggleMfst()` which lazy-renders `JSON.stringify(MANIFEST, null, 2)`. The inline `MANIFEST` const is the single source of truth. The legacy `.mcp-toggle` / `.mcp-panel` / `#mcpPanel` / `toggleMCP()` button-and-panel pattern is RETIRED and MUST NOT appear in new or existing tools. Pattern unified with sister suite Apex Logics; swept via `standardize_mcp_toggle.py`.
 
 ### 1.3 Unified PII Banner Text
 ```text
