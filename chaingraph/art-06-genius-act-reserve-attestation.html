@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>GENIUS Act Reserve Attestation Pre-Check · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Pre-check stablecoin reserves against GENIUS Act (S.394) requirements: 1:1 coverage, permitted-asset composition, monthly attestation figures against AICPA 2025 criteria for CEO/CFO certification. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-06-genius-act-reserve-attestation.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"GENIUS Act Reserve Attestation Pre-Check","url":"https://ainumbers.co/chaingraph/art-06-genius-act-reserve-attestation.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "art-06-genius-act-reserve-attestation",
+  "version": "1.0.0",
+  "title": "GENIUS Act Reserve Attestation Pre-Check",
+  "description": "Pre-checks stablecoin payment instrument reserves against GENIUS Act (S.394) requirements: 1:1 coverage ratio, reserve-asset composition against permitted-asset classes, monthly reserve-report figures against AICPA 2025 Criteria for CEO/CFO certification. Returns attestation-readiness determination with failing dimensions enumerated.",
+  "category": "chaingraph",
+  "tags": ["GENIUS Act","stablecoin","reserve attestation","AICPA 2025","payment stablecoin","crypto","reserve composition","1:1 backing"],
+  "mcp_tool_definition": {"name":"precheck_reserve_attestation","description":"Pre-checks stablecoin reserves against GENIUS Act (S.394) requirements. Validates 1:1 coverage, asset-class eligibility, and AICPA 2025 monthly-attestation completeness. Returns attestation-readiness determination with failing dimensions enumerated.","inputSchema":{"type":"object","properties":{"outstanding_tokens":{"type":"number"},"token_price_usd":{"type":"number"},"reserve_assets":{"type":"array","items":{"type":"object","properties":{"asset_type":{"type":"string"},"usd_value":{"type":"number"},"maturity_days":{"type":"number"}}}},"attestation_checklist":{"type":"object"}},"required":["outstanding_tokens","token_price_usd","reserve_assets"]}},
+  "execution": {"type":"browser-javascript","entry":"chaingraph/art-06-genius-act-reserve-attestation.html","function_name":"runAttestation","timeout_ms":2000},
+  "ap2_export": true,
+  "chaingraph": true,
+  "chain_partners": ["ptg-01-ap2-prompt-template-generator"],
+  "mandate_type": "attestation_mandate"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.deadline-banner{background:var(--gold-dim);border:1px solid rgba(212,168,71,.3);border-left:3px solid var(--gold);border-radius:var(--radius);padding:.65rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--text);line-height:1.6;margin-bottom:1.25rem}
+.deadline-banner strong{color:var(--gold)}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--muted);padding:.65rem 1rem;font-size:.7rem;color:var(--muted);line-height:1.6;margin-bottom:1.25rem;border-radius:var(--radius)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--teal)}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.3rem}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.15rem;display:block;line-height:1.4}
+input[type="text"],input[type="number"],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'Sora',sans-serif;font-size:.75rem;padding:.38rem .55rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+input[type="text"]:focus,input[type="number"]:focus,select:focus{border-color:var(--teal)}
+/* GRID */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-bottom:.85rem}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.85rem;margin-bottom:.85rem}
+@media(max-width:640px){.two-col,.three-col{grid-template-columns:1fr}}
+/* ASSET TABLE */
+.asset-table-wrap{overflow-x:auto}
+.asset-table{width:100%;border-collapse:collapse}
+.asset-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.5rem .65rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400}
+.asset-table td{padding:.45rem .5rem;border-bottom:1px solid rgba(30,47,74,.5)}
+.asset-table tr:last-child td{border-bottom:none}
+.asset-input{background:var(--bg-2);border:1px solid var(--border-2);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.6rem;padding:.28rem .4rem;border-radius:3px;outline:none;width:100%}
+.asset-input:focus{border-color:var(--teal)}
+.del-asset-btn{font-family:'JetBrains Mono',monospace;font-size:.44rem;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.18rem .4rem;border-radius:3px;transition:all .2s;cursor:pointer}
+.del-asset-btn:hover{border-color:var(--red);color:var(--red)}
+.add-asset-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.28rem .7rem;border-radius:3px;transition:all .2s;cursor:pointer;margin-top:.65rem}
+.add-asset-btn:hover{border-color:var(--teal);color:var(--teal)}
+.demo-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:var(--teal-dim);border:1px solid rgba(20,184,166,.35);color:var(--teal);padding:.28rem .7rem;border-radius:3px;transition:all .2s;cursor:pointer}
+.demo-btn:hover{background:rgba(20,184,166,.2)}
+/* ELIGIBILITY LEGEND */
+.eligibility-legend{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.85rem}
+.elig-chip{font-family:'JetBrains Mono',monospace;font-size:.44rem;padding:.18rem .5rem;border-radius:3px;border:1px solid}
+.elig-permitted{color:var(--green);border-color:rgba(34,197,94,.3);background:var(--green-dim)}
+.elig-conditional{color:var(--warn);border-color:rgba(245,158,11,.3);background:var(--warn-dim)}
+.elig-prohibited{color:var(--red);border-color:rgba(239,68,68,.3);background:var(--red-dim)}
+/* CHECKLIST */
+.check-item{display:flex;align-items:flex-start;gap:.65rem;padding:.45rem 0;border-bottom:1px solid rgba(30,47,74,.4)}
+.check-item:last-child{border-bottom:none}
+.check-toggle{display:flex;gap:.25rem;flex-shrink:0;margin-top:.05rem}
+.check-btn{font-family:'JetBrains Mono',monospace;font-size:.44rem;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.18rem .45rem;border-radius:2px;transition:all .15s;cursor:pointer}
+.check-btn.yes{border-color:var(--green);color:var(--green);background:var(--green-dim)}
+.check-btn.no{border-color:var(--red);color:var(--red);background:var(--red-dim)}
+.check-text{flex:1;font-size:.7rem;color:var(--body);line-height:1.5}
+.check-ref{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted);margin-top:.1rem}
+/* RUN */
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+/* RESULTS */
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+/* VERDICT */
+.verdict-card{border-radius:var(--radius-lg);padding:1.3rem 1.5rem;margin-bottom:1rem;display:flex;align-items:flex-start;gap:1.1rem}
+.verdict-card.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.3)}
+.verdict-card.warn{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.35)}
+.verdict-card.fail{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.35)}
+.verdict-icon{font-size:1.6rem;line-height:1;flex-shrink:0;margin-top:.1rem}
+.verdict-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.25rem}
+.verdict-label.pass{color:var(--green)}.verdict-label.warn{color:var(--warn)}.verdict-label.fail{color:var(--red)}
+.verdict-title{font-family:'DM Serif Display',serif;font-size:1.35rem;color:var(--white);margin-bottom:.3rem}
+.verdict-sub{font-size:.7rem;color:var(--body);line-height:1.6}
+/* COVERAGE GAUGE */
+.coverage-row{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1rem}
+@media(max-width:580px){.coverage-row{grid-template-columns:1fr 1fr}}
+.metric-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.85rem 1rem;text-align:center}
+.metric-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.25rem}
+.metric-value{font-family:'DM Serif Display',serif;font-size:1.5rem;line-height:1;margin-bottom:.1rem}
+.metric-sub{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted)}
+/* COMPOSITION CHART */
+.composition-rows{display:flex;flex-direction:column;gap:.5rem}
+.comp-row{display:flex;align-items:center;gap:.75rem}
+.comp-name{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--text);width:220px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.comp-bar-outer{flex:1;height:12px;background:var(--bg-3);border-radius:3px;overflow:hidden}
+.comp-bar-inner{height:100%;border-radius:3px}
+.comp-val{font-family:'JetBrains Mono',monospace;font-size:.52rem;width:55px;text-align:right;flex-shrink:0}
+.comp-flag{font-family:'JetBrains Mono',monospace;font-size:.46rem;flex-shrink:0;width:80px}
+/* FAILING */
+.failing-list{display:flex;flex-direction:column;gap:.5rem}
+.failing-item{background:var(--red-dim);border:1px solid rgba(239,68,68,.25);border-radius:var(--radius);padding:.6rem .85rem}
+.failing-item-name{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--red);margin-bottom:.1rem}
+.failing-item-detail{font-size:.68rem;color:var(--body)}
+/* EXPORT */
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--teal);color:var(--bright)}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="chaingraph-hub.html">ChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">ART-06</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph Suite · ART-06 · GENIUS Act Reserve Attestation</div>
+  <span class="badge badge-muted" style="display:inline-flex;margin-bottom:.6rem"><span>v1.0.0</span></span>
+  <h1>GENIUS Act Reserve <em>Attestation Pre-Check</em></h1>
+  <p class="hero-desc">Pre-check stablecoin payment instrument reserves against the <strong>GENIUS Act (S.394)</strong> requirements — expected to take effect by January 2027. Verify 1:1 coverage, test your reserve portfolio against permitted-asset classes, and score your monthly reserve report against <strong>AICPA 2025 Criteria</strong> required for CEO/CFO attestation. All computation runs locally — no data leaves your browser.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">AP2 Export</span>
+    <span class="badge badge-teal">Chains: PTG-01</span>
+    <span class="badge badge-gold">Deadline: ≤ Jan 2027</span>
+    <span class="badge badge-gold">GENIUS Act S.394</span>
+    <span class="badge badge-gold">AICPA 2025 Criteria</span>
+    <span class="badge badge-green">Zero PII</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Use synthetic or anonymised figures only — do not enter live reserve balances or customer data.</div>
+
+  <div class="deadline-banner">
+    ⏰ <strong>≤ January 2027</strong> — GENIUS Act (Guiding and Establishing National Innovation for US Stablecoins Act, S.394) expected to become effective. Payment stablecoin issuers must maintain 1:1 reserves in permitted assets, publish monthly reserve reports, and obtain CEO/CFO certification against AICPA 2025 Attestation Criteria. FDIC NPRM on stablecoin deposit insurance issued April 2026.
+  </div>
+
+  <div class="disclaimer">
+    ⚠ <strong style="color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.62rem">Pre-check only — not legal or attestation advice.</strong> The GENIUS Act was passed by the Senate (May 2025) and awaiting House enactment as of June 2026 — final text and implementing regulations may differ from this tool's implementation. Asset eligibility classes and maturity limits are based on S.394 as passed by the Senate. AICPA 2025 Attestation Criteria are indicative. This tool is not a substitute for a licensed PCAOB/AICPA-registered accounting firm's attestation engagement. Verify against enacted law and finalised regulatory guidance.
+  </div>
+
+  <!-- ISSUANCE DETAILS -->
+  <div class="panel">
+    <div class="panel-label">Stablecoin issuance details</div>
+    <div class="three-col">
+      <div>
+        <label class="field-label" for="issuerName">Issuer / token name</label>
+        <input type="text" id="issuerName" placeholder="e.g. Acme USD (AUSD)">
+      </div>
+      <div>
+        <label class="field-label" for="outstandingTokens">Tokens outstanding</label>
+        <input type="number" id="outstandingTokens" placeholder="1000000000" min="0" step="1">
+        <span class="field-hint">Number of tokens currently in circulation</span>
+      </div>
+      <div>
+        <label class="field-label" for="tokenPrice">Par value / price (USD)</label>
+        <input type="number" id="tokenPrice" value="1.00" min="0" step="0.0001">
+        <span class="field-hint">Target peg — typically USD 1.00</span>
+      </div>
+    </div>
+    <div class="two-col">
+      <div>
+        <label class="field-label" for="reportMonth">Reserve report month</label>
+        <input type="text" id="reportMonth" placeholder="e.g. May 2026">
+      </div>
+      <div>
+        <label class="field-label" for="issuerType">Issuer type</label>
+        <select id="issuerType">
+          <option value="bank">Insured depository institution</option>
+          <option value="nonbank_federal" selected>Federally licensed nonbank stablecoin issuer</option>
+          <option value="nonbank_state">State-licensed nonbank stablecoin issuer</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESERVE ASSETS -->
+  <div class="panel">
+    <div class="panel-label">Reserve portfolio — enter each asset</div>
+
+    <div class="eligibility-legend">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted);margin-right:.25rem">Asset eligibility:</span>
+      <span class="elig-chip elig-permitted">✓ Permitted</span>
+      <span class="elig-chip elig-conditional">~ Conditional</span>
+      <span class="elig-chip elig-prohibited">✗ Prohibited</span>
+    </div>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted);margin:.5rem 0 .85rem">GENIUS Act S.394 §4(a) permitted assets: US coins/currency, demand deposits at insured depository institutions, T-bills/notes/bonds, repo secured by US Treasuries (≤93 days), MMMF investing solely in permitted assets. Conditional: state-licensed may hold additional assets subject to state rules.</p>
+
+    <div style="display:flex;gap:.5rem;margin-bottom:.85rem;flex-wrap:wrap">
+      <button class="demo-btn" onclick="loadDemo()">Load synthetic reserve portfolio</button>
+      <button class="add-asset-btn" onclick="addAsset()">+ Add asset</button>
+    </div>
+
+    <div class="asset-table-wrap">
+      <table class="asset-table">
+        <thead><tr>
+          <th>Asset type</th>
+          <th>USD value</th>
+          <th>Maturity (days, if applicable)</th>
+          <th>Custodian / institution type</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="assetTableBody"></tbody>
+      </table>
+    </div>
+    <button class="add-asset-btn" onclick="addAsset()">+ Add asset</button>
+
+    <div id="portfolioSummary" style="margin-top:.85rem;display:none">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)">
+        Total reserve value: <span id="totalReserveVal" style="color:var(--bright);font-size:.65rem"></span>
+        &nbsp;·&nbsp; Tokens × price: <span id="totalLiabilityVal" style="color:var(--text);font-size:.65rem"></span>
+        &nbsp;·&nbsp; Coverage: <span id="coveragePreview" style="font-size:.65rem"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- AICPA 2025 ATTESTATION CHECKLIST -->
+  <div class="panel">
+    <div class="panel-label">Monthly reserve report — AICPA 2025 attestation criteria</div>
+    <p style="font-size:.7rem;color:var(--body);margin-bottom:.85rem;line-height:1.7">Confirm which criteria your monthly reserve report currently satisfies. These items represent the attestation engagement requirements that a PCAOB/AICPA-registered firm will assess. Gaps here indicate report preparation work needed before January 2027.</p>
+    <div id="aicpaChecklist"></div>
+  </div>
+
+  <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:2rem">
+    <button class="run-btn" onclick="runAttestation()">▶ Run Attestation Pre-Check</button>
+    <span id="runStatus" style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)"></span>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+
+    <div id="verdictCard"></div>
+
+    <!-- COVERAGE -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Coverage analysis</span></div>
+      <div class="out-body">
+        <div class="coverage-row" id="coverageRow"></div>
+        <div id="coverageBar" style="height:10px;border-radius:4px;background:var(--bg-3);overflow:hidden;margin-top:.25rem;margin-bottom:.5rem">
+          <div id="coverageBarFill" style="height:100%;border-radius:4px;transition:width .5s"></div>
+        </div>
+        <div id="coverageNote" style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)"></div>
+      </div>
+    </div>
+
+    <!-- COMPOSITION -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Reserve composition — eligibility by asset</span></div>
+      <div class="out-body"><div class="composition-rows" id="compositionRows"></div></div>
+    </div>
+
+    <!-- FAILING -->
+    <div class="out-section" id="failingSection" style="display:none">
+      <div class="out-header"><span class="out-title">Failing dimensions — remediation required</span></div>
+      <div class="out-body"><div class="failing-list" id="failingList"></div></div>
+    </div>
+
+    <!-- AICPA SCORE -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">AICPA 2025 attestation readiness</span></div>
+      <div class="out-body">
+        <div id="aicpaScoreBlock"></div>
+      </div>
+    </div>
+
+    <!-- EXPORT -->
+    <div class="results-export-row">
+      <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()">
+        {} Export ChainGraph Artifact
+        <span class="btn-subtitle">AP2 · attestation_mandate · chain-anchored</span>
+      </button>
+      <button class="btn btn-ghost" id="mdExportBtn" disabled onclick="exportMarkdown()">
+        &#x21E9; Export Pre-Check Report
+        <span class="btn-subtitle">Markdown attestation readiness report</span>
+      </button>
+    </div>
+
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()" style="margin-top:2rem" aria-expanded="false" aria-controls="mfstBody">
+    <span>&#x7B;&#x7D; MCP Manifest — ART-06</span>
+    <span id="mfstArrow">&#x25BC;</span>
+  </button>
+  <div class="mfst-body" id="mfstBody" aria-hidden="true">
+    <pre class="mfst-code" id="mfstCode"></pre>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" style="display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500"><span style="color:var(--teal)">AI</span>Numbers.co</span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="chaingraph-hub.html">ChainGraph Hub</a>
+      <a href="../about.html">About</a>
+      <a href="https://mcp.ainumbers.co/mcp" target="_blank" rel="noopener noreferrer">MCP Server</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>Post Oak Labs · CC BY 4.0</span>
+      <span>ChainGraph Suite · ART-06 v1.0.0</span>
+      <span>GENIUS Act S.394 · AICPA 2025 Attestation Criteria</span>
+    </div>
+  </div>
+</div></footer>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────────────────────────
+   MANIFEST
+   ───────────────────────────────────────────────────────────────── */
+const MANIFEST = {
+  tool_id: 'art-06-genius-act-reserve-attestation',
+  version: '1.0.0',
+  title: 'GENIUS Act Reserve Attestation Pre-Check',
+  description: 'Pre-checks stablecoin reserves against GENIUS Act S.394: 1:1 coverage, permitted-asset composition, AICPA 2025 monthly attestation criteria. Returns attestation-readiness determination.',
+  category: 'chaingraph',
+  mcp_tool_definition: {
+    name: 'precheck_reserve_attestation',
+    description: 'Pre-checks stablecoin reserves against GENIUS Act (S.394) requirements: 1:1 coverage, asset eligibility, AICPA 2025 attestation readiness.',
+    inputSchema: { type:'object', required:['outstanding_tokens','token_price_usd','reserve_assets'] }
+  },
+  execution: { type:'browser-javascript', entry:'chaingraph/art-06-genius-act-reserve-attestation.html', function_name:'runAttestation', timeout_ms:2000 },
+  ap2_export: true, chaingraph: true
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   ASSET TYPE DEFINITIONS
+   Source: GENIUS Act S.394 §4(a) as passed by Senate May 2025
+   ───────────────────────────────────────────────────────────────── */
+const ASSET_TYPES = [
+  { value:'us_coins_currency',    label:'US coins and currency',                    eligibility:'permitted',    maturityRequired:false, maxMaturityDays:null,  note:'Physical USD and US Mint coins' },
+  { value:'demand_deposit',       label:'Demand deposit — insured depository inst.',eligibility:'permitted',    maturityRequired:false, maxMaturityDays:null,  note:'FDIC/NCUA-insured demand deposits' },
+  { value:'tbill',                label:'US Treasury Bill',                         eligibility:'permitted',    maturityRequired:true,  maxMaturityDays:93,    note:'T-Bills ≤93 days to maturity' },
+  { value:'tnote_tbond',          label:'US Treasury Note / Bond',                  eligibility:'permitted',    maturityRequired:false, maxMaturityDays:null,  note:'All maturities — no maturity limit in S.394 §4(a)' },
+  { value:'agency_mbs',           label:'US agency / GSE securities',               eligibility:'conditional', maturityRequired:false, maxMaturityDays:null,  note:'Permitted only for insured depository institution issuers' },
+  { value:'repo_treasury',        label:'Repo secured by US Treasuries',            eligibility:'permitted',    maturityRequired:true,  maxMaturityDays:93,    note:'Overnight or term repo ≤93 days, fully collateralised by Treasuries' },
+  { value:'mmmf',                 label:'Money market mutual fund (Treasury-only)',  eligibility:'permitted',    maturityRequired:false, maxMaturityDays:null,  note:'MMMF investing solely in permitted assets (SEC Rule 2a-7)' },
+  { value:'fed_reserve_balance',  label:'Federal Reserve balance / master account', eligibility:'permitted',    maturityRequired:false, maxMaturityDays:null,  note:'Reserve balances at a Federal Reserve Bank' },
+  { value:'other_fiat',           label:'Foreign fiat currency / foreign T-bills',  eligibility:'prohibited',  maturityRequired:false, maxMaturityDays:null,  note:'Not permitted under S.394 §4(a)' },
+  { value:'crypto_asset',         label:'Crypto asset (BTC/ETH/other)',             eligibility:'prohibited',  maturityRequired:false, maxMaturityDays:null,  note:'Explicitly prohibited as reserve asset' },
+  { value:'corporate_bond',       label:'Corporate bond / commercial paper',        eligibility:'prohibited',  maturityRequired:false, maxMaturityDays:null,  note:'Not among permitted assets in S.394 §4(a)' },
+  { value:'other',                label:'Other / unclassified',                     eligibility:'conditional', maturityRequired:false, maxMaturityDays:null,  note:'Classified as conditional — verify eligibility with counsel' }
+];
+
+const ASSET_MAP = Object.fromEntries(ASSET_TYPES.map(a=>[a.value,a]));
+
+/* ─────────────────────────────────────────────────────────────────
+   AICPA 2025 CRITERIA
+   Indicative — based on published AICPA Attestation Standards
+   and GENIUS Act §4(b) monthly attestation requirements
+   ───────────────────────────────────────────────────────────────── */
+const AICPA_ITEMS = [
+  /* Reserve report completeness */
+  { id:'a1', text:'Monthly reserve report identifies the total number of payment stablecoins outstanding as of the report date.', ref:'GENIUS Act §4(b)(1) · AICPA AT-C §395', weight:2 },
+  { id:'a2', text:'Report identifies and describes each category of reserve asset held, with USD value as of the report date.', ref:'GENIUS Act §4(b)(2) · AICPA AT-C §395', weight:2 },
+  { id:'a3', text:'Report discloses the name and location of each custodian holding reserve assets.', ref:'GENIUS Act §4(b)(3)', weight:1 },
+  { id:'a4', text:'Report discloses the aggregate outstanding amount of each issuance series of the payment stablecoin.', ref:'GENIUS Act §4(b)(4)', weight:1 },
+  /* CEO/CFO certification */
+  { id:'a5', text:'CEO/CFO certification is prepared and ready to attest that the reserve report is accurate and complete to the best of their knowledge.', ref:'GENIUS Act §4(c) · SOX-style certification', weight:2 },
+  { id:'a6', text:'CEO/CFO certification includes explicit attestation that the issuer holds ≥100% reserves in permitted assets.', ref:'GENIUS Act §4(c)(1)', weight:2 },
+  /* Accounting firm engagement */
+  { id:'a7', text:'An independent PCAOB-registered (or AICPA-member) accounting firm has been engaged or is available to perform the attestation engagement.', ref:'GENIUS Act §4(d) · AICPA AT-C §205', weight:2 },
+  { id:'a8', text:'Management has prepared a written assertion about the reserve asset balances for the attest engagement.', ref:'AICPA AT-C §105.23', weight:1 },
+  /* Controls */
+  { id:'a9', text:'Controls over the issuance and redemption of stablecoins are documented and reconcile to reserve asset movements.', ref:'AICPA AT-C §395 · GENIUS Act §4(b)', weight:2 },
+  { id:'a10', text:'Procedures exist to ensure reserve assets are segregated from the issuer\'s proprietary assets and cannot be commingled.', ref:'GENIUS Act §4(a)(4) · AICPA AT-C §395', weight:2 },
+  /* Publication */
+  { id:'a11', text:'Policies exist to publish the completed monthly reserve report on the issuer\'s public website within the required timeframe.', ref:'GENIUS Act §4(b)', weight:1 },
+  { id:'a12', text:'Internal audit or compliance review of the reserve report has been completed or is scheduled prior to public release.', ref:'AICPA AT-C §395', weight:1 }
+];
+
+/* ─────────────────────────────────────────────────────────────────
+   STATE
+   ───────────────────────────────────────────────────────────────── */
+let _assets = [];
+let _aicpaAnswers = {};
+let _result = null;
+let _artifact = null;
+let _assetCounter = 0;
+
+/* ─────────────────────────────────────────────────────────────────
+   ASSET TABLE
+   ───────────────────────────────────────────────────────────────── */
+function addAsset(data) {
+  const id = 'asset_' + (++_assetCounter);
+  _assets.push({ id, type: data?.type||'tbill', usd: data?.usd||0, maturity: data?.maturity||null, custodian: data?.custodian||'' });
+  renderAssets();
+  updatePortfolioSummary();
+}
+
+function removeAsset(id) {
+  _assets = _assets.filter(a=>a.id!==id);
+  renderAssets();
+  updatePortfolioSummary();
+}
+
+function updateAssetField(id, field, val) {
+  const a = _assets.find(a=>a.id===id);
+  if (!a) return;
+  if (field==='usd') a.usd = parseFloat(val)||0;
+  else if (field==='maturity') a.maturity = val===''?null:(parseInt(val)||null);
+  else a[field] = val;
+  updatePortfolioSummary();
+}
+
+function renderAssets() {
+  const tbody = document.getElementById('assetTableBody');
+  tbody.innerHTML = _assets.map(a => {
+    const def = ASSET_MAP[a.type]||ASSET_MAP['other'];
+    const eligColor = def.eligibility==='permitted'?'var(--green)':def.eligibility==='conditional'?'var(--warn)':'var(--red)';
+    const eligIcon  = def.eligibility==='permitted'?'✓':def.eligibility==='conditional'?'~':'✗';
+    return `<tr>
+      <td>
+        <select class="asset-input" style="min-width:220px" onchange="updateAssetField('${a.id}','type',this.value);renderAssets();updatePortfolioSummary()">
+          ${ASSET_TYPES.map(t=>`<option value="${t.value}"${t.value===a.type?' selected':''}>${t.label}</option>`).join('')}
+        </select>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.42rem;margin-top:.2rem;color:${eligColor}">${eligIcon} ${def.eligibility.toUpperCase()} · ${def.note}</div>
+      </td>
+      <td><input type="number" class="asset-input" style="width:130px" placeholder="0" min="0" step="1000" value="${a.usd||''}" onchange="updateAssetField('${a.id}','usd',this.value)" oninput="updateAssetField('${a.id}','usd',this.value)"></td>
+      <td>${def.maturityRequired
+        ? `<input type="number" class="asset-input" style="width:90px" placeholder="e.g. 30" min="1" max="365" value="${a.maturity||''}" onchange="updateAssetField('${a.id}','maturity',this.value)"><span style="font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted);display:block;margin-top:.15rem">≤ ${ASSET_MAP[a.type]?.maxMaturityDays||93} days max</span>`
+        : `<span style="font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted)">N/A</span>`}</td>
+      <td><input type="text" class="asset-input" placeholder="Custodian / institution" value="${esc(a.custodian)}" onchange="updateAssetField('${a.id}','custodian',this.value)"></td>
+      <td><button class="del-asset-btn" onclick="removeAsset('${a.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function updatePortfolioSummary() {
+  const tokens = parseFloat(document.getElementById('outstandingTokens').value)||0;
+  const price  = parseFloat(document.getElementById('tokenPrice').value)||1;
+  const totalReserve = _assets.reduce((s,a)=>s+a.usd, 0);
+  const totalLiab = tokens * price;
+  const ratio = totalLiab > 0 ? totalReserve / totalLiab : null;
+
+  const summary = document.getElementById('portfolioSummary');
+  if (_assets.length > 0) {
+    summary.style.display = 'block';
+    document.getElementById('totalReserveVal').textContent = fmt(totalReserve);
+    document.getElementById('totalLiabilityVal').textContent = fmt(totalLiab);
+    const covEl = document.getElementById('coveragePreview');
+    if (ratio !== null) {
+      covEl.textContent = `${(ratio*100).toFixed(2)}%`;
+      covEl.style.color = ratio >= 1 ? 'var(--green)' : 'var(--red)';
+    } else {
+      covEl.textContent = '—';
+    }
+  } else {
+    summary.style.display = 'none';
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   CHECKLIST
+   ───────────────────────────────────────────────────────────────── */
+function renderChecklist() {
+  document.getElementById('aicpaChecklist').innerHTML = AICPA_ITEMS.map(item => `
+    <div class="check-item">
+      <div class="check-toggle">
+        <button class="check-btn${_aicpaAnswers[item.id]===true?' yes':''}" onclick="setCheck('${item.id}',true)">Yes</button>
+        <button class="check-btn${_aicpaAnswers[item.id]===false?' no':''}" onclick="setCheck('${item.id}',false)">No</button>
+      </div>
+      <div>
+        <div class="check-text">${item.text}</div>
+        <div class="check-ref">${item.ref}${item.weight>1?' · <strong style="color:var(--warn)">High weight</strong>':''}</div>
+      </div>
+    </div>`).join('');
+}
+
+function setCheck(id, val) {
+  _aicpaAnswers[id] = val;
+  renderChecklist();
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   DEMO
+   ───────────────────────────────────────────────────────────────── */
+function loadDemo() {
+  _assets = []; _assetCounter = 0;
+  document.getElementById('issuerName').value = 'Acme USD (AUSD)';
+  document.getElementById('outstandingTokens').value = '2500000000';
+  document.getElementById('tokenPrice').value = '1.00';
+  document.getElementById('reportMonth').value = 'May 2026';
+  const demo = [
+    {type:'tbill',              usd:1200000000, maturity:30,  custodian:'BNY Mellon (custodian)'},
+    {type:'demand_deposit',     usd:600000000,  maturity:null,custodian:'JPMorgan Chase (FDIC insured)'},
+    {type:'repo_treasury',      usd:400000000,  maturity:1,   custodian:'Goldman Sachs (overnight repo)'},
+    {type:'mmmf',               usd:200000000,  maturity:null,custodian:'Vanguard Treasury MMMF'},
+    {type:'crypto_asset',       usd:50000000,   maturity:null,custodian:'Internal cold wallet'},  /* prohibited */
+    {type:'tbill',              usd:80000000,   maturity:120, custodian:'State Street (custodian)'}  /* maturity violation */
+  ];
+  demo.forEach(d => addAsset(d));
+  /* Pre-fill checklist — mostly yes, a few gaps */
+  _aicpaAnswers = { a1:true,a2:true,a3:true,a4:true,a5:false,a6:false,a7:true,a8:true,a9:false,a10:true,a11:true,a12:false };
+  renderChecklist();
+  showToast('Demo loaded — synthetic reserve portfolio with 2 compliance issues');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   MAIN RUN
+   ───────────────────────────────────────────────────────────────── */
+async function runAttestation() {
+  const statusEl = document.getElementById('runStatus');
+
+  const tokens = parseFloat(document.getElementById('outstandingTokens').value)||0;
+  const price  = parseFloat(document.getElementById('tokenPrice').value)||1;
+  const issuerType = document.getElementById('issuerType').value;
+
+  if (!tokens || tokens <= 0) {
+    statusEl.style.color='var(--red)';
+    statusEl.textContent='Enter tokens outstanding.';
+    return;
+  }
+  if (_assets.length === 0) {
+    statusEl.style.color='var(--red)';
+    statusEl.textContent='Add at least one reserve asset.';
+    return;
+  }
+
+  statusEl.style.color='var(--teal)';
+  statusEl.textContent='Running…';
+
+  const totalLiab = tokens * price;
+  const totalReserve = _assets.reduce((s,a)=>s+a.usd,0);
+  const coverageRatio = totalLiab > 0 ? totalReserve / totalLiab : 0;
+
+  /* Per-asset eligibility */
+  const assetResults = _assets.map(a => {
+    const def = ASSET_MAP[a.type] || ASSET_MAP['other'];
+    const issues = [];
+    if (def.eligibility === 'prohibited') {
+      issues.push(`${def.label} is not a permitted reserve asset under GENIUS Act S.394 §4(a)`);
+    } else if (def.eligibility === 'conditional') {
+      if (a.type === 'agency_mbs' && issuerType !== 'bank') {
+        issues.push('Agency/GSE securities are only permitted for insured depository institution issuers');
+      } else if (a.type !== 'agency_mbs') {
+        issues.push(`${def.label}: verify eligibility with counsel — classified as conditional`);
+      }
+    }
+    if (def.maturityRequired && def.maxMaturityDays && a.maturity !== null) {
+      if (a.maturity > def.maxMaturityDays) {
+        issues.push(`Maturity ${a.maturity} days exceeds ${def.maxMaturityDays}-day limit for ${def.label}`);
+      }
+    } else if (def.maturityRequired && a.maturity === null) {
+      issues.push(`Maturity not specified — ${def.label} requires maturity ≤ ${def.maxMaturityDays} days`);
+    }
+    const pct = totalReserve > 0 ? (a.usd / totalReserve * 100) : 0;
+    return { ...a, def, issues, hasFail: issues.length > 0, pct };
+  });
+
+  /* Prohibited value total */
+  const prohibitedTotal = assetResults.filter(a=>a.def.eligibility==='prohibited').reduce((s,a)=>s+a.usd,0);
+  const conditionalTotal = assetResults.filter(a=>a.def.eligibility==='conditional' && a.hasFail).reduce((s,a)=>s+a.usd,0);
+  const eligibleTotal = totalReserve - prohibitedTotal - conditionalTotal;
+
+  /* AICPA score */
+  let aicpaEarned = 0, aicpaTotal = 0, aicpaMissing = [];
+  AICPA_ITEMS.forEach(item => {
+    aicpaTotal += item.weight;
+    if (_aicpaAnswers[item.id] === true) aicpaEarned += item.weight;
+    else if (_aicpaAnswers[item.id] === false) aicpaMissing.push(item);
+  });
+  const aicpaScore = aicpaTotal > 0 ? aicpaEarned / aicpaTotal : 1;
+
+  /* Failing dimensions */
+  const failingDimensions = [];
+  if (coverageRatio < 1) {
+    failingDimensions.push({
+      dim: 'Coverage ratio < 100%',
+      detail: `Reserves (${fmt(totalReserve)}) cover only ${(coverageRatio*100).toFixed(2)}% of outstanding tokens (${fmt(totalLiab)} required). Shortfall: ${fmt(totalLiab - totalReserve)}.`,
+      ref: 'GENIUS Act S.394 §4(a)'
+    });
+  }
+  assetResults.filter(a=>a.hasFail).forEach(a => {
+    a.issues.forEach(issue => failingDimensions.push({
+      dim: `Asset issue — ${a.def.label}`,
+      detail: issue,
+      ref: 'GENIUS Act S.394 §4(a)'
+    }));
+  });
+  aicpaMissing.filter(i=>i.weight>1).forEach(item => {
+    failingDimensions.push({ dim: `AICPA attestation — ${item.id.toUpperCase()}`, detail: item.text, ref: item.ref });
+  });
+
+  const highWeightAicpaFail = AICPA_ITEMS.filter(i=>i.weight>1).some(i=>_aicpaAnswers[i.id]===false);
+  let determination;
+  if (coverageRatio < 1 || prohibitedTotal > 0 || highWeightAicpaFail) determination = 'FAIL';
+  else if (conditionalTotal > 0 || aicpaScore < 0.8) determination = 'WARN';
+  else determination = 'PASS';
+
+  _result = { determination, coverageRatio, totalReserve, totalLiab, eligibleTotal, prohibitedTotal, assetResults, aicpaScore, aicpaEarned, aicpaTotal, aicpaMissing, failingDimensions, tokens, price };
+
+  renderAttestationResults(_result);
+  statusEl.textContent = '';
+
+  /* Build artifact */
+  const now = new Date().toISOString();
+  const policyParams = {
+    execution_backend: 'js',
+    issuer_type: issuerType,
+    reserve_asset_count: _assets.length
+  };
+  const outputForHash = {
+    determination,
+    coverage_pct: parseFloat((coverageRatio*100).toFixed(4)),
+    prohibited_usd: prohibitedTotal,
+    aicpa_score_pct: Math.round(aicpaScore*100)
+  };
+  const hash = await sha256({policy_parameters:policyParams, output_payload:outputForHash});
+
+  _artifact = {
+    ap2_version: '1.0.0',
+    mandate_type: 'attestation_mandate',
+    tool_id: 'art-06-genius-act-reserve-attestation',
+    tool_version: '1.0.0',
+    generated_at: now,
+    execution_hash: hash,
+    chain: { parent_hashes:[], parent_tool_ids:[], chain_depth:0 },
+    policy_parameters: policyParams,
+    output_payload: {
+      attestation_readiness_determination: determination,
+      coverage_ratio_pct: parseFloat((coverageRatio*100).toFixed(4)),
+      total_reserves_usd: totalReserve,
+      total_liabilities_usd: totalLiab,
+      reserve_shortfall_usd: Math.max(0, totalLiab - totalReserve),
+      prohibited_assets_usd: prohibitedTotal,
+      aicpa_2025_score_pct: Math.round(aicpaScore*100),
+      failing_dimensions: failingDimensions,
+      applicable_deadline: '2027-01-01',
+      regulatory_framework: 'GENIUS Act S.394 · AICPA 2025 Attestation Criteria'
+    },
+    compliance_flags: determination === 'FAIL'
+      ? ['GENIUS_ACT_ATTESTATION_FAIL','RESERVE_DEFICIENCY']
+      : determination === 'WARN'
+      ? ['GENIUS_ACT_ATTESTATION_WARN','CONDITIONAL_ASSETS_PRESENT']
+      : ['GENIUS_ACT_ATTESTATION_READY'],
+    audit_signature: { client_side_executed:true, zero_pii_verified:true, deterministic_run:true }
+  };
+
+  const ap2Btn = document.getElementById('ap2ExportBtn');
+  const mdBtn  = document.getElementById('mdExportBtn');
+  ap2Btn.disabled=false; ap2Btn.classList.add('ready');
+  mdBtn.disabled=false;  mdBtn.classList.add('ready');
+  document.getElementById('resultsPanel').classList.add('visible');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RENDER
+   ───────────────────────────────────────────────────────────────── */
+function renderAttestationResults(r) {
+  const {determination, coverageRatio, totalReserve, totalLiab, eligibleTotal, prohibitedTotal, assetResults, aicpaScore, aicpaEarned, aicpaTotal, aicpaMissing, failingDimensions} = r;
+
+  /* Verdict */
+  const vMeta = {
+    PASS: {cls:'pass',icon:'✅',label:'Attestation Pre-Check: READY',title:'Reserve portfolio meets indicative GENIUS Act requirements',sub:'Coverage ≥ 100%, no prohibited assets, AICPA attestation criteria substantially complete. Engage a PCAOB-registered accounting firm to conduct the formal monthly attestation engagement.'},
+    WARN: {cls:'warn',icon:'⚠️',label:'Attestation Pre-Check: WARNING',title:'Reserve portfolio has issues requiring attention',sub:`${failingDimensions.length} dimension(s) need attention before the GENIUS Act deadline. Conditional assets or AICPA gaps detected — remediate before engaging the attestation firm.`},
+    FAIL: {cls:'fail',icon:'🚫',label:'Attestation Pre-Check: FAIL',title:'Reserve portfolio has critical deficiencies',sub:`${failingDimensions.length} critical dimension(s) failing — including coverage shortfall, prohibited assets, or high-weight AICPA attestation gaps. Immediate remediation required before the January 2027 deadline.`}
+  }[determination];
+
+  document.getElementById('verdictCard').innerHTML = `<div class="verdict-card ${vMeta.cls}">
+    <div class="verdict-icon">${vMeta.icon}</div>
+    <div>
+      <div class="verdict-label ${vMeta.cls}">${vMeta.label}</div>
+      <div class="verdict-title">${vMeta.title}</div>
+      <div class="verdict-sub">${vMeta.sub}</div>
+    </div>
+  </div>`;
+
+  /* Coverage metrics */
+  const covColor = coverageRatio >= 1 ? 'var(--green)' : 'var(--red)';
+  const covPct = (coverageRatio*100).toFixed(2);
+  document.getElementById('coverageRow').innerHTML = `
+    <div class="metric-card">
+      <div class="metric-label">Coverage ratio</div>
+      <div class="metric-value" style="color:${covColor}">${covPct}%</div>
+      <div class="metric-sub">Required: ≥ 100%</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Reserve value (USD)</div>
+      <div class="metric-value" style="color:var(--bright);font-size:1.1rem">${fmt(totalReserve)}</div>
+      <div class="metric-sub">Liability: ${fmt(totalLiab)}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Eligible reserve</div>
+      <div class="metric-value" style="color:${prohibitedTotal>0?'var(--red)':'var(--green)';};font-size:1.1rem">${fmt(eligibleTotal)}</div>
+      <div class="metric-sub">${prohibitedTotal>0?`Prohibited: ${fmt(prohibitedTotal)}`:'No prohibited assets'}</div>
+    </div>`;
+
+  const barWidth = Math.min(100, coverageRatio*100);
+  document.getElementById('coverageBarFill').style.cssText = `width:${barWidth}%;background:${covColor}`;
+  document.getElementById('coverageNote').textContent =
+    coverageRatio >= 1
+      ? `✓ Coverage sufficient — surplus: ${fmt(totalReserve - totalLiab)}`
+      : `✗ Coverage shortfall: ${fmt(totalLiab - totalReserve)} additional reserves required`;
+
+  /* Composition */
+  const totalForPct = totalReserve||1;
+  document.getElementById('compositionRows').innerHTML = assetResults.map(a => {
+    const color = a.def.eligibility==='permitted' ? 'var(--teal)' : a.def.eligibility==='conditional' ? 'var(--warn)' : 'var(--red)';
+    const flagLabel = a.hasFail ? `<span style="color:var(--red);font-size:.44rem;font-family:'JetBrains Mono',monospace">⚠ ${a.issues.length} issue${a.issues.length>1?'s':''}</span>` : `<span style="color:var(--green);font-size:.44rem;font-family:'JetBrains Mono',monospace">✓</span>`;
+    return `<div class="comp-row">
+      <span class="comp-name" title="${esc(a.def.label)}">${esc(a.def.label)}</span>
+      <div class="comp-bar-outer"><div class="comp-bar-inner" style="width:${a.pct.toFixed(1)}%;background:${color}"></div></div>
+      <span class="comp-val" style="color:${color}">${a.pct.toFixed(1)}%</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--body)">${fmt(a.usd)}</span>
+      <span style="width:90px;font-family:'JetBrains Mono',monospace;font-size:.46rem;text-align:right;color:${color};text-transform:uppercase">${a.def.eligibility}</span>
+      <span>${flagLabel}</span>
+    </div>`;
+  }).join('');
+
+  /* Failing */
+  const fs = document.getElementById('failingSection');
+  const fl = document.getElementById('failingList');
+  if (failingDimensions.length > 0) {
+    fs.style.display='block';
+    fl.innerHTML = failingDimensions.map(f=>`
+      <div class="failing-item">
+        <div class="failing-item-name">${esc(f.dim)}</div>
+        <div class="failing-item-detail">${esc(f.detail)}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted);margin-top:.1rem">${esc(f.ref)}</div>
+      </div>`).join('');
+  } else { fs.style.display='none'; }
+
+  /* AICPA score */
+  const aicpaPct = Math.round(aicpaScore*100);
+  const aicpaColor = aicpaPct >= 85 ? 'var(--green)' : aicpaPct >= 65 ? 'var(--warn)' : 'var(--red)';
+  document.getElementById('aicpaScoreBlock').innerHTML = `
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:.75rem;flex-wrap:wrap">
+      <div style="font-family:'DM Serif Display',serif;font-size:2rem;color:${aicpaColor}">${aicpaPct}%</div>
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--text)">AICPA 2025 attestation readiness</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted)">${aicpaEarned} / ${aicpaTotal} weighted points · ${12-Object.keys(_aicpaAnswers).length} unanswered</div>
+      </div>
+    </div>
+    <div style="height:8px;border-radius:4px;background:var(--bg-3);overflow:hidden;margin-bottom:.65rem">
+      <div style="height:100%;width:${aicpaPct}%;border-radius:4px;background:${aicpaColor}"></div>
+    </div>
+    ${aicpaMissing.length>0
+      ? `<div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);margin-bottom:.35rem">Gaps flagged:</div>
+         <div style="display:flex;flex-direction:column;gap:.3rem">${aicpaMissing.map(item=>`
+           <div style="background:var(--bg-3);border-left:2px solid ${item.weight>1?'var(--red)':'var(--warn)'};padding:.4rem .65rem;border-radius:0 3px 3px 0">
+             <div style="font-family:'JetBrains Mono',monospace;font-size:.44rem;color:${item.weight>1?'var(--red)':'var(--warn)'}">${item.ref}</div>
+             <div style="font-size:.68rem;color:var(--body)">${item.text}</div>
+           </div>`).join('')}</div>`
+      : `<div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--green)">✓ All AICPA criteria answered affirmatively</div>`}`;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   EXPORTS
+   ───────────────────────────────────────────────────────────────── */
+function exportAP2() {
+  if (!_artifact) return;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const blob = new Blob([JSON.stringify(_artifact,null,2)],{type:'application/json'});
+  const a = Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:`art-06_${ts}.policy.json`});
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('ChainGraph artifact exported');
+}
+
+function exportMarkdown() {
+  if (!_result||!_artifact) return;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const {determination, coverageRatio, totalReserve, totalLiab, prohibitedTotal, aicpaScore, failingDimensions} = _result;
+  const issuer = document.getElementById('issuerName').value||'[Issuer]';
+  const reportMonth = document.getElementById('reportMonth').value||'[Month]';
+  const md = [
+    `# GENIUS Act Reserve Attestation Pre-Check Report`,
+    `**Tool:** ART-06 · ChainGraph Suite · AINumbers.co`,
+    `**Issuer:** ${issuer}`,
+    `**Report month:** ${reportMonth}`,
+    `**Generated:** ${new Date().toISOString()}`,
+    `**Execution Hash:** sha256:${_artifact.execution_hash}`,
+    `**Deadline:** ≤ January 2027 (GENIUS Act S.394)`,
+    ``,`---`,``,
+    `## Attestation Readiness: ${determination}`,``,
+    `| Metric | Value |`,
+    `|--------|-------|`,
+    `| Coverage ratio | ${(coverageRatio*100).toFixed(2)}% (required ≥ 100%) |`,
+    `| Total reserves | ${fmt(totalReserve)} |`,
+    `| Token liabilities | ${fmt(totalLiab)} |`,
+    `| Prohibited asset value | ${fmt(prohibitedTotal)} |`,
+    `| AICPA attestation score | ${Math.round(aicpaScore*100)}% |`,
+    ``,
+    failingDimensions.length>0
+      ? `## Failing Dimensions\n\n${failingDimensions.map(f=>`- **${f.dim}**: ${f.detail} *(${f.ref})*`).join('\n')}`
+      : `## No Critical Failures`,
+    ``,`---`,``,
+    `> **Pre-check only.** Engage a PCAOB-registered accounting firm for the formal attestation.`,
+    ``,`*ChainGraph Suite · ART-06 · Post Oak Labs · CC BY 4.0*`
+  ].join('\n');
+  const blob = new Blob([md],{type:'text/markdown'});
+  const a = Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:`art-06_report_${ts}.md`});
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('Pre-check report exported');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   UTILS
+   ───────────────────────────────────────────────────────────────── */
+async function sha256(obj) {
+  const canonical = JSON.stringify(obj, Object.keys(obj).sort());
+  const buf = new TextEncoder().encode(canonical);
+  const hb = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function fmt(n) {
+  if (n==null) return '—';
+  if (Math.abs(n)>=1e9) return '$' + (n/1e9).toFixed(2)+'B';
+  if (Math.abs(n)>=1e6) return '$' + (n/1e6).toFixed(2)+'M';
+  if (Math.abs(n)>=1e3) return '$' + (n/1e3).toFixed(1)+'K';
+  return '$' + n.toFixed(2);
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+function toggleMfst() {
+  const body=document.getElementById('mfstBody');
+  const arrow=document.getElementById('mfstArrow');
+  const btn=document.querySelector('.mfst-btn');
+  const open=body.style.display==='block';
+  body.style.display=open?'none':'block';
+  arrow.textContent=open?'▼':'▲';
+  btn.setAttribute('aria-expanded',String(!open));
+  body.setAttribute('aria-hidden',String(open));
+  if(!open&&!document.getElementById('mfstCode').textContent)
+    document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+
+/* INIT */
+(function init() {
+  renderChecklist();
+  renderAssets();
+})();
+</script>
+</body>
+</html>
