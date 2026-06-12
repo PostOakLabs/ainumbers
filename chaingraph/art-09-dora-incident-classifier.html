@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>DORA Major-Incident Reporting Classifier · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Classify ICT-related incidents under DORA Articles 19–23. Returns major/non-major determination, qualifying criteria, and the full reporting clock (4h initial → 72h intermediate → 1-month final). Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-09-dora-incident-classifier.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"DORA Major-Incident Reporting Threshold Classifier","url":"https://ainumbers.co/chaingraph/art-09-dora-incident-classifier.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "art-09-dora-incident-classifier",
+  "version": "1.0.0",
+  "title": "DORA Major-Incident Reporting Threshold Classifier",
+  "description": "Classifies ICT-related incidents under DORA Articles 19–23 and the ESA Joint RTS on incident classification. Returns major/non-major determination, all qualifying criteria, and the full reporting clock. Deterministic, no GPU.",
+  "category": "chaingraph",
+  "tags": ["DORA","ICT incident","major incident","regulatory reporting","operational resilience","infrastructure"],
+  "audience": ["risk_committee","regulator","ops","board"],
+  "input_schema": {"type":"object","properties":{"incident_type":{"type":"string","enum":["ict_outage","cyber_attack","data_breach","third_party_failure","other"]},"detection_datetime":{"type":"string","format":"date-time"},"classification_datetime":{"type":"string","format":"date-time"},"clients_affected":{"type":"integer","minimum":0},"total_clients":{"type":"integer","minimum":1},"transaction_value_eur_millions":{"type":"number","minimum":0},"outage_duration_minutes":{"type":"integer","minimum":0},"eu_member_states_affected":{"type":"integer","minimum":1,"maximum":27},"data_loss_occurred":{"type":"boolean"},"critical_function_affected":{"type":"boolean"},"cross_border_payment":{"type":"boolean"},"estimated_resolution_datetime":{"type":"string","format":"date-time"}},"required":["detection_datetime","clients_affected","total_clients","outage_duration_minutes"]},
+  "output_schema": {"type":"object","properties":{"major_incident":{"type":"boolean"},"qualifying_criteria":{"type":"array","items":{"type":"string"}},"reporting_clock":{"type":"object"},"determination_code":{"type":"string"}}},
+  "mcp_tool_definition": {"name":"classify_dora_incident","description":"Classifies an ICT-related incident under DORA Articles 19–23. Returns major/non-major determination, qualifying criteria met, and the full reporting clock (4-hour initial notification, 72-hour intermediate, 1-month final report). Deterministic — no GPU required.","inputSchema":{"type":"object","properties":{"incident_type":{"type":"string","enum":["ict_outage","cyber_attack","data_breach","third_party_failure","other"]},"detection_datetime":{"type":"string","format":"date-time","description":"ISO 8601 timestamp when incident was first detected"},"clients_affected":{"type":"integer","description":"Number of clients affected or potentially affected"},"total_clients":{"type":"integer","description":"Total client base of the financial entity"},"transaction_value_eur_millions":{"type":"number","description":"Total value of transactions affected (EUR millions)"},"outage_duration_minutes":{"type":"integer","description":"Duration of service unavailability in minutes"},"eu_member_states_affected":{"type":"integer","description":"Number of EU member states affected (1–27)"},"data_loss_occurred":{"type":"boolean","description":"Whether confidentiality, integrity, or availability of data was breached"},"critical_function_affected":{"type":"boolean","description":"Whether a critical or important function was impacted"},"cross_border_payment":{"type":"boolean","description":"Whether a cross-border payment component is involved"}},"required":["detection_datetime","clients_affected","total_clients","outage_duration_minutes"]}},
+  "execution": {"type":"browser-javascript","entry":"chaingraph/art-09-dora-incident-classifier.html","function_name":"classifyIncident","timeout_ms":500},
+  "ap2_export": true,
+  "chaingraph": true,
+  "chain_partners": ["ptg-01-ap2-prompt-template-generator"],
+  "mandate_type": "infrastructure_mandate"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* NAV */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+/* HERO */
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+/* PII */
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+/* TOOL BODY */
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+/* PANELS */
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--teal)}
+.panel-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.85rem;margin-bottom:.85rem}
+.panel-row:last-child{margin-bottom:0}
+.panel-row.two-col{grid-template-columns:1fr 1fr}
+.panel-row.three-col{grid-template-columns:1fr 1fr 1fr}
+.field-group{display:flex;flex-direction:column;gap:.3rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.1rem;line-height:1.4}
+input[type="number"],input[type="datetime-local"],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.38rem .55rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+input[type="number"]:focus,input[type="datetime-local"]:focus,select:focus{border-color:var(--teal)}
+input[type="datetime-local"]{color-scheme:dark}
+/* TOGGLE */
+.toggle-row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap}
+.bool-toggle{display:flex;gap:.3rem}
+.bool-btn{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.26rem .7rem;border-radius:3px;transition:all .2s}
+.bool-btn.active-yes{border-color:var(--green);color:var(--green);background:var(--green-dim)}
+.bool-btn.active-no{border-color:var(--border-2);color:var(--body);background:var(--bg-3)}
+.bool-btn:hover:not(.active-yes):not(.active-no){border-color:var(--border-2);color:var(--body)}
+/* RUN */
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+/* VERDICT CARD */
+.verdict-card{border-radius:var(--radius-lg);padding:1.4rem 1.5rem;margin-bottom:1rem;display:flex;align-items:flex-start;gap:1.1rem}
+.verdict-card.major{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.35)}
+.verdict-card.non-major{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.3)}
+.verdict-icon{font-size:1.75rem;line-height:1;flex-shrink:0;margin-top:.15rem}
+.verdict-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.3rem}
+.verdict-label.major{color:var(--red)}
+.verdict-label.non-major{color:var(--green)}
+.verdict-title{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--white);margin-bottom:.3rem;line-height:1.2}
+.verdict-sub{font-size:.72rem;color:var(--body);line-height:1.6}
+/* RESULTS */
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+/* CRITERIA LIST */
+.criteria-list{display:flex;flex-direction:column;gap:.5rem}
+.criterion-row{display:flex;align-items:flex-start;gap:.75rem;padding:.55rem .75rem;border-radius:var(--radius);border:1px solid}
+.criterion-row.met{background:rgba(239,68,68,.06);border-color:rgba(239,68,68,.25)}
+.criterion-row.not-met{background:var(--bg-3);border-color:var(--border)}
+.criterion-row.not-assessed{background:rgba(245,158,11,.05);border-color:rgba(245,158,11,.2)}
+.criterion-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:.35rem}
+.criterion-dot.met{background:var(--red)}
+.criterion-dot.not-met{background:var(--muted)}
+.criterion-dot.not-assessed{background:var(--warn)}
+.criterion-name{font-family:'JetBrains Mono',monospace;font-size:.54rem;font-weight:500;color:var(--bright);margin-bottom:.15rem}
+.criterion-name.met{color:var(--red)}
+.criterion-detail{font-size:.68rem;color:var(--body)}
+.criterion-article{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted);margin-top:.15rem}
+/* REPORTING CLOCK */
+.clock-timeline{display:flex;flex-direction:column;gap:0}
+.clock-event{display:grid;grid-template-columns:180px 1fr;gap:1rem;padding:.65rem 0;border-bottom:1px solid var(--border)}
+.clock-event:last-child{border-bottom:none}
+.clock-time{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--teal);display:flex;flex-direction:column;gap:.1rem}
+.clock-time .rel{font-size:.5rem;color:var(--muted)}
+.clock-label{font-family:'JetBrains Mono',monospace;font-size:.54rem;color:var(--bright);margin-bottom:.15rem}
+.clock-detail{font-size:.68rem;color:var(--body);line-height:1.5}
+.clock-article{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted);margin-top:.1rem}
+.clock-event.urgent .clock-time{color:var(--red)}
+.clock-event.urgent .clock-label{color:var(--red)}
+/* AUTHORITY TABLE */
+.authority-block{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:var(--radius);padding:.75rem 1rem}
+.authority-name{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--teal-lt);margin-bottom:.2rem}
+.authority-detail{font-size:.7rem;color:var(--body);line-height:1.6}
+/* EXPORT */
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--teal);color:var(--bright)}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+/* PTG LINK */
+.ptg-link{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;color:var(--teal);background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);padding:.28rem .65rem;border-radius:3px;text-decoration:none;transition:all .2s}
+.ptg-link:hover{background:rgba(20,184,166,.2)}
+/* DISCLAIMER */
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--warn);padding:.65rem 1rem;font-size:.7rem;color:var(--muted);line-height:1.6;margin-bottom:1.25rem;border-radius:var(--radius)}
+/* MANIFEST */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+/* FOOTER */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+@media(max-width:700px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}.panel-row{grid-template-columns:1fr}.panel-row.two-col,.panel-row.three-col{grid-template-columns:1fr}}
+/* TOAST */
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4)}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a>
+    <span class="nav-bc-sep">/</span>
+    <a href="chaingraph-hub.html">ChainGraph</a>
+    <span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">ART-09</span>
+  </div>
+  <div class="nav-right">
+    <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub &#8594;</a>
+  </div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph Suite · ART-09 · DORA Incident Classifier</div>
+  <span class="badge badge-muted" style="display:inline-flex;margin-bottom:.6rem"><span>v1.0.0</span></span>
+  <h1>DORA Major-Incident <em>Reporting Classifier</em></h1>
+  <p class="hero-desc">Enter your ICT incident parameters and get an immediate major/non-major determination under DORA Articles 19–23, every qualifying criterion enumerated, and a full reporting clock — 4-hour initial notification, 72-hour intermediate, 1-month final. Deterministic. Client-side. Chains into PTG-01 to generate a regulator-ready submission draft.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">AP2 Export</span>
+    <span class="badge badge-teal">Chains: PTG-01</span>
+    <span class="badge badge-warn">DORA Art. 19–23</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side · Deterministic</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="disclaimer">
+    ⚠ <strong style="color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.62rem">Educational/indicative only.</strong> Classification thresholds are based on DORA (Regulation (EU) 2022/2554) Articles 18–23 and the ESA Joint RTS on the classification of major ICT-related incidents (published January 2025). Thresholds vary by entity type, function criticality, and competent authority guidance. This tool is for pre-assessment and training purposes. Verify all determinations with your compliance function and competent authority before submitting formal notifications. All regulatory citations are real and sourced — do not rely on this output as a substitute for legal advice.
+  </div>
+
+  <!-- INCIDENT PARAMETERS -->
+  <div class="panel">
+    <div class="panel-label">Incident parameters</div>
+    <div class="panel-row two-col">
+      <div class="field-group">
+        <label class="field-label" for="incidentType">Incident type</label>
+        <select id="incidentType">
+          <option value="ict_outage">ICT system / service outage</option>
+          <option value="cyber_attack">Cyber attack</option>
+          <option value="data_breach">Data breach (confidentiality / integrity)</option>
+          <option value="third_party_failure">Third-party ICT provider failure</option>
+          <option value="other">Other ICT-related incident</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="entityType">Financial entity type</label>
+        <select id="entityType">
+          <option value="credit_institution">Credit institution</option>
+          <option value="payment_institution">Payment institution / E-money institution</option>
+          <option value="investment_firm">Investment firm</option>
+          <option value="insurance">Insurance / reinsurance undertaking</option>
+          <option value="crypto_asset">Crypto-asset service provider (CASP)</option>
+          <option value="other">Other DORA-in-scope entity</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- TIMING -->
+  <div class="panel">
+    <div class="panel-label">Timing</div>
+    <div class="panel-row three-col">
+      <div class="field-group">
+        <label class="field-label" for="detectionDt">First detection</label>
+        <input type="datetime-local" id="detectionDt">
+        <span class="field-hint">When was the incident first detected?</span>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="classificationDt">Classification time</label>
+        <input type="datetime-local" id="classificationDt">
+        <span class="field-hint">When classified as (potentially) major? Leave blank = same as detection.</span>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="resolutionDt">Estimated resolution</label>
+        <input type="datetime-local" id="resolutionDt">
+        <span class="field-hint">Leave blank if ongoing. Used to compute final report deadline.</span>
+      </div>
+    </div>
+    <div class="panel-row" style="grid-template-columns:1fr">
+      <div class="field-group">
+        <label class="field-label" for="outageDuration">Service unavailability duration (minutes)</label>
+        <input type="number" id="outageDuration" min="0" placeholder="e.g. 150" style="max-width:220px">
+        <span class="field-hint">Total minutes of service disruption. Enter 0 if service remained available (e.g. data breach with no outage).</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- IMPACT -->
+  <div class="panel">
+    <div class="panel-label">Impact parameters</div>
+    <div class="panel-row three-col">
+      <div class="field-group">
+        <label class="field-label" for="clientsAffected">Clients affected</label>
+        <input type="number" id="clientsAffected" min="0" placeholder="e.g. 12000">
+        <span class="field-hint">Number of clients affected or at risk</span>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="totalClients">Total client base</label>
+        <input type="number" id="totalClients" min="1" placeholder="e.g. 85000">
+        <span class="field-hint">Your entity's total clients</span>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="txValueEur">Transaction value affected (EUR millions)</label>
+        <input type="number" id="txValueEur" min="0" step="0.1" placeholder="e.g. 25.5">
+        <span class="field-hint">Total value of transactions impacted. Enter 0 if not applicable.</span>
+      </div>
+    </div>
+    <div class="panel-row" style="grid-template-columns:1fr">
+      <div class="field-group">
+        <label class="field-label" for="memberStates">EU member states affected</label>
+        <input type="number" id="memberStates" min="1" max="27" placeholder="e.g. 3" style="max-width:160px">
+        <span class="field-hint">Number of EU member states where clients or operations are affected (1–27)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUALITATIVE FLAGS -->
+  <div class="panel">
+    <div class="panel-label">Qualitative flags</div>
+    <div style="display:flex;flex-direction:column;gap:.85rem">
+
+      <div class="field-group">
+        <span class="field-label">Data loss — confidentiality, integrity, or availability of data breached?</span>
+        <div class="bool-toggle" id="dataLossToggle">
+          <button class="bool-btn" data-val="true" onclick="setBool('dataLoss',true,this)">Yes</button>
+          <button class="bool-btn active-no" data-val="false" onclick="setBool('dataLoss',false,this)">No</button>
+        </div>
+        <span class="field-hint">DORA Art. 23(1)(c) — any confirmed loss of data confidentiality, integrity, or availability triggers major classification</span>
+      </div>
+
+      <div class="field-group">
+        <span class="field-label">Critical or important function affected?</span>
+        <div class="bool-toggle" id="criticalFnToggle">
+          <button class="bool-btn" data-val="true" onclick="setBool('criticalFn',true,this)">Yes</button>
+          <button class="bool-btn active-no" data-val="false" onclick="setBool('criticalFn',false,this)">No</button>
+        </div>
+        <span class="field-hint">DORA Art. 23(1)(a) — functions critical or important per your operational resilience framework</span>
+      </div>
+
+      <div class="field-group">
+        <span class="field-label">Cross-border component — does the incident involve cross-border payments or operations across ≥2 member states?</span>
+        <div class="bool-toggle" id="crossBorderToggle">
+          <button class="bool-btn" data-val="true" onclick="setBool('crossBorder',true,this)">Yes</button>
+          <button class="bool-btn active-no" data-val="false" onclick="setBool('crossBorder',false,this)">No</button>
+        </div>
+        <span class="field-hint">Relevant to geographic-spread criterion and competent authority coordination</span>
+      </div>
+
+      <div class="field-group">
+        <span class="field-label">Third-party ICT provider involved?</span>
+        <div class="bool-toggle" id="tpictToggle">
+          <button class="bool-btn" data-val="true" onclick="setBool('tpict',true,this)">Yes</button>
+          <button class="bool-btn active-no" data-val="false" onclick="setBool('tpict',false,this)">No</button>
+        </div>
+        <span class="field-hint">Determines whether Oversight Framework provisions under DORA Chap. V apply to a critical third-party ICT provider</span>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-bottom:2rem;align-items:center;flex-wrap:wrap">
+    <button class="run-btn" onclick="classifyIncident()">▶ Classify Incident</button>
+    <span id="runStatus" style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)"></span>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+
+    <!-- VERDICT -->
+    <div id="verdictCard"></div>
+
+    <!-- CRITERIA -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Classification criteria (DORA Art. 23 + ESA Joint RTS)</span></div>
+      <div class="out-body">
+        <div class="criteria-list" id="criteriaList"></div>
+      </div>
+    </div>
+
+    <!-- REPORTING CLOCK -->
+    <div class="out-section" id="clockSection">
+      <div class="out-header"><span class="out-title">Reporting clock (DORA Art. 19–20)</span></div>
+      <div class="out-body">
+        <div class="clock-timeline" id="clockTimeline"></div>
+      </div>
+    </div>
+
+    <!-- AUTHORITY -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Competent authority &amp; notification</span></div>
+      <div class="out-body" id="authorityBlock"></div>
+    </div>
+
+    <!-- CHAIN TO PTG-01 -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Chain to PTG-01 — Generate regulatory submission draft</span></div>
+      <div class="out-body" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+        <a href="ptg-01-ap2-prompt-template-generator.html" class="ptg-link" target="_blank" rel="noopener noreferrer">
+          &#x2192; Open in PTG-01
+        </a>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)">Export the artifact below, then paste it into PTG-01 to generate a DORA Art. 19/20 submission draft</span>
+      </div>
+    </div>
+
+    <!-- EXPORT -->
+    <div class="results-export-row">
+      <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()">
+        {} Export ChainGraph Artifact
+        <span class="btn-subtitle">AP2 · infrastructure_mandate · chain-anchored</span>
+      </button>
+      <button class="btn btn-ghost" id="mdExportBtn" disabled onclick="exportMarkdown()">
+        &#x21E9; Export Markdown
+        <span class="btn-subtitle">Classification report + reporting clock</span>
+      </button>
+    </div>
+
+  </div><!-- /results-panel -->
+
+  <!-- MANIFEST TOGGLE -->
+  <button class="mfst-btn" onclick="toggleMfst()" style="margin-top:2rem" aria-expanded="false" aria-controls="mfstBody">
+    <span>&#x7B;&#x7D; MCP Manifest — ART-09</span>
+    <span id="mfstArrow">&#x25BC;</span>
+  </button>
+  <div class="mfst-body" id="mfstBody" aria-hidden="true">
+    <pre class="mfst-code" id="mfstCode"></pre>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" style="display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500"><span style="color:var(--teal)">AI</span>Numbers.co</span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="chaingraph-hub.html">ChainGraph Hub</a>
+      <a href="../about.html">About</a>
+      <a href="https://mcp.ainumbers.co/mcp" target="_blank" rel="noopener noreferrer">MCP Server</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>Post Oak Labs · CC BY 4.0</span>
+      <span>ChainGraph Suite · ART-09 v1.0.0</span>
+      <span>DORA Art. 19–23 · ESA Joint RTS (Jan 2025)</span>
+    </div>
+  </div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────────────────────────
+   MANIFEST
+   ───────────────────────────────────────────────────────────────── */
+const MANIFEST = {
+  tool_id: 'art-09-dora-incident-classifier',
+  version: '1.0.0',
+  title: 'DORA Major-Incident Reporting Threshold Classifier',
+  description: 'Classifies ICT-related incidents under DORA Articles 18–23 and ESA Joint RTS. Returns major/non-major determination, qualifying criteria, and full reporting clock.',
+  category: 'chaingraph',
+  tags: ['DORA','ICT incident','major incident','operational resilience','regulatory reporting'],
+  mcp_tool_definition: {
+    name: 'classify_dora_incident',
+    description: 'Classifies an ICT-related incident under DORA Articles 19–23. Returns major/non-major determination, qualifying criteria, and the reporting clock (4h initial, 72h intermediate, 1-month final).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        incident_type: {type:'string', enum:['ict_outage','cyber_attack','data_breach','third_party_failure','other']},
+        detection_datetime: {type:'string', format:'date-time'},
+        clients_affected: {type:'integer'},
+        total_clients: {type:'integer'},
+        transaction_value_eur_millions: {type:'number'},
+        outage_duration_minutes: {type:'integer'},
+        eu_member_states_affected: {type:'integer'},
+        data_loss_occurred: {type:'boolean'},
+        critical_function_affected: {type:'boolean'},
+        cross_border_payment: {type:'boolean'}
+      },
+      required: ['detection_datetime','clients_affected','total_clients','outage_duration_minutes']
+    }
+  },
+  execution: {type:'browser-javascript', entry:'chaingraph/art-09-dora-incident-classifier.html', function_name:'classifyIncident', timeout_ms:500},
+  ap2_export: true,
+  chaingraph: true
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   DORA CLASSIFICATION ENGINE
+   Source: DORA Regulation (EU) 2022/2554 Art. 18–23
+           ESA Joint RTS on classification of major ICT-related
+           incidents (EBA/RTS/2023/11, published January 2025)
+   All thresholds labelled INDICATIVE — verify with competent authority.
+   ───────────────────────────────────────────────────────────────── */
+
+/* Classification thresholds (per ESA Joint RTS, Jan 2025) */
+const THRESHOLDS = {
+  /* Client impact — DORA Art. 23(1)(b) */
+  clients_pct_min: 10,          /* ≥10% of total clients affected */
+  clients_abs_min: 100000,      /* OR ≥100,000 clients (absolute) */
+
+  /* Duration — DORA Art. 23(1)(e) — varies by entity/function type */
+  /* Using the most broadly applicable indicative thresholds */
+  duration_critical_fn_minutes: 120,   /* 2 hours — critical/important function */
+  duration_payment_minutes: 30,        /* 30 minutes — payment services specifically */
+  duration_other_minutes: 240,         /* 4 hours — other functions */
+
+  /* Transaction value — DORA Art. 23(1)(d) */
+  /* RTS sets €10M for payment institutions; varies by entity type */
+  tx_value_eur_millions_payment: 10,
+  tx_value_eur_millions_other: 50,
+
+  /* Geographic spread — DORA Art. 23(1)(f) */
+  geographic_member_states_min: 2      /* ≥2 member states → geographic criterion met */
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   STATE
+   ───────────────────────────────────────────────────────────────── */
+let _bools = {dataLoss: false, criticalFn: false, crossBorder: false, tpict: false};
+let _artifact = null;
+let _result = null;
+let _inputs = null;
+
+function setBool(key, val, el) {
+  _bools[key] = val;
+  const container = el.closest('.bool-toggle');
+  container.querySelectorAll('.bool-btn').forEach(b => {
+    b.classList.remove('active-yes','active-no');
+  });
+  if (val) el.classList.add('active-yes');
+  else el.classList.add('active-no');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   CLASSIFICATION LOGIC (pure, synchronous, deterministic)
+   ───────────────────────────────────────────────────────────────── */
+function runClassification(inputs) {
+  const {
+    incidentType, entityType,
+    detectionDt, classificationDt, resolutionDt,
+    clientsAffected, totalClients, txValueEur,
+    outageDurationMins, memberStates,
+    dataLoss, criticalFn, crossBorder, tpict
+  } = inputs;
+
+  const clientPct = totalClients > 0 ? (clientsAffected / totalClients) * 100 : 0;
+  const isPayment = ['payment_institution', 'credit_institution'].includes(entityType);
+
+  /* Determine applicable duration threshold */
+  let durationThreshold, durationThresholdLabel;
+  if (criticalFn) {
+    durationThreshold = THRESHOLDS.duration_critical_fn_minutes;
+    durationThresholdLabel = '120 min (critical/important function — Art. 23(1)(e))';
+  } else if (isPayment) {
+    durationThreshold = THRESHOLDS.duration_payment_minutes;
+    durationThresholdLabel = '30 min (payment services — Art. 23(1)(e) + RTS)';
+  } else {
+    durationThreshold = THRESHOLDS.duration_other_minutes;
+    durationThresholdLabel = '240 min (other functions — Art. 23(1)(e))';
+  }
+
+  const txThreshold = isPayment
+    ? THRESHOLDS.tx_value_eur_millions_payment
+    : THRESHOLDS.tx_value_eur_millions_other;
+
+  /* Evaluate each criterion */
+  const criteria = [
+    {
+      id: 'critical_fn',
+      name: 'Critical / Important Function Affected',
+      article: 'DORA Art. 23(1)(a) · ESA Joint RTS Art. 3',
+      met: criticalFn,
+      not_assessed: false,
+      detail: criticalFn
+        ? 'A critical or important function has been affected — this criterion is met.'
+        : 'No critical or important function reported as affected.',
+      value: criticalFn ? 'Yes' : 'No'
+    },
+    {
+      id: 'clients',
+      name: 'Client Impact Threshold',
+      article: 'DORA Art. 23(1)(b) · ESA Joint RTS Art. 4',
+      met: clientPct >= THRESHOLDS.clients_pct_min || clientsAffected >= THRESHOLDS.clients_abs_min,
+      not_assessed: clientsAffected === 0 && totalClients <= 1,
+      detail: `Clients affected: ${clientsAffected.toLocaleString()} of ${totalClients.toLocaleString()} total (${clientPct.toFixed(1)}%). Threshold: ≥${THRESHOLDS.clients_pct_min}% OR ≥${THRESHOLDS.clients_abs_min.toLocaleString()} clients.`,
+      value: `${clientPct.toFixed(1)}% / ${clientsAffected.toLocaleString()} clients`
+    },
+    {
+      id: 'data_loss',
+      name: 'Data Loss (Confidentiality / Integrity / Availability)',
+      article: 'DORA Art. 23(1)(c) · ESA Joint RTS Art. 5',
+      met: dataLoss,
+      not_assessed: false,
+      detail: dataLoss
+        ? 'Data loss (confidentiality, integrity, or availability) has been confirmed — this criterion is met independently.'
+        : 'No data loss reported. This criterion is not met.',
+      value: dataLoss ? 'Yes — confirmed' : 'No'
+    },
+    {
+      id: 'tx_value',
+      name: 'Transaction Value Threshold',
+      article: 'DORA Art. 23(1)(d) · ESA Joint RTS Art. 6',
+      met: txValueEur !== null && txValueEur > 0 && txValueEur >= txThreshold,
+      not_assessed: txValueEur === null || txValueEur === 0,
+      detail: txValueEur > 0
+        ? `Transaction value affected: €${txValueEur.toFixed(1)}M. Indicative threshold for ${isPayment ? 'payment institutions' : 'other entities'}: €${txThreshold}M.`
+        : 'No transaction value entered — criterion not assessed.',
+      value: txValueEur > 0 ? `€${txValueEur.toFixed(1)}M` : 'Not entered'
+    },
+    {
+      id: 'duration',
+      name: 'Service Unavailability Duration',
+      article: 'DORA Art. 23(1)(e) · ESA Joint RTS Art. 7',
+      met: outageDurationMins >= durationThreshold,
+      not_assessed: outageDurationMins === 0,
+      detail: outageDurationMins > 0
+        ? `Outage duration: ${outageDurationMins} min (${(outageDurationMins/60).toFixed(1)}h). Indicative threshold: ${durationThresholdLabel}.`
+        : 'Zero duration entered — no service outage (may still qualify on other criteria).',
+      value: outageDurationMins > 0 ? `${outageDurationMins} min` : '0 min (no outage)'
+    },
+    {
+      id: 'geographic',
+      name: 'Geographic Spread (≥2 EU Member States)',
+      article: 'DORA Art. 23(1)(f) · ESA Joint RTS Art. 8',
+      met: memberStates >= THRESHOLDS.geographic_member_states_min,
+      not_assessed: !memberStates || memberStates < 1,
+      detail: memberStates >= 1
+        ? `${memberStates} EU member state(s) affected. Threshold: ≥${THRESHOLDS.geographic_member_states_min} member states.`
+        : 'Member states not entered — criterion not assessed.',
+      value: `${memberStates || 0} member state(s)`
+    }
+  ];
+
+  /* Major if ANY criterion met */
+  const criteriaMetList = criteria.filter(c => c.met);
+  const isMajor = criteriaMetList.length > 0;
+
+  /* Reporting clock computation */
+  const detectionMs = detectionDt ? new Date(detectionDt).getTime() : Date.now();
+  const classificationMs = classificationDt
+    ? new Date(classificationDt).getTime()
+    : detectionMs;
+
+  /* DORA Art. 19(4): initial notification within 4h of classification (no later than 24h from detection) */
+  const initialDeadlineMs = Math.min(
+    classificationMs + 4 * 60 * 60 * 1000,
+    detectionMs + 24 * 60 * 60 * 1000
+  );
+
+  /* Intermediate: within 72h of initial notification */
+  const intermediateDeadlineMs = initialDeadlineMs + 72 * 60 * 60 * 1000;
+
+  /* Final: within 1 month of resolution */
+  const resolutionMs = resolutionDt ? new Date(resolutionDt).getTime() : null;
+  const finalDeadlineMs = resolutionMs ? resolutionMs + 30 * 24 * 60 * 60 * 1000 : null;
+
+  const fmtDt = ms => {
+    if (!ms) return null;
+    const d = new Date(ms);
+    return d.toLocaleString('en-GB', {
+      day:'2-digit', month:'short', year:'numeric',
+      hour:'2-digit', minute:'2-digit', timeZoneName:'short'
+    });
+  };
+
+  const nowMs = Date.now();
+  const minutesUntil = ms => ms ? Math.round((ms - nowMs) / 60000) : null;
+  const relativeLabel = ms => {
+    if (!ms) return '';
+    const m = minutesUntil(ms);
+    if (m < 0) return `${Math.abs(m)} min ago`;
+    if (m < 60) return `in ${m} min`;
+    if (m < 1440) return `in ${Math.round(m/60)} hrs`;
+    return `in ${Math.round(m/1440)} days`;
+  };
+
+  const clock = [
+    {
+      event: 'detection',
+      label: 'First Detection',
+      detail: 'DORA Art. 19(1): The clock starts from first detection of a major ICT-related incident.',
+      article: 'DORA Art. 19(1)',
+      datetime_ms: detectionMs,
+      datetime_str: fmtDt(detectionMs),
+      relative: '',
+      urgent: false
+    },
+    {
+      event: 'classification',
+      label: 'Incident Classified as (Potentially) Major',
+      detail: 'Classification triggers the 4-hour initial notification window. If not classified within 24h of detection, the 24h cap overrides.',
+      article: 'DORA Art. 23(1) · ESA Joint RTS',
+      datetime_ms: classificationMs,
+      datetime_str: fmtDt(classificationMs),
+      relative: '',
+      urgent: false
+    },
+    {
+      event: 'initial',
+      label: 'Initial Notification Deadline',
+      detail: 'DORA Art. 19(4)(a): Submit initial notification to competent authority within 4 hours of classification, and no later than 24 hours from detection. Include: incident classification, preliminary assessment, severity, impact, and information on cross-border impact.',
+      article: 'DORA Art. 19(4)(a)',
+      datetime_ms: initialDeadlineMs,
+      datetime_str: fmtDt(initialDeadlineMs),
+      relative: relativeLabel(initialDeadlineMs),
+      urgent: minutesUntil(initialDeadlineMs) !== null && minutesUntil(initialDeadlineMs) < 240
+    },
+    {
+      event: 'intermediate',
+      label: 'Intermediate Report Deadline',
+      detail: 'DORA Art. 19(4)(b): Submit intermediate report within 72 hours of the initial notification. Include: updated impact assessment, affected services, corrective actions taken, cross-border impact if applicable.',
+      article: 'DORA Art. 19(4)(b)',
+      datetime_ms: intermediateDeadlineMs,
+      datetime_str: fmtDt(intermediateDeadlineMs),
+      relative: relativeLabel(intermediateDeadlineMs),
+      urgent: minutesUntil(intermediateDeadlineMs) !== null && minutesUntil(intermediateDeadlineMs) < 720
+    },
+    {
+      event: 'final',
+      label: 'Final Report Deadline',
+      detail: resolutionMs
+        ? 'DORA Art. 19(4)(c): Submit final report within 1 month of resolution/closure. Include: root cause analysis, resolution measures, lessons learned, recurrence prevention.'
+        : 'DORA Art. 19(4)(c): Final report due within 1 month of incident resolution. Enter estimated resolution date above to compute this deadline.',
+      article: 'DORA Art. 19(4)(c)',
+      datetime_ms: finalDeadlineMs,
+      datetime_str: finalDeadlineMs ? fmtDt(finalDeadlineMs) : 'Enter resolution date above',
+      relative: relativeLabel(finalDeadlineMs),
+      urgent: false
+    }
+  ];
+
+  /* Competent authority determination */
+  const authorityInfo = deriveAuthority(entityType, memberStates || 1, crossBorder);
+
+  return {isMajor, criteria, criteriaMetList, clock, authorityInfo, inputs, clientPct};
+}
+
+function deriveAuthority(entityType, memberStates, crossBorder) {
+  const authorities = {
+    credit_institution: 'National Competent Authority (NCA) — typically the prudential supervisor (e.g. PRA in UK, ECB/NCB for SSM banks in EU). DORA Art. 19(1).',
+    payment_institution: 'National Competent Authority (NCA) — typically the payments regulator (e.g. FCA in UK, national payment oversight body in EU member state of authorisation).',
+    investment_firm: 'National Competent Authority (NCA) — the authorising member state competent authority under DORA. May also notify ESMA for cross-border systemic events.',
+    insurance: 'National Competent Authority (NCA) — the insurance supervisor in the member state of head office. EIOPA may be involved for cross-border incidents.',
+    crypto_asset: 'National Competent Authority (NCA) — the CASP authorising authority under MiCA. ESMA for cross-border co-ordination.',
+    other: 'National Competent Authority (NCA) — the DORA-designated authority in your member state of head office.'
+  };
+
+  const crossBorderNote = (crossBorder || memberStates >= 2)
+    ? ' Cross-border component present: coordinate across NCAs of all affected member states. DORA Art. 19(6) — initial report submitted to NCA of head office, who coordinates with other relevant NCAs.'
+    : '';
+
+  return {
+    primary: authorities[entityType] || authorities.other,
+    cross_border: crossBorderNote,
+    timeline_note: 'DORA Art. 19(4): initial notification → 4 hours from classification (max 24h from detection); intermediate → 72 hours from initial; final → 1 month from resolution.',
+    voluntary_note: 'DORA Art. 19(2): voluntary notification of significant cyber threats (not major incidents) is also permitted to the same NCA.'
+  };
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   MAIN RUN FUNCTION
+   ───────────────────────────────────────────────────────────────── */
+async function classifyIncident() {
+  const statusEl = document.getElementById('runStatus');
+
+  /* Gather inputs */
+  const clientsAffected = parseInt(document.getElementById('clientsAffected').value) || 0;
+  const totalClients = parseInt(document.getElementById('totalClients').value) || 0;
+
+  if (totalClients < 1) {
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = 'Total client base must be ≥ 1.';
+    return;
+  }
+
+  const inputs = {
+    incidentType: document.getElementById('incidentType').value,
+    entityType: document.getElementById('entityType').value,
+    detectionDt: document.getElementById('detectionDt').value || null,
+    classificationDt: document.getElementById('classificationDt').value || null,
+    resolutionDt: document.getElementById('resolutionDt').value || null,
+    clientsAffected,
+    totalClients,
+    txValueEur: parseFloat(document.getElementById('txValueEur').value) || 0,
+    outageDurationMins: parseInt(document.getElementById('outageDuration').value) || 0,
+    memberStates: parseInt(document.getElementById('memberStates').value) || 1,
+    dataLoss: _bools.dataLoss,
+    criticalFn: _bools.criticalFn,
+    crossBorder: _bools.crossBorder,
+    tpict: _bools.tpict
+  };
+
+  statusEl.textContent = '';
+  _inputs = inputs;
+  _result = runClassification(inputs);
+
+  renderResults(_result);
+
+  /* Compute execution hash */
+  const policyParams = {
+    execution_backend: 'js',
+    input_parameters: {
+      incident_type: inputs.incidentType,
+      entity_type: inputs.entityType,
+      clients_affected: inputs.clientsAffected,
+      total_clients: inputs.totalClients,
+      client_pct: parseFloat(_result.clientPct.toFixed(2)),
+      transaction_value_eur_millions: inputs.txValueEur,
+      outage_duration_minutes: inputs.outageDurationMins,
+      eu_member_states_affected: inputs.memberStates,
+      data_loss_occurred: inputs.dataLoss,
+      critical_function_affected: inputs.criticalFn,
+      cross_border_payment: inputs.crossBorder,
+      third_party_ict: inputs.tpict
+    }
+  };
+  const outputForHash = {
+    major_incident: _result.isMajor,
+    criteria_met_count: _result.criteriaMetList.length,
+    criteria_met_ids: _result.criteriaMetList.map(c => c.id),
+    determination_code: _result.isMajor ? 'MAJOR' : 'NON_MAJOR'
+  };
+
+  const hash = await sha256({policy_parameters: policyParams, output_payload: outputForHash});
+
+  const now = new Date().toISOString();
+  _artifact = {
+    ap2_version: '1.0.0',
+    mandate_type: 'infrastructure_mandate',
+    tool_id: 'art-09-dora-incident-classifier',
+    tool_version: '1.0.0',
+    generated_at: now,
+    execution_hash: hash,
+    chain: {
+      parent_hashes: [],
+      parent_tool_ids: [],
+      chain_depth: 0
+    },
+    policy_parameters: policyParams,
+    output_payload: {
+      major_incident: _result.isMajor,
+      determination_code: _result.isMajor ? 'MAJOR' : 'NON_MAJOR',
+      qualifying_criteria: _result.criteriaMetList.map(c => c.id),
+      criteria_detail: _result.criteria.map(c => ({
+        id: c.id,
+        met: c.met,
+        value: c.value,
+        article: c.article
+      })),
+      reporting_clock: {
+        detection_datetime: inputs.detectionDt,
+        initial_notification_deadline: _result.clock[2].datetime_str,
+        intermediate_report_deadline: _result.clock[3].datetime_str,
+        final_report_deadline: _result.clock[4].datetime_str
+      },
+      competent_authority_note: _result.authorityInfo.primary,
+      entity_type: inputs.entityType,
+      incident_type: inputs.incidentType,
+      cross_border: inputs.crossBorder,
+      third_party_ict: inputs.tpict
+    },
+    compliance_flags: _result.isMajor
+      ? ['DORA_MAJOR_INCIDENT','REPORTING_OBLIGATION_TRIGGERED']
+      : ['DORA_NON_MAJOR'],
+    audit_signature: {
+      client_side_executed: true,
+      zero_pii_verified: true,
+      deterministic_run: true
+    }
+  };
+
+  /* Enable exports */
+  const ap2Btn = document.getElementById('ap2ExportBtn');
+  const mdBtn = document.getElementById('mdExportBtn');
+  ap2Btn.disabled = false; ap2Btn.classList.add('ready');
+  mdBtn.disabled = false; mdBtn.classList.add('ready');
+
+  document.getElementById('resultsPanel').classList.add('visible');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RENDER
+   ───────────────────────────────────────────────────────────────── */
+function renderResults(result) {
+  /* Verdict */
+  const vc = document.getElementById('verdictCard');
+  if (result.isMajor) {
+    vc.innerHTML = `
+      <div class="verdict-card major">
+        <div class="verdict-icon">&#x26A0;&#xFE0F;</div>
+        <div>
+          <div class="verdict-label major">DORA Major Incident</div>
+          <div class="verdict-title">Major incident — reporting obligation triggered</div>
+          <div class="verdict-sub">${result.criteriaMetList.length} of ${result.criteria.length} classification criterion/criteria met: <strong style="color:var(--red)">${result.criteriaMetList.map(c=>c.name).join(' · ')}</strong>. Initial notification to your competent authority is due within 4 hours of classification (no later than 24 hours from detection). See reporting clock below.</div>
+        </div>
+      </div>`;
+  } else {
+    vc.innerHTML = `
+      <div class="verdict-card non-major">
+        <div class="verdict-icon">&#x2705;</div>
+        <div>
+          <div class="verdict-label non-major">Non-Major Incident</div>
+          <div class="verdict-title">No major incident classification — no DORA Art. 19 notification required</div>
+          <div class="verdict-sub">None of the ${result.criteria.length} DORA classification criteria are met based on the parameters entered. Standard internal incident-management procedures apply (DORA Art. 17 ICT risk management framework). Voluntary notification of significant cyber threats remains available under DORA Art. 19(2).</div>
+        </div>
+      </div>`;
+  }
+
+  /* Criteria */
+  const cl = document.getElementById('criteriaList');
+  cl.innerHTML = result.criteria.map(c => {
+    const cls = c.not_assessed ? 'not-assessed' : c.met ? 'met' : 'not-met';
+    const dotCls = c.not_assessed ? 'not-assessed' : c.met ? 'met' : 'not-met';
+    const nameCls = c.met ? 'criterion-name met' : 'criterion-name';
+    return `<div class="criterion-row ${cls}">
+      <div class="criterion-dot ${dotCls}"></div>
+      <div style="flex:1">
+        <div class="${nameCls}">${c.met ? '✗ ' : c.not_assessed ? '? ' : '✓ '}${c.name}</div>
+        <div class="criterion-detail">${c.detail}</div>
+        <div class="criterion-article">${c.article}</div>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:${c.met?'var(--red)':c.not_assessed?'var(--warn)':'var(--green)'};white-space:nowrap;flex-shrink:0">${c.met ? 'MET' : c.not_assessed ? 'NOT ASSESSED' : 'NOT MET'}</div>
+    </div>`;
+  }).join('');
+
+  /* Clock */
+  const ct = document.getElementById('clockTimeline');
+  ct.innerHTML = result.clock.map(ev => `
+    <div class="clock-event ${ev.urgent ? 'urgent' : ''}">
+      <div class="clock-time">
+        <span>${ev.datetime_str || 'Not computed'}</span>
+        ${ev.relative ? `<span class="rel">${ev.relative}</span>` : ''}
+      </div>
+      <div>
+        <div class="clock-label">${ev.label}</div>
+        <div class="clock-detail">${ev.detail}</div>
+        <div class="clock-article">${ev.article}</div>
+      </div>
+    </div>`).join('');
+
+  /* Authority */
+  const auth = result.authorityInfo;
+  document.getElementById('authorityBlock').innerHTML = `
+    <div class="authority-block">
+      <div class="authority-name">Primary Competent Authority</div>
+      <div class="authority-detail">${auth.primary}</div>
+    </div>
+    ${auth.cross_border ? `<div class="authority-block" style="margin-top:.75rem;border-color:rgba(245,158,11,.35)">
+      <div class="authority-name" style="color:var(--warn)">Cross-Border Coordination</div>
+      <div class="authority-detail">${auth.cross_border}</div>
+    </div>` : ''}
+    <div style="margin-top:.75rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted)">
+      ${auth.timeline_note}
+    </div>
+    <div style="margin-top:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--border-2)">
+      ${auth.voluntary_note}
+    </div>`;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   HASH
+   ───────────────────────────────────────────────────────────────── */
+async function sha256(obj) {
+  const canonical = JSON.stringify(obj, Object.keys(obj).sort());
+  const buf = new TextEncoder().encode(canonical);
+  const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   EXPORTS
+   ───────────────────────────────────────────────────────────────── */
+function exportAP2() {
+  if (!_artifact) return;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const blob = new Blob([JSON.stringify(_artifact, null, 2)], {type:'application/json'});
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: `art-09_${ts}.policy.json`
+  });
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('ChainGraph artifact exported');
+}
+
+function exportMarkdown() {
+  if (!_result || !_artifact) return;
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  const lines = [
+    '# DORA Incident Classification Report',
+    `**Tool:** ART-09 DORA Major-Incident Reporting Threshold Classifier · ChainGraph Suite · AINumbers.co`,
+    `**Generated:** ${new Date().toISOString()}`,
+    `**Execution Hash:** sha256:${_artifact.execution_hash}`,
+    '',
+    '---',
+    '',
+    `## Determination: ${_result.isMajor ? '⚠️ MAJOR INCIDENT' : '✅ NON-MAJOR INCIDENT'}`,
+    '',
+    _result.isMajor
+      ? `**${_result.criteriaMetList.length} of ${_result.criteria.length} classification criteria met.** DORA Art. 19 reporting obligation triggered.`
+      : `**No classification criteria met.** Standard internal incident management applies.`,
+    '',
+    '## Classification Criteria (DORA Art. 23 + ESA Joint RTS, Jan 2025)',
+    '',
+    ...(_result.criteria.map(c =>
+      `- **${c.met ? '✗' : c.not_assessed ? '?' : '✓'} ${c.name}** — ${c.met ? 'MET' : c.not_assessed ? 'NOT ASSESSED' : 'NOT MET'}\n  - ${c.detail}\n  - *${c.article}*`
+    )),
+    '',
+    '## Reporting Clock (DORA Art. 19–20)',
+    '',
+    ...(_result.clock.map(ev =>
+      `### ${ev.label}\n${ev.datetime_str || 'Not computed'}${ev.relative ? ` *(${ev.relative})*` : ''}\n${ev.detail}\n*${ev.article}*\n`
+    )),
+    '## Competent Authority',
+    '',
+    `**Primary:** ${_result.authorityInfo.primary}`,
+    _result.authorityInfo.cross_border ? `\n**Cross-border:** ${_result.authorityInfo.cross_border}` : '',
+    '',
+    '---',
+    '',
+    '> **Educational/indicative only.** Thresholds based on DORA (Regulation (EU) 2022/2554) Art. 18–23 and ESA Joint RTS (Jan 2025). Verify with your compliance function and competent authority before submitting formal notifications.',
+    '',
+    `*ChainGraph Suite · ART-09 · Post Oak Labs · CC BY 4.0 · Client-side · Zero PII*`
+  ].join('\n');
+
+  const blob = new Blob([lines], {type:'text/markdown'});
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: `art-09_${ts}.md`
+  });
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('Markdown report exported');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   UTILS
+   ───────────────────────────────────────────────────────────────── */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function toggleMfst() {
+  const body = document.getElementById('mfstBody');
+  const arrow = document.getElementById('mfstArrow');
+  const btn = document.querySelector('.mfst-btn');
+  const open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  arrow.textContent = open ? '▼' : '▲';
+  btn.setAttribute('aria-expanded', String(!open));
+  body.setAttribute('aria-hidden', String(open));
+  if (!open && !document.getElementById('mfstCode').textContent) {
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  }
+}
+
+/* Pre-fill detection time with now */
+(function init() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const local = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  document.getElementById('detectionDt').value = local;
+})();
+</script>
+
+</body>
+</html>
