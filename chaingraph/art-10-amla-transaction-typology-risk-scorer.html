@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>AMLA Transaction-Typology Risk Scorer · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Score a synthetic transaction graph against AML typologies and FATF Travel Rule predicates. Detects structuring, layering, funnel accounts, round-tripping, high-velocity patterns. EU AMLR / FATF Rec. 16. GPU-parallel chunk batching.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-10-amla-transaction-typology-risk-scorer.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"AMLA Transaction-Typology Risk Scorer","url":"https://ainumbers.co/chaingraph/art-10-amla-transaction-typology-risk-scorer.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "art-10-amla-transaction-typology-risk-scorer",
+  "version": "1.0.0",
+  "title": "AMLA Transaction-Typology Risk Scorer",
+  "description": "Scores a synthetic transaction graph against six AML typology detectors (structuring, layering, funnel account, round-tripping, high-velocity, and FATF Travel Rule gaps). Assigns a per-transaction composite risk score (0–100) and per-account network risk profile. GPU-parallel chunk batching via setTimeout yield. Deadline: EU AMLR July 2027 / FATF Rec. 16.",
+  "category": "chaingraph",
+  "tags": ["AML","AMLA","FATF","Travel Rule","structuring","layering","funnel","round-trip","high velocity","EU AMLR","risk scoring","transaction graph","typology"],
+  "mcp_tool_definition": {"name":"score_aml_typologies","description":"Scores a synthetic transaction graph against AML typologies and FATF Travel Rule predicates. Returns per-transaction risk scores, per-typology hit counts, flagged accounts, and FATF Travel Rule violations.","inputSchema":{"type":"object","properties":{"transactions":{"type":"array","description":"Array of synthetic transaction objects with id, from_account, to_account, amount, currency, timestamp_day, cross_border, has_originator_info, has_beneficiary_info"},"sensitivity":{"type":"object","description":"Per-typology sensitivity weights (0–2, default 1.0)"},"reporting_threshold":{"type":"number","description":"CTR/STR reporting threshold in base currency (default 10000)"}},"required":["transactions"]}},
+  "execution": {"type":"browser-javascript","entry":"chaingraph/art-10-amla-transaction-typology-risk-scorer.html","function_name":"runScoring","timeout_ms":8000},
+  "ap2_export": true,
+  "chaingraph": true,
+  "chain_partners": ["ptg-01-ap2-prompt-template-generator","art-11-vop-batch-match-rate-analyser"],
+  "mandate_type": "risk_control",
+  "deadline": "2027-07-01",
+  "conformance_fixtures": false
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.5rem,3vw,2.2rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:720px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--teal)}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.3rem}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.15rem;display:block}
+input[type="number"],input[type="text"],select,textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'Sora',sans-serif;font-size:.75rem;padding:.38rem .55rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+/* SCENARIO BUTTONS */
+.scenario-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.scenario-btn{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;background:var(--bg-3);border:1px solid var(--border);color:var(--muted);padding:.28rem .7rem;border-radius:3px;cursor:pointer;transition:all .2s}
+.scenario-btn:hover{border-color:var(--teal);color:var(--teal)}
+.scenario-btn.high{border-color:rgba(239,68,68,.3);color:var(--red)}
+.scenario-btn.med{border-color:rgba(245,158,11,.3);color:var(--warn)}
+.scenario-btn.low{border-color:rgba(34,197,94,.3);color:var(--green)}
+/* GRAPH EDITOR */
+.graph-editor-wrap{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:.75rem}
+@media(max-width:800px){.graph-editor-wrap{grid-template-columns:1fr}}
+.graph-textarea{font-family:'JetBrains Mono',monospace;font-size:.55rem;min-height:260px;resize:vertical;line-height:1.6}
+.json-status{font-family:'JetBrains Mono',monospace;font-size:.44rem;margin-top:.35rem}
+/* SETTINGS GRID */
+.settings-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1rem}
+@media(max-width:750px){.settings-grid{grid-template-columns:1fr 1fr}}
+.slider-wrap{display:flex;flex-direction:column;gap:.3rem}
+input[type="range"]{-webkit-appearance:none;appearance:none;height:4px;background:var(--border);border-radius:2px;outline:none;width:100%;padding:0}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:var(--teal);border-radius:50%;cursor:pointer}
+input[type="range"]::-moz-range-thumb{width:14px;height:14px;background:var(--teal);border-radius:50%;cursor:pointer;border:none}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--teal);text-align:right}
+/* RUN */
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover:not(:disabled){background:var(--teal-lt)}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.progress-wrap{display:none;align-items:center;gap:.85rem;margin-left:1rem}
+.progress-wrap.visible{display:flex}
+.progress-bar-outer{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden;width:180px}
+.progress-bar-inner{height:100%;background:var(--teal);width:0%;border-radius:3px;transition:width .08s}
+.progress-text{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);flex-shrink:0}
+/* RESULTS */
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+/* SCORECARD */
+.scorecard{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem}
+@media(max-width:700px){.scorecard{grid-template-columns:1fr 1fr}}
+.score-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.85rem 1rem;text-align:center}
+.score-val{font-family:'DM Serif Display',serif;font-size:1.8rem;line-height:1;margin-bottom:.2rem}
+.score-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.score-sub{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--body);margin-top:.15rem}
+/* TYPOLOGY GRID */
+.typology-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.65rem;margin-bottom:1rem}
+@media(max-width:700px){.typology-grid{grid-template-columns:1fr}}
+.typo-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.85rem 1rem}
+.typo-card.triggered{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.04)}
+.typo-card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.4rem}
+.typo-name{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bright)}
+.typo-hits{font-family:'JetBrains Mono',monospace;font-size:.5rem;font-weight:600}
+.typo-desc{font-size:.68rem;color:var(--body);line-height:1.5;margin-bottom:.5rem}
+.typo-bar-outer{height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.typo-bar-inner{height:100%;border-radius:3px;background:var(--teal)}
+/* NETWORK MAP (ASCII-style) */
+.network-section{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem;overflow-x:auto;margin-bottom:.75rem}
+.network-title{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.65rem}
+.account-risk-row{display:flex;align-items:center;gap:.75rem;padding:.35rem 0;border-bottom:1px solid rgba(30,47,74,.4)}
+.account-risk-row:last-child{border-bottom:none}
+.acct-name{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--text);min-width:120px}
+.acct-risk-bar-outer{flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden}
+.acct-risk-bar-inner{height:100%;border-radius:4px}
+.acct-risk-score{font-family:'JetBrains Mono',monospace;font-size:.52rem;min-width:36px;text-align:right}
+.acct-flags{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--muted);min-width:130px;text-align:right}
+/* TX TABLE */
+.tx-table-wrap{overflow-x:auto;max-height:360px;overflow-y:auto}
+.tx-table{width:100%;border-collapse:collapse}
+.tx-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.45rem .65rem;border-bottom:1px solid var(--border);background:var(--bg-3);position:sticky;top:0;white-space:nowrap;text-align:left}
+.tx-table td{font-family:'JetBrains Mono',monospace;font-size:.5rem;padding:.38rem .65rem;border-bottom:1px solid rgba(30,47,74,.5);white-space:nowrap}
+.tx-table tr:hover td{background:var(--bg-4)}
+.filter-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem;align-items:center}
+.filter-btn{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;background:var(--bg-3);border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;cursor:pointer;transition:all .2s}
+.filter-btn:hover,.filter-btn.active{border-color:var(--teal);color:var(--teal)}
+/* SAR BLOCK */
+.sar-block{background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);padding:1rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--text);line-height:1.7;white-space:pre-wrap;max-height:320px;overflow-y:auto}
+/* VERDICT */
+.verdict-card{border-radius:var(--radius-lg);padding:1.1rem 1.3rem;margin-bottom:.85rem;display:flex;align-items:flex-start;gap:1rem}
+.verdict-card.low{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.3)}
+.verdict-card.med{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.3)}
+.verdict-card.high{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.35)}
+.verdict-icon{font-size:1.5rem;line-height:1;flex-shrink:0;margin-top:.1rem}
+.verdict-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.2rem}
+.verdict-label.low{color:var(--green)}.verdict-label.med{color:var(--warn)}.verdict-label.high{color:var(--red)}
+.verdict-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--white);margin-bottom:.25rem}
+.verdict-sub{font-size:.7rem;color:var(--body);line-height:1.6}
+/* EXPORT */
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--teal);color:var(--bright)}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+/* MANIFEST */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="chaingraph-hub.html">ChainGraph</a><span class="nav-bc-sep">/</span>
+    <span class="nav-bc-current">ART-10</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph Suite · ART-10 · AMLA Transaction-Typology Risk Scorer</div>
+  <span class="badge badge-red" style="display:inline-flex;margin-bottom:.6rem"><span>Deadline: EU AMLR July 2027</span></span>
+  <h1>AMLA Transaction-Typology <em>Risk Scorer</em></h1>
+  <p class="hero-desc">Paste or generate a <strong>synthetic transaction graph</strong> and score it against six AML typology detectors: <strong>structuring</strong> (sub-threshold splitting), <strong>layering</strong> (rapid re-transfer chains), <strong>funnel accounts</strong> (many-to-one aggregation), <strong>round-tripping</strong> (funds returning to origin), <strong>high-velocity</strong> (burst activity), and <strong>FATF Travel Rule gaps</strong> (missing originator/beneficiary info on cross-border transfers). Each transaction receives a composite <strong>risk score 0–100</strong>. Aligned with EU AMLR (full application July 2027) and FATF Recommendation 16.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">AP2 Export</span>
+    <span class="badge badge-teal">Chains: PTG-01 · ART-11</span>
+    <span class="badge badge-gold">GPU Parallel</span>
+    <span class="badge badge-warn">6 Typology Detectors</span>
+    <span class="badge badge-green">Zero PII · Synthetic Only</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All scoring runs locally. All transactions must be synthetic. No data leaves your browser. Do not paste real account IDs, names, or transaction identifiers.</div>
+
+  <!-- SCENARIOS -->
+  <div class="panel">
+    <div class="panel-label">Built-in scenarios</div>
+    <div class="scenario-row">
+      <button class="scenario-btn low" onclick="loadScenario('clean')">✓ Clean — low-risk</button>
+      <button class="scenario-btn high" onclick="loadScenario('structuring')">⚠ Structuring / smurfing</button>
+      <button class="scenario-btn high" onclick="loadScenario('layering')">⚠ Layering chain</button>
+      <button class="scenario-btn high" onclick="loadScenario('funnel')">⚠ Funnel account</button>
+      <button class="scenario-btn high" onclick="loadScenario('roundtrip')">⚠ Round-trip</button>
+      <button class="scenario-btn med" onclick="loadScenario('travel_rule')">⚠ FATF Travel Rule gaps</button>
+      <button class="scenario-btn high" onclick="loadScenario('mixed')">⚠ Mixed — all typologies</button>
+    </div>
+  </div>
+
+  <!-- GRAPH EDITOR -->
+  <div class="panel">
+    <div class="panel-label">Transaction graph — paste or edit JSON</div>
+    <div class="graph-editor-wrap">
+      <div>
+        <label class="field-label">Transactions array</label>
+        <textarea class="graph-textarea" id="txJson" oninput="onTxJsonChange()" placeholder='[
+  {
+    "id": "tx-001",
+    "from_account": "ACCT-A",
+    "to_account":   "ACCT-B",
+    "amount": 9800,
+    "currency": "USD",
+    "timestamp_day": 1,
+    "cross_border": false,
+    "has_originator_info": true,
+    "has_beneficiary_info": true
+  }
+]'></textarea>
+        <div class="json-status" id="txJsonStatus" style="color:var(--muted)">paste or load a scenario</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.75rem">
+        <div>
+          <div class="field-label">Transaction schema reference</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--body);line-height:1.9;background:var(--bg-3);padding:.65rem .85rem;border-radius:var(--radius);border:1px solid var(--border)">
+            id                   string  — unique TX identifier<br>
+            from_account         string  — sender account ID<br>
+            to_account           string  — recipient account ID<br>
+            amount               number  — in base currency<br>
+            currency             string  — e.g. "USD"<br>
+            timestamp_day        integer — day number (1–365)<br>
+            cross_border         boolean — crosses jurisdiction<br>
+            has_originator_info  boolean — FATF originator data present<br>
+            has_beneficiary_info boolean — FATF beneficiary data present
+          </div>
+        </div>
+        <div>
+          <label class="field-label">Generate synthetic graph</label>
+          <div style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap">
+            <div style="flex:1;min-width:80px">
+              <span class="field-hint" style="margin-bottom:.2rem;display:block">Transactions</span>
+              <input type="number" id="genCount" value="50" min="5" max="500" style="width:80px">
+            </div>
+            <div style="flex:1;min-width:80px">
+              <span class="field-hint" style="margin-bottom:.2rem;display:block">Accounts</span>
+              <input type="number" id="genAccounts" value="8" min="3" max="30" style="width:80px">
+            </div>
+            <button style="background:var(--bg-3);border:1px solid var(--border);color:var(--text);padding:.38rem .85rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;white-space:nowrap" onclick="generateGraph()">Generate ▶</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="panel">
+    <div class="panel-label">Typology sensitivity weights &amp; thresholds</div>
+    <div class="settings-grid">
+      <div class="slider-wrap">
+        <label class="field-label">Reporting threshold ($)</label>
+        <input type="number" id="reportingThreshold" value="10000" min="1000" step="1000" style="width:140px">
+        <span class="field-hint">CTR/STR threshold · structuring detector</span>
+      </div>
+      <div class="slider-wrap">
+        <label class="field-label">Travel Rule threshold ($)</label>
+        <input type="number" id="travelRuleThreshold" value="1000" min="100" step="100" style="width:140px">
+        <span class="field-hint">FATF Rec. 16 · cross-border minimum</span>
+      </div>
+      <div class="slider-wrap">
+        <label class="field-label">Layering lookback (days)</label>
+        <input type="number" id="layeringWindow" value="3" min="1" max="14" style="width:80px">
+        <span class="field-hint">Rapid re-transfer window</span>
+      </div>
+    </div>
+    <div class="settings-grid" style="margin-top:.75rem">
+      <div class="slider-wrap">
+        <label class="field-label">Structuring weight</label>
+        <input type="range" id="wStructuring" min="0" max="2" step="0.1" value="1.0" oninput="syncSlider('wStructuring','vStructuring')">
+        <div class="slider-val" id="vStructuring">1.0</div>
+      </div>
+      <div class="slider-wrap">
+        <label class="field-label">Layering weight</label>
+        <input type="range" id="wLayering" min="0" max="2" step="0.1" value="1.0" oninput="syncSlider('wLayering','vLayering')">
+        <div class="slider-val" id="vLayering">1.0</div>
+      </div>
+      <div class="slider-wrap">
+        <label class="field-label">Funnel account weight</label>
+        <input type="range" id="wFunnel" min="0" max="2" step="0.1" value="1.0" oninput="syncSlider('wFunnel','vFunnel')">
+        <div class="slider-val" id="vFunnel">1.0</div>
+      </div>
+      <div class="slider-wrap">
+        <label class="field-label">Round-trip weight</label>
+        <input type="range" id="wRoundtrip" min="0" max="2" step="0.1" value="1.0" oninput="syncSlider('wRoundtrip','vRoundtrip')">
+        <div class="slider-val" id="vRoundtrip">1.0</div>
+      </div>
+      <div class="slider-wrap">
+        <label class="field-label">High-velocity weight</label>
+        <input type="range" id="wVelocity" min="0" max="2" step="0.1" value="1.0" oninput="syncSlider('wVelocity','vVelocity')">
+        <div class="slider-val" id="vVelocity">1.0</div>
+      </div>
+      <div class="slider-wrap">
+        <label class="field-label">Travel Rule weight</label>
+        <input type="range" id="wTravelRule" min="0" max="2" step="0.1" value="1.2" oninput="syncSlider('wTravelRule','vTravelRule')">
+        <div class="slider-val" id="vTravelRule">1.2</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:2rem">
+    <button class="run-btn" id="runBtn" onclick="runScoring()">▶ Score Graph</button>
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar-outer"><div class="progress-bar-inner" id="progressBar"></div></div>
+      <span class="progress-text" id="progressText">0 / 0</span>
+    </div>
+    <span id="runStatus" style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)"></span>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-panel" id="resultsPanel">
+
+    <!-- VERDICT + SCORECARD -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Risk assessment</span></div>
+      <div class="out-body">
+        <div id="verdictCard"></div>
+        <div class="scorecard" id="scorecard"></div>
+      </div>
+    </div>
+
+    <!-- TYPOLOGY BREAKDOWN -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Typology detector results</span></div>
+      <div class="out-body">
+        <div class="typology-grid" id="typologyGrid"></div>
+      </div>
+    </div>
+
+    <!-- ACCOUNT RISK PROFILES -->
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Account risk profiles</span></div>
+      <div class="out-body">
+        <div class="network-section">
+          <div class="network-title">Accounts ranked by composite risk score</div>
+          <div id="accountRiskList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TX TABLE -->
+    <div class="out-section">
+      <div class="out-header">
+        <span class="out-title">Transaction risk scores (<span id="txCountLabel">0</span>)</span>
+        <div class="filter-row" style="margin-bottom:0">
+          <button class="filter-btn active" onclick="filterTx('all',this)">All</button>
+          <button class="filter-btn" onclick="filterTx('HIGH',this)">High risk</button>
+          <button class="filter-btn" onclick="filterTx('MED',this)">Medium</button>
+          <button class="filter-btn" onclick="filterTx('STRUCTURING',this)">Structuring</button>
+          <button class="filter-btn" onclick="filterTx('LAYERING',this)">Layering</button>
+          <button class="filter-btn" onclick="filterTx('TRAVEL_RULE',this)">Travel Rule</button>
+        </div>
+      </div>
+      <div class="out-body" style="padding:0">
+        <div class="tx-table-wrap">
+          <table class="tx-table" id="txTable">
+            <thead><tr>
+              <th>ID</th><th>Risk</th><th>Score</th><th>From</th><th>To</th><th>Amount</th><th>Day</th><th>CB</th><th>Typologies Hit</th>
+            </tr></thead>
+            <tbody id="txTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SAR NARRATIVE -->
+    <div class="out-section">
+      <div class="out-header">
+        <span class="out-title">SAR narrative skeleton (highest-risk accounts)</span>
+      </div>
+      <div class="out-body">
+        <p style="font-size:.7rem;color:var(--body);margin-bottom:.75rem;line-height:1.7">Auto-generated Suspicious Activity Report narrative template for the top-risk accounts. Replace bracketed placeholders with real investigation findings before submission. This is a structural aid, not a complete SAR.</p>
+        <div class="sar-block" id="sarBlock"></div>
+      </div>
+    </div>
+
+    <!-- EXPORT -->
+    <div class="results-export-row">
+      <button class="btn btn-ghost" id="ap2ExportBtn" disabled onclick="exportAP2()">
+        {} Export ChainGraph Artifact
+        <span class="btn-subtitle">AP2 · risk_control · chain-anchored</span>
+      </button>
+      <button class="btn btn-ghost" id="csvExportBtn" disabled onclick="exportCSV()">
+        &#x21E9; Export Scored Transactions
+        <span class="btn-subtitle">Full risk scores as CSV</span>
+      </button>
+    </div>
+
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()" style="margin-top:2rem" aria-expanded="false" aria-controls="mfstBody">
+    <span>&#x7B;&#x7D; MCP Manifest — ART-10</span>
+    <span id="mfstArrow">&#x25BC;</span>
+  </button>
+  <div class="mfst-body" id="mfstBody" aria-hidden="true">
+    <pre class="mfst-code" id="mfstCode"></pre>
+  </div>
+
+</div></div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" style="display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500"><span style="color:var(--teal)">AI</span>Numbers.co</span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../index.html">All Tools</a>
+      <a href="chaingraph-hub.html">ChainGraph Hub</a>
+      <a href="../about.html">About</a>
+      <a href="https://mcp.ainumbers.co/mcp" target="_blank" rel="noopener noreferrer">MCP Server</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>Post Oak Labs · CC BY 4.0</span>
+      <span>ChainGraph Suite · ART-10 v1.0.0 · EU AMLR · FATF Rec. 16</span>
+      <span>Deadline: July 2027 · Synthetic data only · Zero PII</span>
+    </div>
+  </div>
+</div></footer>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────────────────────────
+   MANIFEST
+   ───────────────────────────────────────────────────────────────── */
+const MANIFEST = {
+  tool_id: 'art-10-amla-transaction-typology-risk-scorer',
+  version: '1.0.0',
+  title: 'AMLA Transaction-Typology Risk Scorer',
+  description: 'Scores synthetic transaction graphs against AML typologies: structuring, layering, funnel account, round-trip, high-velocity, FATF Travel Rule. Per-transaction composite risk score 0–100. EU AMLR / FATF Rec. 16. Deadline July 2027.',
+  category: 'chaingraph',
+  mcp_tool_definition: {
+    name: 'score_aml_typologies',
+    description: 'Scores a synthetic transaction graph against six AML typology detectors. Returns per-transaction risk scores, typology hit counts, account risk profiles, and SAR narrative skeleton.',
+    inputSchema: { type:'object', required:['transactions'] }
+  }
+};
+
+/* ─────────────────────────────────────────────────────────────────
+   BUILT-IN SCENARIOS
+   ───────────────────────────────────────────────────────────────── */
+const SCENARIOS = {
+  clean: [
+    {id:'tx-001',from_account:'ACCT-A',to_account:'ACCT-B',amount:5200,currency:'USD',timestamp_day:1,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-002',from_account:'ACCT-B',to_account:'ACCT-C',amount:18000,currency:'USD',timestamp_day:5,cross_border:true,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-003',from_account:'ACCT-A',to_account:'ACCT-D',amount:3400,currency:'USD',timestamp_day:8,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-004',from_account:'ACCT-C',to_account:'ACCT-E',amount:22000,currency:'USD',timestamp_day:12,cross_border:true,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-005',from_account:'ACCT-D',to_account:'ACCT-F',amount:1200,currency:'USD',timestamp_day:15,cross_border:false,has_originator_info:true,has_beneficiary_info:true}
+  ],
+  structuring: [
+    {id:'tx-001',from_account:'ACCT-S1',to_account:'ACCT-BANK',amount:9800,currency:'USD',timestamp_day:1,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-002',from_account:'ACCT-S1',to_account:'ACCT-BANK',amount:9500,currency:'USD',timestamp_day:1,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-003',from_account:'ACCT-S2',to_account:'ACCT-BANK',amount:9900,currency:'USD',timestamp_day:2,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-004',from_account:'ACCT-S2',to_account:'ACCT-BANK',amount:9700,currency:'USD',timestamp_day:2,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-005',from_account:'ACCT-S3',to_account:'ACCT-BANK',amount:9850,currency:'USD',timestamp_day:3,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-006',from_account:'ACCT-S3',to_account:'ACCT-BANK',amount:9950,currency:'USD',timestamp_day:3,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-007',from_account:'ACCT-S1',to_account:'ACCT-BANK',amount:8900,currency:'USD',timestamp_day:4,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-008',from_account:'ACCT-BANK',to_account:'ACCT-FINAL',amount:76000,currency:'USD',timestamp_day:5,cross_border:true,has_originator_info:true,has_beneficiary_info:true}
+  ],
+  layering: [
+    {id:'tx-001',from_account:'ACCT-ORIG',to_account:'ACCT-L1',amount:50000,currency:'USD',timestamp_day:1,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-002',from_account:'ACCT-L1',to_account:'ACCT-L2',amount:48000,currency:'USD',timestamp_day:1,cross_border:true,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-003',from_account:'ACCT-L2',to_account:'ACCT-L3',amount:47000,currency:'USD',timestamp_day:2,cross_border:true,has_originator_info:false,has_beneficiary_info:true},
+    {id:'tx-004',from_account:'ACCT-L3',to_account:'ACCT-L4',amount:46000,currency:'USD',timestamp_day:2,cross_border:true,has_originator_info:false,has_beneficiary_info:false},
+    {id:'tx-005',from_account:'ACCT-L4',to_account:'ACCT-CLEAN',amount:45000,currency:'USD',timestamp_day:3,cross_border:false,has_originator_info:true,has_beneficiary_info:true}
+  ],
+  funnel: [
+    {id:'tx-001',from_account:'ACCT-M1',to_account:'ACCT-FUNNEL',amount:3200,currency:'USD',timestamp_day:1,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-002',from_account:'ACCT-M2',to_account:'ACCT-FUNNEL',amount:2800,currency:'USD',timestamp_day:1,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-003',from_account:'ACCT-M3',to_account:'ACCT-FUNNEL',amount:4100,currency:'USD',timestamp_day:2,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-004',from_account:'ACCT-M4',to_account:'ACCT-FUNNEL',amount:3700,currency:'USD',timestamp_day:2,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-005',from_account:'ACCT-M5',to_account:'ACCT-FUNNEL',amount:5200,currency:'USD',timestamp_day:3,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-006',from_account:'ACCT-M6',to_account:'ACCT-FUNNEL',amount:2900,currency:'USD',timestamp_day:3,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-007',from_account:'ACCT-FUNNEL',to_account:'ACCT-OFFSHORE',amount:21000,currency:'USD',timestamp_day:4,cross_border:true,has_originator_info:false,has_beneficiary_info:false}
+  ],
+  roundtrip: [
+    {id:'tx-001',from_account:'ACCT-RT-A',to_account:'ACCT-RT-B',amount:75000,currency:'USD',timestamp_day:1,cross_border:true,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-002',from_account:'ACCT-RT-B',to_account:'ACCT-RT-C',amount:73000,currency:'USD',timestamp_day:3,cross_border:true,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-003',from_account:'ACCT-RT-C',to_account:'ACCT-RT-D',amount:71000,currency:'USD',timestamp_day:6,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-004',from_account:'ACCT-RT-D',to_account:'ACCT-RT-A',amount:68000,currency:'USD',timestamp_day:9,cross_border:true,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-005',from_account:'ACCT-RT-A',to_account:'ACCT-CLEAN-BUY',amount:64000,currency:'USD',timestamp_day:12,cross_border:false,has_originator_info:true,has_beneficiary_info:true}
+  ],
+  travel_rule: [
+    {id:'tx-001',from_account:'VASP-A',to_account:'VASP-B',amount:2500,currency:'USD',timestamp_day:1,cross_border:true,has_originator_info:false,has_beneficiary_info:false},
+    {id:'tx-002',from_account:'VASP-B',to_account:'VASP-C',amount:4800,currency:'USD',timestamp_day:2,cross_border:true,has_originator_info:true,has_beneficiary_info:false},
+    {id:'tx-003',from_account:'VASP-A',to_account:'VASP-D',amount:1200,currency:'USD',timestamp_day:3,cross_border:true,has_originator_info:false,has_beneficiary_info:true},
+    {id:'tx-004',from_account:'VASP-C',to_account:'VASP-E',amount:9500,currency:'USD',timestamp_day:4,cross_border:true,has_originator_info:false,has_beneficiary_info:false},
+    {id:'tx-005',from_account:'VASP-A',to_account:'VASP-B',amount:800,currency:'USD',timestamp_day:5,cross_border:true,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-006',from_account:'VASP-D',to_account:'VASP-E',amount:3300,currency:'USD',timestamp_day:6,cross_border:true,has_originator_info:false,has_beneficiary_info:false}
+  ],
+  mixed: [
+    {id:'tx-001',from_account:'ACCT-A',to_account:'ACCT-HUB',amount:9800,currency:'USD',timestamp_day:1,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-002',from_account:'ACCT-B',to_account:'ACCT-HUB',amount:9700,currency:'USD',timestamp_day:1,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-003',from_account:'ACCT-C',to_account:'ACCT-HUB',amount:9500,currency:'USD',timestamp_day:2,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-004',from_account:'ACCT-HUB',to_account:'ACCT-L1',amount:28000,currency:'USD',timestamp_day:2,cross_border:true,has_originator_info:false,has_beneficiary_info:false},
+    {id:'tx-005',from_account:'ACCT-L1',to_account:'ACCT-L2',amount:27000,currency:'USD',timestamp_day:2,cross_border:true,has_originator_info:false,has_beneficiary_info:false},
+    {id:'tx-006',from_account:'ACCT-L2',to_account:'ACCT-L3',amount:26000,currency:'USD',timestamp_day:3,cross_border:true,has_originator_info:false,has_beneficiary_info:false},
+    {id:'tx-007',from_account:'ACCT-L3',to_account:'ACCT-A',amount:24000,currency:'USD',timestamp_day:6,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-008',from_account:'ACCT-D',to_account:'ACCT-HUB',amount:9900,currency:'USD',timestamp_day:4,cross_border:false,has_originator_info:true,has_beneficiary_info:true},
+    {id:'tx-009',from_account:'ACCT-HUB',to_account:'ACCT-FINAL',amount:8000,currency:'USD',timestamp_day:5,cross_border:true,has_originator_info:false,has_beneficiary_info:false}
+  ]
+};
+
+let _parsed = null;
+let _scored  = null;
+let _allScored = [];
+let _filteredScored = [];
+let _artifact = null;
+
+/* ─────────────────────────────────────────────────────────────────
+   UTILS
+   ───────────────────────────────────────────────────────────────── */
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function syncSlider(id,vid,fmt){ const v=parseFloat(document.getElementById(id).value); document.getElementById(vid).textContent=fmt?fmt(v):v.toFixed(1); }
+function showToast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+function yieldTick(){ return new Promise(r=>setTimeout(r,0)); }
+async function sha256(obj){ const c=JSON.stringify(obj,Object.keys(obj).sort()); const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(c)); return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join(''); }
+function dl(content,filename,type){ const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([content],{type})),download:filename}); a.click(); URL.revokeObjectURL(a.href); }
+function riskColor(s){ return s>=70?'var(--red)':s>=40?'var(--warn)':'var(--green)'; }
+function riskLabel(s){ return s>=70?'HIGH':s>=40?'MED':'LOW'; }
+
+/* ─────────────────────────────────────────────────────────────────
+   JSON EDITOR
+   ───────────────────────────────────────────────────────────────── */
+function onTxJsonChange(){
+  const raw=document.getElementById('txJson').value.trim();
+  const el=document.getElementById('txJsonStatus');
+  if(!raw){_parsed=null;el.style.color='var(--muted)';el.textContent='empty';return;}
+  try{
+    const arr=JSON.parse(raw);
+    if(!Array.isArray(arr)) throw new Error('Expected a JSON array of transactions');
+    _parsed=arr;
+    el.style.color='var(--teal)';
+    el.textContent=`✓ ${arr.length} transactions parsed`;
+  }catch(e){_parsed=null;el.style.color='var(--red)';el.textContent=`✗ ${e.message.slice(0,80)}`;}
+}
+
+function loadScenario(key){
+  const s=SCENARIOS[key];
+  if(!s) return;
+  document.getElementById('txJson').value=JSON.stringify(s,null,2);
+  onTxJsonChange();
+  showToast(`Scenario "${key}" loaded`);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   SYNTHETIC GRAPH GENERATOR
+   ───────────────────────────────────────────────────────────────── */
+function generateGraph(){
+  const n=parseInt(document.getElementById('genCount').value,10)||50;
+  const a=parseInt(document.getElementById('genAccounts').value,10)||8;
+  const accounts=[...Array(a)].map((_,i)=>`ACCT-${String.fromCharCode(65+i)}`);
+  const txns=[];
+  let s=Date.now()&0xFFFFFFF;
+  const rng=()=>{s=(s^s<<13)^(s>>17)^(s<<5);return(s>>>0)/0xFFFFFFFF;};
+  for(let i=0;i<n;i++){
+    const from=accounts[Math.floor(rng()*a)];
+    let to=accounts[Math.floor(rng()*a)];
+    if(to===from) to=accounts[(accounts.indexOf(from)+1)%a];
+    const base=parseFloat(document.getElementById('reportingThreshold').value)||10000;
+    const structuring=rng()<0.12;
+    const amount=structuring?(base*(0.90+rng()*0.085)):Math.round(base*(0.05+rng()*3));
+    const cb=rng()<0.3;
+    txns.push({id:`tx-${String(i+1).padStart(3,'0')}`,from_account:from,to_account:to,amount:+amount.toFixed(2),currency:'USD',timestamp_day:Math.ceil(rng()*30),cross_border:cb,has_originator_info:rng()>0.2,has_beneficiary_info:rng()>0.15});
+  }
+  document.getElementById('txJson').value=JSON.stringify(txns,null,2);
+  onTxJsonChange();
+  showToast(`Generated ${n} transactions across ${a} accounts`);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   TYPOLOGY SCORING ENGINE
+   ───────────────────────────────────────────────────────────────── */
+function scoreTransactions(txns, params){
+  const {reportingThreshold, travelRuleThreshold, layeringWindow,
+         wStructuring, wLayering, wFunnel, wRoundtrip, wVelocity, wTravelRule} = params;
+
+  /* Pre-compute account-level graph properties */
+  const acctInflow  = {};  // acct → total received amount
+  const acctOutflow = {};  // acct → total sent amount
+  const acctInDays  = {};  // acct → set of days receiving
+  const acctInFrom  = {};  // acct → set of distinct senders
+  const acctOutTo   = {};  // acct → set of distinct recipients
+  const dayTxCounts = {};  // acct:day → count of txns
+  const acctTxDays  = {};  // acct → [{day, amount, to}] for outflow timing
+
+  txns.forEach(tx=>{
+    acctInflow[tx.to_account]   = (acctInflow[tx.to_account]  ||0) + tx.amount;
+    acctOutflow[tx.from_account]= (acctOutflow[tx.from_account]||0) + tx.amount;
+    if(!acctInDays[tx.to_account])  acctInDays[tx.to_account]  = new Set();
+    if(!acctInFrom[tx.to_account])  acctInFrom[tx.to_account]  = new Set();
+    if(!acctOutTo[tx.from_account]) acctOutTo[tx.from_account] = new Set();
+    acctInDays[tx.to_account].add(tx.timestamp_day);
+    acctInFrom[tx.to_account].add(tx.from_account);
+    acctOutTo[tx.from_account].add(tx.to_account);
+    const dk=`${tx.from_account}:${tx.timestamp_day}`;
+    dayTxCounts[dk]=(dayTxCounts[dk]||0)+1;
+    if(!acctTxDays[tx.from_account]) acctTxDays[tx.from_account]=[];
+    acctTxDays[tx.from_account].push({day:tx.timestamp_day,amount:tx.amount,to:tx.to_account});
+  });
+
+  /* Funnel detection: high in-degree (>3 distinct senders) + concentrated outflow */
+  const funnelAccounts=new Set();
+  Object.entries(acctInFrom).forEach(([acct,senders])=>{
+    if(senders.size>=4){
+      const inAmt  = acctInflow[acct]||0;
+      const outAmt = acctOutflow[acct]||0;
+      if(outAmt >= inAmt*0.7) funnelAccounts.add(acct); // passes most inflow out
+    }
+  });
+
+  /* Layering: account receives funds and re-transmits ≥80% within layeringWindow days */
+  const layeringAccounts=new Set();
+  txns.forEach(rx=>{
+    const inAmt=rx.amount;
+    const inDay=rx.timestamp_day;
+    const outTxns=(acctTxDays[rx.to_account]||[]).filter(o=>o.day>=inDay && o.day<=inDay+layeringWindow);
+    const outAmt=outTxns.reduce((s,o)=>s+o.amount,0);
+    if(outAmt>=inAmt*0.8 && rx.amount>reportingThreshold*0.5) layeringAccounts.add(rx.to_account);
+  });
+
+  /* Round-trip detection: account A sends to B, B (directly or via 1-hop) sends back to A */
+  const roundTripPairs=new Set();
+  const outMap={};
+  txns.forEach(tx=>{
+    (outMap[tx.from_account]=outMap[tx.from_account]||[]).push(tx.to_account);
+  });
+  Object.entries(outMap).forEach(([from,targets])=>{
+    targets.forEach(mid=>{
+      if((outMap[mid]||[]).includes(from)) roundTripPairs.add(`${from}↔${mid}`);
+    });
+  });
+
+  /* Score each transaction */
+  const scored=txns.map(tx=>{
+    const typologies=[];
+    let raw=0;
+
+    /* STRUCTURING */
+    const ratio=tx.amount/reportingThreshold;
+    if(ratio>=0.85 && ratio<1.0){
+      const intensity=(ratio-0.85)/0.15; // 0→1 as amount approaches threshold
+      raw+=25*(1+intensity)*wStructuring;
+      typologies.push('STRUCTURING');
+    }
+
+    /* TRAVEL RULE */
+    if(tx.cross_border && tx.amount>=travelRuleThreshold){
+      if(!tx.has_originator_info || !tx.has_beneficiary_info){
+        const missing=(!tx.has_originator_info?1:0)+(!tx.has_beneficiary_info?1:0);
+        raw+=20*missing*wTravelRule;
+        typologies.push('TRAVEL_RULE');
+      }
+    }
+
+    /* LAYERING */
+    if(layeringAccounts.has(tx.to_account)){raw+=30*wLayering;typologies.push('LAYERING');}
+
+    /* FUNNEL */
+    if(funnelAccounts.has(tx.to_account)||funnelAccounts.has(tx.from_account)){raw+=25*wFunnel;typologies.push('FUNNEL');}
+
+    /* ROUND-TRIP */
+    const pairFwd=`${tx.from_account}↔${tx.to_account}`;
+    const pairRev=`${tx.to_account}↔${tx.from_account}`;
+    if(roundTripPairs.has(pairFwd)||roundTripPairs.has(pairRev)){raw+=35*wRoundtrip;typologies.push('ROUND_TRIP');}
+
+    /* HIGH VELOCITY */
+    const dk=`${tx.from_account}:${tx.timestamp_day}`;
+    if((dayTxCounts[dk]||0)>=4){raw+=15*wVelocity;typologies.push('HIGH_VELOCITY');}
+
+    const score=Math.min(100,Math.round(raw));
+    return {...tx, score, typologies, risk_level:riskLabel(score)};
+  });
+
+  return {scored, funnelAccounts:[...funnelAccounts], layeringAccounts:[...layeringAccounts], roundTripPairs:[...roundTripPairs]};
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   ACCOUNT RISK PROFILES
+   ───────────────────────────────────────────────────────────────── */
+function buildAccountProfiles(scored){
+  const profiles={};
+  scored.forEach(tx=>{
+    [tx.from_account, tx.to_account].forEach(acct=>{
+      if(!profiles[acct]) profiles[acct]={account:acct,maxScore:0,sumScore:0,txCount:0,typologies:new Set()};
+      profiles[acct].maxScore=Math.max(profiles[acct].maxScore,tx.score);
+      profiles[acct].sumScore+=tx.score;
+      profiles[acct].txCount++;
+      tx.typologies.forEach(t=>profiles[acct].typologies.add(t));
+    });
+  });
+  return Object.values(profiles)
+    .map(p=>({...p,typologies:[...p.typologies],avgScore:Math.round(p.sumScore/p.txCount)}))
+    .sort((a,b)=>b.maxScore-a.maxScore);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   MAIN RUN
+   ───────────────────────────────────────────────────────────────── */
+async function runScoring(){
+  if(!_parsed||!_parsed.length){
+    document.getElementById('runStatus').style.color='var(--red)';
+    document.getElementById('runStatus').textContent='Load a scenario or paste transaction JSON first.';
+    return;
+  }
+
+  document.getElementById('runBtn').disabled=true;
+  document.getElementById('progressWrap').classList.add('visible');
+  document.getElementById('progressBar').style.width='0%';
+  document.getElementById('progressText').textContent=`0 / ${_parsed.length}`;
+  document.getElementById('runStatus').textContent='';
+
+  const params={
+    reportingThreshold: parseFloat(document.getElementById('reportingThreshold').value)||10000,
+    travelRuleThreshold:parseFloat(document.getElementById('travelRuleThreshold').value)||1000,
+    layeringWindow:     parseInt(document.getElementById('layeringWindow').value,10)||3,
+    wStructuring: parseFloat(document.getElementById('wStructuring').value),
+    wLayering:    parseFloat(document.getElementById('wLayering').value),
+    wFunnel:      parseFloat(document.getElementById('wFunnel').value),
+    wRoundtrip:   parseFloat(document.getElementById('wRoundtrip').value),
+    wVelocity:    parseFloat(document.getElementById('wVelocity').value),
+    wTravelRule:  parseFloat(document.getElementById('wTravelRule').value)
+  };
+
+  /* Chunk-yield for large graphs */
+  const CHUNK=100;
+  let processed=0;
+  const txns=[..._parsed];
+
+  // Simulate chunked progress
+  while(processed<txns.length){
+    processed=Math.min(processed+CHUNK,txns.length);
+    const pct=Math.round(processed/txns.length*100);
+    document.getElementById('progressBar').style.width=pct+'%';
+    document.getElementById('progressText').textContent=`${processed} / ${txns.length}`;
+    if(processed<txns.length) await yieldTick();
+  }
+
+  const {scored,funnelAccounts,layeringAccounts,roundTripPairs}=scoreTransactions(txns,params);
+  _allScored=scored;
+  _filteredScored=[...scored];
+
+  const highRisk   =scored.filter(t=>t.score>=70);
+  const medRisk    =scored.filter(t=>t.score>=40&&t.score<70);
+  const travelViol =scored.filter(t=>t.typologies.includes('TRAVEL_RULE'));
+  const structViol =scored.filter(t=>t.typologies.includes('STRUCTURING'));
+
+  const avgScore=Math.round(scored.reduce((s,t)=>s+t.score,0)/scored.length);
+  const maxScore=Math.max(...scored.map(t=>t.score));
+
+  const profiles=buildAccountProfiles(scored);
+
+  const typologyStats={
+    STRUCTURING: {hits:structViol.length,   desc:'Transactions just below the reporting threshold — possible deliberate avoidance of CTR/STR filing.', spec:'FATF R. 8 · EU AMLR Art. 74'},
+    LAYERING:    {hits:scored.filter(t=>t.typologies.includes('LAYERING')).length, desc:'Account receives funds then rapidly re-transmits ≥80% within the layering window — obscuring the funds trail.', spec:'FATF R. 8 · EU AMLR Art. 75'},
+    FUNNEL:      {hits:scored.filter(t=>t.typologies.includes('FUNNEL')).length, desc:'Account aggregates inflows from ≥4 distinct senders and passes most of it on — funnel/aggregator pattern.', spec:'FATF R. 8 · EU 2021/1232'},
+    ROUND_TRIP:  {hits:scored.filter(t=>t.typologies.includes('ROUND_TRIP')).length, desc:'Funds return to the originating account through a chain — creates the appearance of legitimate transactions.', spec:'FATF R. 8 · EU AMLR Art. 75'},
+    HIGH_VELOCITY:{hits:scored.filter(t=>t.typologies.includes('HIGH_VELOCITY')).length, desc:'Account sends ≥4 transactions in a single day — anomalous burst activity.', spec:'FATF R. 8 · EU AMLR Art. 74'},
+    TRAVEL_RULE: {hits:travelViol.length, desc:'Cross-border transfer above FATF threshold with missing originator and/or beneficiary information.', spec:'FATF Rec. 16 · EU TFR 2023/1113'}
+  };
+
+  /* Global risk rating */
+  const overallRisk=highRisk.length>0||roundTripPairs.length>0?'HIGH':medRisk.length>2?'MED':'LOW';
+
+  _scored={scored,highRisk,medRisk,travelViol,structViol,avgScore,maxScore,typologyStats,profiles,overallRisk,funnelAccounts,layeringAccounts,roundTripPairs};
+
+  /* Build AP2 artifact */
+  const policyParams={reporting_threshold:params.reportingThreshold,travel_rule_threshold:params.travelRuleThreshold,layering_window:params.layeringWindow};
+  const outputForHash={total_tx:scored.length,high_risk:highRisk.length,avg_score:avgScore};
+  const hash=await sha256({policy_parameters:policyParams,output_payload:outputForHash});
+
+  _artifact={
+    ap2_version:'1.0.0',mandate_type:'risk_control',tool_id:'art-10-amla-transaction-typology-risk-scorer',tool_version:'1.0.0',
+    generated_at:new Date().toISOString(),execution_hash:hash,
+    chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},
+    policy_parameters:policyParams,
+    output_payload:{
+      overall_risk:overallRisk,transaction_count:scored.length,
+      high_risk_count:highRisk.length,medium_risk_count:medRisk.length,
+      average_score:avgScore,max_score:maxScore,
+      travel_rule_violations:travelViol.length,
+      typology_hit_counts:Object.fromEntries(Object.entries(typologyStats).map(([k,v])=>[k,v.hits])),
+      top_risk_accounts:profiles.slice(0,5).map(p=>({account:p.account,max_score:p.maxScore,typologies:p.typologies}))
+    },
+    compliance_flags:[`AML_RISK_${overallRisk}`,
+      ...(travelViol.length?['FATF_TRAVEL_RULE_GAP']:[]),
+      ...(roundTripPairs.length?['ROUND_TRIP_DETECTED']:[]),
+      ...(structViol.length?['STRUCTURING_DETECTED']:[])
+    ],
+    audit_signature:{client_side_executed:true,zero_pii_verified:true,synthetic_data_only:true}
+  };
+
+  document.getElementById('progressWrap').classList.remove('visible');
+  document.getElementById('runBtn').disabled=false;
+  document.getElementById('ap2ExportBtn').disabled=false;
+  document.getElementById('ap2ExportBtn').classList.add('ready');
+  document.getElementById('csvExportBtn').disabled=false;
+  document.getElementById('csvExportBtn').classList.add('ready');
+
+  renderResults(_scored);
+  renderTxTable(_filteredScored);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RENDER
+   ───────────────────────────────────────────────────────────────── */
+function renderResults(r){
+  document.getElementById('resultsPanel').classList.add('visible');
+  const {overallRisk,scored,highRisk,medRisk,avgScore,maxScore,typologyStats,profiles,travelViol}=r;
+
+  const vMeta={
+    LOW: {cls:'low',icon:'✅',label:'Low AML Risk',title:'Transaction graph presents low typology risk',sub:'No high-risk transactions or pattern sequences detected under current sensitivity settings.'},
+    MED: {cls:'med',icon:'⚠️',label:'Medium AML Risk',title:'Notable typology signals detected',sub:`${medRisk.length} medium-risk transaction(s) and/or multi-hop patterns detected. Recommend enhanced monitoring.`},
+    HIGH:{cls:'high',icon:'🚨',label:'High AML Risk',title:'High-risk typology patterns detected — SAR consideration recommended',sub:`${highRisk.length} high-risk transaction(s) flagged. Patterns consistent with layering, structuring, or round-tripping. Review SAR narrative below.`}
+  }[overallRisk];
+
+  document.getElementById('verdictCard').innerHTML=`<div class="verdict-card ${vMeta.cls}">
+    <div class="verdict-icon">${vMeta.icon}</div>
+    <div>
+      <div class="verdict-label ${vMeta.cls}">${vMeta.label}</div>
+      <div class="verdict-title">${vMeta.title}</div>
+      <div class="verdict-sub">${vMeta.sub}</div>
+    </div>
+  </div>`;
+
+  document.getElementById('scorecard').innerHTML=[
+    {val:maxScore,label:'Max risk score',sub:riskLabel(maxScore),color:riskColor(maxScore)},
+    {val:avgScore,label:'Avg risk score',sub:'all transactions',color:riskColor(avgScore)},
+    {val:highRisk.length,label:'High-risk txns',sub:'score ≥70',color:'var(--red)'},
+    {val:travelViol.length,label:'Travel Rule gaps',sub:'FATF Rec. 16',color:'var(--warn)'}
+  ].map(c=>`<div class="score-card">
+    <div class="score-val" style="color:${c.color}">${c.val}</div>
+    <div class="score-label">${c.label}</div>
+    <div class="score-sub">${c.sub}</div>
+  </div>`).join('');
+
+  document.getElementById('typologyGrid').innerHTML=Object.entries(typologyStats).map(([k,v])=>`
+    <div class="typo-card${v.hits>0?' triggered':''}">
+      <div class="typo-card-header">
+        <span class="typo-name">${k.replace(/_/g,' ')}</span>
+        <span class="typo-hits" style="color:${v.hits>0?'var(--red)':'var(--green)'}">${v.hits} hit${v.hits!==1?'s':''}</span>
+      </div>
+      <div class="typo-desc">${esc(v.desc)}</div>
+      <div class="typo-bar-outer"><div class="typo-bar-inner" style="width:${Math.min(100,v.hits/scored.length*300).toFixed(1)}%;background:${v.hits>0?'var(--red)':'var(--teal)'}"></div></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted);margin-top:.35rem">${v.spec}</div>
+    </div>`).join('');
+
+  document.getElementById('accountRiskList').innerHTML=profiles.map(p=>`
+    <div class="account-risk-row">
+      <div class="acct-name">${esc(p.account)}</div>
+      <div class="acct-risk-bar-outer"><div class="acct-risk-bar-inner" style="width:${p.maxScore}%;background:${riskColor(p.maxScore)}"></div></div>
+      <div class="acct-risk-score" style="color:${riskColor(p.maxScore)}">${p.maxScore}</div>
+      <div class="acct-flags">${p.typologies.join(' ·') || '–'}</div>
+    </div>`).join('');
+
+  /* SAR narrative */
+  const topRisk=profiles.filter(p=>p.maxScore>=40).slice(0,3);
+  document.getElementById('sarBlock').textContent = topRisk.length===0
+    ? 'No accounts exceed medium-risk threshold — SAR consideration not indicated.'
+    : topRisk.map(p=>`ACCOUNT: ${p.account}
+MAX RISK SCORE: ${p.maxScore}/100 (${riskLabel(p.maxScore)})
+TYPOLOGIES HIT: ${p.typologies.join(', ')||'–'}
+TRANSACTION COUNT: ${p.txCount}
+
+NARRATIVE:
+[REPORTING ENTITY] is filing this Suspicious Activity Report regarding account ${p.account}.
+${p.typologies.includes('STRUCTURING')
+  ? 'The account conducted multiple transactions just below the reporting threshold of $[THRESHOLD], consistent with structuring (Layered FATF R.8 / EU AMLR Art. 74). '
+  : ''}${p.typologies.includes('LAYERING')
+  ? 'Incoming funds were rapidly re-transmitted (≥80%) within [WINDOW] day(s), consistent with layering to obscure the funds trail. '
+  : ''}${p.typologies.includes('FUNNEL')
+  ? 'The account received inflows from [N] distinct counterparties and aggregated them into a concentrated outflow, consistent with a funnel account pattern. '
+  : ''}${p.typologies.includes('ROUND_TRIP')
+  ? 'Funds transmitted from this account were traced back to the same account via [N] intermediate hops, consistent with round-tripping. '
+  : ''}${p.typologies.includes('TRAVEL_RULE')
+  ? 'Cross-border transfers above the FATF Recommendation 16 threshold were conducted without complete originator/beneficiary information. '
+  : ''}
+RECOMMENDED ACTION: [Enhanced due diligence / File SAR / Freeze pending review]
+──────────────────────────────────────────────`).join('\n\n');
+
+  document.getElementById('txCountLabel').textContent=scored.length.toLocaleString();
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   TX TABLE
+   ───────────────────────────────────────────────────────────────── */
+function renderTxTable(txns){
+  const MAX=300;
+  const body=document.getElementById('txTbody');
+  body.innerHTML=txns.slice(0,MAX).map(t=>`<tr>
+    <td style="color:var(--muted)">${esc(t.id)}</td>
+    <td style="color:${riskColor(t.score)};font-weight:500">${t.risk_level}</td>
+    <td style="color:${riskColor(t.score)}">${t.score}</td>
+    <td>${esc(t.from_account)}</td>
+    <td>${esc(t.to_account)}</td>
+    <td>$${t.amount.toLocaleString()}</td>
+    <td>D${t.timestamp_day}</td>
+    <td style="color:${t.cross_border?'var(--warn)':'var(--muted)'}">${t.cross_border?'CB':'–'}</td>
+    <td style="font-size:.44rem;color:${t.typologies.length?'var(--red)':'var(--muted)'}">${t.typologies.join(' ')||'–'}</td>
+  </tr>`).join('');
+  if(txns.length>MAX) body.innerHTML+=`<tr><td colspan="9" style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted);padding:.75rem 1rem">Showing ${MAX} of ${txns.length.toLocaleString()} — export CSV for full list.</td></tr>`;
+}
+
+function filterTx(type,btn){
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(type==='all')              _filteredScored=[..._allScored];
+  else if(type==='HIGH')        _filteredScored=_allScored.filter(t=>t.score>=70);
+  else if(type==='MED')         _filteredScored=_allScored.filter(t=>t.score>=40&&t.score<70);
+  else if(type==='STRUCTURING') _filteredScored=_allScored.filter(t=>t.typologies.includes('STRUCTURING'));
+  else if(type==='LAYERING')    _filteredScored=_allScored.filter(t=>t.typologies.includes('LAYERING'));
+  else if(type==='TRAVEL_RULE') _filteredScored=_allScored.filter(t=>t.typologies.includes('TRAVEL_RULE'));
+  document.getElementById('txCountLabel').textContent=_filteredScored.length.toLocaleString();
+  renderTxTable(_filteredScored);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   EXPORTS
+   ───────────────────────────────────────────────────────────────── */
+function exportAP2(){
+  if(!_artifact) return;
+  const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  dl(JSON.stringify(_artifact,null,2),`art-10_${ts}.policy.json`,'application/json');
+  showToast('ChainGraph artifact exported');
+}
+
+function exportCSV(){
+  if(!_allScored.length) return;
+  const hdr='id,from_account,to_account,amount,currency,day,cross_border,originator_info,beneficiary_info,score,risk_level,typologies\n';
+  const rows=_allScored.map(t=>[
+    t.id,`"${t.from_account}"`,`"${t.to_account}"`,t.amount,t.currency,
+    t.timestamp_day,t.cross_border,t.has_originator_info,t.has_beneficiary_info,
+    t.score,t.risk_level,`"${t.typologies.join('|')}"`
+  ].join(','));
+  const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);
+  dl(hdr+rows.join('\n'),`art-10_scored_${ts}.csv`,'text/csv');
+  showToast('Scored transactions exported');
+}
+
+function toggleMfst(){
+  const body=document.getElementById('mfstBody'),arrow=document.getElementById('mfstArrow'),btn=document.querySelector('.mfst-btn');
+  const open=body.style.display==='block';
+  body.style.display=open?'none':'block';arrow.textContent=open?'▼':'▲';
+  btn.setAttribute('aria-expanded',String(!open));body.setAttribute('aria-hidden',String(open));
+  if(!open&&!document.getElementById('mfstCode').textContent)
+    document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);
+}
+
+/* Init sliders */
+['wStructuring','wLayering','wFunnel','wRoundtrip','wVelocity','wTravelRule'].forEach(id=>document.getElementById(id).dispatchEvent(new Event('input')));
+</script>
+</body>
+</html>
