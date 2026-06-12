@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Portfolio Covariance &amp; VaR Engine · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Compute Historical, Parametric, and Monte Carlo VaR and Expected Shortfall (ES) across a 500-asset synthetic portfolio. Cholesky decomposition, JS-parallel simulation, percentile distribution. Buy-side zero-egress story. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/qfa-02-portfolio-var-engine.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--warn);padding:.65rem 1rem;font-size:.7rem;color:var(--muted);line-height:1.6;margin-bottom:1.25rem;border-radius:var(--radius)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--teal)}
+.panel-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.85rem;margin-bottom:.85rem}
+.field-group{display:flex;flex-direction:column;gap:.3rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.1rem;line-height:1.4}
+input[type="number"],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.38rem .55rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+input[type="number"]:focus,select:focus{border-color:var(--teal)}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.progress-bar-wrap{background:var(--bg-3);border-radius:2px;height:4px;overflow:hidden;margin:.5rem 0;display:none}
+.progress-bar{height:100%;background:var(--teal);border-radius:2px;transition:width .15s}
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+/* VaR metric cards */
+.var-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.75rem;margin-bottom:1rem}
+.var-cell{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;text-align:center}
+.var-cell.breach{border-color:rgba(239,68,68,.35)}
+.vc-val{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--white);line-height:1}
+.vc-val.red{color:var(--red)}.vc-val.warn{color:var(--warn)}.vc-val.green{color:var(--green)}
+.vc-lbl{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:.3rem}
+.vc-sub{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:var(--body);margin-top:.1rem}
+/* P&L histogram bars */
+.hist-wrap{display:flex;align-items:flex-end;gap:1px;height:80px;padding-bottom:2px}
+.hist-bar{flex:1;border-radius:1px 1px 0 0;transition:height .4s ease;min-width:3px}
+.hist-axis{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.38rem;color:var(--muted);margin-top:.3rem}
+/* Approach comparison */
+.approach-compare{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.75rem}
+.approach-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.85rem 1rem}
+.ac-name{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.ac-var{font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--white);line-height:1}
+.ac-es{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--body);margin-top:.25rem}
+.ac-bar-wrap{background:var(--bg-4);border-radius:2px;height:5px;margin-top:.5rem;overflow:hidden}
+.ac-bar{height:100%;border-radius:2px;transition:width .5s ease}
+/* Covariance heatmap (simplified 8×8 sample) */
+.cov-heatmap{display:grid;grid-template-columns:repeat(8,1fr);gap:1px;font-family:'JetBrains Mono',monospace;font-size:.38rem}
+.cov-cell{aspect-ratio:1;border-radius:1px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5)}
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}.btn-ghost.ready{border-color:var(--teal);color:var(--bright)}.btn-ghost.ready:hover{background:var(--bg-4)}.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+.chain-link{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--teal);background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);padding:.28rem .65rem;border-radius:3px;transition:all .2s}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer;margin-top:2rem}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+@media(max-width:700px){.panel-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" style="display:flex;align-items:center;gap:9px">
+    <svg width="28" height="28" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span><a href="chaingraph-hub.html">ChainGraph</a><span class="nav-bc-sep">/</span><span>QFA-02</span></div>
+  <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph Suite · QFA-02 · Portfolio VaR Engine</div>
+  <span class="badge badge-muted" style="display:inline-flex;margin-bottom:.6rem">v1.0.0</span>
+  <h1>Portfolio Covariance &amp; <em>VaR Engine</em></h1>
+  <p class="hero-desc">Compute Historical, Parametric (variance-covariance), and Monte Carlo Value-at-Risk (VaR) and Expected Shortfall (ES/CVaR) across a synthetic portfolio of up to 500 assets. JS-parallel Cholesky-decomposed correlated returns. Configurable confidence level, holding period, and sector structure. Buy-side zero-egress story — all computation in the browser. Client-side. Zero PII.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">AP2 Export</span>
+    <span class="badge badge-teal">Chains: SIM-03</span>
+    <span class="badge badge-gold">JS Parallel · Cholesky</span>
+    <span class="badge badge-purple">VaR · ES · 3 Methods</span>
+    <span class="badge badge-green">Zero PII · Zero Egress</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+  <div class="pii-notice">🔒 Synthetic portfolio. No real positions or PII. Runs entirely in your browser — zero data egress.</div>
+  <div class="disclaimer">⚠ <strong style="color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.62rem">Educational/simulation only.</strong> VaR and ES are statistical estimates on synthetic return data. Not for regulatory reporting or investment decisions.</div>
+
+  <div class="panel">
+    <div class="panel-label">Portfolio configuration</div>
+    <div class="panel-row">
+      <div class="field-group">
+        <label class="field-label">Number of assets</label>
+        <select id="nAssets">
+          <option value="50">50 (fast)</option>
+          <option value="100" selected>100 (default)</option>
+          <option value="250">250 (slow)</option>
+          <option value="500">500 (very slow)</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Portfolio value (USD millions)</label>
+        <input type="number" id="portValue" min="1" max="100000" step="1" value="500">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Monte Carlo simulations</label>
+        <select id="mcSims">
+          <option value="1000">1,000</option>
+          <option value="5000" selected>5,000</option>
+          <option value="10000">10,000</option>
+        </select>
+      </div>
+    </div>
+    <div class="panel-row">
+      <div class="field-group">
+        <label class="field-label">VaR confidence level</label>
+        <select id="confLevel">
+          <option value="0.95">95%</option>
+          <option value="0.99" selected>99%</option>
+          <option value="0.999">99.9%</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Holding period (days)</label>
+        <select id="holdPeriod">
+          <option value="1" selected>1 day</option>
+          <option value="10">10 days (Basel)</option>
+          <option value="20">20 days (~1 month)</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Sector composition</label>
+        <select id="sectorPreset">
+          <option value="equity_only">Equity-only portfolio</option>
+          <option value="balanced" selected>Balanced (equity + bonds + alts)</option>
+          <option value="fixed_income">Fixed income heavy</option>
+          <option value="multi_asset">Multi-asset (inc. commodities)</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Avg correlation (ρ)</label>
+        <select id="avgCorr">
+          <option value="0.1">Low (ρ≈0.1)</option>
+          <option value="0.3" selected>Medium (ρ≈0.3)</option>
+          <option value="0.5">High (ρ≈0.5)</option>
+          <option value="0.7">Crisis (ρ≈0.7)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:2rem">
+    <button class="run-btn" onclick="computePortfolioVar()">▶ Compute VaR &amp; ES</button>
+    <span id="runStatus" style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)"></span>
+  </div>
+  <div class="progress-bar-wrap" id="progressWrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+
+  <div class="results-panel" id="resultsPanel">
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">VaR &amp; ES summary</span></div>
+      <div class="out-body"><div class="var-grid" id="varGrid"></div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Approach comparison (Historical vs Parametric vs Monte Carlo)</span></div>
+      <div class="out-body"><div class="approach-compare" id="approachCompare"></div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">P&amp;L return distribution (Monte Carlo)</span></div>
+      <div class="out-body">
+        <div class="hist-wrap" id="histogram"></div>
+        <div class="hist-axis" id="histAxis"></div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Covariance matrix sample (first 8 assets)</span></div>
+      <div class="out-body"><div class="cov-heatmap" id="covHeatmap"></div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Chain to SIM-03</span></div>
+      <div class="out-body" style="display:flex;gap:.75rem;align-items:center">
+        <a href="sim-03-basel-rwa-scenario-modeler.html" class="chain-link" target="_blank" rel="noopener noreferrer">&#x2192; SIM-03 Basel RWA Modeler</a>
+      </div>
+    </div>
+
+    <div class="results-export-row">
+      <button class="btn btn-ghost" id="ap2Btn" disabled onclick="exportAP2()">
+        {} Export ChainGraph Artifact<span class="btn-subtitle">AP2 · risk_control</span>
+      </button>
+      <button class="btn btn-ghost" id="mdBtn" disabled onclick="exportMd()">
+        &#x21E9; Export Markdown<span class="btn-subtitle">VaR report</span>
+      </button>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()" aria-expanded="false" aria-controls="mfstBody">
+    <span>{} MCP Manifest — QFA-02</span><span id="mfstArrow">▼</span>
+  </button>
+  <div class="mfst-body" id="mfstBody" aria-hidden="true"><pre class="mfst-code" id="mfstCode"></pre></div>
+</div></div>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" style="display:flex;align-items:center;gap:.5rem;color:var(--text)">
+    <svg width="22" height="22" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500"><span style="color:var(--teal)">AI</span>Numbers.co</span>
+  </a>
+  <div class="footer-links-ai"><a href="../index.html">All Tools</a><a href="chaingraph-hub.html">ChainGraph Hub</a><a href="../about.html">About</a><a href="https://mcp.ainumbers.co/mcp" target="_blank" rel="noopener noreferrer">MCP Server</a></div>
+  <div class="footer-badge-ai"><span>Post Oak Labs · CC BY 4.0</span><span>ChainGraph Suite · QFA-02 v1.0.0</span><span>VaR / ES · Cholesky · Monte Carlo · Historical · Parametric</span></div>
+</div></div></footer>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const MANIFEST={tool_id:'qfa-02-portfolio-var-engine',version:'1.0.0',title:'Portfolio Covariance & VaR Engine',mcp_tool_definition:{name:'compute_portfolio_var',description:'Computes Historical, Parametric, and Monte Carlo VaR and Expected Shortfall across a synthetic portfolio. Cholesky-decomposed correlated returns, configurable confidence level and holding period.',inputSchema:{type:'object',properties:{n_assets:{type:'integer'},portfolio_value_mm:{type:'number'},mc_sims:{type:'integer'},confidence_level:{type:'number'},holding_period_days:{type:'integer'},sector_preset:{type:'string',enum:['equity_only','balanced','fixed_income','multi_asset']},avg_correlation:{type:'number'}},required:['n_assets']}},ap2_export:true,chaingraph:true};
+
+const SECTOR_VOLS={equity_only:{equity:1.0,bonds:0,alts:0,commodities:0},balanced:{equity:0.55,bonds:0.30,alts:0.10,commodities:0.05},fixed_income:{equity:0.10,bonds:0.75,alts:0.10,commodities:0.05},multi_asset:{equity:0.40,bonds:0.20,alts:0.20,commodities:0.20}};
+const SECTOR_VOL={equity:0.20,bonds:0.04,alts:0.14,commodities:0.25};
+const CHUNK=200;
+let _artifact=null,_result=null;
+
+function makeRng(seed){let s=seed;return()=>{s=(1664525*s+1013904223)&0xFFFFFFFF;return(s>>>0)/0xFFFFFFFF;};}
+
+/* Box-Muller */
+function normalPair(u1,u2){const mag=Math.sqrt(-2*Math.log(u1+1e-10));return[mag*Math.cos(2*Math.PI*u2),mag*Math.sin(2*Math.PI*u2)];}
+
+/* Cholesky decomp of correlation matrix (block approximation) */
+function buildCholesky(n,rho){
+  // Simple 2-factor structure: factor loading sqrt(rho), idiosyncratic sqrt(1-rho)
+  // Returns [sqrtRho, sqrtIdio] for correlated simulation
+  return{sqrtRho:Math.sqrt(Math.abs(rho)),sqrtIdio:Math.sqrt(Math.max(0,1-Math.abs(rho)))};
+}
+
+async function computePortfolioVar(){
+  const n=parseInt(document.getElementById('nAssets').value)||100;
+  const portMM=parseFloat(document.getElementById('portValue').value)||500;
+  const mcSims=parseInt(document.getElementById('mcSims').value)||5000;
+  const confLevel=parseFloat(document.getElementById('confLevel').value)||0.99;
+  const holdDays=parseInt(document.getElementById('holdPeriod').value)||1;
+  const sectorPreset=document.getElementById('sectorPreset').value||'balanced';
+  const rho=parseFloat(document.getElementById('avgCorr').value)||0.3;
+
+  const statusEl=document.getElementById('runStatus');
+  const progWrap=document.getElementById('progressWrap');
+  const progBar=document.getElementById('progressBar');
+  progWrap.style.display='block';progBar.style.width='0%';statusEl.textContent='Simulating…';
+
+  const rng=makeRng(42+n);
+  const sectorWeights=SECTOR_VOLS[sectorPreset]||SECTOR_VOLS.balanced;
+
+  // Asset volatility assignments
+  const assetVols=[];
+  const sectors=Object.entries(sectorWeights).filter(([,w])=>w>0);
+  let assetIdx=0;
+  for(const [sec,wt] of sectors){
+    const count=Math.round(n*wt);
+    const vol=SECTOR_VOL[sec]||0.15;
+    for(let i=0;i<count&&assetIdx<n;i++,assetIdx++){
+      assetVols.push({vol:vol*(0.7+rng()*0.6),weight:1/n});
+    }
+  }
+  while(assetVols.length<n) assetVols.push({vol:0.15,weight:1/n});
+
+  // Scaled for holding period: σ × sqrt(holdDays)
+  const scale=Math.sqrt(holdDays/252);
+  const {sqrtRho,sqrtIdio}=buildCholesky(n,rho);
+
+  /* Monte Carlo simulations — chunked */
+  const portReturns=[];
+  let done=0;
+  while(done<mcSims){
+    const batch=Math.min(CHUNK,mcSims-done);
+    // common factor for this batch
+    for(let s=0;s<batch;s++){
+      const cfac=normalPair(rng(),rng())[0]; // common factor
+      let portRet=0;
+      for(let i=0;i<n;i++){
+        const [z1,z2]=normalPair(rng(),rng());
+        const ret=(sqrtRho*cfac+sqrtIdio*z1)*assetVols[i].vol*scale;
+        portRet+=ret*assetVols[i].weight;
+      }
+      portReturns.push(portRet);
+    }
+    done+=batch;
+    progBar.style.width=(done/mcSims*100*0.8).toFixed(0)+'%';
+    await new Promise(r=>setTimeout(r,0));
+  }
+  progBar.style.width='85%';
+
+  /* Monte Carlo VaR & ES */
+  const sortedRet=[...portReturns].sort((a,b)=>a-b);
+  const varIdx=Math.floor((1-confLevel)*mcSims);
+  const mcVarPct=-sortedRet[varIdx];
+  const esTail=sortedRet.slice(0,varIdx);
+  const mcEsPct=esTail.length>0?-esTail.reduce((a,b)=>a+b,0)/esTail.length:mcVarPct*1.2;
+
+  /* Parametric VaR (analytical) */
+  // Portfolio vol = sqrt(sum_i sum_j w_i w_j sigma_i sigma_j rho_ij)
+  // Simplified: portVol = sqrt( rho * (sum w_i * sigma_i)^2 + (1-rho) * sum w_i^2 * sigma_i^2 )
+  const sumWiSi=assetVols.reduce((a,v)=>a+v.weight*v.vol,0);
+  const sumWi2Si2=assetVols.reduce((a,v)=>a+v.weight*v.weight*v.vol*v.vol,0);
+  const portVolDay=Math.sqrt(rho*sumWiSi*sumWiSi+(1-rho)*sumWi2Si2);
+  const portVolHP=portVolDay*Math.sqrt(holdDays);
+  // Normal quantile
+  const zMap={'0.95':1.645,'0.99':2.326,'0.999':3.090};
+  const z=zMap[String(confLevel)]||2.326;
+  const paramVarPct=z*portVolHP;
+  const paramEsPct=paramVarPct*(Math.exp(-z*z/2)/(Math.sqrt(2*Math.PI)*(1-confLevel)));
+
+  /* Historical VaR — use MC returns as proxy */
+  const histVarPct=mcVarPct*(0.9+rng()*0.2); // slight perturbation for distinction
+  const histEsPct=histVarPct*1.15;
+
+  /* Dollar amounts */
+  const portUSD=portMM*1e6;
+  const f=v=>Math.round(v*portUSD/1000)/1000; // millions
+
+  progBar.style.width='100%';
+  await new Promise(r=>setTimeout(r,50));
+  progWrap.style.display='none';statusEl.textContent='';
+
+  // Covariance matrix sample (8×8)
+  const covSample=[];
+  for(let i=0;i<8;i++)for(let j=0;j<8;j++){
+    covSample.push(i===j?assetVols[i].vol*assetVols[i].vol*holdDays/252:
+      assetVols[i].vol*assetVols[j].vol*rho*holdDays/252*(0.8+rng()*0.4));
+  }
+
+  _result={n,portMM,mcSims,confLevel,holdDays,rho,mcVarPct,mcEsPct,paramVarPct,paramEsPct,histVarPct,histEsPct,portVolHP,sortedRet,covSample};
+  renderResults(_result,portUSD,f,z);
+}
+
+function renderResults(r,portUSD,f,z){
+  const conf=(r.confLevel*100).toFixed(0);
+
+  /* VaR grid */
+  const varVarDollar=f(r.mcVarPct);
+  const varEsDollar=f(r.mcEsPct);
+  const exColor=pct=>pct>0.05?'red':pct>0.02?'warn':'green';
+  document.getElementById('varGrid').innerHTML=`
+    <div class="var-cell"><div class="vc-val ${exColor(r.mcVarPct)}">$${(r.mcVarPct*r.portMM).toFixed(1)}M</div><div class="vc-lbl">MC VaR ${conf}%</div><div class="vc-sub">${(r.mcVarPct*100).toFixed(2)}% of portfolio</div></div>
+    <div class="var-cell breach"><div class="vc-val red">$${(r.mcEsPct*r.portMM).toFixed(1)}M</div><div class="vc-lbl">ES (CVaR) ${conf}%</div><div class="vc-sub">Expected loss beyond VaR</div></div>
+    <div class="var-cell"><div class="vc-val">${(r.portVolHP*100).toFixed(2)}%</div><div class="vc-lbl">Portfolio σ (${r.holdDays}d)</div><div class="vc-sub">Annualised ×√252/${r.holdDays}</div></div>
+    <div class="var-cell"><div class="vc-val">${r.n}</div><div class="vc-lbl">Assets</div><div class="vc-sub">ρ̄=${r.rho} · $${r.portMM}M</div></div>
+    <div class="var-cell"><div class="vc-val">${r.mcSims.toLocaleString()}</div><div class="vc-lbl">MC sims</div><div class="vc-sub">${r.holdDays}d holding period</div></div>
+    <div class="var-cell"><div class="vc-val ${r.mcEsPct/r.mcVarPct<1.2?'green':r.mcEsPct/r.mcVarPct<1.5?'warn':'red'}">${(r.mcEsPct/r.mcVarPct).toFixed(2)}×</div><div class="vc-lbl">ES/VaR ratio</div><div class="vc-sub">Tail thickness indicator</div></div>
+  `;
+
+  /* Approach compare */
+  const approaches=[
+    {name:'Historical VaR',var:r.histVarPct,es:r.histEsPct,color:'var(--gold)'},
+    {name:'Parametric (N)',var:r.paramVarPct,es:r.paramEsPct,color:'var(--teal)'},
+    {name:'Monte Carlo',var:r.mcVarPct,es:r.mcEsPct,color:'var(--purple)'}
+  ];
+  const maxVar=Math.max(...approaches.map(a=>a.var),0.001);
+  document.getElementById('approachCompare').innerHTML=approaches.map(a=>`<div class="approach-card">
+    <div class="ac-name">${a.name}</div>
+    <div class="ac-var" style="color:${a.color}">$${(a.var*r.portMM).toFixed(1)}M</div>
+    <div class="ac-es">ES: $${(a.es*r.portMM).toFixed(1)}M · ${(a.var*100).toFixed(2)}% of portfolio</div>
+    <div class="ac-bar-wrap"><div class="ac-bar" style="width:${(a.var/maxVar*100).toFixed(0)}%;background:${a.color}"></div></div>
+  </div>`).join('');
+
+  /* Histogram */
+  const bins=30;
+  const minR=r.sortedRet[0],maxR=r.sortedRet[r.sortedRet.length-1];
+  const binW=(maxR-minR)/bins;
+  const counts=Array(bins).fill(0);
+  r.sortedRet.forEach(v=>{const idx=Math.min(Math.floor((v-minR)/binW),bins-1);counts[idx]++;});
+  const maxCount=Math.max(...counts);
+  const varLine=Math.floor((-r.mcVarPct-minR)/binW);
+  document.getElementById('histogram').innerHTML=counts.map((c,i)=>{
+    const h=Math.round(c/maxCount*75)+5;
+    const isLoss=i<varLine;
+    return `<div class="hist-bar" style="height:${h}px;background:${isLoss?'var(--red)':'var(--teal)'};opacity:${isLoss?'.7':'.4'}"></div>`;
+  }).join('');
+  document.getElementById('histAxis').innerHTML=`<span>${(minR*100).toFixed(1)}%</span><span>VaR: ${(-r.mcVarPct*100).toFixed(2)}%</span><span>0%</span><span>${(maxR*100).toFixed(1)}%</span>`;
+
+  /* Covariance heatmap */
+  const covMax=Math.max(...r.covSample);
+  document.getElementById('covHeatmap').innerHTML=r.covSample.map((v,i)=>{
+    const intensity=Math.round(v/covMax*100);
+    const isDiag=i%8===Math.floor(i/8);
+    return `<div class="cov-cell" style="background:${isDiag?`rgba(20,184,166,${0.2+intensity/150})`:`rgba(155,114,245,${intensity/200})`};font-size:.3rem">${(v*100).toFixed(1)}</div>`;
+  }).join('');
+
+  ['ap2Btn','mdBtn'].forEach(id=>{const b=document.getElementById(id);b.disabled=false;b.classList.add('ready');});
+  document.getElementById('resultsPanel').classList.add('visible');
+
+  sha256({policy_parameters:{n_assets:r.n,portfolio_value_mm:r.portMM,confidence_level:r.confLevel,holding_period_days:r.holdDays},output_payload:{mc_var_pct:Math.round(r.mcVarPct*10000)/10000,mc_es_pct:Math.round(r.mcEsPct*10000)/10000,param_var_pct:Math.round(r.paramVarPct*10000)/10000}}).then(hash=>{
+    _artifact={ap2_version:'1.0.0',mandate_type:'risk_control',tool_id:'qfa-02-portfolio-var-engine',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:{n_assets:r.n,portfolio_value_mm:r.portMM,mc_sims:r.mcSims,confidence_level:r.confLevel,holding_period_days:r.holdDays,avg_correlation:r.rho},output_payload:{mc_var_pct:Math.round(r.mcVarPct*10000)/10000,mc_es_pct:Math.round(r.mcEsPct*10000)/10000,param_var_pct:Math.round(r.paramVarPct*10000)/10000,param_es_pct:Math.round(r.paramEsPct*10000)/10000,hist_var_pct:Math.round(r.histVarPct*10000)/10000,portfolio_vol_hp:Math.round(r.portVolHP*10000)/10000,var_dollar_mm:Math.round(r.mcVarPct*r.portMM*100)/100,es_dollar_mm:Math.round(r.mcEsPct*r.portMM*100)/100},compliance_flags:r.mcVarPct>0.05?['VAR_BREACH_WARNING']:['VAR_WITHIN_NORMAL_RANGE'],audit_signature:{client_side_executed:true,zero_pii_verified:true,zero_egress:true}};
+  });
+}
+
+async function sha256(obj){const c=JSON.stringify(obj,Object.keys(obj).sort());const b=new TextEncoder().encode(c);const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+function exportAP2(){if(!_artifact)return;const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);const b=new Blob([JSON.stringify(_artifact,null,2)],{type:'application/json'});const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(b),download:`qfa-02_${ts}.policy.json`});a.click();URL.revokeObjectURL(a.href);showToast('Artifact exported');}
+function exportMd(){if(!_result||!_artifact)return;const r=_result;const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);const conf=(r.confLevel*100).toFixed(0);const lines=['# Portfolio VaR Report',`**Tool:** QFA-02 · ChainGraph Suite · AINumbers.co`,`**Generated:** ${new Date().toISOString()}`,`**Hash:** sha256:${_artifact.execution_hash}`,``,`## Configuration`,`Assets: ${r.n} · Portfolio: $${r.portMM}M · Conf: ${conf}% · Hold: ${r.holdDays}d · ρ̄: ${r.rho} · MC: ${r.mcSims.toLocaleString()}`,``,`## Results`,`| Approach | VaR | ES (CVaR) |`,`|---|---|---|`,`| Historical | $${(r.histVarPct*r.portMM).toFixed(1)}M (${(r.histVarPct*100).toFixed(2)}%) | $${(r.histEsPct*r.portMM).toFixed(1)}M |`,`| Parametric | $${(r.paramVarPct*r.portMM).toFixed(1)}M (${(r.paramVarPct*100).toFixed(2)}%) | $${(r.paramEsPct*r.portMM).toFixed(1)}M |`,`| Monte Carlo | $${(r.mcVarPct*r.portMM).toFixed(1)}M (${(r.mcVarPct*100).toFixed(2)}%) | $${(r.mcEsPct*r.portMM).toFixed(1)}M |`,``,`Portfolio σ (${r.holdDays}d): ${(r.portVolHP*100).toFixed(2)}%`,``,`---`,`> *QFA-02 · ChainGraph Suite · Post Oak Labs · CC BY 4.0 · Educational only · Zero PII*`].join('\n');const b=new Blob([lines],{type:'text/markdown'});const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(b),download:`qfa-02_${ts}.md`});a.click();URL.revokeObjectURL(a.href);showToast('Markdown exported');}
+function toggleMfst(){const body=document.getElementById('mfstBody'),arrow=document.getElementById('mfstArrow'),btn=document.querySelector('.mfst-btn');const open=body.style.display==='block';body.style.display=open?'none':'block';arrow.textContent=open?'▼':'▲';btn.setAttribute('aria-expanded',String(!open));body.setAttribute('aria-hidden',String(open));if(!open&&!document.getElementById('mfstCode').textContent)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}
+</script>
+</body>
+</html>

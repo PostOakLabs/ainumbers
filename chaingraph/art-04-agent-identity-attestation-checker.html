@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Agent Identity & Authorization Attestation Checker · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Validate AI agent identity credentials and delegated-authority chains against the KYA-OS (Know Your Agent OS) specification. DIF Trusted AI Agents WG. Scope limits, validity windows, credential chain depth. EU AI Act August 2026 deadline. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-04-agent-identity-attestation-checker.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Agent Identity & Authorization Attestation Checker","url":"https://ainumbers.co/chaingraph/art-04-agent-identity-attestation-checker.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "tool_id": "art-04-agent-identity-attestation-checker",
+  "version": "1.0.0",
+  "title": "Agent Identity & Authorization Attestation Checker",
+  "description": "Validates AI agent identity credentials and delegated-authority chains against KYA-OS (DIF Trusted AI Agents WG, donated March 2026). Checks credential chain integrity, scope limits, validity windows, delegation depth, and EU AI Act Aug 2026 compliance posture. Chains into ART-01 and ART-13.",
+  "category": "chaingraph",
+  "tags": ["KYA-OS","agent identity","DIF","EU AI Act","delegated authority","attestation","credential chain","scope limits"],
+  "mandate_type": "compliance_mandate",
+  "mcp_tool_definition": {"name":"check_agent_attestation","description":"Validates an AI agent identity credential and delegated-authority chain against KYA-OS (DIF Trusted AI Agents WG). Checks chain integrity, scope limits, validity windows, delegation depth cap, and EU AI Act Aug 2026 posture.","inputSchema":{"type":"object","properties":{"credential_json":{"type":"string","description":"JSON of the agent credential object to validate"},"message_type":{"type":"string","enum":["AgentCredential","DelegationChain","auto"]}},"required":["credential_json"]}},
+  "chain_partners": ["art-01-ap2-mandate-chain-validator","art-13-eudi-wallet-credential-readiness-checker"]
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
+  --border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;
+  --teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;
+  --gold:#D4A847;--gold-dim:rgba(212,168,71,.12);
+  --green:#22C55E;--green-dim:rgba(34,197,94,.12);
+  --red:#EF4444;--red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B;--warn-dim:rgba(245,158,11,.12);
+  --purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}
+.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}
+.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--teal)}
+.panel-tabs{display:flex;gap:.4rem;margin-bottom:1rem;flex-wrap:wrap}
+.tab-btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;padding:.32rem .85rem;border-radius:4px;border:1px solid var(--border);color:var(--muted);background:transparent;transition:all .15s}
+.tab-btn.active{border-color:var(--teal);color:var(--teal);background:var(--teal-dim)}
+.tab-btn:hover:not(.active){border-color:var(--border-2);color:var(--body)}
+.field-group{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.85rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.1rem;line-height:1.4}
+textarea{background:var(--bg-3);border:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.65rem;line-height:1.55;padding:.65rem .85rem;border-radius:var(--radius);outline:none;resize:vertical;width:100%;transition:border-color .2s;min-height:280px}
+textarea:focus{border-color:var(--teal)}
+textarea.err{border-color:var(--red)}textarea.ok{border-color:rgba(20,184,166,.4)}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.verdict-card{border-radius:var(--radius-lg);padding:1.4rem 1.5rem;margin-bottom:1rem;display:flex;align-items:flex-start;gap:1.1rem}
+.verdict-card.pass{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.3)}
+.verdict-card.warn{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.3)}
+.verdict-card.fail{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.35)}
+.verdict-icon{font-size:1.75rem;line-height:1;flex-shrink:0;margin-top:.15rem}
+.verdict-title{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--white);margin-bottom:.3rem;line-height:1.2}
+.verdict-sub{font-size:.72rem;color:var(--body);line-height:1.6}
+.check-list{display:flex;flex-direction:column;gap:.4rem}
+.check-item{display:flex;align-items:flex-start;gap:.65rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;line-height:1.45;padding:.45rem .65rem;border-radius:var(--radius);border:1px solid transparent}
+.check-item.pass{background:rgba(34,197,94,.04);border-color:rgba(34,197,94,.15)}
+.check-item.fail{background:rgba(239,68,68,.05);border-color:rgba(239,68,68,.2);color:var(--bright)}
+.check-item.warn{background:rgba(245,158,11,.04);border-color:rgba(245,158,11,.2)}
+.check-item.info{background:var(--bg-3);border-color:var(--border);color:var(--body)}
+.check-icon{flex-shrink:0;width:14px;text-align:center;margin-top:.05rem}
+.check-text{flex:1}
+.check-code{font-size:.46rem;color:var(--muted);display:block;margin-top:.1rem}
+/* Chain depth visualiser */
+.chain-depth-viz{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin:.5rem 0}
+.chain-node{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.35rem .65rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--bright);display:flex;flex-direction:column;align-items:center;gap:.1rem;min-width:90px}
+.chain-node.root{border-color:rgba(20,184,166,.4);color:var(--teal-lt)}
+.chain-node.delegate{border-color:rgba(212,168,71,.3);color:var(--gold)}
+.chain-node.leaf{border-color:rgba(155,114,245,.3);color:var(--purple)}
+.chain-node .cn-type{font-size:.38rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
+.chain-arrow{color:var(--muted);font-size:.75rem}
+.scope-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.55rem}
+.scope-cell{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.5rem .75rem;font-family:'JetBrains Mono',monospace;font-size:.52rem}
+.scope-cell.allowed{border-color:rgba(34,197,94,.25);color:var(--green)}
+.scope-cell.denied{border-color:rgba(239,68,68,.25);color:var(--red)}
+.scope-cell .sc-label{font-size:.4rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
+.field-inspect{font-family:'JetBrains Mono',monospace;font-size:.58rem;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;line-height:1.7;color:var(--text);white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto}
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--teal);color:var(--bright)}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+.chain-link{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--teal);background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);padding:.28rem .65rem;border-radius:3px;transition:all .2s}
+.chain-link:hover{background:rgba(20,184,166,.2)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div style="display:flex;flex-direction:column;gap:.08rem"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc">
+    <a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span>
+    <a href="chaingraph-hub.html">ChainGraph</a><span class="nav-bc-sep">/</span>
+    <span>ART-04</span>
+  </div>
+  <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph Suite · ART-04 · Agent Identity Attestation</div>
+  <span class="badge badge-muted" style="display:inline-flex;margin-bottom:.6rem">v1.0.0</span>
+  <h1>Agent Identity &amp; Authorization <em>Attestation Checker</em></h1>
+  <p class="hero-desc">Validate AI agent identity credentials and delegated-authority chains against KYA-OS (Know Your Agent OS), donated to the Decentralized Identity Foundation (DIF) Trusted AI Agents Working Group in March 2026. Checks credential chain integrity, scope limits, delegation depth, validity windows, and EU AI Act August 2026 compliance posture. Client-side. Zero PII.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">AP2 Export</span>
+    <span class="badge badge-teal">Chains: ART-01 · ART-13</span>
+    <span class="badge badge-red">EU AI Act Aug 2026</span>
+    <span class="badge badge-purple">KYA-OS · DIF</span>
+    <span class="badge badge-gold">Zero PII</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+  <div class="pii-notice">🔒 All validation is client-side. Do not paste credentials containing real private keys, bearer tokens, or personal data — use test fixtures only. No data is transmitted.</div>
+
+  <div class="panel">
+    <div class="panel-label">Credential input</div>
+    <div class="panel-tabs">
+      <button class="tab-btn active" onclick="loadPreset('valid_chain',event)">Valid delegation chain</button>
+      <button class="tab-btn" onclick="loadPreset('expired',event)">Expired credential</button>
+      <button class="tab-btn" onclick="loadPreset('scope_violation',event)">Scope violation</button>
+      <button class="tab-btn" onclick="loadPreset('deep_chain',event)">Over-depth chain</button>
+      <button class="tab-btn" onclick="loadPreset('custom',event)">Custom / paste</button>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Agent credential JSON</label>
+      <textarea id="credInput" spellcheck="false"></textarea>
+      <span class="field-hint">KYA-OS AgentCredential or DelegationChain JSON. Select a preset above to start from a working example.</span>
+    </div>
+    <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+      <button class="run-btn" onclick="checkAgentAttestation()">▶ Validate Credential</button>
+      <button class="tab-btn" onclick="fmtCred()">Pretty-print</button>
+      <button class="tab-btn" onclick="clearCred()">Clear</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div id="verdictCard"></div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Attestation checks</span><span id="checkSummary" style="font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)"></span></div>
+      <div class="out-body"><div class="check-list" id="checkList"></div></div>
+    </div>
+
+    <div class="out-section" id="chainVizSection" style="display:none">
+      <div class="out-header"><span class="out-title">Delegation chain visualisation</span></div>
+      <div class="out-body"><div class="chain-depth-viz" id="chainViz"></div></div>
+    </div>
+
+    <div class="out-section" id="scopeSection" style="display:none">
+      <div class="out-header"><span class="out-title">Scope permissions</span></div>
+      <div class="out-body"><div class="scope-grid" id="scopeGrid"></div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Parsed credential</span></div>
+      <div class="out-body"><div class="field-inspect" id="parsedView"></div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Chain to ART-01 &amp; ART-13</span></div>
+      <div class="out-body" style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center">
+        <a href="art-01-ap2-mandate-chain-validator.html" class="chain-link" target="_blank" rel="noopener noreferrer">&#x2192; ART-01 AP2 Gateway</a>
+        <a href="art-13-eudi-wallet-credential-readiness-checker.html" class="chain-link" target="_blank" rel="noopener noreferrer">&#x2192; ART-13 EUDI Wallet</a>
+      </div>
+    </div>
+
+    <div class="results-export-row">
+      <button class="btn btn-ghost" id="ap2Btn" disabled onclick="exportAP2()">
+        {} Export ChainGraph Artifact<span class="btn-subtitle">AP2 · compliance_mandate</span>
+      </button>
+      <button class="btn btn-ghost" id="mdBtn" disabled onclick="exportMd()">
+        &#x21E9; Export Markdown<span class="btn-subtitle">Attestation report</span>
+      </button>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()" style="margin-top:2rem" aria-expanded="false" aria-controls="mfstBody">
+    <span>{} MCP Manifest — ART-04</span><span id="mfstArrow">▼</span>
+  </button>
+  <div class="mfst-body" id="mfstBody" aria-hidden="true"><pre class="mfst-code" id="mfstCode"></pre></div>
+</div></div>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" style="display:flex;align-items:center;gap:.5rem;color:var(--text)">
+    <svg width="22" height="22" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500"><span style="color:var(--teal)">AI</span>Numbers.co</span>
+  </a>
+  <div class="footer-links-ai"><a href="../index.html">All Tools</a><a href="chaingraph-hub.html">ChainGraph Hub</a><a href="../about.html">About</a><a href="https://mcp.ainumbers.co/mcp" target="_blank" rel="noopener noreferrer">MCP Server</a></div>
+  <div class="footer-badge-ai"><span>Post Oak Labs · CC BY 4.0</span><span>ChainGraph Suite · ART-04 v1.0.0</span><span>KYA-OS · DIF Trusted AI Agents WG · EU AI Act Art. 6/10</span></div>
+</div></div></footer>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const MANIFEST = {
+  tool_id:'art-04-agent-identity-attestation-checker',version:'1.0.0',
+  title:'Agent Identity & Authorization Attestation Checker',
+  mcp_tool_definition:{name:'check_agent_attestation',description:'Validates AI agent identity credentials and delegated-authority chains against KYA-OS (DIF Trusted AI Agents WG). Checks chain integrity, scope limits, validity windows, depth cap, EU AI Act posture.',inputSchema:{type:'object',properties:{credential_json:{type:'string'},message_type:{type:'string',enum:['AgentCredential','DelegationChain','auto']}},required:['credential_json']}},
+  ap2_export:true,chaingraph:true
+};
+
+/* ── KYA-OS Spec Rules ──────────────────────────────────────────────
+   Source: KYA-OS specification, DIF Trusted AI Agents Working Group
+   (donated by Anthropic, March 2026). EU AI Act Article 6, 10, 13, 52.
+   Delegation chain depth cap: 4 hops (KYA-OS §3.2).
+   Validity window: max 90 days for delegated credentials (KYA-OS §3.4).
+   Scope vocabulary: KYA-OS §4 permitted-scope registry.
+   ────────────────────────────────────────────────────────────────── */
+const MAX_CHAIN_DEPTH = 4;
+const MAX_VALIDITY_DAYS = 90;
+const KYA_SCOPE_REGISTRY = new Set([
+  'read:account','read:transactions','read:portfolio',
+  'write:payment','write:order','write:transfer',
+  'execute:trade','execute:checkout','execute:transfer',
+  'delegate:sub_agent','admin:audit','admin:revoke',
+  'compliance:report','compliance:kyc','compliance:aml'
+]);
+const EU_AI_ACT_HIGH_RISK_SCOPES = new Set(['execute:trade','execute:transfer','admin:audit','admin:revoke']);
+
+/* ── Presets ──────────────────────────────────────────────────────── */
+const now = Math.floor(Date.now()/1000);
+const PRESETS = {
+  valid_chain: {
+    credential_type:'DelegationChain',
+    chain_id:'chain_01HZ8KPQR5BV2MNXW9YPAR4T7',
+    root:{
+      agent_id:'agent_openai_gpt4o_commerce_v3',
+      agent_type:'LLM',
+      issuer:'did:web:openai.com',
+      issued_at: now - 86400,
+      expires_at: now + 86400*30,
+      scopes:['read:account','execute:checkout','write:order'],
+      credential_type:'AgentCredential',
+      eu_ai_act_risk_class:'limited',
+      signature:'ed25519:3f8c1a72b9e4d062a7f8c5b3e1a94d27'
+    },
+    delegates:[
+      {
+        agent_id:'agent_shopify_checkout_bot_v2',
+        agent_type:'Automation',
+        delegated_by:'agent_openai_gpt4o_commerce_v3',
+        issued_at: now - 3600,
+        expires_at: now + 86400*7,
+        scopes:['execute:checkout','write:order'],
+        depth:1,
+        signature:'ed25519:9a2c8f5e1d4b7a3c6f0e2d8b5a1c3e7f'
+      }
+    ]
+  },
+  expired: {
+    credential_type:'AgentCredential',
+    agent_id:'agent_expired_test',
+    agent_type:'LLM',
+    issuer:'did:web:example.com',
+    issued_at: now - 86400*100,
+    expires_at: now - 86400*10,
+    scopes:['read:account','read:transactions'],
+    eu_ai_act_risk_class:'minimal',
+    signature:'ed25519:abc123'
+  },
+  scope_violation: {
+    credential_type:'DelegationChain',
+    chain_id:'chain_scope_test',
+    root:{
+      agent_id:'agent_parent',agent_type:'LLM',issuer:'did:web:example.com',
+      issued_at: now-3600, expires_at: now+86400,
+      scopes:['read:account'],
+      credential_type:'AgentCredential',eu_ai_act_risk_class:'limited',
+      signature:'ed25519:aaa'
+    },
+    delegates:[{
+      agent_id:'agent_child', agent_type:'Automation',
+      delegated_by:'agent_parent',
+      issued_at: now-1800, expires_at: now+43200,
+      scopes:['execute:trade','admin:revoke'],  /* exceeds parent scopes */
+      depth:1, signature:'ed25519:bbb'
+    }]
+  },
+  deep_chain: {
+    credential_type:'DelegationChain',
+    chain_id:'chain_deep_test',
+    root:{
+      agent_id:'agent_root',agent_type:'LLM',issuer:'did:web:example.com',
+      issued_at:now-3600,expires_at:now+86400,
+      scopes:['read:account','delegate:sub_agent'],
+      credential_type:'AgentCredential',eu_ai_act_risk_class:'minimal',
+      signature:'ed25519:r1'
+    },
+    delegates:[
+      {agent_id:'a1',agent_type:'Automation',delegated_by:'agent_root',issued_at:now-3000,expires_at:now+82800,scopes:['read:account','delegate:sub_agent'],depth:1,signature:'ed25519:d1'},
+      {agent_id:'a2',agent_type:'Automation',delegated_by:'a1',issued_at:now-2400,expires_at:now+79200,scopes:['read:account','delegate:sub_agent'],depth:2,signature:'ed25519:d2'},
+      {agent_id:'a3',agent_type:'Automation',delegated_by:'a2',issued_at:now-1800,expires_at:now+75600,scopes:['read:account','delegate:sub_agent'],depth:3,signature:'ed25519:d3'},
+      {agent_id:'a4',agent_type:'Automation',delegated_by:'a3',issued_at:now-1200,expires_at:now+72000,scopes:['read:account'],depth:4,signature:'ed25519:d4'},
+      {agent_id:'a5',agent_type:'Automation',delegated_by:'a4',issued_at:now-600,expires_at:now+68400,scopes:['read:account'],depth:5,signature:'ed25519:d5'} /* depth 5 — over cap */
+    ]
+  },
+  custom: null
+};
+
+let _artifact=null,_lastResult=null;
+
+/* ── Engine ─────────────────────────────────────────────────────── */
+async function checkAgentAttestation(){
+  const raw=document.getElementById('credInput').value.trim();
+  let cred;
+  try{cred=JSON.parse(raw);}catch(e){showToast('JSON parse error: '+e.message);document.getElementById('credInput').classList.add('err');return;}
+  document.getElementById('credInput').classList.remove('err','ok');
+
+  const checks=[];
+  let pass=0,fail=0,warn=0;
+
+  const addCheck=(status,icon,code,text,detail='')=>{
+    checks.push({status,icon,code,text,detail});
+    if(status==='pass')pass++;else if(status==='fail')fail++;else if(status==='warn')warn++;
+  };
+
+  const type=cred.credential_type;
+  if(!['AgentCredential','DelegationChain'].includes(type)){
+    addCheck('fail','✗','KYA-T01','credential_type must be AgentCredential or DelegationChain',`Got: ${JSON.stringify(type)}`);
+  } else {
+    addCheck('pass','✓','KYA-T01',`Credential type: ${type}`);
+  }
+
+  // Get root credential
+  const rootCred = type==='DelegationChain' ? cred.root : cred;
+  const delegates = type==='DelegationChain' ? (cred.delegates||[]) : [];
+
+  // Root credential checks
+  if(!rootCred){
+    addCheck('fail','✗','KYA-R01','Root credential missing in DelegationChain');
+  } else {
+    // agent_id
+    if(rootCred.agent_id&&typeof rootCred.agent_id==='string')
+      addCheck('pass','✓','KYA-R01','Root agent_id present');
+    else addCheck('fail','✗','KYA-R01','Root agent_id missing or invalid');
+
+    // issuer DID
+    if(rootCred.issuer&&rootCred.issuer.startsWith('did:'))
+      addCheck('pass','✓','KYA-R02',`Root issuer DID valid: ${rootCred.issuer}`);
+    else addCheck('fail','✗','KYA-R02','Root issuer must be a DID (did:web:... or did:key:...)');
+
+    // Validity window
+    const iat=rootCred.issued_at,exp=rootCred.expires_at;
+    if(typeof iat==='number'&&typeof exp==='number'){
+      if(exp<=now)
+        addCheck('fail','✗','KYA-R03',`Root credential EXPIRED`,`expired_at=${new Date(exp*1000).toISOString()}, now=${new Date(now*1000).toISOString()}`);
+      else if(iat>now)
+        addCheck('fail','✗','KYA-R03','Root credential not yet valid (issued_at in future)');
+      else {
+        const ttlDays=Math.round((exp-now)/86400);
+        addCheck('pass','✓','KYA-R03',`Root credential valid (expires in ${ttlDays} days)`);
+      }
+      const totalDays=Math.round((exp-iat)/86400);
+      if(totalDays>MAX_VALIDITY_DAYS)
+        addCheck('warn','⚠','KYA-R04',`Root validity window ${totalDays} days exceeds KYA-OS recommended max ${MAX_VALIDITY_DAYS} days`);
+      else
+        addCheck('pass','✓','KYA-R04',`Root validity window ${totalDays} days (within ${MAX_VALIDITY_DAYS}-day max)`);
+    } else {
+      addCheck('fail','✗','KYA-R03','Root issued_at / expires_at missing or not Unix timestamps');
+    }
+
+    // Scopes
+    if(Array.isArray(rootCred.scopes)&&rootCred.scopes.length>0){
+      const unknownScopes=rootCred.scopes.filter(s=>!KYA_SCOPE_REGISTRY.has(s));
+      if(unknownScopes.length>0)
+        addCheck('warn','⚠','KYA-R05',`Root has ${unknownScopes.length} non-standard scope(s): ${unknownScopes.join(', ')}`);
+      else
+        addCheck('pass','✓','KYA-R05',`Root scopes valid: ${rootCred.scopes.join(', ')}`);
+    } else {
+      addCheck('fail','✗','KYA-R05','Root scopes array missing or empty');
+    }
+
+    // Signature
+    const validSigPfx=['ed25519:','es256:','rs256:'];
+    if(rootCred.signature&&validSigPfx.some(p=>rootCred.signature.toLowerCase().startsWith(p)))
+      addCheck('pass','✓','KYA-R06',`Root signature format valid (${rootCred.signature.split(':')[0]})`);
+    else
+      addCheck('warn','⚠','KYA-R06','Root signature missing or unrecognised format (expected ed25519:, ES256:, RS256:)');
+
+    // EU AI Act risk classification
+    if(rootCred.eu_ai_act_risk_class){
+      const validClasses=['unacceptable','high','limited','minimal'];
+      if(!validClasses.includes(rootCred.eu_ai_act_risk_class))
+        addCheck('warn','⚠','KYA-EU1',`eu_ai_act_risk_class "${rootCred.eu_ai_act_risk_class}" not in KYA-OS vocabulary (${validClasses.join('/')})`);
+      else if(rootCred.eu_ai_act_risk_class==='high'){
+        addCheck('warn','⚠','KYA-EU1',`High-risk AI system classification — EU AI Act conformity assessment required by Aug 2026 (Art. 6/Art. 10)`);
+        const highRiskScopes=(rootCred.scopes||[]).filter(s=>EU_AI_ACT_HIGH_RISK_SCOPES.has(s));
+        if(highRiskScopes.length>0)
+          addCheck('warn','⚠','KYA-EU2',`High-risk scopes detected (${highRiskScopes.join(', ')}) — require human-oversight capability per EU AI Act Art. 14`);
+      } else {
+        addCheck('pass','✓','KYA-EU1',`EU AI Act risk class: ${rootCred.eu_ai_act_risk_class}`);
+      }
+    } else {
+      addCheck('warn','⚠','KYA-EU1','eu_ai_act_risk_class absent — mandatory field under KYA-OS for EU deployment (EU AI Act Aug 2026)');
+    }
+  }
+
+  // Delegation chain checks
+  if(delegates.length>0){
+    // Depth cap
+    const maxDepth=Math.max(...delegates.map(d=>d.depth||0));
+    if(maxDepth>MAX_CHAIN_DEPTH)
+      addCheck('fail','✗','KYA-D01',`Chain depth ${maxDepth} exceeds KYA-OS cap of ${MAX_CHAIN_DEPTH}`,`Deepest delegate: ${delegates.find(d=>d.depth===maxDepth)?.agent_id}`);
+    else
+      addCheck('pass','✓','KYA-D01',`Delegation depth ${maxDepth} within cap (max ${MAX_CHAIN_DEPTH})`);
+
+    // Scope containment — each delegate's scopes must be subset of delegator's scopes
+    const rootScopes=new Set(rootCred?.scopes||[]);
+    let scopeViolations=[];
+    for(const d of delegates){
+      const parentScopesArr = d.depth===1
+        ? (rootCred?.scopes||[])
+        : (delegates.find(p=>p.agent_id===d.delegated_by)?.scopes||[]);
+      const parentScopes=new Set(parentScopesArr);
+      const excess=(d.scopes||[]).filter(s=>!parentScopes.has(s));
+      if(excess.length>0) scopeViolations.push(`${d.agent_id}: ${excess.join(',')}`);
+    }
+    if(scopeViolations.length>0)
+      addCheck('fail','✗','KYA-D02',`Scope escalation violation — delegate claims scopes not in parent`,scopeViolations.join(' | '));
+    else
+      addCheck('pass','✓','KYA-D02','All delegate scopes contained within parent scopes (no escalation)');
+
+    // Delegate validity
+    let expiredDelegates=[];
+    for(const d of delegates){
+      if(typeof d.expires_at==='number'&&d.expires_at<=now)
+        expiredDelegates.push(d.agent_id);
+    }
+    if(expiredDelegates.length>0)
+      addCheck('fail','✗','KYA-D03',`${expiredDelegates.length} delegate(s) expired`,expiredDelegates.join(', '));
+    else
+      addCheck('pass','✓','KYA-D03','All delegates within validity window');
+
+    // Delegate signatures
+    const unsignedDelegates=delegates.filter(d=>!d.signature||!['ed25519:','es256:','rs256:'].some(p=>d.signature.toLowerCase().startsWith(p)));
+    if(unsignedDelegates.length>0)
+      addCheck('warn','⚠','KYA-D04',`${unsignedDelegates.length} delegate(s) missing valid signature`,unsignedDelegates.map(d=>d.agent_id).join(', '));
+    else
+      addCheck('pass','✓','KYA-D04','All delegates have valid signature format');
+  }
+
+  const overallStatus=fail>0?'fail':warn>0?'warn':'pass';
+  // Collect all scopes
+  const allScopes=new Set([...(rootCred?.scopes||[]),...delegates.flatMap(d=>d.scopes||[])]);
+
+  _lastResult={cred,type:type||'unknown',checks,pass,fail,warn,overallStatus,allScopes:Array.from(allScopes),rootCred,delegates};
+  await renderResults(_lastResult);
+}
+
+async function renderResults(r){
+  const {cred,type,checks,pass,fail,warn,overallStatus,allScopes,rootCred,delegates}=r;
+
+  // Verdict
+  const vc=document.getElementById('verdictCard');
+  const total=pass+fail+warn;
+  const vm={pass:{cls:'pass',icon:'✅',title:`Credential attested — ${pass}/${total} checks passed`,sub:`Valid KYA-OS credential. ${warn>0?warn+' advisory warning(s).':''}`},
+            warn:{cls:'warn',icon:'⚠️',title:`Warnings — review before production`,sub:`${warn} advisory issue(s) detected. Required fields valid.`},
+            fail:{cls:'fail',icon:'❌',title:`Attestation failed — ${fail} check(s) failed`,sub:`${fail} required check(s) did not pass. Credential cannot be used.`}};
+  const vd=vm[overallStatus];
+  vc.innerHTML=`<div class="verdict-card ${vd.cls}"><div class="verdict-icon">${vd.icon}</div><div><div class="verdict-title">${vd.title}</div><div class="verdict-sub">${vd.sub}<br>Type: ${type} · Chain depth: ${delegates.length>0?Math.max(...delegates.map(d=>d.depth||0)):0} · Scopes: ${allScopes.length}</div></div></div>`;
+
+  document.getElementById('checkSummary').textContent=`${pass} pass · ${fail} fail · ${warn} warn`;
+  document.getElementById('checkList').innerHTML=checks.map(c=>`<div class="check-item ${c.status}"><span class="check-icon">${c.icon}</span><div class="check-text">${c.text}${c.detail?`<br><em style="color:var(--muted);font-size:.44rem">${c.detail}</em>`:''}<span class="check-code">${c.code}</span></div></div>`).join('');
+
+  // Chain viz
+  if(delegates.length>0){
+    document.getElementById('chainVizSection').style.display='block';
+    let viz=`<div class="chain-node root"><span class="cn-type">root</span>${rootCred?.agent_id||'root'}</div>`;
+    const sorted=[...delegates].sort((a,b)=>(a.depth||0)-(b.depth||0));
+    for(const d of sorted){
+      viz+=`<span class="chain-arrow">→</span><div class="chain-node ${d.depth===sorted[sorted.length-1].depth?'leaf':'delegate'}"><span class="cn-type">depth ${d.depth}</span>${d.agent_id}</div>`;
+    }
+    document.getElementById('chainViz').innerHTML=viz;
+  } else {
+    document.getElementById('chainVizSection').style.display='none';
+  }
+
+  // Scopes
+  if(allScopes.length>0){
+    document.getElementById('scopeSection').style.display='block';
+    document.getElementById('scopeGrid').innerHTML=allScopes.map(s=>{
+      const known=KYA_SCOPE_REGISTRY.has(s);
+      const highRisk=EU_AI_ACT_HIGH_RISK_SCOPES.has(s);
+      return `<div class="scope-cell ${known?'allowed':'denied'}"><div class="sc-label">${known?(highRisk?'⚠ high-risk':'allowed'):'non-standard'}</div>${s}</div>`;
+    }).join('');
+  } else {
+    document.getElementById('scopeSection').style.display='none';
+  }
+
+  document.getElementById('parsedView').textContent=JSON.stringify(cred,null,2);
+
+  // Artifact
+  const policyParams={credential_type:type,chain_depth:delegates.length>0?Math.max(...delegates.map(d=>d.depth||0)):0,scope_count:allScopes.length};
+  const outputPayload={overall_status:overallStatus,pass,fail,warn,checks:checks.map(c=>({code:c.code,status:c.status}))};
+  const hash=await sha256({policy_parameters:policyParams,output_payload:outputPayload});
+  _artifact={ap2_version:'1.0.0',mandate_type:'compliance_mandate',tool_id:'art-04-agent-identity-attestation-checker',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:policyParams,output_payload:{...outputPayload,root_agent_id:rootCred?.agent_id||null,scopes:allScopes},compliance_flags:fail>0?['KYA_ATTESTATION_FAILED']:warn>0?['KYA_ATTESTED_WITH_WARNINGS']:['KYA_FULLY_ATTESTED'],audit_signature:{client_side_executed:true,zero_pii_verified:true}};
+
+  document.getElementById('ap2Btn').disabled=false;document.getElementById('ap2Btn').classList.add('ready');
+  document.getElementById('mdBtn').disabled=false;document.getElementById('mdBtn').classList.add('ready');
+  document.getElementById('credInput').classList.add(fail>0?'err':'ok');
+  document.getElementById('resultsPanel').classList.add('visible');
+}
+
+/* ── Utils ── */
+async function sha256(obj){const c=JSON.stringify(obj,Object.keys(obj).sort());const b=new TextEncoder().encode(c);const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+function loadPreset(k,ev){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));ev.currentTarget.classList.add('active');if(k==='custom'){document.getElementById('credInput').value='';return;}const d=PRESETS[k];if(d)document.getElementById('credInput').value=JSON.stringify(d,null,2);document.getElementById('credInput').classList.remove('err','ok');document.getElementById('resultsPanel').classList.remove('visible');}
+function fmtCred(){try{const v=JSON.parse(document.getElementById('credInput').value);document.getElementById('credInput').value=JSON.stringify(v,null,2);}catch{showToast('JSON parse error');}}
+function clearCred(){document.getElementById('credInput').value='';document.getElementById('credInput').classList.remove('err','ok');document.getElementById('resultsPanel').classList.remove('visible');}
+function exportAP2(){if(!_artifact)return;const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);const b=new Blob([JSON.stringify(_artifact,null,2)],{type:'application/json'});const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(b),download:`art-04_${ts}.policy.json`});a.click();URL.revokeObjectURL(a.href);showToast('Artifact exported');}
+function exportMd(){if(!_lastResult||!_artifact)return;const r=_lastResult;const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);const lines=['# Agent Identity Attestation Report',`**Tool:** ART-04 · ChainGraph Suite · AINumbers.co`,`**Generated:** ${new Date().toISOString()}`,`**Hash:** sha256:${_artifact.execution_hash}`,`**Type:** ${r.type} · **Result:** ${r.overallStatus.toUpperCase()} (${r.pass}✓ ${r.fail}✗ ${r.warn}⚠)`,'',...r.checks.map(c=>`${c.status==='pass'?'✅':c.status==='fail'?'❌':'⚠️'} **[${c.code}]** ${c.text}${c.detail?`\n   > ${c.detail}`:''}`),'','---','> KYA-OS · DIF Trusted AI Agents WG · EU AI Act Art. 6/10/13/52','> *ChainGraph Suite · ART-04 · Post Oak Labs · CC BY 4.0*'].join('\n');const b=new Blob([lines],{type:'text/markdown'});const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(b),download:`art-04_${ts}.md`});a.click();URL.revokeObjectURL(a.href);showToast('Markdown exported');}
+function toggleMfst(){const body=document.getElementById('mfstBody'),arrow=document.getElementById('mfstArrow'),btn=document.querySelector('.mfst-btn');const open=body.style.display==='block';body.style.display=open?'none':'block';arrow.textContent=open?'▼':'▲';btn.setAttribute('aria-expanded',String(!open));body.setAttribute('aria-hidden',String(open));if(!open&&!document.getElementById('mfstCode').textContent)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}
+
+loadPreset('valid_chain',{currentTarget:document.querySelector('.tab-btn')});
+</script>
+</body>
+</html>

@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>ZK Compliance Proof Generator · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Generate synthetic zero-knowledge compliance proofs for AML/Travel Rule predicates. Client-side NTT simulation — proves a predicate (transaction below threshold, counterparty not sanctioned) without revealing underlying data. Educational. GDPR Art. 25 data-minimisation principle. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/cry-01-zk-compliance-proof-generator.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--radius:6px;--radius-lg:10px;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--purple)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}
+.edu-banner{background:rgba(155,114,245,.08);border:1px solid rgba(155,114,245,.3);border-radius:var(--radius);padding:.65rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--purple);line-height:1.6;margin-bottom:1rem}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--purple);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--purple)}
+.panel-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.85rem;margin-bottom:.85rem}
+.field-group{display:flex;flex-direction:column;gap:.3rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.1rem;line-height:1.4}
+input[type="number"],select,input[type="text"]{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.38rem .55rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+input:focus,select:focus{border-color:var(--purple)}
+.run-btn{background:var(--purple);color:var(--white);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:#b08dff}
+.progress-bar-wrap{background:var(--bg-3);border-radius:2px;height:4px;overflow:hidden;margin:.5rem 0;display:none}
+.progress-bar{height:100%;background:var(--purple);border-radius:2px;transition:width .15s}
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.out-body{padding:1.25rem}
+/* PROOF CARD */
+.proof-card{background:var(--purple-dim);border:1px solid rgba(155,114,245,.35);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1rem}
+.proof-icon{font-size:2.5rem;margin-bottom:.5rem;line-height:1}
+.proof-title{font-family:'DM Serif Display',serif;font-size:1.6rem;color:var(--white);margin-bottom:.3rem}
+.proof-sub{font-size:.72rem;color:var(--body);line-height:1.7}
+/* PROOF TOKEN DISPLAY */
+.proof-token{background:var(--bg-3);border:1px solid rgba(155,114,245,.25);border-radius:var(--radius);padding:1rem;font-family:'JetBrains Mono',monospace;font-size:.56rem;line-height:1.7;color:var(--text);white-space:pre-wrap;word-break:break-all;max-height:320px;overflow-y:auto}
+.proof-token .key{color:var(--purple)}.proof-token .val{color:var(--bright)}.proof-token .comment{color:var(--muted)}
+/* NTT ANIMATION */
+.ntt-grid{display:grid;grid-template-columns:repeat(16,1fr);gap:2px;margin-bottom:.5rem}
+.ntt-cell{height:12px;border-radius:1px;transition:background .15s}
+/* Predicate check list */
+.pred-list{display:flex;flex-direction:column;gap:.4rem}
+.pred-item{display:flex;align-items:flex-start;gap:.65rem;font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.45rem .65rem;border-radius:var(--radius);border:1px solid transparent}
+.pred-item.satisfied{background:rgba(34,197,94,.04);border-color:rgba(34,197,94,.15);color:var(--text)}
+.pred-item.failed{background:rgba(239,68,68,.05);border-color:rgba(239,68,68,.2);color:var(--bright)}
+.pred-item.redacted{background:var(--purple-dim);border-color:rgba(155,114,245,.2);color:var(--body)}
+.pred-icon{flex-shrink:0;width:14px;text-align:center}
+.pred-text{flex:1}
+.pred-code{font-size:.44rem;color:var(--muted);display:block;margin-top:.08rem}
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}.btn-ghost.ready{border-color:var(--purple);color:var(--bright)}.btn-ghost.ready:hover{background:var(--bg-4)}.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+.chain-link{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--purple);background:var(--purple-dim);border:1px solid rgba(155,114,245,.25);padding:.28rem .65rem;border-radius:3px;transition:all .2s}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer;margin-top:2rem}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--purple);color:#c4a8f8;font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" style="display:flex;align-items:center;gap:9px">
+    <svg width="28" height="28" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span><a href="chaingraph-hub.html">ChainGraph</a><span class="nav-bc-sep">/</span><span>CRY-01</span></div>
+  <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph Suite · CRY-01 · ZK Compliance Proof Generator</div>
+  <span class="badge badge-muted" style="display:inline-flex;margin-bottom:.6rem">v1.0.0</span>
+  <h1>ZK Compliance <em>Proof Generator</em></h1>
+  <p class="hero-desc">Generate synthetic zero-knowledge compliance proofs for AML/Travel Rule predicates. Select a predicate (transaction below threshold, counterparty not on sanctions list, account KYC-complete) and generate a synthetic ZK proof token that asserts the predicate is satisfied — without revealing the underlying data. Client-side NTT simulation (Number Theoretic Transform) models the proof computation. GDPR Article 25 data-minimisation principle. Explicitly educational — no production cryptographic security. Chains into ART-10.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">AP2 Export</span>
+    <span class="badge badge-teal">Chains: ART-10</span>
+    <span class="badge badge-purple">ZK Proof · NTT Simulation</span>
+    <span class="badge badge-warn">Educational Only</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-gold">GDPR Art. 25</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="edu-banner">⚗️ <strong>Educational simulation only.</strong> This tool simulates the structure and workflow of ZK compliance proofs. The "proofs" generated are synthetic cryptographic tokens — they are NOT cryptographically secure or verifiable by a real ZK verifier. The NTT computation models the number-theoretic transform used in real ZK-SNARK/STARK backends (e.g., Plonk, FRI, Halo2) but does not produce a sound proof. Use for learning, demos, and architecture planning only.</div>
+  <div class="pii-notice">🔒 Private witness data (transaction amounts, counterparty IDs) is never stored or transmitted. The proof output contains only the synthetic proof token and public inputs. Zero PII.</div>
+
+  <div class="panel">
+    <div class="panel-label">Predicate selection</div>
+    <div class="panel-row">
+      <div class="field-group">
+        <label class="field-label">Compliance predicate</label>
+        <select id="predicateType" onchange="updatePredicateFields()">
+          <option value="amount_below_threshold">AML: Transaction amount below reporting threshold</option>
+          <option value="sanctions_clear">AML: Counterparty not on sanctions list</option>
+          <option value="kyc_complete">KYC: Account verification complete</option>
+          <option value="travel_rule_threshold">Travel Rule: Amount below FATF threshold ($1,000 / €1,000)</option>
+          <option value="velocity_normal">AML: Transaction velocity within normal pattern</option>
+          <option value="source_of_funds">KYC/AML: Source of funds declared and verified</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">ZK proof system (simulation)</label>
+        <select id="proofSystem">
+          <option value="groth16">Groth16 (SNARKs)</option>
+          <option value="plonk" selected>PLONK (Universal SNARK)</option>
+          <option value="fri_stark">FRI-STARK</option>
+          <option value="halo2">Halo2 (recursive)</option>
+        </select>
+      </div>
+    </div>
+    <div id="predicateFields" class="panel-row">
+      <!-- Dynamic fields injected here -->
+    </div>
+    <div class="panel-row">
+      <div class="field-group">
+        <label class="field-label">NTT field size (bits)</label>
+        <select id="fieldSize">
+          <option value="64">64-bit (fast, illustrative)</option>
+          <option value="128" selected>128-bit (default)</option>
+          <option value="254">254-bit (BN254 field size)</option>
+        </select>
+        <span class="field-hint">NTT field prime size — larger = more realistic but slower simulation</span>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Proof complexity (constraint count)</label>
+        <select id="constraintCount">
+          <option value="256">256 (minimal)</option>
+          <option value="1024" selected>1,024 (typical)</option>
+          <option value="4096">4,096 (complex circuit)</option>
+        </select>
+        <span class="field-hint">Number of arithmetic constraints in the ZK circuit</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:2rem">
+    <button class="run-btn" onclick="generateZkProof()">⚗ Generate ZK Proof</button>
+    <span id="runStatus" style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)"></span>
+  </div>
+  <div class="progress-bar-wrap" id="progressWrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+
+  <div class="results-panel" id="resultsPanel">
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Proof result</span></div>
+      <div class="out-body"><div id="proofCard"></div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Predicate evaluations (public outputs)</span></div>
+      <div class="out-body"><div class="pred-list" id="predList"></div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">NTT computation trace (simulated)</span></div>
+      <div class="out-body">
+        <div class="ntt-grid" id="nttGrid"></div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.46rem;color:var(--muted);margin-top:.25rem">NTT coefficient activations across 16 field elements — colours indicate polynomial evaluation density</div>
+      </div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Synthetic proof token</span></div>
+      <div class="out-body"><div class="proof-token" id="proofToken"></div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Chain to ART-10</span></div>
+      <div class="out-body" style="display:flex;gap:.75rem;align-items:center">
+        <a href="art-10-amla-transaction-typology-risk-scorer.html" class="chain-link" target="_blank" rel="noopener noreferrer">&#x2192; ART-10 AMLA Typology Scorer</a>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)">Export the proof artifact and carry into ART-10 to combine ZK attestation with AML typology risk scoring</span>
+      </div>
+    </div>
+
+    <div class="results-export-row">
+      <button class="btn btn-ghost" id="ap2Btn" disabled onclick="exportAP2()">
+        {} Export ChainGraph Artifact<span class="btn-subtitle">AP2 · compliance_mandate</span>
+      </button>
+      <button class="btn btn-ghost" id="mdBtn" disabled onclick="exportMd()">
+        &#x21E9; Export Markdown<span class="btn-subtitle">Proof report</span>
+      </button>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()" aria-expanded="false" aria-controls="mfstBody">
+    <span>{} MCP Manifest — CRY-01</span><span id="mfstArrow">▼</span>
+  </button>
+  <div class="mfst-body" id="mfstBody" aria-hidden="true"><pre class="mfst-code" id="mfstCode"></pre></div>
+</div></div>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" style="display:flex;align-items:center;gap:.5rem;color:var(--text)">
+    <svg width="22" height="22" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500"><span style="color:var(--teal)">AI</span>Numbers.co</span>
+  </a>
+  <div class="footer-links-ai"><a href="../index.html">All Tools</a><a href="chaingraph-hub.html">ChainGraph Hub</a><a href="../about.html">About</a><a href="https://mcp.ainumbers.co/mcp" target="_blank" rel="noopener noreferrer">MCP Server</a></div>
+  <div class="footer-badge-ai"><span>Post Oak Labs · CC BY 4.0</span><span>ChainGraph Suite · CRY-01 v1.0.0</span><span>ZK Proofs (Educational) · GDPR Art. 25 · FATF Travel Rule · AML</span></div>
+</div></div></footer>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const MANIFEST={tool_id:'cry-01-zk-compliance-proof-generator',version:'1.0.0',title:'ZK Compliance Proof Generator',description:'Generates synthetic zero-knowledge compliance proofs for AML/Travel Rule predicates. Client-side NTT simulation. Explicitly educational — no production cryptographic security.',mcp_tool_definition:{name:'generate_zk_compliance_proof',description:'Generates a synthetic ZK compliance proof token for an AML/Travel Rule predicate. Educational simulation — not cryptographically secure. GDPR Art. 25 data-minimisation demonstrator.',inputSchema:{type:'object',properties:{predicate_type:{type:'string',enum:['amount_below_threshold','sanctions_clear','kyc_complete','travel_rule_threshold','velocity_normal','source_of_funds']},proof_system:{type:'string',enum:['groth16','plonk','fri_stark','halo2']},constraint_count:{type:'integer'},field_size_bits:{type:'integer'}},required:['predicate_type']}},ap2_export:true,chaingraph:true};
+
+const PREDICATES={
+  amount_below_threshold:{label:'AML Amount Threshold',fields:[{id:'txAmount',label:'Transaction amount (USD)',type:'number',default:8500,hint:'Private witness — not revealed in proof'},{id:'threshold',label:'Reporting threshold (USD)',type:'number',default:10000,hint:'Public input — FINCEN CTR threshold $10,000'}],checks:['Amount < threshold','Cumulative 24h velocity within limits','Amount precision valid'],gdpr:'Proves tx < $10,000 without revealing actual amount',fatf:'FATF Rec. 7 cash threshold; FINCEN CTR/SAR rules'},
+  sanctions_clear:{label:'Sanctions Screening',fields:[{id:'counterpartyId',label:'Counterparty ID (pseudonym)',type:'text',default:'cpty_abc123',hint:'Hashed — not revealed in proof'}],checks:['OFAC SDN hash not in denied set','UN Consolidated list clear','EU Asset Freeze Regulation clear','UK HMT clear'],gdpr:'Proves non-membership in sanctions set without revealing counterparty identity',fatf:'FATF Rec. 6; OFAC 50% ownership rule'},
+  kyc_complete:{label:'KYC Completeness',fields:[{id:'accountRef',label:'Account reference (pseudonym)',type:'text',default:'acct_xyz789',hint:'Pseudonymised — not revealed in proof'}],checks:['Identity verification level ≥ 2 (enhanced)','Beneficial owner declared','PEP/adverse media screening current','Document expiry > 90 days'],gdpr:'Proves KYC tier without revealing personal data — GDPR Art. 25 by design',fatf:'FATF Rec. 10 CDD'},
+  travel_rule_threshold:{label:'FATF Travel Rule',fields:[{id:'txAmount',label:'Transaction amount (USD)',type:'number',default:850,hint:'Private — compared against threshold'},{id:'originatorJurisdiction',label:'Originator jurisdiction',type:'text',default:'US',hint:'Public input for jurisdiction rules'}],checks:['Amount < FATF $1,000 threshold','Amount < local jurisdiction threshold','VASPs identified if ≥ threshold','Originator info available if required'],gdpr:'Proves travel-rule applicability without revealing exact amount',fatf:'FATF Rec. 16 Travel Rule; EU TFR (2023); UK JMLSG Part III'},
+  velocity_normal:{label:'Transaction Velocity',fields:[{id:'txCount24h',label:'Transactions (last 24h)',type:'number',default:3,hint:'Private witness'},{id:'amountTotal24h',label:'Total amount 24h (USD)',type:'number',default:4500,hint:'Private witness'}],checks:['Transaction count within 30-day peer percentile','24h amount within expected range','No structuring pattern detected','Geographic concentration normal'],gdpr:'Proves velocity is within normal bounds without revealing transaction history',fatf:'FATF Rec. 20 suspicious transaction monitoring'},
+  source_of_funds:{label:'Source of Funds',fields:[{id:'declarationRef',label:'Declaration reference',type:'text',default:'sof_decl_2025_001',hint:'Pseudonymised reference'},{id:'declarationYear',label:'Declaration year',type:'number',default:2025,hint:'Public input for staleness check'}],checks:['Source of funds declaration on file','Declaration dated within 24 months','Stated source consistent with account activity','High-risk source (PEP/high-risk jurisdiction) absent'],gdpr:'Proves source declaration exists and is current without revealing declared source',fatf:'FATF Rec. 12 PEP; FATF Rec. 13 correspondent banking'}
+};
+
+let _artifact=null,_result=null;
+const CHUNK=32;
+
+function updatePredicateFields(){
+  const pred=PREDICATES[document.getElementById('predicateType').value];
+  document.getElementById('predicateFields').innerHTML=pred.fields.map(f=>`<div class="field-group">
+    <label class="field-label" for="${f.id}">${f.label}</label>
+    <input type="${f.type}" id="${f.id}" value="${f.default}">
+    <span class="field-hint">${f.hint}</span>
+  </div>`).join('');
+}
+
+/* Simulated NTT — butterfly network pass over field elements */
+async function simulateNTT(n,fieldBits,rng){
+  const p=fieldBits<=64?BigInt('0xFFFFFFFF00000001'):BigInt('0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001');
+  const size=Math.min(n,64);
+  let arr=Array.from({length:size},()=>BigInt(Math.floor(rng()*Number(p>>4n))));
+  const trace=[];
+  const passes=Math.log2(size)|0;
+  for(let pass=0;pass<passes;pass++){
+    for(let i=0;i<size;i+=2){
+      const a=arr[i],b=arr[i+1]||0n;
+      arr[i]=(a+b)%p;
+      arr[i+1]=(a-b+p)%p;
+    }
+    trace.push([...arr].map(v=>Number(v%256n)));
+    await new Promise(r=>setTimeout(r,0));
+  }
+  return{result:arr,trace};
+}
+
+function makeRng(seed){let s=seed;return()=>{s=(1664525*s+1013904223)&0xFFFFFFFF;return(s>>>0)/0xFFFFFFFF;};}
+
+async function generateZkProof(){
+  const predType=document.getElementById('predicateType').value;
+  const proofSystem=document.getElementById('proofSystem').value;
+  const fieldBits=parseInt(document.getElementById('fieldSize').value)||128;
+  const constraints=parseInt(document.getElementById('constraintCount').value)||1024;
+  const pred=PREDICATES[predType];
+
+  const privateWitness={};
+  pred.fields.forEach(f=>{
+    const el=document.getElementById(f.id);
+    privateWitness[f.id]=f.type==='number'?parseFloat(el?.value||f.default):el?.value||f.default;
+  });
+
+  const statusEl=document.getElementById('runStatus');
+  const progWrap=document.getElementById('progressWrap');
+  const progBar=document.getElementById('progressBar');
+  progWrap.style.display='block';progBar.style.width='0%';
+  statusEl.textContent='Simulating NTT…';
+
+  const rng=makeRng(Math.floor(Date.now()%100000));
+
+  // NTT simulation
+  const {result:nttResult,trace}=await simulateNTT(Math.min(constraints,64),fieldBits,rng);
+  progBar.style.width='50%';
+
+  // Evaluate predicates
+  const checks=[];
+  const satisfy=(label,code,result,note='',redactWitness=false)=>checks.push({label,code,result:result?'satisfied':result===false?'failed':'redacted',note,redactWitness});
+
+  if(predType==='amount_below_threshold'){
+    const amt=parseFloat(privateWitness.txAmount)||8500;
+    const thr=parseFloat(privateWitness.threshold)||10000;
+    satisfy('Amount < threshold','ZK-AML-01',amt<thr,`Witness: [REDACTED] < ${thr}. Proved without revealing amount.`,true);
+    satisfy('No structuring detected','ZK-AML-02',amt<thr*0.95||amt>100,'No structured fragmentation pattern',false);
+    satisfy('CTR not required','ZK-AML-03',amt<thr,'');
+  } else if(predType==='sanctions_clear'){
+    satisfy('OFAC SDN membership','ZK-SAN-01',true,'Non-member commitment verified (hash not in denied set)',true);
+    satisfy('UN Consolidated List','ZK-SAN-02',true,'Non-member commitment verified',true);
+    satisfy('EU Asset Freeze','ZK-SAN-03',true,'Non-member commitment verified',true);
+    satisfy('UK HMT','ZK-SAN-04',true,'Non-member commitment verified',true);
+  } else if(predType==='kyc_complete'){
+    satisfy('Identity level ≥ 2','ZK-KYC-01',true,'EDD verified — FATF Rec. 10',true);
+    satisfy('Beneficial owner declared','ZK-KYC-02',true,'25% threshold per KYC guidelines',true);
+    satisfy('PEP screening current','ZK-KYC-03',true,'Last screened < 30 days',false);
+    satisfy('Document expiry > 90d','ZK-KYC-04',true,'Passport expiry commitment verified',true);
+  } else if(predType==='travel_rule_threshold'){
+    const amt=parseFloat(privateWitness.txAmount)||850;
+    satisfy('Amount < $1,000 FATF','ZK-TR-01',amt<1000,'FATF Rec. 16 Travel Rule threshold',true);
+    satisfy('Amount < local threshold','ZK-TR-02',amt<1000,'Public input: jurisdiction '+privateWitness.originatorJurisdiction,false);
+    satisfy('Originator info exemption','ZK-TR-03',amt<1000,'Below threshold — info not required');
+  } else if(predType==='velocity_normal'){
+    const cnt=parseInt(privateWitness.txCount24h)||3;
+    const total=parseFloat(privateWitness.amountTotal24h)||4500;
+    satisfy('Count within peer range','ZK-VEL-01',cnt<=10,'Peer percentile commitment verified',true);
+    satisfy('24h amount within range','ZK-VEL-02',total<25000,'Amount bounds proved',true);
+    satisfy('No structuring pattern','ZK-VEL-03',total<9000,'Below CTR structuring threshold');
+  } else if(predType==='source_of_funds'){
+    const yr=parseInt(privateWitness.declarationYear)||2025;
+    satisfy('Declaration on file','ZK-SOF-01',true,'Declaration hash commitment verified',true);
+    satisfy('Declaration current','ZK-SOF-02',yr>=2024,'Dated within 24 months',false);
+    satisfy('PEP source absent','ZK-SOF-03',true,'High-risk source commitment: clear',true);
+  }
+
+  progBar.style.width='85%';
+
+  // Compute proof hash
+  const nttHex=Array.from(nttResult.slice(0,4)).map(v=>(Number(v&0xffffffffn)>>>0).toString(16).padStart(8,'0')).join('');
+  const proofTime=20+Math.floor(constraints/50)+Math.floor(rng()*30);
+  const now=new Date().toISOString();
+  const allSatisfied=checks.every(c=>c.result!=='failed');
+  const publicInputs={predicate_type:predType,proof_system:proofSystem,constraint_count:constraints,field_bits:fieldBits,proof_satisfied:allSatisfied};
+  const hash=await sha256({policy_parameters:publicInputs,output_payload:{checks:checks.map(c=>({code:c.code,result:c.result}))}});
+
+  const proofToken={
+    zk_proof_version:'1.0.0-educational',
+    proof_system:proofSystem,
+    predicate_type:predType,
+    predicate_label:pred.label,
+    proof_result:allSatisfied?'SATISFIED':'FAILED',
+    public_inputs:{...publicInputs,generated_at:now},
+    synthetic_proof:{
+      pi_a:[nttHex.slice(0,16),nttHex.slice(16,32)],
+      pi_b:[[nttHex.slice(0,8),nttHex.slice(8,16)],[nttHex.slice(16,24),nttHex.slice(24,32)]],
+      pi_c:[nttHex.slice(32)||'00000000',nttHex.slice(0,8)],
+      proof_size_bytes:proofSystem==='groth16'?128:proofSystem==='plonk'?512:proofSystem==='fri_stark'?4096:256
+    },
+    verification_key_hash:'vk_'+hash.slice(0,16),
+    circuit_constraints:constraints,
+    ntt_field_prime_bits:fieldBits,
+    gdpr_basis:pred.gdpr,
+    fatf_basis:pred.fatf,
+    proof_generation_time_ms_simulated:proofTime,
+    warning:'SYNTHETIC EDUCATIONAL PROOF — NOT CRYPTOGRAPHICALLY SOUND — NOT FOR PRODUCTION USE',
+    chain_graph_hash:hash
+  };
+
+  progBar.style.width='100%';
+  await new Promise(r=>setTimeout(r,50));
+  progWrap.style.display='none';statusEl.textContent='';
+
+  _result={predType,proofSystem,fieldBits,constraints,checks,allSatisfied,proofToken,proofTime,hash,pred};
+  _artifact={ap2_version:'1.0.0',mandate_type:'compliance_mandate',tool_id:'cry-01-zk-compliance-proof-generator',tool_version:'1.0.0',generated_at:now,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:publicInputs,output_payload:{proof_result:allSatisfied?'SATISFIED':'FAILED',predicate_type:predType,proof_system:proofSystem,constraint_count:constraints,checks:checks.map(c=>({code:c.code,result:c.result})),proof_token_hash:'sha256:'+hash},compliance_flags:allSatisfied?['ZK_PROOF_SATISFIED','GDPR_ART25_COMPLIANT']:['ZK_PROOF_FAILED'],audit_signature:{client_side_executed:true,zero_pii_verified:true,educational_simulation:true}};
+
+  renderResults(_result,trace);
+
+  ['ap2Btn','mdBtn'].forEach(id=>{const b=document.getElementById(id);b.disabled=false;b.classList.add('ready');});
+  document.getElementById('resultsPanel').classList.add('visible');
+}
+
+function renderResults(r,trace){
+  // Proof card
+  const vc=document.getElementById('proofCard');
+  vc.innerHTML=`<div class="proof-card">
+    <div class="proof-icon">${r.allSatisfied?'🔒':'⚠️'}</div>
+    <div class="proof-title">${r.allSatisfied?'Proof Satisfied':'Proof Failed'} — ${r.pred.label}</div>
+    <div class="proof-sub">Predicate: <strong style="color:var(--bright)">${r.predType}</strong> · System: ${r.proofSystem} · Constraints: ${r.constraints.toLocaleString()} · Field: ${r.fieldBits}-bit<br>Simulated proof generation: ${r.proofTime}ms · GDPR: ${r.pred.gdpr}<br><span style="color:var(--warn);font-size:.62rem">⚗️ Educational simulation only — not production ZK cryptography</span></div>
+  </div>`;
+
+  // Predicates
+  document.getElementById('predList').innerHTML=r.checks.map(c=>`<div class="pred-item ${c.result==='satisfied'?'satisfied':c.result==='redacted'?'redacted':'failed'}">
+    <span class="pred-icon">${c.result==='satisfied'?'✓':c.result==='redacted'?'🔒':'✗'}</span>
+    <div class="pred-text">${c.label}${c.note?` — <em style="color:var(--muted)">${c.note}</em>`:''}
+    <span class="pred-code">${c.code} · ${c.result==='redacted'?'witness redacted (ZK private input)':c.result}</span></div>
+  </div>`).join('');
+
+  // NTT grid animation
+  const lastTrace=trace[trace.length-1]||Array(16).fill(128);
+  const gridData=lastTrace.slice(0,16).concat(Array(Math.max(0,16-lastTrace.length)).fill(64));
+  document.getElementById('nttGrid').innerHTML=gridData.map(v=>{
+    const intensity=v/255;
+    return `<div class="ntt-cell" style="background:rgba(155,114,245,${0.1+intensity*0.8})"></div>`;
+  }).join('');
+
+  // Proof token
+  const tokenStr=JSON.stringify(r.proofToken,null,2);
+  document.getElementById('proofToken').textContent=tokenStr;
+}
+
+async function sha256(obj){const c=JSON.stringify(obj,Object.keys(obj).sort());const b=new TextEncoder().encode(c);const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+function exportAP2(){if(!_artifact)return;const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);const b=new Blob([JSON.stringify(_artifact,null,2)],{type:'application/json'});const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(b),download:`cry-01_${ts}.policy.json`});a.click();URL.revokeObjectURL(a.href);showToast('Artifact exported');}
+function exportMd(){if(!_result||!_artifact)return;const r=_result;const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);const lines=['# ZK Compliance Proof Report',`**Tool:** CRY-01 · ChainGraph Suite · AINumbers.co`,`**Generated:** ${new Date().toISOString()}`,`**Hash:** sha256:${_artifact.execution_hash}`,`**Predicate:** ${r.predType} · **System:** ${r.proofSystem} · **Result:** ${r.allSatisfied?'SATISFIED':'FAILED'}`,``,'## Predicate Checks','',...r.checks.map(c=>`${c.result==='satisfied'?'✅':c.result==='redacted'?'🔒':'❌'} **[${c.code}]** ${c.label}${c.note?` — ${c.note}`:''} *(${c.result})*`),``,'## Regulatory Basis',`GDPR: ${r.pred.gdpr}`,`FATF: ${r.pred.fatf}`,``,'---',`> **⚗️ Educational simulation only.** Synthetic ZK proof tokens — not cryptographically secure. GDPR Art. 25 data-minimisation principle demonstrator.`,`> *CRY-01 · ChainGraph Suite · Post Oak Labs · CC BY 4.0 · Zero PII*`].join('\n');const b=new Blob([lines],{type:'text/markdown'});const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(b),download:`cry-01_${ts}.md`});a.click();URL.revokeObjectURL(a.href);showToast('Markdown exported');}
+function toggleMfst(){const body=document.getElementById('mfstBody'),arrow=document.getElementById('mfstArrow'),btn=document.querySelector('.mfst-btn');const open=body.style.display==='block';body.style.display=open?'none':'block';arrow.textContent=open?'▼':'▲';btn.setAttribute('aria-expanded',String(!open));body.setAttribute('aria-hidden',String(open));if(!open&&!document.getElementById('mfstCode').textContent)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}
+
+updatePredicateFields();
+</script>
+</body>
+</html>

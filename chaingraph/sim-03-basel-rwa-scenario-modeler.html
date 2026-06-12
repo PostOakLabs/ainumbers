@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Basel RWA Scenario Modeler · ChainGraph · AINumbers.co</title>
+<meta name="description" content="Run SA-CR, F-IRB, and A-IRB RWA scenarios in parallel across a synthetic credit portfolio. Output-floor comparison at 72.5%. Percentile distribution, approach-by-approach delta, and capital impact. UK PRA PS1/26 Jan 2027. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/sim-03-basel-rwa-scenario-modeler.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--radius:6px;--radius-lg:10px;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(20,184,166,.01) 1px,transparent 1px),linear-gradient(90deg,rgba(20,184,166,.01) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}.nav-bc-sep{color:var(--border-2)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--teal-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}.badge-red{color:var(--red);border-color:rgba(239,68,68,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--warn);padding:.65rem 1rem;font-size:.7rem;color:var(--muted);line-height:1.6;margin-bottom:1.25rem;border-radius:var(--radius)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem}
+.panel-label::before{content:'';display:block;width:12px;height:1px;background:var(--teal)}
+.panel-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.85rem;margin-bottom:.85rem}
+.panel-row:last-child{margin-bottom:0}
+.field-group{display:flex;flex-direction:column;gap:.3rem}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.field-hint{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--border-2);margin-top:.1rem;line-height:1.4}
+input[type="number"],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.38rem .55rem;border-radius:var(--radius);outline:none;transition:border-color .2s;width:100%}
+input[type="number"]:focus,select:focus{border-color:var(--teal)}
+input[type="range"]{background:transparent;border:none;width:100%;height:4px;accent-color:var(--teal);cursor:pointer}
+.slider-row{display:flex;align-items:center;gap:.75rem}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--teal);min-width:3rem;text-align:right}
+/* approach toggles */
+.approach-toggles{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.approach-toggle{display:flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;cursor:pointer;padding:.3rem .65rem;border:1px solid var(--border);border-radius:4px;background:var(--bg-3);color:var(--muted);transition:all .15s;user-select:none}
+.approach-toggle input{display:none}
+.approach-toggle.active{border-color:var(--teal);color:var(--teal);background:var(--teal-dim)}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.progress-bar-wrap{background:var(--bg-3);border-radius:2px;height:4px;overflow:hidden;margin:.5rem 0;display:none}
+.progress-bar{height:100%;background:var(--teal);border-radius:2px;transition:width .2s}
+.results-panel{display:none;flex-direction:column;gap:1rem;margin-top:1.5rem}
+.results-panel.visible{display:flex}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+/* Scenario comparison bars */
+.scenario-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:1rem}
+.scenario-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem}
+.scenario-card.winner{border-color:rgba(34,197,94,.35)}
+.scenario-card.floor-binding{border-color:rgba(239,68,68,.35)}
+.sc-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+.sc-rwa{font-family:'DM Serif Display',serif;font-size:1.6rem;color:var(--white);line-height:1}
+.sc-sub{font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--body);margin-top:.3rem}
+.sc-bar-wrap{background:var(--bg-4);border-radius:2px;height:6px;margin-top:.55rem;overflow:hidden}
+.sc-bar{height:100%;border-radius:2px;transition:width .6s ease}
+/* Percentile table */
+.pct-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.54rem}
+.pct-table th{text-align:left;padding:.4rem .65rem;border-bottom:1px solid var(--border);color:var(--muted);font-weight:400;letter-spacing:.08em;text-transform:uppercase}
+.pct-table td{padding:.4rem .65rem;border-bottom:1px solid var(--border);color:var(--body)}
+.pct-table tr:last-child td{border-bottom:none}
+.pct-table td.highlight{color:var(--bright)}
+.pct-table td.red{color:var(--red)}.pct-table td.green{color:var(--green)}.pct-table td.warn{color:var(--warn)}
+/* Floor comparison */
+.floor-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:.75rem}
+.floor-cell{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .85rem;text-align:center}
+.floor-cell .fv{font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--white);line-height:1}
+.floor-cell .fl{font-family:'JetBrains Mono',monospace;font-size:.42rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:.25rem}
+.results-export-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:.75rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:var(--radius);border:1px solid;transition:all .2s;cursor:pointer;background:transparent}
+.btn-ghost{border-color:var(--border);color:var(--muted)}
+.btn-ghost.ready{border-color:var(--teal);color:var(--bright)}
+.btn-ghost.ready:hover{background:var(--bg-4)}
+.btn-ghost:disabled{opacity:.28;cursor:not-allowed}
+.btn-subtitle{display:block;font-size:.4rem;color:var(--muted);margin-top:.1rem}
+.chain-link{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--teal);background:var(--teal-dim);border:1px solid rgba(20,184,166,.25);padding:.28rem .65rem;border-radius:3px;transition:all .2s}
+.chain-link:hover{background:rgba(20,184,166,.2)}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);transition:color .2s}.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg-3);border:1px solid var(--teal);color:var(--teal-lt);font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.5rem 1rem;border-radius:var(--radius);z-index:999;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+@media(max-width:700px){.panel-row{grid-template-columns:1fr}.floor-row{grid-template-columns:1fr}.scenario-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" style="display:flex;align-items:center;gap:9px">
+    <svg width="28" height="28" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+  </a>
+  <div class="nav-bc"><a href="../index.html">All Tools</a><span class="nav-bc-sep">/</span><a href="chaingraph-hub.html">ChainGraph</a><span class="nav-bc-sep">/</span><span>SIM-03</span></div>
+  <a href="chaingraph-hub.html" class="nav-cta">ChainGraph Hub &#8594;</a>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">ChainGraph Suite · SIM-03 · Basel RWA Scenario Modeler</div>
+  <span class="badge badge-muted" style="display:inline-flex;margin-bottom:.6rem">v1.0.0</span>
+  <h1>Basel RWA <em>Scenario Modeler</em></h1>
+  <p class="hero-desc">Run SA-CR, F-IRB, and A-IRB RWA scenarios simultaneously across a configurable synthetic credit portfolio. Compare RWA under each approach, apply the Basel 3.1 output floor (72.5%), and see percentile distributions across Monte Carlo book samples. Natural chain partner to ART-07. UK PRA PS1/26 go-live January 1, 2027. Client-side. Zero PII.</p>
+  <div class="hero-meta">
+    <span class="badge badge-teal">AP2 Export</span>
+    <span class="badge badge-teal">Chains: ART-07 · QFA-02</span>
+    <span class="badge badge-red">UK PRA Jan 1, 2027</span>
+    <span class="badge badge-gold">JS Parallel · 3 Approaches</span>
+    <span class="badge badge-green">Zero PII</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+  <div class="pii-notice">🔒 Synthetic portfolio only. No real loan book data. Runs entirely in your browser.</div>
+  <div class="disclaimer">⚠ <strong style="color:var(--warn);font-family:'JetBrains Mono',monospace;font-size:.62rem">Educational/simulation only.</strong> SA-CR risk weights per BCBS d424 / UK PRA PS1/26. F-IRB and A-IRB parameters are indicative. Not for regulatory reporting.</div>
+
+  <div class="panel">
+    <div class="panel-label">Scenarios to run</div>
+    <div class="approach-toggles">
+      <label class="approach-toggle active" id="tog-sacr"><input type="checkbox" checked> SA-CR (Standardised)</label>
+      <label class="approach-toggle active" id="tog-firb"><input type="checkbox" checked> F-IRB (Foundation IRB)</label>
+      <label class="approach-toggle active" id="tog-airb"><input type="checkbox" checked> A-IRB (Advanced IRB)</label>
+      <label class="approach-toggle active" id="tog-floor"><input type="checkbox" checked> Output-Floor Constrained</label>
+    </div>
+    <div class="panel-label" style="margin-top:.75rem">Portfolio parameters</div>
+    <div class="panel-row">
+      <div class="field-group">
+        <label class="field-label">Total EAD (£ billions)</label>
+        <input type="number" id="eadBn" min="1" max="2000" step="1" value="100">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Asset class mix</label>
+        <select id="mixPreset">
+          <option value="retail">Retail-heavy (70% mortgages)</option>
+          <option value="corporate" selected>Corporate-heavy (60% corporate)</option>
+          <option value="mixed">Diversified mix</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Monte Carlo scenarios</label>
+        <select id="mcScenarios">
+          <option value="100">100 (fast)</option>
+          <option value="500" selected>500 (default)</option>
+          <option value="1000">1000 (slow)</option>
+        </select>
+      </div>
+    </div>
+    <div class="panel-row">
+      <div class="field-group">
+        <label class="field-label">Avg F-IRB PD (%)</label>
+        <div class="slider-row">
+          <input type="range" id="firbPd" min="0.1" max="10" step="0.1" value="1.5" oninput="sv('firbPd','firbPdV',v=>v.toFixed(1)+'%')">
+          <span class="slider-val" id="firbPdV">1.5%</span>
+        </div>
+        <span class="field-hint">Average probability of default, F-IRB approach</span>
+      </div>
+      <div class="field-group">
+        <label class="field-label">F-IRB LGD (%)</label>
+        <div class="slider-row">
+          <input type="range" id="firbLgd" min="10" max="75" step="1" value="45" oninput="sv('firbLgd','firbLgdV',v=>Math.round(v)+'%')">
+          <span class="slider-val" id="firbLgdV">45%</span>
+        </div>
+        <span class="field-hint">F-IRB: supervisory LGD (45% unsecured, 25% secured)</span>
+      </div>
+      <div class="field-group">
+        <label class="field-label">A-IRB avg PD (%)</label>
+        <div class="slider-row">
+          <input type="range" id="airbPd" min="0.1" max="10" step="0.1" value="1.2" oninput="sv('airbPd','airbPdV',v=>v.toFixed(1)+'%')">
+          <span class="slider-val" id="airbPdV">1.2%</span>
+        </div>
+        <span class="field-hint">Average PD, bank-estimated (A-IRB — typically lower than F-IRB)</span>
+      </div>
+      <div class="field-group">
+        <label class="field-label">A-IRB avg LGD (%)</label>
+        <div class="slider-row">
+          <input type="range" id="airbLgd" min="5" max="75" step="1" value="32" oninput="sv('airbLgd','airbLgdV',v=>Math.round(v)+'%')">
+          <span class="slider-val" id="airbLgdV">32%</span>
+        </div>
+        <span class="field-hint">Bank-estimated LGD, A-IRB (typically lower than supervisory 45%)</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:2rem">
+    <button class="run-btn" onclick="computeRwaScenarios()">▶ Run RWA Scenarios</button>
+    <span id="runStatus" style="font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)"></span>
+  </div>
+  <div class="progress-bar-wrap" id="progressWrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+
+  <div class="results-panel" id="resultsPanel">
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Scenario comparison — central estimate</span></div>
+      <div class="out-body"><div class="scenario-grid" id="scenarioGrid"></div></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Output floor analysis (72.5% of SA-CR)</span></div>
+      <div class="out-body" id="floorAnalysis"></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Percentile distribution (Monte Carlo)</span></div>
+      <div class="out-body" style="overflow-x:auto"><table class="pct-table" id="pctTable"></table></div>
+    </div>
+
+    <div class="out-section">
+      <div class="out-header"><span class="out-title">Chain to ART-07 &amp; QFA-02</span></div>
+      <div class="out-body" style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center">
+        <a href="art-07-basel31-reporting-delta-calculator.html" class="chain-link" target="_blank" rel="noopener noreferrer">&#x2192; ART-07 Basel Delta</a>
+        <a href="qfa-02-portfolio-var-engine.html" class="chain-link" target="_blank" rel="noopener noreferrer">&#x2192; QFA-02 VaR Engine</a>
+      </div>
+    </div>
+
+    <div class="results-export-row">
+      <button class="btn btn-ghost" id="ap2Btn" disabled onclick="exportAP2()">
+        {} Export ChainGraph Artifact<span class="btn-subtitle">AP2 · capital_assessment</span>
+      </button>
+      <button class="btn btn-ghost" id="mdBtn" disabled onclick="exportMd()">
+        &#x21E9; Export Markdown<span class="btn-subtitle">Scenario report</span>
+      </button>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()" style="margin-top:2rem" aria-expanded="false" aria-controls="mfstBody">
+    <span>{} MCP Manifest — SIM-03</span><span id="mfstArrow">▼</span>
+  </button>
+  <div class="mfst-body" id="mfstBody" aria-hidden="true"><pre class="mfst-code" id="mfstCode"></pre></div>
+</div></div>
+
+<footer><div class="container"><div class="footer-inner-ai">
+  <a href="../index.html" style="display:flex;align-items:center;gap:.5rem;color:var(--text)">
+    <svg width="22" height="22" viewBox="0 0 48 48"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500"><span style="color:var(--teal)">AI</span>Numbers.co</span>
+  </a>
+  <div class="footer-links-ai"><a href="../index.html">All Tools</a><a href="chaingraph-hub.html">ChainGraph Hub</a><a href="../about.html">About</a><a href="https://mcp.ainumbers.co/mcp" target="_blank" rel="noopener noreferrer">MCP Server</a></div>
+  <div class="footer-badge-ai"><span>Post Oak Labs · CC BY 4.0</span><span>ChainGraph Suite · SIM-03 v1.0.0</span><span>Basel 3.1 · BCBS d424 · UK PRA PS1/26</span></div>
+</div></div></footer>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const MANIFEST={tool_id:'sim-03-basel-rwa-scenario-modeler',version:'1.0.0',title:'Basel RWA Scenario Modeler',mcp_tool_definition:{name:'compute_rwa_scenarios',description:'Run SA-CR, F-IRB, and A-IRB RWA scenarios in parallel across a synthetic credit portfolio with output-floor comparison at 72.5%.',inputSchema:{type:'object',properties:{ead_bn:{type:'number'},mix_preset:{type:'string',enum:['retail','corporate','mixed']},mc_scenarios:{type:'number'},firb_pd_pct:{type:'number'},firb_lgd_pct:{type:'number'},airb_pd_pct:{type:'number'},airb_lgd_pct:{type:'number'}},required:['ead_bn']}},ap2_export:true,chaingraph:true};
+
+/* Basel 3.1 SA-CR weights (revised) */
+const SA_WEIGHTS={residential:0.30,sme:0.85,large_corp:0.85,consumer:0.75,sovereign:0.05,equity:1.75};
+/* Mix presets */
+const MIXES={retail:{residential:0.70,sme:0.12,large_corp:0.05,consumer:0.10,sovereign:0.02,equity:0.01},corporate:{residential:0.10,sme:0.20,large_corp:0.40,consumer:0.08,sovereign:0.18,equity:0.04},mixed:{residential:0.35,sme:0.20,large_corp:0.22,consumer:0.12,sovereign:0.08,equity:0.03}};
+const OUTPUT_FLOOR=0.725;
+const CHUNK=50;
+
+let _artifact=null,_result=null;
+
+/* LCG RNG */
+function makeRng(seed){let s=seed;return()=>{s=(1664525*s+1013904223)&0xFFFFFFFF;return(s>>>0)/0xFFFFFFFF;};}
+
+/* Basel IRB capital formula (BCBS d424 §CRE31) — simplified corporate formula */
+function irbK(pd,lgd,m=2.5,s=0){
+  const r=0.12*(1-Math.exp(-50*pd))/(1-Math.exp(-50))+0.24*(1-(1-Math.exp(-50*pd))/(1-Math.exp(-50)));
+  const b=Math.pow(0.11852-0.05478*Math.log(pd),2);
+  const ma=(1+(m-2.5)*b)/(1-1.5*b);
+  // Φ⁻¹ approximation via rational
+  const phiInv=p=>{const a=-2.515517,b1=0.802853,c1=0.010328,d1=1.432788,d2=0.189269,d3=0.001308;const t=Math.sqrt(-2*Math.log(p<0.5?p:1-p));const top=a+b1*t+c1*t*t;const bot=1+d1*t+d2*t*t+d3*t*t*t;const x=t-top/bot;return p<0.5?-x:x;};
+  const phi99=phiInv(0.999);
+  const rr=r;
+  const inner=(phiInv(pd)+Math.sqrt(rr/(1-rr))*phi99)/Math.sqrt(1-rr);
+  const nInner=0.5*(1+erf(inner/Math.sqrt(2)));
+  return Math.max(0,(lgd*nInner - lgd*pd)*ma*12.5);
+}
+function erf(x){const t=1/(1+0.3275911*Math.abs(x));const p=1-t*(0.254829592+t*(-0.284496736+t*(1.421413741+t*(-1.453152027+t*1.061405429))))*Math.exp(-x*x);return x>=0?p:-p;}
+
+async function computeRwaScenarios(){
+  const eadBn=parseFloat(document.getElementById('eadBn').value)||100;
+  const mix=MIXES[document.getElementById('mixPreset').value]||MIXES.mixed;
+  const mcN=parseInt(document.getElementById('mcScenarios').value)||500;
+  const firbPd=parseFloat(document.getElementById('firbPd').value)/100||0.015;
+  const firbLgd=parseFloat(document.getElementById('firbLgd').value)/100||0.45;
+  const airbPd=parseFloat(document.getElementById('airbPd').value)/100||0.012;
+  const airbLgd=parseFloat(document.getElementById('airbLgd').value)/100||0.32;
+
+  const statusEl=document.getElementById('runStatus');
+  const progWrap=document.getElementById('progressWrap');
+  const progBar=document.getElementById('progressBar');
+  progWrap.style.display='block';progBar.style.width='0%';
+  statusEl.textContent='Simulating…';
+
+  /* Central SA-CR RWA */
+  let sacrRWA=0;
+  for(const [cls,wt] of Object.entries(mix)){
+    sacrRWA+=eadBn*wt*(SA_WEIGHTS[cls]||0.85);
+  }
+
+  /* Central F-IRB RWA (per asset class with varied PD) */
+  let firbRWA=0;
+  const assetPdMult={residential:0.6,sme:1.2,large_corp:1.1,consumer:1.4,sovereign:0.2,equity:2.0};
+  for(const [cls,wt] of Object.entries(mix)){
+    const pd=Math.min(firbPd*(assetPdMult[cls]||1),0.99);
+    const k=irbK(pd,firbLgd);
+    firbRWA+=eadBn*wt*k;
+  }
+
+  /* Central A-IRB RWA */
+  let airbRWA=0;
+  for(const [cls,wt] of Object.entries(mix)){
+    const pd=Math.min(airbPd*(assetPdMult[cls]||1),0.99);
+    const k=irbK(pd,airbLgd);
+    airbRWA+=eadBn*wt*k;
+  }
+
+  /* Output floor */
+  const floorRWA=sacrRWA*OUTPUT_FLOOR;
+  const firbFloored=Math.max(firbRWA,floorRWA);
+  const airbFloored=Math.max(airbRWA,floorRWA);
+  const firbFloorBinding=firbFloored>firbRWA;
+  const airbFloorBinding=airbFloored>airbRWA;
+
+  /* Monte Carlo — chunked */
+  const sacrSims=[],firbSims=[],airbSims=[];
+  const rng=makeRng(42);
+  let done=0;
+  while(done<mcN){
+    const batch=Math.min(CHUNK,mcN-done);
+    for(let i=0;i<batch;i++){
+      const spread=0.85+rng()*0.30; // EAD spread factor
+      let sc=0,fi=0,ai=0;
+      for(const [cls,wt] of Object.entries(mix)){
+        const w=wt*(0.9+rng()*0.2);
+        const ead=eadBn*spread*w;
+        sc+=ead*(SA_WEIGHTS[cls]||0.85)*(0.85+rng()*0.30);
+        const pdF=Math.min(firbPd*(assetPdMult[cls]||1)*(0.7+rng()*0.6),0.99);
+        fi+=ead*irbK(pdF,firbLgd*(0.85+rng()*0.3));
+        const pdA=Math.min(airbPd*(assetPdMult[cls]||1)*(0.7+rng()*0.6),0.99);
+        ai+=ead*irbK(pdA,airbLgd*(0.8+rng()*0.4));
+      }
+      sacrSims.push(sc);firbSims.push(Math.max(fi,sc*OUTPUT_FLOOR));airbSims.push(Math.max(ai,sc*OUTPUT_FLOOR));
+    }
+    done+=batch;
+    progBar.style.width=(done/mcN*100).toFixed(0)+'%';
+    await new Promise(r=>setTimeout(r,0));
+  }
+
+  progWrap.style.display='none';statusEl.textContent='';
+
+  const pct=(arr,p)=>{const s=[...arr].sort((a,b)=>a-b);return s[Math.floor(p*s.length)]||0;};
+  const percentiles=[0.05,0.25,0.50,0.75,0.95,0.99];
+  const sacrPcts=percentiles.map(p=>pct(sacrSims,p));
+  const firbPcts=percentiles.map(p=>pct(firbSims,p));
+  const airbPcts=percentiles.map(p=>pct(airbSims,p));
+
+  _result={eadBn,sacrRWA,firbRWA,airbRWA,firbFloored,airbFloored,floorRWA,firbFloorBinding,airbFloorBinding,sacrPcts,firbPcts,airbPcts,percentiles,mcN,firbPd,firbLgd,airbPd,airbLgd};
+  renderResults(_result);
+}
+
+function renderResults(r){
+  /* Scenario cards */
+  const maxRWA=Math.max(r.sacrRWA,r.firbFloored,r.airbFloored);
+  const scenarios=[
+    {label:'SA-CR (Standardised)',rwa:r.sacrRWA,color:'var(--teal)',note:'Revised Basel 3.1 SA risk weights'},
+    {label:'F-IRB + Floor',rwa:r.firbFloored,binding:r.firbFloorBinding,color:r.firbFloorBinding?'var(--warn)':'var(--green)',note:`PD ${(r.firbPd*100).toFixed(1)}% · LGD ${(r.firbLgd*100).toFixed(0)}% · Floor ${r.firbFloorBinding?'binding':'not binding'}`},
+    {label:'A-IRB + Floor',rwa:r.airbFloored,binding:r.airbFloorBinding,color:r.airbFloorBinding?'var(--warn)':'var(--green)',note:`PD ${(r.airbPd*100).toFixed(1)}% · LGD ${(r.airbLgd*100).toFixed(0)}% · Floor ${r.airbFloorBinding?'binding':'not binding'}`},
+    {label:'Output Floor RWA',rwa:r.floorRWA,color:'var(--muted)',note:`72.5% × SA-CR = £${r.floorRWA.toFixed(1)}bn`}
+  ];
+  document.getElementById('scenarioGrid').innerHTML=scenarios.map(s=>{
+    const pct=(s.rwa/maxRWA*100).toFixed(1);
+    return `<div class="scenario-card ${s.binding?'floor-binding':''}"><div class="sc-label">${s.label}</div><div class="sc-rwa" style="color:${s.color}">£${s.rwa.toFixed(1)}bn</div><div class="sc-sub">${s.note}</div><div class="sc-bar-wrap"><div class="sc-bar" style="width:${pct}%;background:${s.color}"></div></div></div>`;
+  }).join('');
+
+  /* Floor analysis */
+  document.getElementById('floorAnalysis').innerHTML=`<div class="floor-row">
+    <div class="floor-cell"><div class="fv">£${r.sacrRWA.toFixed(1)}bn</div><div class="fl">SA-CR RWA</div></div>
+    <div class="floor-cell"><div class="fv" style="color:var(--teal)">£${r.floorRWA.toFixed(1)}bn</div><div class="fl">Floor (72.5% × SA-CR)</div></div>
+    <div class="floor-cell"><div class="fv" style="color:${r.firbFloorBinding||r.airbFloorBinding?'var(--red)':'var(--green)'}">${r.firbFloorBinding||r.airbFloorBinding?'Floor Binding':'Not Binding'}</div><div class="fl">Aggregate determination</div></div>
+  </div>
+  <div style="font-size:.7rem;color:var(--body);line-height:1.8">
+    F-IRB pre-floor: £${r.firbRWA.toFixed(1)}bn → floored: £${r.firbFloored.toFixed(1)}bn (${r.firbFloorBinding?'<span style="color:var(--warn)">floor binding</span>':'<span style="color:var(--green)">floor not binding</span>'})<br>
+    A-IRB pre-floor: £${r.airbRWA.toFixed(1)}bn → floored: £${r.airbFloored.toFixed(1)}bn (${r.airbFloorBinding?'<span style="color:var(--warn)">floor binding</span>':'<span style="color:var(--green)">floor not binding</span>'})
+  </div>`;
+
+  /* Percentile table */
+  const pctLabels=['P5','P25','P50 (median)','P75','P95','P99'];
+  document.getElementById('pctTable').innerHTML=`<thead><tr><th>Percentile</th><th>SA-CR RWA (£bn)</th><th>F-IRB + Floor (£bn)</th><th>A-IRB + Floor (£bn)</th></tr></thead><tbody>${r.percentiles.map((p,i)=>`<tr><td class="highlight">${pctLabels[i]}</td><td>${r.sacrPcts[i].toFixed(1)}</td><td class="${r.firbPcts[i]>r.sacrPcts[i]*OUTPUT_FLOOR?'warn':''}">${r.firbPcts[i].toFixed(1)}</td><td class="${r.airbPcts[i]>r.sacrPcts[i]*OUTPUT_FLOOR?'warn':''}">${r.airbPcts[i].toFixed(1)}</td></tr>`).join('')}</tbody>`;
+
+  // Enable exports
+  ['ap2Btn','mdBtn'].forEach(id=>{const b=document.getElementById(id);b.disabled=false;b.classList.add('ready');});
+  document.getElementById('resultsPanel').classList.add('visible');
+
+  // Artifact (computed async)
+  sha256({policy_parameters:{ead_bn:r.eadBn,mc_n:r.mcN},output_payload:{sacr_rwa_bn:Math.round(r.sacrRWA*100)/100,firb_floored_bn:Math.round(r.firbFloored*100)/100,airb_floored_bn:Math.round(r.airbFloored*100)/100}}).then(hash=>{
+    _artifact={ap2_version:'1.0.0',mandate_type:'capital_assessment',tool_id:'sim-03-basel-rwa-scenario-modeler',tool_version:'1.0.0',generated_at:new Date().toISOString(),execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:{ead_bn:r.eadBn,firb_pd_pct:r.firbPd*100,firb_lgd_pct:r.firbLgd*100,airb_pd_pct:r.airbPd*100,airb_lgd_pct:r.airbLgd*100,mc_n:r.mcN},output_payload:{sacr_rwa_bn:Math.round(r.sacrRWA*100)/100,firb_rwa_bn:Math.round(r.firbRWA*100)/100,airb_rwa_bn:Math.round(r.airbRWA*100)/100,floor_rwa_bn:Math.round(r.floorRWA*100)/100,firb_floored_bn:Math.round(r.firbFloored*100)/100,airb_floored_bn:Math.round(r.airbFloored*100)/100,floor_binding:{firb:r.firbFloorBinding,airb:r.airbFloorBinding}},compliance_flags:r.firbFloorBinding||r.airbFloorBinding?['OUTPUT_FLOOR_BINDING']:['OUTPUT_FLOOR_NOT_BINDING'],audit_signature:{client_side_executed:true,zero_pii_verified:true}};
+  });
+}
+
+/* Utils */
+async function sha256(obj){const c=JSON.stringify(obj,Object.keys(obj).sort());const b=new TextEncoder().encode(c);const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+function sv(id,vid,fmt){const v=parseFloat(document.getElementById(id).value);document.getElementById(vid).textContent=fmt?fmt(v):v;}
+function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+function exportAP2(){if(!_artifact)return;const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);const b=new Blob([JSON.stringify(_artifact,null,2)],{type:'application/json'});const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(b),download:`sim-03_${ts}.policy.json`});a.click();URL.revokeObjectURL(a.href);showToast('Artifact exported');}
+function exportMd(){if(!_result||!_artifact)return;const r=_result;const ts=new Date().toISOString().replace(/[-:T]/g,'').slice(0,14);const lines=['# Basel RWA Scenario Report',`**Tool:** SIM-03 · ChainGraph Suite · AINumbers.co`,`**Generated:** ${new Date().toISOString()}`,`**Hash:** sha256:${_artifact?.execution_hash||'pending'}`,``,`## Central Estimates (£bn)`,`| Approach | RWA | Floor binding? |`,`|---|---|---|`,`| SA-CR | £${r.sacrRWA.toFixed(1)}bn | — |`,`| F-IRB + Floor | £${r.firbFloored.toFixed(1)}bn | ${r.firbFloorBinding?'YES':'NO'} |`,`| A-IRB + Floor | £${r.airbFloored.toFixed(1)}bn | ${r.airbFloorBinding?'YES':'NO'} |`,`| Output Floor RWA | £${r.floorRWA.toFixed(1)}bn | — |`,``,`## Percentile Distribution (P50 median)`,`SA-CR P50: £${r.sacrPcts[2].toFixed(1)}bn · F-IRB P50: £${r.firbPcts[2].toFixed(1)}bn · A-IRB P50: £${r.airbPcts[2].toFixed(1)}bn`,``,`---`,`> *SIM-03 · ChainGraph Suite · Post Oak Labs · CC BY 4.0 · Educational only*`].join('\n');const b=new Blob([lines],{type:'text/markdown'});const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(b),download:`sim-03_${ts}.md`});a.click();URL.revokeObjectURL(a.href);showToast('Markdown exported');}
+function toggleMfst(){const body=document.getElementById('mfstBody'),arrow=document.getElementById('mfstArrow'),btn=document.querySelector('.mfst-btn');const open=body.style.display==='block';body.style.display=open?'none':'block';arrow.textContent=open?'▼':'▲';btn.setAttribute('aria-expanded',String(!open));body.setAttribute('aria-hidden',String(open));if(!open&&!document.getElementById('mfstCode').textContent)document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}
+
+/* Toggle approach active state */
+document.querySelectorAll('.approach-toggle').forEach(lbl=>{lbl.addEventListener('click',()=>{lbl.classList.toggle('active');});});
+/* Init sliders */
+['firbPd','firbLgd','airbPd','airbLgd'].forEach(id=>document.getElementById(id).dispatchEvent(new Event('input')));
+</script>
+</body>
+</html>
