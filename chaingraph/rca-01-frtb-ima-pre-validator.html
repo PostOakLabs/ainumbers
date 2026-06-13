@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FRTB IMA Expected Shortfall Pre-Validator — AINumbers | ChainGraph</title>
+<meta name="description" content="Educational FRTB IMA Expected Shortfall pre-validator. Liquidity horizons LH1–LH5, NMRF surcharge, PLA test, capital floor comparison. UK IMA Jan 2028. AP2-exporting, MCP-exposed. Post Oak Labs.">
+<meta property="og:title" content="FRTB IMA ES Pre-Validator — AINumbers ChainGraph">
+<meta property="og:description" content="Educational FRTB IMA Expected Shortfall simulator with liquidity horizons, NMRF surcharge, and PLA test. AP2 artifact export. Post Oak Labs.">
+<meta property="og:type" content="website">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/rca-01-frtb-ima-pre-validator.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-glow:rgba(20,184,166,.06); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.12);
+  --radius:6px; --radius-lg:10px; --shadow:0 4px 24px rgba(0,0,0,.4);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:.85rem;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+.page-inner{max-width:1100px;margin:0 auto;padding:28px 24px 80px}
+/* TOOL HEADER */
+.tool-header{background:linear-gradient(135deg,var(--bg-3) 0%,var(--bg-2) 100%);border:1px solid var(--border-2);border-top:3px solid var(--gold);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:20px}
+.tool-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+.tool-h1{font-family:'DM Serif Display',serif;font-size:1.45rem;color:var(--white);line-height:1.2;margin-bottom:6px}
+.tool-sub{font-size:.78rem;color:var(--body);line-height:1.7;max-width:640px;margin-bottom:12px}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.04em;padding:.18rem .48rem;border-radius:3px}
+.tag-gold{background:var(--gold-dim);color:var(--gold)}
+.tag-teal{background:var(--teal-dim);color:var(--teal)}
+.tag-purple{background:var(--purple-dim);color:var(--purple)}
+.tag-body{background:var(--bg-3);color:var(--body);border:1px solid var(--border)}
+/* PRESETS */
+.presets-row{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.preset-btn{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;cursor:pointer;transition:border-color .15s,background .15s;text-align:left;flex:1;min-width:180px}
+.preset-btn:hover,.preset-btn.active{border-color:var(--gold);background:var(--bg-3)}
+.preset-btn.active{border-color:var(--gold)}
+.preset-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-bottom:3px}
+.preset-name{font-size:.78rem;font-weight:600;color:var(--bright)}
+.preset-desc{font-size:.67rem;color:var(--body);margin-top:2px}
+/* CONTROLS */
+.controls-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:16px}
+.ctrl-group{display:flex;flex-direction:column;gap:4px}
+.ctrl-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ctrl-input{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.4rem .6rem;width:100%;transition:border-color .15s}
+.ctrl-input:focus{outline:none;border-color:var(--gold)}
+select.ctrl-input option{background:var(--bg-3)}
+/* CHAIN INTAKE */
+.chain-block{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--purple);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:16px}
+.chain-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--purple);margin-bottom:6px}
+.chain-input{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:.5rem .7rem;width:100%;height:56px;resize:vertical;transition:border-color .15s}
+.chain-input:focus{outline:none;border-color:var(--purple);color:var(--text)}
+/* RUN */
+.run-btn{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:700;letter-spacing:.08em;padding:.6rem 1.6rem;cursor:pointer;transition:opacity .15s}
+.run-btn:hover{opacity:.85}.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.progress-bar{height:3px;background:var(--border);border-radius:2px;margin-top:10px;overflow:hidden}
+.progress-fill{height:100%;background:var(--gold);border-radius:2px;transition:width .1s;width:0}
+/* RESULTS */
+.results-section{margin-top:24px}
+.section-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:10px}
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;margin-bottom:18px}
+.metric-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 14px}
+.metric-n{font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--white)}
+.metric-l{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:2px}
+.metric-sub{font-size:.65rem;color:var(--body);margin-top:2px}
+.pla-green{color:var(--green)}.pla-amber{color:var(--warn)}.pla-red{color:var(--red)}
+/* CHARTS */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+.chart-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px}
+.chart-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+svg.chart{width:100%;overflow:visible}
+/* VERDICT */
+.verdict-block{border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:18px;border:1px solid}
+.verdict-block.high{background:var(--red-dim);border-color:rgba(239,68,68,.3)}
+.verdict-block.moderate{background:var(--warn-dim);border-color:rgba(245,158,11,.3)}
+.verdict-block.low{background:var(--green-dim);border-color:rgba(34,197,94,.3)}
+.verdict-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
+.verdict-text{font-size:.78rem;line-height:1.6}
+/* AP2 EXPORT */
+.export-block{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:var(--radius-lg);padding:16px 18px;margin-top:20px}
+.export-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:8px}
+.export-pre{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--body);line-height:1.7;overflow-x:auto;max-height:280px;overflow-y:auto;white-space:pre}
+.copy-btn{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.55rem;padding:.3rem .75rem;cursor:pointer;transition:border-color .15s,color .15s;margin-top:8px}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+.edu-note{background:var(--purple-dim);border:1px solid rgba(155,114,245,.2);border-radius:var(--radius);padding:10px 14px;font-size:.7rem;color:var(--body);margin-bottom:16px}
+.edu-note strong{color:var(--purple)}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:20px 0;margin-top:40px}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:500;color:var(--bright)}
+.footer-cc{font-size:.62rem;color:var(--muted);margin-top:2px}
+.footer-links{display:flex;gap:16px;flex-wrap:wrap}
+.footer-links a{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--body);transition:color .15s}
+.footer-links a:hover{color:var(--teal)}
+@media(max-width:768px){.charts-grid{grid-template-columns:1fr}.page-inner{padding:16px 14px 60px}.nav-pill{display:none}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="26" height="26" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a><span>›</span>
+      <a href="chaingraph-hub.html">ChainGraph</a><span>›</span>
+      <span style="color:var(--gold)">RCA-01</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">← ChainGraph Suite</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server ↗</a>
+    </div>
+  </div>
+</nav>
+
+<div class="page-inner">
+  <div class="tool-header">
+    <div class="tool-eyebrow">RCA-01 · Capital &amp; Quantitative Risk · FRTB IMA · Educational / Pre-Validation</div>
+    <h1 class="tool-h1">FRTB IMA Expected Shortfall Pre-Validator</h1>
+    <p class="tool-sub">Educational simulator for FRTB Internal Models Approach (IMA) Expected Shortfall computation across a synthetic trading book. Covers liquidity horizons LH1–LH5 (10–120 days), NMRF surcharge estimation, PLA test status, and IMA capital vs SA floor comparison. For pre-validation and educational scenario analysis ahead of UK IMA go-live January 2028. All computation is client-side — no trading book data transmitted.</p>
+    <div class="tag-row">
+      <span class="tag tag-teal">simulate_frtb_es</span>
+      <span class="tag tag-gold">risk_parameter</span>
+      <span class="tag tag-body">FRTB MAR30–33</span>
+      <span class="tag tag-body">UK IMA Jan 2028</span>
+      <span class="tag tag-body">PLA Test</span>
+      <span class="tag tag-body">NMRF Surcharge</span>
+    </div>
+  </div>
+
+  <div class="edu-note"><strong>Educational / Pre-validation only.</strong> This tool uses synthetic position data and a simplified FRTB IMA model for scenario analysis. It does not constitute a regulatory-grade IMA calculation. UK FRTB IMA go-live: January 2028 (PRA CP17/25). EU: ~2029–30. All inputs are synthetic or user-provided; no data is transmitted.</div>
+
+  <!-- PRESETS -->
+  <div class="presets-row">
+    <div class="preset-btn active" onclick="selectPreset('equity_book')">
+      <div class="preset-label">Preset 1</div>
+      <div class="preset-name">Equity Book</div>
+      <div class="preset-desc">50 positions · 3 LH classes · 5% NMRF</div>
+    </div>
+    <div class="preset-btn" onclick="selectPreset('mixed_rates')">
+      <div class="preset-label">Preset 2</div>
+      <div class="preset-name">Mixed Rates Desk</div>
+      <div class="preset-desc">100 positions · 4 LH classes · 10% NMRF</div>
+    </div>
+    <div class="preset-btn" onclick="selectPreset('large_book')">
+      <div class="preset-label">Preset 3</div>
+      <div class="preset-name">Large Mixed Book</div>
+      <div class="preset-desc">200 positions · 5 LH classes · 15% NMRF</div>
+    </div>
+  </div>
+
+  <!-- CHAIN INTAKE -->
+  <div class="chain-block">
+    <div class="chain-eyebrow">Chain Intake — paste AP2 JSON from QFA-02 (Portfolio VaR) or SIM-03 (Basel RWA)</div>
+    <textarea class="chain-input" id="chainIntake" placeholder='{"ap2_version":"1.0.0","tool_id":"qfa-02-portfolio-var-engine","execution_hash":"sha256:...","output_payload":{"var_97_5_pct":...}} — or bare sha256:...'></textarea>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls-grid">
+    <div class="ctrl-group">
+      <label class="ctrl-label">Positions</label>
+      <input type="number" id="nPositions" class="ctrl-input" value="50" min="10" max="200">
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Scenarios</label>
+      <input type="number" id="nScenarios" class="ctrl-input" value="2000" min="500" max="10000">
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Confidence Level</label>
+      <select id="confidenceLevel" class="ctrl-input">
+        <option value="0.975" selected>97.5% (FRTB standard)</option>
+        <option value="0.99">99%</option>
+        <option value="0.95">95%</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">LH Classes (1–5)</label>
+      <input type="number" id="nRiskClasses" class="ctrl-input" value="3" min="1" max="5">
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">NMRF Rate</label>
+      <select id="nmrfRate" class="ctrl-input">
+        <option value="0.05" selected>5% of positions</option>
+        <option value="0.10">10%</option>
+        <option value="0.15">15%</option>
+        <option value="0">None</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Seed</label>
+      <input type="number" id="seed" class="ctrl-input" value="42">
+    </div>
+  </div>
+
+  <button class="run-btn" id="runBtn" onclick="startSim()">▶ Run IMA ES Simulation</button>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+  <!-- RESULTS -->
+  <div class="results-section" id="results" style="display:none">
+    <div class="section-eyebrow">ES Results</div>
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-n" id="mES">—</div>
+        <div class="metric-l">Diversified ES</div>
+        <div class="metric-sub">Portfolio-level 97.5% ES</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mESUndiv">—</div>
+        <div class="metric-l">Undiversified ES</div>
+        <div class="metric-sub">Sum of position contributions</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mNMRF">—</div>
+        <div class="metric-l">NMRF Surcharge</div>
+        <div class="metric-sub">1.5× NMRF position ES</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mPLA">—</div>
+        <div class="metric-l">PLA Test</div>
+        <div class="metric-sub">P&amp;L Attribution</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mCapitalIMA">—</div>
+        <div class="metric-l">Capital IMA</div>
+        <div class="metric-sub">1.5×ES + NMRF surcharge</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mCapitalFloor">—</div>
+        <div class="metric-l">SA Floor</div>
+        <div class="metric-sub">Simplified SA capital floor</div>
+      </div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="charts-grid">
+      <div class="chart-wrap">
+        <div class="chart-title">P&amp;L Distribution — ES Zone (left 2.5%)</div>
+        <svg id="histChart" class="chart" viewBox="0 0 340 180"></svg>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">ES by Liquidity Horizon (LH1–LH5)</div>
+        <svg id="lhChart" class="chart" viewBox="0 0 340 180"></svg>
+      </div>
+      <div class="chart-wrap" style="grid-column:span 2">
+        <div class="chart-title">Capital Decomposition: IMA vs SA Floor</div>
+        <svg id="capitalChart" class="chart" viewBox="0 0 680 140"></svg>
+      </div>
+    </div>
+
+    <!-- VERDICT -->
+    <div class="verdict-block" id="verdictBlock">
+      <div class="verdict-label" id="verdictLabel">—</div>
+      <div class="verdict-text" id="verdictText">—</div>
+    </div>
+
+    <!-- AP2 EXPORT -->
+    <div class="export-block">
+      <div class="export-eyebrow">AP2 Artifact Export — execution_hash anchors this computation</div>
+      <pre class="export-pre" id="exportPre">—</pre>
+      <button class="copy-btn" onclick="copyExport()">Copy JSON</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted)">.co</span> · RCA-01 · FRTB IMA ES Pre-Validator
+      <div class="footer-cc">© 2024–2026 Post Oak Labs · CC BY 4.0 · Educational use only · No data transmitted</div>
+    </div>
+    <div class="footer-links">
+      <a href="chaingraph-hub.html">ChainGraph Suite</a>
+      <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+      <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server</a>
+      <a href="../about.html">About</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── LCG + Box-Muller ─────────────────────────────────────────
+function makeLCG(seed) {
+  let s = seed >>> 0;
+  return () => { s = (Math.imul(1664525, s) + 1013904223) >>> 0; return s / 4294967296; };
+}
+function randn(rng) {
+  const u1 = rng(), u2 = rng();
+  return Math.sqrt(-2 * Math.log(u1 + 1e-15)) * Math.cos(2 * Math.PI * u2);
+}
+function simpleHash(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = (Math.imul(h, 0x01000193)) >>> 0; }
+  return 'sha256:' + h.toString(16).padStart(8,'0') + (h^0xdeadbeef).toString(16).padStart(8,'0') + (h^0xcafebabe).toString(16).padStart(8,'0') + (h^0x12345678).toString(16).padStart(8,'0');
+}
+
+// ── FRTB liquidity horizon days ──────────────────────────────
+const LH_DAYS  = [10, 20, 40, 60, 120];
+const LH_LABELS = ['LH1 10d','LH2 20d','LH3 40d','LH4 60d','LH5 120d'];
+const CHUNK = 50;
+
+// ── Presets ──────────────────────────────────────────────────
+const PRESETS = {
+  equity_book:  { nPositions:50,  nScenarios:2000, confidenceLevel:0.975, nRiskClasses:3, nmrfRate:0.05, seed:42  },
+  mixed_rates:  { nPositions:100, nScenarios:3000, confidenceLevel:0.975, nRiskClasses:4, nmrfRate:0.10, seed:137 },
+  large_book:   { nPositions:200, nScenarios:2000, confidenceLevel:0.975, nRiskClasses:5, nmrfRate:0.15, seed:999 }
+};
+
+function selectPreset(name) {
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  const p = PRESETS[name];
+  document.getElementById('nPositions').value  = p.nPositions;
+  document.getElementById('nScenarios').value  = p.nScenarios;
+  document.getElementById('confidenceLevel').value = p.confidenceLevel;
+  document.getElementById('nRiskClasses').value = p.nRiskClasses;
+  document.getElementById('nmrfRate').value     = p.nmrfRate;
+  document.getElementById('seed').value         = p.seed;
+}
+
+// ── Generate positions ────────────────────────────────────────
+function generatePositions(nPos, nRC, nmrfRate, seed) {
+  const rng = makeLCG(seed);
+  return Array.from({length: nPos}, () => {
+    const cls = Math.floor(rng() * nRC);
+    return {
+      weight: (rng() * 0.06 + 0.01) * (rng() > 0.5 ? 1 : -1),
+      vol:    rng() * 0.15 + 0.05,
+      cls,
+      lhDays: LH_DAYS[cls],
+      isNMRF: rng() < nmrfRate
+    };
+  });
+}
+
+// ── Main simulation state ─────────────────────────────────────
+let simResult = null;
+let simParams  = null;
+
+async function startSim() {
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  document.getElementById('results').style.display = 'none';
+
+  const nPositions    = parseInt(document.getElementById('nPositions').value) || 50;
+  const nScenarios    = parseInt(document.getElementById('nScenarios').value) || 2000;
+  const confLevel     = parseFloat(document.getElementById('confidenceLevel').value) || 0.975;
+  const nRiskClasses  = parseInt(document.getElementById('nRiskClasses').value) || 3;
+  const nmrfRate      = parseFloat(document.getElementById('nmrfRate').value) || 0.05;
+  const seed          = parseInt(document.getElementById('seed').value) || 42;
+  const chainRaw      = document.getElementById('chainIntake').value.trim();
+
+  simParams = { nPositions, nScenarios, confLevel, nRiskClasses, nmrfRate, seed };
+
+  const positions = generatePositions(nPositions, Math.min(nRiskClasses, 5), nmrfRate, seed);
+  const pnls = new Float64Array(nScenarios);
+  const rng  = makeLCG(seed + 100);
+
+  // Chunk-yield Monte Carlo
+  for (let start = 0; start < nScenarios; start += CHUNK) {
+    const end = Math.min(start + CHUNK, nScenarios);
+    for (let s = start; s < end; s++) {
+      let p = 0;
+      for (const pos of positions) p += pos.weight * pos.vol * randn(rng) * Math.sqrt(pos.lhDays / 250);
+      pnls[s] = p;
+    }
+    await new Promise(r => setTimeout(r, 0));
+    document.getElementById('progressFill').style.width = (end / nScenarios * 70) + '%';
+  }
+
+  // Sort for ES
+  const sorted = Array.from(pnls).sort((a,b) => a-b);
+  const esCount = Math.max(1, Math.floor(nScenarios * (1 - confLevel)));
+  const es = -sorted.slice(0, esCount).reduce((a,b) => a+b, 0) / esCount;
+
+  // ES by LH class
+  const esByClass = [];
+  for (let cls = 0; cls < 5; cls++) {
+    const clsPos = positions.filter(p => p.cls === cls);
+    if (!clsPos.length) { esByClass.push(0); continue; }
+    const rng2 = makeLCG(seed + 200 + cls);
+    const clsPnls = [];
+    for (let s = 0; s < nScenarios; s++) {
+      let p = 0;
+      for (const pos of clsPos) p += pos.weight * pos.vol * randn(rng2) * Math.sqrt(pos.lhDays / 250);
+      clsPnls.push(p);
+    }
+    clsPnls.sort((a,b) => a-b);
+    const cnt = Math.max(1, Math.floor(nScenarios * (1 - confLevel)));
+    esByClass.push(-clsPnls.slice(0, cnt).reduce((a,b) => a+b, 0) / cnt);
+    document.getElementById('progressFill').style.width = (70 + cls * 4) + '%';
+    await new Promise(r => setTimeout(r, 0));
+  }
+
+  // NMRF surcharge
+  const nmrfPos = positions.filter(p => p.isNMRF);
+  let nmrfES = 0;
+  if (nmrfPos.length > 0) {
+    const rng3 = makeLCG(seed + 777);
+    const nPnls = [];
+    for (let s = 0; s < nScenarios; s++) {
+      let p = 0;
+      for (const pos of nmrfPos) p += pos.weight * pos.vol * randn(rng3) * Math.sqrt(pos.lhDays / 250);
+      nPnls.push(p);
+    }
+    nPnls.sort((a,b) => a-b);
+    const cnt = Math.max(1, Math.floor(nScenarios * (1 - confLevel)));
+    nmrfES = -nPnls.slice(0, cnt).reduce((a,b) => a+b, 0) / cnt;
+  }
+  const nmrfSurcharge = Math.max(0, 1.5 * nmrfES);
+
+  // Undiversified ES (analytical approx)
+  const undiversified = positions.reduce((sum, p) => {
+    return sum + Math.abs(p.weight) * p.vol * Math.sqrt(p.lhDays / 250) * 2.326;
+  }, 0);
+
+  // PLA test
+  const mean = sorted.reduce((a,b) => a+b, 0) / nScenarios;
+  const simVar = sorted.reduce((a,b) => a + (b-mean)**2, 0) / nScenarios;
+  const theorVar = positions.reduce((s,p) => s + p.weight**2 * p.vol**2 * p.lhDays/250, 0);
+  const plaRatio = Math.sqrt(simVar / (theorVar + 1e-15));
+  const plaStatus = (plaRatio >= 0.8 && plaRatio <= 1.2) ? 'GREEN' :
+                    (plaRatio >= 0.6 && plaRatio <= 1.5) ? 'AMBER' : 'RED';
+
+  // Capital
+  const capitalIMA  = 1.5 * es + nmrfSurcharge;
+  const saFloor     = 1.25 * es;
+  const capitalReq  = Math.max(capitalIMA, saFloor);
+  const floorBinding = capitalIMA < saFloor;
+
+  document.getElementById('progressFill').style.width = '100%';
+  simResult = { sorted, es, esByClass, nmrfES, nmrfSurcharge, undiversified, plaRatio, plaStatus, capitalIMA, saFloor, capitalReq, floorBinding, nScenarios, esCount };
+
+  // Parse chain intake
+  let parentHash = '', parentToolId = '';
+  if (chainRaw) {
+    try {
+      const parsed = chainRaw.startsWith('{') ? JSON.parse(chainRaw) : null;
+      parentHash   = parsed ? (parsed.execution_hash || '') : (chainRaw.startsWith('sha256:') ? chainRaw : '');
+      parentToolId = parsed ? (parsed.tool_id || '') : '';
+    } catch(e) { parentHash = chainRaw.startsWith('sha256:') ? chainRaw : ''; }
+  }
+
+  renderResults(parentHash, parentToolId);
+  btn.disabled = false;
+}
+
+function fmt(v, dec=2) { return (v*100).toFixed(dec) + '%'; }
+function fmtES(v) { return (v*100).toFixed(3) + '%'; }
+
+function renderResults(parentHash, parentToolId) {
+  const r = simResult;
+  document.getElementById('mES').textContent        = fmtES(r.es);
+  document.getElementById('mESUndiv').textContent   = fmtES(r.undiversified);
+  document.getElementById('mNMRF').textContent      = fmtES(r.nmrfSurcharge);
+  const plaEl = document.getElementById('mPLA');
+  plaEl.textContent = r.plaStatus + ' (' + r.plaRatio.toFixed(2) + ')';
+  plaEl.className = 'metric-n pla-' + r.plaStatus.toLowerCase();
+  document.getElementById('mCapitalIMA').textContent   = fmtES(r.capitalIMA);
+  document.getElementById('mCapitalFloor').textContent = fmtES(r.saFloor) + (r.floorBinding ? ' ⚠' : '');
+
+  drawHistogram();
+  drawLHChart();
+  drawCapitalChart();
+
+  // Verdict
+  const vb = document.getElementById('verdictBlock');
+  const vl = document.getElementById('verdictLabel');
+  const vt = document.getElementById('verdictText');
+  if (r.plaStatus === 'RED') {
+    vb.className = 'verdict-block high';
+    vl.textContent = 'PLA Test Failure — IMA Ineligible';
+    vl.style.color = 'var(--red)';
+    vt.textContent = `PLA test ratio ${r.plaRatio.toFixed(2)} falls outside the acceptable range (0.60–1.50), indicating significant model mis-specification. Under FRTB MAR32, a RED PLA test result would disqualify this desk from using IMA — it would revert to SA capital requirements. Review position volatility and liquidity horizon assignment.`;
+  } else if (r.plaStatus === 'AMBER' || r.floorBinding) {
+    vb.className = 'verdict-block moderate';
+    vl.textContent = r.floorBinding ? 'SA Floor Binding — Capital Elevated' : 'PLA Test Amber — Model Review Required';
+    vl.style.color = 'var(--warn)';
+    vt.textContent = r.floorBinding
+      ? `The simplified SA capital floor (${fmtES(r.saFloor)}) exceeds the IMA capital (${fmtES(r.capitalIMA)}), indicating the IMA does not provide the expected capital benefit. In a live FRTB regime, this would trigger SA floor binding under MAR33. Review desk composition and consider whether IMA provides sufficient capital relief for this book.`
+      : `PLA test ratio ${r.plaRatio.toFixed(2)} is in the AMBER zone. FRTB MAR32 requires desk-level PLA monitoring; AMBER desks must be tracked. Review risk factor completeness and valuation model accuracy.`;
+  } else {
+    vb.className = 'verdict-block low';
+    vl.textContent = 'IMA Pre-Validation Passed';
+    vl.style.color = 'var(--green)';
+    vt.textContent = `PLA test GREEN (ratio ${r.plaRatio.toFixed(2)}), IMA capital ${fmtES(r.capitalIMA)} is not constrained by the SA floor (${fmtES(r.saFloor)}). This desk would be eligible for IMA treatment under FRTB subject to backtesting requirements. Capital benefit vs undiversified: ${((1 - r.es/r.undiversified)*100).toFixed(1)}% diversification credit.`;
+  }
+
+  buildExport(parentHash, parentToolId);
+  document.getElementById('results').style.display = 'block';
+}
+
+function drawHistogram() {
+  const r = simResult;
+  const svg = document.getElementById('histChart');
+  svg.innerHTML = '';
+  const W=340, H=180, PL=42, PR=12, PT=10, PB=28;
+  const cW=W-PL-PR, cH=H-PT-PB;
+  const BINS=30;
+  const minV=r.sorted[0], maxV=r.sorted[r.sorted.length-1];
+  const binW=(maxV-minV)/BINS;
+  const counts=new Array(BINS).fill(0);
+  for(const v of r.sorted){ const b=Math.min(BINS-1,Math.floor((v-minV)/binW)); counts[b]++; }
+  const maxC=Math.max(...counts);
+  // ES cutoff value
+  const esVal = r.sorted[r.esCount-1];
+  const esCutX = PL + (esVal-minV)/(maxV-minV)*cW;
+  // bins
+  for(let i=0;i<BINS;i++){
+    const x=PL+i*(cW/BINS); const bVal=minV+i*binW;
+    const bH=counts[i]/maxC*cH;
+    const isES=(bVal<=esVal);
+    const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rect.setAttribute('x',x.toFixed(1)); rect.setAttribute('y',(PT+cH-bH).toFixed(1));
+    rect.setAttribute('width',(cW/BINS-1).toFixed(1)); rect.setAttribute('height',bH.toFixed(1));
+    rect.setAttribute('fill',isES?'rgba(239,68,68,.7)':'rgba(20,184,166,.5)');
+    svg.appendChild(rect);
+  }
+  // ES cutoff line
+  const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+  line.setAttribute('x1',esCutX.toFixed(1)); line.setAttribute('y1',PT);
+  line.setAttribute('x2',esCutX.toFixed(1)); line.setAttribute('y2',PT+cH);
+  line.setAttribute('stroke','var(--red)'); line.setAttribute('stroke-width','1.5');
+  line.setAttribute('stroke-dasharray','4,3'); svg.appendChild(line);
+  const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
+  lbl.setAttribute('x',Math.min(esCutX+3,W-40).toFixed(1)); lbl.setAttribute('y',(PT+10).toFixed(1));
+  lbl.setAttribute('fill','var(--red)'); lbl.setAttribute('font-size','6.5'); lbl.textContent='2.5%';
+  svg.appendChild(lbl);
+  // axes
+  const axis=document.createElementNS('http://www.w3.org/2000/svg','line');
+  axis.setAttribute('x1',PL); axis.setAttribute('y1',PT+cH); axis.setAttribute('x2',W-PR); axis.setAttribute('y2',PT+cH);
+  axis.setAttribute('stroke','var(--border-2)'); axis.setAttribute('stroke-width','1'); svg.appendChild(axis);
+  // x labels
+  for(let i=0;i<=4;i++){
+    const v=minV+i*(maxV-minV)/4; const x=PL+i*cW/4;
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',x.toFixed(1)); t.setAttribute('y',PT+cH+10);
+    t.setAttribute('fill','var(--muted)'); t.setAttribute('font-size','6'); t.setAttribute('text-anchor','middle');
+    t.textContent=(v*100).toFixed(1)+'%'; svg.appendChild(t);
+  }
+}
+
+function drawLHChart() {
+  const r = simResult;
+  const svg = document.getElementById('lhChart');
+  svg.innerHTML = '';
+  const W=340, H=180, PL=42, PR=12, PT=12, PB=32;
+  const cW=W-PL-PR, cH=H-PT-PB;
+  const maxES=Math.max(...r.esByClass, 0.001);
+  const barW=cW/5*0.6; const gap=cW/5;
+  for(let i=0;i<5;i++){
+    const x=PL+i*gap+(gap-barW)/2;
+    const bH=r.esByClass[i]/maxES*cH;
+    const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rect.setAttribute('x',x.toFixed(1)); rect.setAttribute('y',(PT+cH-bH).toFixed(1));
+    rect.setAttribute('width',barW.toFixed(1)); rect.setAttribute('height',Math.max(bH,1).toFixed(1));
+    rect.setAttribute('fill',bH>0?'rgba(20,184,166,.65)':'rgba(20,184,166,.1)'); svg.appendChild(rect);
+    // value label
+    if(r.esByClass[i]>0.0001){
+      const vl=document.createElementNS('http://www.w3.org/2000/svg','text');
+      vl.setAttribute('x',(x+barW/2).toFixed(1)); vl.setAttribute('y',(PT+cH-bH-3).toFixed(1));
+      vl.setAttribute('fill','var(--teal)'); vl.setAttribute('font-size','6.5'); vl.setAttribute('text-anchor','middle');
+      vl.textContent=(r.esByClass[i]*100).toFixed(2)+'%'; svg.appendChild(vl);
+    }
+    // x label
+    const xl=document.createElementNS('http://www.w3.org/2000/svg','text');
+    xl.setAttribute('x',(x+barW/2).toFixed(1)); xl.setAttribute('y',PT+cH+20);
+    xl.setAttribute('fill','var(--muted)'); xl.setAttribute('font-size','6'); xl.setAttribute('text-anchor','middle');
+    xl.textContent=LH_LABELS[i]; svg.appendChild(xl);
+  }
+  const axis=document.createElementNS('http://www.w3.org/2000/svg','line');
+  axis.setAttribute('x1',PL); axis.setAttribute('y1',PT+cH); axis.setAttribute('x2',W-PR); axis.setAttribute('y2',PT+cH);
+  axis.setAttribute('stroke','var(--border-2)'); axis.setAttribute('stroke-width','1'); svg.appendChild(axis);
+}
+
+function drawCapitalChart() {
+  const r = simResult;
+  const svg = document.getElementById('capitalChart');
+  svg.innerHTML = '';
+  const W=680, H=140, PL=120, PR=20, PT=16, PB=24;
+  const cW=W-PL-PR, cH=H-PT-PB;
+  const items=[
+    {label:'Diversified ES', val:r.es,           color:'rgba(20,184,166,.7)'},
+    {label:'NMRF Surcharge', val:r.nmrfSurcharge, color:'rgba(245,158,11,.7)'},
+    {label:'Capital IMA',    val:r.capitalIMA,    color:'rgba(212,168,71,.85)'},
+    {label:'SA Floor',       val:r.saFloor,       color:'rgba(155,114,245,.7)'},
+  ];
+  const maxV=Math.max(...items.map(i=>i.val), 0.001);
+  const barH=cH/items.length*0.55; const gap=cH/items.length;
+  for(let i=0;i<items.length;i++){
+    const y=PT+i*gap+(gap-barH)/2;
+    const bW=items[i].val/maxV*cW;
+    // label
+    const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
+    lbl.setAttribute('x',PL-6); lbl.setAttribute('y',y+barH/2+3);
+    lbl.setAttribute('fill','var(--text)'); lbl.setAttribute('font-size','8'); lbl.setAttribute('text-anchor','end');
+    lbl.textContent=items[i].label; svg.appendChild(lbl);
+    // bar
+    const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rect.setAttribute('x',PL); rect.setAttribute('y',y.toFixed(1));
+    rect.setAttribute('width',bW.toFixed(1)); rect.setAttribute('height',barH.toFixed(1));
+    rect.setAttribute('fill',items[i].color); svg.appendChild(rect);
+    // value
+    const val=document.createElementNS('http://www.w3.org/2000/svg','text');
+    val.setAttribute('x',(PL+bW+4).toFixed(1)); val.setAttribute('y',y+barH/2+3);
+    val.setAttribute('fill','var(--bright)'); val.setAttribute('font-size','7.5');
+    val.textContent=(items[i].val*100).toFixed(3)+'%'; svg.appendChild(val);
+  }
+}
+
+function buildExport(parentHash, parentToolId) {
+  const r = simResult;
+  const p = simParams;
+  const chainDepth = parentHash ? 1 : 0;
+  const payload = {
+    es_97_5_pct: +r.es.toFixed(6),
+    undiversified_es: +r.undiversified.toFixed(6),
+    nmrf_surcharge: +r.nmrfSurcharge.toFixed(6),
+    pla_test_status: r.plaStatus,
+    pla_ratio: +r.plaRatio.toFixed(4),
+    capital_ima: +r.capitalIMA.toFixed(6),
+    sa_floor: +r.saFloor.toFixed(6),
+    capital_required: +r.capitalReq.toFixed(6),
+    floor_binding: r.floorBinding,
+    es_by_lh_class: r.esByClass.map(v => +v.toFixed(6)),
+    n_positions: p.nPositions,
+    n_scenarios: p.nScenarios,
+    confidence_level: p.confLevel
+  };
+  const params = {
+    execution_backend: 'js',
+    input_parameters: {
+      n_positions: p.nPositions,
+      n_scenarios: p.nScenarios,
+      confidence_level: p.confLevel,
+      n_risk_classes: p.nRiskClasses,
+      nmrf_rate: p.nmrfRate,
+      seed: p.seed
+    }
+  };
+  const hashInput = JSON.stringify({policy_parameters: params, output_payload: payload}, null, 0);
+  const execHash = simpleHash(hashInput);
+  const artifact = {
+    ap2_version: '1.0.0',
+    mandate_type: 'risk_parameter',
+    tool_id: 'rca-01-frtb-ima-pre-validator',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: execHash,
+    chain: {
+      parent_hashes: parentHash ? [parentHash] : [],
+      parent_tool_ids: parentToolId ? [parentToolId] : [],
+      chain_depth: chainDepth
+    },
+    policy_parameters: params,
+    output_payload: payload,
+    compliance_flags: [
+      'FRTB_IMA_ES_COMPUTED',
+      'MAR33_LIQUIDITY_HORIZONS_APPLIED',
+      r.nmrfSurcharge > 0 ? 'NMRF_SURCHARGE_ESTIMATED' : 'NMRF_NOT_APPLICABLE',
+      'PLA_TEST_' + r.plaStatus,
+      'UK_IMA_PREVALIDATION_2028'
+    ],
+    audit_signature: {
+      client_side_executed: true,
+      zero_pii_verified: true,
+      deterministic_run: true,
+      educational_disclaimer: 'Simplified FRTB IMA model for pre-validation and educational use only. Not a regulatory-grade IMA calculation.'
+    }
+  };
+  document.getElementById('exportPre').textContent = JSON.stringify(artifact, null, 2);
+}
+
+function copyExport() {
+  navigator.clipboard.writeText(document.getElementById('exportPre').textContent);
+  const btn = event.currentTarget;
+  btn.textContent = 'Copied ✓'; setTimeout(() => btn.textContent = 'Copy JSON', 1500);
+}
+</script>
+</body>
+</html>

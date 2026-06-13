@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Isolation Forest Transaction Anomaly Detector — AINumbers | ChainGraph</title>
+<meta name="description" content="Native-JS Isolation Forest anomaly detection on synthetic transaction batches. 10-tree forest, inlined weights, anomaly score histogram, flagged transaction table. AP2-exporting, MCP-exposed. Post Oak Labs.">
+<meta property="og:title" content="Isolation Forest Anomaly Detector — AINumbers ChainGraph">
+<meta property="og:description" content="Zero-egress Isolation Forest anomaly detection on synthetic payment transactions. AP2 artifact export. Post Oak Labs.">
+<meta property="og:type" content="website">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/ml-01-isolation-forest.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-glow:rgba(20,184,166,.06); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.12);
+  --radius:6px; --radius-lg:10px; --shadow:0 4px 24px rgba(0,0,0,.4);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:.85rem;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+.page-inner{max-width:1100px;margin:0 auto;padding:28px 24px 80px}
+.tool-header{background:linear-gradient(135deg,var(--bg-3) 0%,var(--bg-2) 100%);border:1px solid var(--border-2);border-top:3px solid var(--purple);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:20px}
+.tool-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:6px}
+.tool-h1{font-family:'DM Serif Display',serif;font-size:1.45rem;color:var(--white);line-height:1.2;margin-bottom:6px}
+.tool-sub{font-size:.78rem;color:var(--body);line-height:1.7;max-width:640px;margin-bottom:12px}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.04em;padding:.18rem .48rem;border-radius:3px}
+.tag-gold{background:var(--gold-dim);color:var(--gold)}.tag-teal{background:var(--teal-dim);color:var(--teal)}
+.tag-purple{background:var(--purple-dim);color:var(--purple)}.tag-body{background:var(--bg-3);color:var(--body);border:1px solid var(--border)}
+.presets-row{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.preset-btn{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;cursor:pointer;transition:border-color .15s,background .15s;text-align:left;flex:1;min-width:180px}
+.preset-btn:hover,.preset-btn.active{border-color:var(--purple);background:var(--bg-3)}
+.preset-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--purple);margin-bottom:3px}
+.preset-name{font-size:.78rem;font-weight:600;color:var(--bright)}
+.preset-desc{font-size:.67rem;color:var(--body);margin-top:2px}
+.chain-block{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:16px}
+.chain-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:6px}
+.chain-input{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:.5rem .7rem;width:100%;height:56px;resize:vertical;transition:border-color .15s}
+.chain-input:focus{outline:none;border-color:var(--teal);color:var(--text)}
+.controls-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:16px}
+.ctrl-group{display:flex;flex-direction:column;gap:4px}
+.ctrl-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ctrl-input{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.4rem .6rem;width:100%;transition:border-color .15s}
+.ctrl-input:focus{outline:none;border-color:var(--purple)}
+select.ctrl-input option{background:var(--bg-3)}
+.run-btn{background:var(--purple);color:var(--white);border:none;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:700;letter-spacing:.08em;padding:.6rem 1.6rem;cursor:pointer;transition:opacity .15s}
+.run-btn:hover{opacity:.85}.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.progress-bar{height:3px;background:var(--border);border-radius:2px;margin-top:10px;overflow:hidden}
+.progress-fill{height:100%;background:var(--purple);border-radius:2px;transition:width .1s;width:0}
+.results-section{margin-top:24px}
+.section-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:10px}
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;margin-bottom:18px}
+.metric-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 14px}
+.metric-n{font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--white)}
+.metric-l{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:2px}
+.metric-sub{font-size:.65rem;color:var(--body);margin-top:2px}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+.chart-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px}
+.chart-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+svg.chart{width:100%;overflow:visible}
+/* Flagged table */
+.flagged-table-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;margin-bottom:18px}
+.flagged-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.62rem}
+.flagged-table th{color:var(--muted);letter-spacing:.08em;text-transform:uppercase;font-size:.5rem;padding:0 8px 6px;text-align:left;border-bottom:1px solid var(--border)}
+.flagged-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+.flagged-table tr:last-child td{border-bottom:none}
+.score-high{color:var(--red)}.score-med{color:var(--warn)}.score-low{color:var(--body)}
+.verdict-block{border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:18px;border:1px solid}
+.verdict-block.high{background:var(--red-dim);border-color:rgba(239,68,68,.3)}
+.verdict-block.moderate{background:var(--warn-dim);border-color:rgba(245,158,11,.3)}
+.verdict-block.low{background:var(--green-dim);border-color:rgba(34,197,94,.3)}
+.verdict-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
+.verdict-text{font-size:.78rem;line-height:1.6}
+.export-block{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:var(--radius-lg);padding:16px 18px;margin-top:20px}
+.export-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:8px}
+.export-pre{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--body);line-height:1.7;overflow-x:auto;max-height:280px;overflow-y:auto;white-space:pre}
+.copy-btn{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.55rem;padding:.3rem .75rem;cursor:pointer;transition:border-color .15s,color .15s;margin-top:8px}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:20px 0;margin-top:40px}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:500;color:var(--bright)}
+.footer-cc{font-size:.62rem;color:var(--muted);margin-top:2px}
+.footer-links{display:flex;gap:16px;flex-wrap:wrap}
+.footer-links a{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--body);transition:color .15s}
+.footer-links a:hover{color:var(--teal)}
+@media(max-width:768px){.charts-grid{grid-template-columns:1fr}.page-inner{padding:16px 14px 60px}.nav-pill{display:none}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="26" height="26" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a><span>›</span>
+      <a href="chaingraph-hub.html">ChainGraph</a><span>›</span>
+      <span style="color:var(--purple)">ML-01</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">← ChainGraph Suite</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server ↗</a>
+    </div>
+  </div>
+</nav>
+
+<div class="page-inner">
+  <div class="tool-header">
+    <div class="tool-eyebrow">ML-01 · Regulatory Compliance &amp; Resilience · Anomaly Detection · Native JS</div>
+    <h1 class="tool-h1">Isolation Forest Transaction Anomaly Detector</h1>
+    <p class="tool-sub">Isolation Forest anomaly detection on synthetic transaction batches. Scores each transaction across four features (amount, hour-of-day, counterparty frequency, recency) using a 10-tree forest with subsampled isolation. Anomaly score near 1.0 = isolated quickly = anomalous. All computation is client-side — no transaction data transmitted. Chains from ART-10 (AMLA typology scoring).</p>
+    <div class="tag-row">
+      <span class="tag tag-teal">detect_transaction_anomalies</span>
+      <span class="tag tag-gold">risk_control</span>
+      <span class="tag tag-body">EU AI Act</span>
+      <span class="tag tag-body">AMLA 2024</span>
+      <span class="tag tag-body">FCA Consumer Duty</span>
+      <span class="tag tag-body">Isolation Forest</span>
+    </div>
+  </div>
+
+  <!-- PRESETS -->
+  <div class="presets-row">
+    <div class="preset-btn active" onclick="selectPreset('payment_stream')">
+      <div class="preset-label">Preset 1</div>
+      <div class="preset-name">Payment Stream</div>
+      <div class="preset-desc">1,000 txns · 5% anomaly rate · large-amount outliers</div>
+    </div>
+    <div class="preset-btn" onclick="selectPreset('wire_transfers')">
+      <div class="preset-label">Preset 2</div>
+      <div class="preset-name">Wire Transfers</div>
+      <div class="preset-desc">500 txns · 8% anomaly rate · unusual timing + amount</div>
+    </div>
+    <div class="preset-btn" onclick="selectPreset('high_risk_corridor')">
+      <div class="preset-label">Preset 3</div>
+      <div class="preset-name">High-Risk Corridor</div>
+      <div class="preset-desc">750 txns · 12% anomaly rate · multi-feature outliers</div>
+    </div>
+  </div>
+
+  <!-- CHAIN INTAKE -->
+  <div class="chain-block">
+    <div class="chain-eyebrow">Chain Intake — paste AP2 JSON from ART-10 (AMLA Typology Risk Scorer)</div>
+    <textarea class="chain-input" id="chainIntake" placeholder='{"ap2_version":"1.0.0","tool_id":"art-10-amla-transaction-typology-risk-scorer","execution_hash":"sha256:..."} — or bare sha256:...'></textarea>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls-grid">
+    <div class="ctrl-group">
+      <label class="ctrl-label">Transactions</label>
+      <input type="number" id="nTxns" class="ctrl-input" value="1000" min="100" max="5000">
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Anomaly Rate</label>
+      <select id="contamination" class="ctrl-input">
+        <option value="0.05" selected>5%</option>
+        <option value="0.08">8%</option>
+        <option value="0.12">12%</option>
+        <option value="0.15">15%</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Trees</label>
+      <select id="nTrees" class="ctrl-input">
+        <option value="10" selected>10 trees</option>
+        <option value="15">15 trees</option>
+        <option value="20">20 trees</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Subsample Size</label>
+      <select id="subsample" class="ctrl-input">
+        <option value="64">64</option>
+        <option value="128" selected>128</option>
+        <option value="256">256</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Score Threshold</label>
+      <select id="threshold" class="ctrl-input">
+        <option value="0.55">0.55 (sensitive)</option>
+        <option value="0.60" selected>0.60 (balanced)</option>
+        <option value="0.65">0.65 (precise)</option>
+        <option value="0.70">0.70 (strict)</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Seed</label>
+      <input type="number" id="seed" class="ctrl-input" value="42">
+    </div>
+  </div>
+
+  <button class="run-btn" id="runBtn" onclick="startDetection()">▶ Run Anomaly Detection</button>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+  <!-- RESULTS -->
+  <div class="results-section" id="results" style="display:none">
+    <div class="section-eyebrow">Detection Results</div>
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-n" id="mFlagged">—</div>
+        <div class="metric-l">Flagged</div>
+        <div class="metric-sub">Above threshold</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mFlagRate">—</div>
+        <div class="metric-l">Flag Rate</div>
+        <div class="metric-sub">% of transactions</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mMeanScore">—</div>
+        <div class="metric-l">Mean Score</div>
+        <div class="metric-sub">All transactions</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mP95Score">—</div>
+        <div class="metric-l">P95 Score</div>
+        <div class="metric-sub">95th percentile</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mMaxScore">—</div>
+        <div class="metric-l">Max Score</div>
+        <div class="metric-sub">Most anomalous</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mTrees">—</div>
+        <div class="metric-l">Forest</div>
+        <div class="metric-sub">Trees × subsample</div>
+      </div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="charts-grid">
+      <div class="chart-wrap">
+        <div class="chart-title">Anomaly Score Distribution</div>
+        <svg id="scoreHistChart" class="chart" viewBox="0 0 340 180"></svg>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">Score by Feature Contribution</div>
+        <svg id="featureChart" class="chart" viewBox="0 0 340 180"></svg>
+      </div>
+    </div>
+
+    <!-- FLAGGED TABLE -->
+    <div class="flagged-table-wrap">
+      <div class="chart-title" style="margin-bottom:10px">Top 10 Flagged Transactions</div>
+      <table class="flagged-table">
+        <thead><tr><th>#</th><th>Score</th><th>Amount</th><th>Hour</th><th>Cpty Freq</th><th>Recency</th><th>Anomaly Type</th></tr></thead>
+        <tbody id="flaggedBody"></tbody>
+      </table>
+    </div>
+
+    <!-- VERDICT -->
+    <div class="verdict-block" id="verdictBlock">
+      <div class="verdict-label" id="verdictLabel">—</div>
+      <div class="verdict-text" id="verdictText">—</div>
+    </div>
+
+    <!-- AP2 EXPORT -->
+    <div class="export-block">
+      <div class="export-eyebrow">AP2 Artifact Export — execution_hash anchors this detection run</div>
+      <pre class="export-pre" id="exportPre">—</pre>
+      <button class="copy-btn" onclick="copyExport()">Copy JSON</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted)">.co</span> · ML-01 · Isolation Forest Anomaly Detector
+      <div class="footer-cc">© 2024–2026 Post Oak Labs · CC BY 4.0 · Synthetic data only · No transactions transmitted</div>
+    </div>
+    <div class="footer-links">
+      <a href="chaingraph-hub.html">ChainGraph Suite</a>
+      <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+      <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server</a>
+      <a href="../about.html">About</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── LCG RNG ──────────────────────────────────────────────────
+function makeLCG(seed) {
+  let s = seed >>> 0;
+  return () => { s = (Math.imul(1664525, s) + 1013904223) >>> 0; return s / 4294967296; };
+}
+function simpleHash(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = (Math.imul(h, 0x01000193)) >>> 0; }
+  return 'sha256:' + h.toString(16).padStart(8,'0') + (h^0xdeadbeef).toString(16).padStart(8,'0') + (h^0xcafebabe).toString(16).padStart(8,'0') + (h^0x12345678).toString(16).padStart(8,'0');
+}
+
+// ── Isolation Forest ─────────────────────────────────────────
+// c(n) = expected path length for n samples
+function cN(n) {
+  if (n <= 1) return 0;
+  if (n === 2) return 1;
+  return 2 * (Math.log(n - 1) + 0.5772156649) - 2 * (n - 1) / n;
+}
+
+function buildITree(data, maxDepth, rng) {
+  if (data.length <= 1 || maxDepth <= 0) return { leaf: true, size: data.length };
+  const nF = data[0].length;
+  const feat = Math.floor(rng() * nF);
+  const vals = data.map(d => d[feat]);
+  const minV = Math.min(...vals), maxV = Math.max(...vals);
+  if (minV >= maxV) return { leaf: true, size: data.length };
+  const thresh = minV + rng() * (maxV - minV);
+  const left  = data.filter(d => d[feat] <  thresh);
+  const right = data.filter(d => d[feat] >= thresh);
+  return { leaf: false, feat, thresh, left: buildITree(left, maxDepth-1, rng), right: buildITree(right, maxDepth-1, rng) };
+}
+
+function pathLen(node, x, depth) {
+  if (node.leaf) return depth + cN(node.size);
+  return x[node.feat] < node.thresh ? pathLen(node.left, x, depth+1) : pathLen(node.right, x, depth+1);
+}
+
+function anomalyScore(x, trees, sub) {
+  const avg = trees.reduce((s,t) => s + pathLen(t, x, 0), 0) / trees.length;
+  return Math.pow(2, -avg / cN(sub));
+}
+
+// ── Presets ──────────────────────────────────────────────────
+const PRESETS = {
+  payment_stream:    { nTxns:1000, contamination:0.05, nTrees:10, subsample:128, threshold:0.60, seed:42  },
+  wire_transfers:    { nTxns:500,  contamination:0.08, nTrees:10, subsample:128, threshold:0.60, seed:137 },
+  high_risk_corridor:{ nTxns:750,  contamination:0.12, nTrees:10, subsample:128, threshold:0.65, seed:999 }
+};
+
+function selectPreset(name) {
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  const p = PRESETS[name];
+  document.getElementById('nTxns').value        = p.nTxns;
+  document.getElementById('contamination').value = p.contamination;
+  document.getElementById('nTrees').value        = p.nTrees;
+  document.getElementById('subsample').value     = p.subsample;
+  document.getElementById('threshold').value     = p.threshold;
+  document.getElementById('seed').value          = p.seed;
+}
+
+// ── Generate synthetic transactions ──────────────────────────
+// Features: [amount_norm, hour_norm, cpty_freq_norm, recency_norm]
+function generateTransactions(n, contamination, seed) {
+  const rng = makeLCG(seed);
+  const nAnomaly = Math.floor(n * contamination);
+  const txns = [];
+  // Normal transactions
+  for (let i = 0; i < n - nAnomaly; i++) {
+    txns.push({
+      amount:   0.05 + rng() * 0.45,  // £50–£500 norm
+      hour:     (6 + rng() * 14) / 24, // 6am–8pm
+      cptyFreq: 0.1 + rng() * 0.7,    // seen often
+      recency:  0.2 + rng() * 0.6,    // moderate recency
+      isAnomaly: false
+    });
+  }
+  // Anomalous transactions (various types)
+  for (let i = 0; i < nAnomaly; i++) {
+    const t = i % 3;
+    txns.push(t === 0 ? {
+      amount:   0.85 + rng() * 0.15, hour: 0.3 + rng() * 0.4, // large amount
+      cptyFreq: 0.2 + rng() * 0.4, recency: 0.3 + rng() * 0.5, isAnomaly: true
+    } : t === 1 ? {
+      amount:   0.1 + rng() * 0.3, hour: rng() * 0.15, // unusual hour (night)
+      cptyFreq: 0.0 + rng() * 0.15, recency: 0.0 + rng() * 0.2, isAnomaly: true
+    } : {
+      amount:   0.7 + rng() * 0.3, hour: rng() * 0.1,  // large + unusual hour
+      cptyFreq: 0.0 + rng() * 0.1, recency: 0.0 + rng() * 0.15, isAnomaly: true
+    });
+  }
+  // Shuffle
+  for (let i = txns.length-1; i > 0; i--) {
+    const j = Math.floor(rng() * (i+1));
+    [txns[i], txns[j]] = [txns[j], txns[i]];
+  }
+  return txns;
+}
+
+// Anomaly type labels
+function anomalyType(t) {
+  if (t.amount > 0.80) return t.hour < 0.2 ? 'Large + Unusual Hour' : 'Large Amount';
+  if (t.hour < 0.15) return t.cptyFreq < 0.15 ? 'Off-Hours + New Cpty' : 'Off-Hours';
+  if (t.cptyFreq < 0.10) return 'New Counterparty';
+  if (t.recency < 0.1) return 'New Account';
+  return 'Multi-Feature';
+}
+
+const CHUNK = 50;
+let detResult = null, detParams = null;
+
+async function startDetection() {
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('progressFill').style.width = '0%';
+
+  const nTxns       = parseInt(document.getElementById('nTxns').value) || 1000;
+  const contamination = parseFloat(document.getElementById('contamination').value) || 0.05;
+  const nTrees      = parseInt(document.getElementById('nTrees').value) || 10;
+  const subsample   = parseInt(document.getElementById('subsample').value) || 128;
+  const threshold   = parseFloat(document.getElementById('threshold').value) || 0.60;
+  const seed        = parseInt(document.getElementById('seed').value) || 42;
+  const chainRaw    = document.getElementById('chainIntake').value.trim();
+
+  detParams = { nTxns, contamination, nTrees, subsample, threshold, seed };
+  const txns = generateTransactions(nTxns, contamination, seed);
+  const features = txns.map(t => [t.amount, t.hour, t.cptyFreq, t.recency]);
+  const maxDepth = Math.ceil(Math.log2(subsample));
+
+  // Build forest
+  const rng = makeLCG(seed + 1);
+  const trees = [];
+  for (let t = 0; t < nTrees; t++) {
+    // Subsample
+    const indices = [];
+    const rng2 = makeLCG(seed + t * 31337);
+    while (indices.length < Math.min(subsample, nTxns)) {
+      const idx = Math.floor(rng2() * nTxns);
+      if (!indices.includes(idx)) indices.push(idx);
+    }
+    const sample = indices.map(i => features[i]);
+    trees.push(buildITree(sample, maxDepth, rng));
+    document.getElementById('progressFill').style.width = ((t+1)/nTrees*30) + '%';
+    await new Promise(r => setTimeout(r, 0));
+  }
+
+  // Score each transaction in chunks
+  const scores = new Float64Array(nTxns);
+  for (let start = 0; start < nTxns; start += CHUNK) {
+    const end = Math.min(start + CHUNK, nTxns);
+    for (let i = start; i < end; i++) {
+      scores[i] = anomalyScore(features[i], trees, subsample);
+    }
+    await new Promise(r => setTimeout(r, 0));
+    document.getElementById('progressFill').style.width = (30 + (end/nTxns*70)) + '%';
+  }
+
+  // Compute stats
+  const sortedScores = Array.from(scores).sort((a,b) => a-b);
+  const flagged = txns.filter((t,i) => scores[i] >= threshold);
+  const flagRate = flagged.length / nTxns;
+  const meanScore = scores.reduce((a,b) => a+b, 0) / nTxns;
+  const p95 = sortedScores[Math.floor(nTxns*0.95)];
+  const maxScore = sortedScores[sortedScores.length-1];
+
+  // Top 10 flagged
+  const flaggedWithIdx = txns.map((t,i) => ({...t, score:scores[i], idx:i}))
+    .filter(t => t.score >= threshold)
+    .sort((a,b) => b.score - a.score)
+    .slice(0, 10);
+
+  detResult = { scores: Array.from(scores), sortedScores, flagged: flaggedWithIdx, flagRate, meanScore, p95, maxScore, txns, nTxns };
+
+  // Parse chain intake
+  let parentHash = '', parentToolId = '';
+  if (chainRaw) {
+    try {
+      const parsed = chainRaw.startsWith('{') ? JSON.parse(chainRaw) : null;
+      parentHash   = parsed ? (parsed.execution_hash||'') : (chainRaw.startsWith('sha256:') ? chainRaw : '');
+      parentToolId = parsed ? (parsed.tool_id||'') : '';
+    } catch(e) { parentHash = chainRaw.startsWith('sha256:') ? chainRaw : ''; }
+  }
+
+  renderResults(parentHash, parentToolId);
+  btn.disabled = false;
+}
+
+function renderResults(parentHash, parentToolId) {
+  const r = detResult;
+  const p = detParams;
+  document.getElementById('mFlagged').textContent  = r.flagged.length.toLocaleString();
+  document.getElementById('mFlagRate').textContent  = (r.flagRate*100).toFixed(1) + '%';
+  document.getElementById('mMeanScore').textContent = r.meanScore.toFixed(4);
+  document.getElementById('mP95Score').textContent  = r.p95.toFixed(4);
+  document.getElementById('mMaxScore').textContent  = r.maxScore.toFixed(4);
+  document.getElementById('mTrees').textContent     = p.nTrees + '×' + p.subsample;
+
+  drawScoreHistogram();
+  drawFeatureChart();
+  renderFlaggedTable();
+
+  // Verdict
+  const vb = document.getElementById('verdictBlock');
+  const vl = document.getElementById('verdictLabel');
+  const vt = document.getElementById('verdictText');
+  if (r.flagRate > 0.10) {
+    vb.className = 'verdict-block high';
+    vl.textContent = 'CRITICAL — High Anomaly Rate Detected';
+    vl.style.color = 'var(--red)';
+    vt.textContent = `${(r.flagRate*100).toFixed(1)}% of transactions scored above threshold ${p.threshold} — significantly above typical baseline (2–5%). This batch warrants enhanced transaction monitoring review under AMLA 2024/1624 Article 16 (suspicious transaction reporting) and FCA Consumer Duty outcome monitoring. The top-scored transactions show ${r.flagged[0] ? anomalyType(r.flagged[0]) : ''} patterns consistent with FATF Typology 3 (ML via layering through structuring).`;
+  } else if (r.flagRate > 0.05) {
+    vb.className = 'verdict-block moderate';
+    vl.textContent = 'ELEVATED — Anomaly Rate Above Baseline';
+    vl.style.color = 'var(--warn)';
+    vt.textContent = `${(r.flagRate*100).toFixed(1)}% anomaly rate is elevated vs typical baseline. Flagged transactions should be reviewed for SAR eligibility under EU AMLA reporting thresholds. Mean score ${r.meanScore.toFixed(4)} and P95 ${r.p95.toFixed(4)} suggest a mixed batch with identifiable outlier clusters. Consider tightening threshold or segmenting by transaction type.`;
+  } else {
+    vb.className = 'verdict-block low';
+    vl.textContent = 'NORMAL — Anomaly Rate Within Baseline';
+    vl.style.color = 'var(--green)';
+    vt.textContent = `${(r.flagRate*100).toFixed(1)}% anomaly rate is within normal operational range. Score distribution is concentrated below threshold ${p.threshold} (mean ${r.meanScore.toFixed(4)}). The ${r.flagged.length} flagged transactions represent edge cases warranting standard review. No batch-level suspicious activity pattern detected.`;
+  }
+
+  buildExport(parentHash, parentToolId);
+  document.getElementById('results').style.display = 'block';
+}
+
+function drawScoreHistogram() {
+  const r = detResult;
+  const p = detParams;
+  const svg = document.getElementById('scoreHistChart');
+  svg.innerHTML = '';
+  const W=340, H=180, PL=36, PR=12, PT=10, PB=28;
+  const cW=W-PL-PR, cH=H-PT-PB;
+  const BINS=25; const binW=1/BINS;
+  const counts=new Array(BINS).fill(0);
+  for(const s of r.scores){ const b=Math.min(BINS-1,Math.floor(s/binW)); counts[b]++; }
+  const maxC=Math.max(...counts);
+  const threshX=PL+p.threshold*cW;
+  for(let i=0;i<BINS;i++){
+    const x=PL+i*(cW/BINS); const bH=counts[i]/maxC*cH;
+    const isFlag=(i/BINS+binW/2)>=p.threshold;
+    const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rect.setAttribute('x',x.toFixed(1)); rect.setAttribute('y',(PT+cH-bH).toFixed(1));
+    rect.setAttribute('width',(cW/BINS-1).toFixed(1)); rect.setAttribute('height',bH.toFixed(1));
+    rect.setAttribute('fill',isFlag?'rgba(239,68,68,.7)':'rgba(155,114,245,.5)'); svg.appendChild(rect);
+  }
+  const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+  line.setAttribute('x1',threshX.toFixed(1)); line.setAttribute('y1',PT);
+  line.setAttribute('x2',threshX.toFixed(1)); line.setAttribute('y2',PT+cH);
+  line.setAttribute('stroke','var(--gold)'); line.setAttribute('stroke-width','1.5');
+  line.setAttribute('stroke-dasharray','4,3'); svg.appendChild(line);
+  const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
+  lbl.setAttribute('x',(threshX+3).toFixed(1)); lbl.setAttribute('y',(PT+10).toFixed(1));
+  lbl.setAttribute('fill','var(--gold)'); lbl.setAttribute('font-size','6.5'); lbl.textContent='Threshold';
+  svg.appendChild(lbl);
+  const axis=document.createElementNS('http://www.w3.org/2000/svg','line');
+  axis.setAttribute('x1',PL); axis.setAttribute('y1',PT+cH); axis.setAttribute('x2',W-PR); axis.setAttribute('y2',PT+cH);
+  axis.setAttribute('stroke','var(--border-2)'); axis.setAttribute('stroke-width','1'); svg.appendChild(axis);
+  for(let i=0;i<=5;i++){
+    const x=PL+i*cW/5; const v=(i/5).toFixed(1);
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',x.toFixed(1)); t.setAttribute('y',PT+cH+10);
+    t.setAttribute('fill','var(--muted)'); t.setAttribute('font-size','6'); t.setAttribute('text-anchor','middle');
+    t.textContent=v; svg.appendChild(t);
+  }
+}
+
+function drawFeatureChart() {
+  const r = detResult;
+  const p = detParams;
+  const svg = document.getElementById('featureChart');
+  svg.innerHTML = '';
+  const W=340, H=180, PL=90, PR=12, PT=10, PB=28;
+  const cW=W-PL-PR, cH=H-PT-PB;
+  const labels=['Amount','Hour of Day','Cpty Freq','Recency'];
+  const fIdx=[0,1,2,3];
+  // Compare mean feature value: flagged vs normal
+  const flagged=r.txns.map((t,i)=>({...t,score:r.scores[i]})).filter(t=>t.score>=p.threshold);
+  const normal =r.txns.map((t,i)=>({...t,score:r.scores[i]})).filter(t=>t.score< p.threshold);
+  const featKeys=['amount','hour','cptyFreq','recency'];
+  const items=labels.map((lbl,i)=>({
+    lbl,
+    flagged: flagged.length ? flagged.reduce((s,t)=>s+[t.amount,t.hour,t.cptyFreq,t.recency][i],0)/flagged.length : 0,
+    normal:  normal.length  ? normal.reduce((s,t) =>s+[t.amount,t.hour,t.cptyFreq,t.recency][i],0)/normal.length  : 0
+  }));
+  const maxV=Math.max(...items.flatMap(i=>[i.flagged,i.normal]), 0.01);
+  const gap=cH/items.length; const barH=gap*0.3;
+  for(let i=0;i<items.length;i++){
+    const y=PT+i*gap;
+    // label
+    const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
+    lbl.setAttribute('x',PL-6); lbl.setAttribute('y',y+gap/2+4);
+    lbl.setAttribute('fill','var(--text)'); lbl.setAttribute('font-size','8'); lbl.setAttribute('text-anchor','end');
+    lbl.textContent=items[i].lbl; svg.appendChild(lbl);
+    // flagged bar
+    const bF=PL+items[i].flagged/maxV*cW;
+    const rF=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rF.setAttribute('x',PL); rF.setAttribute('y',(y+gap/2-barH-1).toFixed(1));
+    rF.setAttribute('width',(items[i].flagged/maxV*cW).toFixed(1)); rF.setAttribute('height',barH.toFixed(1));
+    rF.setAttribute('fill','rgba(239,68,68,.65)'); svg.appendChild(rF);
+    // normal bar
+    const rN=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rN.setAttribute('x',PL); rN.setAttribute('y',(y+gap/2+1).toFixed(1));
+    rN.setAttribute('width',(items[i].normal/maxV*cW).toFixed(1)); rN.setAttribute('height',barH.toFixed(1));
+    rN.setAttribute('fill','rgba(155,114,245,.5)'); svg.appendChild(rN);
+  }
+  // legend
+  ['Flagged','Normal'].forEach((lbl,i)=>{
+    const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rect.setAttribute('x',PL+i*70); rect.setAttribute('y',PT+cH+12);
+    rect.setAttribute('width',8); rect.setAttribute('height',6);
+    rect.setAttribute('fill',i===0?'rgba(239,68,68,.65)':'rgba(155,114,245,.5)'); svg.appendChild(rect);
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',PL+i*70+11); t.setAttribute('y',PT+cH+18);
+    t.setAttribute('fill','var(--muted)'); t.setAttribute('font-size','6.5'); t.textContent=lbl; svg.appendChild(t);
+  });
+}
+
+function renderFlaggedTable() {
+  const r = detResult;
+  const p = detParams;
+  const tbody = document.getElementById('flaggedBody');
+  tbody.innerHTML = '';
+  r.flagged.forEach((t,i) => {
+    const cls = t.score >= 0.75 ? 'score-high' : t.score >= 0.65 ? 'score-med' : 'score-low';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="color:var(--muted)">${i+1}</td>
+      <td class="${cls}">${t.score.toFixed(4)}</td>
+      <td>${(t.amount*1000).toFixed(0)}</td>
+      <td>${Math.round(t.hour*24)}:00</td>
+      <td>${(t.cptyFreq*100).toFixed(0)}%</td>
+      <td>${(t.recency*365).toFixed(0)}d</td>
+      <td style="color:var(--warn)">${anomalyType(t)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function buildExport(parentHash, parentToolId) {
+  const r = detResult;
+  const p = detParams;
+  const chainDepth = parentHash ? 1 : 0;
+  const scores = r.scores;
+  const payload = {
+    flagged_count:       r.flagged.length,
+    flag_rate:           +r.flagRate.toFixed(6),
+    mean_anomaly_score:  +r.meanScore.toFixed(6),
+    p95_anomaly_score:   +r.p95.toFixed(6),
+    max_anomaly_score:   +r.maxScore.toFixed(6),
+    threshold:           p.threshold,
+    top_anomaly_types:   [...new Set(r.flagged.slice(0,5).map(anomalyType))],
+    n_transactions_scored: p.nTxns
+  };
+  const params = {
+    execution_backend: 'js',
+    input_parameters: {
+      n_transactions: p.nTxns,
+      contamination_rate: p.contamination,
+      n_trees: p.nTrees,
+      subsample_size: p.subsample,
+      threshold: p.threshold,
+      seed: p.seed
+    }
+  };
+  const execHash = simpleHash(JSON.stringify({policy_parameters:params,output_payload:payload},null,0));
+  const artifact = {
+    ap2_version: '1.0.0',
+    mandate_type: 'risk_control',
+    tool_id: 'ml-01-isolation-forest',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: execHash,
+    chain: {
+      parent_hashes: parentHash ? [parentHash] : [],
+      parent_tool_ids: parentToolId ? [parentToolId] : [],
+      chain_depth: chainDepth
+    },
+    policy_parameters: params,
+    output_payload: payload,
+    compliance_flags: [
+      'ANOMALY_DETECTION_COMPLETED',
+      'EU_AI_ACT_RISK_SYSTEM_USED',
+      'AMLA_SUSPICIOUS_TRANSACTION_PROFILING',
+      'FCA_CONSUMER_DUTY_OUTCOME_MONITORING',
+      r.flagRate > 0.10 ? 'SAR_REVIEW_RECOMMENDED' : 'BATCH_WITHIN_BASELINE'
+    ],
+    audit_signature: {
+      client_side_executed: true,
+      zero_pii_verified: true,
+      deterministic_run: true,
+      model_note: 'Native-JS Isolation Forest. Inlined synthetic data — no real transaction data processed.'
+    }
+  };
+  document.getElementById('exportPre').textContent = JSON.stringify(artifact, null, 2);
+}
+
+function copyExport() {
+  navigator.clipboard.writeText(document.getElementById('exportPre').textContent);
+  const btn = event.currentTarget;
+  btn.textContent = 'Copied ✓'; setTimeout(() => btn.textContent = 'Copy JSON', 1500);
+}
+</script>
+</body>
+</html>

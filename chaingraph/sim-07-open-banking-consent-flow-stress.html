@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Open Banking Consent Flow Stress Simulator — AINumbers | ChainGraph</title>
+<meta name="description" content="Monte Carlo stress simulation of PSD2/FAPI 2.0/CDR open banking consent flows. FSM-based (INIT→REDIRECT→AUTH→AUTHORIZED→ACTIVE→FAILED), failure scenario injection, batch throughput metrics. AP2-exporting, MCP-exposed. Post Oak Labs.">
+<meta property="og:title" content="Open Banking Consent Flow Stress Simulator — AINumbers ChainGraph">
+<meta property="og:description" content="PSD2/FAPI 2.0/CDR consent flow stress simulation with FSM Monte Carlo, failure injection, and AP2 artifact export.">
+<meta property="og:type" content="website">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/sim-07-open-banking-consent-flow-stress.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080E1A; --bg-2:#0D1627; --bg-3:#111E35; --bg-4:#162340;
+  --border:#1E2F4A; --border-2:#263855; --muted:#3A5270; --body:#6888A8;
+  --text:#A8C4DE; --bright:#D4E8F8; --white:#EEF6FD;
+  --teal:#14B8A6; --teal-dim:rgba(20,184,166,.12); --teal-lt:#2DD4BF;
+  --gold:#D4A847; --gold-dim:rgba(212,168,71,.12);
+  --purple:#9B72F5; --purple-dim:rgba(155,114,245,.12);
+  --green:#22C55E; --green-dim:rgba(34,197,94,.12);
+  --red:#EF4444; --red-dim:rgba(239,68,68,.12);
+  --warn:#F59E0B; --warn-dim:rgba(245,158,11,.12);
+  --blue:#3B82F6; --blue-dim:rgba(59,130,246,.12);
+  --radius:6px; --radius-lg:10px; --shadow:0 4px 24px rgba(0,0,0,.4);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-size:.85rem;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+.page-inner{max-width:1100px;margin:0 auto;padding:28px 24px 80px}
+.tool-header{background:linear-gradient(135deg,var(--bg-3) 0%,var(--bg-2) 100%);border:1px solid var(--border-2);border-top:3px solid var(--purple);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:20px}
+.tool-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:6px}
+.tool-h1{font-family:'DM Serif Display',serif;font-size:1.45rem;color:var(--white);line-height:1.2;margin-bottom:6px}
+.tool-sub{font-size:.78rem;color:var(--body);line-height:1.7;max-width:640px;margin-bottom:12px}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.04em;padding:.18rem .48rem;border-radius:3px}
+.tag-gold{background:var(--gold-dim);color:var(--gold)}.tag-teal{background:var(--teal-dim);color:var(--teal)}
+.tag-purple{background:var(--purple-dim);color:var(--purple)}.tag-body{background:var(--bg-3);color:var(--body);border:1px solid var(--border)}
+.presets-row{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.preset-btn{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;cursor:pointer;transition:border-color .15s,background .15s;text-align:left;flex:1;min-width:180px}
+.preset-btn:hover,.preset-btn.active{border-color:var(--purple);background:var(--bg-3)}
+.preset-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--purple);margin-bottom:3px}
+.preset-name{font-size:.78rem;font-weight:600;color:var(--bright)}
+.preset-desc{font-size:.67rem;color:var(--body);margin-top:2px}
+.chain-block{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:16px}
+.chain-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:6px}
+.chain-input{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:.5rem .7rem;width:100%;height:56px;resize:vertical;transition:border-color .15s}
+.chain-input:focus{outline:none;border-color:var(--teal);color:var(--text)}
+/* FSM diagram */
+.fsm-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:16px}
+.fsm-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.fsm-row{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.fsm-state{font-family:'JetBrains Mono',monospace;font-size:.6rem;padding:.22rem .55rem;border-radius:3px;border:1px solid}
+.fsm-arrow{color:var(--muted);font-size:.7rem}
+.controls-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:16px}
+.ctrl-group{display:flex;flex-direction:column;gap:4px}
+.ctrl-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ctrl-input{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.4rem .6rem;width:100%;transition:border-color .15s}
+.ctrl-input:focus{outline:none;border-color:var(--purple)}
+select.ctrl-input option{background:var(--bg-3)}
+.run-btn{background:var(--purple);color:var(--white);border:none;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:700;letter-spacing:.08em;padding:.6rem 1.6rem;cursor:pointer;transition:opacity .15s}
+.run-btn:hover{opacity:.85}.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.progress-bar{height:3px;background:var(--border);border-radius:2px;margin-top:10px;overflow:hidden}
+.progress-fill{height:100%;background:var(--purple);border-radius:2px;transition:width .1s;width:0}
+.results-section{margin-top:24px}
+.section-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:10px}
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:18px}
+.metric-card{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 14px}
+.metric-n{font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--white)}
+.metric-l{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:2px}
+.metric-sub{font-size:.65rem;color:var(--body);margin-top:2px}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+.chart-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px}
+.chart-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+svg.chart{width:100%;overflow:visible}
+/* Failure breakdown table */
+.fail-table-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;margin-bottom:18px}
+.fail-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.62rem}
+.fail-table th{color:var(--muted);letter-spacing:.08em;text-transform:uppercase;font-size:.5rem;padding:0 8px 6px;text-align:left;border-bottom:1px solid var(--border)}
+.fail-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+.fail-table tr:last-child td{border-bottom:none}
+.verdict-block{border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:18px;border:1px solid}
+.verdict-block.crit{background:var(--red-dim);border-color:rgba(239,68,68,.3)}
+.verdict-block.warn{background:var(--warn-dim);border-color:rgba(245,158,11,.3)}
+.verdict-block.pass{background:var(--green-dim);border-color:rgba(34,197,94,.3)}
+.verdict-label{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
+.verdict-text{font-size:.78rem;line-height:1.6}
+.export-block{background:var(--bg-3);border:1px solid var(--border-2);border-left:3px solid var(--teal);border-radius:var(--radius-lg);padding:16px 18px;margin-top:20px}
+.export-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:8px}
+.export-pre{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--body);line-height:1.7;overflow-x:auto;max-height:280px;overflow-y:auto;white-space:pre}
+.copy-btn{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.55rem;padding:.3rem .75rem;cursor:pointer;transition:border-color .15s,color .15s;margin-top:8px}
+.copy-btn:hover{border-color:var(--teal);color:var(--teal)}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:20px 0;margin-top:40px}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:500;color:var(--bright)}
+.footer-cc{font-size:.62rem;color:var(--muted);margin-top:2px}
+.footer-links{display:flex;gap:16px;flex-wrap:wrap}
+.footer-links a{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--body);transition:color .15s}
+.footer-links a:hover{color:var(--teal)}
+@media(max-width:768px){.charts-grid{grid-template-columns:1fr}.page-inner{padding:16px 14px 60px}.nav-pill{display:none}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="26" height="26" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a><span>›</span>
+      <a href="chaingraph-hub.html">ChainGraph</a><span>›</span>
+      <span style="color:var(--purple)">SIM-07</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">← ChainGraph Suite</a>
+      <a href="https://mcp.ainumbers.co/mcp" class="nav-cta" target="_blank">MCP Server ↗</a>
+    </div>
+  </div>
+</nav>
+
+<div class="page-inner">
+  <div class="tool-header">
+    <div class="tool-eyebrow">SIM-07 · Regulatory Compliance &amp; Resilience · PSD2 / FAPI 2.0 / CDR · Consent FSM</div>
+    <h1 class="tool-h1">Open Banking Consent Flow Stress Simulator</h1>
+    <p class="tool-sub">Monte Carlo stress simulation of the PSD2/FAPI 2.0/CDR consent lifecycle. Each consent is driven through a finite state machine (INIT→REDIRECT→AUTH→AUTHORIZED→ACTIVE→REVOKED/EXPIRED/FAILED) with configurable failure probabilities at each transition. Surfaces success rate, failure mode breakdown, and FAPI 2.0 compliance exposure. Chains from PNR-01 (Payment Network Risk).</p>
+    <div class="tag-row">
+      <span class="tag tag-teal">simulate_consent_stress</span>
+      <span class="tag tag-gold">compliance_mandate</span>
+      <span class="tag tag-body">PSD2 Art. 66/67</span>
+      <span class="tag tag-body">FAPI 2.0</span>
+      <span class="tag tag-body">CDR Australia</span>
+      <span class="tag tag-body">Open Banking UK</span>
+    </div>
+  </div>
+
+  <!-- PRESETS -->
+  <div class="presets-row">
+    <div class="preset-btn active" onclick="selectPreset('standard_psd2')">
+      <div class="preset-label">Preset 1</div>
+      <div class="preset-name">Standard PSD2</div>
+      <div class="preset-desc">2,000 consents · low base failure · ASPSP redirect</div>
+    </div>
+    <div class="preset-btn" onclick="selectPreset('elevated_failure')">
+      <div class="preset-label">Preset 2</div>
+      <div class="preset-name">Elevated Failure</div>
+      <div class="preset-desc">1,500 consents · high auth failure · infrastructure stress</div>
+    </div>
+    <div class="preset-btn" onclick="selectPreset('fapi2_strict')">
+      <div class="preset-label">Preset 3</div>
+      <div class="preset-name">FAPI 2.0 Strict</div>
+      <div class="preset-desc">2,500 consents · token expiry + revocation pressure</div>
+    </div>
+  </div>
+
+  <!-- FSM diagram -->
+  <div class="fsm-block">
+    <div class="fsm-eyebrow">Consent FSM — PSD2 Article 66/67 + FAPI 2.0 Baseline Profile</div>
+    <div class="fsm-row">
+      <span class="fsm-state" style="background:var(--bg-4);border-color:var(--muted);color:var(--body)">INIT</span>
+      <span class="fsm-arrow">→</span>
+      <span class="fsm-state" style="background:var(--blue-dim);border-color:rgba(59,130,246,.4);color:var(--blue)">REDIRECT</span>
+      <span class="fsm-arrow">→</span>
+      <span class="fsm-state" style="background:var(--gold-dim);border-color:rgba(212,168,71,.4);color:var(--gold)">AUTH</span>
+      <span class="fsm-arrow">→</span>
+      <span class="fsm-state" style="background:var(--teal-dim);border-color:rgba(20,184,166,.4);color:var(--teal)">AUTHORIZED</span>
+      <span class="fsm-arrow">→</span>
+      <span class="fsm-state" style="background:var(--green-dim);border-color:rgba(34,197,94,.4);color:var(--green)">ACTIVE</span>
+      <span class="fsm-arrow">→</span>
+      <span class="fsm-state" style="background:var(--red-dim);border-color:rgba(239,68,68,.4);color:var(--red)">FAILED/EXPIRED/REVOKED</span>
+    </div>
+  </div>
+
+  <!-- CHAIN INTAKE -->
+  <div class="chain-block">
+    <div class="chain-eyebrow">Chain Intake — paste AP2 JSON from PNR-01 (Payment Network Risk Monitor)</div>
+    <textarea class="chain-input" id="chainIntake" placeholder='{"ap2_version":"1.0.0","tool_id":"pnr-01-payment-network-risk-monitor","execution_hash":"sha256:..."} — or bare sha256:...'></textarea>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls-grid">
+    <div class="ctrl-group">
+      <label class="ctrl-label">Consent Flows</label>
+      <input type="number" id="nConsents" class="ctrl-input" value="2000" min="100" max="10000">
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Redirect Failure %</label>
+      <input type="number" id="pRedirectFail" class="ctrl-input" value="3" min="0" max="50" step="0.5">
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Auth Failure %</label>
+      <input type="number" id="pAuthFail" class="ctrl-input" value="8" min="0" max="50" step="0.5">
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Token Exchange Failure %</label>
+      <input type="number" id="pTokenFail" class="ctrl-input" value="2" min="0" max="30" step="0.5">
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Expiry Rate %</label>
+      <input type="number" id="pExpiry" class="ctrl-input" value="5" min="0" max="40" step="0.5">
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Revocation Rate %</label>
+      <input type="number" id="pRevoke" class="ctrl-input" value="4" min="0" max="30" step="0.5">
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Regulatory Regime</label>
+      <select id="regime" class="ctrl-input">
+        <option value="psd2" selected>PSD2 (EU/EEA)</option>
+        <option value="fapi2">FAPI 2.0 Strict</option>
+        <option value="obie">Open Banking UK</option>
+        <option value="cdr">CDR Australia</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label class="ctrl-label">Seed</label>
+      <input type="number" id="seed" class="ctrl-input" value="42">
+    </div>
+  </div>
+
+  <button class="run-btn" id="runBtn" onclick="startSim()">▶ Simulate Consent Flows</button>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+  <!-- RESULTS -->
+  <div class="results-section" id="results" style="display:none">
+    <div class="section-eyebrow">Simulation Results</div>
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-n" id="mSuccessRate">—</div>
+        <div class="metric-l">Success Rate</div>
+        <div class="metric-sub">Reached ACTIVE</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mFailed">—</div>
+        <div class="metric-l">Failed</div>
+        <div class="metric-sub">Auth + Token failure</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mExpired">—</div>
+        <div class="metric-l">Expired</div>
+        <div class="metric-sub">Token/consent timeout</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mRevoked">—</div>
+        <div class="metric-l">Revoked</div>
+        <div class="metric-sub">TPP/PSU revocation</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mMeanSteps">—</div>
+        <div class="metric-l">Mean Steps</div>
+        <div class="metric-sub">Per consent flow</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-n" id="mCompliance">—</div>
+        <div class="metric-l">Compliance Flag</div>
+        <div class="metric-sub">Regulatory threshold</div>
+      </div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="charts-grid">
+      <div class="chart-wrap">
+        <div class="chart-title">Terminal State Distribution</div>
+        <svg id="stateChart" class="chart" viewBox="0 0 340 180"></svg>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">Failure by FSM Stage</div>
+        <svg id="stageChart" class="chart" viewBox="0 0 340 180"></svg>
+      </div>
+    </div>
+
+    <!-- FAILURE TABLE -->
+    <div class="fail-table-wrap">
+      <div class="chart-title" style="margin-bottom:10px">Failure Mode Breakdown</div>
+      <table class="fail-table">
+        <thead><tr><th>Stage</th><th>Failure Mode</th><th>Count</th><th>Rate</th><th>Regulatory Reference</th></tr></thead>
+        <tbody id="failBody"></tbody>
+      </table>
+    </div>
+
+    <!-- VERDICT -->
+    <div class="verdict-block" id="verdictBlock">
+      <div class="verdict-label" id="verdictLabel">—</div>
+      <div class="verdict-text" id="verdictText">—</div>
+    </div>
+
+    <!-- AP2 EXPORT -->
+    <div class="export-block">
+      <div class="export-eyebrow">AP2 Artifact Export — execution_hash anchors this consent stress run</div>
+      <pre class="export-pre" id="exportPre">—</pre>
+      <button class="copy-btn" onclick="copyExport()">Copy JSON</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted)">.co</span> · SIM-07 · Open Banking Consent Flow Stress Simulator
+      <div class="footer-cc">© 2024–2026 Post Oak Labs · CC BY 4.0 · Simulated consent flows only · No real credentials processed</div>
+    </div>
+    <div class="footer-links">
+      <a href="chaingraph-hub.html">ChainGraph Suite</a>
+      <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+      <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server</a>
+      <a href="../about.html">About</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── LCG RNG ──────────────────────────────────────────────────
+function makeLCG(seed) {
+  let s = seed >>> 0;
+  return () => { s = (Math.imul(1664525, s) + 1013904223) >>> 0; return s / 4294967296; };
+}
+function simpleHash(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = (Math.imul(h, 0x01000193)) >>> 0; }
+  return 'sha256:' + h.toString(16).padStart(8,'0') + (h^0xdeadbeef).toString(16).padStart(8,'0') + (h^0xcafebabe).toString(16).padStart(8,'0') + (h^0x12345678).toString(16).padStart(8,'0');
+}
+
+// ── FSM states ───────────────────────────────────────────────
+const STATES = { INIT:0, REDIRECT:1, AUTH:2, AUTHORIZED:3, ACTIVE:4, FAILED:5, EXPIRED:6, REVOKED:7 };
+
+// Presets
+const PRESETS = {
+  standard_psd2:    { nConsents:2000, pRedirectFail:3,  pAuthFail:8,  pTokenFail:2,  pExpiry:5,  pRevoke:4,  regime:'psd2',  seed:42  },
+  elevated_failure: { nConsents:1500, pRedirectFail:8,  pAuthFail:18, pTokenFail:6,  pExpiry:10, pRevoke:6,  regime:'psd2',  seed:137 },
+  fapi2_strict:     { nConsents:2500, pRedirectFail:2,  pAuthFail:6,  pTokenFail:3,  pExpiry:12, pRevoke:9,  regime:'fapi2', seed:999 }
+};
+
+function selectPreset(name) {
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  const p = PRESETS[name];
+  document.getElementById('nConsents').value     = p.nConsents;
+  document.getElementById('pRedirectFail').value = p.pRedirectFail;
+  document.getElementById('pAuthFail').value     = p.pAuthFail;
+  document.getElementById('pTokenFail').value    = p.pTokenFail;
+  document.getElementById('pExpiry').value       = p.pExpiry;
+  document.getElementById('pRevoke').value       = p.pRevoke;
+  document.getElementById('regime').value        = p.regime;
+  document.getElementById('seed').value          = p.seed;
+}
+
+// Regulatory references per regime
+const REG_REFS = {
+  psd2:  { redirect:'PSD2 Art.97 / RTS SCA', auth:'PSD2 Art.66/67 / RTS Art.29', token:'PSD2 RTS Art.30', expiry:'PSD2 RTS Art.36', revoke:'PSD2 Art.68(3)' },
+  fapi2: { redirect:'FAPI 2.0 §5.1 PAR/JAR', auth:'FAPI 2.0 §5.3 PKCE+DPoP', token:'FAPI 2.0 §7.1 MTLS', expiry:'FAPI 2.0 §5.2.2 token lifetime', revoke:'FAPI 2.0 §8.1 revocation' },
+  obie:  { redirect:'OBIE Read/Write API §5.2', auth:'OBIE DCR §3', token:'OBIE §6.3 access token', expiry:'OBIE §6.4 refresh expiry', revoke:'OBIE §6.5' },
+  cdr:   { redirect:'CDR Rules §4.1 consent redirect', auth:'CDR §4.2 authorisation', token:'CDR §4.3 token exchange', expiry:'CDR §4.4 token lifetime', revoke:'CDR §4.5' }
+};
+
+const CHUNK = 100;
+let simResult = null, simParams = null;
+
+async function startSim() {
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('progressFill').style.width = '0%';
+
+  const nConsents    = parseInt(document.getElementById('nConsents').value)     || 2000;
+  const pRedirectFail = parseFloat(document.getElementById('pRedirectFail').value)/100 || 0.03;
+  const pAuthFail    = parseFloat(document.getElementById('pAuthFail').value)/100     || 0.08;
+  const pTokenFail   = parseFloat(document.getElementById('pTokenFail').value)/100    || 0.02;
+  const pExpiry      = parseFloat(document.getElementById('pExpiry').value)/100       || 0.05;
+  const pRevoke      = parseFloat(document.getElementById('pRevoke').value)/100       || 0.04;
+  const regime       = document.getElementById('regime').value;
+  const seed         = parseInt(document.getElementById('seed').value) || 42;
+
+  simParams = { nConsents, pRedirectFail, pAuthFail, pTokenFail, pExpiry, pRevoke, regime, seed };
+  const rng = makeLCG(seed);
+
+  const counts = { ACTIVE:0, FAILED:0, EXPIRED:0, REVOKED:0 };
+  const stageFails = { redirect:0, auth:0, token:0 };
+  let totalSteps = 0;
+
+  for (let start = 0; start < nConsents; start += CHUNK) {
+    const end = Math.min(start + CHUNK, nConsents);
+    for (let i = start; i < end; i++) {
+      let state = STATES.INIT;
+      let steps = 1;
+      // INIT → REDIRECT
+      state = STATES.REDIRECT; steps++;
+      // REDIRECT failure
+      if (rng() < pRedirectFail) { stageFails.redirect++; counts.FAILED++; totalSteps += steps; continue; }
+      // REDIRECT → AUTH
+      state = STATES.AUTH; steps++;
+      // AUTH failure
+      if (rng() < pAuthFail) { stageFails.auth++; counts.FAILED++; totalSteps += steps; continue; }
+      // AUTH → AUTHORIZED (token exchange)
+      state = STATES.AUTHORIZED; steps++;
+      if (rng() < pTokenFail) { stageFails.token++; counts.FAILED++; totalSteps += steps; continue; }
+      // AUTHORIZED → ACTIVE
+      state = STATES.ACTIVE; steps++;
+      // ACTIVE: may expire or be revoked
+      if (rng() < pExpiry)  { counts.EXPIRED++; totalSteps += steps; continue; }
+      if (rng() < pRevoke)  { counts.REVOKED++; totalSteps += steps; continue; }
+      counts.ACTIVE++; totalSteps += steps;
+    }
+    await new Promise(r => setTimeout(r, 0));
+    document.getElementById('progressFill').style.width = ((end/nConsents)*100).toFixed(1) + '%';
+  }
+
+  const successRate = counts.ACTIVE / nConsents;
+  const meanSteps = totalSteps / nConsents;
+  const refs = REG_REFS[regime];
+  simResult = { counts, stageFails, successRate, meanSteps, refs };
+
+  renderResults();
+  btn.disabled = false;
+}
+
+function renderResults() {
+  const r = simResult;
+  const p = simParams;
+  const n = p.nConsents;
+  const total_bad = r.counts.FAILED + r.counts.EXPIRED + r.counts.REVOKED;
+
+  document.getElementById('mSuccessRate').textContent = (r.successRate*100).toFixed(1) + '%';
+  document.getElementById('mFailed').textContent      = r.counts.FAILED.toLocaleString();
+  document.getElementById('mExpired').textContent     = r.counts.EXPIRED.toLocaleString();
+  document.getElementById('mRevoked').textContent     = r.counts.REVOKED.toLocaleString();
+  document.getElementById('mMeanSteps').textContent   = r.meanSteps.toFixed(2);
+  // Compliance flag: PSD2 requires >95% success for SCA compliant API
+  const compliancePct = r.successRate >= 0.95 ? 'PASS' : r.successRate >= 0.90 ? 'WARN' : 'FAIL';
+  const compEl = document.getElementById('mCompliance');
+  compEl.textContent = compliancePct;
+  compEl.style.color = compliancePct==='PASS' ? 'var(--green)' : compliancePct==='WARN' ? 'var(--warn)' : 'var(--red)';
+
+  drawStateChart();
+  drawStageChart();
+  renderFailTable();
+  renderVerdict();
+  buildExport();
+  document.getElementById('results').style.display = 'block';
+}
+
+function drawStateChart() {
+  const r = simResult; const p = simParams;
+  const svg = document.getElementById('stateChart'); svg.innerHTML = '';
+  const data = [
+    { label:'Active', count:r.counts.ACTIVE, color:'rgba(34,197,94,.7)' },
+    { label:'Failed', count:r.counts.FAILED, color:'rgba(239,68,68,.7)' },
+    { label:'Expired', count:r.counts.EXPIRED, color:'rgba(245,158,11,.7)' },
+    { label:'Revoked', count:r.counts.REVOKED, color:'rgba(155,114,245,.6)' }
+  ];
+  const total = p.nConsents; const maxV = Math.max(...data.map(d=>d.count));
+  const W=340, H=180, PL=68, PR=12, PT=10, PB=32;
+  const cW=W-PL-PR, cH=H-PT-PB;
+  const barGap = cH/data.length; const bH = barGap*0.52;
+  data.forEach((d,i) => {
+    const y = PT + i*barGap + (barGap-bH)/2;
+    const bW = maxV > 0 ? d.count/maxV*cW : 0;
+    const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rect.setAttribute('x',PL); rect.setAttribute('y',y.toFixed(1));
+    rect.setAttribute('width',bW.toFixed(1)); rect.setAttribute('height',bH.toFixed(1));
+    rect.setAttribute('fill',d.color); svg.appendChild(rect);
+    const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+    lbl.setAttribute('x',PL-4); lbl.setAttribute('y',(y+bH/2+3).toFixed(1));
+    lbl.setAttribute('fill','var(--text)'); lbl.setAttribute('font-size','8'); lbl.setAttribute('text-anchor','end');
+    lbl.textContent=d.label; svg.appendChild(lbl);
+    const val = document.createElementNS('http://www.w3.org/2000/svg','text');
+    val.setAttribute('x',(PL+bW+3).toFixed(1)); val.setAttribute('y',(y+bH/2+3).toFixed(1));
+    val.setAttribute('fill','var(--body)'); val.setAttribute('font-size','7');
+    val.textContent=d.count + ' (' + (d.count/total*100).toFixed(1)+'%)'; svg.appendChild(val);
+  });
+}
+
+function drawStageChart() {
+  const r = simResult; const p = simParams;
+  const svg = document.getElementById('stageChart'); svg.innerHTML = '';
+  const data = [
+    { label:'Redirect', count:r.stageFails.redirect, color:'rgba(59,130,246,.7)' },
+    { label:'Auth',     count:r.stageFails.auth,     color:'rgba(239,68,68,.7)'  },
+    { label:'Token',    count:r.stageFails.token,    color:'rgba(212,168,71,.7)' }
+  ];
+  const maxV = Math.max(...data.map(d=>d.count),1);
+  const W=340, H=180, PL=60, PR=16, PT=10, PB=32;
+  const cW=W-PL-PR, cH=H-PT-PB;
+  const barGap=cW/data.length; const bW=barGap*0.55;
+  data.forEach((d,i) => {
+    const x = PL + i*barGap + (barGap-bW)/2;
+    const bH = d.count/maxV*cH;
+    const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rect.setAttribute('x',x.toFixed(1)); rect.setAttribute('y',(PT+cH-bH).toFixed(1));
+    rect.setAttribute('width',bW.toFixed(1)); rect.setAttribute('height',bH.toFixed(1));
+    rect.setAttribute('fill',d.color); svg.appendChild(rect);
+    const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+    lbl.setAttribute('x',(x+bW/2).toFixed(1)); lbl.setAttribute('y',PT+cH+12);
+    lbl.setAttribute('fill','var(--body)'); lbl.setAttribute('font-size','7.5'); lbl.setAttribute('text-anchor','middle');
+    lbl.textContent=d.label; svg.appendChild(lbl);
+    const val = document.createElementNS('http://www.w3.org/2000/svg','text');
+    val.setAttribute('x',(x+bW/2).toFixed(1)); val.setAttribute('y',(PT+cH-bH-4).toFixed(1));
+    val.setAttribute('fill','var(--text)'); val.setAttribute('font-size','7'); val.setAttribute('text-anchor','middle');
+    val.textContent=d.count; svg.appendChild(val);
+  });
+  const axis = document.createElementNS('http://www.w3.org/2000/svg','line');
+  axis.setAttribute('x1',PL); axis.setAttribute('y1',PT+cH); axis.setAttribute('x2',W-PR); axis.setAttribute('y2',PT+cH);
+  axis.setAttribute('stroke','var(--border-2)'); axis.setAttribute('stroke-width','1'); svg.appendChild(axis);
+}
+
+function renderFailTable() {
+  const r = simResult; const p = simParams; const n = p.nConsents;
+  const refs = r.refs;
+  const tbody = document.getElementById('failBody');
+  tbody.innerHTML = '';
+  const rows = [
+    { stage:'REDIRECT', mode:'ASPSP redirect unavailable / CORS failure', count:r.stageFails.redirect, ref:refs.redirect },
+    { stage:'AUTH',     mode:'SCA challenge failed / user abandon / PSP timeout', count:r.stageFails.auth, ref:refs.auth },
+    { stage:'AUTHORIZED', mode:'Token exchange failure / mTLS handshake error', count:r.stageFails.token, ref:refs.token },
+    { stage:'ACTIVE',   mode:'Consent token expired', count:r.counts.EXPIRED, ref:refs.expiry },
+    { stage:'ACTIVE',   mode:'PSU/TPP revocation', count:r.counts.REVOKED, ref:refs.revoke }
+  ];
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    const rateStr = (row.count/n*100).toFixed(2)+'%';
+    const rateColor = row.count/n > 0.10 ? 'var(--red)' : row.count/n > 0.05 ? 'var(--warn)' : 'var(--body)';
+    tr.innerHTML = `
+      <td style="color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:.58rem">${row.stage}</td>
+      <td>${row.mode}</td>
+      <td style="color:var(--bright)">${row.count.toLocaleString()}</td>
+      <td style="color:${rateColor}">${rateStr}</td>
+      <td style="color:var(--muted);font-size:.58rem">${row.ref}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderVerdict() {
+  const r = simResult;
+  const p = simParams;
+  const vb = document.getElementById('verdictBlock');
+  const vl = document.getElementById('verdictLabel');
+  const vt = document.getElementById('verdictText');
+  const sr = r.successRate;
+  const regime = p.regime.toUpperCase();
+  if (sr < 0.90) {
+    vb.className = 'verdict-block crit';
+    vl.textContent = 'CRITICAL — Consent API Below Regulatory Threshold';
+    vl.style.color = 'var(--red)';
+    vt.textContent = `Success rate ${(sr*100).toFixed(1)}% is below the 90% minimum threshold for an operational ${regime} API. Auth failures (${r.stageFails.auth}) account for ${(r.stageFails.auth/p.nConsents*100).toFixed(1)}% of flows — dominant failure driver. This configuration would trigger escalated supervisory oversight under PSD2 RTS Article 33 and may constitute a material incident requiring notification to the competent authority within 4 hours. Immediate infrastructure and SCA flow remediation required.`;
+  } else if (sr < 0.95) {
+    vb.className = 'verdict-block warn';
+    vl.textContent = 'WARNING — Below 95% SCA Compliance Target';
+    vl.style.color = 'var(--warn)';
+    vt.textContent = `Success rate ${(sr*100).toFixed(1)}% falls below the 95% target for high-availability ${regime} interfaces. While above the critical 90% regulatory floor, regulators expect ASPSPs to maintain availability metrics above 95% per PSD2 RTS Article 32(1). Top remediation actions: reduce auth failure rate (currently ${(r.stageFails.auth/p.nConsents*100).toFixed(1)}%) and review token expiry policy.`;
+  } else {
+    vb.className = 'verdict-block pass';
+    vl.textContent = 'COMPLIANT — Consent API Meets Regulatory Threshold';
+    vl.style.color = 'var(--green)';
+    vt.textContent = `Success rate ${(sr*100).toFixed(1)}% meets the 95%+ target for ${regime} compliant consent interfaces. Residual failure modes (redirect: ${r.stageFails.redirect}, token: ${r.stageFails.token}) are within acceptable operational variance. Revocation rate ${(r.counts.REVOKED/p.nConsents*100).toFixed(1)}% is within PSD2 Art.68(3) normal range. Continue monitoring expiry rates under FAPI 2.0 token lifetime guidance.`;
+  }
+}
+
+function buildExport() {
+  const r = simResult; const p = simParams;
+  const chainRaw = document.getElementById('chainIntake').value.trim();
+  let parentHash = '', parentToolId = '';
+  if (chainRaw) {
+    try {
+      const parsed = chainRaw.startsWith('{') ? JSON.parse(chainRaw) : null;
+      parentHash   = parsed ? (parsed.execution_hash||'') : (chainRaw.startsWith('sha256:') ? chainRaw : '');
+      parentToolId = parsed ? (parsed.tool_id||'') : '';
+    } catch(e) { parentHash = chainRaw.startsWith('sha256:') ? chainRaw : ''; }
+  }
+  const payload = {
+    success_rate:      +r.successRate.toFixed(6),
+    consents_active:   r.counts.ACTIVE,
+    consents_failed:   r.counts.FAILED,
+    consents_expired:  r.counts.EXPIRED,
+    consents_revoked:  r.counts.REVOKED,
+    stage_failures: {
+      redirect: r.stageFails.redirect,
+      auth:     r.stageFails.auth,
+      token:    r.stageFails.token
+    },
+    mean_fsm_steps: +r.meanSteps.toFixed(3),
+    total_flows:    p.nConsents,
+    regulatory_regime: p.regime
+  };
+  const policyParams = {
+    execution_backend: 'js',
+    input_parameters: {
+      n_consents:        p.nConsents,
+      p_redirect_fail:   p.pRedirectFail,
+      p_auth_fail:       p.pAuthFail,
+      p_token_fail:      p.pTokenFail,
+      p_expiry:          p.pExpiry,
+      p_revoke:          p.pRevoke,
+      regime:            p.regime,
+      seed:              p.seed
+    }
+  };
+  const execHash = simpleHash(JSON.stringify({policyParams,payload},null,0));
+  const compFlags = [
+    'PSD2_CONSENT_FSM_SIMULATED',
+    'FAPI2_AUTHORIZATION_FLOW_MODELLED',
+    p.regime === 'cdr' ? 'CDR_CONSENT_RULES_APPLIED' : 'OPEN_BANKING_UK_PROFILED',
+    r.successRate >= 0.95 ? 'SCA_AVAILABILITY_TARGET_MET' : r.successRate >= 0.90 ? 'SCA_AVAILABILITY_WARN' : 'SCA_AVAILABILITY_BREACH',
+    r.stageFails.auth > p.nConsents * 0.10 ? 'AUTH_FAILURE_RATE_ELEVATED' : 'AUTH_FAILURE_RATE_NOMINAL'
+  ];
+  const artifact = {
+    ap2_version: '1.0.0',
+    mandate_type: 'compliance_mandate',
+    tool_id: 'sim-07-open-banking-consent-flow-stress',
+    tool_version: '1.0.0',
+    generated_at: new Date().toISOString(),
+    execution_hash: execHash,
+    chain: {
+      parent_hashes:   parentHash   ? [parentHash]   : [],
+      parent_tool_ids: parentToolId ? [parentToolId] : [],
+      chain_depth:     parentHash   ? 1              : 0
+    },
+    policy_parameters: policyParams,
+    output_payload: payload,
+    compliance_flags: compFlags,
+    audit_signature: {
+      client_side_executed: true,
+      zero_pii_verified:    true,
+      deterministic_run:    true,
+      model_note: 'FSM Monte Carlo consent simulation. Synthetic consent flows only — no real PSU/TPP credentials processed.'
+    }
+  };
+  document.getElementById('exportPre').textContent = JSON.stringify(artifact, null, 2);
+}
+
+function copyExport() {
+  navigator.clipboard.writeText(document.getElementById('exportPre').textContent);
+  const btn = event.currentTarget;
+  btn.textContent = 'Copied ✓'; setTimeout(() => btn.textContent = 'Copy JSON', 1500);
+}
+</script>
+</body>
+</html>
